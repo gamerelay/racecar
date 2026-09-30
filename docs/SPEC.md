@@ -866,7 +866,10 @@ Milestone 2 (2026-09-30):
   on City (22 to 21), where nearly all of them are head-ons with traffic, which still wreck by
   design. The chase camera sits closer and pulls back and widens much less with speed and boost.
   A later playtest asked for closer still, for immersion: 4.7 m back and 1.85 m up (was 5.9 and
-  2.35), with a 60° base FOV (was 62°).
+  2.35), with a 60° base FOV (was 62°). It then got tugged back under acceleration: it chased a
+  world point, which lags by about speed ÷ rate (~5 m at 180 km/h). It now follows in the car's
+  frame with only the distance smoothed, so the gap stays 4.7–5.5 m at any speed, and the speed and
+  boost FOV widen less (+4° and +3.5°).
 - **The greybox got the prototype's cel look early** (asked for in playtesting): a three-step
   toon ramp on every lit surface, ink outlines, lit windows and street lamps in City, and glow
   on head and tail lights with a headlight beam on the road. Outlines are drawn in the post pass

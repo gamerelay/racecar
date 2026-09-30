@@ -39,6 +39,8 @@ export class GameRenderer {
   private boostVis = 0;
   private camHeading = 0;
   private camPos = new Vector3();
+  /** Smoothed distance behind the car (the camera follows in the car's frame, so speed doesn't stretch it). */
+  private camDist = 4.7;
   private look = new Vector3();
   private orbit = 0;
   private lastWreck = false;
@@ -121,9 +123,11 @@ export class GameRenderer {
   }
 
   snapCamera(): void {
+    if (this.freeCamera) return;
     const c = this.sim.cars;
     const i = this.focus;
     this.camHeading = c.h[i];
+    this.camDist = 4.7;
     this.camPos.set(c.x[i] - Math.sin(c.h[i]) * 4.7, c.y[i] + 1.85, c.z[i] - Math.cos(c.h[i]) * 4.7);
     this.camera.position.copy(this.camPos);
   }
@@ -233,17 +237,19 @@ export class GameRenderer {
         this.look.set(car.x - fx * 20, car.y + 1, car.z - fz * 20);
       } else {
         // Tight and low behind the car, with only a little pull-back with speed and boost (playtest:
-        // it stretched too far, then wanted closer still for immersion). Taller and longer cars (the van) sit the camera higher and further back, so the roof
-        // doesn't fill the screen; the coupe (0.65 m half height, 2.15 m half length) is the base.
+        // it stretched too far, then wanted closer still for immersion). Taller and longer cars (the
+        // van) sit the camera higher and further back, so the roof doesn't fill the screen; the coupe
+        // (0.65 m half height, 2.15 m half length) is the base.
         const size = this.sim.classes[c.cls[i]].size;
         const tall = Math.max(0, size[2] - 0.65);
         const dist = 4.7 + this.boostVis * 0.5 + speed * 0.005 + Math.max(0, size[1] - 2.15) * 1.4 + tall * 1.5;
-        const tx = car.x - fx * dist;
-        const tz = car.z - fz * dist;
+        // Smooth the distance, not the world position: chasing a world point lags by about speed/rate
+        // meters, which tugged the camera ~5 m back under acceleration. Heading smoothing above still
+        // gives the swing through corners.
+        this.camDist += (dist - this.camDist) * damp(4, dt);
+        this.camPos.x = car.x - fx * this.camDist;
+        this.camPos.z = car.z - fz * this.camDist;
         const ty = car.y + 1.85 + tall * 2.2 - this.boostVis * 0.12;
-        const k = damp(10, dt);
-        this.camPos.x += (tx - this.camPos.x) * k;
-        this.camPos.z += (tz - this.camPos.z) * k;
         this.camPos.y += (ty - this.camPos.y) * damp(5, dt);
         cam.position.copy(this.camPos);
         this.look.set(car.x + fx * 11, car.y + 1.0, car.z + fz * 11);
@@ -254,7 +260,7 @@ export class GameRenderer {
     cam.position.y += (Math.random() - 0.5) * this.shake * 0.6;
     this.shake *= Math.exp(-dt * 6);
     cam.lookAt(this.look);
-    const fov = 60 + clamp((speed - 20) / 50, 0, 1) * 6 + this.boostVis * 5;
+    const fov = 60 + clamp((speed - 20) / 50, 0, 1) * 4 + this.boostVis * 3.5;
     cam.fov += (fov - cam.fov) * damp(3, dt);
     cam.updateProjectionMatrix();
   }

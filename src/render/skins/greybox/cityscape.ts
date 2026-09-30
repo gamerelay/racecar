@@ -668,6 +668,9 @@ export function buildCityscape(track: Track, palette: Palette, ground: number): 
       if (!list.length) return;
       const mat = new MeshBasicMaterial({ map: bladeTexture(word, NEON[wi % NEON.length]), transparent: true, side: DoubleSide, fog: false });
       // A blade sign reads the right way round from both sides: flip the texture on the back face.
+      // One pass: three draws transparent double-sided materials back side first with the winding
+      // flipped, which makes gl_FrontFacing true on the back face and undoes the flip.
+      mat.forceSinglePass = true;
       mat.onBeforeCompile = (shader) => {
         shader.fragmentShader = shader.fragmentShader.replace('#include <map_fragment>', 'vec4 sampledDiffuseColor=texture2D(map,gl_FrontFacing?vMapUv:vec2(1.0-vMapUv.x,vMapUv.y));diffuseColor*=sampledDiffuseColor;');
       };
