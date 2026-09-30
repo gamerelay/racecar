@@ -53,7 +53,7 @@ The third map is **Paradise** (`content/maps/paradise`, key `paradise/island`).
   Also in #24, the HUD tweaks: "Powerglide" (was "Drift boost"), a **Superman** for boosting
   through the air (`superT`, 1.5× air pay, `supermanMin`/`supermanPay`), and a bold outline
   on the countdown's numbers. SPEC "HUD tweaks".
-- **Lobby layout: in review** (branch `lobby-layout`). The seats alone dock left and fit the
+- **Lobby layout: merged** (PR #25, untagged). The seats alone dock left and fit the
   window, the car sits between them and the options (top right, the host's to set; guests see
   chips), arrows and A/D cycle the car, W/S and swatches the paint (`pick-*` menu actions,
   `Menu.pick`), and races default to 2 laps. SPEC "The lobby's layout".
