@@ -59,8 +59,7 @@ The third map is **Paradise** (`content/maps/paradise`, key `paradise/island`).
   Greybox models in `render/skins/greybox/smash.ts`. SPEC "Smashables".
 - **Landmarks, part 3 (Paradise): in review** (branch `landmarks-paradise`, stacked on
   `landmarks-backroads`). A shipwreck, a breaching whale, a surf shack, a tiki head and seaplanes,
-  plus the lighthouse beam in the rain. Builders get `ctx.sea`. SPEC "Landmarks, part 3". Left in
-  phase 6: the smashables.
+  plus the lighthouse beam in the rain. Builders get `ctx.sea`. SPEC "Landmarks, part 3".
 - **Landmarks, part 2 (Backroads): in review** (branch `landmarks-backroads`, stacked on
   `valley-wrecks`). A cow, a water tower (`label`), a scarecrow, a windpump, a drive-in and a
   balloon. The forest keeps their ground (`marks`), and builders get `ctx.ground`. SPEC
