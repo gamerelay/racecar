@@ -870,6 +870,15 @@ Milestone 2 (2026-09-30):
   world point, which lags by about speed ÷ rate (~5 m at 180 km/h). It now follows in the car's
   frame with only the distance smoothed, so the gap stays 4.7–5.5 m at any speed, and the speed and
   boost FOV widen less (+4° and +3.5°).
+- **Drift smoothed, and the slide carries after release** (playtest: "too snappy… carry sideways
+  momentum, especially after releasing"). Before, letting go took a 50° slide to straight in under
+  0.1 s. Now:
+  - The drift angle builds and settles smoothly, and steering changes the tightness gradually.
+  - For 1.1 s after release, grip comes back from 5% of normal.
+  - The nose also swings back toward the direction of travel, so the car keeps going the way the
+    slide was taking it. The slide straightens in 0.5–0.6 s without losing speed.
+  - The numbers are in TUNING (`driftEase`, `driftSteerRate`, `driftExit*`) and can be changed live
+    with F4. The AI doesn't drift, so its lap floors are unchanged.
 - **The greybox got the prototype's cel look early** (asked for in playtesting): a three-step
   toon ramp on every lit surface, ink outlines, lit windows and street lamps in City, and glow
   on head and tail lights with a headlight beam on the road. Outlines are drawn in the post pass

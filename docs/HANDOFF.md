@@ -78,7 +78,7 @@ cars) merged into it.
 | | City (Downtown) | Countryside (Valley) |
 |---|---|---|
 | Lap length | 3.26 km | 3.79 km |
-| AI lap floor (hard, empty track) | 58 s | 63 s |
+| AI lap floor (hard, empty track) | 58.8 s | 64.9 s |
 | Wrecks per 8-AI race (8 seeds) | ~0.5 | ~5 |
 | Draw calls | ~90–250 | ~40 |
 
@@ -126,7 +126,8 @@ editor.
    things to decide:
    - Is ~0.5 wrecks a race on City too tame now that traffic can't pop in on corners? If so, add
      denser traffic on the straights rather than moving section ends back into corners.
-   - Is drifting satisfying without the mini-turbo?
+   - Is drifting satisfying without the mini-turbo? The slide now carries for about half a
+     second after release; tune it with the `driftExit*` values in F4.
 
    Then merge PR #2 (and retarget anything open onto `main`).
 2. **Finish PR #30:** merge, deploy (only when asked; see the gamerelay HANDOFF and deploy notes),

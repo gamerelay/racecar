@@ -32,7 +32,19 @@ export const TUNING = {
   driftArcMin: 0.15,
   driftArcMax: 1.25,
   /** Assist: how fast the body settles to the target angle, rad/s. */
-  driftSettle: 2.4,
+  driftSettle: 1.7,
+  /** Seconds over which the drift's arc builds up after entry, so it doesn't snap into the turn. */
+  driftEase: 0.35,
+  /** How fast steering changes the drift's tightness, per second (smooths the arc and angle). */
+  driftSteerRate: 3,
+  /** After a drift: seconds for grip to come back, so the car carries its slide out of the turn. */
+  driftExit: 1.1,
+  /** Grip at the moment of release, as a fraction of normal; it eases back to 1 over driftExit. */
+  driftExitGrip: 0.05,
+  /** Slip scrub while recovering, as a fraction of normal (a slide shouldn't dump speed). */
+  driftExitScrub: 0.15,
+  /** While recovering, the nose also swings back toward where the car is going, rad/s at release. */
+  driftExitStraighten: 0.45,
   driftScrub: 0.06,
   driftStages: [0.8, 1.8, 3.0],
   spinAngle: 1.22,

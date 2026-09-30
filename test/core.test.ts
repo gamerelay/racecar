@@ -141,11 +141,17 @@ describe('sim', () => {
     const turned = Math.abs(wrapAngle(sim.cars.h[i] - h0));
     const held = Math.hypot(sim.cars.vx[i], sim.cars.vz[i]);
     const boost = sim.cars.boost[i];
+    const releaseSlip = Math.abs(sim.cars.slip[i]);
     c.drift = false;
+    c.steer = 0;
     for (let t = 0; t < 30; t++) {
       sim.step([c]);
       watch();
+      // The slide carries after release instead of snapping straight (playtest).
+      if (t === 6) expect(Math.abs(sim.cars.slip[i])).toBeGreaterThan(releaseSlip * 0.6);
     }
+    for (let t = 0; t < 30; t++) sim.step([c]);
+    expect(Math.abs(sim.cars.slip[i])).toBeLessThan(0.05);
     expect(sim.cars.wreck[i]).toBe(0);
     expect(turned).toBeGreaterThan(1.5);
     expect(held).toBeGreaterThan(entry * 0.85);
