@@ -131,7 +131,7 @@ export function bakeTrack(layout: TrackLayout, surfaces: SurfaceDef[]): Track {
   let checkpoints: number[];
   // A checkpoint on the line itself would be taken just after the lap counts, halving the laps:
   // the line is the lap, so drop any within 20 m of it.
-  if (Array.isArray(layout.checkpoints)) checkpoints = layout.checkpoints.map((c) => wrap(c, L)).filter((c) => c > 20 && c < L - 20).sort((a, b) => a - b);
+  if (Array.isArray(layout.checkpoints)) checkpoints = layout.checkpoints.map((c) => (c >= 0 && c < L ? c : wrap(c, L))).filter((c) => c > 20 && c < L - 20).sort((a, b) => a - b);
   else {
     // Every 1/8 of the lap, stepped past any shortcut's span so no branch can skip one.
     checkpoints = Array.from({ length: 7 }, (_, k) => {
