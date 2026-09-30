@@ -6,6 +6,10 @@ and where things stand is [docs/HANDOFF.md](./docs/HANDOFF.md).
 
 ## Unreleased
 
+### Fixed
+- **Fewer pile-ups on the Valley's home stretch:** traffic no longer appears among the Trestle's
+  legs, and the falling sign is gone from the Valley. The AI field wrecks about half as often.
+
 ### Added
 - **Downtown's landmarks:** a clock tower that tells the race time, a billboard showing the
   leader's plate, a fountain plaza and a donut shop in the Market, and a canal under the Skyway

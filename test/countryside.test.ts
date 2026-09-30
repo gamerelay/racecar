@@ -8,6 +8,7 @@ import { validateLayout } from '../src/core/track/validate';
 import { PALETTES } from '../src/render/skins/greybox/palettes';
 import { buildTerrain } from '../src/render/skins/greybox/terrain';
 import { CLASSES, SURFACES } from './helpers';
+import { lapReport } from '../tools/lap';
 
 const layout = valley as unknown as TrackLayout;
 const track = bakeTrack(layout, SURFACES);
@@ -69,4 +70,18 @@ describe('countryside (Valley)', () => {
     expect(air.filter((a) => a > 0.5).length).toBeGreaterThanOrEqual(3);
     expect([...took].sort()).toEqual(['barn', 'creek', 'leap']);
   });
+
+  test('an 8-car field with traffic and the log truck wrecks at most 1.5 times a race (MAPS.md)', () => {
+    // It was 2.5 (16 seeds): traffic appearing among the Trestle's legs, and a falling sign on
+    // the home straight. Traffic starts past the legs now, and the Valley has no sign.
+    let wrecks = 0;
+    const seeds = [1, 2, 3, 4, 5, 6, 7, 8];
+    for (const seed of seeds) {
+      const r = lapReport('backroads/valley', layout, 'coupe', { field: true, seed });
+      expect(r.finished, `seed ${seed}`).toBe(true);
+      wrecks += r.wrecks.length;
+    }
+    expect(wrecks / seeds.length).toBeLessThanOrEqual(1.5);
+    expect(layout.hazards!.some((h) => h.use === 'falling-sign')).toBe(false);
+  }, 30_000);
 });

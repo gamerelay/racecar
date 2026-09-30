@@ -1534,3 +1534,19 @@ Landmarks, part 1: Downtown (PLAN phase 6):
     its water, and a flat bridge crosses it at each side street.
 - **Cost:** each landmark's still boxes are one instanced mesh, and the clock's four dials, four
   readouts and eight hands are three draws. All five together are ~11 draw calls.
+
+The Valley's field wrecks (sweep, 2026-09-30):
+
+- **2.5 wrecks a race over 16 seeds** (2.0 on seeds 1–8). Two thirds of them were in 100 m of
+  the home stretch: the Trestle's legs, the home straight's traffic appearing at 2,722 m (among
+  and just past the legs, in the lane the field threads them in), and the falling sign at
+  2,707 m.
+- **Traffic starts past the legs** (2,782 m). With the later start alone, the pile-up at the
+  legs went away.
+- **The falling sign is gone from the Valley.** With the traffic fixed, the sign was then most of
+  what was left, wherever it stood: 3.5 a race at the Village S (200 m), 3.9 at 1,000 m, and 2.3 at
+  2,860 m, against 1.25 with none. That's half a 14.5 m road blocked with 0.5 s of warning, at up
+  to 200 km/h, and a city's sign never belonged in the country anyway. (The sweep that placed it,
+  "Valley v3", ran before the home stretch changed.)
+- **Now 1.13 a race over 16 seeds** (0.88 on seeds 1–8), and a test holds the 8-seed field to 1.5.
+  The lap and its floor (63.4 s) are unchanged.
