@@ -115,12 +115,17 @@ describe('sim', () => {
   });
 
   test('full throttle down the boulevard reaches top speed without leaving the road', () => {
-    const sim = citySim();
+    // No traffic: this is about the road and the car, not dodging (a traffic lane runs here).
+    const sim = new Sim(bakeTrack(DOWNTOWN, SURFACES), CLASSES, SURFACES, { seed: 1, traffic: 0 });
     const i = sim.addCar({ cls: 'muscle', human: true });
     const c = neutralControls();
     c.throttle = 1;
-    for (let t = 0; t < 60 * 12; t++) sim.step([c]);
-    const speed = Math.hypot(sim.cars.vx[i], sim.cars.vz[i]);
+    // Flat out until it's past 50 m/s (the straight runs out soon after, with no steering).
+    let speed = 0;
+    for (let t = 0; t < 60 * 12 && speed <= 50 && !sim.cars.wreck[i]; t++) {
+      sim.step([c]);
+      speed = Math.hypot(sim.cars.vx[i], sim.cars.vz[i]);
+    }
     expect(speed).toBeGreaterThan(50);
     expect(sim.cars.wreck[i]).toBe(0);
   });

@@ -78,6 +78,8 @@ export class Sim implements SimState {
   private readonly grid = new SpatialGrid(16, 1024, MAX_CARS);
   private readonly isActive = (i: number) => this.cars.active[i] === 1;
   private readonly nearS = new Float64Array(MAX_CARS);
+  private readonly nearX = new Float64Array(MAX_CARS);
+  private readonly nearZ = new Float64Array(MAX_CARS);
   private readonly ctx: WorldCtx;
 
   constructor(track: Track, classes: CarClass[], surfaces: SurfaceDef[], opts: SimOptions) {
@@ -220,8 +222,13 @@ export class Sim implements SimState {
     // Systems 3–5: weather, traffic, hazards (all functions of the seed and time).
     this.applyWeather();
     let n = 0;
-    for (let i = 0; i < cars.count; i++) if (cars.active[i]) this.nearS[n++] = ctx.prevMain[i];
-    traffic.update(this.time, this.nearS, n);
+    for (let i = 0; i < cars.count; i++) {
+      if (!cars.active[i]) continue;
+      this.nearS[n] = ctx.prevMain[i];
+      this.nearX[n] = cars.x[i];
+      this.nearZ[n++] = cars.z[i];
+    }
+    traffic.update(this.time, this.nearS, this.nearX, this.nearZ, n);
     hazards.update(this.time, this.events, this.tick);
     hazardsWreckTraffic(this, ctx);
 

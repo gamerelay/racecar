@@ -5,6 +5,11 @@
 //
 // A wrecked traffic car (rammed, checked, caught in a hazard) is hidden from its wreck time until
 // it's due back; the renderer tumbles a cosmetic copy (category L).
+//
+// Nothing pops: a car's visibility (0–1) is a formula too. It fades in over FADE meters of road
+// before its lane's section starts and out over FADE after it ends, out of and back into the start
+// grid's clear zone, and back in over a second after a wreck. Only a fully visible car is posed for
+// the sim (collisions, near misses, the AI); the renderer draws the fading ones dithered.
 
 import type { TrafficLaneDef } from '../content';
 import { hash01 } from '../rng';
@@ -32,8 +37,12 @@ export const TRAFFIC_KINDS: TrafficKind[] = [
 ];
 export const TRUCK = 3;
 
-/** How close (along the road) a traffic car must be to a racer to be posed this tick. */
+/** How close (along the road, or in a straight line) a traffic car must be to a racer to be posed this tick. */
 const LOD = 350;
+const LOD_STRAIGHT = 250;
+/** Meters of road a car fades over entering or leaving traffic; seconds a returning wreck takes. */
+export const FADE = 45;
+const FADE_BACK = 1;
 /** Seconds a wrecked traffic car stays gone. */
 export const TRAFFIC_RESPAWN = 12;
 /** No traffic within this much of the start line for the first seconds of a race. */
@@ -127,17 +136,45 @@ export class Traffic {
     return wrap(this.s0[k] + lane.dir * lane.speed * t, this.track.main.length);
   }
 
-  /** Whether car k is on the road at time t: not wrecked, and not on the start grid early on. */
-  present(k: number, t: number): boolean {
+  /**
+   * How visible car k is at time t, 0–1 (pure): 1 inside its lane's sections, fading over FADE
+   * meters either side; faded out of the start grid's clear zone early on; back over FADE_BACK
+   * seconds after a wreck.
+   */
+  visibility(k: number, t: number): number {
     const w = this.wreckedAt[k];
-    if (w >= 0 && t >= w && t < w + TRAFFIC_RESPAWN) return false;
-    if (!laneActive(this.lanes[this.lane[k]], this.sAt(k, t))) return false;
-    if (t < GRID_CLEAR.seconds) {
-      const s = this.sAt(k, t);
-      const L = this.track.main.length;
-      if (s > L - GRID_CLEAR.behind || s < GRID_CLEAR.ahead) return false;
+    let v = 1;
+    if (w >= 0 && t >= w) {
+      if (t < w + TRAFFIC_RESPAWN) return 0;
+      v = Math.min(1, (t - w - TRAFFIC_RESPAWN) / FADE_BACK);
     }
-    return true;
+    const lane = this.lanes[this.lane[k]];
+    const s = this.sAt(k, t);
+    const L = this.track.main.length;
+    if (lane.sections && !laneActive(lane, s)) {
+      // Road still to go to the next section's start, or already gone past the last one's end.
+      let best = 0;
+      for (const [a, b] of lane.sections) {
+        const entry = lane.dir > 0 ? a : b;
+        const exit = lane.dir > 0 ? b : a;
+        best = Math.max(best, 1 - wrap((entry - s) * lane.dir, L) / FADE, 1 - wrap((s - exit) * lane.dir, L) / FADE);
+      }
+      v = Math.min(v, best);
+    }
+    if (t < GRID_CLEAR.seconds + FADE_BACK) {
+      // The clear zone runs from `behind` before the line to `ahead` after it; fade by distance
+      // to it, then all back in over FADE_BACK once the time's up.
+      const outside = Math.min(wrap(s - GRID_CLEAR.ahead, L), wrap(L - GRID_CLEAR.behind - s, L));
+      const inZone = s > L - GRID_CLEAR.behind || s < GRID_CLEAR.ahead;
+      const zone = inZone ? 0 : Math.min(1, outside / FADE);
+      v = Math.min(v, Math.max(zone, (t - GRID_CLEAR.seconds) / FADE_BACK));
+    }
+    return Math.max(0, v);
+  }
+
+  /** Whether car k is solid at time t (fully visible): only these collide, count and get posed. */
+  present(k: number, t: number): boolean {
+    return this.visibility(k, t) >= 1;
   }
 
   /**
@@ -176,22 +213,21 @@ export class Traffic {
   }
 
   /**
-   * Poses the cars within LOD of any of the given main-spline distances. `near` holds racers'
-   * distances (only the first `n` are read).
+   * Poses the solid cars near any racer: within LOD along the road, or LOD_STRAIGHT in a straight
+   * line (a lap that folds back or crosses itself). `nearS`, `nearX`, `nearZ` hold the racers' main
+   * distances and positions (only the first `n` are read).
    */
-  update(t: number, near: Float64Array, n: number): void {
+  update(t: number, nearS: Float64Array, nearX: Float64Array, nearZ: Float64Array, n: number): void {
     const L = this.track.main.length;
     let p = 0;
     for (let k = 0; k < this.count && p < POOL; k++) {
       if (!this.present(k, t)) continue;
       const s = this.sAt(k, t);
       let close = false;
-      for (let j = 0; j < n; j++) {
-        const d = Math.abs(signedGap(s, near[j], L));
-        if (d < LOD) {
-          close = true;
-          break;
-        }
+      for (let j = 0; j < n && !close; j++) close = Math.abs(signedGap(s, nearS[j], L)) < LOD;
+      if (!close) {
+        const o = this.poseAt(k, t, this.scratch, this.hit);
+        for (let j = 0; j < n && !close; j++) close = (o.x - nearX[j]) ** 2 + (o.z - nearZ[j]) ** 2 < LOD_STRAIGHT * LOD_STRAIGHT;
       }
       if (close) this.pose(k, t, p++);
     }
