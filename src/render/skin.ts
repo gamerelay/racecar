@@ -9,8 +9,12 @@ import type { Track } from '../core/track/bake';
 
 export interface CarVisual {
   root: Object3D;
-  /** Per frame: wheel spin (radians), front wheel steer, light states, and whether it's on the road (not airborne or wrecked). */
-  update(wheelSpin: number, steer: number, braking: boolean, boosting: boolean, onRoad: boolean): void;
+  /** Per frame: wheel spin (radians), front wheel steer, light states, whether it's on the road (not airborne or wrecked), and sim-time seconds since the last frame. */
+  update(wheelSpin: number, steer: number, braking: boolean, boosting: boolean, onRoad: boolean, dt?: number): void;
+  /** Wrecked: `dx, dz` point from the car's center toward the impact, in the car's frame; strength 0–1. Cosmetic only. */
+  wreck?(dx: number, dz: number, strength: number): void;
+  /** Respawned: undo whatever `wreck` did. */
+  repair?(): void;
   dispose(): void;
 }
 

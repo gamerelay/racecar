@@ -38,6 +38,8 @@ export interface CarDesign {
   roofRack?: boolean;
   /** Painted B-pillar position along z, blacked out. */
   pillar?: number;
+  /** Door cut lines along each flank (z), drawn as ink seams. */
+  doors?: number[];
   livery: Livery;
 }
 
@@ -74,6 +76,7 @@ export const DESIGNS: Record<string, CarDesign> = {
     diffuser: true,
     wing: { y: 1.18, z: -1.82, chord: 0.36 },
     pillar: -0.2,
+    doors: [0.88, -0.3],
     livery: 'stripes',
   },
   // Muscle: long flat hood with a scoop, short deck with a ducktail, round tails and quad pipes.
@@ -107,6 +110,7 @@ export const DESIGNS: Record<string, CarDesign> = {
     diffuser: true,
     hoodScoop: true,
     pillar: -0.55,
+    doors: [0.5, -0.65],
     livery: 'stripes',
   },
   // Hot hatch: tall and short, nearly upright hatch glass, roof spoiler, vertical lamps.
@@ -139,6 +143,7 @@ export const DESIGNS: Record<string, CarDesign> = {
     roofSpoiler: true,
     diffuser: true,
     pillar: -0.45,
+    doors: [0.9, -0.4, -1.3],
     livery: 'flash',
   },
   // Van: a painted slab with glass set in, a roof rack and tall corner lamps.
@@ -155,8 +160,8 @@ export const DESIGNS: Record<string, CarDesign> = {
     cabin: [
       [1.62, 1.1],
       [1.02, 2.0],
-      [-2.44, 2.02],
-      [-2.46, 1.1],
+      [-2.36, 2.02],
+      [-2.38, 1.1],
     ],
     cabinBase: 0.98,
     cabinRoof: 0.9,
@@ -168,6 +173,7 @@ export const DESIGNS: Record<string, CarDesign> = {
     tail: { style: 'block', y: 1.05, h: 0.62 },
     exhaust: 'side',
     roofRack: true,
+    doors: [1.45, 0.1, -1.55],
     livery: 'band',
   },
 };

@@ -2,11 +2,13 @@
 // car art can be worked on without driving. Dev tool; state lives in the URL so a view can be shared.
 //
 //   1–4 class · 0 lineup · P paint · V view · C compare with the old boxes · M palette
-//   O ink · F post · hold B brake · hold Space boost · ←/→ steer · S stop the road
+//   O ink · K car ink · F post · W wreck (R repairs) · hold B brake · hold Space boost · ←/→ steer
+//   S stop the road
 
 import { BoxGeometry, type Fog, Group, Mesh, PerspectiveCamera, PlaneGeometry, Scene, Vector3, WebGLRenderer } from 'three';
 import { CLASSES, PAINTS } from '../content';
 import type { CarVisual } from '../render/skin';
+import { InkPass } from '../render/ink';
 import { PostPass } from '../render/post';
 import { GreyboxSkin } from '../render/skins/greybox';
 import { buildLegacyCar } from '../render/skins/greybox/car/legacy';
@@ -24,6 +26,7 @@ const state = {
   compare: q.get('compare') === '1',
   palette: q.get('palette') ?? 'dusk',
   ink: q.get('ink') !== '0',
+  carInk: q.get('carink') !== '0',
   post: q.get('post') !== '0',
   moving: q.get('still') !== '1',
 };
@@ -35,11 +38,23 @@ const ratio = Math.min(window.devicePixelRatio || 1, 2);
 renderer.setPixelRatio(ratio);
 stage.appendChild(renderer.domElement);
 const post = new PostPass(1, 1);
+const inkPass = new InkPass(1, 1);
+post.uniforms.tInk.value = inkPass.target.texture;
+post.uniforms.tInkDepth.value = inkPass.target.depthTexture;
 const camera = new PerspectiveCamera(62, 1, 0.1, 3000);
 
 let scene: Scene;
 let skin: GreyboxSkin;
-let cars: { v: CarVisual; x: number }[] = [];
+interface Shown {
+  v: CarVisual;
+  x: number;
+  /** Viewer-only wreck tumble: seconds since the hit (−1: driving), velocity, spin. */
+  t: number;
+  vy: number;
+  w: [number, number, number];
+}
+let cars: Shown[] = [];
+let slow = 1;
 let road: Group;
 let spin = 0;
 let steer = 0;
@@ -110,7 +125,7 @@ function rebuild(): void {
   const place = (v: CarVisual, x: number) => {
     v.root.position.x = x;
     scene.add(v.root);
-    cars.push({ v, x });
+    cars.push({ v, x, t: -1, vy: 0, w: [0, 0, 0] });
   };
   if (state.cls === 'all') {
     classes.forEach((c, i) => place(skin.car(c, PAINTS[(PAINTS.indexOf(paint) + i) % PAINTS.length]), (i - 1.5) * 3.6));
@@ -127,6 +142,7 @@ function rebuild(): void {
     palette: state.palette,
     ...(state.compare ? { compare: '1' } : {}),
     ...(state.ink ? {} : { ink: '0' }),
+    ...(state.carInk ? {} : { carink: '0' }),
     ...(state.post ? {} : { post: '0' }),
     ...(state.moving ? {} : { still: '1' }),
   }).toString();
@@ -140,6 +156,7 @@ function resize(): void {
   camera.aspect = w / h;
   camera.updateProjectionMatrix();
   post.setSize(Math.floor(w * ratio), Math.floor(h * ratio), 1.5 * ratio);
+  inkPass.setSize(Math.floor(w * ratio), Math.floor(h * ratio));
 }
 
 function placeCamera(): void {
@@ -179,9 +196,14 @@ function placeCamera(): void {
 }
 
 function frame(now: number): void {
-  const dt = Math.min(0.05, (now - (time || now)) / 1000 || 0.016);
+  const real = Math.min(0.05, (now - (time || now)) / 1000 || 0.016);
   time = now;
-  const speed = state.moving ? (keys.has(' ') ? 55 : 32) : 0;
+  // Burnout slow-mo while anything is freshly wrecked.
+  const fresh = cars.some((c) => c.t >= 0 && c.t < 1.4);
+  slow += ((fresh ? 0.3 : 1) - slow) * Math.min(1, real * 6);
+  const dt = real * slow;
+  const wrecked = cars.some((c) => c.t >= 0);
+  const speed = state.moving && !wrecked ? (keys.has(' ') ? 55 : 32) : 0;
   const boosting = keys.has(' ');
   const braking = keys.has('b');
   const want = keys.has('ArrowLeft') ? 1 : keys.has('ArrowRight') ? -1 : 0;
@@ -193,10 +215,28 @@ function frame(now: number): void {
   // Side on, a lineup spreads along the road instead of across it.
   const along = state.view === 'side' && cars.length > 1;
   for (const c of cars) {
-    c.v.root.position.set(along ? 0 : c.x, 0, along ? c.x * 1.6 : 0);
-    c.v.update(spin, steer, braking, boosting, true);
-    c.v.root.rotation.y = steer * 0.08;
-    c.v.root.rotation.z = -steer * 0.03;
+    const r = c.v.root;
+    if (c.t < 0) {
+      r.position.set(along ? 0 : c.x, 0, along ? c.x * 1.6 : 0);
+      r.rotation.set(0, steer * 0.08, -steer * 0.03);
+    } else {
+      // A cheap wreck body: up, over, down, settle.
+      c.t += dt;
+      c.vy -= 20 * dt;
+      r.position.y += c.vy * dt;
+      r.rotation.x += c.w[0] * dt;
+      r.rotation.y += c.w[1] * dt;
+      r.rotation.z += c.w[2] * dt;
+      if (r.position.y < 0) {
+        r.position.y = 0;
+        c.vy = Math.abs(c.vy) * 0.25;
+        for (let k = 0; k < 3; k++) c.w[k] *= 0.4;
+        if (c.t > 1.2) r.rotation.x += (Math.round(r.rotation.x / Math.PI) * Math.PI - r.rotation.x) * 0.3;
+        if (c.t > 1.2) r.rotation.z += (Math.round(r.rotation.z / Math.PI) * Math.PI - r.rotation.z) * 0.3;
+      }
+      if (c.t > 4) repair(c);
+    }
+    c.v.update(spin, steer, braking, boosting, c.t < 0, dt);
   }
   skin.update(now / 1000, camera.position.x, camera.position.y, camera.position.z, 0);
   placeCamera();
@@ -215,6 +255,8 @@ function frame(now: number): void {
     u.uFogFar.value = fog.far;
   }
   if (state.post) {
+    u.uCarInk.value = state.ink && state.carInk ? 1 : 0;
+    if (u.uCarInk.value) inkPass.render(renderer, scene, camera);
     renderer.setRenderTarget(post.target);
     renderer.render(scene, camera);
     calls = renderer.info.render.calls;
@@ -226,8 +268,27 @@ function frame(now: number): void {
   }
   hud.textContent =
     `${state.cls === 'all' ? 'lineup' : state.cls}${state.compare ? '  (old | new)' : ''} · ${state.paint} · ${state.view} · ${state.palette}   ${calls} draws\n` +
-    `1–4 class · 0 lineup · P paint · V view · C compare · M palette · O ink · F post · S road\nhold B brake · Space boost · ←/→ steer · drag to orbit`;
+    `1–4 class · 0 lineup · P paint · V view · C compare · M palette · O ink${state.carInk ? '' : ' (car ink off: K)'} · K car ink · F post · S road\nW wreck · R repair · hold B brake · Space boost · ←/→ steer · drag to orbit`;
   requestAnimationFrame(frame);
+}
+
+function wreck(): void {
+  const r = Math.random;
+  for (const c of cars) {
+    if (c.t >= 0) continue;
+    const front = r() < 0.65;
+    const dx = (r() - 0.5) * (front ? 0.8 : 2);
+    const dz = front ? 1 : r() < 0.5 ? -1 : (r() - 0.5) * 0.6;
+    c.v.wreck?.(dx, dz, 0.6 + r() * 0.4);
+    c.t = 0;
+    c.vy = 7 + r() * 3;
+    c.w = [(r() - 0.5) * 6, (r() - 0.5) * 3, (r() - 0.5) * 8];
+  }
+}
+
+function repair(c: Shown): void {
+  c.t = -1;
+  c.v.repair?.();
 }
 
 window.addEventListener('keydown', (e) => {
@@ -243,6 +304,9 @@ window.addEventListener('keydown', (e) => {
   else if (k === 'o') state.ink = !state.ink;
   else if (k === 'f') state.post = !state.post;
   else if (k === 's') state.moving = !state.moving;
+  else if (k === 'k') state.carInk = !state.carInk;
+  else if (k === 'w') return wreck();
+  else if (k === 'r') return cars.forEach(repair);
   else return;
   rebuild();
 });

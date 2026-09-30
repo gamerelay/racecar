@@ -869,3 +869,18 @@ Milestone 2 (2026-09-30):
 - **The platform asks are built** in GameRelay PR #30 (host kick, lock, `setAccess`,
   `setListing`, `listRooms(includeFull)`, plus `transferHost` and `online()`), not yet merged,
   deployed or released.
+
+Car art (branch `car-models`, 2026-09-30):
+
+- **Greybox cars are built from side profiles, not boxes** (`render/skins/greybox/car/`): each
+  class's design is a side outline extruded with chamfers, arches and a plan-view pinch, plus
+  per-class rear detail (the chase camera's view), a finish-aware toon paint (gloss, metallic,
+  pearl, matte, chrome) and a livery in the shader. Static parts merge per material, ~25 draws a
+  car. `cars.html` is a garage for working on them (old vs new, all views, wreck test).
+- **Cars get a second ink pass** (`render/ink.ts`): marked meshes render a part id and normal,
+  and the post pass inks id changes and sharp creases, which depth alone never sees (windows,
+  lamps, lids, door cuts as ink-only seams). One draw per near car mesh, only with ink on.
+- **Wrecks are visible on the car** (SPEC §9), all cosmetic: the body crumples toward the hit,
+  lids spring open or tear off, wing, mirrors, plate, splitter and sometimes a wheel fly off,
+  glass cracks and shards spray. The renderer infers where the car was hit (the other car, or
+  the nose for walls) from the Wreck event, so the sim is unchanged; `repair()` on Respawn.
