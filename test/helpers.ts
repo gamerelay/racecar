@@ -4,7 +4,7 @@ import { bakeTrack } from '../src/core/track/bake';
 import { CLASSES, SURFACES, layout } from '../tools/content';
 
 export { CLASSES, SURFACES, layout };
-export const DOWNTOWN: TrackLayout = layout('city/downtown');
+export const DOWNTOWN: TrackLayout = layout('downtown/downtown');
 
 export function citySim(seed = 1, slowmo: 'world' | 'wreck' = 'world'): Sim {
   return new Sim(bakeTrack(DOWNTOWN, SURFACES), CLASSES, SURFACES, { seed, slowmo });

@@ -1197,3 +1197,20 @@ Police car, Trestle legs, air boost and boost by position (2026-09-30, playtest)
   city; the racing line clears every leg; hard AIs pass under the Trestle clean on four seeds and
   three cars; the police class; the shadow on its wheels, flipped, on its side and in the air.
 - **Changelog:** releases are recorded in `CHANGELOG.md` at the repo root from here on.
+
+Quick wins (2026-09-30, PLAN phase 1):
+
+- **Maps renamed:** City is Downtown (`downtown/downtown`), Countryside is Backroads
+  (`backroads/valley`). `resolveLayout` (core/content.ts) takes a full key, an old one
+  (`LAYOUT_ALIASES`) or a bare map id, old or new; the game, the setup reader, the lap report and
+  the tools' `layout()` all go through it. Layout ids (`city-downtown`, `countryside-valley`) and
+  scenery kinds (`city`, `countryside`) didn't change: the city's scenery is seeded from its
+  layout id, and F8 reports name it, so both stay as they were.
+- **Paints:** one-word names and ids (`hot-pink` became `pink`, with `PAINT_ALIASES`); the game
+  picks paints by index, so saved races are unaffected.
+- **HUD:** the position is the big badge bottom left (`#posBadge`); the lap is the first card top
+  left (`#statLap`), gold on the final lap.
+- **Controls share one style** (hud.css): menu buttons (sun yellow, a pink drop that presses in),
+  ghost buttons, and fields (dark panels with an ink border, cyan when focused; selects draw
+  their own arrow). The in-race menu button is a small menu button.
+- **MAPS.md** holds map design and technique; PLAN.md the next phases.

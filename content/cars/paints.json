@@ -1,9 +1,9 @@
 [
-  { "id": "hot-pink", "name": "Hot pink", "color": "#ff2e88", "finish": "gloss", "underglow": "#35f0ff" },
-  { "id": "cyan", "name": "Laser cyan", "color": "#35f0ff", "finish": "metallic", "underglow": "#35f0ff" },
+  { "id": "pink", "name": "Pink", "color": "#ff2e88", "finish": "gloss", "underglow": "#35f0ff" },
+  { "id": "cyan", "name": "Cyan", "color": "#35f0ff", "finish": "metallic", "underglow": "#35f0ff" },
   { "id": "sunburst", "name": "Sunburst", "color": "#ffd23f", "finish": "gloss", "secondary": "#ff6a00" },
-  { "id": "lime", "name": "Acid lime", "color": "#7cff6b", "finish": "pearl", "underglow": "#7cff6b" },
-  { "id": "violet", "name": "Ultraviolet", "color": "#b26bff", "finish": "metallic", "underglow": "#ff2e88" },
+  { "id": "lime", "name": "Lime", "color": "#7cff6b", "finish": "pearl", "underglow": "#7cff6b" },
+  { "id": "violet", "name": "Violet", "color": "#b26bff", "finish": "metallic", "underglow": "#ff2e88" },
   { "id": "ember", "name": "Ember", "color": "#ff6a00", "finish": "matte" },
   { "id": "chrome", "name": "Chrome", "color": "#d8dde6", "finish": "chrome", "underglow": "#ffd23f" },
   { "id": "midnight", "name": "Midnight", "color": "#1d2340", "finish": "matte", "secondary": "#35f0ff" },

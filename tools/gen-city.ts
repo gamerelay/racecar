@@ -151,6 +151,6 @@ layout.zones = [puddle(-120, 90, 0, 25, -6, 2), puddle(-150, -30, 1, 25, -2, 6),
 
 // Traffic must appear and leave on straights, where drivers see it.
 straightenSections(layout, surfaces);
-writeFileSync(new URL('../content/maps/city/downtown.track.json', import.meta.url), JSON.stringify(layout, null, 1) + '\n');
+writeFileSync(new URL('../content/maps/downtown/downtown.track.json', import.meta.url), JSON.stringify(layout, null, 1) + '\n');
 const final = bakeTrack(layout, surfaces);
 console.log(`main ${final.main.length.toFixed(0)} m, ${pts.length} points; alley ${final.splines[1].length.toFixed(0)} m (${alley.from}→${alley.to})`);

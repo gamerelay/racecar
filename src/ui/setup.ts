@@ -2,7 +2,7 @@
 // traffic, then go. The choice is written into the URL and the page reloads into the race, which
 // keeps each race a clean start (and a shareable link). The lobby replaces this in milestone 3.
 
-import type { CarClass, MapDef, PaintDef } from '../core/content';
+import { resolveLayout, type CarClass, type MapDef, type PaintDef } from '../core/content';
 
 export interface RaceSetup {
   mode: 'race' | 'free';
@@ -18,10 +18,12 @@ export interface RaceSetup {
   seed: number;
 }
 
-/** What a setup may name: car ids, and how many paints there are. */
+/** What a setup may name: car ids, how many paints there are, and the layout keys. */
 export interface Known {
   cars: string[];
   paints: number;
+  /** Layout keys; with these, a renamed or bare map id in the URL resolves to one. */
+  layouts?: string[];
 }
 
 /** The most laps a race can have (the menu offers 1 to this; a link asking for more gets this). */
@@ -43,7 +45,7 @@ export function readSetup(q: URLSearchParams, defaultMap: string, known?: Known)
   const car = q.get('car') ?? 'coupe';
   return {
     mode,
-    map: q.get('map') ?? defaultMap,
+    map: (known?.layouts ? resolveLayout(q.get('map'), known.layouts) : q.get('map')) ?? defaultMap,
     car: known && !known.cars.includes(car) ? 'coupe' : car,
     paint: int('paint', 0, 0, Math.max(0, (known?.paints ?? 1e9) - 1)),
     opponents: int('opponents', 7, 0, 7),
@@ -74,13 +76,14 @@ export function showSetup(maps: MapDef[], layouts: string[], classes: CarClass[]
   const sel = (id: string, opts: [string, string][], value: string) =>
     `<select id="${id}">${opts.map(([v, l]) => `<option value="${v}"${v === value ? ' selected' : ''}>${l}</option>`).join('')}</select>`;
   const layoutOpts: [string, string][] = layouts.map((key) => {
+    // One name per map; a map with several layouts names the layout too.
     const map = maps.find((m) => key.startsWith(m.id + '/'));
-    return [key, `${map?.name ?? key} · ${key.split('/')[1]}`];
+    return [key, map && map.layouts.length > 1 ? `${map.name} · ${key.split('/')[1]}` : (map?.name ?? key)];
   });
   const el = document.createElement('div');
   el.id = 'setup';
   el.innerHTML = `<div class="card setup">
-    <h1>racecar</h1>
+    <h1>Racecar</h1>
     <div class="grid">
       <label>Track ${sel('sMap', layoutOpts, current.map ?? layouts[0])}</label>
       <label>Car ${sel('sCar', classes.map((c) => [c.id, `${c.name} (${c.id})`]), current.car ?? 'coupe')}</label>

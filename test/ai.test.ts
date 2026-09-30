@@ -29,10 +29,10 @@ describe('getting unstuck', () => {
     // Seeds 2 and 4 used to end in resets; then the Trestle's legs and the fallen sign past them
     // pinned cars until they reset (three in twelve races). A car knocked off the road the wrong
     // way resets by design, so the bar is one in six races, not none.
-    const valley = layout('countryside/valley');
+    const valley = layout('backroads/valley');
     let resets = 0;
     for (const seed of [1, 2, 3, 4, 5, 6]) {
-      const r = lapReport('countryside/valley', valley, 'coupe', { field: true, seed });
+      const r = lapReport('backroads/valley', valley, 'coupe', { field: true, seed });
       expect(r.finished).toBe(true);
       resets += r.wrecks.filter((w) => w.cause === 'reset').length;
     }
@@ -42,7 +42,7 @@ describe('getting unstuck', () => {
 
 describe('triggers', () => {
   // A falling sign on the main road, 130 m into the Barn shortcut's span (so a car can pass it on either).
-  const valley = layout('countryside/valley');
+  const valley = layout('backroads/valley');
   const barnDef = valley.branches!.find((b) => b.id === 'barn')!;
   const at = barnDef.from + 130;
   const sign = valley.hazards!.findIndex((h) => h.use === 'falling-sign');
@@ -115,6 +115,6 @@ describe('track edges', () => {
     expect(messages.some((m) => m.includes('pos 3 is off the road'))).toBe(true);
     expect(messages.some((m) => m.includes('speed must be positive'))).toBe(true);
     // And the real layouts are clean.
-    for (const key of ['city/downtown', 'countryside/valley']) expect(validateLayout(layout(key), SURFACES, CLASSES).filter((p) => p.level === 'error')).toEqual([]);
+    for (const key of ['downtown/downtown', 'backroads/valley']) expect(validateLayout(layout(key), SURFACES, CLASSES).filter((p) => p.level === 'error')).toEqual([]);
   });
 });

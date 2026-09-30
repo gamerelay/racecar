@@ -6,7 +6,7 @@
 //   S stop the road
 
 import { BoxGeometry, Color, type Fog, Group, InstancedMesh, Matrix4, Mesh, PerspectiveCamera, PlaneGeometry, Scene, Vector3, WebGLRenderer } from 'three';
-import type { CarClass } from '../core/content';
+import { PAINT_ALIASES, type CarClass } from '../core/content';
 import { CLASSES, PAINTS } from '../content';
 import type { CarVisual } from '../render/skin';
 import { InkPass } from '../render/ink';
@@ -34,7 +34,7 @@ const CLASS_KEYS = '123456789-';
 const q = new URLSearchParams(location.search);
 const state = {
   cls: q.get('cls') ?? 'coupe',
-  paint: q.get('paint') ?? 'hot-pink',
+  paint: PAINT_ALIASES[q.get('paint') ?? ''] ?? q.get('paint') ?? 'pink',
   view: (q.get('view') as View) ?? 'chase',
   palette: q.get('palette') ?? 'dusk',
   ink: q.get('ink') !== '0',

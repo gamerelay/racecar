@@ -371,7 +371,7 @@ layout.terrain = {
 };
 
 straightenSections(layout, surfaces);
-writeFileSync(new URL('../content/maps/countryside/valley.track.json', import.meta.url), JSON.stringify(layout, null, 1) + '\n');
+writeFileSync(new URL('../content/maps/backroads/valley.track.json', import.meta.url), JSON.stringify(layout, null, 1) + '\n');
 const final = bakeTrack(layout, surfaces);
 console.log(
   `main ${final.main.length.toFixed(0)} m, ${pts.length} points; ` +

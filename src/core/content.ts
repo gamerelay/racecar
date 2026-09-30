@@ -144,6 +144,32 @@ export interface SurfaceDef {
   color: string;
 }
 
+/**
+ * Layout keys ("map/layout") that were renamed, old to new: links, saved choices and F8 reports
+ * made before the rename still load (City became Downtown, Countryside became Backroads).
+ */
+export const LAYOUT_ALIASES: Readonly<Record<string, string>> = {
+  'city/downtown': 'downtown/downtown',
+  'countryside/valley': 'backroads/valley',
+};
+const MAP_ALIASES: Readonly<Record<string, string>> = { city: 'downtown', countryside: 'backroads' };
+
+/**
+ * The layout key `key` means, among `keys`: itself, what it was renamed to, or a map's first
+ * layout for a bare map id ("downtown", or an old one like "city"). Undefined if none.
+ */
+export function resolveLayout(key: string | null | undefined, keys: readonly string[]): string | undefined {
+  if (!key) return undefined;
+  if (keys.includes(key)) return key;
+  const renamed = LAYOUT_ALIASES[key];
+  if (renamed && keys.includes(renamed)) return renamed;
+  const map = MAP_ALIASES[key] ?? key;
+  return keys.find((k) => k.startsWith(map + '/'));
+}
+
+/** Paint ids that were renamed, old to new. */
+export const PAINT_ALIASES: Readonly<Record<string, string>> = { 'hot-pink': 'pink' };
+
 /** Every car class, in picker order (content/cars/<id>.json). AI fields cycle through it. */
 export const CLASS_ORDER = ['coupe', 'muscle', 'hatch', 'van', 'sedan', 'rally', 'bus', 'police'] as const;
 

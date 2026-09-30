@@ -6,7 +6,11 @@ building". This file is "where are we"; the spec is "what are we making".
 
 **Last updated:** 2026-09-30. `main` is tagged **`alpha-1.7`**: milestone 2 (PR #2, tagged
 `alpha-1.0`), Countryside v2 (PR #4, `alpha-1.1`), seven cars plus polish (PR #6, `alpha-1.2`),
-traffic that fades instead of popping (PR #7, `alpha-1.3`), audio plus a review pass (PR #9, `alpha-1.4`), Valley v3 with smooth shortcut joins (PR #10, `alpha-1.5`), drift chains, skid marks, new car designs and a second review pass (PR #12, `alpha-1.6`), and the police car, solid Trestle legs, air boost and boost by position (PR #13, `alpha-1.7`). Every release is in [CHANGELOG.md](../CHANGELOG.md): add to its "Unreleased" section as you go, and retitle that section when you tag.
+traffic that fades instead of popping (PR #7, `alpha-1.3`), audio plus a review pass (PR #9, `alpha-1.4`), Valley v3 with smooth shortcut joins (PR #10, `alpha-1.5`), drift chains, skid marks, new car designs and a second review pass (PR #12, `alpha-1.6`), and the police car, solid Trestle legs, air boost and boost by position (PR #13, `alpha-1.7`). Every release is in [CHANGELOG.md](../CHANGELOG.md): add to its "Unreleased" section as you go, and retitle that section when you tag. What's next is [PLAN.md](./PLAN.md) (phase 1, the quick wins, is PR #14), and how maps are made is [MAPS.md](./MAPS.md).
+
+**Map names:** City is now **Downtown** and Countryside is **Backroads** (content in
+`content/maps/downtown` and `content/maps/backroads`; keys `downtown/downtown`, `backroads/valley`;
+old keys still resolve). This file still says City and Countryside in places; they're the same maps.
 
 ## Resume in five minutes
 

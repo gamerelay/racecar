@@ -109,7 +109,7 @@ describe('traffic visibility', () => {
 });
 
 describe('traffic in a race never pops', () => {
-  for (const key of ['city/downtown', 'countryside/valley']) {
+  for (const key of ['downtown/downtown', 'backroads/valley']) {
     test(`${key}: 8 AI, traffic on, 70 s: no jumps in sight, solid cars near a racer are posed`, () => {
       const sim = new Sim(bakeTrack(layout(key), SURFACES), CLASSES, SURFACES, { seed: 3, traffic: 1, mayhem: 'normal' });
       for (let k = 0; k < 8; k++) sim.addCar({ cls: CLASSES[k % CLASSES.length].id, racer: { difficulty: (k % 3) as 0 | 1 | 2 } });
