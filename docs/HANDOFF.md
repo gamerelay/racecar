@@ -6,7 +6,7 @@ building". This file is "where are we"; the spec is "what are we making".
 
 **Last updated:** 2026-09-30. `main` is tagged **`alpha-1.8`**: milestone 2 (PR #2, tagged
 `alpha-1.0`), Countryside v2 (PR #4, `alpha-1.1`), seven cars plus polish (PR #6, `alpha-1.2`),
-traffic that fades instead of popping (PR #7, `alpha-1.3`), audio plus a review pass (PR #9, `alpha-1.4`), Valley v3 with smooth shortcut joins (PR #10, `alpha-1.5`), drift chains, skid marks, new car designs and a second review pass (PR #12, `alpha-1.6`), the police car, solid Trestle legs, air boost and boost by position (PR #13, `alpha-1.7`), and the quick wins plus the title screen and local lobbies (PRs #14 and #16, `alpha-1.8`). Since that tag, `main` also has license plates (PR #18), the lobby polish (PR #19), the cars doc `docs/CARS.md` (PR #15), marketing art with link previews (PR #17), untagged. The car select (PLAN phase 4) is PR #20, open. Every release is in [CHANGELOG.md](../CHANGELOG.md): add to its "Unreleased" section as you go, and retitle that section when you tag. What's next is [PLAN.md](./PLAN.md) (phase 1, the quick wins, merged as PR #14; phase 2, the title screen and local lobbies, merged as PR #16; phase 3, license plates, merged as PR #18; phase 4, the car select, PR #20; next is phase 5, Paradise), and how maps are made is [MAPS.md](./MAPS.md).
+traffic that fades instead of popping (PR #7, `alpha-1.3`), audio plus a review pass (PR #9, `alpha-1.4`), Valley v3 with smooth shortcut joins (PR #10, `alpha-1.5`), drift chains, skid marks, new car designs and a second review pass (PR #12, `alpha-1.6`), the police car, solid Trestle legs, air boost and boost by position (PR #13, `alpha-1.7`), the quick wins plus the title screen and local lobbies (PRs #14 and #16, `alpha-1.8`), and license plates, the lobby polish, the cars doc `docs/CARS.md`, marketing art with link previews and the car select (PRs #18, #19, #15, #17 and #20, `alpha-1.9`). Every release is in [CHANGELOG.md](../CHANGELOG.md): add to its "Unreleased" section as you go, and retitle that section when you tag. What's next is [PLAN.md](./PLAN.md) (phase 1, the quick wins, merged as PR #14; phase 2, the title screen and local lobbies, merged as PR #16; phase 3, license plates, merged as PR #18; phase 4, the car select, merged as PR #20; next is phase 5, Paradise), and how maps are made is [MAPS.md](./MAPS.md).
 
 **Map names:** City is now **Downtown** and Countryside is **Backroads** (content in
 `content/maps/downtown` and `content/maps/backroads`; keys `downtown/downtown`, `backroads/valley`;
@@ -32,7 +32,7 @@ old keys still resolve). This file still says City and Countryside in places; th
   favicons, a web manifest and JSON-LD.
 - **Cars doc: merged** (PR #15): `docs/CARS.md`, how the cars are designed and built, and adding
   one.
-- **Car select: PR #20** (PLAN phase 4). The lobby docks left and your car turns on a table
+- **Car select: merged** (PR #20, PLAN phase 4, `alpha-1.9`). The lobby docks left and your car turns on a table
   beside it (`src/render/showroom.ts`), a 1:50 model held in front of the world camera, so the
   post pass and weather treat it like the world, framed into the lobby's `.stage` box so CSS places it (beside the menu, or above it
   on a phone). The race behind swaps map and weather in place (`swapMap` in `main.ts`,
@@ -225,13 +225,9 @@ editor.
 
 ## Next, in order
 
-1. **Merge PR #20 (the car select)** when the owner asks, after its review.
-2. **Tag `alpha-1.9`** when the owner asks: `main` has plates (#18), the lobby polish (#19), the
-   cars doc (#15) and the marketing art (#17) since `alpha-1.8`, and the car select once #20 is
-   in, all in CHANGELOG "Unreleased".
-3. **PLAN phase 5, Paradise.** Build the shared
+1. **PLAN phase 5, Paradise.** Build the shared
    `tools/lib/lap.ts` out of `gen-countryside.ts` first, and follow MAPS.md.
-4. **Milestone 3 (online), per the spec:**
+2. **Milestone 3 (online), per the spec:**
    - A `relay` LobbyBackend (`src/lobby/backend.ts`): lobbies as rooms with `setListing`, the
      list from `listRooms('race', { includeFull: true })`, and actions sent to the host, who
      applies them with `apply` and broadcasts the lobby. The screens don't change. Other
@@ -244,7 +240,7 @@ editor.
      - shared moments scheduled about 250 ms ahead on the server clock.
    - A vote on the next race, a net overlay, and bots. The repo goes public.
    - Then milestone 3b: the neon City skin, which is the launch.
-5. **Playtest with a controller** whenever there's a build to try: tune with F4, and press F8 on
+3. **Playtest with a controller** whenever there's a build to try: tune with F4, and press F8 on
    anything odd. Still open: whether ~1 wreck a race on Downtown is too tame (add denser traffic
    on the straights rather than sections in corners), and whether each car's drift carry feels
    right (`driftExit*`, `boostFromDrift`).

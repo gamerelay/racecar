@@ -6,8 +6,10 @@ and where things stand is [docs/HANDOFF.md](./docs/HANDOFF.md).
 
 ## Unreleased
 
+## alpha-1.9: license plates and the car select
+
 PLAN phase 3: license plates (PR #18), the lobby polish (PR #19), the cars doc (PR #15), the
-marketing art (PR #17), and PLAN phase 4: the car select.
+marketing art (PR #17), and PLAN phase 4: the car select (PR #20).
 
 ### Added
 - **The lobby is the car select:** the lobby docks left, and your car turns on a table beside
