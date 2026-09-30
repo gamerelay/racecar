@@ -1245,6 +1245,10 @@ Title screen and local lobbies (2026-09-30, PLAN phase 2):
 - **Esc (and Start) go back a screen** in the menus; the pad's B already did.
 - **Map thumbnails** (`ui/thumb.ts`) are SVG drawn from the layout's control points, with no
   baking. They appear in the list rows and on the lobby's map card, with the lap length.
+- **From the review:** whenever the menu opens it ends your lobby's race (a tab closed
+  mid-race used to leave it in `racing`, refusing Start). The camera, HUD, results and audio
+  follow your car in whichever seat it's in. Free drive takes your lobby's settings over the
+  last link's.
 - **Not yet:** changing the map in the lobby doesn't swap the race behind it until a reload
   (phase 4's live preview does that). Lobby-list filters wait until there's more than your own
   lobby to filter.

@@ -49,15 +49,12 @@ export class Menu {
 
   /** Opens on the title, or straight into a lobby (back from its race, or a reload in it). */
   async open(lobbyId?: string | null): Promise<void> {
-    if (lobbyId) {
-      const lobby = await this.backend.get(lobbyId);
-      if (lobby) {
-        // Back from the race: the lobby is waiting again.
-        if (lobby.phase === 'racing') await this.backend.send(lobby.id, { type: 'end' });
-        return this.show({ kind: 'lobby', id: lobby.id });
-      }
-    }
-    return this.show({ kind: 'title' });
+    // The menu is up, so your lobby's race is over, however you left it (Back to lobby, a closed
+    // tab, the title's URL): it's waiting again, or Start and the seats would refuse.
+    const own = await this.backend.get(LOCAL_ID);
+    if (own?.phase === 'racing') await this.backend.send(own.id, { type: 'end' });
+    const lobby = lobbyId ? await this.backend.get(lobbyId) : null;
+    return this.show(lobby ? { kind: 'lobby', id: lobby.id } : { kind: 'title' });
   }
 
   /** Back (Esc, the pad's B): lobby and create go to the title. */
@@ -143,7 +140,8 @@ export class Menu {
 
   private async freeDrive(): Promise<void> {
     const lobby = await this.backend.get(LOCAL_ID);
-    const o = { ...(lobby?.options ?? {}), ...this.defaults };
+    // Your lobby's settings, or the last race's when there's no lobby.
+    const o = { ...this.defaults, ...(lobby?.options ?? {}) };
     const setup: RaceSetup = {
       mode: 'free',
       map: o.map ?? Object.keys(this.content.layouts)[0],

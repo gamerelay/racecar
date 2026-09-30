@@ -79,6 +79,11 @@ const raceUi = new RaceUi(sim, CLASSES, names, specs.map((x) => PAINTS[(x.paint 
 raceUi.onAgain = () => raceAgain(run);
 raceUi.onSetup = () => backToSetup(run);
 if (run.lobby) raceUi.setupLabel = 'Back to lobby';
+// The camera, HUD, results and audio follow your car, whichever seat it's in.
+if (you >= 0) {
+  renderer.focus = hud.focus = raceUi.focus = me;
+  renderer.snapCamera();
+}
 // Behind the menu there are no results; with the pause menu up they wait.
 raceUi.resultsOn = !attract;
 raceUi.canShow = () => !paused;
