@@ -35,7 +35,7 @@ import type { CarVisual } from '../../../skin';
 import { glow, toon } from '../toon';
 import { type CarDesign, DESIGNS } from './designs';
 import { carPaint } from './paint';
-import { CarWreck, type Detachable } from './wreck';
+import { CarWreck, WRECK_SHARED, type Detachable } from './wreck';
 
 /**
  * Chamfer on the body's long edges: depth into the side, and outward offset of the walls. Kept
@@ -59,6 +59,10 @@ const headGlow = new SpriteMaterial({ map: glow(), color: 0xfff0c0, transparent:
 const flameMat = new MeshBasicMaterial({ map: glow(), color: 0xff7a1a, transparent: true, blending: AdditiveBlending, depthWrite: false });
 /** Materials every car shares (module-level): never freed with one car or one world. */
 export const CAR_MATERIALS: readonly Material[] = [trim, metal, lampMat, rimMat, glassMat, headGlow, flameMat];
+/** Everything module-level that cars share, the beam once made and the wreck's: never freed with one car or one world. */
+export function sharedCarResources(): unknown[] {
+  return [...CAR_MATERIALS, ...WRECK_SHARED, ...(beamShared ? [beamShared, beamShared.map] : [])];
+}
 /** Light bar lens colors, off and lit. */
 const BEACON = { red: [0x5a0a1c, 0xff2848], blue: [0x0c1a5c, 0x3a7bff] } as const;
 let beamShared: MeshBasicMaterial | undefined;
@@ -919,7 +923,8 @@ export function buildCar(cls: Pick<CarClass, 'id' | 'size'>, paint: PaintDef): C
       tailGlow.opacity = braking ? 1 : 0.5;
       for (const f of flames) {
         f.visible = boosting;
-        if (boosting) f.scale.set(1, 0.7 + Math.random() * 0.6, 1);
+        // Flickers while the world runs (not while paused).
+        if (boosting && dt > 0) f.scale.set(1, 0.7 + Math.random() * 0.6, 1);
       }
       if (flashes.length) {
         // Double blinks, red then blue, a second a cycle: swap the lens colors, toggle the glows.

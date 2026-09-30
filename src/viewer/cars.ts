@@ -12,6 +12,7 @@ import type { CarVisual } from '../render/skin';
 import { InkPass } from '../render/ink';
 import { PostPass } from '../render/post';
 import { GreyboxSkin } from '../render/skins/greybox';
+import { disposeTree } from '../render/skins/greybox/dispose';
 import { toon } from '../render/skins/greybox/toon';
 import { trafficModels } from '../render/skins/greybox/car/traffic';
 import { TRAFFIC_KINDS } from '../core/world/traffic';
@@ -126,7 +127,12 @@ function buildRoad(): Group {
 }
 
 function rebuild(): void {
-  for (const c of cars) c.v.dispose();
+  // The old scene's cars (their own dispose), then everything else in it: road, blocks, sky.
+  for (const c of cars) {
+    scene?.remove(c.v.root);
+    c.v.dispose();
+  }
+  if (scene) disposeTree([scene]);
   scene = new Scene();
   skin = new GreyboxSkin();
   skin.environment(scene, state.palette);

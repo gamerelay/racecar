@@ -52,7 +52,7 @@ export class Skids {
     this.geo.setAttribute('color', new BufferAttribute(this.col, 3));
     this.geo.setAttribute('info', new BufferAttribute(this.info, 3));
     this.material = new ShaderMaterial({
-      uniforms: { uTime: { value: 0 }, uLife: { value: SKID_LIFE } },
+      uniforms: { uTime: { value: 0 }, uLife: { value: SKID_LIFE }, uFogNear: { value: 1e5 }, uFogFar: { value: 2e5 } },
       side: DoubleSide,
       transparent: true,
       depthWrite: false,
@@ -67,13 +67,16 @@ export class Skids {
       blendDst: ZeroFactor,
       blendSrcAlpha: ZeroFactor,
       blendDstAlpha: OneFactor,
-      vertexShader: `attribute vec3 info;attribute vec3 color;uniform float uTime;uniform float uLife;
+      vertexShader: `attribute vec3 info;attribute vec3 color;uniform float uTime;uniform float uLife;uniform float uFogNear;uniform float uFogFar;
         varying vec3 vColor;varying float vAlpha;varying float vSide;
         void main(){
           vColor=color;vSide=info.z;
           float age=uTime-info.x;
-          vAlpha=info.y*(1.0-smoothstep(uLife*0.66,uLife,age));
-          gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);
+          vec4 mv=modelViewMatrix*vec4(position,1.0);
+          // Faded by age, and into the fog like the road under it (a multiply over fogged road
+          // would darken the fog).
+          vAlpha=info.y*(1.0-smoothstep(uLife*0.66,uLife,age))*(1.0-smoothstep(uFogNear,uFogFar,-mv.z));
+          gl_Position=projectionMatrix*mv;
         }`,
       fragmentShader: `varying vec3 vColor;varying float vAlpha;varying float vSide;
         void main(){
@@ -119,10 +122,16 @@ export class Skids {
     const k = this.head;
     const v = k * 12;
     const c = s.corners;
-    if (s.joined) this.pos.set(c, v);
+    const pos = this.pos;
+    if (s.joined) pos.set(c, v);
     else {
       // A strip's first segment starts from nothing, so it fades in.
-      this.pos.set([s.x + px, s.y + LIFT, s.z + pz, s.x - px, s.y + LIFT, s.z - pz], v);
+      pos[v] = s.x + px;
+      pos[v + 1] = s.y + LIFT;
+      pos[v + 2] = s.z + pz;
+      pos[v + 3] = s.x - px;
+      pos[v + 4] = s.y + LIFT;
+      pos[v + 5] = s.z - pz;
       s.alpha = 0;
     }
     c[0] = x + px;
@@ -131,11 +140,15 @@ export class Skids {
     c[3] = x - px;
     c[4] = y + LIFT;
     c[5] = z - pz;
-    this.pos.set(c, v + 6);
+    pos.set(c, v + 6);
     for (let n = 0; n < 4; n++) {
-      this.col.set([r, g, b], v + n * 3);
-      const a = n < 2 ? s.alpha : alpha;
-      this.info.set([this.time, a, n % 2 === 0 ? 1 : -1], v + n * 3);
+      const o = v + n * 3;
+      this.col[o] = r;
+      this.col[o + 1] = g;
+      this.col[o + 2] = b;
+      this.info[o] = this.time;
+      this.info[o + 1] = n < 2 ? s.alpha : alpha;
+      this.info[o + 2] = n % 2 === 0 ? 1 : -1;
     }
     s.alpha = alpha;
     s.joined = true;
@@ -153,10 +166,13 @@ export class Skids {
     if (s) s.on = false;
   }
 
-  /** Advances the fade by world seconds `dt` and uploads what changed this frame. */
-  update(dt: number): void {
+  /** Advances the fade by world seconds `dt`, takes the scene's fog, and uploads what changed this frame. */
+  update(dt: number, fogNear = 1e5, fogFar = 2e5): void {
     this.time += dt;
-    this.material.uniforms.uTime.value = this.time;
+    const u = this.material.uniforms;
+    u.uTime.value = this.time;
+    u.uFogNear.value = fogNear;
+    u.uFogFar.value = fogFar;
     if (this.dirtyCount === 0) return;
     const count = Math.min(MAX, this.dirtyCount);
     for (const name of ['position', 'color', 'info']) {

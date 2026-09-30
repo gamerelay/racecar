@@ -45,9 +45,9 @@ const MAX_TRAFFIC = 128;
 const DEBRIS = 24;
 /** Traffic is drawn within this of the camera (fog has it well before). */
 const DRAW = 500;
+/** Traffic nearer than this gets ink outlines (the ink pass's own reach for a single mesh). */
+const INK_NEAR = 90;
 const UP = new Vector3(0, 1, 0);
-/** Traffic kinds drawn as a car design (every kind has one); car/traffic.ts's simple models are the fallback. */
-const TRAFFIC_DESIGN: Record<string, string> = { sedan: 'sedan', compact: 'compact', van: 'van', bus: 'bus', truck: 'truck' };
 
 interface Debris {
   kind: number;
@@ -105,8 +105,9 @@ export function buildWorldVisual(scene: Scene, sim: Sim, roof?: (x: number, z: n
     return { solid, ghost, tint, fade };
   };
   const bodies = TRAFFIC_KINDS.map((k) => {
-    const design = TRAFFIC_DESIGN[k.id];
-    const detailed = design ? trafficModel(design, [k.hw, k.hl, k.hh]) : undefined;
+    // Each kind as the car design of the same id (every kind has one); car/traffic.ts's one-draw
+    // simple model if a new kind doesn't yet.
+    const detailed = trafficModel(k.id, [k.hw, k.hl, k.hh]);
     const parts = detailed ? detailed.map((p) => instanced(p.geometry, p.material, p.tint, p.ink, p.inkOnly)) : [instanced(simple.geos[k.id], simple.material, true)];
     return { parts, lamps: lampSpots(k.id) };
   });
@@ -136,8 +137,13 @@ export function buildWorldVisual(scene: Scene, sim: Sim, roof?: (x: number, z: n
   const trafficColor = (k: number) => TRAFFIC_COLORS[Math.floor(hash01(sim.seed, k, 9) * TRAFFIC_COLORS.length)];
 
   let lit = 0;
+  /** Per kind, the nearest drawn car's squared distance from the camera this frame (for the ink pass). */
+  const near2 = new Float64Array(TRAFFIC_KINDS.length);
+  const camNow = new Vector3();
   const drawTraffic = (k: number, v: number, pose: TrafficPose) => {
     const tr = sim.world.traffic;
+    const d2 = (pose.x - camNow.x) ** 2 + (pose.z - camNow.z) ** 2;
+    if (d2 < near2[tr.kind[k]]) near2[tr.kind[k]] = d2;
     e.position.set(pose.x, pose.y, pose.z);
     e.rotation.set(0, pose.h, 0);
     e.updateMatrix();
@@ -234,6 +240,8 @@ export function buildWorldVisual(scene: Scene, sim: Sim, roof?: (x: number, z: n
   }
 
   let cursor = sim.events.head;
+  /** The rain's clock: world time, so it hangs in the air while paused. */
+  let rainT = 0;
   return {
     update(dt, cam, time) {
       cursor = sim.events.read(cursor, onEvent);
@@ -248,6 +256,8 @@ export function buildWorldVisual(scene: Scene, sim: Sim, roof?: (x: number, z: n
         }
       }
       lit = 0;
+      camNow.copy(cam);
+      near2.fill(Infinity);
       tr.visibleNear(time, cam.x, cam.z, DRAW, drawTraffic);
       lamps.commit(lit);
 
@@ -276,13 +286,17 @@ export function buildWorldVisual(scene: Scene, sim: Sim, roof?: (x: number, z: n
         }
       }
       for (const d of debris) {
+        near2[d.kind] = Math.min(near2[d.kind], (d.x - cam.x) ** 2 + (d.z - cam.z) ** 2);
         e.position.set(d.x, d.y, d.z);
         e.rotation.set(d.rx, d.h, d.rz, 'YXZ');
         e.updateMatrix();
         put(d.kind, e.matrix.multiply(center.makeTranslation(0, -TRAFFIC_KINDS[d.kind].hh, 0)), d.color);
       }
-      for (const b of bodies) {
+      for (const [kind, b] of bodies.entries()) {
+        // Ink lines fade out well inside INK_NEAR: a kind with none that close skips the ink pass.
+        const inkNear = near2[kind] < INK_NEAR * INK_NEAR;
         for (const p of b.parts) {
+          p.solid.userData.inkNear = inkNear;
           commit(p.solid);
           if (p.ghost) commit(p.ghost);
           if (p.ghost?.visible) p.fade.needsUpdate = true;
@@ -326,7 +340,8 @@ export function buildWorldVisual(scene: Scene, sim: Sim, roof?: (x: number, z: n
       if (rain.visible) {
         const box = 60;
         const fall = 40;
-        const time = performance.now() / 1000;
+        rainT += dt;
+        const time = rainT;
         for (let d = 0; d < DROPS; d++) {
           const x = cam.x + (seeds[d * 3] - 0.5) * box;
           const z = cam.z + (seeds[d * 3 + 1] - 0.5) * box;

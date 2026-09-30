@@ -6,6 +6,7 @@ import { Ev, type GameEvent } from '../core/events';
 import { MPH } from '../core/math';
 import { positions } from '../core/rules/progress';
 import type { Sim } from '../core/sim';
+import type { InputDevice } from '../input/input';
 import { delta, fmt, ordinal } from './format';
 
 // Elements are looked up once, and text and transforms are written only when they change: the HUD
@@ -42,11 +43,16 @@ export class Hud {
   private gaugeCls = -1;
   private readonly order: number[] = [];
   focus = 0;
-  laps = 3;
   debugText = '';
+  /** The debug panel (F2) is up: main builds debugText only then. */
+  debugOn = false;
+  /** Numbers last formatted (toLocaleString is slow), and the drift stage last drawn. */
+  private shownScore = -1;
+  private shownChain = -1;
+  private shownStage = -1;
   /** The focus car's best lap before the one just finished (for the lap pop's delta). */
   private bestBefore = 0;
-  private device: 'keyboard' | 'gamepad' | 'touch' | '' = '';
+  private device: InputDevice | '' = '';
 
   constructor(private readonly sim: Sim) {
     document.body.insertAdjacentHTML(
@@ -105,13 +111,13 @@ export class Hud {
   }
 
   toggleDebug(): boolean {
-    return $('debug').classList.toggle('on');
+    return (this.debugOn = $('debug').classList.toggle('on'));
   }
 
   /** The controls for the device in use (pad glyphs once a pad is used), for the pause menu; dev keys in dev builds. */
   keys = '';
 
-  setDevice(device: 'keyboard' | 'gamepad' | 'touch'): void {
+  setDevice(device: InputDevice): void {
     if (device === this.device) return;
     this.device = device;
     const k = (s: string) => `<kbd>${s}</kbd>`;
@@ -139,7 +145,8 @@ export class Hud {
     $('lapBadge').classList.toggle('final', racing && laps > 1 && c.lap[i] + 1 >= laps && !c.finished[i]);
     text('time', c.finished[i] ? fmt(c.finishTime[i]) : racing ? fmt(Math.max(0, this.sim.time - this.sim.race.goTime)) : fmt(this.sim.time - c.lapStartTime[i]));
     text('best', c.bestLap[i] ? fmt(c.bestLap[i]) : '–');
-    text('score', Math.floor(c.score[i]).toLocaleString());
+    const score = Math.floor(c.score[i]);
+    if (score !== this.shownScore) text('score', (this.shownScore = score).toLocaleString());
     const mph = Math.hypot(c.vx[i], c.vz[i]) * MPH;
     text('spd', String(Math.round(mph)));
     if (c.cls[i] !== this.gaugeCls) this.drawGauge(c.cls[i]);
@@ -154,16 +161,19 @@ export class Hud {
     // The chain's points so far (a lone drift's own), the drifts in it, and the time left to link the next.
     const drifts = c.driftChain[i] + (drifting ? 1 : 0);
     $('drift').classList.toggle('on', drifting || c.chainT[i] > 0);
-    if (drifting || c.chainT[i] > 0) text('driftPts', Math.floor(c.chainPts[i]).toLocaleString());
-    if (drifting) {
-      const stage = c.driftStage[i];
-      ($('driftStage') as HTMLElement).style.display = TUNING.miniTurbo ? '' : 'none';
+    const chainPts = Math.floor(c.chainPts[i]);
+    if ((drifting || c.chainT[i] > 0) && chainPts !== this.shownChain) text('driftPts', (this.shownChain = chainPts).toLocaleString());
+    // The mini-turbo stage bars (hidden when that's off, the default).
+    const stage = TUNING.miniTurbo && drifting ? c.driftStage[i] : -1;
+    if (stage !== this.shownStage) {
+      this.shownStage = stage;
+      ($('driftStage') as HTMLElement).style.display = stage >= 0 ? '' : 'none';
       const bars = $('driftStage').children;
       for (let k = 0; k < 3; k++) bars[k].className = stage > k ? `s${stage}` : '';
     }
     text('driftChain', drifts >= 2 ? `chain ×${drifts}` : '');
     transform('chainFill', `scaleX(${drifting ? 1 : Math.max(0, c.chainT[i] / TUNING.chainWindow).toFixed(3)})`);
-    if ($('debug').classList.contains('on')) text('debug', this.debugText);
+    if (this.debugOn) text('debug', this.debugText);
   }
 
   private lastOncoming = -Infinity;

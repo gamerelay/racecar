@@ -16,6 +16,13 @@ import type { CarVisual, Skin, TrackVisual, WorldVisual } from './skin';
 import { Skids } from './skids';
 
 const STAGE_COLORS = [0xffffff, 0x35a8ff, 0xff8a1a, 0xff2e88];
+/** How many particles to emit this frame for `rate` a second: whole ones, and the fraction by chance (so it holds at any frame rate). */
+const emits = (rate: number, dt: number): number => {
+  const n = rate * dt;
+  return Math.floor(n) + (Math.random() < n % 1 ? 1 : 0);
+};
+/** Cars further from the camera than this (m) make no particles (they're in the fog, and would crowd out the near ones). */
+const FX_RANGE = 400;
 /** Skid marks: how far from the camera cars lay them (m), how wide, and the tint each multiplies the ground by. */
 const SKID_RANGE = 220;
 const SKID_WIDTH = 0.4;
@@ -44,7 +51,9 @@ export class GameRenderer {
   private trackVisual: TrackVisual;
   private worldVisual: WorldVisual;
   private cursor = 0;
+  /** Real seconds (post effects, blinking), and world seconds (scenery): slowed in slow-mo, stopped when paused. */
   private time = 0;
+  private worldTime = 0;
   private shake = 0;
   private impact = 0;
   private boostVis = 0;
@@ -187,17 +196,21 @@ export class GameRenderer {
       // Ghosted after a respawn: blink.
       if (cars.ghostT[i] > 0) v.root.visible = Math.floor(this.time * 12) % 2 === 0;
       if (!this.paused) {
-        this.carParticles(i, x, y, z, h, speed, dt);
+        if (Math.hypot(x - this.camera.position.x, z - this.camera.position.z) < FX_RANGE) this.carParticles(i, x, y, z, h, speed, dt);
         this.skidMarks(i, x, z, h, speed, fwd, braking[i] ?? false);
       }
     }
     this.fx.update(sdt);
-    this.skids.update(sdt);
+    const haze = this.scene.fog as Fog | null;
+    this.skids.update(sdt, haze?.near, haze?.far);
     this.updateCamera(dt);
     // The world is drawn at the same moment as the cars: between the last two ticks.
     this.worldVisual.update(sdt, this.camera.position, this.sim.time - (1 - alpha) * this.sim.dt * this.sim.timeScale);
-    this.trackVisual.update?.(this.time, dt, this.camera.position);
-    this.skin.update?.(this.time, this.camera.position.x, this.camera.position.y, this.camera.position.z, this.sim.wetness);
+    // Scenery (the city's cars, searchlights, birds, smoke) runs on world time: it stops when
+    // paused and slows in slow-mo, like everything else in the world.
+    this.worldTime += sdt;
+    this.trackVisual.update?.(this.worldTime, sdt, this.camera.position);
+    this.skin.update?.(this.worldTime, this.camera.position.x, this.camera.position.y, this.camera.position.z, this.sim.wetness);
 
     const u = this.post.uniforms;
     const fs = this.focusSpeed();
@@ -295,7 +308,7 @@ export class GameRenderer {
   private carParticles(i: number, x: number, y: number, z: number, h: number, speed: number, dt: number): void {
     const c = this.sim.cars;
     if (c.wreck[i]) {
-      if (Math.random() < dt * 20) this.fx.emit(x, y + 0.6, z, (Math.random() - 0.5) * 2, 2, (Math.random() - 0.5) * 2, 1.2, 0x554466, -1, 1);
+      for (let n = emits(20, dt); n > 0; n--) this.fx.emit(x, y + 0.6, z, (Math.random() - 0.5) * 2, 2, (Math.random() - 0.5) * 2, 1.2, 0x554466, -1, 1);
       return;
     }
     const fx = Math.sin(h);
@@ -311,12 +324,14 @@ export class GameRenderer {
       const grass = surf.id === 'grass';
       const rate = (grass ? 0.25 : 0.55) * speed * (sliding ? 2.2 : 1);
       for (let s = -1; s <= 1; s += 2) {
-        if (Math.random() > dt * rate) continue;
+        const n = emits(rate, dt);
+        if (!n) continue;
         const wx = x - fx * back + rx * s * cls.size[0];
         const wz = z - fz * back + rz * s * cls.size[0];
         const kick = speed * (grass ? 0.2 : 0.08);
-        if (grass) this.fx.emit(wx, y + 0.2, wz, -fx * kick + (Math.random() - 0.5) * 2, 2 + Math.random() * 2, -fz * kick + (Math.random() - 0.5) * 2, 0.5, 0x4d6a2e, 22, 0.5);
-        else this.fx.emit(wx, y + 0.35, wz, -fx * kick + (Math.random() - 0.5) * 2.5, 0.6 + Math.random() * 1.4, -fz * kick + (Math.random() - 0.5) * 2.5, 1.2 + Math.random() * 0.8, Math.random() < 0.5 ? 0xb39670 : 0x9c7f5a, -1.2, 2.2);
+        for (let e = 0; e < n; e++)
+          if (grass) this.fx.emit(wx, y + 0.2, wz, -fx * kick + (Math.random() - 0.5) * 2, 2 + Math.random() * 2, -fz * kick + (Math.random() - 0.5) * 2, 0.5, 0x4d6a2e, 22, 0.5);
+          else this.fx.emit(wx, y + 0.35, wz, -fx * kick + (Math.random() - 0.5) * 2.5, 0.6 + Math.random() * 1.4, -fz * kick + (Math.random() - 0.5) * 2.5, 1.2 + Math.random() * 0.8, Math.random() < 0.5 ? 0xb39670 : 0x9c7f5a, -1.2, 2.2);
       }
     }
     // Tire smoke while drifting, and while the slide carries on after it.
@@ -325,8 +340,8 @@ export class GameRenderer {
       for (let s = -1; s <= 1; s += 2) {
         const wx = x - fx * back + rx * s * cls.size[0];
         const wz = z - fz * back + rz * s * cls.size[0];
-        if (Math.random() < dt * 40) this.fx.emit(wx, y + 0.3, wz, (Math.random() - 0.5) * 2, 1.2, (Math.random() - 0.5) * 2, 0.9, 0x6a6080, -2, 2);
-        if (stage > 0 && Math.random() < dt * 60) {
+        for (let n = emits(40, dt); n > 0; n--) this.fx.emit(wx, y + 0.3, wz, (Math.random() - 0.5) * 2, 1.2, (Math.random() - 0.5) * 2, 0.9, 0x6a6080, -2, 2);
+        for (let n = stage > 0 ? emits(60, dt) : 0; n > 0; n--) {
           this.fx.emit(wx, y + 0.15, wz, (Math.random() - 0.5) * 5 - fx * 3, Math.random() * 3, (Math.random() - 0.5) * 5 - fz * 3, 0.25, STAGE_COLORS[stage], 20, 1);
         }
       }
@@ -335,9 +350,9 @@ export class GameRenderer {
       const color = c.miniT[i] > 0 ? STAGE_COLORS[c.miniStage[i]] : Math.random() < 0.5 ? 0xff7a1a : 0x35f0ff;
       for (let k = 0; k < 2; k++) {
         // About 60 a second from each pipe, whatever the frame rate.
-        if (Math.random() > dt * 60) continue;
         const s = k ? -0.4 : 0.4;
-        this.fx.emit(x - fx * (back + 0.5) + rx * s, y + 0.55, z - fz * (back + 0.5) + rz * s, -fx * speed * 0.3 + (Math.random() - 0.5), Math.random(), -fz * speed * 0.3 + (Math.random() - 0.5), 0.15 + Math.random() * 0.1, color, 0, 0);
+        for (let n = emits(60, dt); n > 0; n--)
+          this.fx.emit(x - fx * (back + 0.5) + rx * s, y + 0.55, z - fz * (back + 0.5) + rz * s, -fx * speed * 0.3 + (Math.random() - 0.5), Math.random(), -fz * speed * 0.3 + (Math.random() - 0.5), 0.15 + Math.random() * 0.1, color, 0, 0);
       }
     }
   }
@@ -361,7 +376,7 @@ export class GameRenderer {
     const back = cls.size[1] - 0.6;
     const [r, g, b] = surf?.id === 'grass' ? SKID_GRASS : surf?.offroad ? SKID_DIRT : SKID_ROAD;
     const alpha = sliding ? clamp(0.35 + slip * 0.8, 0.4, 0.8) : 0.35;
-    for (const side of [-1, 1]) {
+    for (let side = -1; side <= 1; side += 2) {
       const key = i * 2 + (side > 0 ? 1 : 0);
       if (!on) {
         this.skids.lift(key);

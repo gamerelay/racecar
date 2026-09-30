@@ -165,7 +165,7 @@ function frame(now: number): void {
     hud.update();
     raceUi.update();
     rumble();
-    hud.debugText = `fps ${renderer.fps.toFixed(0)}  draws ${renderer.drawCalls}\ntick ${sim.tick}  scale ${sim.timeScale.toFixed(2)}\ns ${sim.cars.s[me].toFixed(1)} lat ${sim.cars.lateral[me].toFixed(2)} spline ${sim.cars.spline[me]}\nslip ${sim.cars.slip[me].toFixed(2)} charge ${sim.cars.driftCharge[me].toFixed(2)}\nsurface ${SURFACES[sim.cars.surface[me]]?.id}  input ${input.lastDevice}\nlayout ${sim.track.layout.id} ${sim.track.version}  ${(sim.track.main.length / 1000).toFixed(2)} km`;
+    if (hud.debugOn) hud.debugText = `fps ${renderer.fps.toFixed(0)}  draws ${renderer.drawCalls}\ntick ${sim.tick}  scale ${sim.timeScale.toFixed(2)}\ns ${sim.cars.s[me].toFixed(1)} lat ${sim.cars.lateral[me].toFixed(2)} spline ${sim.cars.spline[me]}\nslip ${sim.cars.slip[me].toFixed(2)} charge ${sim.cars.driftCharge[me].toFixed(2)}\nsurface ${SURFACES[sim.cars.surface[me]]?.id}  input ${input.lastDevice}\nlayout ${sim.track.layout.id} ${sim.track.version}  ${(sim.track.main.length / 1000).toFixed(2)} km`;
     telemetry.frame(dt * 1000, renderer.fps, renderer.drawCalls, me);
   }
 }
@@ -191,7 +191,9 @@ input.on((a) => {
     return;
   }
   if (a === 'accept') return void (menu && accept(menu));
-  if (a === 'back') return void (paused && !document.getElementById('reportForm') && setPaused(false));
+  // The F8 form owns the controls while it's up: back closes it, nothing else gets through.
+  if (closeReport) return void (a === 'back' && closeReport());
+  if (a === 'back') return void (paused && setPaused(false));
   if (a === 'pause' && !editorOpen) setPaused(!paused);
   else if (a === 'report') openReport();
   else if (a === 'debug') {
@@ -226,7 +228,11 @@ function setPaused(on: boolean): void {
 }
 
 // ---- F8: something felt wrong ----
+/** Closes the F8 form, while it's open. */
+let closeReport: (() => void) | null = null;
+
 function openReport(): void {
+  if (closeReport) return;
   const wasPaused = paused;
   paused = true;
   input.suspended = true;
@@ -242,11 +248,20 @@ function openReport(): void {
   field.focus();
   const close = () => {
     wrap.remove();
+    closeReport = null;
     input.suspended = false;
     paused = wasPaused;
     last = performance.now();
   };
+  closeReport = close;
   (wrap.querySelector('#rCancel') as HTMLButtonElement).onclick = close;
+  // Keys are the form's while it's up (input is suspended), so Esc closes it here.
+  wrap.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      close();
+    }
+  });
   form.onsubmit = async (e) => {
     e.preventDefault();
     const report = telemetry.report(field.value, me);
@@ -262,12 +277,18 @@ function openReport(): void {
   };
 }
 
-export function toast(text: string): void {
-  const t = document.createElement('div');
-  t.className = 'toast';
-  t.textContent = text;
-  document.body.appendChild(t);
-  setTimeout(() => t.remove(), 3000);
+/** A note at the top of the screen for 3 s; a new one replaces the last rather than stacking on it. */
+let toastEl: HTMLElement | null = null;
+let toastTimer = 0;
+function toast(text: string): void {
+  if (!toastEl) {
+    toastEl = document.createElement('div');
+    toastEl.className = 'toast';
+  }
+  toastEl.textContent = text;
+  document.body.appendChild(toastEl);
+  clearTimeout(toastTimer);
+  toastTimer = window.setTimeout(() => toastEl?.remove(), 3000);
 }
 
 // ---- the editor (dev builds) ----

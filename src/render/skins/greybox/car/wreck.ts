@@ -59,6 +59,8 @@ const shardGeo = (() => {
 })();
 const glassShardMat = new MeshBasicMaterial({ color: 0xcdefff, side: DoubleSide });
 export const crackedGlass = new MeshBasicMaterial({ color: 0x9fb8ea });
+/** Module-level wreck resources every car shares (never freed with one car). */
+export const WRECK_SHARED: readonly unknown[] = [shardGeo, glassShardMat, crackedGlass];
 
 /** Stable per-vertex noise in [−1, 1] from a position, so coincident vertices move together. */
 function hash(x: number, y: number, z: number, s: number): number {

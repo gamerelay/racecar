@@ -127,8 +127,8 @@ export class RaceUi {
 
   private readonly onEvent = (e: GameEvent): void => {
     if (e.type === Ev.RaceStart) {
+      // (update() hides the lights a second after green.)
       this.lights.innerHTML = `<div class="lamps"><i class="go"></i><i class="go"></i><i class="go"></i></div><b>GO</b>`;
-      setTimeout(() => (this.lights.className = 'hud'), 900);
     }
     if (e.type === Ev.Finish && e.car === this.focus && !this.shown && this.resultsOn) {
       this.shown = true;

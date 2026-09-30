@@ -160,8 +160,10 @@ export class PostPass {
         float ca=0.0012+0.005*uBoost+0.012*uImpact;
         vec3 col=vec3(0.0);
         float n=0.0;
+        // No blur here (the middle of the screen, or not going fast): one tap, not uTaps.
+        int taps=blur<1e-4?1:uTaps;
         for(int i=0;i<12;i++){
-          if(i>=uTaps)break;
+          if(i>=taps)break;
           float s=1.0-blur*float(i)/float(uTaps);
           col.r+=texture2D(tDiffuse,0.5+c*s*(1.0+ca)).r;
           col.g+=texture2D(tDiffuse,0.5+c*s).g;

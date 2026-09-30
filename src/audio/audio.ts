@@ -86,6 +86,9 @@ export class GameAudio {
     window.addEventListener('pointerdown', unlock);
     document.addEventListener('visibilitychange', () => {
       this.hidden = document.hidden;
+      // A hidden tab runs no frames, so update() can't do this: suspend here, and update()
+      // resumes when frames come back.
+      if (this.hidden) void this.g?.ctx.suspend();
     });
   }
 
@@ -181,7 +184,8 @@ export class GameAudio {
       this.cursor = this.sim.events.head;
       return;
     }
-    const quiet = f.paused || this.hidden;
+    // Muted, or paused, or away: nothing to hear, so nothing runs.
+    const quiet = f.paused || this.hidden || this.settings.muted;
     if (quiet !== (g.ctx.state === 'suspended')) void (quiet ? g.ctx.suspend() : g.ctx.resume());
     if (quiet) return;
     const now = g.ctx.currentTime;
@@ -271,7 +275,7 @@ export class GameAudio {
     const racing = sim.race.phase === 'racing' && !c.finished[i];
     const finalLap = racing && sim.race.laps > 1 && c.lap[i] === sim.race.laps - 1;
     g.music.intensity = (f.menu || !racing ? 0 : finalLap ? 2 : 1) as Intensity;
-    g.music.update();
+    if (this.settings.music) g.music.update();
     glide(g.musicLevel.gain, this.settings.music ? 0.5 : 0, now, 0.3);
     // Muffled behind the menu and in slow-mo.
     glide(g.musicTone.frequency, f.menu ? 1400 : sim.timeScale < 0.9 ? 550 : 12000, now, 0.15);

@@ -103,8 +103,11 @@ export interface Shot {
   pan: number;
 }
 
-/** The end of every one-shot: a gain with an envelope and a panner, torn down when it's done. */
-function shotOut(s: Shot, attack: number, decay: number, when = s.ctx.currentTime): GainNode {
+/**
+ * The end of every one-shot: a gain with an envelope and a panner, torn down when `src` ends (on
+ * the audio clock, so a pause, which suspends it, doesn't cut sounds short).
+ */
+function shotOut(s: Shot, src: AudioScheduledSourceNode, attack: number, decay: number, when = s.ctx.currentTime): GainNode {
   const g = s.ctx.createGain();
   const p = s.ctx.createStereoPanner();
   p.pan.value = s.pan;
@@ -113,7 +116,7 @@ function shotOut(s: Shot, attack: number, decay: number, when = s.ctx.currentTim
   g.gain.exponentialRampToValueAtTime(0.0001, when + attack + decay);
   g.connect(p).connect(s.bus);
   // Disconnect when finished so the graph doesn't grow.
-  setTimeout(() => p.disconnect(), (when - s.ctx.currentTime + attack + decay + 0.1) * 1000);
+  src.onended = () => p.disconnect();
   return g;
 }
 
@@ -126,7 +129,7 @@ export function noiseShot(s: Shot, type: BiquadFilterType, f0: number, f1: numbe
   f.Q.value = q;
   f.frequency.setValueAtTime(f0, when);
   f.frequency.exponentialRampToValueAtTime(Math.max(20, f1), when + attack + decay);
-  src.connect(f).connect(shotOut(s, attack, decay, when));
+  src.connect(f).connect(shotOut(s, src, attack, decay, when));
   src.start(when, Math.random() * 1.5);
   src.stop(when + attack + decay + 0.05);
 }
@@ -137,7 +140,7 @@ export function toneShot(s: Shot, wave: Wave, f0: number, f1: number, attack: nu
   o.type = wave;
   o.frequency.setValueAtTime(f0, when);
   if (f1 !== f0) o.frequency.exponentialRampToValueAtTime(Math.max(20, f1), when + attack + decay);
-  o.connect(shotOut(s, attack, decay, when));
+  o.connect(shotOut(s, o, attack, decay, when));
   o.start(when);
   o.stop(when + attack + decay + 0.05);
 }

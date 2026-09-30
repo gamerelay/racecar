@@ -18,6 +18,9 @@ export class Particles {
   private readonly grav = new Float32Array(MAX);
   private readonly geo = new BufferGeometry();
   private head = 0;
+  /** Particles alive after the last update, and whether any were emitted since: none of either, nothing to do. */
+  private alive = 0;
+  private emitted = false;
   private readonly tmp = new Color();
 
   constructor() {
@@ -43,6 +46,7 @@ export class Particles {
   emit(x: number, y: number, z: number, vx: number, vy: number, vz: number, life: number, color: number, gravity = 22, drag = 0.5): void {
     const i = this.head;
     this.head = (this.head + 1) % MAX;
+    this.emitted = true;
     const j = i * 3;
     this.pos[j] = x;
     this.pos[j + 1] = y;
@@ -68,8 +72,13 @@ export class Particles {
   }
 
   update(dt: number): void {
+    // Paused (nothing moves) or empty: no work, no upload.
+    if (dt === 0 || (this.alive === 0 && !this.emitted)) return;
+    this.emitted = false;
+    let alive = 0;
     for (let i = 0; i < MAX; i++) {
       if (this.life[i] <= 0) continue;
+      alive++;
       const j = i * 3;
       this.life[i] -= dt;
       const k = Math.max(0, 1 - this.drag[i] * dt);
@@ -85,6 +94,7 @@ export class Particles {
       this.col[j + 2] = this.base[j + 2] * f;
       if (this.life[i] <= 0) this.pos[j + 1] = -1e4;
     }
+    this.alive = alive;
     (this.geo.attributes.position as BufferAttribute).needsUpdate = true;
     (this.geo.attributes.color as BufferAttribute).needsUpdate = true;
   }

@@ -97,8 +97,10 @@ export class InkPass {
     list.length = 0;
     for (const m of marked) {
       const e = m.matrixWorld.elements;
-      // Instanced debris sits at the world origin; its instances are wherever the wreck was.
-      if ((m as { isInstancedMesh?: boolean }).isInstancedMesh || (e[12] - cam.x) ** 2 + (e[13] - cam.y) ** 2 + (e[14] - cam.z) ** 2 < FAR * FAR) list.push(m);
+      // An instanced mesh (traffic, debris) sits at the world origin with its instances anywhere:
+      // its owner says whether any are near (userData.inkNear), else it's inked.
+      const near = (m as { isInstancedMesh?: boolean }).isInstancedMesh ? m.userData.inkNear !== false : (e[12] - cam.x) ** 2 + (e[13] - cam.y) ** 2 + (e[14] - cam.z) ** 2 < FAR * FAR;
+      if (near) list.push(m);
     }
     this.saved.length = 0;
     for (const m of list) {

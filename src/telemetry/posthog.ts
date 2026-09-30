@@ -1,7 +1,7 @@
 // PostHog sink for playtest and production builds (SPEC §14). Anonymous: a random id kept in
 // localStorage, no names. Off unless VITE_POSTHOG_KEY is set at build time, and players can turn
-// it off (Settings, or localStorage racecar.telemetry = "off"). Records are batched: at most one
-// request every 10 s, plus one on page hide. Per-tick traces never go here.
+// it off (localStorage racecar.telemetry = "off"; setTelemetryOptOut is for a settings screen). At most one
+// batched request every 10 s, plus one on page hide. Per-tick traces never go here.
 
 import type { Record } from './telemetry';
 

@@ -6,7 +6,7 @@
 import type { Controls } from '../core/controls';
 import { approach, clamp } from '../core/math';
 
-export type SystemAction = 'pause' | 'report' | 'editor' | 'debug' | 'tuning' | 'camera' | 'ink' | 'mute' | 'music' | MenuAction;
+export type SystemAction = 'pause' | 'report' | 'editor' | 'debug' | 'tuning' | 'ink' | 'mute' | 'music' | MenuAction;
 /** In a menu (menuOpen): move focus, press the focused control, or back out. */
 export type MenuAction = 'nav-up' | 'nav-down' | 'nav-left' | 'nav-right' | 'accept' | 'back';
 
@@ -40,7 +40,6 @@ const SYSTEM: Record<string, SystemAction> = {
   F2: 'debug',
   F4: 'tuning',
   F6: 'ink',
-  KeyV: 'camera',
   KeyM: 'mute',
   KeyN: 'music',
 };
@@ -64,7 +63,7 @@ export class Input {
   constructor() {
     window.addEventListener('keydown', (e) => {
       // Browser and OS shortcuts (Cmd+R, Ctrl+Tab…) are theirs, not a reset or a steer.
-      if (this.suspended || isTyping(e) || e.metaKey || e.ctrlKey || e.altKey) return;
+      if (this.suspended || isTyping(e, this.menuOpen) || e.metaKey || e.ctrlKey || e.altKey) return;
       if (this.menuOpen && MENU_KEYS[e.code]) {
         e.preventDefault();
         this.fire(MENU_KEYS[e.code]);
@@ -76,6 +75,8 @@ export class Input {
         this.fire(sys);
         return;
       }
+      // In a menu, the rest are the page's: Space and Enter press the focused button.
+      if (this.menuOpen) return;
       const k = KEYS[e.code];
       if (k) {
         held[k] = true;
@@ -178,7 +179,7 @@ export class Input {
         this.fire(Math.abs(ax) > Math.abs(ay) ? (ax > 0 ? 'nav-right' : 'nav-left') : ay > 0 ? 'nav-down' : 'nav-up');
       } else if (Math.max(Math.abs(ax), Math.abs(ay)) < 0.3) this.stickNavAt = 0;
     }
-    this.prevButtons = pad.buttons.map((x) => x.pressed);
+    for (let k = 0; k < pad.buttons.length; k++) this.prevButtons[k] = pad.buttons[k].pressed;
   }
 
   private pad(): Gamepad | null {
@@ -196,7 +197,8 @@ export class Input {
   }
 }
 
-function isTyping(e: KeyboardEvent): boolean {
+/** Keys for a text field (and a dropdown outside the menus: in them, arrows move between controls). */
+function isTyping(e: KeyboardEvent, menuOpen: boolean): boolean {
   const t = e.target as HTMLElement | null;
-  return !!t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT' || t.isContentEditable);
+  return !!t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || (t.tagName === 'SELECT' && !menuOpen) || t.isContentEditable);
 }
