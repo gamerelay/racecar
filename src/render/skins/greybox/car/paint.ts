@@ -13,29 +13,58 @@ const LIVERIES: Livery[] = ['none', 'stripes', 'flash', 'band', 'rally', 'police
 
 const FINISH = { matte: 0, gloss: 1, metallic: 2, pearl: 3, chrome: 4 } as const;
 
-/** `band`: the band livery's height range, for bodies that aren't car height. */
-export function carPaint(paint: PaintDef, livery: Livery, band: [number, number] = [0.82, 1.0]): MeshToonMaterial {
+/** Seven-segment masks (bits a–g), 0–9: the rally number's digit. */
+const DIGITS = [0x3f, 0x06, 0x5b, 0x4f, 0x66, 0x6d, 0x7d, 0x07, 0x7f, 0x6f];
+
+/** The door number for a paint: 1–9 from its id, so each paint keeps its own. */
+export function rallyNumber(paint: PaintDef): number {
+  let h = 7;
+  for (const ch of paint.id) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
+  return 1 + (h % 9);
+}
+
+/**
+ * `band`: the band livery's height range, for bodies that aren't car height. `glint`: glass, with a
+ * banded sky reflection and the highlight as diagonal streaks, so a flat pane never lights up whole.
+ */
+export function carPaint(paint: PaintDef, livery: Livery, band: [number, number] = [0.82, 1.0], glint = false): MeshToonMaterial {
   const chrome = paint.finish === 'chrome';
   const mat = toon({ color: chrome ? 0x8a8fa8 : paint.color });
+  // A band with no second color still shows: a light band on a dark paint, a dark one on a light paint.
+  const base = new Color(paint.color);
+  const second = paint.secondary ? new Color(paint.secondary) : base.getHSL({ h: 0, s: 0, l: 0 }).l > 0.45 ? base.clone().lerp(new Color(0x16121f), 0.7) : base.clone().lerp(new Color(0xf5f1ff), 0.75);
   const uniforms = {
     uFinish: { value: FINISH[paint.finish] ?? 1 },
-    // Rally numbers and police colors go on whatever the paint; the rest need a second color.
-    uLivery: { value: paint.secondary || livery === 'rally' || livery === 'police' ? LIVERIES.indexOf(livery) : 0 },
-    uLiveryColor: { value: new Color(paint.secondary ?? paint.color) },
-    uPaint: { value: new Color(paint.color) },
+    // Rally numbers, police colors and bands go on whatever the paint; stripes and flashes need a second color.
+    uLivery: { value: paint.secondary || livery === 'rally' || livery === 'police' || livery === 'band' ? LIVERIES.indexOf(livery) : 0 },
+    uLiveryColor: { value: second },
+    uPaint: { value: base },
     uBand: { value: new Vector2(...band) },
+    uDigit: { value: DIGITS[rallyNumber(paint)] },
+    uGlint: { value: glint ? 1 : 0 },
   };
   mat.onBeforeCompile = (shader) => {
     Object.assign(shader.uniforms, uniforms);
     shader.vertexShader = shader.vertexShader
-      .replace('#include <common>', '#include <common>\nvarying vec3 vObjPos;varying vec3 vObjN;')
-      .replace('#include <begin_vertex>', '#include <begin_vertex>\nvObjPos=position;vObjN=normal;');
+      .replace('#include <common>', '#include <common>\nvarying vec3 vObjPos;varying vec3 vObjN;varying vec3 vBentN;')
+      .replace(
+        '#include <begin_vertex>',
+        `#include <begin_vertex>
+        vObjPos=position;vObjN=normal;
+        // The highlight's normal, bowed a little with position: a flat panel shades as if gently
+        // curved, so the glint lands on part of it instead of lighting the whole face at once.
+        vec3 bent=normal+position*vec3(0.1,0.14,0.06);
+        #ifdef USE_INSTANCING
+          bent=mat3(instanceMatrix)*bent;
+        #endif
+        vBentN=normalize(normalMatrix*bent);`,
+      );
     shader.fragmentShader = shader.fragmentShader
       .replace(
         '#include <common>',
         `#include <common>
-        varying vec3 vObjPos;varying vec3 vObjN;
-        uniform int uFinish,uLivery;uniform vec3 uLiveryColor,uPaint;uniform vec2 uBand;
+        varying vec3 vObjPos;varying vec3 vObjN;varying vec3 vBentN;
+        uniform int uFinish,uLivery,uDigit;uniform float uGlint;uniform vec3 uLiveryColor,uPaint;uniform vec2 uBand;
         float liveryMask(){
           vec3 p=vObjPos;vec3 n=normalize(vObjN);
           float side=step(0.7,abs(n.x));
@@ -75,27 +104,32 @@ export function carPaint(paint: PaintDef, livery: Livery, band: [number, number]
           if(n.y>0.85&&p.y>1.2)return white;
           return dark;
         }
-        // A seven-segment 7 in a (u, v) box of ±1.
-        float seven(vec2 q){
-          float t=0.2;
-          float a=step(abs(q.y-0.85),t)*step(abs(q.x),0.62);
-          // The stem: a stroke raked from the top right corner down to the bottom middle.
-          vec2 s0=vec2(0.55,0.85);vec2 s1=vec2(-0.1,-0.95);
-          vec2 e=s1-s0;float h=clamp(dot(q-s0,e)/dot(e,e),0.0,1.0);
-          float b=step(length(q-s0-e*h),t);
-          return max(a,b);
+        // A seven-segment digit (uDigit's bits a–g) in a (u, v) box of ±1, raked like a race number.
+        float bar(vec2 q,vec2 c,vec2 h){vec2 d=abs(q-c)-h;return step(max(d.x,d.y),0.0);}
+        float digit(vec2 q){
+          q.x-=q.y*0.18;
+          float t=0.17;float w=0.5;float v=0.42;
+          float m=0.0;
+          if((uDigit&1)!=0)m=max(m,bar(q,vec2(0.0,0.84),vec2(w,t)));
+          if((uDigit&2)!=0)m=max(m,bar(q,vec2(w,v),vec2(t,v)));
+          if((uDigit&4)!=0)m=max(m,bar(q,vec2(w,-v),vec2(t,v)));
+          if((uDigit&8)!=0)m=max(m,bar(q,vec2(0.0,-0.84),vec2(w,t)));
+          if((uDigit&16)!=0)m=max(m,bar(q,vec2(-w,-v),vec2(t,v)));
+          if((uDigit&32)!=0)m=max(m,bar(q,vec2(-w,v),vec2(t,v)));
+          if((uDigit&64)!=0)m=max(m,bar(q,vec2(0.0,0.0),vec2(w,t)));
+          return m;
         }
-        // Rally numbers: a white roundel on each door and a panel on the roof, each with a 7.
+        // Rally numbers: a white roundel on each door and a panel on the roof, each with the paint's digit.
         vec3 rallyNumbers(vec3 c){
           vec3 p=vObjPos;vec3 n=normalize(vObjN);
           vec3 ink=vec3(0.086,0.07,0.12);
           if(abs(n.x)>0.7){
             vec2 q=vec2(-sign(p.x)*(p.z-0.25),p.y-0.7)/0.22;
             float r=length(q);
-            if(r<1.0)c=mix(vec3(0.96,0.95,1.0),ink,max(step(0.88,r),seven(q*1.45)));
+            if(r<1.0)c=mix(vec3(0.96,0.95,1.0),ink,max(step(0.88,r),digit(q*1.45)));
           }else if(n.y>0.85&&p.y>1.3){
             vec2 q=vec2(-p.x,p.z+0.85)/vec2(0.3,0.42);
-            if(max(abs(q.x),abs(q.y))<1.0)c=mix(vec3(0.96,0.95,1.0),ink,seven(q*vec2(1.25,1.2)));
+            if(max(abs(q.x),abs(q.y))<1.0)c=mix(vec3(0.96,0.95,1.0),ink,digit(q*vec2(1.25,1.2)));
           }
           return c;
         }`,
@@ -105,7 +139,7 @@ export function carPaint(paint: PaintDef, livery: Livery, band: [number, number]
         '#include <opaque_fragment>',
         `{
           vec3 V=normalize(vViewPosition);
-          vec3 N=normalize(normal);
+          vec3 N=normalize(gl_FrontFacing?vBentN:-vBentN);
           vec3 L=normalize(vec3(-0.3,0.75,0.55));
           #if NUM_DIR_LIGHTS > 0
             L=normalize(directionalLights[0].direction+vec3(0.0,0.6,0.0));
@@ -113,7 +147,23 @@ export function carPaint(paint: PaintDef, livery: Livery, band: [number, number]
           float s=max(dot(N,normalize(L+V)),0.0);
           float fres=1.0-max(dot(N,V),0.0);
           vec3 base=diffuseColor.rgb;
-          if(uFinish==1){
+          if(uGlint>0.0){
+            // Glass: toon chrome, darker and tinted: dark ground below the reflected horizon, a pale
+            // glass-blue sky over it fading to deep blue overhead, a hot streak on the horizon, and a
+            // lift at grazing angles. Where it faces the light, a raked glint (a wide streak and a thin
+            // one) instead of one flat block.
+            vec3 r=inverseTransformDirection(reflect(-V,N),viewMatrix);
+            // Bands spaced for raked glass too, whose reflections mostly look up into the sky.
+            vec3 sky=mix(base*1.9+vec3(0.08,0.1,0.18),base*1.4+vec3(0.02,0.03,0.08),step(0.28,r.y));
+            sky=mix(sky,base*1.05,step(0.58,r.y));
+            vec3 c=mix(base*0.4,sky,step(0.0,r.y));
+            c=mix(c,vec3(0.82,0.88,1.0),step(abs(r.y-0.13),0.035)*0.85);
+            c+=vec3(0.18,0.22,0.36)*step(0.65,fres);
+            outgoingLight=c*(0.7+0.3*outgoingLight/max(base,vec3(0.05)));
+            float q=fract((vObjPos.x*0.7+vObjPos.y*1.1+vObjPos.z*0.25)*1.3);
+            float streak=step(q,0.2)+step(abs(q-0.33),0.035);
+            outgoingLight+=vec3(0.9,0.93,1.0)*step(0.94,s)*streak*0.3;
+          }else if(uFinish==1){
             outgoingLight+=mix(base,vec3(1.0),0.7)*step(0.985,s)*0.5;
             outgoingLight+=base*step(0.75,fres)*0.25;
           }else if(uFinish==2){
