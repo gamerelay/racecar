@@ -104,7 +104,7 @@ export class Hud {
     const laps = this.sim.race.laps;
     text('lap', `${Math.min(laps, c.lap[i] + 1)}/${laps}`);
     const racing = this.sim.race.phase !== 'free';
-    text('time', c.finished[i] ? fmt(c.finishTime[i]) : racing ? fmt(Math.max(0, this.sim.time - this.sim.race.goTime)) : fmt((this.sim.tick - c.lapStartTick[i]) * this.sim.dt));
+    text('time', c.finished[i] ? fmt(c.finishTime[i]) : racing ? fmt(Math.max(0, this.sim.time - this.sim.race.goTime)) : fmt(this.sim.time - c.lapStartTime[i]));
     text('best', c.bestLap[i] ? fmt(c.bestLap[i]) : '–');
     text('score', Math.floor(c.score[i]).toLocaleString());
     const mph = Math.hypot(c.vx[i], c.vz[i]) * MPH;

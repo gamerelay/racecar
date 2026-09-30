@@ -15,7 +15,7 @@ export const CAR_FIELDS = [
   // where on the track
   'spline', 's', 'lateral', 'surface', 'junctionFree', 'lastSpline', 'lastS', 'lastLat',
   // race
-  'lap', 'nextCp', 'progress', 'lapStartTick', 'bestLap', 'lastLap', 'score', 'driftChain', 'chainT', 'lastHitBy', 'lastHitT',
+  'lap', 'nextCp', 'progress', 'lapStartTime', 'bestLap', 'lastLap', 'score', 'driftChain', 'chainT', 'lastHitBy', 'lastHitT',
   'finished', 'finishTime', 'place', 'takedowns', 'wrecks', 'lastTakenBy',
   // AI: the lateral line it has committed to round something, and for how long (s).
   'aiLat', 'aiHold',

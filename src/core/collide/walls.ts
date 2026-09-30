@@ -2,7 +2,7 @@
 // layout opens a gap (and where branches leave and rejoin). A car's reach toward a wall is its
 // box's lateral extent, so a car sliding sideways hits sooner than one driving straight.
 
-import { wreckCar } from '../car/physics';
+import { cancelDrift, recentAttacker, wreckCar } from '../car/physics';
 import { TUNING as T } from '../car/tuning';
 import { Cause, Ev } from '../events';
 import type { SimState } from '../state';
@@ -50,13 +50,8 @@ export function collideWalls(sim: SimState, i: number): void {
   const pz = cars.z[i] + oz * reach;
   // One event per knock, not one per tick of grinding along the wall.
   if (vOut > 2 || (fresh && vOut > 0.5)) sim.events.push(sim.tick, Ev.WallHit, i, px, cars.y[i] + 0.5, pz, vOut, side);
-  if (cars.drift[i] && vOut > 6) {
-    cars.drift[i] = 0;
-    cars.driftChain[i] = 0;
-    sim.events.push(sim.tick, Ev.DriftEnd, i, cars.x[i], cars.y[i], cars.z[i], cars.driftT[i], 0);
-  }
+  if (cars.drift[i] && vOut > 6) cancelDrift(sim, i);
   if (vOut > T.wallWreck && cars.ghostT[i] <= 0) {
-    const by = cars.lastHitT[i] > 0 && sim.tick - cars.lastHitT[i] < 60 ? cars.lastHitBy[i] : -1;
-    wreckCar(sim, i, Cause.Wall, -ox * vOut * 0.3, -oz * vOut * 0.3, by);
+    wreckCar(sim, i, Cause.Wall, -ox * vOut * 0.3, -oz * vOut * 0.3, recentAttacker(sim, i, 60));
   }
 }

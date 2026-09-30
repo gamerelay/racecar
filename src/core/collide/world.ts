@@ -6,7 +6,7 @@
 // flipped between last tick and this one, and both positions are known (the car's from the pool,
 // the traffic car's from its formula at t − dt).
 
-import { wreckCar } from '../car/physics';
+import { recentAttacker, wreckCar } from '../car/physics';
 import { TUNING as T } from '../car/tuning';
 import { Cause, Ev } from '../events';
 import type { SimState } from '../state';
@@ -85,7 +85,7 @@ export function collideWorld(sim: SimState, i: number, ctx: WorldCtx): void {
     } else if (closing > T.trafficWreck) {
       traffic.wreckedAt[k] = ctx.t;
       sim.events.push(tick, Ev.TrafficWreck, i, traffic.x[p], traffic.y[p], traffic.z[p], closing, 0, k);
-      const by = c.lastHitT[i] > 0 && tick - c.lastHitT[i] < 45 ? c.lastHitBy[i] : -1;
+      const by = recentAttacker(sim, i, 45);
       wreckCar(sim, i, Cause.Traffic, -contact.nx * closing * 0.3, -contact.nz * closing * 0.3, by);
     } else {
       sim.events.push(tick, Ev.CarContact, i, contact.x, c.y[i] + 0.6, contact.z, closing, 0, -1);
@@ -101,9 +101,11 @@ export function collideWorld(sim: SimState, i: number, ctx: WorldCtx): void {
     // Only where that lane has traffic: an empty street's wrong side is just a road.
     if (best.dir < 0 && Math.abs(best.pos - frac) < 0.5 && laneActive(best, c.s[i])) {
       if (c.oncomingT[i] === 0) sim.events.push(tick, Ev.Oncoming, i, c.x[i], c.y[i], c.z[i]);
-      c.oncomingT[i] += sim.dt;
-      c.boost[i] = Math.min(1, c.boost[i] + T.boostFromOncoming * sim.dt);
-      c.score[i] += 80 * sim.dt;
+      // Scaled time, like the physics: slow-mo doesn't pay out at full rate.
+      const dt = sim.dt * sim.timeScale;
+      c.oncomingT[i] += dt;
+      c.boost[i] = Math.min(1, c.boost[i] + T.boostFromOncoming * dt);
+      c.score[i] += 80 * dt;
     } else c.oncomingT[i] = 0;
   } else c.oncomingT[i] = 0;
 
@@ -140,7 +142,7 @@ export function collideWorld(sim: SimState, i: number, ctx: WorldCtx): void {
     if (closing <= 0.5 || c.wreck[i]) continue;
     c.wallT[i] = 0.3;
     if (closing > T.wallWreck && !ghost) {
-      const by = c.lastHitT[i] > 0 && tick - c.lastHitT[i] < 60 ? c.lastHitBy[i] : -1;
+      const by = recentAttacker(sim, i, 60);
       wreckCar(sim, i, Cause.Prop, -contact.nx * closing * 0.3, -contact.nz * closing * 0.3, by);
     } else sim.events.push(tick, Ev.WallHit, i, contact.x, c.y[i] + 0.5, contact.z, closing, 0);
   }
