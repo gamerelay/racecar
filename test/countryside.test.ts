@@ -77,11 +77,11 @@ describe('countryside (Valley)', () => {
     let wrecks = 0;
     const seeds = [1, 2, 3, 4, 5, 6, 7, 8];
     for (const seed of seeds) {
-      const r = lapReport('backroads/valley', valley as TrackLayout, 'coupe', { field: true, seed });
+      const r = lapReport('backroads/valley', layout, 'coupe', { field: true, seed });
       expect(r.finished, `seed ${seed}`).toBe(true);
       wrecks += r.wrecks.length;
     }
     expect(wrecks / seeds.length).toBeLessThanOrEqual(1.5);
-    expect((valley as TrackLayout).hazards!.some((h) => h.use === 'falling-sign')).toBe(false);
+    expect(layout.hazards!.some((h) => h.use === 'falling-sign')).toBe(false);
   }, 30_000);
 });
