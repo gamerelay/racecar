@@ -157,7 +157,8 @@ describe('Paradise (Island)', () => {
       wrecks += r.wrecks.length;
     }
     expect(wrecks / seeds.length).toBeLessThanOrEqual(1.5);
-  });
+    // Eight field races: a few seconds, past bun's 5 s default on CI's slower machines.
+  }, 30_000);
 
   test('the hazards: volcano bombs on the rim where the Lava Tube skips them, coconuts on the beach road', () => {
     const bombs = island.hazards!.find((h) => h.use === 'volcano-bombs')!;
