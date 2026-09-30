@@ -3,6 +3,7 @@
 
 import { LANDMARK_KINDS, type CarClass, type SurfaceDef, type TrackLayout } from '../content';
 import { KINDS } from '../world/hazards';
+import { SMASH_IDS } from '../world/smash';
 import { bakeTrack, sampleIndex, wrap } from './bake';
 
 export interface Problem {
@@ -135,6 +136,11 @@ export function validateLayout(layout: TrackLayout, surfaces: SurfaceDef[], clas
   if (track.checkpoints.length < 5) warn(`only ${track.checkpoints.length} checkpoints after moving them off shortcuts; list them in "checkpoints"`);
   for (const r of layout.ramps ?? []) if (r.s < 0 || r.s > L) err(`ramp at ${r.s} is off the main spline (0–${L.toFixed(0)})`);
   for (const z of layout.zones ?? []) if (z.s[0] < 0 || z.s[1] > L) warn(`zone ${z.surface} runs past the spline's length`);
+  for (const d of layout.smashables ?? []) {
+    if (!SMASH_IDS.includes(d.kind)) err(`smashables: unknown kind "${d.kind}"`);
+    else if (!(d.every >= 2)) err(`smashables ${d.kind}: "every" must be at least 2 m`);
+    else if (d.spline && !(layout.branches ?? []).some((b) => b.id === d.spline)) err(`smashables ${d.kind}: no branch "${d.spline}"`);
+  }
   // Landmarks stand clear of every road (to the back of its wall), by their footprint.
   for (const m of layout.landmarks ?? []) {
     if (!(LANDMARK_KINDS as readonly string[]).includes(m.kind)) {

@@ -13,6 +13,7 @@ import { hash01 } from '../rng';
 import type { SimState } from '../state';
 import { mainDistance, signedGap } from '../track/bake';
 import { Solid, type Hazards } from '../world/hazards';
+import { SMASH_KINDS, type Smashables } from '../world/smash';
 import { laneActive, TRAFFIC_KINDS, type Traffic } from '../world/traffic';
 import { newContact, obbOverlap } from './obb';
 
@@ -21,6 +22,7 @@ const contact = newContact();
 export interface WorldCtx {
   traffic: Traffic;
   hazards: Hazards;
+  smash: Smashables;
   /** Race time now and last tick. */
   t: number;
   tPrev: number;
@@ -92,6 +94,32 @@ export function collideWorld(sim: SimState, i: number, ctx: WorldCtx): void {
       wreckCar(sim, i, Cause.Traffic, -contact.nx * closing * 0.3, -contact.nz * closing * 0.3, by);
     } else {
       sim.events.push(tick, Ev.CarContact, i, contact.x, c.y[i] + 0.6, contact.z, closing, 0, -1);
+    }
+  }
+
+  // ---- smashables: a car through one bursts it (a respawning ghost goes through) ----
+  if (!ghost) {
+    const sm = ctx.smash;
+    const sp = sim.track.splines[c.spline[i]];
+    const fx = Math.sin(c.h[i]);
+    const fz = Math.cos(c.h[i]);
+    for (let k = 0; k < sm.n; k++) {
+      if (sm.spline[k] !== c.spline[i]) continue;
+      const ds = sp.closed ? signedGap(sm.s[k], c.s[i], sp.length) : sm.s[k] - c.s[i];
+      if (Math.abs(ds) > 8 || !sm.standing(k, ctx.t)) continue;
+      const kind = SMASH_KINDS[sm.kind[k]];
+      if (c.y[i] - sm.y[k] > kind.h + 0.3 || sm.y[k] - c.y[i] > 2) continue;
+      // The car's box, grown by the prop's radius.
+      const dx = sm.x[k] - c.x[i];
+      const dz = sm.z[k] - c.z[i];
+      if (Math.abs(dx * fx + dz * fz) > cls.size[1] + kind.r || Math.abs(dx * fz - dz * fx) > cls.size[0] + kind.r) continue;
+      sm.brokenAt[k] = ctx.t;
+      sim.events.push(tick, Ev.Smash, i, sm.x[k], sm.y[k] + kind.h / 2, sm.z[k], speed, sm.kind[k], k);
+      if (c.wreck[i]) continue;
+      c.vx[i] *= kind.slow;
+      c.vz[i] *= kind.slow;
+      earnBoost(sim, i, kind.boost);
+      c.score[i] += kind.points;
     }
   }
 

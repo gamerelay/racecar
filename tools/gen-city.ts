@@ -162,6 +162,14 @@ layout.landmarks = [
   { kind: 'canal', at: [416, 300], r: 0, params: { len: 900, w: 14, draw: 448 } },
 ];
 
+// Smashables (PLAN phase 6): newspaper boxes along the Boulevard's sidewalks, and cones down the
+// Market's streets and round the outside of its dog-leg, for drifting wide into.
+layout.smashables = [
+  { kind: 'newspaper-box', s: [sAt(0, 30, 0), sAt(0, 380, 0)], every: 45 },
+  { kind: 'cone', s: [sAt(-120, 95, 0), sAt(-120, -15, 0)], every: 9 },
+  { kind: 'cone', s: [sAt(-250, -30, 0), sAt(-280, -70, 0)], every: 5 },
+];
+
 // Traffic must appear and leave on straights, where drivers see it.
 straightenSections(layout, surfaces);
 writeFileSync(new URL('../content/maps/downtown/downtown.track.json', import.meta.url), JSON.stringify(layout, null, 1) + '\n');

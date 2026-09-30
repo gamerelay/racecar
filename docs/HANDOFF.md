@@ -53,6 +53,10 @@ The third map is **Paradise** (`content/maps/paradise`, key `paradise/island`).
   Also in #24, the HUD tweaks: "Powerglide" (was "Drift boost"), a **Superman** for boosting
   through the air (`superT`, 1.5× air pay, `supermanMin`/`supermanPay`), and a bold outline
   on the countdown's numbers. SPEC "HUD tweaks".
+- **Smashables: in review** (branch `smashables`, stacked on `landmarks-paradise`). These close PLAN
+  phase 6. Sim pieces (`core/world/smash.ts`), placed from the layout's `smashables` rows, carried
+  in snapshots, back 30 s after a hit. A hit pays a pinch of boost and costs a little speed.
+  Greybox models in `render/skins/greybox/smash.ts`. SPEC "Smashables".
 - **Landmarks, part 3 (Paradise): in review** (branch `landmarks-paradise`, stacked on
   `landmarks-backroads`). A shipwreck, a breaching whale, a surf shack, a tiki head and seaplanes,
   plus the lighthouse beam in the rain. Builders get `ctx.sea`. SPEC "Landmarks, part 3". Left in

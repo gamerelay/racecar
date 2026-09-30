@@ -210,6 +210,12 @@ layout.hazards = [
     { kind: 'seaplanes', at: [40, -392], r: 0, params: { radius: 160, alt: 55 } },
   ];
 }
+// Smashables: beach umbrellas on the coast road's sea side, fruit stands through Harbor Town.
+layout.smashables = [
+  { kind: 'beach-umbrella', s: [620, 800], every: 16, side: -1 },
+  { kind: 'fruit-stand', s: [30, 170], every: 45 },
+  { kind: 'fruit-stand', s: [3360, 3425], every: 60, side: 1 },
+];
 layout.takedownSpots = [
   { s: sAt(0, -440, 13), name: 'The Freeway' },
   { s: sAt(60, 430), name: 'The Harbour' },

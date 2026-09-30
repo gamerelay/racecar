@@ -178,6 +178,8 @@ export class Hud {
 
   private lastOncoming = -Infinity;
 
+  private lastSmash = -Infinity;
+
   private readonly onEvent = (e: GameEvent): void => {
     const i = this.focus;
     if (e.type === Ev.Respawn && e.car === i && e.a >= 0.01) this.pop(`Catch-up boost +${Math.round(e.a * 100)}%`, 'hot');
@@ -194,6 +196,11 @@ export class Hud {
       this.pop('Oncoming', 'hot');
     }
     if (e.type === Ev.TrafficCheck && e.car === i) this.pop('Traffic check', 'hot');
+    // Smashing a row of cones is one pop a second, not one a cone.
+    if (e.type === Ev.Smash && e.car === i && this.sim.time - this.lastSmash > 1) {
+      this.lastSmash = this.sim.time;
+      this.pop('Smash!', 's1');
+    }
     if (e.type === Ev.StartBoost && e.car === i) this.pop(e.b ? 'Perfect start!' : 'Stalled', e.b ? 's2' : 'bad');
     if (e.type === Ev.Finish && e.car === i) this.pop(`Finished ${ordinal(e.b)}`, 'big');
     if (e.type === Ev.Wreck && e.car === i && e.other >= 0 && e.other !== i) this.pop('Taken down', 'bad');

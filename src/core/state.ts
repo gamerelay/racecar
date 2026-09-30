@@ -7,6 +7,7 @@ import type { EventQueue } from './events';
 import type { Rng } from './rng';
 import type { Track } from './track/bake';
 import type { TrackHit } from './track/query';
+import type { Smashables } from './world/smash';
 import type { Hazards } from './world/hazards';
 import type { Traffic } from './world/traffic';
 
@@ -38,7 +39,7 @@ export interface SimState {
   weatherGrip: number;
   wet: boolean;
   wetness: number;
-  world?: { traffic: Traffic; hazards: Hazards };
+  world?: { traffic: Traffic; hazards: Hazards; smash: Smashables };
   race: RaceState;
   /** Surface index used beyond the road edge. */
   readonly shoulderSurface: number;

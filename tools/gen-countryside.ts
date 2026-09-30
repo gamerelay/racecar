@@ -192,6 +192,12 @@ layout.landmarks = [
   { kind: 'drive-in', at: [-30, -525], r: 54 },
   { kind: 'balloon', at: [380, 0], r: 0, params: { alt: 70, radius: 50 } },
 ];
+// Smashables: hay bales through the village S, mailboxes along the home straight and the start.
+layout.smashables = [
+  { kind: 'hay-bale', s: [130, 280], every: 24 },
+  { kind: 'mailbox', s: [2800, 2915], every: 28, side: 1 },
+  { kind: 'mailbox', s: [15, 110], every: 28, side: -1 },
+];
 // The Trestle crosses the home stretch: drivers going under it thread its legs.
 layout.trestles = true;
 layout.takedownSpots = [

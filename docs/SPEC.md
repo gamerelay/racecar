@@ -1585,3 +1585,30 @@ Landmarks, part 3: Paradise (PLAN phase 6):
   flying circuits over the bay.
 - Builders get the sea's level (`ctx.sea`), so things that float float. The island keeps landmark
   ground clear of palms, huts and houses (`marks`, like the forest).
+
+Smashables (PLAN phase 6):
+
+- **Sim pieces, like hazard pieces** (`core/world/smash.ts`), so they're the same online.
+  - Where they stand comes from the layout: `smashables` rows give a kind, a stretch of road, a
+    spacing and a side.
+  - Each stands on the verge, a little under halfway to the wall, with a seeded jitter along the
+    road so a row isn't a picket fence.
+  - Their state is when each was smashed (`brokenAt`), carried in snapshots (`smashed`). A
+    smashed one stands again 30 s later (`SMASH_RESPAWN`).
+- **A hit** is any car whose box, grown by the prop's radius, reaches it (a respawning ghost goes
+  through). It fires `Ev.Smash`, and pays a pinch of boost (0.02–0.05 of a bar, by kind, through
+  the boost-by-position scale) and 50–200 points. It costs 1–7% of the car's speed and never
+  wrecks. A wrecked car tumbling through smashes it, for nothing.
+- **The six kinds:**
+  - Downtown: newspaper boxes along the Boulevard's sidewalks, and cones in the Market (the x =
+    -120 street and the outside of the dog-leg).
+  - Backroads: hay bales through the village S, and mailboxes along the home straight and the
+    start.
+  - Paradise: beach umbrellas on the coast road's sea side, and fruit stands through Harbor
+    Town.
+  - 66, 23 and 22 props per map.
+- **On screen:** one instanced mesh per kind, each model a few coloured parts merged. The
+  renderer bursts one in its colour and shakes the camera a little. The HUD pops "Smash!" (once a
+  second at most, so a row of cones isn't a flood), and there's a crunch.
+- The AI doesn't aim for them or avoid them. The lap floors didn't move, and the field tests still
+  hold.

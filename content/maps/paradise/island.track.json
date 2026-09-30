@@ -3648,6 +3648,34 @@
    }
   }
  ],
+ "smashables": [
+  {
+   "kind": "beach-umbrella",
+   "s": [
+    620,
+    800
+   ],
+   "every": 16,
+   "side": -1
+  },
+  {
+   "kind": "fruit-stand",
+   "s": [
+    30,
+    170
+   ],
+   "every": 45
+  },
+  {
+   "kind": "fruit-stand",
+   "s": [
+    3360,
+    3425
+   ],
+   "every": 60,
+   "side": 1
+  }
+ ],
  "terrain": {
   "sea": 0,
   "island": [

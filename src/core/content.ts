@@ -123,6 +123,21 @@ export const LANDMARK_KINDS = [
   'shipwreck', 'tiki-head', 'surf-shack', 'whale', 'seaplanes',
 ] as const;
 
+/**
+ * A row of smashables (world/smash.ts): props of one kind on the verge of a stretch of road, every
+ * `every` m, on one side or both.
+ */
+export interface SmashDef {
+  kind: string;
+  s: [number, number];
+  every: number;
+  side?: -1 | 1;
+  /** Meters out past the road's edge (default: a little under halfway to the wall). */
+  lateral?: number;
+  /** On a branch instead of the main road. */
+  spline?: string;
+}
+
 export interface TrackLayout {
   id: string;
   name: string;
@@ -138,6 +153,7 @@ export interface TrackLayout {
   hazards?: HazardDef[];
   props?: PropDef[];
   landmarks?: LandmarkDef[];
+  smashables?: SmashDef[];
   takedownSpots?: { s: number; name: string }[];
   /** Scenery the skin fills in beyond the walls (not gameplay). */
   scenery?: string;
