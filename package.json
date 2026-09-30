@@ -1,0 +1,25 @@
+{
+  "name": "racecar",
+  "private": true,
+  "version": "0.0.1",
+  "type": "module",
+  "license": "MIT",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "test": "bun test",
+    "typecheck": "tsc --noEmit",
+    "validate": "bun tools/validate.ts",
+    "telemetry": "bun tools/telemetry.ts"
+  },
+  "dependencies": {
+    "three": "0.186.0"
+  },
+  "devDependencies": {
+    "@types/bun": "1.4.2",
+    "@types/three": "0.186.0",
+    "typescript": "7.0.2",
+    "vite": "8.3.0"
+  }
+}
