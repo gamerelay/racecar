@@ -13,7 +13,9 @@ export class RaceUi {
   private cursor = 0;
   private shown = false;
   private bounds = { x0: 0, x1: 1, z0: 0, z1: 1 };
-  private path: Path2D[] = [];
+  /** The roads, drawn once per track into an offscreen canvas; each frame only adds the cars. */
+  private roads = document.createElement('canvas');
+  private lightsN = NaN;
   focus = 0;
   onAgain: () => void = () => {};
   onSetup: () => void = () => {};
@@ -48,7 +50,7 @@ export class RaceUi {
       z1 = Math.max(z1, sp.pz[i]);
     }
     this.bounds = { x0, x1, z0, z1 };
-    this.path = t.splines.map((sp) => {
+    const paths = t.splines.map((sp) => {
       const p = new Path2D();
       for (let i = 0; i < sp.n; i += 4) {
         const [x, y] = this.project(sp.px[i], sp.pz[i]);
@@ -57,6 +59,18 @@ export class RaceUi {
       }
       if (sp.closed) p.closePath();
       return p;
+    });
+    this.roads.width = this.map.width;
+    this.roads.height = this.map.height;
+    const g = this.roads.getContext('2d')!;
+    g.lineJoin = 'round';
+    paths.forEach((p, k) => {
+      g.strokeStyle = 'rgba(18,10,32,.85)';
+      g.lineWidth = 14;
+      g.stroke(p);
+      g.strokeStyle = k === 0 ? 'rgba(255,246,238,.9)' : 'rgba(53,240,255,.75)';
+      g.lineWidth = k === 0 ? 5 : 3;
+      g.stroke(p);
     });
   }
 
@@ -77,20 +91,13 @@ export class RaceUi {
       const left = sim.race.goTime - sim.time;
       const n = Math.ceil(left);
       this.lights.className = 'hud on';
-      this.lights.innerHTML = `<div class="lamps">${[3, 2, 1].map((k) => `<i class="${n <= k ? 'lit' : ''}"></i>`).join('')}</div><b>${n > 0 ? n : 'GO'}</b>`;
+      if (n !== this.lightsN) this.lights.innerHTML = `<div class="lamps">${[3, 2, 1].map((k) => `<i class="${n <= k ? 'lit' : ''}"></i>`).join('')}</div><b>${n > 0 ? n : 'GO'}</b>`;
+      this.lightsN = n;
     }
     // Minimap.
     const g = this.g;
     g.clearRect(0, 0, this.map.width, this.map.height);
-    g.lineJoin = 'round';
-    this.path.forEach((p, k) => {
-      g.strokeStyle = 'rgba(18,10,32,.85)';
-      g.lineWidth = 14;
-      g.stroke(p);
-      g.strokeStyle = k === 0 ? 'rgba(255,246,238,.9)' : 'rgba(53,240,255,.75)';
-      g.lineWidth = k === 0 ? 5 : 3;
-      g.stroke(p);
-    });
+    g.drawImage(this.roads, 0, 0);
     const c = sim.cars;
     for (let pass = 0; pass < 2; pass++) {
       for (let i = 0; i < c.count; i++) {

@@ -26,13 +26,15 @@ export interface TrackVisual {
   /** Debug volumes (checkpoints, gaps, branch starts); toggled from the HUD. */
   debug: Object3D;
   /** Per frame, for animated scenery (seconds since start, seconds since last frame). */
-  update?(time: number, dt: number): void;
+  update?(time: number, dt: number, camera: Vector3): void;
   dispose(): void;
 }
 
 /** Traffic, hazards, weather: everything the world systems put on screen. */
 export interface WorldVisual {
-  update(dt: number, camera: Vector3): void;
+  /** `time` is the sim time being drawn (between the last two ticks, like the cars). */
+  update(dt: number, camera: Vector3, time: number): void;
+  dispose(): void;
 }
 
 export interface Skin {

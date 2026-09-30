@@ -887,6 +887,23 @@ Milestone 2 (2026-09-30):
   - A spin-out or wreck loses the bank, and a tap-drift earns nothing (`driftBankMin`).
   - There's still no mini-turbo. A 1.5 s full drift at speed banks 9–17% of a bar, depending on
     the car.
+- **Review before `alpha-1.0`** (fixes, not design changes):
+  - **Traffic and AI:**
+    - Traffic is drawn at the render time, between ticks like the cars, using `Traffic.poseAt`,
+      which is pure and doesn't touch the sim's pool.
+    - The AI now sees cars and pillars across the start/finish seam (`signedGap`, now shared by
+      every loop-distance check).
+  - **Leaks and replays:**
+    - An editor rebuild frees instanced buffers and rebuilds the world visual.
+    - Restoring a snapshot doesn't re-fire hazard telegraphs.
+    - `placeCar` clears transient driving state.
+  - **Attract mode:** the player's input and rumble no longer reach AI car 0.
+  - **Performance:** the AI no longer allocates closures each tick. The HUD writes only what
+    changed, the minimap's roads are drawn once, and ambient city cars move as a function of
+    time, posed only near the camera.
+  - **Drift details:**
+    - Tire smoke continues through the slide after a drift.
+    - The "Drift boost" pop shows what was actually added to the meter.
 - **Each car carries its slide differently** (`driftCarry` in the car file). It stretches the
   release grip, looseness and straightening. A 50° slide straightens in:
   - 0.37 s on the hatch (quick),

@@ -4,7 +4,7 @@ import { Ev } from '../src/core/events';
 import { Sim } from '../src/core/sim';
 import { bakeTrack } from '../src/core/track/bake';
 import { Hazards } from '../src/core/world/hazards';
-import { Traffic } from '../src/core/world/traffic';
+import { newTrafficPose, Traffic } from '../src/core/world/traffic';
 import { planWeather, weatherAt } from '../src/core/world/weather';
 import { CLASSES, DOWNTOWN, SURFACES } from './helpers';
 
@@ -31,6 +31,23 @@ describe('traffic', () => {
         if (t < 10) expect(s > L - 160 || s < 60).toBe(false);
       }
     }
+  });
+  test('poseAt matches the pooled pose, and leaves the pool alone', () => {
+    const tr = new Traffic(track, 1);
+    tr.update(60, new Float64Array([100]), 1);
+    expect(tr.posed).toBeGreaterThan(0);
+    const before = Array.from(tr.x.subarray(0, tr.posed));
+    const pose = newTrafficPose();
+    for (let p = 0; p < tr.posed; p++) {
+      tr.poseAt(tr.idx[p], 60, pose);
+      expect(pose.x).toBeCloseTo(tr.x[p], 9);
+      expect(pose.z).toBeCloseTo(tr.z[p], 9);
+      expect(pose.h).toBeCloseTo(tr.h[p], 9);
+      // Between ticks it's just a little further along.
+      tr.poseAt(tr.idx[p], 60 + 1 / 120, pose);
+      expect(Math.hypot(pose.x - tr.x[p], pose.z - tr.z[p])).toBeLessThan(0.3);
+    }
+    expect(Array.from(tr.x.subarray(0, tr.posed))).toEqual(before);
   });
   test('LOD poses only cars near a racer', () => {
     const tr = new Traffic(track, 1);
@@ -78,6 +95,26 @@ describe('hazards', () => {
       break;
     }
     expect(found).toBe(true);
+  });
+  test('restoring mid-telegraph does not fire that telegraph again', () => {
+    const tr = new Traffic(track, 3);
+    const fired = (hz: Hazards, t: number) => {
+      const ids: number[] = [];
+      hz.update(t, { push: (_tick: number, type: number, _car: number, _x: number, _y: number, _z: number, a: number) => type === Ev.Hazard && ids.push(a) } as never, 0);
+      return ids;
+    };
+    const make = () => new Hazards(track, tr, 3, 'chaos');
+    const probe = make();
+    const o = probe.occurrences[0];
+    const start = o.t0 - (probe as unknown as { kinds: { telegraph: number }[] }).kinds[o.def].telegraph;
+    // Playing through, the telegraph fires as its window opens...
+    const live = make();
+    fired(live, start - 0.01);
+    expect(fired(live, start + 0.01)).toContain(o.id);
+    // ...but restoring a snapshot taken inside the window doesn't fire it a second time.
+    const restored = make();
+    restored.restoreTriggered([], start + 0.1);
+    expect(fired(restored, start + 0.1 + 1 / 60)).not.toContain(o.id);
   });
   test('the falling sign fires when a car drives under it, and drops behind them', () => {
     const sim = new Sim(track, CLASSES, SURFACES, { seed: 1, traffic: 0 });
@@ -164,13 +201,24 @@ describe('replay', () => {
         s.step([c]);
       }
     };
+    // Hazard telegraphs from the snapshot on: already-running ones mustn't fire again on restore.
+    const hazards = (s: Sim, run: () => void) => {
+      const seen: number[] = [];
+      const cursor = s.events.head;
+      run();
+      s.events.read(cursor, (e) => {
+        if (e.type === Ev.Hazard) seen.push(e.a);
+      });
+      return seen;
+    };
     const a = make();
     drive(a, 0, 60 * 40);
     const snap = JSON.parse(JSON.stringify(a.snapshot()));
-    drive(a, 60 * 40, 60 * 70);
+    const firedA = hazards(a, () => drive(a, 60 * 40, 60 * 70));
     const b = make();
     b.restore(snap);
-    drive(b, 60 * 40, 60 * 70);
+    const firedB = hazards(b, () => drive(b, 60 * 40, 60 * 70));
+    expect(firedB).toEqual(firedA);
     for (let i = 0; i < 6; i++) {
       expect(b.cars.x[i]).toBe(a.cars.x[i]);
       expect(b.cars.z[i]).toBe(a.cars.z[i]);

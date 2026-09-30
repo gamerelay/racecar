@@ -10,7 +10,7 @@ import { wreckCar } from '../car/physics';
 import { TUNING as T } from '../car/tuning';
 import { Cause, Ev } from '../events';
 import type { SimState } from '../state';
-import { mainDistance, wrap } from '../track/bake';
+import { mainDistance, signedGap } from '../track/bake';
 import type { Hazards } from '../world/hazards';
 import { laneActive, TRAFFIC_KINDS, type Traffic } from '../world/traffic';
 import { newContact, obbOverlap } from './obb';
@@ -57,7 +57,7 @@ export function collideWorld(sim: SimState, i: number, ctx: WorldCtx): void {
   for (let p = 0; p < traffic.posed; p++) {
     const k = traffic.idx[p];
     const kind = TRAFFIC_KINDS[traffic.kind[k]];
-    const ds = wrap(traffic.s[p] - sMain + L / 2, L) - L / 2;
+    const ds = signedGap(traffic.s[p], sMain, L);
     if (Math.abs(ds) > 14) continue;
     if (!c.wreck[i] && !ghost && onMain) nearMiss(sim, i, ctx, p, sMain, ds, speed);
     if (ghost || Math.abs(c.y[i] - traffic.y[p]) > kind.hh * 2 + 0.8) continue;
@@ -152,7 +152,7 @@ function nearMiss(sim: SimState, i: number, ctx: WorldCtx, p: number, sMain: num
   if (speed < 22) return;
   const L = sim.track.main.length;
   const k = traffic.idx[p];
-  const before = wrap(traffic.sAt(k, ctx.tPrev) - ctx.prevMain[i] + L / 2, L) - L / 2;
+  const before = signedGap(traffic.sAt(k, ctx.tPrev), ctx.prevMain[i], L);
   // Order along the road flipped this tick: one passed the other.
   if (Math.sign(before) === Math.sign(ds) || Math.abs(before) > 14) return;
   const kind = TRAFFIC_KINDS[traffic.kind[k]];
@@ -178,7 +178,7 @@ export function hazardsWreckTraffic(sim: SimState, ctx: WorldCtx): void {
     const s = traffic.sAt(k, ctx.t);
     for (let p = 0; p < hazards.pieces; p++) {
       if (!hazards.pSolid[p]) continue;
-      if (Math.abs(wrap(s - hazards.pS[p] + L / 2, L) - L / 2) > 4) continue;
+      if (Math.abs(signedGap(s, hazards.pS[p], L)) > 4) continue;
       const lane = traffic.lanes[traffic.lane[k]];
       // Close enough along the road; check across it.
       const at = sim.track.main;

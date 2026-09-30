@@ -4,7 +4,7 @@
 //
 //   bun tools/lap-report.ts                       every layout
 //   bun tools/lap-report.ts city/downtown         one
-//   --laps 3  --field (8 AI with traffic and hazards, as a race)  --json
+//   --laps 3  --field (8 AI with traffic and hazards, as a race)  --seed 7  --json
 
 import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -18,6 +18,7 @@ const args = process.argv.slice(2);
 const json = args.includes('--json');
 const field = args.includes('--field') && import.meta.main;
 const laps = Number(args[args.indexOf('--laps') + 1]) || 3;
+const seed = args.includes('--seed') ? Number(args[args.indexOf('--seed') + 1]) : 7;
 const only = args.find((a) => a.includes('/') && !a.startsWith('-'));
 const surfaces = JSON.parse(readFileSync(join(root, 'surfaces.json'), 'utf8')) as SurfaceDef[];
 const classes = ['coupe', 'muscle', 'hatch', 'van'].map((id) => JSON.parse(readFileSync(join(root, 'cars', `${id}.json`), 'utf8')) as CarClass);
@@ -37,7 +38,7 @@ export interface LapReport {
 
 export function lapReport(key: string, layout: TrackLayout): LapReport {
   const track = bakeTrack(layout, surfaces);
-  const sim = new Sim(track, classes, surfaces, { seed: 7, slowmo: 'wreck', traffic: field ? 1 : 0, mayhem: field ? 'normal' : 'off' });
+  const sim = new Sim(track, classes, surfaces, { seed, slowmo: 'wreck', traffic: field ? 1 : 0, mayhem: field ? 'normal' : 'off' });
   const cars = field ? 8 : 1;
   for (let k = 0; k < cars; k++) sim.addCar({ cls: field ? classes[k % 4].id : 'coupe', racer: { difficulty: field ? ((k % 3) as 0 | 1 | 2) : 2 } });
   sim.startRace(laps, 0.1);

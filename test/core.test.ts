@@ -7,7 +7,7 @@ import { SpatialGrid } from '../src/core/collide/grid';
 import { neutralControls, packControls, unpackControls } from '../src/core/controls';
 import { Ev } from '../src/core/events';
 import { Rng, hash01 } from '../src/core/rng';
-import { bakeTrack, mainDistance } from '../src/core/track/bake';
+import { bakeTrack, mainDistance, signedGap } from '../src/core/track/bake';
 import { newHit, project, projectGlobal, sampleAt } from '../src/core/track/query';
 import { validateLayout } from '../src/core/track/validate';
 import { Sim } from '../src/core/sim';
@@ -66,6 +66,13 @@ describe('track', () => {
 });
 
 describe('collide', () => {
+  test('signedGap is the short way round a loop', () => {
+    expect(signedGap(10, 990, 1000)).toBe(20);
+    expect(signedGap(990, 10, 1000)).toBe(-20);
+    expect(signedGap(300, 100, 1000)).toBe(200);
+    expect(signedGap(100, 100, 1000)).toBe(0);
+  });
+
   test('obb overlap finds the least-penetration axis', () => {
     const c = newContact();
     expect(obbOverlap(0, 0, 0, 1, 2, 1.5, 0, 0, 1, 2, c)).toBe(true);
@@ -240,6 +247,17 @@ describe('sim', () => {
       expect(hatch).toBeLessThan(coupe);
       expect(coupe).toBeLessThan(muscle);
       expect(muscle).toBeLessThan(60);
+    });
+
+    test('placing a car (the grid, the editor) clears transient driving state', () => {
+      const { sim, i, c } = drift('coupe', 1);
+      c.drift = false;
+      sim.step([c]);
+      sim.cars.miniT[i] = 1;
+      sim.cars.stallT[i] = 1;
+      sim.cars.lastTakenBy[i] = 3;
+      sim.placeCar(i, 0, 50, 0);
+      for (const f of ['driftExit', 'driftBank', 'driftChain', 'miniT', 'stallT', 'lastTakenBy', 'drift'] as const) expect(sim.cars[f][i]).toBe(0);
     });
 
     test('a respawn clears the drift state', () => {

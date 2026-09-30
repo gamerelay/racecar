@@ -87,10 +87,14 @@ export class InkPass {
     this.target.setSize(width, height);
   }
 
+  /** This frame's meshes to ink (reused, so a frame doesn't allocate). */
+  private readonly list: Mesh[] = [];
+
   render(renderer: WebGLRenderer, scene: Scene, camera: PerspectiveCamera): void {
     // Car lines fade out by ~80 m (post.ts), so farther meshes are skipped rather than drawn for nothing.
     const cam = camera.position;
-    const list: Mesh[] = [];
+    const list = this.list;
+    list.length = 0;
     for (const m of marked) {
       const e = m.matrixWorld.elements;
       // Instanced debris sits at the world origin; its instances are wherever the wreck was.

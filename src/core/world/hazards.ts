@@ -152,8 +152,9 @@ export class Hazards {
     return fired;
   }
 
-  /** Restores triggered occurrences from a snapshot. */
-  restoreTriggered(list: [number, number, number, number][]): void {
+  /** Restores triggered occurrences from a snapshot taken at time t (so telegraphs already under way don't fire again). */
+  restoreTriggered(list: [number, number, number, number][], t: number): void {
+    this.lastT = t;
     this.occurrences.length = this.scheduled;
     this.triggered = list.map((x) => [...x] as [number, number, number, number]);
     for (const [d, t0, by, seed] of this.triggered) this.occurrences.push({ id: this.occurrences.length, def: d, t0, by, seed, a: -1 });

@@ -30,14 +30,16 @@ import { hash01 } from '../../../core/rng';
 import type { Sim } from '../../../core/sim';
 import { sampleAt, newHit } from '../../../core/track/query';
 import { Piece } from '../../../core/world/hazards';
-import { TRAFFIC_KINDS } from '../../../core/world/traffic';
+import { newTrafficPose, TRAFFIC_KINDS } from '../../../core/world/traffic';
 import type { WorldVisual } from '../../skin';
-import { lampSpots, trafficModels } from './car/traffic';
+import { LampPoints, lampSpots, trafficModels } from './car/traffic';
+import { disposeTree } from './dispose';
 import { glow, toon } from './toon';
 
 const TRAFFIC_COLORS = [0xf2f2f2, 0x3a86ff, 0xffbe0b, 0x8338ec, 0x06d6a0, 0xef476f, 0x2a2a3a, 0xff7b00, 0x9bf6ff, 0xc9c1d9];
 const MAX_TRAFFIC = 128;
 const DEBRIS = 24;
+const UP = new Vector3(0, 1, 0);
 
 interface Debris {
   kind: number;
@@ -77,16 +79,11 @@ export function buildWorldVisual(scene: Scene, sim: Sim): WorldVisual {
     root.add(body);
     return { body, kind: k, lamps: lampSpots(k.id) };
   });
-  const lampPos = new Float32Array(MAX_TRAFFIC * 4 * 3);
-  const lampCol = new Float32Array(MAX_TRAFFIC * 4 * 3);
-  for (let n = 0; n < MAX_TRAFFIC; n++) lampCol.set([1, 0.95, 0.8, 1, 0.95, 0.8, 1, 0.13, 0.2, 1, 0.13, 0.2], n * 12);
-  const lampGeo = new BufferGeometry();
-  lampGeo.setAttribute('position', new BufferAttribute(lampPos, 3));
-  lampGeo.setAttribute('color', new BufferAttribute(lampCol, 3));
-  const lamps = new Points(lampGeo, new PointsMaterial({ map: glow(), size: 1.5, vertexColors: true, transparent: true, blending: AdditiveBlending, depthWrite: false }));
-  lamps.frustumCulled = false;
-  root.add(lamps);
-  const lampV = new Vector3();
+  const lamps = new LampPoints(MAX_TRAFFIC);
+  const lampPoints = new Points(lamps.geo, new PointsMaterial({ map: glow(), size: 1.5, vertexColors: true, transparent: true, blending: AdditiveBlending, depthWrite: false }));
+  lampPoints.frustumCulled = false;
+  root.add(lampPoints);
+  const pose = newTrafficPose();
   const trafficColor = (k: number) => TRAFFIC_COLORS[Math.floor(hash01(sim.seed, k, 9) * TRAFFIC_COLORS.length)];
 
   // ---- debris: wrecked traffic, tumbling for a few seconds ----
@@ -108,9 +105,10 @@ export function buildWorldVisual(scene: Scene, sim: Sim): WorldVisual {
   const signs = new InstancedMesh(new BoxGeometry(1, 1, 1), toon({ color: 0x1f7a4a }), 16);
   signs.frustumCulled = false;
   signs.count = 0;
-  const ringMat = new MeshBasicMaterial({ color: 0xff2e88, transparent: true, opacity: 0.6, side: DoubleSide, depthWrite: false, blending: AdditiveBlending });
+  // A material per ring: each telegraph fades on its own.
+  const ringGeo = new RingGeometry(0.8, 1, 32);
   const rings = Array.from({ length: 16 }, () => {
-    const r = new Mesh(new RingGeometry(0.8, 1, 32), ringMat);
+    const r = new Mesh(ringGeo, new MeshBasicMaterial({ color: 0xff2e88, transparent: true, opacity: 0.6, side: DoubleSide, depthWrite: false, blending: AdditiveBlending }));
     r.rotation.x = -Math.PI / 2;
     r.visible = false;
     root.add(r);
@@ -184,35 +182,29 @@ export function buildWorldVisual(scene: Scene, sim: Sim): WorldVisual {
 
   let cursor = sim.events.head;
   return {
-    update(dt, cam) {
+    update(dt, cam, time) {
       cursor = sim.events.read(cursor, onEvent);
       const tr = sim.world.traffic;
-      // Pose traffic at the render time: it's a formula, so it's exactly where it should be.
+      // Pose traffic at the render time, like the cars: it's a formula, so it's exactly where it
+      // should be between ticks. The sim's LOD pool says which cars are near.
       for (const b of bodies) b.body.count = 0;
-      let lit = 0;
       for (let p = 0; p < tr.posed; p++) {
         const k = tr.idx[p];
         const b = bodies[tr.kind[k]];
-        e.position.set(tr.x[p], tr.y[p], tr.z[p]);
-        e.rotation.set(0, tr.h[p], 0);
+        tr.poseAt(k, time, pose);
+        e.position.set(pose.x, pose.y, pose.z);
+        e.rotation.set(0, pose.h, 0);
         e.updateMatrix();
         const n = b.body.count++;
         b.body.setMatrixAt(n, e.matrix);
         b.body.setColorAt(n, col.setHex(trafficColor(k)));
-        for (const l of b.lamps) {
-          lampV.set(l[0], l[1], l[2]).applyMatrix4(e.matrix);
-          lampPos[lit * 3] = lampV.x;
-          lampPos[lit * 3 + 1] = lampV.y;
-          lampPos[lit * 3 + 2] = lampV.z;
-          lit++;
-        }
+        lamps.write(p, e.matrix, b.lamps);
       }
       for (const b of bodies) {
         b.body.instanceMatrix.needsUpdate = true;
         if (b.body.instanceColor) b.body.instanceColor.needsUpdate = true;
       }
-      lampGeo.setDrawRange(0, lit);
-      (lampGeo.attributes.position as BufferAttribute).needsUpdate = true;
+      lamps.commit(tr.posed);
 
       // Debris.
       for (let k = debris.length - 1; k >= 0; k--) {
@@ -262,7 +254,7 @@ export function buildWorldVisual(scene: Scene, sim: Sim): WorldVisual {
       for (let p = 0; p < hz.pieces; p++) {
         pos.set(hz.px[p], hz.py[p], hz.pz[p]);
         if (hz.pType[p] === Piece.Log && logs.count < 64) {
-          q.setFromAxisAngle(new Vector3(0, 1, 0), hz.ph[p]);
+          q.setFromAxisAngle(UP, hz.ph[p]);
           m.compose(pos, q, scl.set(1, 1, hz.phl[p] / 2.1));
           logs.setMatrixAt(logs.count++, m);
         } else if (hz.pType[p] === Piece.Sign && signs.count < 16) {
@@ -276,15 +268,16 @@ export function buildWorldVisual(scene: Scene, sim: Sim): WorldVisual {
       }
       logs.instanceMatrix.needsUpdate = true;
       signs.instanceMatrix.needsUpdate = true;
-      rings.forEach((r, k) => {
+      for (let k = 0; k < rings.length; k++) {
+        const r = rings[k];
         r.visible = k < hz.markers;
-        if (!r.visible) return;
+        if (!r.visible) continue;
         const u = hz.mu[k];
         const pulse = 1 + Math.sin(u * 30) * 0.08;
         r.position.set(hz.mx[k], hz.my[k] + 0.08, hz.mz[k]);
         r.scale.setScalar(hz.mr[k] * pulse);
-        ringMat.opacity = 0.3 + 0.5 * u;
-      });
+        (r.material as MeshBasicMaterial).opacity = 0.3 + 0.5 * u;
+      }
 
       // Rain.
       rain.visible = sim.wetness > 0.05;
@@ -307,6 +300,10 @@ export function buildWorldVisual(scene: Scene, sim: Sim): WorldVisual {
         (rainGeo.attributes.position as BufferAttribute).needsUpdate = true;
         (rain.material as LineBasicMaterial).opacity = 0.35 * sim.wetness;
       }
+    },
+    dispose() {
+      scene.remove(root);
+      disposeTree([root]);
     },
   };
 

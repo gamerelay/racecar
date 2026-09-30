@@ -257,10 +257,10 @@ export function endDrift(sim: SimState, i: number, stage: number): void {
   // A clean finish pays the drift's banked boost into the meter.
   const bank = cars.driftBank[i];
   cars.driftBank[i] = 0;
-  if (bank >= T.driftBankMin) {
+  if (bank >= T.driftBankMin && cars.boost[i] < 1) {
     const paid = Math.min(bank, 1 - cars.boost[i]);
     cars.boost[i] += paid;
-    sim.events.push(sim.tick, Ev.DriftBoost, i, cars.x[i], cars.y[i], cars.z[i], bank);
+    sim.events.push(sim.tick, Ev.DriftBoost, i, cars.x[i], cars.y[i], cars.z[i], paid);
   }
   sim.events.push(sim.tick, Ev.DriftEnd, i, cars.x[i], cars.y[i], cars.z[i], cars.driftT[i], stage);
   if (stage > 0) {

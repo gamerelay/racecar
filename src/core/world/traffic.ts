@@ -11,7 +11,7 @@ import { hash01 } from '../rng';
 import type { Track } from '../track/bake';
 import { sampleAt, type TrackHit } from '../track/query';
 import { newHit } from '../track/query';
-import { wrap } from '../track/bake';
+import { signedGap, wrap } from '../track/bake';
 
 export interface TrafficKind {
   id: string;
@@ -52,6 +52,19 @@ export function laneActive(lane: TrafficLaneDef, s: number): boolean {
   return false;
 }
 
+export interface TrafficPose {
+  s: number;
+  lat: number;
+  x: number;
+  y: number;
+  z: number;
+  h: number;
+  vx: number;
+  vz: number;
+}
+
+export const newTrafficPose = (): TrafficPose => ({ s: 0, lat: 0, x: 0, y: 0, z: 0, h: 0, vx: 0, vz: 0 });
+
 export class Traffic {
   readonly lanes: TrafficLaneDef[];
   readonly count: number;
@@ -74,6 +87,8 @@ export class Traffic {
   readonly s = new Float64Array(POOL);
   readonly lat = new Float64Array(POOL);
   private readonly hit: TrackHit = newHit();
+  private readonly renderHit: TrackHit = newHit();
+  private readonly scratch: TrafficPose = newTrafficPose();
 
   constructor(
     private readonly track: Track,
@@ -125,22 +140,39 @@ export class Traffic {
     return true;
   }
 
-  /** Pose of traffic car k at time t into slot `p` of the posed pool. */
-  private pose(k: number, t: number, p: number): void {
+  /**
+   * Pose of traffic car k at time t (pure; its own scratch, so the renderer can pose between ticks
+   * without touching sim state).
+   */
+  poseAt(k: number, t: number, out: TrafficPose, hit = this.renderHit): TrafficPose {
     const lane = this.lanes[this.lane[k]];
     const s = this.sAt(k, t);
-    const at = sampleAt(this.track.main, s, this.hit);
+    const at = sampleAt(this.track.main, s, hit);
     const lat = (lane.pos * at.width) / 2;
-    this.idx[p] = k;
-    this.s[p] = s;
-    this.lat[p] = lat;
-    this.x[p] = at.cx - at.tz * lat;
-    this.z[p] = at.cz + at.tx * lat;
-    this.y[p] = at.cy - lat * Math.tan(at.bank);
+    out.s = s;
+    out.lat = lat;
+    out.x = at.cx - at.tz * lat;
+    out.z = at.cz + at.tx * lat;
+    out.y = at.cy - lat * Math.tan(at.bank);
     const h = Math.atan2(at.tx, at.tz);
-    this.h[p] = lane.dir > 0 ? h : h + Math.PI;
-    this.vx[p] = at.tx * lane.dir * lane.speed;
-    this.vz[p] = at.tz * lane.dir * lane.speed;
+    out.h = lane.dir > 0 ? h : h + Math.PI;
+    out.vx = at.tx * lane.dir * lane.speed;
+    out.vz = at.tz * lane.dir * lane.speed;
+    return out;
+  }
+
+  /** Pose of traffic car k at time t into slot `p` of the posed pool. */
+  private pose(k: number, t: number, p: number): void {
+    const o = this.poseAt(k, t, this.scratch, this.hit);
+    this.idx[p] = k;
+    this.s[p] = o.s;
+    this.lat[p] = o.lat;
+    this.x[p] = o.x;
+    this.z[p] = o.z;
+    this.y[p] = o.y;
+    this.h[p] = o.h;
+    this.vx[p] = o.vx;
+    this.vz[p] = o.vz;
   }
 
   /**
@@ -155,7 +187,7 @@ export class Traffic {
       const s = this.sAt(k, t);
       let close = false;
       for (let j = 0; j < n; j++) {
-        const d = Math.abs(wrap(s - near[j] + L / 2, L) - L / 2);
+        const d = Math.abs(signedGap(s, near[j], L));
         if (d < LOD) {
           close = true;
           break;

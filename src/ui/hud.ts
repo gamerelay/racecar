@@ -7,7 +7,26 @@ import { KMH } from '../core/math';
 import { positions } from '../core/rules/progress';
 import type { Sim } from '../core/sim';
 
-const $ = (id: string) => document.getElementById(id)!;
+// Elements are looked up once, and text and transforms are written only when they change: the HUD
+// updates every frame, and most of it is the same as last frame.
+const els = new Map<string, HTMLElement>();
+const $ = (id: string): HTMLElement => {
+  let e = els.get(id);
+  if (!e || !e.isConnected) els.set(id, (e = document.getElementById(id)!));
+  return e;
+};
+const last = new Map<string, string>();
+function text(id: string, v: string): void {
+  if (last.get(id) === v) return;
+  last.set(id, v);
+  $(id).textContent = v;
+}
+function transform(id: string, v: string): void {
+  const key = `${id}.t`;
+  if (last.get(key) === v) return;
+  last.set(key, v);
+  $(id).style.transform = v;
+}
 
 export class Hud {
   private cursor = 0;
@@ -53,31 +72,31 @@ export class Hud {
     const c = this.sim.cars;
     const i = this.focus;
     positions(this.sim, this.order);
-    $('pos').textContent = `${this.order.indexOf(i) + 1}/${this.order.length}`;
+    text('pos', `${this.order.indexOf(i) + 1}/${this.order.length}`);
     const laps = this.sim.race.laps;
-    $('lap').textContent = `${Math.min(laps, c.lap[i] + 1)}/${laps}`;
+    text('lap', `${Math.min(laps, c.lap[i] + 1)}/${laps}`);
     const racing = this.sim.race.phase !== 'free';
-    $('time').textContent = c.finished[i] ? fmt(c.finishTime[i]) : racing ? fmt(Math.max(0, this.sim.time - this.sim.race.goTime)) : fmt((this.sim.tick - c.lapStartTick[i]) * this.sim.dt);
-    $('best').textContent = c.bestLap[i] ? fmt(c.bestLap[i]) : '–';
-    $('score').textContent = Math.floor(c.score[i]).toLocaleString();
-    $('spd').textContent = String(Math.round(Math.hypot(c.vx[i], c.vz[i]) * KMH));
-    ($('meterFill') as HTMLElement).style.transform = `scaleX(${c.boost[i].toFixed(3)})`;
+    text('time', c.finished[i] ? fmt(c.finishTime[i]) : racing ? fmt(Math.max(0, this.sim.time - this.sim.race.goTime)) : fmt((this.sim.tick - c.lapStartTick[i]) * this.sim.dt));
+    text('best', c.bestLap[i] ? fmt(c.bestLap[i]) : '–');
+    text('score', Math.floor(c.score[i]).toLocaleString());
+    text('spd', String(Math.round(Math.hypot(c.vx[i], c.vz[i]) * KMH)));
+    transform('meterFill', `scaleX(${c.boost[i].toFixed(3)})`);
     // What the current drift will pay in, as a pale segment past the fill.
     const bank = c.drift[i] === 1 && c.driftBank[i] >= TUNING.driftBankMin ? c.driftBank[i] : 0;
-    ($('meterBank') as HTMLElement).style.transform = `scaleX(${Math.min(1, c.boost[i] + bank).toFixed(3)})`;
+    transform('meterBank', `scaleX(${Math.min(1, c.boost[i] + bank).toFixed(3)})`);
     document.body.classList.toggle('boosting', c.boosting[i] === 1 || c.miniT[i] > 0);
     document.body.classList.toggle('full', c.boost[i] > 0.98);
     const drifting = c.drift[i] === 1;
     $('drift').classList.toggle('on', drifting || c.driftChain[i] > 0);
     if (drifting) {
-      $('driftPts').textContent = Math.floor(c.score[i] - this.driftStart).toLocaleString();
+      text('driftPts', Math.floor(c.score[i] - this.driftStart).toLocaleString());
       const stage = c.driftStage[i];
       ($('driftStage') as HTMLElement).style.display = TUNING.miniTurbo ? '' : 'none';
       const bars = $('driftStage').children;
       for (let k = 0; k < 3; k++) bars[k].className = stage > k ? `s${stage}` : '';
     }
-    $('driftChain').textContent = c.driftChain[i] > 0 ? `chain ×${c.driftChain[i] + 1}` : '';
-    if ($('debug').classList.contains('on')) $('debug').textContent = this.debugText;
+    text('driftChain', c.driftChain[i] > 0 ? `chain ×${c.driftChain[i] + 1}` : '');
+    if ($('debug').classList.contains('on')) text('debug', this.debugText);
   }
 
   private lastOncoming = -Infinity;

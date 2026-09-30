@@ -91,6 +91,9 @@ export class GameRenderer {
     for (const c of this.trackVisual.chunks) this.scene.add(c);
     for (const e of this.trackVisual.extras) this.scene.add(e);
     this.scene.add(this.trackVisual.debug);
+    // Gantries and the like are placed from the track, so the world visual is rebuilt too.
+    this.worldVisual.dispose();
+    this.worldVisual = this.skin.world(this.scene, this.sim);
   }
 
   set debug(on: boolean) {
@@ -164,8 +167,9 @@ export class GameRenderer {
     }
     this.fx.update(dt * this.sim.timeScale);
     this.updateCamera(dt);
-    this.worldVisual.update(dt * this.sim.timeScale, this.camera.position);
-    this.trackVisual.update?.(this.time, dt);
+    // The world is drawn at the same moment as the cars: between the last two ticks.
+    this.worldVisual.update(dt * this.sim.timeScale, this.camera.position, this.sim.time - (1 - alpha) * this.sim.dt * this.sim.timeScale);
+    this.trackVisual.update?.(this.time, dt, this.camera.position);
     this.skin.update?.(this.time, this.camera.position.x, this.camera.position.y, this.camera.position.z, this.sim.wetness);
 
     const u = this.post.uniforms;
@@ -277,9 +281,10 @@ export class GameRenderer {
     const rz = fx;
     const cls = this.sim.classes[c.cls[i]];
     const back = cls.size[1] - 0.6;
-    if (c.drift[i] && c.grounded[i]) {
+    // Tire smoke while drifting, and while the slide carries on after it.
+    if ((c.drift[i] || (c.driftExit[i] > 0 && Math.abs(c.slip[i]) > 0.15)) && c.grounded[i]) {
       const stage = c.driftStage[i];
-      for (const s of [-1, 1]) {
+      for (let s = -1; s <= 1; s += 2) {
         const wx = x - fx * back + rx * s * cls.size[0];
         const wz = z - fz * back + rz * s * cls.size[0];
         if (Math.random() < dt * 40) this.fx.emit(wx, y + 0.3, wz, (Math.random() - 0.5) * 2, 1.2, (Math.random() - 0.5) * 2, 0.9, 0x6a6080, -2, 2);

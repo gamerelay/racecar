@@ -4,25 +4,33 @@ Where racecar stands and what's next, for whoever picks it up (a person or a fre
 The design is [SPEC.md](./SPEC.md): decisions in §17, and what building changed in "Changed while
 building". This file is "where are we"; the spec is "what are we making".
 
-**Last updated:** 2026-09-30. Milestone 2 is in PR #2 (CI green, not merged), with PR #3 (detailed
-cars) merged into it.
+**Last updated:** 2026-09-30. Milestone 2 is merged to `main` and tagged **`alpha-1.0`**
+(PR #2, with PR #3's detailed cars in it).
 
 ## Resume in five minutes
 
 1. `cd ~/dev/racecar && bun install && bun run dev`, then open http://localhost:5178.
 2. Read this file, then SPEC §17 and the milestone 2 notes under "Changed while building".
-3. Check the two open PRs: `gh pr view 2` (racecar milestone 2) and, in `~/dev/gamerelay.io`,
-   `gh pr view 30` (the host controls racecar's lobby needs).
+3. Check the open platform PR: in `~/dev/gamerelay.io`, `gh pr view 30` (the host controls
+   racecar's lobby needs).
 4. Before changing anything: `bun test && bun run typecheck && bun tools/validate.ts`. All three
-   are green on `m2-world`.
+   are green on `main` at `alpha-1.0`. Branch off `main` for milestone 3.
 
 ## Where things stand
 
-- **Repo:** `gamerelay/racecar`, private until milestone 3, cloned at `~/dev/racecar`. The working
-  branch is `m2-world`.
+- **Repo:** `gamerelay/racecar`, private until milestone 3, cloned at `~/dev/racecar`. The default
+  branch is `main`.
 - **Milestone 1 (greybox sandbox): merged** (PR #1).
-- **Milestone 2 (the world): PR #2, open, CI green.** It contains everything below. PR #3 (detailed
-  cars, car ink, visible wrecks) was merged into it and shows as merged on GitHub.
+- **Milestone 2 (the world): merged** (PR #2) and tagged `alpha-1.0`. It contains everything
+  below; PR #3 (detailed cars, car ink, visible wrecks) was merged into it first. Just before the
+  tag it had a code review, and these were fixed:
+  - traffic posed between ticks like the cars;
+  - the AI seeing across the start/finish seam;
+  - GPU leaks on editor rebuilds;
+  - hazard telegraphs firing twice after a restore;
+  - rumble and input reaching AI car 0 in attract mode;
+  - per-tick closures in the AI;
+  - the HUD and minimap redrawing everything each frame.
 - **Played by a human:** the owner has driven it and steered the look and tuning (the notes under
   "Changed while building" quote them). Drift, boost and crash feel still want more hands on a
   controller.
@@ -81,7 +89,7 @@ cars) merged into it.
 |---|---|---|
 | Lap length | 3.26 km | 3.79 km |
 | AI lap floor (hard, empty track) | 58.8 s | 64.9 s |
-| Wrecks per 8-AI race (8 seeds) | ~0.5 | ~5 |
+| Wrecks per 8-AI race (8 seeds; `lap-report --field --seed N`) | ~1 | ~4 |
 | Draw calls | ~90–250 | ~40 |
 
 The game holds 120 fps (the display's cap) on the dev Mac, rain included. The frame rate hasn't
@@ -126,12 +134,11 @@ editor.
 
 1. **Playtest milestone 2 with a controller.** Tune with F4, and press F8 on anything odd. Two
    things to decide:
-   - Is ~0.5 wrecks a race on City too tame now that traffic can't pop in on corners? If so, add
+   - Is ~1 wreck a race on City too tame now that traffic can't pop in on corners? If so, add
      denser traffic on the straights rather than moving section ends back into corners.
-   - Is drifting satisfying without the mini-turbo? The slide now carries for about half a
-     second after release; tune it with the `driftExit*` values in F4.
-
-   Then merge PR #2 (and retarget anything open onto `main`).
+   - Drift boost is banked and paid on a clean release, and the slide carries after release,
+     with each car set differently by `driftCarry`. Does each car feel right? Tune it with the
+     `driftExit*` values and `boostFromDrift` in F4.
 2. **Finish PR #30:** merge, deploy (only when asked; see the gamerelay HANDOFF and deploy notes),
    then release an SDK alpha with the host controls.
 3. **Milestone 3 (online), per the spec:**
@@ -152,6 +159,13 @@ editor.
 - Traffic has silhouette ink only: no window or panel ink, and no crumple on wreck.
 - City has 4 puddles, all in corners; a few on straights would add rain atmosphere.
 - The tunnel lost its traffic section, which was too short to keep a straight at both ends.
+- The AI never drifts, so it never earns drift boost. That's an edge for a player who drifts
+  well; a drifting AI needs its drift controller tuned against the lap report.
+- Review leftovers, not done:
+  - A shared `instanced(geo, mat, items, pose)` helper would replace about 8 hand-rolled
+    instanced-mesh setups in `cityscape.ts`, `track.ts` and `world.ts`.
+  - Ambient city cars could animate in the vertex shader instead of on the CPU. They're now only
+    posed within 420 m of the camera.
 - Loading a layout builds the whole City in about 200 ms. That's fine per editor edit (edits
   apply when you let go of a point); if it ever runs per frame, cache it.
 

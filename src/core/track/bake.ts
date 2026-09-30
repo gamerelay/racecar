@@ -296,6 +296,9 @@ function emptySpline(id: string, index: number, closed: boolean, length: number,
 
 export const wrap = (s: number, L: number): number => ((s % L) + L) % L;
 
+/** Signed distance from b to a along a closed loop of length L, in (-L/2, L/2]: ahead is positive. */
+export const signedGap = (a: number, b: number, L: number): number => wrap(a - b + L / 2, L) - L / 2;
+
 /** Nearest sample index to distance `s` (wrapped on closed splines, clamped on open ones). */
 export function sampleIndex(sp: BakedSpline, s: number): number {
   if (sp.closed) return Math.round(wrap(s, sp.length) / sp.step) % sp.n;

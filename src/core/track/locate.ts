@@ -3,7 +3,7 @@
 // inside both roads, neither road's wall applies (`junctionFree`).
 
 import type { SimState } from '../state';
-import { mainDistance, wrap } from './bake';
+import { mainDistance, signedGap } from './bake';
 import { project, projectGlobal, surfaceAt, type TrackHit } from './query';
 
 const WINDOW = 90;
@@ -29,8 +29,8 @@ export function locateCar(sim: SimState, i: number): TrackHit {
     if (sp.index === 0) {
       for (let b = 1; b < track.splines.length; b++) {
         const br = track.splines[b];
-        const dFrom = wrap(cur.s - br.mainFrom + L / 2, L) - L / 2;
-        const dTo = wrap(cur.s - br.mainTo + L / 2, L) - L / 2;
+        const dFrom = signedGap(cur.s, br.mainFrom, L);
+        const dTo = signedGap(cur.s, br.mainTo, L);
         let hint = -1;
         if (dFrom > -WINDOW && dFrom < WINDOW) hint = Math.max(0, dFrom);
         else if (dTo > -WINDOW && dTo < WINDOW) hint = Math.min(br.length, br.length + dTo);

@@ -90,16 +90,20 @@ let editorOpen = false;
 let acc = 0;
 let last = performance.now();
 
+// The car you drive; none in attract mode, where car 0 (the camera's) is an AI.
+const human = attract ? -1 : me;
+
 // ---- rumble for your car's moments ----
 let rumbleCursor = 0;
 function rumble(): void {
   rumbleCursor = sim.events.read(rumbleCursor, (e) => {
-    if (e.car !== me && e.other !== me) return;
+    if (human < 0 || (e.car !== human && e.other !== human)) return;
     if (e.type === Ev.WallHit) input.rumble(Math.min(1, e.a / 20), 0.3, 120);
     else if (e.type === Ev.CarContact) input.rumble(Math.min(1, e.a / 15), 0.5, 140);
     else if (e.type === Ev.Wreck) input.rumble(1, 1, 450);
     else if (e.type === Ev.Land && e.a > 0.4) input.rumble(0.5, 0.2, 120);
     else if (e.type === Ev.MiniTurbo) input.rumble(0.2, 0.6 + e.b * 0.1, 200 + e.b * 100);
+    else if (e.type === Ev.DriftBoost && e.car === human) input.rumble(0.15, 0.5, 160);
   });
 }
 
@@ -110,7 +114,7 @@ function frame(now: number): void {
   last = now;
   if (!paused && !editorOpen) {
     input.poll(controls, dt);
-    renderer.lookBack = controls.lookBack;
+    renderer.lookBack = human >= 0 && controls.lookBack;
     acc += dt;
     let steps = 0;
     while (acc >= 1 / TICK_RATE && steps < 5) {
@@ -124,8 +128,8 @@ function frame(now: number): void {
     if (steps === 5) acc = 0;
   }
   for (let i = 0; i < sim.cars.count; i++) {
-    steer[i] = i === me ? controls.steer : sim.controls[i].steer;
-    braking[i] = i === me ? controls.brake > 0 : sim.controls[i].brake > 0;
+    steer[i] = i === human ? controls.steer : sim.controls[i].steer;
+    braking[i] = i === human ? controls.brake > 0 : sim.controls[i].brake > 0;
   }
   if (!editorOpen) {
     renderer.frame(acc * TICK_RATE, dt, steer, braking);

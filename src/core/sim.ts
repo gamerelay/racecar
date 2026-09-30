@@ -188,6 +188,11 @@ export class Sim implements SimState {
     c.wreck[i] = 0;
     c.drift[i] = 0;
     c.spinT[i] = 0;
+    // Nothing transient carries over a teleport: drift recovery, mini-turbo, stall, streaks.
+    c.driftExit[i] = c.driftBank[i] = c.driftChain[i] = c.chainT[i] = 0;
+    c.miniT[i] = c.stallT[i] = c.boosting[i] = c.oncomingT[i] = c.wreckT[i] = 0;
+    c.aiHold[i] = 0;
+    c.lastTakenBy[i] = 0;
     c.rx[i] = c.rz[i] = 0;
     c.spline[i] = spline;
     c.s[i] = at.s;
@@ -328,7 +333,7 @@ export class Sim implements SimState {
     this.rng.state = s.rng;
     if (s.race) this.race = { ...s.race };
     if (s.trafficWrecked) this.world.traffic.wreckedAt.set(s.trafficWrecked);
-    this.world.hazards.restoreTriggered(s.triggered ?? []);
+    this.world.hazards.restoreTriggered(s.triggered ?? [], this.time);
     restoreCars(this.cars, s.cars);
     this.applyWeather();
   }

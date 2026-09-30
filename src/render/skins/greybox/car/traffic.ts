@@ -5,7 +5,7 @@
 // Each vertex carries a color and `surf` = (paint, glow): paint 1 takes the instance's color (the
 // body), paint 0 keeps its own (glass, trim, lamps); glow lights it regardless of the sun (lamps).
 
-import { BoxGeometry, BufferAttribute, type BufferGeometry, Color, CylinderGeometry, type MeshToonMaterial } from 'three';
+import { BoxGeometry, BufferAttribute, BufferGeometry, Color, CylinderGeometry, type Matrix4, type MeshToonMaterial } from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { toon } from '../toon';
 import { extrudeProfile, prep } from './build';
@@ -234,3 +234,47 @@ export function lampSpots(id: string): number[][] {
   ];
 }
 
+
+/**
+ * Glow points for traffic lamps: four per car (two head, two tail), written from each car's
+ * matrix. Race traffic and the city's ambient cars share it; the caller picks the material.
+ */
+export class LampPoints {
+  readonly geo = new BufferGeometry();
+  private readonly pos: Float32Array;
+
+  constructor(max: number) {
+    this.pos = new Float32Array(max * 12);
+    const col = new Float32Array(max * 12);
+    for (let n = 0; n < max; n++) col.set(LAMP_COLORS, n * 12);
+    this.geo.setAttribute('position', new BufferAttribute(this.pos, 3));
+    this.geo.setAttribute('color', new BufferAttribute(col, 3));
+  }
+
+  /** Puts car `slot`'s four lamps where `m` (the car's matrix) puts its kind's lamp spots. */
+  write(slot: number, m: Matrix4, spots: number[][]): void {
+    const e = m.elements;
+    for (let n = 0; n < 4; n++) {
+      const [x, y, z] = spots[n];
+      const j = slot * 12 + n * 3;
+      this.pos[j] = e[0] * x + e[4] * y + e[8] * z + e[12];
+      this.pos[j + 1] = e[1] * x + e[5] * y + e[9] * z + e[13];
+      this.pos[j + 2] = e[2] * x + e[6] * y + e[10] * z + e[14];
+    }
+  }
+
+  /** Parks car `slot`'s lamps out of sight. */
+  hide(slot: number): void {
+    this.pos.fill(0, slot * 12, slot * 12 + 12);
+    for (let n = 0; n < 4; n++) this.pos[slot * 12 + n * 3 + 1] = -1e4;
+  }
+
+  /** Marks the positions for upload; `count` cars from the start are drawn (all when omitted). */
+  commit(count?: number): void {
+    if (count !== undefined) this.geo.setDrawRange(0, count * 4);
+    (this.geo.attributes.position as BufferAttribute).needsUpdate = true;
+  }
+}
+
+/** Warm white heads, red tails, per car. */
+const LAMP_COLORS = [1, 0.95, 0.8, 1, 0.95, 0.8, 1, 0.13, 0.2, 1, 0.13, 0.2];

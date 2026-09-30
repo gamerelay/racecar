@@ -10,7 +10,7 @@ import type { Controls } from '../controls';
 import { clamp, wrapAngle } from '../math';
 import { hash01 } from '../rng';
 import type { SimState } from '../state';
-import { mainDistance, wrap, type BakedSpline, type Track } from '../track/bake';
+import { mainDistance, signedGap, wrap, type BakedSpline, type Track } from '../track/bake';
 import { newHit, sampleAt, type TrackHit } from '../track/query';
 import { TRAFFIC_KINDS } from '../world/traffic';
 
@@ -131,14 +131,10 @@ export function driveRacer(sim: SimState, i: number, d: RacerDriver, out: Contro
     }
   }
   const line = racingLine(track, sp);
-  const lineAt = (dist: number, arr: Float64Array) => {
-    const idx = sp.closed ? Math.round(wrap(dist, sp.length) / sp.step) % sp.n : Math.max(0, Math.min(sp.n - 1, Math.round(dist / sp.step)));
-    return arr[idx];
-  };
 
   // Lateral target: the line, nudged round anything in the way.
   const ahead = 8 + speed * skill.look;
-  let target = lineAt(s + ahead, line.offset);
+  let target = lineAt(sp, s + ahead, line.offset);
   // On a two-way road, easier drivers keep their line on their own side.
   const world = sim.world;
   if (world && sp.index === 0 && skill.ownSide > 2) {
@@ -179,7 +175,7 @@ export function driveRacer(sim: SimState, i: number, d: RacerDriver, out: Contro
   out.steer = clamp(-(ff + err * (2.2 + speed / 30)) - c.yaw[i] * 0.05, -1, 1);
 
   // Speed: the profile a little ahead (so braking starts in time), scaled by skill and catch-up.
-  let v = lineAt(s + speed * 0.35 + 4, line.speed) * skill.pace;
+  let v = lineAt(sp, s + speed * 0.35 + 4, line.speed) * skill.pace;
   if (avoidCap < v) v = avoidCap;
   v = Math.min(v, cls.topSpeed * (c.boosting[i] ? T.boostTop : 1));
   v *= catchup(sim, i, skill.catchup);
@@ -192,13 +188,39 @@ export function driveRacer(sim: SimState, i: number, d: RacerDriver, out: Contro
 
   // Boost on long fast stretches.
   let straight = true;
-  for (let dd = 20; dd <= 160; dd += 35) if (lineAt(s + dd, line.speed) < cls.topSpeed * 0.95) straight = false;
+  for (let dd = 20; dd <= 160; dd += 35) if (lineAt(sp, s + dd, line.speed) < cls.topSpeed * 0.95) straight = false;
   out.boost = skill.boost && straight && c.boost[i] > 0.25 && c.wreck[i] === 0 && Math.abs(out.steer) < 0.3;
 
   out.reset = c.wreck[i] === 0 && (c.stuckT[i] > 2.5 || wrongWay(sim, i));
   out.lookBack = false;
   out.horn = false;
   return out;
+}
+
+/** The racing line's value at distance `dist` along `sp` (wrapping on a closed spline). */
+function lineAt(sp: BakedSpline, dist: number, arr: Float64Array): number {
+  const idx = sp.closed ? Math.round(wrap(dist, sp.length) / sp.step) % sp.n : Math.max(0, Math.min(sp.n - 1, Math.round(dist / sp.step)));
+  return arr[idx];
+}
+
+/** avoid()'s working state, module scratch so marking a threat doesn't allocate a closure per tick. */
+const mk = { speed: 0, target: 0, me: 0, tTarget: 0, capDs: 0, capV: 0 };
+
+/** A thing at lateral `lat` (half width hw), `ds` ahead, moving along the road at `v` (negative: toward us). */
+function mark(lat: number, hw: number, ds: number, v: number): void {
+  if (ds < -3 || ds > 260) return;
+  const closing = mk.speed - v;
+  if (closing < 0.5 && ds > 4) return;
+  const tc = Math.max(0, ds - 3) / Math.max(0.5, closing);
+  if (tc >= HORIZON) return;
+  const lo = lat - hw - mk.me - 0.7;
+  const hi = lat + hw + mk.me + 0.7;
+  if (mk.target > lo && mk.target < hi && tc < mk.tTarget) {
+    mk.tTarget = tc;
+    mk.capDs = ds;
+    mk.capV = v;
+  }
+  for (let k = 0; k < CANDIDATES.length; k++) if (candLat[k] > lo && candLat[k] < hi) candTime[k] = Math.min(candTime[k], tc);
 }
 
 /**
@@ -219,40 +241,27 @@ function avoid(sim: SimState, i: number, sp: BakedSpline, s: number, target: num
     candLat[k] = CANDIDATES[k] * half;
     candTime[k] = HORIZON;
   }
-  let tTarget = HORIZON;
-  let capDs = 0;
-  let capV = 0;
+  mk.speed = speed;
+  mk.target = target;
+  mk.me = me;
+  mk.tTarget = HORIZON;
+  mk.capDs = 0;
+  mk.capV = 0;
   avoidCap = Infinity;
-  /** A thing at lateral `lat` (half width hw), `ds` ahead, moving along the road at `v` (negative: toward us). */
-  const mark = (lat: number, hw: number, ds: number, v: number) => {
-    if (ds < -3 || ds > 260) return;
-    const closing = speed - v;
-    if (closing < 0.5 && ds > 4) return;
-    const tc = Math.max(0, ds - 3) / Math.max(0.5, closing);
-    if (tc >= HORIZON) return;
-    const lo = lat - hw - me - 0.7;
-    const hi = lat + hw + me + 0.7;
-    if (target > lo && target < hi && tc < tTarget) {
-      tTarget = tc;
-      capDs = ds;
-      capV = v;
-    }
-    for (let k = 0; k < n; k++) if (candLat[k] > lo && candLat[k] < hi) candTime[k] = Math.min(candTime[k], tc);
-  };
   const sMain = mainDistance(sim.track, c.spline[i], c.s[i]);
   let oncomingSide = 0;
   if (world && sp.index === 0) {
     const tr = world.traffic;
     for (let l = 0; l < tr.lanes.length; l++) if (tr.lanes[l].dir < 0) oncomingSide = Math.sign(tr.lanes[l].pos);
     for (let p = 0; p < tr.posed; p++) {
-      const ds = wrap(tr.s[p] - sMain + L / 2, L) - L / 2;
+      const ds = signedGap(tr.s[p], sMain, L);
       const k = tr.idx[p];
       const lane = tr.lanes[tr.lane[k]];
       mark(tr.lat[p], TRAFFIC_KINDS[tr.kind[k]].hw, ds, lane.dir * lane.speed);
     }
     const hz = world.hazards;
     for (let p = 0; p < hz.pieces; p++) {
-      const ds = wrap(hz.pS[p] - sMain + L / 2, L) - L / 2;
+      const ds = signedGap(hz.pS[p], sMain, L);
       sampleAt(sim.track.main, hz.pS[p], probe);
       const lat = (hz.px[p] - probe.cx) * -probe.tz + (hz.pz[p] - probe.cz) * probe.tx;
       mark(lat, Math.max(hz.phw[p], hz.phl[p]), ds, 0);
@@ -262,15 +271,15 @@ function avoid(sim: SimState, i: number, sp: BakedSpline, s: number, target: num
   for (let q = 0; q < props.length; q++) {
     const pr = props[q];
     if (!pr.solid || pr.spline !== sp.index) continue;
-    mark(pr.lateral, Math.max(pr.hx, pr.hz), pr.s - s, 0);
+    mark(pr.lateral, Math.max(pr.hx, pr.hz), sp.closed ? signedGap(pr.s, s, sp.length) : pr.s - s, 0);
   }
   for (let j = 0; j < c.count; j++) {
     if (j === i || !c.active[j] || c.spline[j] !== c.spline[i]) continue;
     const vj = c.wreck[j] ? 0 : Math.hypot(c.vx[j], c.vz[j]);
-    mark(c.lateral[j], sim.classes[c.cls[j]].size[0], c.s[j] - c.s[i], vj);
+    mark(c.lateral[j], sim.classes[c.cls[j]].size[0], sp.closed ? signedGap(c.s[j], c.s[i], sp.length) : c.s[j] - c.s[i], vj);
   }
-  lastT = tTarget;
-  if (tTarget >= HORIZON) return target;
+  lastT = mk.tTarget;
+  if (mk.tTarget >= HORIZON) return target;
   // Getting to a line means crossing the ones between here and there: it's only as clear as the
   // worst of them.
   let hereK = 0;
@@ -300,9 +309,9 @@ function avoid(sim: SimState, i: number, sp: BakedSpline, s: number, target: num
       best = k;
     }
   }
-  if (candTime[best] <= tTarget + 0.25) {
+  if (candTime[best] <= mk.tTarget + 0.25) {
     // No better line: brake to arrive behind it at its speed, with a car length to spare.
-    avoidCap = Math.max(4, Math.max(0, capV) + Math.sqrt(2 * 16 * Math.max(0, capDs - 9)));
+    avoidCap = Math.max(4, Math.max(0, mk.capV) + Math.sqrt(2 * 16 * Math.max(0, mk.capDs - 9)));
     return target;
   }
   // Commit to it for a moment, so the next tick doesn't talk us back out of it.
