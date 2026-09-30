@@ -6,6 +6,11 @@ and where things stand is [docs/HANDOFF.md](./docs/HANDOFF.md).
 
 ## Unreleased
 
+## alpha-1.10: Paradise
+
+PLAN phase 5, parts 1 and 2: the Island's lap, land, sea and freeway (PR #21), and its scenery,
+waves and look (PR #22).
+
 ### Added
 - **Paradise, the third map** (PLAN phase 5, part 1): a tropical island lap, clockwise, 3.44 km.
   Start on the harbour front, then run up Coconut Coast (take the Sandbar along the waterline),

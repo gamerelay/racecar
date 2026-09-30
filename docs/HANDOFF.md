@@ -4,9 +4,9 @@ Where racecar stands and what's next, for whoever picks it up (a person or a fre
 The design is [SPEC.md](./SPEC.md): decisions in §17, and what building changed in "Changed while
 building". This file is "where are we"; the spec is "what are we making".
 
-**Last updated:** 2026-09-30. `main` is tagged **`alpha-1.9`**: milestone 2 (PR #2, tagged
+**Last updated:** 2026-09-30. `main` is tagged **`alpha-1.10`**: milestone 2 (PR #2, tagged
 `alpha-1.0`), Countryside v2 (PR #4, `alpha-1.1`), seven cars plus polish (PR #6, `alpha-1.2`),
-traffic that fades instead of popping (PR #7, `alpha-1.3`), audio plus a review pass (PR #9, `alpha-1.4`), Valley v3 with smooth shortcut joins (PR #10, `alpha-1.5`), drift chains, skid marks, new car designs and a second review pass (PR #12, `alpha-1.6`), the police car, solid Trestle legs, air boost and boost by position (PR #13, `alpha-1.7`), the quick wins plus the title screen and local lobbies (PRs #14 and #16, `alpha-1.8`), and license plates, the lobby polish, the cars doc `docs/CARS.md`, marketing art with link previews and the car select (PRs #18, #19, #15, #17 and #20, `alpha-1.9`). Every release is in [CHANGELOG.md](../CHANGELOG.md): add to its "Unreleased" section as you go, and retitle that section when you tag. What's next is [PLAN.md](./PLAN.md) (phase 1, the quick wins, merged as PR #14; phase 2, the title screen and local lobbies, merged as PR #16; phase 3, license plates, merged as PR #18; phase 4, the car select, merged as PR #20; phase 5, Paradise, is under way in parts: the lap and the land first, on branch `paradise`), and how maps are made is [MAPS.md](./MAPS.md).
+traffic that fades instead of popping (PR #7, `alpha-1.3`), audio plus a review pass (PR #9, `alpha-1.4`), Valley v3 with smooth shortcut joins (PR #10, `alpha-1.5`), drift chains, skid marks, new car designs and a second review pass (PR #12, `alpha-1.6`), the police car, solid Trestle legs, air boost and boost by position (PR #13, `alpha-1.7`), the quick wins plus the title screen and local lobbies (PRs #14 and #16, `alpha-1.8`), license plates, the lobby polish, the cars doc `docs/CARS.md`, marketing art with link previews and the car select (PRs #18, #19, #15, #17 and #20, `alpha-1.9`), and Paradise's lap, land and scenery (PRs #21 and #22, `alpha-1.10`). Every release is in [CHANGELOG.md](../CHANGELOG.md): add to its "Unreleased" section as you go, and retitle that section when you tag. What's next is [PLAN.md](./PLAN.md) (phase 1, the quick wins, merged as PR #14; phase 2, the title screen and local lobbies, merged as PR #16; phase 3, license plates, merged as PR #18; phase 4, the car select, merged as PR #20; phase 5, Paradise: parts 1 and 2, the lap, land and scenery, merged as PRs #21 and #22; part 3 is next), and how maps are made is [MAPS.md](./MAPS.md).
 
 **Map names:** City is now **Downtown** and Countryside is **Backroads** (content in
 `content/maps/downtown` and `content/maps/backroads`; keys `downtown/downtown`, `backroads/valley`;
@@ -19,7 +19,7 @@ old keys still resolve). This file still says City and Countryside in places; th
 3. The platform side is ready: gamerelay PR #30 (host controls) is deployed and SDK
    `0.1.0-alpha.4` has it (see "GameRelay side" below).
 4. Before changing anything: `bun test && bun run typecheck && bun tools/validate.ts`. All three
-   are green on `main` (159 tests; 172 on `paradise`). Branch off `main`, one PR per phase, with CI.
+   are green on `main` (176 tests). Branch off `main`, one PR per phase, with CI.
 
 ## Where things stand
 
@@ -32,15 +32,17 @@ old keys still resolve). This file still says City and Countryside in places; th
   favicons, a web manifest and JSON-LD.
 - **Cars doc: merged** (PR #15): `docs/CARS.md`, how the cars are designed and built, and adding
   one.
-- **Paradise, part 1 (the lap and the land): PR #21 open** on branch `paradise` (PLAN phase 5). The
+- **Paradise, parts 1 and 2: merged** (PRs #21 and #22, PLAN phase 5, `alpha-1.10`). Part 1, the
   Island (`tools/gen-paradise.ts`, `content/maps/paradise`): 3.44 km clockwise, a 68.2 s hard-AI
   floor, the Sandbar and the Lava Tube, and ~0.75 AI wrecks a race. The shared lap-laying is
   `tools/lib/lap.ts` (the Valley regenerates byte-for-byte). The land is `buildTerrain` with
   `terrain.island`/`sea`/`volcano`: the sea, a beach, the cone; roads over the sea are decks, so
   the Freeway stands on `deckPillars` over the bay. New surfaces `sand`, `red-earth`,
   `lava-rock`, `shore`; the `tropic` palette with a daytime sky (`day`). The bus's accel went 13
-  → 14 for balance. SPEC "Paradise, part 1". Parts 2 (scenery, waves) and 3 (hazards, the
-  shower and sunset, tuning) are next.
+  → 14 for balance. SPEC "Paradise, part 1". Part 2 (PR #22) is the scenery (`island.ts`),
+  waves, and a color grade palettes can set in the post pass (Paradise's vivid 2000s-beach look;
+  the other maps have none). SPEC "Paradise, part 2". Part 3 (hazards, the shower and sunset,
+  tuning) is next.
 - **Car select: merged** (PR #20, PLAN phase 4, `alpha-1.9`). The lobby docks left and your car turns on a table
   beside it (`src/render/showroom.ts`), a 1:50 model held in front of the world camera, so the
   post pass and weather treat it like the world, framed into the lobby's `.stage` box so CSS places it (beside the menu, or above it
@@ -234,12 +236,9 @@ editor.
 
 ## Next, in order
 
-1. **PLAN phase 5, Paradise,** parts 2 and 3, after part 1 merges:
-   - Part 2, scenery (`island.ts`, branch `paradise-scenery`, stacked on part 1): palms that
-     sway, jungle, Harbor Town with the tiki bar, pier and boats, umbrellas and huts, gulls, the
-     volcano's lava, glow and plume, the Lava Tube roofed and lit, a rope bridge and waterfall,
-     the lighthouse, shortcut signs, waves. Open: rain still falls inside the Lava Tube (the
-     rain's roof map only knows decks and the city's tunnel).
+1. **PLAN phase 5, Paradise, part 3** (parts 1 and 2 are merged):
+   - Left from part 2: rain still falls inside the Lava Tube (the rain's roof map only knows
+     decks and the city's tunnel).
    - Part 3: volcano bombs (a scheduled moment on the rim), falling coconuts on the coast, a
      tropical shower that rolls in and out mid-race, the sunset palette, and hazard sweeps with
      the field report.
