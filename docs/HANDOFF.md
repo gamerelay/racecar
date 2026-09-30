@@ -241,6 +241,8 @@ editor.
    - Part 3: volcano bombs (a scheduled moment on the rim), falling coconuts on the coast, a
      tropical shower that rolls in and out mid-race, the sunset palette, and hazard sweeps with
      the field report.
+     Also from PR #21's review: the sky ignores wetness (a bright sun in the rain, on every map),
+     and the lobby test's lap-length bound went to 3.8 km for all maps; give each map its own.
 2. **Milestone 3 (online), per the spec:**
    - A `relay` LobbyBackend (`src/lobby/backend.ts`): lobbies as rooms with `setListing`, the
      list from `listRooms('race', { includeFull: true })`, and actions sent to the host, who
