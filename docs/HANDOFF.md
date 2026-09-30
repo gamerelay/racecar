@@ -33,8 +33,8 @@ old keys still resolve). This file still says City and Countryside in places; th
 - **Cars doc: merged** (PR #15): `docs/CARS.md`, how the cars are designed and built, and adding
   one.
 - **Car select: PR #20** (PLAN phase 4). The lobby docks left and your car turns on a table
-  beside it (`src/render/showroom.ts`), a scene of its own drawn over the world with the game's
-  post pass, framed into the lobby's `.stage` box so CSS places it (beside the menu, or above it
+  beside it (`src/render/showroom.ts`), a 1:50 model held in front of the world camera, so the
+  post pass and weather treat it like the world, framed into the lobby's `.stage` box so CSS places it (beside the menu, or above it
   on a phone). The race behind swaps map and weather in place (`swapMap` in `main.ts`,
   `Sim.setTrack`/`setWeather`, `GameRenderer.setMap`/`setPlates`), under a slow crane camera.
   Stat bars in `src/ui/stats.ts`. SPEC "Car select". 159 tests.

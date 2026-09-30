@@ -109,7 +109,7 @@ export class GameRenderer {
     this.scene.add(this.skids.mesh);
     this.worldVisual = skin.world(this.scene, sim, this.trackVisual);
     this.showroom = new Showroom(skin);
-    this.showroom.light(this.scene);
+    this.scene.add(this.showroom.root);
     this.syncCars();
     this.resize();
     this.snapCamera();
@@ -139,7 +139,6 @@ export class GameRenderer {
     this.skin.environment(this.scene, palette);
     if (this.skin.ink !== undefined) this.post.uniforms.uInk.value.setHex(this.skin.ink);
     this.setTrack();
-    this.showroom.light(this.scene);
   }
 
   /** New plates (another map prints another region on them): every car's visual is built again. */
@@ -179,7 +178,6 @@ export class GameRenderer {
     this.renderer.setSize(w, h);
     this.camera.aspect = w / h;
     this.camera.updateProjectionMatrix();
-    this.showroom.camera.aspect = w / h;
     this.post.setSize(Math.floor(w * this.opts.pixelRatio), Math.floor(h * this.opts.pixelRatio), 1.5 * this.opts.pixelRatio);
     this.ink.setSize(Math.floor(w * this.opts.pixelRatio), Math.floor(h * this.opts.pixelRatio));
   }
@@ -235,6 +233,11 @@ export class GameRenderer {
     const haze = this.scene.fog as Fog | null;
     this.skids.update(sdt, haze?.near, haze?.far);
     this.updateCamera(dt);
+    // The turntable rides in front of the camera, so it's placed once the camera has moved.
+    if (this.showroom.visible) {
+      this.camera.updateMatrixWorld();
+      this.showroom.update(dt, this.camera);
+    } else this.showroom.hide();
     // The world is drawn at the same moment as the cars: between the last two ticks.
     this.worldVisual.update(sdt, this.camera.position, this.sim.time - (1 - alpha) * this.sim.dt * this.sim.timeScale);
     // Scenery (the city's cars, searchlights, birds, smoke) runs on world time: it stops when
@@ -244,7 +247,6 @@ export class GameRenderer {
     this.skin.update?.(this.worldTime, this.camera.position.x, this.camera.position.y, this.camera.position.z, this.sim.wetness);
 
     const stage = this.showroom.visible ? this.showroom : null;
-    stage?.update(dt);
     if (stage) {
       // Behind the car select the world stays calm: no speed blur, boost, flash or slow-mo grade.
       this.boostVis = this.impact = this.shake = 0;
@@ -274,32 +276,16 @@ export class GameRenderer {
     this.impact *= Math.exp(-dt * 4);
     if (this.opts.post) {
       u.uCarInk.value = this.opts.outline ? 1 : 0;
-      if (this.opts.outline) {
-        this.ink.render(this.renderer, this.scene, this.camera);
-        if (stage) this.ink.render(this.renderer, stage.scene, stage.camera, true);
-      }
+      if (this.opts.outline) this.ink.render(this.renderer, this.scene, this.camera);
       this.renderer.setRenderTarget(this.post.target);
       this.renderer.render(this.scene, this.camera);
       this.drawCalls = this.renderer.info.render.calls;
-      if (stage) this.drawStage(stage);
       this.post.render(this.renderer);
     } else {
       this.renderer.setRenderTarget(null);
       this.renderer.render(this.scene, this.camera);
       this.drawCalls = this.renderer.info.render.calls;
-      if (stage) this.drawStage(stage);
     }
-  }
-
-  /** The turntable over the world just drawn: the same target, the depth cleared, so it's in front of everything. */
-  private drawStage(stage: Showroom): void {
-    const r = this.renderer;
-    const autoClear = r.autoClear;
-    r.autoClear = false;
-    r.clearDepth();
-    r.render(stage.scene, stage.camera);
-    r.autoClear = autoClear;
-    this.drawCalls += r.info.render.calls;
   }
 
   private focusSpeed(): number {

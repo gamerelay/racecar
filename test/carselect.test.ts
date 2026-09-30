@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import { Group } from 'three';
+import { Group, PerspectiveCamera } from 'three';
 import { Sim } from '../src/core/sim';
 import { bakeTrack } from '../src/core/track/bake';
 import { DRIVE_UP, Showroom, driveUp, frameStage, tableRadius } from '../src/render/showroom';
@@ -65,7 +65,8 @@ describe('the turntable', () => {
     s.show(coupe, PAINTS[0], plate);
     expect(s.visible).toBe(true);
     expect(t()).toBe(0);
-    s.update(2);
+    s.frame({ left: 0, top: 0, width: 800, height: 600 }, 800, 600);
+    s.update(2, new PerspectiveCamera());
     s.show(coupe, PAINTS[0], plate);
     expect(built).toEqual(['coupe/' + PAINTS[0].id]);
     s.show(coupe, PAINTS[1], plate);

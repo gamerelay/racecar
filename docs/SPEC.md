@@ -1295,15 +1295,19 @@ Car select (2026-09-30, PLAN phase 4):
   with its name and job, the car and paint pickers, and five stat bars (speed, accel, handling,
   weight, boost; `ui/stats.ts`, each against the range across the classes). The pickers moved
   there from your seat row, which now shows your car like everyone else's.
-- **The table is its own scene, drawn over the world with the game's post pass**
-  (`render/showroom.ts`). The renderer draws the world, clears the depth and draws the table
-  into the same target, and the ink pass gets a second draw on top the same way. So the car has
-  the game's ink, grade and grain, and is always in front. It borrows the world's fog object
-  (so the shared car materials don't switch programs between the two scenes) and its sky and
-  sun colours, with the key light from the front.
+- **The table is a small model in the world's own scene** (`render/showroom.ts`): 1:50,
+  held a hand's length in front of the world camera, so the same camera draws it into the same
+  depth buffer, lit by the same lights. The post pass (ink, wet reflections, grade, grain) and
+  the weather treat it like everything else, so the preview looks like the game and dims in
+  the rain with the world. Behind the lobby the camera is a crane above the traffic, so nothing
+  in the world comes that close to it.
+  - **From the review:** the first version was a scene of its own, drawn over the world with
+    the depth cleared. That wiped the world's depth before the post pass read it, so the race
+    behind lost its outlines and reflections. It also left the table lit at dry strength in the
+    rain. The model in the world fixes both.
 - **CSS decides where the car goes:** the lobby has an empty `.stage` box, and the table is
-  framed into it each frame (`frameStage`: a view offset, and a distance that fits the table to
-  the box). So the same code puts it beside the menu on a desktop and above it on a phone.
+  framed into it each frame (`frameStage`: where on screen, and a distance that fits the table
+  to the box). So the same code puts it beside the menu on a desktop and above it on a phone.
   - On a phone (760 px and under), it's one column that scrolls, with a 16 px gutter: the car,
     then its panel, then the lobby.
   - The lobby's first focus no longer scrolls, so a phone opens at the top, on the car.
