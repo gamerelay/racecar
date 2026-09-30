@@ -6,7 +6,11 @@ and where things stand is [docs/HANDOFF.md](./docs/HANDOFF.md).
 
 ## Unreleased
 
-Merged in PR #13, not tagged yet.
+Nothing yet.
+
+## alpha-1.7: police car, Trestle legs, air and position boost
+
+PR #13.
 
 ### Added
 - **The police car is playable:** the Interceptor, the eighth car class. It's fast and heavy

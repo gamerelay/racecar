@@ -4,9 +4,9 @@ Where racecar stands and what's next, for whoever picks it up (a person or a fre
 The design is [SPEC.md](./SPEC.md): decisions in §17, and what building changed in "Changed while
 building". This file is "where are we"; the spec is "what are we making".
 
-**Last updated:** 2026-09-30. `main` is tagged **`alpha-1.6`**: milestone 2 (PR #2, tagged
+**Last updated:** 2026-09-30. `main` is tagged **`alpha-1.7`**: milestone 2 (PR #2, tagged
 `alpha-1.0`), Countryside v2 (PR #4, `alpha-1.1`), seven cars plus polish (PR #6, `alpha-1.2`),
-traffic that fades instead of popping (PR #7, `alpha-1.3`), audio plus a review pass (PR #9, `alpha-1.4`), Valley v3 with smooth shortcut joins (PR #10, `alpha-1.5`), drift chains, skid marks, new car designs and a second review pass (PR #12, `alpha-1.6`), and since the tag the police car, solid Trestle legs, air boost and boost by position (PR #13, merged, not tagged yet). Every release is in [CHANGELOG.md](../CHANGELOG.md): add to its "Unreleased" section as you go, and retitle that section when you tag.
+traffic that fades instead of popping (PR #7, `alpha-1.3`), audio plus a review pass (PR #9, `alpha-1.4`), Valley v3 with smooth shortcut joins (PR #10, `alpha-1.5`), drift chains, skid marks, new car designs and a second review pass (PR #12, `alpha-1.6`), and the police car, solid Trestle legs, air boost and boost by position (PR #13, `alpha-1.7`). Every release is in [CHANGELOG.md](../CHANGELOG.md): add to its "Unreleased" section as you go, and retitle that section when you tag.
 
 ## Resume in five minutes
 
@@ -22,8 +22,8 @@ traffic that fades instead of popping (PR #7, `alpha-1.3`), audio plus a review 
 - **Repo:** `gamerelay/racecar`, private until milestone 3, cloned at `~/dev/racecar`. The default
   branch is `main`.
 - **Milestone 1 (greybox sandbox): merged** (PR #1).
-- **Police car, Trestle legs, air boost, boost by position: merged** (PR #13), not tagged
-  yet: the Interceptor is the eighth class, the Trestle's legs on the home
+- **Police car, Trestle legs, air boost, boost by position: merged** (PR #13) and tagged
+  `alpha-1.7`: the Interceptor is the eighth class, the Trestle's legs on the home
   stretch are solid (crash if you clip one), air time pays on a clean landing, boost from moves
   is scaled ×0.9 (leading) to ×1.35 (last), and the contact shadow fades when a car flips. SPEC
   "Police car, Trestle legs, air boost and boost by position". 126 tests.
