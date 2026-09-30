@@ -263,8 +263,10 @@ document.addEventListener('visibilitychange', () => document.hidden && awayPause
 // ---- system keys ----
 input.on((a) => {
   const menu = openMenu();
-  if (a.startsWith('nav-')) {
-    if (menu) navigate(menu, a.slice(4) as 'up' | 'down' | 'left' | 'right');
+  if (a.startsWith('nav-') || a.startsWith('pick-')) {
+    const dir = a.slice(a.indexOf('-') + 1) as 'up' | 'down' | 'left' | 'right';
+    // A pick is the lobby's car and paint when you have a seat there; otherwise it moves focus.
+    if (menu && !(a.startsWith('pick-') && menu.id === 'menu' && screens?.pick(dir))) navigate(menu, dir);
     return;
   }
   if (a === 'accept') return void (menu && accept(menu));

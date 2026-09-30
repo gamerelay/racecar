@@ -1492,3 +1492,20 @@ HUD tweaks (owner, 2026-09-30):
 - **The countdown's number shows its outline:** a stroke under the fill only shows its outer
   half (1.5 px), which was lost on the night sky, so it's 7 px, ringed in outline shadows as well.
 
+
+The lobby's layout (owner, 2026-09-30):
+
+- **Three panels, nothing scrolls:** the seats alone dock left, their rows sharing the window's
+  height (40–58 px) with the buttons at the bottom. Your car turns in the middle, between the
+  seats and the options. The race's options float top right. Below 1000 × 560 it's the one
+  column a phone gets, which scrolls without a bar.
+- **The options are the host's:** the host gets the six dropdowns. Everyone else gets the map
+  and a line of chips (laps, weather, time, mayhem, traffic).
+- **The car is cycled, not picked from a list:** arrows either side of the table cycle the car
+  (A and D, or the pad's bumpers), and a row of swatches under its stat bars sets the paint (W
+  and S cycle it). The car and paint dropdowns are gone. W, A, S and D are `pick-*` menu
+  actions now. When there's nothing to pick (the title, or no seat in the lobby) they move focus
+  as before, and the arrows and d-pad always do. Quick presses build on the last pick sent, so
+  none are lost while the lobby echoes the change back.
+- **Races default to 2 laps** (`DEFAULT_OPTIONS`, and a link without `laps`). A lobby already
+  saved keeps its laps.

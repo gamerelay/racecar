@@ -7,12 +7,15 @@ import type { Controls } from '../core/controls';
 import { approach, clamp } from '../core/math';
 
 export type SystemAction = 'pause' | 'report' | 'editor' | 'debug' | 'tuning' | 'ink' | 'mute' | 'music' | MenuAction;
-/** In a menu (menuOpen): move focus, press the focused control, or back out. */
-export type MenuAction = 'nav-up' | 'nav-down' | 'nav-left' | 'nav-right' | 'accept' | 'back';
+/**
+ * In a menu (menuOpen): move focus, press the focused control, or back out. WASD (and the pad's
+ * bumpers) pick: in the lobby they cycle your car and paint, and elsewhere they move focus too.
+ */
+export type MenuAction = 'nav-up' | 'nav-down' | 'nav-left' | 'nav-right' | 'pick-up' | 'pick-down' | 'pick-left' | 'pick-right' | 'accept' | 'back';
 
-const MENU_KEYS: Record<string, MenuAction> = { ArrowUp: 'nav-up', ArrowDown: 'nav-down', ArrowLeft: 'nav-left', ArrowRight: 'nav-right', KeyW: 'nav-up', KeyS: 'nav-down', KeyA: 'nav-left', KeyD: 'nav-right' };
-/** Standard-mapping d-pad buttons. */
-const PAD_NAV: [number, MenuAction][] = [[12, 'nav-up'], [13, 'nav-down'], [14, 'nav-left'], [15, 'nav-right']];
+const MENU_KEYS: Record<string, MenuAction> = { ArrowUp: 'nav-up', ArrowDown: 'nav-down', ArrowLeft: 'nav-left', ArrowRight: 'nav-right', KeyW: 'pick-up', KeyS: 'pick-down', KeyA: 'pick-left', KeyD: 'pick-right' };
+/** Standard-mapping d-pad buttons, and LB and RB. */
+const PAD_NAV: [number, MenuAction][] = [[12, 'nav-up'], [13, 'nav-down'], [14, 'nav-left'], [15, 'nav-right'], [4, 'pick-left'], [5, 'pick-right']];
 
 const KEYS: Record<string, keyof typeof held> = {
   ArrowLeft: 'left',

@@ -1,16 +1,17 @@
 // The front door (PLAN phases 2 to 4): the title screen with the lobby list, Create lobby, your
 // plate, and the lobby itself, Civilization-style, with eight seats the host sets to a player,
 // open, an AI or closed. Every race starts from a lobby; playing alone is your lobby with bots in
-// the open seats. The lobby is also the car select: it docks left, and your car turns on a table
-// beside it (render/showroom.ts) over its map, with the car and paint pickers and stat bars next
-// to the car. The screens only see a LobbyBackend, so online lobbies plug in behind them in
+// the open seats. The lobby is also the car select: the seats dock left, your car turns on a
+// table in the middle (render/showroom.ts) over its map, with arrows either side to cycle it (A and
+// D; W and S cycle the paint) and its stat bars under it, and the race's options float top right
+// (the host's to set; everyone else sees a summary). The screens only see a LobbyBackend, so online lobbies plug in behind them in
 // milestone 3.
 
 import type { CarClass, MapDef, PaintDef, TrackLayout } from '../core/content';
 import type { KeyValue, LobbyBackend } from '../lobby/backend';
 import { LOCAL_ID } from '../lobby/backend';
 import { aiPlate, cleanPlate, plateProblem, PLATE_MAX, savePlate, typedPlate } from '../lobby/plate';
-import { DIFFICULTY_NAMES, FILL_DIFFICULTY, SEATS, legacySeats, seatIndex, summarize, type Lobby, type LobbyAction, type LobbyOptions, type LobbySummary, type SeatChoice } from '../lobby/lobby';
+import { DEFAULT_OPTIONS, DIFFICULTY_NAMES, FILL_DIFFICULTY, SEATS, legacySeats, seatIndex, summarize, type Lobby, type LobbyAction, type LobbyOptions, type LobbySummary, type SeatChoice } from '../lobby/lobby';
 import { MAX_LAPS, raceFromLobby, toQuery, type RaceSetup } from './setup';
 import { carStats } from './stats';
 import { thumb, thumbSvg } from './thumb';
@@ -33,6 +34,15 @@ export interface Preview {
 
 type Screen = { kind: 'title' } | { kind: 'create' } | { kind: 'plate' } | { kind: 'lobby'; id: string };
 
+/** The race options' choices, as [value, label]. */
+const WEATHERS: [string, string][] = [['random', 'Random'], ['clear', 'Clear'], ['rain', 'Rain']];
+const TIMES: [string, string][] = [['random', 'Random'], ['day', 'Day'], ['sunset', 'Sunset']];
+const MAYHEMS: [string, string][] = [['normal', 'Normal'], ['chaos', 'Chaos'], ['off', 'Off']];
+const label = (opts: [string, string][], v: string) => opts.find(([k]) => k === v)?.[1] ?? v;
+
+/** The car arrows' chevron (pointing right; the previous one is flipped in CSS). */
+const CHEVRON = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 3l10 9-10 9"/></svg>';
+
 const esc = (s: string) => s.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
 /** A name as a little license plate (the results use the same chip). */
 export const plateChip = (name: string) => `<span class="plate">${esc(name)}</span>`;
@@ -40,6 +50,10 @@ export const plateChip = (name: string) => `<span class="plate">${esc(name)}</sp
 export class Menu {
   private root: HTMLElement;
   private screen: Screen = { kind: 'title' };
+  /** The lobby on screen, as last drawn. */
+  private lobby: Lobby | null = null;
+  /** Your last pick, until the lobby comes back with it: quick presses each build on the one before. */
+  private picked: { car: string; paint: number } | null = null;
   private unsubscribe: (() => void) | null = null;
   /** Your car and paint for a new lobby (the last race's, when you come back from one). */
   private yours: { car: string; paint: number };
@@ -85,10 +99,28 @@ export class Menu {
     if (this.screen.kind !== 'title') void this.show({ kind: 'title' });
   }
 
+  /**
+   * A pick in the lobby (A and D, the pad's bumpers: the car; W and S: the paint). False when
+   * there's nothing to pick (not in a lobby, or no seat in it), so the key moves focus instead.
+   */
+  pick(dir: 'up' | 'down' | 'left' | 'right'): boolean {
+    if (this.screen.kind !== 'lobby' || !this.lobby || seatIndex(this.lobby, this.backend.you) < 0) return false;
+    const { classes, paints } = this.content;
+    const yours = this.picked ?? this.yourCar(this.lobby);
+    const step = dir === 'right' || dir === 'down' ? 1 : -1;
+    if (dir === 'left' || dir === 'right') {
+      const at = classes.findIndex((c) => c.id === yours.car);
+      this.picked = { car: classes[(at + step + classes.length) % classes.length].id, paint: yours.paint };
+    } else this.picked = { car: yours.car, paint: (yours.paint + step + paints.length) % paints.length };
+    this.send(this.lobby, { type: 'car', ...this.picked });
+    return true;
+  }
+
   private async show(screen: Screen): Promise<void> {
     this.unsubscribe?.();
     this.unsubscribe = null;
     this.screen = screen;
+    this.lobby = this.picked = null;
     history.replaceState(null, '', screen.kind === 'lobby' ? `?lobby=${encodeURIComponent(screen.id)}` : location.pathname);
     // The lobby docks left for the car beside it; the other screens are cards in the middle.
     this.root.classList.toggle('dock', screen.kind === 'lobby');
@@ -272,9 +304,9 @@ export class Menu {
     const maps: [string, string][] = Object.keys(this.content.layouts).map((k) => [k, this.mapName(k)]);
     return `<label>Map ${this.sel('oMap', maps, o.map, disabled)}</label>
       <label>Laps ${this.sel('oLaps', Array.from({ length: MAX_LAPS }, (_, k) => [String(k + 1), String(k + 1)] as [string, string]), String(o.laps), disabled)}</label>
-      <label>Weather ${this.sel('oWeather', [['random', 'Random'], ['clear', 'Clear'], ['rain', 'Rain']], o.weather, disabled)}</label>
-      <label>Time ${this.sel('oTime', [['random', 'Random'], ['day', 'Day'], ['sunset', 'Sunset']], o.time, disabled || !this.hasSunset(o.map))}</label>
-      <label>Mayhem ${this.sel('oMayhem', [['normal', 'Normal'], ['chaos', 'Chaos'], ['off', 'Off']], o.mayhem, disabled)}</label>
+      <label>Weather ${this.sel('oWeather', WEATHERS, o.weather, disabled)}</label>
+      <label>Time ${this.sel('oTime', TIMES, o.time, disabled || !this.hasSunset(o.map))}</label>
+      <label>Mayhem ${this.sel('oMayhem', MAYHEMS, o.mayhem, disabled)}</label>
       <label>Traffic ${this.sel('oTraffic', [['1', 'On'], ['0', 'Off']], o.traffic ? '1' : '0', disabled)}</label>`;
   }
 
@@ -291,7 +323,7 @@ export class Menu {
   }
 
   private renderCreate(): void {
-    const o: LobbyOptions = { map: Object.keys(this.content.layouts)[0], laps: 3, weather: 'random', time: 'random', mayhem: 'normal', traffic: true, ...this.defaults };
+    const o: LobbyOptions = { ...DEFAULT_OPTIONS, map: Object.keys(this.content.layouts)[0], ...this.defaults };
     this.paint(
       `<div class="card setup create">
         <h1>Create lobby</h1>
@@ -329,6 +361,7 @@ export class Menu {
     const host = lobby.host === you;
     const mine = seatIndex(lobby, you);
     const yours = this.yourCar(lobby);
+    if (this.picked && this.picked.car === yours.car && this.picked.paint === yours.paint) this.picked = null;
     const className = (id: string) => classes.find((c) => c.id === id)?.name ?? id;
     const dot = (paint: number) => `<i class="dot" style="background:${paints[paint % paints.length].color}"></i>`;
     const seatOpts: [SeatChoice, string][] = [['open', 'Open'], ['ai-easy', 'AI · easy'], ['ai-normal', 'AI · normal'], ['ai-hard', 'AI · hard'], ['closed', 'Closed']];
@@ -349,34 +382,25 @@ export class Menu {
         const cls = classes[k % classes.length];
         const paint = (yours.paint + k) % paints.length;
         if (s.kind === 'ai') car = `${dot(paint)}${plateChip(aiPlate(cls.id))} ${esc(cls.name)}`;
-        else if (s.kind === 'open') car = `<span class="muted">A ${DIFFICULTY_NAMES[FILL_DIFFICULTY]} bot joins at the start</span>`;
+        else if (s.kind === 'open') car = `<span class="muted">${DIFFICULTY_NAMES[FILL_DIFFICULTY][0].toUpperCase() + DIFFICULTY_NAMES[FILL_DIFFICULTY].slice(1)} bot at the start</span>`;
         else car = '';
         status = s.kind === 'ai' ? 'Bot' : '';
         return `<tr class="${s.kind}"><td>${k + 1}</td><td>${who}</td><td><div class="car">${car}</div></td><td>${status}</td><td class="ping"></td></tr>`;
       })
       .join('');
     const o = lobby.options;
-    const layout = this.content.layouts[o.map];
-    const km = layout ? `${thumb(layout).km.toFixed(1)} km` : '';
     const s = summarize(lobby);
+    this.lobby = lobby;
     this.paint(
       `<div class="card lobby">
         <h1>${esc(lobby.name)}</h1>
         <p class="sub"><span>${lobby.visibility === 'public' ? 'Public' : 'Private'}</span><span>${SEATS - lobby.seats.filter((x) => x.kind === 'closed').length} cars on the grid</span><span>This browser</span></p>
-        <div class="lobbyGrid">
-          <table class="seats"><thead><tr><th>#</th><th>Seat</th><th>Car</th><th></th><th>Ping</th></tr></thead><tbody>${rows}</tbody></table>
-          <aside class="mapCard">
-            ${thumbSvg(layout, 150)}
-            <b>${esc(this.mapName(o.map))}</b><small>${km}</small>
-            <div class="opts">${this.optionFields(o, !host)}</div>
-          </aside>
-        </div>
-        <p class="muted">${host ? 'You host: set each seat from its row. ' : ''}Online lobbies arrive with milestone 3; for now it's you and the bots.</p>
+        <table class="seats"><thead><tr><th>#</th><th>Seat</th><th>Car</th><th></th><th>Ping</th></tr></thead><tbody>${rows}</tbody></table>
         <div class="row">${host ? '<button id="lStart">Start race</button>' : `<button id="lReady">${mine >= 0 && lobby.seats[mine].kind === 'player' && lobby.seats[mine].ready ? 'Not ready' : 'Ready'}</button>`}
           <button id="lBack" class="ghost">Title</button><button id="lLeave" class="ghost danger">${host && s.players === 1 ? 'Close lobby' : 'Leave'}</button></div>
       </div>
-      <div class="stage" aria-hidden="true"></div>
-      ${mine >= 0 ? this.carPanel(yours) : ''}`,
+      ${this.optionsPanel(o, host)}
+      ${mine >= 0 ? this.carPanel(yours) : '<div class="stage" aria-hidden="true"></div>'}`,
       host ? 'lStart' : 'lReady',
     );
     this.onPreview?.({ map: o.map, weather: o.weather, time: o.time, car: mine >= 0 ? { ...yours, plate: this.plate } : undefined });
@@ -392,25 +416,46 @@ export class Menu {
       if (el) el.onchange = () => fn(el.value);
     };
     for (let k = 0; k < SEATS; k++) change(`seat-${k}`, (v) => this.send(lobby, { type: 'seat', index: k, to: v as SeatChoice }));
-    const car = () => this.send(lobby, { type: 'car', car: (document.getElementById('lCar') as HTMLSelectElement).value, paint: Number((document.getElementById('lPaint') as HTMLSelectElement).value) });
-    change('lCar', car);
-    change('lPaint', car);
+    this.on('lPrev', () => this.pick('left'));
+    this.on('lNext', () => this.pick('right'));
+    for (let k = 0; k < paints.length; k++) this.on(`lPaint-${k}`, () => this.send(lobby, { type: 'car', car: yours.car, paint: k }));
     if (host) for (const id of ['oMap', 'oLaps', 'oWeather', 'oTime', 'oMayhem', 'oTraffic']) change(id, () => this.send(lobby, { type: 'options', options: this.readOptions() }));
   }
 
-  /** Beside the turntable: your car's name and job, the car and paint pickers, and its stat bars. */
+  /**
+   * The race's options, top right: the map and its settings. The host sets them; everyone else
+   * sees them folded into a line.
+   */
+  private optionsPanel(o: LobbyOptions, host: boolean): string {
+    const layout = this.content.layouts[o.map];
+    const km = layout ? `${thumb(layout).km.toFixed(1)} km` : '';
+    const head = `${thumbSvg(layout, host ? 64 : 44)}<div class="mapHead"><b>${esc(this.mapName(o.map))}</b><small>${km}</small></div>`;
+    if (host) return `<aside class="card mapCard">${head}<div class="opts">${this.optionFields(o, false)}</div></aside>`;
+    const bits = [`${o.laps} lap${o.laps === 1 ? '' : 's'}`, `${label(WEATHERS, o.weather)} weather`, ...(this.hasSunset(o.map) ? [`${label(TIMES, o.time)} time`] : []), `${label(MAYHEMS, o.mayhem)} mayhem`, `Traffic ${o.traffic ? 'on' : 'off'}`];
+    return `<aside class="card mapCard mini">${head}<p class="optLine">${bits.map((b) => `<span>${esc(b)}</span>`).join('')}</p></aside>`;
+  }
+
+  /**
+   * Your car on the turntable: arrows either side of it cycle the car (A, D), and under it its
+   * name and job, its stat bars, and the paints (W, S).
+   */
   private carPanel(yours: { car: string; paint: number }): string {
     const { classes, paints } = this.content;
-    const c = classes.find((k) => k.id === yours.car);
+    const at = classes.findIndex((k) => k.id === yours.car);
+    const c = classes[at];
+    const paint = paints[yours.paint % paints.length];
     const bars = carStats(classes, yours.car)
       .map((b) => `<span class="bar"><small>${b.name}</small><i style="--t:${b.t.toFixed(2)}"></i></span>`)
       .join('');
-    return `<div class="card carPanel">
-        <div class="carHead"><b class="carName">${esc(c?.name ?? yours.car)}</b><span class="dot" style="background:${paints[yours.paint % paints.length].color}"></span></div>
-        <div class="carPick"><label>Car ${this.sel('lCar', classes.map((k) => [k.id, k.name]), yours.car)}</label>
-          <label>Paint ${this.sel('lPaint', paints.map((p, i) => [String(i), p.name]), String(yours.paint))}</label></div>
-        <p class="blurb" id="sBlurb">${esc(c?.blurb ?? '')}</p>
+    const swatches = paints
+      .map((p, k) => `<button id="lPaint-${k}" class="swatch${k === yours.paint % paints.length ? ' on' : ''}" title="${esc(p.name)}" aria-label="${esc(p.name)}" style="--c:${p.color};--c2:${p.secondary ?? p.color}"></button>`)
+      .join('');
+    return `<div class="stage"><button id="lPrev" class="carArrow" title="Previous car (A)" aria-label="Previous car">${CHEVRON}</button><button id="lNext" class="carArrow" title="Next car (D)" aria-label="Next car">${CHEVRON}</button></div>
+      <div class="card carPanel">
+        <div class="carHead"><b class="carName">${esc(c?.name ?? yours.car)}</b><small class="carCount">${at + 1} / ${classes.length}</small></div>
+        <p class="blurb">${esc(c?.blurb ?? '')}</p>
         <div class="bars">${bars}</div>
+        <div class="paints"><span class="paintName">${esc(paint.name)}</span><span class="swatches">${swatches}</span><small class="keysHint"><kbd>A</kbd><kbd>D</kbd> car · <kbd>W</kbd><kbd>S</kbd> paint</small></div>
       </div>`;
   }
 

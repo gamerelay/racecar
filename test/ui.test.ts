@@ -56,7 +56,7 @@ describe('readSetup', () => {
     expect(s.paint).toBe(0);
     // opponents=x is the default 7; difficulty 1.6 rounds to hard.
     expect(s.seats).toBe('phhhhhhh');
-    expect(s.laps).toBe(3);
+    expect(s.laps).toBe(2);
     expect(s.weather).toBe('random');
     expect(s.mayhem).toBe('normal');
     expect(Number.isInteger(s.seed)).toBe(true);

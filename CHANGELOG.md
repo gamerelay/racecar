@@ -6,6 +6,13 @@ and where things stand is [docs/HANDOFF.md](./docs/HANDOFF.md).
 
 ## Unreleased
 
+### Changed
+- **The lobby fits the window:** the seats dock left with nothing to scroll, your car turns in
+  the middle, and the race's options float top right. Guests see the options as a summary.
+- **Cycle your car:** arrows either side of the car (or A and D) cycle it, and W and S (or the
+  swatches under it) cycle its paint.
+- **Races default to 2 laps.**
+
 ## alpha-1.11: Paradise's weather and hazards
 
 PLAN phase 5, part 3: showers, sunset and the sky in the rain (PR #23), and volcano bombs,

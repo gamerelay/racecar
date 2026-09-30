@@ -58,7 +58,7 @@ export function readSetup(q: URLSearchParams, defaultMap: string, known?: Known)
     car: known && !known.cars.includes(car) ? 'coupe' : car,
     paint: int('paint', 0, 0, Math.max(0, (known?.paints ?? 1e9) - 1)),
     seats,
-    laps: int('laps', 3, 1, MAX_LAPS),
+    laps: int('laps', 2, 1, MAX_LAPS),
     weather: oneOf('weather', ['clear', 'rain', 'random'] as const, 'random'),
     time: oneOf('time', ['day', 'sunset', 'random'] as const, 'random'),
     mayhem: oneOf('mayhem', ['off', 'normal', 'chaos'] as const, 'normal'),
