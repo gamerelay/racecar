@@ -32,7 +32,7 @@ old keys still resolve). This file still says City and Countryside in places; th
   favicons, a web manifest and JSON-LD.
 - **Cars doc: merged** (PR #15): `docs/CARS.md`, how the cars are designed and built, and adding
   one.
-- **Paradise, part 1 (the lap and the land): PR open** on branch `paradise` (PLAN phase 5). The
+- **Paradise, part 1 (the lap and the land): PR #21 open** on branch `paradise` (PLAN phase 5). The
   Island (`tools/gen-paradise.ts`, `content/maps/paradise`): 3.44 km clockwise, a 68.2 s hard-AI
   floor, the Sandbar and the Lava Tube, and ~0.75 AI wrecks a race. The shared lap-laying is
   `tools/lib/lap.ts` (the Valley regenerates byte-for-byte). The land is `buildTerrain` with
