@@ -1,0 +1,12 @@
+[
+  { "id": "asphalt", "grip": 1.0, "drag": 0, "driftCharge": 1.0, "looseness": 1.0, "color": "#4a4458" },
+  { "id": "wet", "grip": 0.75, "drag": 0, "driftCharge": 0.85, "looseness": 1.4, "color": "#3b4260" },
+  { "id": "puddle", "grip": 0.45, "drag": 0.1, "driftCharge": 0.6, "looseness": 2.0, "color": "#2f5a86" },
+  { "id": "dirt", "grip": 0.7, "drag": 0.25, "driftCharge": 0.8, "looseness": 1.6, "offroad": true, "color": "#8a6a45" },
+  { "id": "grass", "grip": 0.6, "drag": 0.45, "driftCharge": 0.5, "looseness": 1.8, "offroad": true, "color": "#3f6b3a" },
+  { "id": "ice", "grip": 0.3, "drag": 0, "driftCharge": 0.7, "looseness": 3.0, "color": "#bfe3f2" },
+  { "id": "oil", "grip": 0.2, "drag": 0, "driftCharge": 0.3, "looseness": 3.0, "color": "#1d1a24" },
+  { "id": "lava-crust", "grip": 0.8, "drag": 0.5, "driftCharge": 0.6, "looseness": 1.2, "color": "#7a2a1a" },
+  { "id": "boost-pad", "grip": 1.0, "drag": -0.5, "driftCharge": 1.0, "looseness": 1.0, "color": "#ffb23f" },
+  { "id": "sidewalk", "grip": 0.9, "drag": 0.15, "driftCharge": 0.9, "looseness": 1.1, "offroad": true, "color": "#6d5f86" }
+]

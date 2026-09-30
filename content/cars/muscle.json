@@ -1,0 +1,2 @@
+{ "id": "muscle", "name": "Brute", "topSpeed": 72, "accel": 15, "brake": 26, "turn": 2.2, "grip": 0.95, "mass": 1550,
+  "boostCapacity": 4.0, "drift": 0.95, "driftRotation": 0.9, "size": [1.0, 2.35, 0.7] }

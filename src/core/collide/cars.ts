@@ -1,0 +1,78 @@
+// Car against car: boxes from the grid, pushed apart by mass, an impulse along the contact normal,
+// and the takedown rule (SPEC §9): the car being hit wrecks when the closing speed is high enough
+// (lower if the attacker is boosting or heavier), or when it's shoved into a wall.
+
+import { wreckCar } from '../car/physics';
+import { TUNING as T } from '../car/tuning';
+import { Cause, Ev } from '../events';
+import type { SimState } from '../state';
+import { newContact, obbOverlap } from './obb';
+import type { SpatialGrid } from './grid';
+
+const contact = newContact();
+const near = new Int32Array(64);
+
+export function collideCars(sim: SimState, grid: SpatialGrid): void {
+  const cars = sim.cars;
+  for (let a = 0; a < cars.count; a++) {
+    if (!cars.active[a] || cars.ghostT[a] > 0) continue;
+    const n = grid.near(cars.x[a], cars.z[a], near);
+    for (let k = 0; k < n; k++) {
+      const b = near[k];
+      if (b <= a || !cars.active[b] || cars.ghostT[b] > 0) continue;
+      if (Math.abs(cars.y[a] - cars.y[b]) > 1.6) continue;
+      const ca = sim.classes[cars.cls[a]];
+      const cb = sim.classes[cars.cls[b]];
+      if (!obbOverlap(cars.x[a], cars.z[a], cars.h[a], ca.size[0], ca.size[1], cars.x[b], cars.z[b], cars.h[b], cb.size[0], cb.size[1], contact)) continue;
+      resolve(sim, a, b, ca.mass, cb.mass);
+    }
+  }
+}
+
+function resolve(sim: SimState, a: number, b: number, ma: number, mb: number): void {
+  const cars = sim.cars;
+  const { nx, nz, depth } = contact;
+  const ia = 1 / ma;
+  const ib = 1 / mb;
+  const wa = ia / (ia + ib);
+  const wb = ib / (ia + ib);
+  cars.x[a] -= nx * depth * wa;
+  cars.z[a] -= nz * depth * wa;
+  cars.x[b] += nx * depth * wb;
+  cars.z[b] += nz * depth * wb;
+
+  // Closing speed along the normal (a toward b).
+  const vna = cars.vx[a] * nx + cars.vz[a] * nz;
+  const vnb = cars.vx[b] * nx + cars.vz[b] * nz;
+  const closing = vna - vnb;
+  if (closing <= 0) return;
+  const j = ((1 + T.carRestitution) * closing) / (ia + ib);
+  // Side swipes shove harder sideways, which is what knocks cars into walls.
+  cars.vx[a] -= j * ia * nx;
+  cars.vz[a] -= j * ia * nz;
+  cars.vx[b] += j * ib * nx;
+  cars.vz[b] += j * ib * nz;
+  const tick = sim.tick;
+  if (closing > 1.5) sim.events.push(tick, Ev.CarContact, a, contact.x, (cars.y[a] + cars.y[b]) / 2 + 0.5, contact.z, closing, 0, b);
+  cars.lastHitBy[a] = b;
+  cars.lastHitT[a] = tick;
+  cars.lastHitBy[b] = a;
+  cars.lastHitT[b] = tick;
+
+  // Who hit whom: the one moving into the other harder is the attacker.
+  const aAttacks = vna > -vnb;
+  const att = aAttacks ? a : b;
+  const vic = aAttacks ? b : a;
+  const mAtt = aAttacks ? ma : mb;
+  const mVic = aAttacks ? mb : ma;
+  if (cars.wreck[vic]) return;
+  let threshold = cars.boosting[att] ? T.takedownBoosting : T.takedown;
+  threshold *= Math.sqrt(mVic / mAtt);
+  // A drift through a pack hits like a heavier car.
+  if (cars.drift[att]) threshold /= 1.3;
+  const shovedIntoWall = cars.wallT[vic] > 0 && closing > threshold * 0.5;
+  if (closing > threshold || shovedIntoWall) {
+    const s = aAttacks ? 1 : -1;
+    wreckCar(sim, vic, Cause.Car, nx * s * closing * 0.4, nz * s * closing * 0.4, att);
+  }
+}
