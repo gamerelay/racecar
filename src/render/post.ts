@@ -37,6 +37,9 @@ export class PostPass {
     uWet: { value: 0 },
     uSky: { value: new Color(0x3a4460) },
     uPixel: { value: [1, 1] },
+    tInk: { value: null as unknown },
+    tInkDepth: { value: null as unknown },
+    uCarInk: { value: 0 },
   };
 
   constructor(width: number, height: number) {
@@ -49,7 +52,7 @@ export class PostPass {
       depthTest: false,
       depthWrite: false,
       vertexShader: `varying vec2 vUv;void main(){vUv=uv;gl_Position=vec4(position.xy,0.0,1.0);}`,
-      fragmentShader: `uniform sampler2D tDiffuse,tDepth;uniform float uTime,uSpeed,uBoost,uImpact,uSlow,uAspect,uNear,uFar,uOutline,uFogNear,uFogFar;
+      fragmentShader: `uniform sampler2D tDiffuse,tDepth,tInk,tInkDepth;uniform float uCarInk;uniform float uTime,uSpeed,uBoost,uImpact,uSlow,uAspect,uNear,uFar,uOutline,uFogNear,uFogFar;
       uniform int uTaps;uniform vec2 uTexel,uPixel;uniform vec3 uInk,uSky;uniform mat4 uProj,uInvProj,uView;uniform float uWet;varying vec2 vUv;
       float hash(float n){return fract(sin(n)*43758.5453);}
       // Inverse view distance from the (perspective) depth buffer: linear across planes on screen.
@@ -62,13 +65,44 @@ export class PostPass {
         float near=max(max(max(a,b),max(c,d)),w);
         return vec2(abs(a+b+c+d-4.0*w)/near,near);
       }
+      // The car ink pass (render/ink.ts): a part id in alpha and the view normal in rgb, trusted only
+      // where its depth matches the scene's, so a car behind a building draws no lines on the building.
+      vec4 carAt(vec2 uv){
+        vec4 s=texture2D(tInk,uv);
+        if(s.a<0.002)return vec4(0.0);
+        float d=texture2D(tInkDepth,uv).x;
+        float zi=(uFar-d*(uFar-uNear))/(uNear*uFar);
+        float zs=invZ(uv);
+        return abs(zi-zs)>zs*0.015?vec4(0.0):s;
+      }
+      float carInk(vec2 uv,vec2 o){
+        vec4 c=carAt(uv);
+        if(c.a==0.0)return 0.0;
+        float id=floor(c.a*255.0+0.5);
+        if(id>254.5)return 1.0;
+        vec3 n=c.rgb*2.0-1.0;
+        float e=0.0;
+        vec2 offs[4];offs[0]=vec2(o.x,0.0);offs[1]=vec2(-o.x,0.0);offs[2]=vec2(0.0,o.y);offs[3]=vec2(0.0,-o.y);
+        for(int k=0;k<4;k++){
+          vec4 s=carAt(uv+offs[k]);
+          if(s.a==0.0)continue;
+          float j=floor(s.a*255.0+0.5);
+          if(j>254.5)continue;
+          if(abs(j-id)>0.5)e=1.0;
+          else e=max(e,1.0-smoothstep(0.8,0.9,dot(n,s.rgb*2.0-1.0)));
+        }
+        float z=(uNear*uFar)/(uFar-texture2D(tInkDepth,uv).x*(uFar-uNear));
+        return e*(1.0-smoothstep(28.0,80.0,z));
+      }
       float ink(vec2 uv){
         float w=invZ(uv);
         vec2 e1=edgeAt(uv,uTexel,w);
         vec2 e2=edgeAt(uv,uTexel*0.5,w);
         float e=max(e1.x,e2.x*1.6);
         float z=1.0/max(e1.y,e2.y);
-        return smoothstep(0.02,0.06,e)*(1.0-smoothstep(uFogNear*0.6,uFogFar*0.8,z));
+        float line=smoothstep(0.02,0.06,e)*(1.0-smoothstep(uFogNear*0.6,uFogFar*0.8,z));
+        if(uCarInk>0.0)line=max(line,carInk(uv,uTexel*0.7)*uCarInk);
+        return line;
       }
       // ---- wet reflections (screen space) ----
       vec3 viewPos(vec2 uv){vec4 p=uInvProj*vec4(uv*2.0-1.0,texture2D(tDepth,uv).x*2.0-1.0,1.0);return p.xyz/p.w;}

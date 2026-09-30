@@ -4,10 +4,11 @@
 
 import { type Fog, PerspectiveCamera, Scene, Vector3, WebGLRenderer } from 'three';
 import type { PaintDef } from '../core/content';
-import { Ev, type GameEvent } from '../core/events';
+import { Cause, Ev, type GameEvent } from '../core/events';
 import { clamp, damp, wrapAngle } from '../core/math';
 import type { Sim } from '../core/sim';
 import { Particles } from './fx';
+import { InkPass } from './ink';
 import { PostPass } from './post';
 import type { CarVisual, Skin, TrackVisual, WorldVisual } from './skin';
 
@@ -25,6 +26,7 @@ export class GameRenderer {
   readonly scene = new Scene();
   readonly camera = new PerspectiveCamera(62, 1, 0.1, 3000);
   private readonly post: PostPass;
+  private readonly ink = new InkPass(1, 1);
   private readonly fx = new Particles();
   private readonly visuals: CarVisual[] = [];
   private readonly spin: number[] = [];
@@ -62,6 +64,8 @@ export class GameRenderer {
     this.renderer.setPixelRatio(this.opts.pixelRatio);
     container.appendChild(this.renderer.domElement);
     this.post = new PostPass(1, 1);
+    this.post.uniforms.tInk.value = this.ink.target.texture;
+    this.post.uniforms.tInkDepth.value = this.ink.target.depthTexture;
     skin.environment(this.scene, palette);
     if (skin.ink !== undefined) this.post.uniforms.uInk.value.setHex(skin.ink);
     this.trackVisual = skin.track(sim.track, sim.seed);
@@ -113,6 +117,7 @@ export class GameRenderer {
     this.camera.aspect = w / h;
     this.camera.updateProjectionMatrix();
     this.post.setSize(Math.floor(w * this.opts.pixelRatio), Math.floor(h * this.opts.pixelRatio), 1.5 * this.opts.pixelRatio);
+    this.ink.setSize(Math.floor(w * this.opts.pixelRatio), Math.floor(h * this.opts.pixelRatio));
   }
 
   snapCamera(): void {
@@ -148,7 +153,7 @@ export class GameRenderer {
       const speed = Math.hypot(cars.vx[i], cars.vz[i]);
       const fwd = cars.vx[i] * Math.sin(cars.h[i]) + cars.vz[i] * Math.cos(cars.h[i]);
       this.spin[i] += (fwd / 0.38) * dt * this.sim.timeScale;
-      v.update(this.spin[i], steer[i] ?? 0, braking[i] ?? false, cars.boosting[i] === 1 || cars.miniT[i] > 0, cars.grounded[i] === 1 && !cars.wreck[i]);
+      v.update(this.spin[i], steer[i] ?? 0, braking[i] ?? false, cars.boosting[i] === 1 || cars.miniT[i] > 0, cars.grounded[i] === 1 && !cars.wreck[i], dt * this.sim.timeScale);
       // Ghosted after a respawn: blink.
       if (cars.ghostT[i] > 0) v.root.visible = Math.floor(this.time * 12) % 2 === 0;
       this.carParticles(i, x, y, z, h, speed, dt);
@@ -182,6 +187,8 @@ export class GameRenderer {
     u.uView.value.copy(this.camera.matrixWorldInverse);
     this.impact *= Math.exp(-dt * 4);
     if (this.opts.post) {
+      u.uCarInk.value = this.opts.outline ? 1 : 0;
+      if (this.opts.outline) this.ink.render(this.renderer, this.scene, this.camera);
       this.renderer.setRenderTarget(this.post.target);
       this.renderer.render(this.scene, this.camera);
       this.drawCalls = this.renderer.info.render.calls;
@@ -280,6 +287,27 @@ export class GameRenderer {
     }
   }
 
+  /** Tells the car's visual where it was hit: toward the other car, or the nose for walls and the like. */
+  private wreckVisual(e: GameEvent): void {
+    const v = this.visuals[e.car];
+    if (!v?.wreck || e.b === Cause.Reset) return;
+    const c = this.sim.cars;
+    const h = c.h[e.car];
+    let dx = 0;
+    let dz = 1;
+    if (e.b === Cause.Car && e.other >= 0 && e.other < c.count) {
+      const wx = c.x[e.other] - c.x[e.car];
+      const wz = c.z[e.other] - c.z[e.car];
+      dx = wx * Math.cos(h) - wz * Math.sin(h);
+      dz = wx * Math.sin(h) + wz * Math.cos(h);
+    } else {
+      // Mostly the nose, pulled toward the side the car was sliding to.
+      const lx = c.vx[e.car] * Math.cos(h) - c.vz[e.car] * Math.sin(h);
+      dx = clamp(lx / 15, -0.7, 0.7);
+    }
+    v.wreck(dx, dz, clamp(0.35 + e.a / 25, 0.35, 1));
+  }
+
   private readonly onEvent = (e: GameEvent): void => {
     const mine = e.car === this.focus || e.other === this.focus;
     switch (e.type) {
@@ -295,6 +323,7 @@ export class GameRenderer {
         if (mine) this.shake = Math.max(this.shake, Math.min(1, e.a / 15));
         break;
       case Ev.Wreck:
+        this.wreckVisual(e);
         this.fx.burst(e.x, e.y + 0.8, e.z, 80, 11, 0xffa040);
         this.fx.burst(e.x, e.y + 1, e.z, 40, 8, 0x9ff3ff);
         if (mine) {
@@ -314,6 +343,7 @@ export class GameRenderer {
         this.fx.burst(e.x, e.y + 0.3, e.z, 12, 4, STAGE_COLORS[e.b]);
         break;
       case Ev.Respawn:
+        this.visuals[e.car]?.repair?.();
         if (e.car === this.focus) this.snapCamera();
         break;
     }
