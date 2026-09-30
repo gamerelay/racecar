@@ -114,6 +114,11 @@ export interface TrackLayout {
    * course as [x, z] points, how wide it is and where its water sits.
    */
   terrain?: { river?: [number, number][]; riverWidth?: number; riverY?: number };
+  /**
+   * High bridges stand on timber bents, and the legs of one over another road stand on that road:
+   * solid, like pillars (the Valley's trestle). Off, a flyover spans the road beneath (the city's).
+   */
+  trestles?: boolean;
 }
 
 export interface MapDef {
@@ -140,7 +145,7 @@ export interface SurfaceDef {
 }
 
 /** Every car class, in picker order (content/cars/<id>.json). AI fields cycle through it. */
-export const CLASS_ORDER = ['coupe', 'muscle', 'hatch', 'van', 'sedan', 'rally', 'bus'] as const;
+export const CLASS_ORDER = ['coupe', 'muscle', 'hatch', 'van', 'sedan', 'rally', 'bus', 'police'] as const;
 
 export interface CarClass {
   id: string;

@@ -2,9 +2,7 @@
 // camera sees. Coordinates are meters in the car's frame: +z is the nose, y is up from the road.
 // Each class should read at a glance from behind: the coupe's light bar and wing, the muscle car's
 // quad pipes and round tails, the hatch's tall glass and vertical lamps, the van's slab back.
-// The rest aren't player classes: the sedan, compact, truck and bus are traffic, and the rally car
-// and the police car are here for when the sim grows a class (or a pursuit mode) for them (SPEC,
-// "Car art").
+// The compact and the truck are traffic only; the sedan and the bus are traffic too (SPEC, "Car art").
 
 import type { Livery } from './paint';
 

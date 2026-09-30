@@ -35,6 +35,7 @@ import type { CarVisual } from '../../../skin';
 import { glow, toon } from '../toon';
 import { type CarDesign, DESIGNS } from './designs';
 import { carPaint } from './paint';
+import { SHADOW, shadowOpacity } from './shadow';
 import { CarWreck, WRECK_SHARED, type Detachable } from './wreck';
 
 /**
@@ -895,7 +896,8 @@ export function buildCar(cls: Pick<CarClass, 'id' | 'size'>, paint: PaintDef): C
     u.position.y = 0.06;
     root.add(u);
   }
-  const shadow = new Mesh(new PlaneGeometry(W + 0.6, L + 0.6), own(new MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.4, depthWrite: false })));
+  const shadowMat = own(new MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: SHADOW, depthWrite: false }));
+  const shadow = new Mesh(new PlaneGeometry(W + 0.6, L + 0.6), shadowMat);
   shadow.rotation.x = -Math.PI / 2;
   shadow.position.y = 0.04;
   root.add(shadow);
@@ -917,6 +919,9 @@ export function buildCar(cls: Pick<CarClass, 'id' | 'size'>, paint: PaintDef): C
     update(spin, steer, braking, boosting, onRoad, dt = 0) {
       wreck.update(dt);
       beam.visible = onRoad && !wreck.wrecked;
+      // Fades out tipped over or in the air, and back in on its wheels.
+      shadowMat.opacity = shadowOpacity(shadowMat.opacity, root.quaternion.x, root.quaternion.z, onRoad, dt);
+      shadow.visible = shadowMat.opacity > 0.01;
       for (const wh of wheels) if (wh.parent!.parent === root) wh.rotation.x = spin * spinScale;
       for (const s of steerers) if (s.parent === root) s.rotation.y = steer * 0.45;
       tailMat.color.setHex(braking ? 0xff4d6a : 0xc4153a);

@@ -6,7 +6,7 @@
 // flipped between last tick and this one, and both positions are known (the car's from the pool,
 // the traffic car's from its formula at t − dt).
 
-import { recentAttacker, wreckCar } from '../car/physics';
+import { earnBoost, recentAttacker, wreckCar } from '../car/physics';
 import { TUNING as T } from '../car/tuning';
 import { Cause, Ev } from '../events';
 import type { SimState } from '../state';
@@ -80,7 +80,7 @@ export function collideWorld(sim: SimState, i: number, ctx: WorldCtx): void {
       c.vx[i] = vx * 0.95;
       c.vz[i] = vz * 0.95;
       traffic.wreckedAt[k] = ctx.t;
-      c.boost[i] = Math.min(1, c.boost[i] + T.boostFromCheck);
+      earnBoost(sim, i, T.boostFromCheck);
       c.score[i] += 800;
       sim.events.push(tick, Ev.TrafficCheck, i, traffic.x[p], traffic.y[p] + 0.8, traffic.z[p], closing, 0, k);
       sim.events.push(tick, Ev.TrafficWreck, i, traffic.x[p], traffic.y[p], traffic.z[p], closing, 1, k);
@@ -106,7 +106,7 @@ export function collideWorld(sim: SimState, i: number, ctx: WorldCtx): void {
       // Scaled time, like the physics: slow-mo doesn't pay out at full rate.
       const dt = sim.dt * sim.timeScale;
       c.oncomingT[i] += dt;
-      c.boost[i] = Math.min(1, c.boost[i] + T.boostFromOncoming * dt);
+      earnBoost(sim, i, T.boostFromOncoming * dt);
       c.score[i] += 80 * dt;
     } else c.oncomingT[i] = 0;
   } else c.oncomingT[i] = 0;
@@ -164,7 +164,7 @@ function nearMiss(sim: SimState, i: number, ctx: WorldCtx, p: number, sMain: num
   const gap = Math.abs(c.lateral[i] - traffic.lat[p]) - kind.hw - cls.size[0];
   if (gap < 0 || gap > T.nearMissGap) return;
   const oncoming = traffic.lanes[traffic.lane[k]].dir < 0;
-  c.boost[i] = Math.min(1, c.boost[i] + (oncoming ? T.boostFromNearMiss * 1.5 : T.boostFromNearMiss));
+  earnBoost(sim, i, oncoming ? T.boostFromNearMiss * 1.5 : T.boostFromNearMiss);
   c.score[i] += oncoming ? 500 : 250;
   sim.events.push(sim.tick, Ev.NearMiss, i, traffic.x[p], traffic.y[p] + 1, traffic.z[p], gap, oncoming ? 1 : 0, k);
 }

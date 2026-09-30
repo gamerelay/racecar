@@ -185,7 +185,62 @@ export function bakeTrack(layout: TrackLayout, surfaces: SurfaceDef[]): Track {
     });
   }
 
+  if (layout.trestles) props.push(...supports(splines));
+
   return { layout, splines, main, surfaces, surfaceIndex, checkpoints, props, version: layoutVersion(layout) };
+}
+
+/** A high bridge stands on a timber bent this often (m along it), on legs across it (SPEC, "Trestle legs"). */
+export const BENT = 7;
+/** Legs across a bent, as fractions of its half span; the span is the deck less this (m). */
+export const BENT_LEGS = [-1, -1 / 3, 1 / 3, 1] as const;
+export const BENT_INSET = 0.8;
+/** A leg's half thickness (m). */
+export const LEG = 0.35;
+/** A road this far (m) over another stands on legs; lower is a flyover on its own (the city's). */
+const OVER = 6;
+
+/**
+ * The legs of a high bridge that stand on the road beneath it: solid props on the lower road,
+ * so a car that clips one crashes like it would into a pillar. The renderer draws its trestles'
+ * bents at the same spacing, from the same numbers.
+ */
+function supports(splines: BakedSpline[]): BakedProp[] {
+  const out: BakedProp[] = [];
+  for (const up of splines) {
+    const every = Math.max(1, Math.round(BENT / up.step));
+    for (let i = 0; i < up.n; i += every) {
+      const half = up.width[i] / 2 + up.shoulder[i] - BENT_INSET;
+      for (const low of splines) {
+        // Coarse: is this bent anywhere near the lower road? (Only its stretches well below: a
+        // spline can pass under itself.)
+        let near = -1;
+        let nearD = Infinity;
+        for (let j = 0; j < low.n; j += 8) {
+          if (up.py[i] - low.py[j] < OVER) continue;
+          const d = (low.px[j] - up.px[i]) ** 2 + (low.pz[j] - up.pz[i]) ** 2;
+          if (d < nearD) {
+            nearD = d;
+            near = j;
+          }
+        }
+        if (nearD > (half + 40) ** 2) continue;
+        for (const f of BENT_LEGS) {
+          const x = up.px[i] - up.tz[i] * half * f;
+          const z = up.pz[i] + up.tx[i] * half * f;
+          const j = nearestBelow(low, x, z, near, up.py[i] - OVER);
+          if (j < 0) continue;
+          const lat = (x - low.px[j]) * -low.tz[j] + (z - low.pz[j]) * low.tx[j];
+          const along = (x - low.px[j]) * low.tx[j] + (z - low.pz[j]) * low.tz[j];
+          if (Math.abs(along) > low.step || Math.abs(lat) > low.width[j] / 2 + low.shoulder[j] + LEG) continue;
+          // From just under the road up to the bent's cap under the deck.
+          const y = low.py[j] - 0.5;
+          out.push({ kind: 'trestle-leg', solid: true, spline: low.index, s: j * low.step, lateral: lat, x, y, z, hx: LEG, hy: (up.py[i] - 1.2 - y) / 2, hz: LEG, heading: Math.atan2(up.tx[i], up.tz[i]) });
+        }
+      }
+    }
+  }
+  return out;
 }
 
 function bakeSpline(id: string, index: number, pts: TrackPoint[], closed: boolean, surfaceIndex: Map<string, number>, before?: Vec3, after?: Vec3): BakedSpline {
@@ -336,6 +391,23 @@ function nearestSample(main: BakedSpline, x: number, z: number, hint: number): n
   for (let d = -reach; d <= reach; d++) {
     const i = (i0 + d + main.n) % main.n;
     const dd = (main.px[i] - x) ** 2 + (main.pz[i] - z) ** 2;
+    if (dd < bestD) {
+      bestD = dd;
+      best = i;
+    }
+  }
+  return best;
+}
+
+/** The sample of `sp` nearest (x, z) within 30 m of sample `hint`, among those under height `below`; -1 if none. */
+function nearestBelow(sp: BakedSpline, x: number, z: number, hint: number, below: number): number {
+  const reach = Math.round(30 / sp.step);
+  let best = -1;
+  let bestD = Infinity;
+  for (let d = -reach; d <= reach; d++) {
+    const i = (hint + d + sp.n) % sp.n;
+    if (sp.py[i] > below) continue;
+    const dd = (sp.px[i] - x) ** 2 + (sp.pz[i] - z) ** 2;
     if (dd < bestD) {
       bestD = dd;
       best = i;

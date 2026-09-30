@@ -1,10 +1,11 @@
 import { describe, expect, test } from 'bun:test';
-import { ShaderLib } from 'three';
 import { chaseOffset, lookBackOffset } from '../src/render/camera';
 import { chunks } from '../src/render/shader';
 import { Skids } from '../src/render/skids';
 import { carPaint } from '../src/render/skins/greybox/car/paint';
 import { windowMaterial } from '../src/render/skins/greybox/city';
+import { SHADOW, shadowOpacity } from '../src/render/skins/greybox/car/shadow';
+import { Euler, Quaternion, ShaderLib } from 'three';
 import { CLASSES } from './helpers';
 
 // Render logic that runs without WebGL: where the camera sits for every car, and that every shader
@@ -100,5 +101,35 @@ describe('skid marks', () => {
     expect(sk.laid).toBe(6000);
     sk.clear();
     expect(sk.laid).toBe(0);
+  });
+});
+
+describe('contact shadow', () => {
+  const q = (pitch: number, roll: number, yaw = 0) => new Quaternion().setFromEuler(new Euler(pitch, yaw, roll, 'YXZ'));
+  const settle = (qq: Quaternion, onRoad: boolean, from = SHADOW) => {
+    let o = from;
+    for (let k = 0; k < 60; k++) o = shadowOpacity(o, qq.x, qq.z, onRoad, 1 / 60);
+    return o;
+  };
+
+  test('on its wheels it shows, whichever way the car faces and on a banked road', () => {
+    expect(settle(q(0, 0), true, 0)).toBeCloseTo(SHADOW, 3);
+    expect(settle(q(0, 0, 2.5), true, 0)).toBeCloseTo(SHADOW, 3);
+    expect(settle(q(0.1, 0.15, 1), true, 0)).toBeCloseTo(SHADOW, 3);
+  });
+
+  test('flipped, on its side or in the air it fades out (it hung off the car like a black slab)', () => {
+    expect(settle(q(0, Math.PI), true)).toBeCloseTo(0, 3);
+    expect(settle(q(0, Math.PI / 2), true)).toBeCloseTo(0, 3);
+    expect(settle(q(0.9, 0), true)).toBeCloseTo(0, 3);
+    expect(settle(q(0, 0), false)).toBeCloseTo(0, 3);
+  });
+
+  test('it eases over a few frames, and snaps when no time passes', () => {
+    const flipped = q(0, Math.PI);
+    const one = shadowOpacity(SHADOW, flipped.x, flipped.z, true, 1 / 60);
+    expect(one).toBeGreaterThan(0.2);
+    expect(one).toBeLessThan(SHADOW);
+    expect(shadowOpacity(SHADOW, flipped.x, flipped.z, true, 0)).toBe(0);
   });
 });

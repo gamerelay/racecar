@@ -1136,7 +1136,7 @@ Drift chains and skid marks (2026-09-30), the next of the "lean into the loop" i
   and they leave the post pass's mirror mask alone. Presentation only; the sim never sees them.
 - **Compact, truck and police designs** came in from branch `car-polish` (with its polish pass:
   clean ink, one detail language, reflective glass). Traffic draws the compact and the truck as
-  their own designs now; the police car is garage-only.
+  their own designs now; the police car was garage-only (it became a class after, below).
 
 Second review pass (2026-09-30), four parallel reviews again (core, render, UI and audio, project
 shape), each finding checked before fixing; the notable ones, with tests where they can have one:
@@ -1160,3 +1160,40 @@ shape), each finding checked before fixing; the notable ones, with tests where t
 
 The larger refactors it suggested (splitting `buildCar` and `buildCityscape`, one road index for
 the scenery) are in HANDOFF's follow-ups.
+
+Police car, Trestle legs, air boost and boost by position (2026-09-30, playtest):
+
+- **The police car is a player class**, the Interceptor (`content/cars/police.json`, eighth in
+  `CLASS_ORDER`): 66 m/s, 1750 kg with the push bar, a 3.8 s tank, for chases and takedowns. It
+  laps 2.5–2.8% under the mean floor, with the muscle car. AI fields cycle through all eight
+  classes, so the 8-car field has one of each.
+- **Trestle legs:** the Trestle crosses the home stretch 22 m up, and its bents stood on the road
+  but cars drove through them. A layout's `trestles: true` (the Valley's) has the baker stand every
+  bridge more than 6 m over another road on bents 7 m apart (`BENT`), four legs across; the legs
+  on the road beneath are solid props (`trestle-leg`), so clipping one wrecks you like a pillar.
+  The forest draws its bents on the same grid, from the same numbers, and keeps cross beams 5 m
+  over the road. The city leaves its flyovers' pillars off the roads below, so it's off there.
+  Three rows of legs split the home stretch into two lanes and the verges.
+- **The AI through the legs:** the racing line threads the nearest gap between solid props,
+  eased over 40 m (it used to swerve at the last moment, onto the traffic lane). Avoidance judges
+  a threat by where the car will be when it gets there, on the way to its target at ~3 m/s, not
+  only at the target: it cut across a slower car's lane into its tail (7 wrecks in 36 hard laps,
+  none after). After backing out of a pin it holds the other side of the road for 2.5 s, and may
+  back out again after 2 s instead of 4 (the fallen sign past the legs pinned cars until reset).
+- **Air boost pays on the landing:** `boostFromAir` (0.15 of a bar a second of air) and
+  `airPoints` (500/s) are paid on a clean landing after at least `airMin` (0.45 s) in the air,
+  with an "Air 0.8s +12%" pop and a chime (`Ev.AirBoost`). It used to trickle in while airborne
+  at 0.08/s with no feedback, and a wreck on landing kept it.
+- **Boost by position:** boost from moves (drifts and chains, air, near misses, oncoming, traffic
+  checks) is scaled from ×0.9 for the leader to ×1.35 for last place (`boostPlaceLead`,
+  `boostPlaceLast`), by a live `rank` the sim keeps each tick. The start boost, takedowns and the
+  respawn catch-up boost aren't scaled; outside a race nothing is.
+- **Contact shadow:** fades out when a car is tipped past ~30° or in the air (it hung off the floor
+  pan like a black slab when a car flipped) and back in on its wheels. The fade is a pure
+  function (`car/shadow.ts`) so it's tested without a DOM.
+- **Tests** (`test/boost.test.ts`, and in `track`, `cars` and `render`): air pays on landing and
+  not for a hop; position scales a move's boost, and a real drift's payout, by the lead-to-last
+  ratio; ranks follow the race order; the legs are solid, leave gaps, wreck you, and aren't in the
+  city; the racing line clears every leg; hard AIs pass under the Trestle clean on four seeds and
+  three cars; the police class; the shadow on its wheels, flipped, on its side and in the air.
+- **Changelog:** releases are recorded in `CHANGELOG.md` at the repo root from here on.

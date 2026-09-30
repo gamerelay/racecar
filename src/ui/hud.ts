@@ -198,7 +198,7 @@ export class Hud {
     if (e.type === Ev.Finish && e.car === i) this.pop(`Finished ${ordinal(e.b)}`, 'big');
     if (e.type === Ev.Wreck && e.car === i && e.other >= 0 && e.other !== i) this.pop('Taken down', 'bad');
     if (e.type === Ev.SpinOut && e.car === i) this.pop('Spin out', 'bad');
-    if (e.type === Ev.Land && e.car === i && e.a > 0.9) this.pop(`Big air ${e.a.toFixed(1)}s`, 'hot');
+    if (e.type === Ev.AirBoost && e.car === i) this.pop(`${e.b > 0.9 ? 'Big air' : 'Air'} ${e.b.toFixed(1)}s${e.a >= 0.01 ? ` +${Math.round(e.a * 100)}%` : ''}`, e.b > 0.9 ? 'hot' : 's1');
     if (e.type === Ev.Lap && e.car === i) this.lap(e.a, e.b);
   };
 }

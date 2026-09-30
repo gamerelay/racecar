@@ -7,7 +7,7 @@
 
 import { TUNING as T } from '../car/tuning';
 import type { Controls } from '../controls';
-import { clamp, wrapAngle } from '../math';
+import { clamp, smoothstep, wrapAngle } from '../math';
 import { hash01 } from '../rng';
 import type { SimState } from '../state';
 import { mainDistance, signedGap, wrap, type BakedSpline, type Track } from '../track/bake';
@@ -87,6 +87,7 @@ export function racingLine(track: Track, sp: BakedSpline): Line {
   for (let i = 0; i < n; i++) raw[i] = -clamp(k[i] * 55, -1, 1) * Math.max(0, sp.width[i] / 2 - 2.2);
   const offset = smooth(raw, 30, 2);
   for (let i = 0; i < n; i++) offset[i] = clamp(offset[i], -(sp.width[i] / 2 - 1.6), sp.width[i] / 2 - 1.6);
+  threadProps(track, sp, offset, at);
   // Speed: what the corner allows (the line is wider than the centerline: ~1.25× the radius).
   const speed = new Float64Array(n);
   // The line is wider than the centerline on a wide road; on a narrow one there's no room to widen it.
@@ -101,6 +102,42 @@ export function racingLine(track: Track, sp: BakedSpline): Line {
   const line = { offset, speed };
   perTrack.set(sp.index, line);
   return line;
+}
+
+/**
+ * Moves the line through a gap between the solid props on this spline (the Boulevard's colonnade,
+ * the Trestle's legs), eased in and out over PROP_EASE m: swerving at the last moment round a post
+ * is how the AI ended up across a traffic lane.
+ */
+const PROP_CLEAR = 2.1;
+const PROP_EASE = 40;
+function threadProps(track: Track, sp: BakedSpline, offset: Float64Array, at: (i: number) => number): void {
+  const mine = track.props.filter((p) => p.solid && p.spline === sp.index);
+  if (!mine.length) return;
+  const n = sp.n;
+  const reach = 12;
+  const clear = (lat: number, s: number) => mine.every((p) => Math.abs(p.s - s) > reach || Math.abs(p.lateral - lat) > Math.max(p.hx, p.hz) + PROP_CLEAR);
+  const shift = new Float64Array(n);
+  const weight = new Float64Array(n);
+  const ease = Math.round(PROP_EASE / sp.step);
+  for (const p of mine) {
+    const j = at(Math.round(p.s / sp.step));
+    if (clear(offset[j], p.s)) continue;
+    // The nearest clear line at this post.
+    const edge = sp.width[j] / 2 - 1.4;
+    let best = NaN;
+    for (let lat = -edge; lat <= edge; lat += 0.25) if (clear(lat, p.s) && !(Math.abs(lat - offset[j]) >= Math.abs(best - offset[j]))) best = lat;
+    if (Number.isNaN(best)) continue;
+    for (let d = -ease; d <= ease; d++) {
+      const i = at(j + d);
+      const w = 1 - smoothstep(0, ease, Math.abs(d));
+      if (w > weight[i]) {
+        weight[i] = w;
+        shift[i] = best - offset[j];
+      }
+    }
+  }
+  for (let i = 0; i < n; i++) offset[i] += shift[i] * weight[i];
 }
 
 const look: TrackHit = newHit();
@@ -200,7 +237,13 @@ export function driveRacer(sim: SimState, i: number, d: RacerDriver, out: Contro
   if (c.aiBack[i] === 0 && c.stuckT[i] > 0.6 && !c.wreck[i]) c.aiBack[i] = 1.1;
   if (c.aiBack[i] > 0) {
     c.aiBack[i] -= sim.dt * sim.timeScale;
-    if (c.aiBack[i] <= 0) c.aiBack[i] = -4;
+    if (c.aiBack[i] <= 0) {
+      c.aiBack[i] = -2;
+      // Then try the other side of the road: straight back in on the same line meets whatever
+      // stopped us (a fallen sign between the Trestle's legs pinned cars there until they reset).
+      c.aiLat[i] = -Math.sign(c.lateral[i] || 1) * Math.max(1.5, Math.abs(c.lateral[i]) * 0.6);
+      c.aiHold[i] = BACK_HOLD;
+    }
     out.throttle = 0;
     out.brake = 1;
     out.steer = -out.steer;
@@ -219,7 +262,9 @@ function lineAt(sp: BakedSpline, dist: number, arr: Float64Array): number {
 }
 
 /** avoid()'s working state, module scratch so marking a threat doesn't allocate a closure per tick. */
-const mk = { speed: 0, target: 0, me: 0, len: 0, tTarget: 0, capDs: 0, capV: 0 };
+const mk = { speed: 0, target: 0, here: 0, me: 0, len: 0, tTarget: 0, capDs: 0, capV: 0 };
+/** How fast (m/s) an AI gets across the road toward its target, for where it'll be at a contact. */
+const SIDEWAYS = 3;
 
 /** A thing at lateral `lat` (half width hw), `ds` ahead, moving along the road at `v` (negative: toward us). */
 function mark(lat: number, hw: number, ds: number, v: number): void {
@@ -231,7 +276,11 @@ function mark(lat: number, hw: number, ds: number, v: number): void {
   if (tc >= HORIZON) return;
   const lo = lat - hw - mk.me - 0.7;
   const hi = lat + hw + mk.me + 0.7;
-  if (mk.target > lo && mk.target < hi && tc < mk.tTarget) {
+  // Where we'll be when we get there: on the way to the target, not at it yet. (Judging the target
+  // alone had the AI cut across a slower car's lane into its tail.)
+  const move = mk.target - mk.here;
+  const then = mk.here + Math.sign(move) * Math.min(Math.abs(move), SIDEWAYS * tc);
+  if (((then > lo && then < hi) || (mk.target > lo && mk.target < hi)) && tc < mk.tTarget) {
     mk.tTarget = tc;
     mk.capDs = ds;
     mk.capV = v;
@@ -259,6 +308,7 @@ function avoid(sim: SimState, i: number, sp: BakedSpline, s: number, target: num
   }
   mk.speed = speed;
   mk.target = target;
+  mk.here = c.lateral[i];
   mk.me = me;
   mk.len = sim.classes[c.cls[i]].size[1];
   mk.tTarget = HORIZON;
@@ -342,6 +392,8 @@ function avoid(sim: SimState, i: number, sp: BakedSpline, s: number, target: num
 }
 
 const HORIZON = 3.2;
+/** After backing out, how long (s) an AI holds the other side of the road. */
+const BACK_HOLD = 2.5;
 let lastT = HORIZON;
 /** Set to an array to record each AI's last decision (tools and tests). */
 export let aiDebug: { line: number; target: number; tTarget: number; cap: number; cand: number[] }[] | null = null;

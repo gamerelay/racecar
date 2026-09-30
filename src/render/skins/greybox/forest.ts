@@ -29,7 +29,7 @@ import {
 } from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { Rng } from '../../../core/rng';
-import type { BakedSpline, Track } from '../../../core/track/bake';
+import { BENT, BENT_INSET, BENT_LEGS, LEG, type BakedSpline, type Track } from '../../../core/track/bake';
 import { animatedPoints, canvas, FONT } from './scenery';
 import type { Terrain } from './terrain';
 import { faceted, toon } from './toon';
@@ -321,6 +321,10 @@ export function buildForest(track: Track, palette: Palette, seed: number, land: 
 
   // ---- bridges: covered (short, over the river) or a timber trestle (long, high) ----
   const timber: Part[] = [];
+  // The legs the sim made solid, where the Trestle stands on the road beneath it: drawn as they
+  // collide, from the road up.
+  const standing = track.props.filter((p) => p.kind === 'trestle-leg');
+  const onRoad = (x: number, z: number) => standing.find((p) => Math.abs(p.x - x) < 0.05 && Math.abs(p.z - z) < 0.05);
   for (const sp of track.splines) {
     const deck = land.deck[sp.index];
     let i = 0;
@@ -358,27 +362,40 @@ export function buildForest(track: Track, palette: Palette, seed: number, land: 
     }
   }
   function trestle(sp: BakedSpline, i0: number, i1: number): void {
-    const step = Math.max(1, Math.round(7 / sp.step));
-    for (let i = i0 + Math.round(step / 2); i < i1; i += step) {
+    // Bents on the sim's grid (BENT), so the legs it made solid are these.
+    const step = Math.max(1, Math.round(BENT / sp.step));
+    for (let i = Math.ceil((i0 + step / 2) / step) * step; i < i1; i += step) {
       const yaw = Math.atan2(sp.tx[i], sp.tz[i]);
       const top = sp.py[i] - 1.2;
-      const half = sp.width[i] / 2 + sp.shoulder[i] - 0.8;
+      const half = sp.width[i] / 2 + sp.shoulder[i] - BENT_INSET;
       const rx = -sp.tz[i];
       const rz = sp.tx[i];
       const legs: [number, number, number][] = [];
-      for (const l of [-half, -half / 3, half / 3, half]) {
-        const x = sp.px[i] + rx * l;
-        const z = sp.pz[i] + rz * l;
+      // Cross beams stay clear of a road underneath.
+      let floor = -Infinity;
+      for (const f of BENT_LEGS) {
+        const x = sp.px[i] + rx * half * f;
+        const z = sp.pz[i] + rz * half * f;
+        const solid = onRoad(x, z);
+        if (solid) {
+          floor = Math.max(floor, solid.y + 5);
+          legs.push([x, z, solid.y]);
+          continue;
+        }
         const g = Math.min(land.height(x, z), land.riverY - 1);
         legs.push([x, z, land.height(x, z) > land.riverY ? land.height(x, z) : g]);
       }
       const low = Math.min(...legs.map((l) => l[2]));
       if (top - low < 2) continue;
-      for (const [x, z, g] of legs) timber.push({ x, y: (top + g) / 2, z, yaw, sx: 0.55, sy: top - g, sz: 0.55, color: 0x5e4630 });
+      for (const [x, z, g] of legs) {
+        const w = onRoad(x, z) ? LEG * 2 : 0.55;
+        timber.push({ x, y: (top + g) / 2, z, yaw, sx: w, sy: top - g, sz: w, color: 0x5e4630 });
+      }
       // Cross beams every 5 m down, and an X brace between each pair.
-      for (let y = top - 0.3; y > low + 1; y -= 5) {
+      const bottom = Math.max(low + 1, floor);
+      for (let y = top - 0.3; y > bottom; y -= 5) {
         timber.push({ x: sp.px[i], y, z: sp.pz[i], yaw: yaw + Math.PI / 2, sx: 0.35, sy: 0.35, sz: half * 2 + 0.6, color: 0x6e5236 });
-        if (y - 5 > low + 1) {
+        if (y - 5 > bottom) {
           const a = Math.atan2(5, half * 2);
           for (const sgn of [-1, 1]) timber.push({ x: sp.px[i], y: y - 2.5, z: sp.pz[i], yaw: yaw + Math.PI / 2, sx: 0.22, sy: 0.22, sz: Math.hypot(5, half * 2), color: 0x7a5c3c, pitch: sgn * a });
         }

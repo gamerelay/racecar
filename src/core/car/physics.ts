@@ -190,7 +190,6 @@ export function stepCar(sim: SimState, i: number, c: Controls, dt: number): void
     cars.yaw[i] = approach(cars.yaw[i], -c.steer * 0.8, 3 * dt);
     h += cars.yaw[i] * dt;
     cars.airT[i] += dt;
-    cars.boost[i] = Math.min(1, cars.boost[i] + T.boostFromAir * dt);
     if (cars.drift[i] === 1) {
       // The hop at the start of a drift: keep the drift going through it.
       cars.driftT[i] += dt;
@@ -223,7 +222,14 @@ function followGround(sim: SimState, i: number, dt: number): void {
     cars.vy[i] = vyBall;
   } else {
     if (!wasGrounded) {
-      sim.events.push(sim.tick, Ev.Land, i, cars.x[i], ground, cars.z[i], cars.airT[i], -vyBall);
+      const air = cars.airT[i];
+      sim.events.push(sim.tick, Ev.Land, i, cars.x[i], ground, cars.z[i], air, -vyBall);
+      // A clean landing after real air time pays.
+      if (air >= T.airMin && !cars.wreck[i]) {
+        const paid = earnBoost(sim, i, T.boostFromAir * air);
+        cars.score[i] += Math.round(T.airPoints * air);
+        sim.events.push(sim.tick, Ev.AirBoost, i, cars.x[i], ground, cars.z[i], paid, air);
+      }
       cars.airT[i] = 0;
     }
     cars.grounded[i] = 1;
@@ -267,8 +273,7 @@ export function endDrift(sim: SimState, i: number, stage: number): void {
   const bank = cars.driftBank[i];
   cars.driftBank[i] = 0;
   if (bank >= T.driftBankMin && cars.boost[i] < 1) {
-    const paid = Math.min(bank, 1 - cars.boost[i]);
-    cars.boost[i] += paid;
+    const paid = earnBoost(sim, i, bank);
     sim.events.push(sim.tick, Ev.DriftBoost, i, cars.x[i], cars.y[i], cars.z[i], paid);
   }
   sim.events.push(sim.tick, Ev.DriftEnd, i, cars.x[i], cars.y[i], cars.z[i], cars.driftT[i], stage);
@@ -397,6 +402,23 @@ function stepWreck(sim: SimState, i: number, c: Controls, dt: number): void {
     cars.wz[i] *= 0.75;
   }
   if (cars.wreckT[i] >= T.wreckTime) respawn(sim, i);
+}
+
+/**
+ * Adds boost earned by a move (a drift, air, a near miss), scaled by race position (TUNING
+ * boostPlaceLead…boostPlaceLast) while racing, and capped at a full meter; returns what was paid.
+ */
+export function earnBoost(sim: SimState, i: number, amount: number): number {
+  const cars = sim.cars;
+  let scale = 1;
+  if (sim.race.phase === 'racing' && !cars.finished[i]) {
+    let n = 0;
+    for (let k = 0; k < cars.count; k++) if (cars.active[k]) n++;
+    if (n > 1) scale = lerp(T.boostPlaceLead, T.boostPlaceLast, clamp(cars.rank[i] / (n - 1), 0, 1));
+  }
+  const paid = Math.max(0, Math.min(amount * scale, 1 - cars.boost[i]));
+  cars.boost[i] += paid;
+  return paid;
 }
 
 /** Pays a wrecked car's catch-up boost (see TUNING.respawnBoost); returns how much. */

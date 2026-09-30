@@ -1,0 +1,3 @@
+{ "id": "police", "name": "Interceptor", "blurb": "Pursuit car: quick and heavy, with a push bar for takedowns; lights and all.",
+  "topSpeed": 66, "accel": 17, "brake": 30, "turn": 2.35, "grip": 1.05, "mass": 1750,
+  "boostCapacity": 3.8, "drift": 1.0, "driftRotation": 1.0, "driftCarry": 1.2, "size": [0.95, 2.25, 0.72] }
