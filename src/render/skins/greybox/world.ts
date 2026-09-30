@@ -60,7 +60,7 @@ interface Debris {
   ground: number;
 }
 
-export function buildWorldVisual(scene: Scene, sim: Sim): WorldVisual {
+export function buildWorldVisual(scene: Scene, sim: Sim, roof?: (x: number, z: number) => number): WorldVisual {
   const root = new Group();
   scene.add(root);
   const m = new Matrix4();
@@ -289,12 +289,14 @@ export function buildWorldVisual(scene: Scene, sim: Sim): WorldVisual {
           const x = cam.x + (seeds[d * 3] - 0.5) * box;
           const z = cam.z + (seeds[d * 3 + 1] - 0.5) * box;
           const y = cam.y + 25 - ((seeds[d * 3 + 2] * 50 + time * fall) % 50);
+          // Under a roof: no rain (a zero-length streak draws nothing).
+          const dry = roof !== undefined && roof(x, z) > y - 1.2;
           const j = d * 6;
           rainPos[j] = x;
           rainPos[j + 1] = y;
           rainPos[j + 2] = z;
           rainPos[j + 3] = x + 0.1;
-          rainPos[j + 4] = y - 1.2;
+          rainPos[j + 4] = dry ? y : y - 1.2;
           rainPos[j + 5] = z;
         }
         (rainGeo.attributes.position as BufferAttribute).needsUpdate = true;

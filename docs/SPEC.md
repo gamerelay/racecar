@@ -991,3 +991,15 @@ Car art (branch `car-models`, 2026-09-30):
   lids spring open or tear off, wing, mirrors, plate, splitter and sometimes a wheel fly off,
   glass cracks and shards spray. The renderer infers where the car was hit (the other car, or
   the nose for walls) from the Wreck event, so the sim is unchanged; `repair()` on Respawn.
+
+Polish (2026-09-30):
+
+- **Rain stops under cover**: the track visual reports where roads are roofed (the City tunnel,
+  every bridge deck) and the rain skips drops beneath it.
+- **The speedometer reads mph on a dial** scaled to the car's boosted top speed; the range only
+  boost reaches is marked pink. A "✕ Menu" button quits to the main menu from any race.
+- **Drifts bank more boost** (`boostFromDrift` 0.1 → 0.18 a second at full angle and pace).
+- **Catch-up boost on respawn**: a wreck in a race pays 10% of a bar, plus up to 50% more
+  by how far behind the leader you are (full at 400 m), for AI and people alike. A manual reset
+  pays nothing, so resetting isn't a way to farm boost. The Respawn event carries the amount; the
+  HUD pops it.

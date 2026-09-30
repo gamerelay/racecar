@@ -6,6 +6,7 @@ export const Ev = {
   WallHit: 1,
   CarContact: 2,
   Wreck: 3,
+  /** a = catch-up boost paid (0..1 of a bar). */
   Respawn: 4,
   DriftStart: 5,
   DriftEnd: 6,

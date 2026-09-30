@@ -296,6 +296,7 @@ export function wreckCar(sim: SimState, i: number, cause: number, ix: number, iz
   cars.miniT[i] = 0;
   cars.wreck[i] = 1;
   cars.wreckT[i] = 0;
+  cars.wreckCause[i] = cause;
   cars.grounded[i] = 0;
   const r = sim.rng;
   const hard = cause === Cause.Wall || cause === Cause.Car;
@@ -360,6 +361,18 @@ function stepWreck(sim: SimState, i: number, c: Controls, dt: number): void {
   if (cars.wreckT[i] >= T.wreckTime) respawn(sim, i);
 }
 
+/** Pays a wrecked car's catch-up boost (see TUNING.respawnBoost); returns how much. */
+function catchUp(sim: SimState, i: number): number {
+  const cars = sim.cars;
+  if (sim.race.phase !== 'racing' || cars.finished[i] || cars.wreckCause[i] === Cause.Reset) return 0;
+  let lead = cars.progress[i];
+  for (let k = 0; k < cars.count; k++) if (cars.active[k] && cars.progress[k] > lead) lead = cars.progress[k];
+  const behind = clamp((lead - cars.progress[i]) / T.respawnBoostGap, 0, 1);
+  const paid = Math.max(0, Math.min(T.respawnBoost + behind * T.respawnBoostBehind, 1 - cars.boost[i]));
+  cars.boost[i] += paid;
+  return paid;
+}
+
 export function respawn(sim: SimState, i: number): void {
   const cars = sim.cars;
   const sp = sim.track.splines[cars.lastSpline[i]];
@@ -404,5 +417,5 @@ export function respawn(sim: SimState, i: number): void {
   cars.pz[i] = cars.z[i];
   cars.ph[i] = cars.h[i];
   cars.prx[i] = cars.prz[i] = 0;
-  sim.events.push(sim.tick, Ev.Respawn, i, cars.x[i], cars.y[i], cars.z[i]);
+  sim.events.push(sim.tick, Ev.Respawn, i, cars.x[i], cars.y[i], cars.z[i], catchUp(sim, i));
 }

@@ -5,13 +5,14 @@ import { join } from 'node:path';
 import { newContact, obbOverlap } from '../src/core/collide/obb';
 import { SpatialGrid } from '../src/core/collide/grid';
 import { neutralControls, packControls, unpackControls } from '../src/core/controls';
-import { Ev } from '../src/core/events';
+import { Cause, Ev } from '../src/core/events';
 import { Rng, hash01 } from '../src/core/rng';
 import { bakeTrack, mainDistance, signedGap } from '../src/core/track/bake';
 import { newHit, project, projectGlobal, sampleAt } from '../src/core/track/query';
 import { validateLayout } from '../src/core/track/validate';
 import { Sim } from '../src/core/sim';
 import { respawn } from '../src/core/car/physics';
+import { TUNING } from '../src/core/car/tuning';
 import { CLASSES, DOWNTOWN, SURFACES, citySim, ringSim } from './helpers';
 
 describe('rng', () => {
@@ -168,8 +169,37 @@ describe('sim', () => {
     expect(boost).toBe(boost0);
     expect(seen).toEqual([Ev.DriftBoost]);
     expect(sim.cars.miniT[i]).toBe(0);
-    expect(sim.cars.boost[i] - boost).toBeGreaterThan(0.1);
-    expect(sim.cars.boost[i] - boost).toBeLessThan(0.3);
+    expect(sim.cars.boost[i] - boost).toBeGreaterThan(0.2);
+    expect(sim.cars.boost[i] - boost).toBeLessThan(0.55);
+  });
+
+  test('a wreck in a race respawns with catch-up boost by how far behind the leader; a reset gets none', () => {
+    const sim = citySim();
+    for (let k = 0; k < 4; k++) sim.addCar({ cls: 'coupe' });
+    sim.startRace(3, 0.2);
+    for (let t = 0; t < 30; t++) sim.step([]);
+    expect(sim.race.phase).toBe('racing');
+    const c = sim.cars;
+    const paid: number[] = [];
+    const [leader, close, far, reset] = [0, 1, 2, 3];
+    c.progress[leader] = 1000;
+    c.progress[close] = 990;
+    c.progress[far] = 1000 - TUNING.respawnBoostGap * 2;
+    c.progress[reset] = 500;
+    for (const i of [leader, close, far, reset]) {
+      c.boost[i] = 0;
+      c.wreckCause[i] = i === reset ? Cause.Reset : Cause.Wall;
+      respawn(sim, i);
+      paid.push(c.boost[i]);
+    }
+    expect(paid[leader]).toBeCloseTo(TUNING.respawnBoost, 5);
+    expect(paid[close]).toBeGreaterThan(paid[leader]);
+    expect(paid[far]).toBeCloseTo(TUNING.respawnBoost + TUNING.respawnBoostBehind, 5);
+    expect(paid[reset]).toBe(0);
+    // The meter never overfills.
+    c.boost[far] = 0.9;
+    respawn(sim, far);
+    expect(c.boost[far]).toBe(1);
   });
 
   describe('drift feel', () => {

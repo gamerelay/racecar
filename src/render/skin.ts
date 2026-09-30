@@ -29,6 +29,8 @@ export interface TrackVisual {
   update?(time: number, dt: number, camera: Vector3): void;
   /** The scene has standing water (a river) that mirrors in any weather. */
   water?: boolean;
+  /** How high the cover over this ground is (a tunnel roof, a bridge deck), or -Infinity under open sky. */
+  roof?(x: number, z: number): number;
   dispose(): void;
 }
 
@@ -47,7 +49,8 @@ export interface Skin {
   environment(scene: Scene, palette: string): void;
   track(track: Track, seed: number): TrackVisual;
   car(cls: CarClass, paint: PaintDef): CarVisual;
-  world(scene: Scene, sim: Sim): WorldVisual;
+  /** `track` is this track's visual, for what it covers (rain stops under a roof). */
+  world(scene: Scene, sim: Sim, track?: TrackVisual): WorldVisual;
   /** Per frame, for animated skies and the like. */
   update?(time: number, cameraX: number, cameraY: number, cameraZ: number, wetness: number): void;
 }

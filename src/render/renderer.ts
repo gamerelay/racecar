@@ -75,7 +75,7 @@ export class GameRenderer {
     for (const e of this.trackVisual.extras) this.scene.add(e);
     this.scene.add(this.trackVisual.debug);
     this.scene.add(this.fx.points);
-    this.worldVisual = skin.world(this.scene, sim);
+    this.worldVisual = skin.world(this.scene, sim, this.trackVisual);
     this.syncCars();
     this.resize();
     this.snapCamera();
@@ -93,7 +93,7 @@ export class GameRenderer {
     this.scene.add(this.trackVisual.debug);
     // Gantries and the like are placed from the track, so the world visual is rebuilt too.
     this.worldVisual.dispose();
-    this.worldVisual = this.skin.world(this.scene, this.sim);
+    this.worldVisual = this.skin.world(this.scene, this.sim, this.trackVisual);
   }
 
   set debug(on: boolean) {

@@ -11,7 +11,7 @@ export const CAR_FIELDS = [
   'drift', 'driftDir', 'driftT', 'driftCharge', 'driftStage', 'slip', 'driftCooldown', 'driftTight', 'driftExit', 'driftBank',
   'spinT', 'ghostT', 'resetCooldown', 'wallT', 'stuckT', 'oncomingT', 'startPress', 'stallT',
   // wreck body
-  'wreck', 'wreckT', 'rx', 'rz', 'wx', 'wy', 'wz',
+  'wreck', 'wreckT', 'wreckCause', 'rx', 'rz', 'wx', 'wy', 'wz',
   // where on the track
   'spline', 's', 'lateral', 'surface', 'junctionFree', 'lastSpline', 'lastS', 'lastLat',
   // race
