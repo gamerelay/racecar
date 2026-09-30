@@ -231,7 +231,7 @@ export class Sim implements SimState {
     // Nothing transient carries over a teleport: drift recovery, mini-turbo, stall, streaks.
     c.driftExit[i] = c.driftBank[i] = c.driftChain[i] = c.chainT[i] = 0;
     c.miniT[i] = c.stallT[i] = c.boosting[i] = c.oncomingT[i] = c.wreckT[i] = 0;
-    c.aiHold[i] = 0;
+    c.aiHold[i] = c.aiBack[i] = 0;
     c.lastTakenBy[i] = 0;
     // Nor timers, the air, the body's tilt or who hit it last.
     c.ghostT[i] = c.resetCooldown[i] = c.stuckT[i] = c.wallT[i] = c.driftCooldown[i] = c.airT[i] = 0;
@@ -305,7 +305,9 @@ export class Sim implements SimState {
       if (!cars.active[i]) continue;
       updateProgress(this, i);
       const sMain = mainDistance(this.track, cars.spline[i], cars.s[i]);
-      if (!cars.wreck[i]) hazards.crossTriggers(i, ctx.prevMain[i], sMain, this.time, this.events, this.tick);
+      // Triggers sit on the main road: a car on a shortcut passing the same mapped distance is
+      // somewhere else (it used to drop the Valley's sign on the cars still on the main road).
+      if (!cars.wreck[i] && cars.spline[i] === 0) hazards.crossTriggers(i, ctx.prevMain[i], sMain, this.time, this.events, this.tick);
       if (this.race.phase === 'racing' && !cars.finished[i] && cars.lap[i] >= this.race.laps) this.finishers[nf++] = i;
     }
     this.finish(nf);

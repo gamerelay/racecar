@@ -147,7 +147,8 @@ describe('traffic in a race never pops', () => {
           }
           // The pool is exactly the solid cars near a racer (it has room for all of them here). It's
           // built at the start of the tick from where the racers were, so allow a tick's travel.
-          if (posed.has(k)) expect(v).toBe(1);
+          // (A car wrecked this tick was solid when the pool was built.)
+          if (posed.has(k) && !wrecked.has(k)) expect(v).toBe(1);
           else if (v === 1 && nearest < LOD_STRAIGHT - 5) throw new Error(`solid car ${k} ${nearest.toFixed(0)} m from a racer wasn't posed`);
           prev[k] = v;
         }

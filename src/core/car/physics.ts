@@ -164,7 +164,9 @@ export function stepCar(sim: SimState, i: number, c: Controls, dt: number): void
       // the slide was taking it instead of whipping round to where it pointed.
       if (exit > 0 && speed > 3) h = vdir + approach(wrapAngle(h - vdir), 0, (T.driftExitStraighten / carry) * exit * dt);
       const slip = wrapAngle(h - vdir);
-      const reversing = fwd < -0.5;
+      // Reversing, or about to: brake held from a standstill backs the car up (else the grip snap
+      // below keeps it pointing forward and it never moves).
+      const reversing = fwd < -0.5 || (fwd <= 0.5 && c.brake > 0 && c.throttle === 0);
       const target = reversing ? wrapAngle(h + Math.PI) : h;
       const off = wrapAngle(target - vdir);
       const align = T.gripAlign * grip * lerp(1, T.driftExitGrip / carry, exit) * dt;

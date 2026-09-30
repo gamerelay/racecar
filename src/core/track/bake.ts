@@ -307,9 +307,13 @@ export function sampleIndex(sp: BakedSpline, s: number): number {
   return Math.max(0, Math.min(sp.n - 1, Math.round(s / sp.step)));
 }
 
-/** Calls `fn` for each sample index in the distance range [s0, s1] (wrapping on closed splines). */
+/**
+ * Calls `fn` for each sample index in the distance range [s0, s1]. On a closed spline a range that
+ * ends before it starts runs through the line ([L - 20, 20] is 40 m), like zones and sections.
+ */
 export function forRange(sp: BakedSpline, s0: number, s1: number, fn: (i: number, s: number) => void): void {
-  const count = Math.max(0, Math.round((s1 - s0) / sp.step));
+  const span = sp.closed && s1 < s0 ? wrap(s1 - s0, sp.length) : s1 - s0;
+  const count = Math.max(0, Math.round(span / sp.step));
   for (let k = 0; k <= count; k++) {
     const s = s0 + k * sp.step;
     if (!sp.closed && (s < 0 || s > sp.length)) continue;

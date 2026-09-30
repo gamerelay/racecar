@@ -12,7 +12,7 @@ import { hash01 } from '../rng';
 import type { SimState } from '../state';
 import { mainDistance, signedGap, wrap, type BakedSpline, type Track } from '../track/bake';
 import { newHit, sampleAt, type TrackHit } from '../track/query';
-import { TRAFFIC_KINDS } from '../world/traffic';
+import { laneActive, TRAFFIC_KINDS } from '../world/traffic';
 
 export type Difficulty = 0 | 1 | 2;
 export const DIFFICULTY_NAMES = ['easy', 'normal', 'hard'] as const;
@@ -137,10 +137,12 @@ export function driveRacer(sim: SimState, i: number, d: RacerDriver, out: Contro
   let target = lineAt(sp, s + ahead, line.offset);
   // On a two-way road, easier drivers keep their line on their own side.
   const world = sim.world;
+  // Only where that lane has traffic: an empty street's wrong side is just a road.
   if (world && sp.index === 0 && skill.ownSide > 2) {
+    const here = mainDistance(sim.track, c.spline[i], c.s[i]);
     for (let l = 0; l < world.traffic.lanes.length; l++) {
       const lane = world.traffic.lanes[l];
-      if (lane.dir < 0) target = lane.pos < 0 ? Math.max(target, skill.ownSide > 8 ? 1 : -0.5) : Math.min(target, skill.ownSide > 8 ? -1 : 0.5);
+      if (lane.dir < 0 && laneActive(lane, here)) target = lane.pos < 0 ? Math.max(target, skill.ownSide > 8 ? 1 : -0.5) : Math.min(target, skill.ownSide > 8 ? -1 : 0.5);
     }
   }
   const lineTarget = target;
@@ -191,7 +193,18 @@ export function driveRacer(sim: SimState, i: number, d: RacerDriver, out: Contro
   for (let dd = 20; dd <= 160; dd += 35) if (lineAt(sp, s + dd, line.speed) < cls.topSpeed * 0.95) straight = false;
   out.boost = skill.boost && straight && c.boost[i] > 0.25 && c.wreck[i] === 0 && Math.abs(out.steer) < 0.3;
 
-  out.reset = c.wreck[i] === 0 && (c.stuckT[i] > 2.5 || wrongWay(sim, i));
+  // Pinned against something: back off for a moment, steering the other way, then try again.
+  if (c.aiBack[i] < 0) c.aiBack[i] = Math.min(0, c.aiBack[i] + sim.dt);
+  if (c.aiBack[i] === 0 && c.stuckT[i] > 0.6) c.aiBack[i] = 1.1;
+  if (c.aiBack[i] > 0) {
+    c.aiBack[i] -= sim.dt;
+    if (c.aiBack[i] <= 0) c.aiBack[i] = -4;
+    out.throttle = 0;
+    out.brake = 1;
+    out.steer = -out.steer;
+    out.boost = false;
+  }
+  out.reset = c.wreck[i] === 0 && (c.stuckT[i] > 2.5 || (c.aiBack[i] <= 0 && wrongWay(sim, i)));
   out.lookBack = false;
   out.horn = false;
   return out;
@@ -204,14 +217,15 @@ function lineAt(sp: BakedSpline, dist: number, arr: Float64Array): number {
 }
 
 /** avoid()'s working state, module scratch so marking a threat doesn't allocate a closure per tick. */
-const mk = { speed: 0, target: 0, me: 0, tTarget: 0, capDs: 0, capV: 0 };
+const mk = { speed: 0, target: 0, me: 0, len: 0, tTarget: 0, capDs: 0, capV: 0 };
 
 /** A thing at lateral `lat` (half width hw), `ds` ahead, moving along the road at `v` (negative: toward us). */
 function mark(lat: number, hw: number, ds: number, v: number): void {
   if (ds < -3 || ds > 260) return;
   const closing = mk.speed - v;
-  if (closing < 0.5 && ds > 4) return;
-  const tc = Math.max(0, ds - 3) / Math.max(0.5, closing);
+  const gap = ds - mk.len;
+  if (closing < 0.5 && gap > 4) return;
+  const tc = Math.max(0, gap - 1) / Math.max(0.5, closing);
   if (tc >= HORIZON) return;
   const lo = lat - hw - mk.me - 0.7;
   const hi = lat + hw + mk.me + 0.7;
@@ -244,15 +258,18 @@ function avoid(sim: SimState, i: number, sp: BakedSpline, s: number, target: num
   mk.speed = speed;
   mk.target = target;
   mk.me = me;
+  mk.len = sim.classes[c.cls[i]].size[1];
   mk.tTarget = HORIZON;
   mk.capDs = 0;
   mk.capV = 0;
   avoidCap = Infinity;
   const sMain = mainDistance(sim.track, c.spline[i], c.s[i]);
   let oncomingSide = 0;
-  if (world && sp.index === 0) {
+  // What's on the road the car is on: still the main road for the last stretch before a shortcut
+  // it has picked (sp is where it's headed).
+  if (world && c.spline[i] === 0) {
     const tr = world.traffic;
-    for (let l = 0; l < tr.lanes.length; l++) if (tr.lanes[l].dir < 0) oncomingSide = Math.sign(tr.lanes[l].pos);
+    for (let l = 0; l < tr.lanes.length; l++) if (tr.lanes[l].dir < 0 && laneActive(tr.lanes[l], sMain)) oncomingSide = Math.sign(tr.lanes[l].pos);
     for (let p = 0; p < tr.posed; p++) {
       const ds = signedGap(tr.s[p], sMain, L);
       const k = tr.idx[p];
@@ -302,6 +319,8 @@ function avoid(sim: SimState, i: number, sp: BakedSpline, s: number, target: num
   for (let k = 0; k < n; k++) {
     // Scored against the racing line and where we are, not against the last decision (that dithers).
     let score = candTime[k] * 10 - Math.abs(candLat[k] - line) * 0.5 - Math.abs(candLat[k] - here) * 0.4;
+    // A clear line beats one that's merely far off: braking keeps a blocked line's time up.
+    if (candTime[k] >= HORIZON) score += 8;
     // Easier drivers keep to their own side of a two-way road.
     if (oncomingSide !== 0 && Math.sign(candLat[k]) === oncomingSide && Math.abs(candLat[k]) > 1) score -= skill.ownSide;
     if (score > bestScore) {
@@ -311,7 +330,7 @@ function avoid(sim: SimState, i: number, sp: BakedSpline, s: number, target: num
   }
   if (candTime[best] <= mk.tTarget + 0.25) {
     // No better line: brake to arrive behind it at its speed, with a car length to spare.
-    avoidCap = Math.max(4, Math.max(0, mk.capV) + Math.sqrt(2 * 16 * Math.max(0, mk.capDs - 9)));
+    avoidCap = Math.max(4, Math.max(0, mk.capV) + Math.sqrt(2 * 16 * Math.max(0, mk.capDs - mk.len - 5)));
     return target;
   }
   // Commit to it for a moment, so the next tick doesn't talk us back out of it.
@@ -351,5 +370,5 @@ function wrongWay(sim: SimState, i: number): boolean {
   const at = sampleAt(sp, c.s[i], probe);
   const road = Math.atan2(at.tx, at.tz);
   const speed = Math.hypot(c.vx[i], c.vz[i]);
-  return speed > 3 && Math.abs(wrapAngle(Math.atan2(c.vx[i], c.vz[i]) - road)) > 2.2;
+  return speed > 3 && Math.abs(wrapAngle(Math.atan2(c.vx[i], c.vz[i]) - road)) > 2.2 && Math.abs(wrapAngle(c.h[i] - road)) > 1.6;
 }

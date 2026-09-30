@@ -2,6 +2,7 @@
 // the map as you edit, and CI runs them over every layout. Milestone 2 adds the AI lap checks.
 
 import type { CarClass, SurfaceDef, TrackLayout } from '../content';
+import { KINDS } from '../world/hazards';
 import { bakeTrack, wrap } from './bake';
 
 export interface Problem {
@@ -135,6 +136,25 @@ export function validateLayout(layout: TrackLayout, surfaces: SurfaceDef[], clas
         }
       }
     }
+  }
+
+  // Hazards: a kind that exists, placed where it can happen.
+  for (const [k, h] of (layout.hazards ?? []).entries()) {
+    const kind = KINDS[h.use];
+    if (!kind) {
+      err(`hazard ${k}: unknown kind "${h.use}" (it would never happen); kinds: ${Object.keys(KINDS).join(', ')}`);
+      continue;
+    }
+    const [a, b] = typeof h.s === 'number' ? [h.s, h.s] : h.s;
+    if ([a, b].some((s) => !(s >= 0 && s <= L))) err(`hazard ${h.use} at ${JSON.stringify(h.s)} is off the main spline (0–${L.toFixed(0)})`, 'main', a);
+    if (kind.schedule === 'trigger' && typeof h.s !== 'number') err(`hazard ${h.use} is a trigger: it needs one point (s), not a range, or it never fires`, 'main', a);
+  }
+  // Traffic lanes: inside the road, one way or the other, moving.
+  for (const [k, lane] of (layout.traffic?.lanes ?? []).entries()) {
+    if (!(Math.abs(lane.pos) <= 1)) err(`traffic lane ${k}: pos ${lane.pos} is off the road (-1 to 1)`);
+    if (lane.dir !== 1 && lane.dir !== -1) err(`traffic lane ${k}: dir must be 1 or -1`);
+    if (!(lane.speed > 0)) err(`traffic lane ${k}: speed must be positive`);
+    for (const [a, b] of lane.sections ?? []) if (!(a >= 0 && a <= L && b >= 0 && b <= L)) err(`traffic lane ${k}: section [${a}, ${b}] is off the main spline`, 'main', a);
   }
 
   return out;
