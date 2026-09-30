@@ -44,6 +44,12 @@ export class PostPass {
     uCarInk: { value: 0 },
     /** Film grain amount (1 in play; stills can turn it down). */
     uGrain: { value: 1 },
+    // The map's grade (the skin's palette): saturation, contrast about mid-grey, a tint for the
+    // shadows, and how dark the vignette gets. 1, 1, white and 0.5 leave the image as it is.
+    uSat: { value: 1 },
+    uContrast: { value: 1 },
+    uShadow: { value: new Color(0xffffff) },
+    uVignette: { value: 0.5 },
   };
 
   constructor(width: number, height: number) {
@@ -57,7 +63,7 @@ export class PostPass {
       depthWrite: false,
       vertexShader: `varying vec2 vUv;void main(){vUv=uv;gl_Position=vec4(position.xy,0.0,1.0);}`,
       fragmentShader: `uniform sampler2D tDiffuse,tDepth,tInk,tInkDepth;uniform float uCarInk,uGrain;uniform float uTime,uSpeed,uBoost,uImpact,uSlow,uAspect,uNear,uFar,uOutline,uFogNear,uFogFar;
-      uniform int uTaps;uniform vec2 uTexel,uPixel;uniform vec3 uInk,uSky;uniform mat4 uProj,uInvProj,uView;uniform float uWet,uWater;varying vec2 vUv;
+      uniform int uTaps;uniform vec2 uTexel,uPixel;uniform vec3 uInk,uSky;uniform mat4 uProj,uInvProj,uView;uniform float uWet,uWater;uniform float uSat,uContrast,uVignette;uniform vec3 uShadow;varying vec2 vUv;
       float hash(float n){return fract(sin(n)*43758.5453);}
       // Inverse view distance from the (perspective) depth buffer: linear across planes on screen.
       float invZ(vec2 uv){float d=texture2D(tDepth,uv).x;return (uFar-d*(uFar-uNear))/(uNear*uFar);}
@@ -184,10 +190,15 @@ export class PostPass {
         float id=floor(ang*52.0/3.14159);float h=hash(id);
         float streak=step(0.7,h)*smoothstep(0.32,0.75,len)*step(0.62,fract(len*2.2-uTime*(3.0+h*4.0)+h*7.0));
         col=mix(col,vec3(1.0,0.96,0.86),streak*uBoost*0.5);
+        // The map's grade: richer color, a touch more contrast, shadows tinted rather than grey.
+        float lum=dot(col,vec3(0.299,0.587,0.114));
+        col=mix(vec3(lum),col,uSat);
+        col=0.18*pow(max(col,vec3(0.0))/0.18,vec3(uContrast));
+        col=mix(col*uShadow,col,smoothstep(0.0,0.3,lum));
         float g=dot(col,vec3(0.299,0.587,0.114));
         col=mix(col,vec3(g)*vec3(1.08,0.92,1.25),uSlow*0.6);
         col+=uImpact*vec3(1.0,0.72,0.5)*0.3;
-        col*=1.0-smoothstep(0.45,1.05,len)*(0.5+0.25*uBoost);
+        col*=1.0-smoothstep(0.45,1.05,len)*(uVignette+0.25*uBoost);
         col+=(hash(dot(vUv,vec2(12.9898,78.233))*917.0+fract(uTime)*31.0)-0.5)*0.03*uGrain;
         gl_FragColor=vec4(col,1.0);
         #include <colorspace_fragment>

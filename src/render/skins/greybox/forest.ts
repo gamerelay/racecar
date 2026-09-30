@@ -30,7 +30,7 @@ import {
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { Rng } from '../../../core/rng';
 import { BENT, BENT_INSET, BENT_LEGS, LEG, type BakedSpline, type Track } from '../../../core/track/bake';
-import { animatedPoints, canvas, FONT } from './scenery';
+import { animatedPoints, branchSide, canvas, FONT } from './scenery';
 import type { Terrain } from './terrain';
 import { faceted, toon } from './toon';
 import type { Palette } from './palettes';
@@ -41,7 +41,7 @@ export interface Forest {
 }
 
 /** One instance: position, a yaw (and optional tilt about the local z axis), and a scale. */
-interface Part {
+export interface Part {
   x: number;
   y: number;
   z: number;
@@ -64,7 +64,7 @@ const UP = new Vector3(0, 1, 0);
 const X = new Vector3(1, 0, 0);
 const Z = new Vector3(0, 0, 1);
 
-function instanced(geo: BufferGeometry, mat: Material, parts: Part[]): InstancedMesh {
+export function instanced(geo: BufferGeometry, mat: Material, parts: Part[]): InstancedMesh {
   const mesh = new InstancedMesh(geo, mat, Math.max(1, parts.length));
   parts.forEach((p, k) => {
     q.setFromAxisAngle(UP, p.yaw);
@@ -80,7 +80,7 @@ function instanced(geo: BufferGeometry, mat: Material, parts: Part[]): Instanced
 }
 
 /** A triangular prism (a gable roof, a tent): unit width, height and length, ridge along z, base at y=0. */
-function prism(): BufferGeometry {
+export function prism(): BufferGeometry {
   const g = new BufferGeometry();
   const p = [
     // Two slopes, two gable ends (a flat underside isn't seen).
@@ -650,10 +650,10 @@ export function buildForest(track: Track, palette: Palette, seed: number, land: 
     const names: Record<string, string> = { barn: 'THE BARN', leap: "LOGGER'S LEAP", creek: 'CREEK BED' };
     for (const sp of track.splines.slice(1)) {
       const i = at(main, (sp.mainFrom - 25 + L) % L);
-      const branchSide = Math.sign((sp.px[4] - main.px[i]) * -main.tz[i] + (sp.pz[4] - main.pz[i]) * main.tx[i]) || 1;
+      const side = branchSide(main, sp);
       const off = main.width[i] / 2 + main.shoulder[i] + 2;
-      const x = main.px[i] - main.tz[i] * off * branchSide;
-      const z = main.pz[i] + main.tx[i] * off * branchSide;
+      const x = main.px[i] - main.tz[i] * off * side;
+      const z = main.pz[i] + main.tx[i] * off * side;
       const y = Math.max(land.height(x, z), main.py[i] - 1);
       const tex = canvas(256, 96, (g) => {
         g.fillStyle = '#6b4a2e';
@@ -665,7 +665,7 @@ export function buildForest(track: Track, palette: Palette, seed: number, land: 
         g.font = `34px ${FONT}`;
         g.textAlign = 'center';
         g.textBaseline = 'middle';
-        g.fillText(`${branchSide > 0 ? '' : '◀ '}${names[sp.id] ?? sp.id.toUpperCase()}${branchSide > 0 ? ' ▶' : ''}`, 128, 50);
+        g.fillText(`${side > 0 ? '' : '◀ '}${names[sp.id] ?? sp.id.toUpperCase()}${side > 0 ? ' ▶' : ''}`, 128, 50);
       });
       const sign = new Mesh(new PlaneGeometry(4, 1.5), new MeshBasicMaterial({ map: tex, side: DoubleSide }));
       sign.position.set(x, y + 2.4, z);
@@ -747,7 +747,7 @@ export function buildForest(track: Track, palette: Palette, seed: number, land: 
 }
 
 /** A house wall: white (the instance color tints it), two framed windows over a door and a sill line. */
-function houseTexture() {
+export function houseTexture() {
   return canvas(128, 128, (g) => {
     g.fillStyle = '#ffffff';
     g.fillRect(0, 0, 128, 128);

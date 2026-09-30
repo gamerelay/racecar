@@ -52,6 +52,8 @@ export interface Skin {
   id: string;
   /** Ink color for the post pass's outlines, once environment() has run. */
   ink?: number;
+  /** The map's color grade in the post pass (none: as rendered). */
+  grade?: Grade;
   /** Sky, fog, lights. Called again on the same scene for another palette, it replaces them. */
   environment(scene: Scene, palette: string): void;
   track(track: Track, seed: number): TrackVisual;
@@ -61,4 +63,12 @@ export interface Skin {
   world(scene: Scene, sim: Sim, track?: TrackVisual): WorldVisual;
   /** Per frame, for animated skies and the like. */
   update?(time: number, cameraX: number, cameraY: number, cameraZ: number, wetness: number): void;
+}
+
+/** A map's look in the post pass: saturation and contrast (1: as rendered), a tint multiplied into the shadows, and the vignette's strength (0.5 by default). */
+export interface Grade {
+  saturation: number;
+  contrast: number;
+  shadow: number;
+  vignette: number;
 }

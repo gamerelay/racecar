@@ -132,6 +132,14 @@ describe('Paradise (Island)', () => {
     expect([...took].sort()).toEqual(['lava-tube', 'sandbar']);
   });
 
+  test('the tropic palette grades the image vivid; the other maps stay as rendered', () => {
+    const g = PALETTES.tropic.grade!;
+    expect(g.saturation).toBeGreaterThan(1);
+    expect(g.contrast).toBeGreaterThan(1);
+    expect(g.vignette).toBeLessThan(0.5);
+    for (const p of ['dusk', 'golden', 'midnight']) expect(PALETTES[p].grade).toBeUndefined();
+  });
+
   test('the lap floor is around 70 s', () => {
     const r = lapReport('paradise/island', island);
     expect(r.finished).toBe(true);

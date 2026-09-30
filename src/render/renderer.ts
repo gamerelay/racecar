@@ -100,7 +100,7 @@ export class GameRenderer {
     this.post.uniforms.tInk.value = this.ink.target.texture;
     this.post.uniforms.tInkDepth.value = this.ink.target.depthTexture;
     skin.environment(this.scene, palette);
-    if (skin.ink !== undefined) this.post.uniforms.uInk.value.setHex(skin.ink);
+    this.applyLook();
     this.trackVisual = skin.track(sim.track, sim.seed);
     for (const c of this.trackVisual.chunks) this.scene.add(c);
     for (const e of this.trackVisual.extras) this.scene.add(e);
@@ -137,8 +137,19 @@ export class GameRenderer {
   /** Another map behind the menu: its sky and light, then its track (the sim has the new one already). */
   setMap(palette: string): void {
     this.skin.environment(this.scene, palette);
-    if (this.skin.ink !== undefined) this.post.uniforms.uInk.value.setHex(this.skin.ink);
+    this.applyLook();
     this.setTrack();
+  }
+
+  /** The skin's ink and grade for this map, into the post pass. */
+  private applyLook(): void {
+    const u = this.post.uniforms;
+    if (this.skin.ink !== undefined) u.uInk.value.setHex(this.skin.ink);
+    const g = this.skin.grade;
+    u.uSat.value = g?.saturation ?? 1;
+    u.uContrast.value = g?.contrast ?? 1;
+    u.uShadow.value.setHex(g?.shadow ?? 0xffffff);
+    u.uVignette.value = g?.vignette ?? 0.5;
   }
 
   /** New plates (another map prints another region on them): every car's visual is built again. */

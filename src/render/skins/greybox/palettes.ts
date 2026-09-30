@@ -1,5 +1,8 @@
+import type { Grade } from '../../skin';
+
 // Palettes from the prototype. Dusk is City's signature look; midnight its rain/night variant.
-// Tropic is Paradise's high noon: a hard sun, a pale sky over a turquoise sea, deep greens.
+// Tropic is Paradise's high noon, a 2000s-postcard beach: a deep blue sky, a hard sun, a clear
+// turquoise sea and saturated greens, graded rich with blue-green shadows and a light vignette.
 
 export interface Palette {
   top: number;
@@ -23,6 +26,8 @@ export interface Palette {
   windows: number;
   /** A daytime sky: the sun high and whole, no stars. */
   day?: boolean;
+  /** The post pass's grade (none: as rendered). */
+  grade?: Grade;
 }
 
 export const PALETTES: Record<string, Palette> = {
@@ -63,23 +68,24 @@ export const PALETTES: Record<string, Palette> = {
     windows: 0.4,
   },
   tropic: {
-    top: 0x1f6fd1,
-    mid: 0x62b8f0,
-    horizon: 0xc9f1ff,
+    top: 0x0a4fd0,
+    mid: 0x2f97f2,
+    horizon: 0x8fdcff,
     sun: 0xfff6d0,
-    fog: 0xa9e2f2,
-    fogNear: 220,
-    fogFar: 1500,
-    hemiSky: 0xd6f4ff,
-    hemiGround: 0x3c6b3a,
-    hemiIntensity: 1.55,
-    dir: 0xfff1d0,
-    dirIntensity: 2.5,
+    fog: 0x86d2f2,
+    fogNear: 320,
+    fogFar: 2300,
+    hemiSky: 0xc4ecff,
+    hemiGround: 0x2f7a3a,
+    hemiIntensity: 1.3,
+    dir: 0xfff0c8,
+    dirIntensity: 2.7,
     blocks: [0xf2a7a0, 0x9fd9c8, 0xf6d38a, 0xa7c4f2, 0xf0b6d6, 0xbfe3a0],
-    ground: 0x4f9a3a,
+    ground: 0x3fae3a,
     ink: 0x14282a,
     windows: 0.2,
     day: true,
+    grade: { saturation: 1.3, contrast: 1.08, shadow: 0x7fc8e6, vignette: 0.22 },
   },
   midnight: {
     top: 0x02030f,
