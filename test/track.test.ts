@@ -1,19 +1,13 @@
 import { describe, expect, test } from 'bun:test';
-import { readFileSync } from 'node:fs';
-import { join } from 'node:path';
 import type { TrackLayout } from '../src/core/content';
 import { bakeTrack, wrap, type BakedSpline } from '../src/core/track/bake';
 import { newHit, projectGlobal } from '../src/core/track/query';
 import { validateLayout } from '../src/core/track/validate';
-import { CLASSES, SURFACES } from './helpers';
+import { CLASSES, SURFACES, layout } from './helpers';
 
 // Shortcut junctions (they used to meet the main road up to 1.7 m off its surface, with a curb
 // across the mouth) and the Valley's v3 shape (sweepers to drift, a wider road, banked corners).
 
-const layout = (key: string): TrackLayout => {
-  const [map, name] = key.split('/');
-  return JSON.parse(readFileSync(join(import.meta.dir, '..', 'content', 'maps', map, `${name}.track.json`), 'utf8')) as TrackLayout;
-};
 const MAPS = ['city/downtown', 'countryside/valley'];
 
 /** Heading change (radians) over ±`half` samples at i: positive turns left. */

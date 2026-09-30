@@ -357,7 +357,7 @@ describe('sim', () => {
 
   test('stepping does not allocate after warm-up (full world: 8 AI, traffic, chaos hazards, rain)', () => {
     const sim = new Sim(bakeTrack(DOWNTOWN, SURFACES), CLASSES, SURFACES, { seed: 3, weather: 'rain', mayhem: 'chaos', traffic: 1 });
-    for (let k = 0; k < 8; k++) sim.addCar({ cls: CLASSES[k % 4].id, racer: { difficulty: (k % 3) as 0 | 1 | 2 } });
+    for (let k = 0; k < 8; k++) sim.addCar({ cls: CLASSES[k % CLASSES.length].id, racer: { difficulty: (k % 3) as 0 | 1 | 2 } });
     sim.startRace(3, 0.5);
     const human = sim.addCar({ cls: 'hatch', human: true });
     const c = neutralControls();

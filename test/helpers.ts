@@ -1,14 +1,10 @@
-import downtown from '../content/maps/city/downtown.track.json';
-import surfaces from '../content/surfaces.json';
-import { readFileSync } from 'node:fs';
-import { join } from 'node:path';
-import { CLASS_ORDER, type CarClass, type SurfaceDef, type TrackLayout } from '../src/core/content';
+import type { TrackLayout } from '../src/core/content';
 import { Sim } from '../src/core/sim';
 import { bakeTrack } from '../src/core/track/bake';
+import { CLASSES, SURFACES, layout } from '../tools/content';
 
-export const CLASSES = CLASS_ORDER.map((id) => JSON.parse(readFileSync(join(import.meta.dir, '..', 'content', 'cars', `${id}.json`), 'utf8')) as CarClass);
-export const SURFACES = surfaces as SurfaceDef[];
-export const DOWNTOWN = downtown as unknown as TrackLayout;
+export { CLASSES, SURFACES, layout };
+export const DOWNTOWN: TrackLayout = layout('city/downtown');
 
 export function citySim(seed = 1, slowmo: 'world' | 'wreck' = 'world'): Sim {
   return new Sim(bakeTrack(DOWNTOWN, SURFACES), CLASSES, SURFACES, { seed, slowmo });

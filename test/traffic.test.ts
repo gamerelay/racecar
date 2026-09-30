@@ -1,8 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import { readFileSync } from 'node:fs';
-import { join } from 'node:path';
 import { MeshBasicMaterial, ShaderLib } from 'three';
-import type { TrackLayout } from '../src/core/content';
 import { Ev } from '../src/core/events';
 import { Sim } from '../src/core/sim';
 import { bakeTrack, wrap } from '../src/core/track/bake';
@@ -10,17 +7,13 @@ import { FADE, FADE_BACK, GRID_CLEAR, LOD_STRAIGHT, TRAFFIC_RESPAWN, Traffic, ne
 import { fadeMaterial, injectFade } from '../src/render/fade';
 import { carPaint } from '../src/render/skins/greybox/car/paint';
 import { toon } from '../src/render/skins/greybox/toon';
-import { CLASSES, DOWNTOWN, SURFACES } from './helpers';
+import { CLASSES, DOWNTOWN, SURFACES, layout } from './helpers';
 
 // Regressions for traffic popping in and out near the player (SPEC "Traffic that doesn't pop").
 // Three causes were measured: cars appearing at a lane section's edge, at the start grid's clear
 // zone, and cars near in a straight line but far by road never being posed. Visibility is now a
 // formula with fades; these hold it to that.
 
-const layout = (key: string): TrackLayout => {
-  const [map, name] = key.split('/');
-  return JSON.parse(readFileSync(join(import.meta.dir, '..', 'content', 'maps', map, `${name}.track.json`), 'utf8')) as TrackLayout;
-};
 const track = bakeTrack(DOWNTOWN, SURFACES);
 /** The slowest a fade may be allowed to go, fixed here so shrinking FADE can't pass by moving the bar. */
 const MIN_FADE_M = 30;
@@ -81,6 +74,9 @@ describe('traffic visibility', () => {
       const v1 = tr.visibility(k, t + 1 / 60);
       expect(Math.abs(v1 - v0)).toBeLessThan(2 / 60 / FADE_BACK + 0.05);
     }
+    // …and once it has, the grid's cars are back: fully visible wherever their lane runs.
+    const back = GRID_CLEAR.seconds + FADE_BACK + 0.1;
+    expect(onGrid.some((k) => tr.visibility(k, back) === 1)).toBe(true);
   });
 
   test('a wreck is gone at once and fades back after TRAFFIC_RESPAWN', () => {

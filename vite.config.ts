@@ -4,7 +4,7 @@
 //   POST /__editor/save  {path, layout}    → writes a layout under content/maps (the editor)
 
 import { appendFileSync, mkdirSync, writeFileSync } from 'node:fs';
-import { dirname, join, resolve } from 'node:path';
+import { dirname, join, resolve, sep } from 'node:path';
 import type { IncomingMessage } from 'node:http';
 import { defineConfig, type Plugin } from 'vite';
 
@@ -26,6 +26,13 @@ function devEndpoints(): Plugin {
     configureServer(server) {
       server.middlewares.use(async (req, res, next) => {
         if (req.method !== 'POST' || !req.url?.startsWith('/__')) return next();
+        // Only this dev server's own pages (another site open in the browser can't write files).
+        const origin = req.headers.origin;
+        if (origin && !/^https?:\/\/(localhost|127\.0\.0\.1|\[::1\])(:\d+)?$/.test(origin)) {
+          res.statusCode = 403;
+          res.end('local pages only');
+          return;
+        }
         try {
           const json = JSON.parse(await body(req));
           if (req.url === '/__telemetry') {
@@ -44,7 +51,7 @@ function devEndpoints(): Plugin {
             return;
           } else if (req.url === '/__editor/save') {
             const target = resolve(root, 'content', String(json.path));
-            if (!target.startsWith(join(root, 'content', 'maps')) || !target.endsWith('.track.json')) throw new Error('layouts only');
+            if (!target.startsWith(join(root, 'content', 'maps') + sep) || !target.endsWith('.track.json')) throw new Error('layouts only');
             mkdirSync(dirname(target), { recursive: true });
             writeFileSync(target, JSON.stringify(json.layout, null, 1) + '\n');
           } else return next();
@@ -63,5 +70,14 @@ export default defineConfig({
   plugins: [devEndpoints()],
   define: { __BUILD_TIME__: JSON.stringify(Date.now().toString(36)) },
   server: { port: 5178, watch: { ignored: ['**/telemetry/**'] } },
-  build: { target: 'es2022', sourcemap: true, rollupOptions: { input: { main: join(root, 'index.html'), cars: join(root, 'cars.html') } } },
+  build: {
+    target: 'es2022',
+    sourcemap: true,
+    // three.js is most of the bundle: its own chunk, so the game's reads as the game's.
+    chunkSizeWarningLimit: 800,
+    rolldownOptions: {
+      input: { main: join(root, 'index.html'), cars: join(root, 'cars.html') },
+      output: { advancedChunks: { groups: [{ name: 'three', test: /node_modules[\\/]three/ }] } },
+    },
+  },
 });

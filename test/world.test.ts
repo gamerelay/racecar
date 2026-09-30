@@ -224,7 +224,7 @@ describe('replay', () => {
     const make = () => {
       const s = new Sim(track, CLASSES, SURFACES, opts);
       s.addCar({ cls: 'hatch', human: true });
-      for (let k = 0; k < 5; k++) s.addCar({ cls: CLASSES[k % 4].id, racer: { difficulty: (k % 3) as 0 | 1 | 2 } });
+      for (let k = 0; k < 5; k++) s.addCar({ cls: CLASSES[k % CLASSES.length].id, racer: { difficulty: (k % 3) as 0 | 1 | 2 } });
       s.startRace(3, 1);
       return s;
     };

@@ -10,12 +10,12 @@
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { TUNING } from '../src/core/car/tuning';
-import type { CarClass, SurfaceDef } from '../src/core/content';
 import { neutralControls, unpackControls, type Controls } from '../src/core/controls';
 import { EV_NAMES } from '../src/core/events';
 import { Sim } from '../src/core/sim';
 import { bakeTrack } from '../src/core/track/bake';
 import type { Report } from '../src/telemetry/telemetry';
+import { CLASSES as classes, SURFACES as surfaces } from './content';
 
 const root = join(import.meta.dir, '..');
 const args = process.argv.slice(2);
@@ -32,8 +32,6 @@ if (!file) {
 }
 
 const report = JSON.parse(readFileSync(file, 'utf8')) as Report;
-const surfaces = JSON.parse(readFileSync(join(root, 'content', 'surfaces.json'), 'utf8')) as SurfaceDef[];
-const classes = ['coupe', 'muscle', 'hatch', 'van'].map((id) => JSON.parse(readFileSync(join(root, 'content', 'cars', `${id}.json`), 'utf8')) as CarClass);
 Object.assign(TUNING, report.tuning);
 
 const sim = new Sim(bakeTrack(report.layout, surfaces), classes, surfaces, { ...(report.options ?? {}), seed: report.seed, slowmo: report.options?.slowmo ?? 'world' });
