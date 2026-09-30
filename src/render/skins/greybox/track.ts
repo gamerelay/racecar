@@ -3,7 +3,13 @@
 // plane. Flat shading, one color per surface: readable, and cheap on any machine.
 
 import {
+  AddEquation,
   BoxGeometry,
+  CustomBlending,
+  OneMinusSrcAlphaFactor,
+  ShaderMaterial,
+  SrcAlphaFactor,
+  ZeroFactor,
   BufferGeometry,
   Color,
   ConeGeometry,
@@ -21,10 +27,10 @@ import {
 } from 'three';
 import { Rng } from '../../../core/rng';
 import type { BakedSpline, Track } from '../../../core/track/bake';
-import { newHit, projectGlobal } from '../../../core/track/query';
+import { newHit, projectGlobal, sampleAt } from '../../../core/track/query';
 import type { TrackVisual } from '../../skin';
 import { buildCityscape } from './cityscape';
-import { faceted, toon } from './toon';
+import { faceted, toon, WET } from './toon';
 import type { Palette } from './palettes';
 
 const WALL_HEIGHT = 1.1;
@@ -41,6 +47,9 @@ const TUNNEL_H = 4.5;
 /** A trench's retaining wall stands this high above the ground, and its lip reaches this far. */
 const RAIL = 0.9;
 const LIP = 5;
+/** A bridge's barrier height; the railing on it reaches the full wall height and a bit. */
+const BARRIER = 0.55;
+const RAIL_TOP = 1.25;
 
 class Geo {
   pos: number[] = [];
@@ -127,6 +136,8 @@ export function buildTrackVisual(track: Track, palette: Palette, seed: number): 
 
   // The city lays its own ground (streets, with holes where a trench runs).
   const extras: Object3D[] = city ? [] : [ground];
+  const wet = puddles(track);
+  if (wet) extras.push(wet);
   // Solid props on the road (the pillars): tall striped boxes.
   const solid = track.props.filter((p) => p.solid);
   if (solid.length) {
@@ -159,6 +170,39 @@ export function buildTrackVisual(track: Track, palette: Palette, seed: number): 
       road.dispose();
     },
   };
+}
+
+/** Steel railing along one edge between two cross-sections: posts every 3 m, a top and a mid rail. */
+function railing(g: Geo, A: Cross, B: Cross, la: number, lb: number, s: number, step: number): void {
+  const at = (c: Cross, l: number, y: number) => [c.cx + c.rx * l, c.cy - l * c.tb + y, c.cz + c.rz * l];
+  const bar = (y0: number, y1: number, half: number, color: string) => {
+    const a0 = at(A, la - half, y0);
+    const a1 = at(A, la + half, y0);
+    const b0 = at(B, lb - half, y0);
+    const b1 = at(B, lb + half, y0);
+    const a2 = at(A, la - half, y1);
+    const a3 = at(A, la + half, y1);
+    const b2 = at(B, lb - half, y1);
+    const b3 = at(B, lb + half, y1);
+    g.face(a2, b2, b3, a3, color);
+    g.face(a0, b0, b2, a2, color);
+    g.face(a1, b1, b3, a3, color);
+  };
+  bar(CURB + RAIL_TOP - 0.12, CURB + RAIL_TOP, 0.09, '#c9c0e0');
+  bar(CURB + 0.86, CURB + 0.92, 0.05, '#a89cc0');
+  if (Math.floor(s / 3) !== Math.floor((s + step) / 3)) {
+    // A post: a thin box at A, the length of a tenth of a step along the road.
+    const t = 0.12;
+    const post = (dl: number, y: number) => at(A, la + dl, y);
+    const dx = (B.cx - A.cx) * t;
+    const dz = (B.cz - A.cz) * t;
+    const p = [post(-0.07, CURB + BARRIER), post(0.07, CURB + BARRIER), post(-0.07, CURB + RAIL_TOP), post(0.07, CURB + RAIL_TOP)];
+    const q = p.map((v) => [v[0] + dx, v[1], v[2] + dz]);
+    g.face(p[0], p[1], p[3], p[2], '#8f84a8');
+    g.face(q[0], q[1], q[3], q[2], '#8f84a8');
+    g.face(p[0], q[0], q[2], p[2], '#8f84a8');
+    g.face(p[1], q[1], q[3], p[3], '#8f84a8');
+  }
 }
 
 function buildChunk(g: Geo, track: Track, sp: BakedSpline, i0: number, i1: number, groundY: number, levels: boolean): void {
@@ -217,8 +261,10 @@ function buildChunk(g: Geo, track: Track, sp: BakedSpline, i0: number, i1: numbe
       const lowB = bridge ? B.cy - DECK : groundY;
       if (wall) {
         // A trench's walls hold the ground back, so they reach up past it.
-        const liftA = sunk ? Math.max(CURB + WALL_HEIGHT, groundY + RAIL - A.cy) : CURB + WALL_HEIGHT;
-        const liftB = sunk ? Math.max(CURB + WALL_HEIGHT, groundY + RAIL - B.cy) : CURB + WALL_HEIGHT;
+        // A bridge's is a low barrier with a railing on top, so you can see over the edge.
+        const plain = bridge ? CURB + BARRIER : CURB + WALL_HEIGHT;
+        const liftA = sunk ? Math.max(plain, groundY + RAIL - A.cy) : plain;
+        const liftB = sunk ? Math.max(plain, groundY + RAIL - B.cy) : plain;
         const topA = at(A, side * sa, liftA);
         const topB = at(B, side * sb, liftB);
         const backA = at(A, side * (sa + WALL_THICK), liftA);
@@ -235,6 +281,7 @@ function buildChunk(g: Geo, track: Track, sp: BakedSpline, i0: number, i1: numbe
           g.face([backA[0], y, backA[2]], [backB[0], y, backB[2]], [lipB[0], y, lipB[2]], [lipA[0], y, lipA[2]], '#6d5f86');
         }
         outer[side < 0 ? 0 : 1] = WALL_THICK;
+        if (bridge) railing(g, A, B, side * (sa + WALL_THICK / 2), side * (sb + WALL_THICK / 2), s, sp.step);
       } else if (baseA[1] > lowA + 0.2) {
         // No wall: the shoulder's edge drops to the ground (or the deck's underside).
         g.face(baseA, baseB, [baseB[0], lowB, baseB[2]], [baseA[0], lowA, baseA[2]], '#3a2f52');
@@ -375,4 +422,81 @@ function debugVolumes(track: Track): Object3D {
   }
   group.visible = false;
   return group;
+}
+
+/**
+ * The rain's puddles (zones on a 'puddle' surface), drawn as dark water that fades in with the
+ * wetness. They're slippery, so they must be seen: each also clears the alpha channel where it's
+ * drawn, which the post pass reads as "mirror here" for its reflections.
+ */
+function puddles(track: Track): Object3D | null {
+  const pos: number[] = [];
+  const uv: number[] = [];
+  const seed: number[] = [];
+  const idx: number[] = [];
+  const hit = newHit();
+  let k = 0;
+  for (const sp of track.splines) {
+    for (const z of sp.zones) {
+      if (track.surfaces[z.surface]?.id !== 'puddle') continue;
+      const { s0, s1, l0, l1 } = z;
+      const steps = Math.max(2, Math.ceil((s1 - s0) / 1.5));
+      const across = 6;
+      const base = pos.length / 3;
+      for (let a = 0; a <= steps; a++) {
+        const s = s0 + ((s1 - s0) * a) / steps;
+        sampleAt(sp, s, hit);
+        const tb = Math.tan(hit.bank);
+        for (let b = 0; b <= across; b++) {
+          const l = l0 + ((l1 - l0) * b) / across;
+          pos.push(hit.cx - hit.tz * l, hit.cy - l * tb + 0.03, hit.cz + hit.tx * l);
+          uv.push(a / steps, b / across);
+          seed.push(k * 1.7);
+        }
+      }
+      for (let a = 0; a < steps; a++) {
+        for (let b = 0; b < across; b++) {
+          const i = base + a * (across + 1) + b;
+          idx.push(i, i + across + 1, i + 1, i + 1, i + across + 1, i + across + 2);
+        }
+      }
+      k++;
+    }
+  }
+  if (!pos.length) return null;
+  const g = new BufferGeometry();
+  g.setAttribute('position', new Float32BufferAttribute(pos, 3));
+  g.setAttribute('uv', new Float32BufferAttribute(uv, 2));
+  g.setAttribute('seed', new Float32BufferAttribute(seed, 1));
+  g.setIndex(idx);
+  g.computeBoundingSphere();
+  const mat = new ShaderMaterial({
+    uniforms: { uWet: WET },
+    side: DoubleSide,
+    transparent: true,
+    depthWrite: false,
+    polygonOffset: true,
+    polygonOffsetFactor: -2,
+    blending: CustomBlending,
+    blendEquation: AddEquation,
+    blendSrc: SrcAlphaFactor,
+    blendDst: OneMinusSrcAlphaFactor,
+    // Alpha: dst * (1 - src), so a puddle's middle writes ~0: the post pass's mirror mask.
+    blendSrcAlpha: ZeroFactor,
+    blendDstAlpha: OneMinusSrcAlphaFactor,
+    vertexShader: `attribute float seed;varying vec2 vUv;varying float vSeed;
+      void main(){vUv=uv;vSeed=seed;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);}`,
+    fragmentShader: `uniform float uWet;varying vec2 vUv;varying float vSeed;
+      void main(){
+        vec2 q=(vUv-0.5)*2.0;
+        float ang=atan(q.y,q.x);
+        // A wobbly blob, not a rectangle.
+        float d=length(q)+0.1*sin(ang*3.0+vSeed)+0.07*sin(ang*7.0+vSeed*2.3)+0.05*sin(q.x*11.0+vSeed);
+        float a=(1.0-smoothstep(0.7,0.92,d))*smoothstep(0.1,0.6,uWet);
+        gl_FragColor=vec4(0.07,0.08,0.16,a*0.85);
+      }`,
+  });
+  const mesh = new Mesh(g, mat);
+  mesh.renderOrder = 2;
+  return mesh;
 }

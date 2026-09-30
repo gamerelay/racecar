@@ -7,7 +7,7 @@
 // Laplacian of inverse depth: 1/z is linear across any plane in screen space, so flat faces come out
 // zero at every distance, and only silhouettes and creases ink. Lines fade into the fog.
 
-import { Color, DepthTexture, HalfFloatType, Mesh, OrthographicCamera, PlaneGeometry, Scene, ShaderMaterial, WebGLRenderTarget, type WebGLRenderer } from 'three';
+import { Color, DepthTexture, Matrix4, HalfFloatType, Mesh, OrthographicCamera, PlaneGeometry, Scene, ShaderMaterial, WebGLRenderTarget, type WebGLRenderer } from 'three';
 
 export class PostPass {
   readonly target: WebGLRenderTarget;
@@ -30,6 +30,13 @@ export class PostPass {
     uOutline: { value: 1 },
     uFogNear: { value: 120 },
     uFogFar: { value: 900 },
+    // Wet reflections: camera matrices, how wet the world is, what a ray that finds nothing sees.
+    uProj: { value: new Matrix4() },
+    uInvProj: { value: new Matrix4() },
+    uView: { value: new Matrix4() },
+    uWet: { value: 0 },
+    uSky: { value: new Color(0x3a4460) },
+    uPixel: { value: [1, 1] },
   };
 
   constructor(width: number, height: number) {
@@ -43,7 +50,7 @@ export class PostPass {
       depthWrite: false,
       vertexShader: `varying vec2 vUv;void main(){vUv=uv;gl_Position=vec4(position.xy,0.0,1.0);}`,
       fragmentShader: `uniform sampler2D tDiffuse,tDepth;uniform float uTime,uSpeed,uBoost,uImpact,uSlow,uAspect,uNear,uFar,uOutline,uFogNear,uFogFar;
-      uniform int uTaps;uniform vec2 uTexel;uniform vec3 uInk;varying vec2 vUv;
+      uniform int uTaps;uniform vec2 uTexel,uPixel;uniform vec3 uInk,uSky;uniform mat4 uProj,uInvProj,uView;uniform float uWet;varying vec2 vUv;
       float hash(float n){return fract(sin(n)*43758.5453);}
       // Inverse view distance from the (perspective) depth buffer: linear across planes on screen.
       float invZ(vec2 uv){float d=texture2D(tDepth,uv).x;return (uFar-d*(uFar-uNear))/(uNear*uFar);}
@@ -63,6 +70,49 @@ export class PostPass {
         float z=1.0/max(e1.y,e2.y);
         return smoothstep(0.02,0.06,e)*(1.0-smoothstep(uFogNear*0.6,uFogFar*0.8,z));
       }
+      // ---- wet reflections (screen space) ----
+      vec3 viewPos(vec2 uv){vec4 p=uInvProj*vec4(uv*2.0-1.0,texture2D(tDepth,uv).x*2.0-1.0,1.0);return p.xyz/p.w;}
+      // How much of this pixel is mirror: a wet sheen on every flat surface, near-mirror in a
+      // puddle (puddles clear the alpha channel where they're drawn; everything else writes 1).
+      // Returns the reflected color in rgb and the amount in a.
+      vec4 reflection(vec2 uv){
+        vec3 p0=viewPos(uv);
+        if(-p0.z>uFar*0.5)return vec4(0.0);
+        vec3 n=normalize(cross(viewPos(uv+vec2(uPixel.x,0.0))-p0,viewPos(uv+vec2(0.0,uPixel.y))-p0));
+        if(dot(n,p0)>0.0)n=-n;
+        vec3 upV=normalize((uView*vec4(0.0,1.0,0.0,0.0)).xyz);
+        float flat_=smoothstep(0.9,0.97,dot(n,upV));
+        if(flat_<=0.0)return vec4(0.0);
+        float puddle=1.0-texture2D(tDiffuse,uv).a;
+        float amount=uWet*flat_*mix(0.13,1.0,puddle);
+        vec3 v=normalize(p0);
+        vec3 r=reflect(v,n);
+        float fres=0.35+0.65*pow(1.0-max(dot(-v,n),0.0),3.0);
+        // March: steps grow with distance; refine the first hit by halving.
+        float t=0.4,prev=0.0;vec2 hitUv=vec2(-1.0);
+        for(int i=0;i<22;i++){
+          vec3 q=p0+r*t;
+          vec4 c=uProj*vec4(q,1.0);vec2 s=c.xy/c.w*0.5+0.5;
+          if(s.x<0.0||s.x>1.0||s.y<0.0||s.y>1.0||c.w<0.0)break;
+          float sz=viewPos(s).z;
+          if(q.z<sz&&sz-q.z<max(0.6,t*0.35)){
+            float a=prev,b=t;
+            for(int k=0;k<4;k++){float m=(a+b)*0.5;vec3 qm=p0+r*m;vec4 cm=uProj*vec4(qm,1.0);vec2 sm=cm.xy/cm.w*0.5+0.5;if(qm.z<viewPos(sm).z)b=m;else a=m;}
+            vec4 cb=uProj*vec4(p0+r*b,1.0);hitUv=cb.xy/cb.w*0.5+0.5;break;
+          }
+          prev=t;t*=1.3;
+        }
+        vec3 col=uSky;
+        if(hitUv.x>=0.0){
+          vec2 e=smoothstep(0.0,0.08,hitUv)*smoothstep(0.0,0.08,1.0-hitUv);
+          // Wet asphalt smears reflections into vertical streaks; a puddle is a sharp mirror.
+          float rough=(1.0-puddle)*0.035;
+          vec3 h=vec3(0.0);
+          for(int k=-2;k<=2;k++)h+=texture2D(tDiffuse,hitUv+vec2(0.0,float(k)*rough)).rgb;
+          col=mix(uSky,h/5.0,e.x*e.y);
+        }
+        return vec4(col,amount*fres);
+      }
       void main(){
         vec2 c=vUv-0.5;float len=length(c*vec2(uAspect,1.0));
         float edge=smoothstep(0.08,0.6,len);
@@ -79,6 +129,12 @@ export class PostPass {
           n+=1.0;
         }
         col/=n;
+        if(uWet>0.001){
+          vec4 rf=reflection(vUv);
+          // Wet surfaces darken, then mirror.
+          col*=1.0-0.3*rf.a;
+          col=mix(col,rf.rgb,clamp(rf.a,0.0,0.85));
+        }
         if(uOutline>0.0)col=mix(col,uInk,ink(vUv)*uOutline);
         float ang=atan(c.y,c.x*uAspect);
         float id=floor(ang*52.0/3.14159);float h=hash(id);
@@ -101,6 +157,7 @@ export class PostPass {
     this.target.setSize(width, height);
     this.uniforms.uAspect.value = width / height;
     this.uniforms.uTexel.value = [lineScale / width, lineScale / height];
+    this.uniforms.uPixel.value = [1 / width, 1 / height];
   }
 
   render(renderer: WebGLRenderer): void {

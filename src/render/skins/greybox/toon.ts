@@ -49,3 +49,6 @@ export function faceted<T extends BufferGeometry>(geo: T): BufferGeometry {
   geo.dispose();
   return g;
 }
+
+/** How wet the world is, 0…1, for anything that shows it (puddles). The skin sets it each frame. */
+export const WET = { value: 0 };

@@ -816,6 +816,12 @@ Milestone 1 (2026-09-30):
 
 Milestone 2 (2026-09-30):
 
+- **Rain shows on the road.** A screen-space reflection pass (in the post pass, from the depth
+  buffer) gives every flat surface a wet sheen, smeared into vertical streaks like wet asphalt.
+  Puddles are sharp mirrors. The puddle zones were slippery but invisible; now they're drawn as
+  dark water, and each one clears the render target's alpha where it's drawn, which the post pass
+  reads as "mirror here". So a mirror always means low grip. Bridges now have a low barrier with a
+  steel railing on top (collision unchanged), so you can see over the Skyway's edge.
 - **City v2: smaller, wider, and in three dimensions** (playtest: "some parts feel empty",
   "make the maps 1/4 smaller", "play with verticality"). Downtown is 3.26 km (was 4.3). Roads are
   wider: 26 m for the Boulevard, 20 m for avenues and the Skyway, 17 m in the Market. The lap

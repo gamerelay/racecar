@@ -27,7 +27,7 @@ import type { CarClass, PaintDef } from '../../../core/content';
 import type { Track } from '../../../core/track/bake';
 import type { Sim } from '../../../core/sim';
 import type { CarVisual, Skin, TrackVisual, WorldVisual } from '../../skin';
-import { glow, toon } from './toon';
+import { glow, toon, WET } from './toon';
 import { buildWorldVisual } from './world';
 import { PALETTES, type Palette } from './palettes';
 import { buildTrackVisual } from './track';
@@ -109,6 +109,7 @@ export class GreyboxSkin implements Skin {
   }
 
   update(time: number, x: number, y: number, z: number, wetness = 0): void {
+    WET.value = wetness;
     if (this.skyTime) this.skyTime.value = time;
     if (this.fog) {
       const p = this.palette;

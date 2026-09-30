@@ -173,7 +173,13 @@ export class GameRenderer {
     if (fog) {
       u.uFogNear.value = fog.near;
       u.uFogFar.value = fog.far;
+      u.uSky.value.copy(fog.color);
     }
+    u.uWet.value = this.sim.wetness;
+    this.camera.updateMatrixWorld();
+    u.uProj.value.copy(this.camera.projectionMatrix);
+    u.uInvProj.value.copy(this.camera.projectionMatrixInverse);
+    u.uView.value.copy(this.camera.matrixWorldInverse);
     this.impact *= Math.exp(-dt * 4);
     if (this.opts.post) {
       this.renderer.setRenderTarget(this.post.target);
