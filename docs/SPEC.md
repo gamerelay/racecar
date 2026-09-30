@@ -18,7 +18,7 @@ on the next map, and you race again. No menus between you and the next race.
 | From | We take | We leave |
 |---|---|---|
 | **Burnout 3** | Takedowns, aftertouch, boost earned by driving dangerously, traffic checks, slow-mo wreck cam, revenge takedowns, signature takedown spots, Crash mode | Long single-player career |
-| **Mario Kart** | Party-first flow, drift mini-turbo, start boost, catch-up, shortcuts everywhere, hazards that are part of the track, items (a lobby toggle), anyone can pick it up | Kart physics, character roster |
+| **Mario Kart** | Party-first flow, drift mini-turbo, start boost, catch-up, shortcuts everywhere, hazards that are part of the track, anyone can pick it up | Kart physics, character roster, items (for now) |
 | **Need for Speed** | Nitrous feel, night cities, rain, cops in a Pursuit mode, visual customization | Story, open world |
 | **Forza** | Handling that feels good on a controller, car classes with real trade-offs, rewind in single player, photo mode | Simulation, tuning sheets |
 
@@ -367,9 +367,14 @@ content.
 - **Boost:** fills from near misses, oncoming, drafting, air, drifting and takedowns. Drifts
   charge a two-stage mini-turbo. Start boost on "GO". **Catch-up:** fills faster the further
   back you are (off in Time Trial).
-- **Car classes** (v1: 4, JSON): top speed, acceleration, handling, boost capacity, **weight**.
-  A van shoves a coupe; a coupe out-turns a van.
-- **Customization:** paint, underglow, rims, decal, horn; sent as `skin`; cosmetic only.
+- **Four cars in v1** (JSON), each a clear pick rather than a small stat difference: top speed,
+  acceleration, handling, boost capacity, **weight**. A van shoves a coupe; a coupe out-turns a
+  van. Working set: a light coupe (handling), a muscle car (top speed), a hot hatch
+  (acceleration, drift), a van (weight, takedowns).
+- **Paint:** every car has several coats: a color plus a finish (gloss, metallic, matte, pearl,
+  chrome), two-tone on some bodies, underglow color. Rims, a decal and a horn come later. All
+  sent as the car's `skin` value; cosmetic only. Greybox skins show the base color, so paint
+  works from milestone 1.
 - **Wrecks:** the car becomes a simple 3D rigid body for 2–3 s with aftertouch, then respawns
   on the track at the last `s`, facing forward, ghosted (no collisions) for 1.5 s.
 - **Collision shapes:** cars are oriented boxes (SAT test); walls are segments; props, hazard
@@ -379,7 +384,7 @@ content.
   threshold, or it's pushed into a wall/traffic/hazard while being hit, or the attacker is
   boosting. Otherwise it's a bump.
 - **Revenge:** whoever took you down last is marked; taking them down is a "Revenge".
-- **Items** (lobby toggle, off by default): boxes at fixed places; oil slick, shockwave, homing
+- **Items** (not in the current plan; kept here so they can come later as a lobby toggle): boxes at fixed places; oil slick, shockwave, homing
   EMP, shield, full boost; weighted by position.
 
 ### Spatial index: grids, not a quadtree
@@ -408,14 +413,16 @@ itself (D, T).**
   `wrecked`, `ghost`, `item` text, `skin` value. `rival` (host, 30 Hz): AI cars. `projectile`
   (owner, 30 Hz): homing EMPs.
 - **State:** `phase` (lobby / countdown / racing / results / vote), `map`, `layout`, `mode`,
-  `options` (laps, items, mayhem, weather, traffic, catch-up, AI fill), `ready`, `startAt`,
+  `options` (laps, mayhem, weather, traffic, catch-up, AI fill), `seats` (open / AI + difficulty /
+  closed per seat), `ready`, `startAt`,
   `results`, `votes`, `session`. Timers drive the countdown, the race limit, results and vote.
 - **Events:** `bump`, `wrecked {by, cause}`, `takedown`, `lap`, `finish {t}`, `traffic_hit`,
   `hazard {id, n}`, `item_use`, `horn`.
 - **Remote cars are predicted.** Others are drawn ~100 ms in the past (7 m at 250 km/h).
   `net/predict` extrapolates each one from its interpolated state by its age using velocity,
-  blends corrections over ~150 ms, and collisions use the predicted pose. Built here first,
-  then offered to the SDK as an opt-in `predict` per kind.
+  blends corrections over ~150 ms, and collisions use the predicted pose. It stays in the game:
+  how to extrapolate is specific to cars (it knows about steering, drift and the track), so it's
+  not an SDK feature.
 - **Player-vs-player contact:** each client tests *its own* car against predicted remote cars,
   applies its own impulse, and sends `bump` to the other owner, who applies theirs. **The victim
   decides whether it wrecks** and emits `wrecked {by}`; takedown credit is a
@@ -458,7 +465,13 @@ works by mouse, touch and controller.
 
 ### Party screen (between races)
 
-- **Roster:** 8 slots: name, car, ready, ping, host crown; "AI" in empty slots when AI fill is on.
+- **Seats, Civilization-style:** 8 seats, each one **Open** (a player can join), **AI** (an AI
+  driver, with a difficulty: easy / normal / hard), or **Closed** (empty, nobody can join). The
+  host sets each seat from its row; a player's seat shows name, car, ready, ping and a host
+  crown. Closing seats makes a smaller party (a 1v1 with two open seats and six closed). A
+  player who joins takes the first open seat; AI seats stay AI unless the host opens them.
+  Defaults: 8 open, and when the race starts, open seats nobody took are filled by AI (the
+  host can turn that off).
 - **Host:** map, layout, mode and options; **lock**; **public/private**; **kick** (optionally
   banned from this party); **pass host**; **start** (when all ready, or force after 10 s).
 - **Everyone:** ready, change car, **share** (`room.shareInvite()` plus the code on screen),
@@ -498,7 +511,7 @@ Saved in localStorage; in GameRelay player data too for signed-in players.
 | Show full/locked parties | `listRooms` hides full rooms | `listRooms(tag, { includeFull: true })` with a `locked` flag |
 | Online count | none | players online for the instance (cached) |
 | Pass host | host changes only on leave/freeze | `room.transferHost(playerId)` |
-| Fast cars' 100 ms gap | interpolation only | opt-in `predict` per kind, once racecar proves it |
+| Close seats | `maxPlayers` set at creation only | `room.setAccess({ maxPlayers })`, host only, not below the players in the room; listings show open seats |
 
 Each is a normal GameRelay change (server, SDK, docs, tests). Until one lands, the game shows
 that control disabled rather than faking it.
@@ -509,7 +522,7 @@ that control disabled rather than faking it.
 interface Mode {
   id: string;
   players: [min: number, max: number];
-  options: ModeOption[];                   // laps, time limit, items, mayhem, weather…
+  options: ModeOption[];                   // laps, time limit, mayhem, weather…
   setup(ctx: ModeContext): void;           // grid, rules, timers
   onEvent(ev: GameEvent, ctx): void;       // reads the event queue
   standings(ctx): Standing[];
@@ -538,6 +551,11 @@ and photo mode in single player only.
     (`vibrationActuator`), Xbox / PlayStation / Switch prompts.
   - Keyboard (WASD/arrows, Space boost, Shift drift, E item) with steering smoothing.
   - Touch: tilt or on-screen buttons, auto-accelerate option.
+- **Mobile, without costing desktop.** Phones get additions, never a smaller desktop game:
+  a touch layer, the low quality tier, a HUD layout for small screens. No gameplay, map or
+  effect is cut or simplified for everyone to suit phones; if something can't run on a phone,
+  the phone gets a lighter version of it. Phones are tested every milestone, but desktop with
+  keyboard or controller decides every trade-off.
 - **Menus by controller:** a focus system over the DOM (stick/d-pad moves by position, A
   selects, B backs, bumpers switch tabs). Every screen is tested controller-only.
 - **Split-screen** (2 local players) later; `Controls` and camera are already per player.
@@ -589,7 +607,7 @@ Greybox until milestone 5. Each milestone ends deployed and playable.
    reverse layouts; train, rockfall, oil spill; leaderboards; challenge ladder; bots.
 5. **Skins**: the neon City skin (the prototype's look), Countryside skin, post FX, audio,
    garage and paint, settings complete, controller navigation everywhere, perf tiers.
-6. **More**: Volcano, Harbor, Alpine (greybox → skin), items, Pursuit, Crash mode, landing page.
+6. **More**: Volcano, Harbor, Alpine (greybox → skin), Pursuit, Crash mode, landing page. Items only if we decide we want them.
 
 ## §17 Decisions
 
@@ -605,19 +623,20 @@ What we've settled, so nobody re-argues it. Changing one is fine; say so here.
 | Lap length | 70–100 s, 3 laps default; short layouts ~45 s |
 | Network shape | players own cars; host owns AI and race facts; the world is `f(seed, raceTime)` |
 | Who decides a wreck | the victim (it owns its car); takedown credit by `room.claim` |
-| Remote cars | predicted in `net/` first, then offered to the SDK |
+| Remote cars | predicted in `net/`; stays in the game (car-specific), not an SDK feature |
 | Sim / send rate | sim 60 Hz; cars sent at 30 Hz |
 | Spatial index | uniform grids (dynamic + static) + `s` index; quadtree only if measured better |
 | Hazards | kinds in code, instances in JSON; periodic / random / trigger / always; always telegraphed |
 | Mayhem, weather | lobby options: Mayhem off / normal (default) / chaos; weather clear / rain / random (default random) |
-| Items | built in milestone 6, lobby toggle, **off by default** (hazards already bring the chaos) |
-| AI fill | on by default, fills the grid to 8; host can set 0–8 |
+| Items | **left out for now**; the design (§9) stays so they can come later as a lobby toggle |
+| Seats | Civilization-style: each of 8 seats Open / AI (easy, normal, hard) / Closed; unfilled open seats become AI at the start (host can turn off) |
 | Lobby list | one list with a mode filter (split into tabs only if it gets crowded) |
 | Missing SDK features | built into GameRelay (§11), never faked in the game |
 | Trust | party-grade; host sanity-checks finishes; ranked is out of scope |
 | Maps | City, Countryside (v1), then Volcano, Harbor, Alpine |
-| Car classes | 4 in v1 |
-| Mobile | supported (touch, tilt); controller and keyboard are the primary targets |
+| Cars | 4 in v1 (coupe, muscle, hatch, van), several paint coats each (color + finish) |
+| Laps | 3 by default |
+| Mobile | supported as long as it takes nothing from desktop (§13) |
 | Hosting | `racecar.gamerelay.io`, static files |
 
 Still open, and fine to leave open until they matter:
