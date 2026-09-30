@@ -27,6 +27,8 @@ export interface TrackVisual {
   debug: Object3D;
   /** Per frame, for animated scenery (seconds since start, seconds since last frame). */
   update?(time: number, dt: number, camera: Vector3): void;
+  /** The scene has standing water (a river) that mirrors in any weather. */
+  water?: boolean;
   dispose(): void;
 }
 

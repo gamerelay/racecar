@@ -887,6 +887,28 @@ Milestone 2 (2026-09-30):
   - A spin-out or wreck loses the bank, and a tap-drift earns nothing (`driftBankMin`).
   - There's still no mini-turbo. A 1.5 s full drift at speed banks 9–17% of a bar, depending on
     the car.
+- **Countryside v2: tighter, higher, mostly dirt, on real land** (playtest: give it "the same
+  treatment" as City, with "a lot of dirt roads, jumps, shortcuts and other small map details",
+  more verticality, and a focus on "tight corners, drifting, dirt roads, jumps"). The Valley is
+  now 2.88 km (was 3.79), and the AI's floor is 68 s because the corners are tight.
+  - **The lap:** the village on asphalt; a covered bridge; dirt switchbacks, four hairpins and
+    45 m of climb; a ridge with two kickers on crests; asphalt S-bends down to a trestle 27 m over
+    the river and the start road; dirt hairpins through Pine Hollow.
+  - **Three shortcuts:** the Barn, Logger's Leap (a jump off the ridge) and the Creek Bed (a wet
+    ford, then a drop onto the run home).
+  - **Land:** open-country layouts get real terrain in the skin (`terrain.ts`, scenery only). It
+    meets every road at its edges, rises into hills and mountains toward the map's edge, and has
+    a `terrain.river` carved in.
+    - Roads that cross the river or another road are left out of the land's shape, so they become
+      bridges: covered if short, timber trestles if long and high.
+    - A headless test holds the land below every road's surface.
+  - **The forest and the village are built from the track** (`forest.ts`), like the city is.
+    Everything that moves is animated in the shader. Houses, the barn and the lookout aren't solid
+    (the city's blocks sit behind walls).
+  - **Surfaces:** dirt roads get ruts instead of paint, and grass verges; walls in the country are
+    timber guardrails. Cars kick up dust on dirt and clods off grass.
+  - **Water mirrors in any weather.** The post pass mirrors wherever alpha is cleared when the
+    scene has water (`uWater`), not only in the rain.
 - **Review before `alpha-1.0`** (fixes, not design changes):
   - **Traffic and AI:**
     - Traffic is drawn at the render time, between ticks like the cars, using `Traffic.poseAt`,
