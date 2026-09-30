@@ -25,6 +25,7 @@ import {
   Vector3,
   Color,
   Float32BufferAttribute,
+  IcosahedronGeometry,
   SphereGeometry,
 } from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
@@ -96,7 +97,8 @@ export function buildLandmarks(layout: TrackLayout, floor: (x: number, z: number
     const sc = m.params?.scale ?? 1;
     const [cs, sn] = [Math.cos(m.rot ?? 0), Math.sin(m.rot ?? 0)];
     const ground = (lx: number, lz: number) => (floor(m.at[0] + (lx * cs + lz * sn) * sc, m.at[1] + (-lx * sn + lz * cs) * sc) - base) / sc;
-    const b = build(m, { time, ground });
+    const seaY = layout.terrain?.sea;
+    const b = build(m, { time, ground, sea: seaY === undefined ? null : (seaY - base) / sc });
     b.root.position.set(m.at[0], floor(m.at[0], m.at[1]), m.at[1]);
     b.root.name = `landmark:${m.kind}`;
     b.root.rotation.y = m.rot ?? 0;
@@ -493,6 +495,8 @@ function canal(m: LandmarkDef, time: { value: number }): Built {
 interface Ctx {
   time: { value: number };
   ground(lx: number, lz: number): number;
+  /** The sea's surface, relative to the landmark's middle (null: no sea). */
+  sea: number | null;
 }
 
 // ---- Backroads ----
@@ -804,6 +808,231 @@ function balloon(m: LandmarkDef): Built {
   };
 }
 
+// ---- Paradise ----
+
+/** A wreck on the beach: a timber hull heeled over in the shallows, its ribs showing, a broken mast and a torn sail. */
+function shipwreck(): Built {
+  const root = new Group();
+  const hull = new Group();
+  hull.rotation.set(0.08, 0, 0.42);
+  hull.position.y = -1;
+  root.add(hull);
+  const S = solids();
+  const WOOD = [0x6b4a33, 0x5a3d2a, 0x7a5638];
+  // Planking down each side, missing some near the bow, the keel, the deck's stump.
+  for (let k = 0; k < 5; k++) {
+    for (const side of [-1, 1]) {
+      if (side > 0 && k > 2) continue;
+      S.add(0.3, 0.9, 16 - k * 1.4, WOOD[k % 3], side * (2.6 - k * 0.35), 0.5 + k * 0.85, -k * 0.3);
+    }
+  }
+  S.add(1, 0.5, 18, 0x4a3223, 0, -0.1, 0);
+  for (let z = -6; z <= 6; z += 2) S.add(5.4, 0.3, 0.3, 0x3f2a1d, 0, 4.4, z);
+  for (let z = -5; z <= 5; z += 2.5) S.add(0.35, 4.4, 0.35, 0x3f2a1d, 2.5, 2.4, z);
+  S.add(0.45, 7, 0.45, 0x4a3223, 0, 6.5, -1);
+  S.add(3.6, 0.25, 0.25, 0x4a3223, 0, 8.4, -1);
+  hull.add(S.mesh());
+  const sail = new Mesh(new PlaneGeometry(3.2, 2.8, 3, 2), toon({ color: 0xe8dcc0, side: DoubleSide }));
+  sail.position.set(0.3, 6.9, -0.9);
+  sail.rotation.set(0.1, 0.3, 0.15);
+  hull.add(sail);
+  let last = 0;
+  return {
+    root,
+    update(t) {
+      if (t - last < 0.05) return;
+      last = t;
+      sail.rotation.y = 0.3 + 0.18 * Math.sin(t * 1.3);
+    },
+  };
+}
+
+/** A tiki head at the Lava Tube's mouth: carved stone, glowing eyes, and a torch either side. */
+function tikiHead(): Built {
+  const root = new Group();
+  const S = solids();
+  const STONE = 0x5b5048;
+  const DARK = 0x3a332e;
+  S.add(6, 1.2, 5, 0x3f3833, 0, 0.1);
+  S.add(4.6, 9, 3.8, STONE, 0, 5, 0);
+  S.add(5, 1, 4.2, DARK, 0, 9.9, 0);
+  S.add(4.8, 0.9, 1, DARK, 0, 7.4, 2);
+  for (const x of [-1.2, 1.2]) S.add(1.1, 0.9, 0.3, 0x1a1512, x, 6.7, 1.98);
+  S.add(1.2, 2.6, 1.2, DARK, 0, 5.4, 2.2);
+  S.add(3, 0.8, 0.4, 0x1a1512, 0, 3.2, 1.98);
+  for (const x of [-2.1, 2.1]) S.add(0.6, 2.4, 0.9, DARK, x, 5.4, 1.2);
+  for (const x of [-5, 5]) {
+    S.add(0.3, 4, 0.3, 0x6b4a33, x, 2, 1.5);
+    S.add(0.6, 0.6, 0.6, 0x3a2a20, x, 4.2, 1.5);
+  }
+  root.add(S.mesh());
+  const eyes = glowPoints([-1.2, 6.7, 2.2, 1.2, 6.7, 2.2], 0xff7a2a, 2.2);
+  root.add(eyes);
+  const fire = glowPoints([-5, 4.8, 1.5, 5, 4.8, 1.5], 0xffa040, 3.4);
+  root.add(fire);
+  return {
+    root,
+    update(t) {
+      eyes.scale.setScalar(0.85 + 0.15 * Math.sin(t * 2.3));
+      fire.visible = Math.sin(t * 17) + Math.sin(t * 29) > -1.7;
+    },
+  };
+}
+
+/** A surf shack on stilts: bamboo, a thatched roof, a sign, and boards stuck in the sand in front. */
+function surfShack(c: Ctx): Built {
+  const root = new Group();
+  const S = solids();
+  const BAMBOO = 0xc9a86a;
+  for (const [x, z] of [[-3.4, -2.4], [3.4, -2.4], [-3.4, 2.4], [3.4, 2.4]]) {
+    const g = c.ground(x, z);
+    S.add(0.35, 3.2 - g, 0.35, BAMBOO, x, (3.2 + g) / 2, z);
+  }
+  S.add(7.4, 0.3, 5.4, 0xa88450, 0, 1.6, 0);
+  S.add(7, 2.6, 0.2, BAMBOO, 0, 2.9, -2.5);
+  for (const x of [-3.5, 3.5]) S.add(0.2, 2.6, 5, BAMBOO, x, 2.9, 0);
+  S.add(7, 0.9, 0.2, BAMBOO, 0, 2.1, 2.5);
+  // Boards: upright in the sand in front, in a fan of colours.
+  const BOARDS = [0xff2e88, 0x35f0ff, 0xffd23f, 0x7cff6b, 0xff6a00, 0xb26bff];
+  for (let k = 0; k < 6; k++) {
+    const x = -4.2 + k * 1.7;
+    S.add(0.6, 2.6, 0.12, BOARDS[k], x, c.ground(x, 5) + 1.2, 5 + (k % 2) * 0.3);
+  }
+  root.add(S.mesh());
+  const roof = new Mesh(faceted(new ConeGeometry(5.8, 2.8, 4)), toon({ color: 0xd9b77a }));
+  roof.position.y = 5.5;
+  roof.rotation.y = Math.PI / 4;
+  roof.scale.set(1.25, 1, 0.95);
+  root.add(roof);
+  const sign = staticCanvas(512, 128, (g) => {
+    g.fillStyle = '#35f0ff';
+    g.fillRect(0, 0, 512, 128);
+    g.fillStyle = '#120a20';
+    g.font = `72px ${FONT}`;
+    g.textAlign = 'center';
+    g.textBaseline = 'middle';
+    g.fillText('SURF', 256, 70);
+  });
+  const f = face(sign, 4, 1);
+  f.position.set(0, 4.6, 2.62);
+  root.add(f);
+  return { root };
+}
+
+/** A whale out at sea: every so often it breaches, arcing up out of the water and crashing back in a splash, and blows now and then between. */
+function whale(m: LandmarkDef, c: Ctx): Built {
+  const every = m.params?.every ?? 80;
+  const root = new Group();
+  const sea = c.sea ?? 0;
+  const body = new Group();
+  root.add(body);
+  const hide = new Mesh(faceted(new IcosahedronGeometry(1, 1)), toon({ color: 0x3b4a5c }));
+  hide.scale.set(2.6, 2.4, 9);
+  body.add(hide);
+  const belly = new Mesh(faceted(new IcosahedronGeometry(1, 1)), toon({ color: 0xd8dce2 }));
+  belly.scale.set(2.2, 1.6, 7.6);
+  belly.position.set(0, -1.1, 0.6);
+  body.add(belly);
+  const S = solids();
+  S.add(7, 0.35, 2.2, 0x33404f, 0, 0, -9.6);
+  for (const x of [-2.8, 2.8]) S.add(3.6, 0.3, 1.4, 0x33404f, x, -0.8, 3);
+  body.add(S.mesh());
+  // The splash (and the blow): points thrown out of the water on a clock of their own.
+  const splashT = { value: 0 };
+  const pos: number[] = [];
+  const phase: number[] = [];
+  const colors: number[] = [];
+  const rng = Rng.stream(0x3a, 'whale');
+  for (let k = 0; k < 160; k++) {
+    pos.push(0, sea, 0);
+    phase.push(rng.next());
+    colors.push(0.9, 0.96, 1);
+  }
+  const splash = animatedPoints(pos, phase, colors, 'splash', 5, splashT);
+  root.add(splash);
+  const BREACH = 5;
+  return {
+    root,
+    update(t) {
+      const u = (t % every) / BREACH;
+      if (u < 1) {
+        // Up out of the water nose first, over, and back in on its back.
+        body.visible = true;
+        const arc = Math.sin(u * Math.PI);
+        body.position.set(0, sea - 10 + arc * 19, (u - 0.5) * 18);
+        body.rotation.set(-Math.PI / 2 * (1 - u * 1.6), 0, u * 1.4);
+        splash.visible = true;
+        splashT.value = u < 0.5 ? u * BREACH : (u - 0.75) * BREACH;
+        splash.position.z = u < 0.5 ? -6 : 9;
+      } else {
+        // A blow at the surface halfway to the next breach.
+        const b = (t % every) - every / 2;
+        body.visible = b > -1.5 && b < 4;
+        body.position.set(0, sea - 1.9, 0);
+        body.rotation.set(0.05, 0, 0);
+        splash.visible = b > 0 && b < 2.5;
+        splashT.value = b * 0.6;
+        splash.position.z = 5;
+      }
+    },
+  };
+}
+
+/** Seaplanes on the lagoon: two moored and bobbing at a jetty, and one flying a lazy circuit over the bay. */
+function seaplanes(m: LandmarkDef, c: Ctx): Built {
+  const root = new Group();
+  const sea = c.sea ?? 0;
+  const S = solids();
+  // The jetty, out over the water.
+  S.add(3, 0.4, 30, 0x8a6a4a, 0, sea + 1.2, 0);
+  for (let z = -14; z <= 14; z += 4) for (const x of [-1.3, 1.3]) S.add(0.35, 3.4, 0.35, 0x5e4630, x, sea - 0.3, z);
+  root.add(S.mesh());
+  const COLORS = [0xffd23f, 0xff2e88, 0x35f0ff];
+  const plane = (color: number): { root: Group; prop: Object3D } => {
+    const g = new Group();
+    const P = solids();
+    P.add(1.4, 1.4, 8, color, 0, 2.6, 0);
+    P.add(1.1, 0.9, 1.8, 0x9ee6ff, 0, 3.4, 1.8);
+    P.add(11, 0.2, 1.8, color, 0, 3.4, 0.8);
+    P.add(3.6, 0.15, 1.1, color, 0, 2.9, -3.6);
+    P.add(0.15, 1.6, 1.2, color, 0, 3.6, -3.7);
+    for (const x of [-1.5, 1.5]) {
+      P.add(0.6, 0.6, 6.5, 0xf2f2f2, x, 0.3, 0.4);
+      P.add(0.15, 1.8, 0.15, 0x3a3050, x, 1.3, 1.6);
+      P.add(0.15, 1.8, 0.15, 0x3a3050, x, 1.3, -0.8);
+    }
+    g.add(P.mesh());
+    const prop = new Group();
+    prop.position.set(0, 2.6, 4.1);
+    prop.add(box(0.2, 2.6, 0.12, 0x2a2140));
+    g.add(prop);
+    return { root: g, prop };
+  };
+  const moored = [plane(COLORS[0]), plane(COLORS[1])];
+  moored[0].root.position.set(-5, sea, -6);
+  moored[1].root.position.set(5, sea, 7);
+  moored[1].root.rotation.y = Math.PI;
+  for (const p of moored) root.add(p.root);
+  const flyer = plane(COLORS[2]);
+  root.add(flyer.root);
+  const R = m.params?.radius ?? 160;
+  const alt = m.params?.alt ?? 55;
+  return {
+    root,
+    update(t) {
+      moored.forEach((p, k) => {
+        p.root.position.y = sea + 0.15 * Math.sin(t * 1.1 + k * 2);
+        p.root.rotation.z = 0.03 * Math.sin(t * 0.9 + k);
+      });
+      // Anticlockwise round the bay, banked into the turn.
+      const w = t * 0.05;
+      flyer.root.position.set(Math.cos(w) * R, sea + alt + 6 * Math.sin(t * 0.2), Math.sin(w) * R * 0.6);
+      flyer.root.rotation.set(0, Math.atan2(-Math.sin(w), Math.cos(w) * 0.6) + Math.PI, -0.25);
+      flyer.prop.rotation.z = t * 40;
+    },
+  };
+}
+
 /** Each kind's builder. */
 const BUILDERS: Record<string, (m: LandmarkDef, ctx: Ctx) => Built> = {
   'clock-tower': (m) => clockTower(m),
@@ -817,4 +1046,9 @@ const BUILDERS: Record<string, (m: LandmarkDef, ctx: Ctx) => Built> = {
   'drive-in': (m, c) => driveIn(c),
   scarecrow: (m, c) => scarecrow(c),
   balloon: (m) => balloon(m),
+  shipwreck: () => shipwreck(),
+  'tiki-head': () => tikiHead(),
+  'surf-shack': (m, c) => surfShack(c),
+  whale: (m, c) => whale(m, c),
+  seaplanes: (m, c) => seaplanes(m, c),
 };

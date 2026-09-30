@@ -190,6 +190,26 @@ layout.hazards = [
   { use: 'volcano-bombs', s: [sAt(...rim(0, 210), 35), sAt(...rim(33, 210), 35)], params: { every: 45 } },
   { use: 'coconuts', s: 560 },
 ];
+// Landmarks (PLAN phase 6; the lighthouse is the island's own scenery, and its beam shows through a
+// shower): a wreck in the shallows off Coconut Coast and a whale breaching beyond it; a surf shack
+// on the coast road's beach; a tiki head at the Lava Tube's mouth, facing the cars coming at it; and
+// seaplanes on the lagoon under the Freeway, one flying circuits over the bay.
+{
+  const facing = (s: number) => {
+    const a = onLap(withBranches).fork(s, 0, 0, 0, 1).p;
+    const b = onLap(withBranches).fork(s, 5, 0, 0, 1).p;
+    return Math.round(Math.atan2(a[0] - b[0], a[2] - b[2]) * 1000) / 1000;
+  };
+  const tiki = fork(tubeFrom, -4, 20, 0, 1).p;
+  const shack = fork(620, 0, -30, 0, 1).p;
+  layout.landmarks = [
+    { kind: 'shipwreck', at: [-490, 180], rot: 0.5, r: 14, params: { scale: 1.6 } },
+    { kind: 'whale', at: [-600, 120], r: 0, params: { every: 80, scale: 1.5 } },
+    { kind: 'surf-shack', at: [shack[0], shack[2]], rot: Math.round((facing(620) - Math.PI / 2) * 1000) / 1000, r: 8 },
+    { kind: 'tiki-head', at: [tiki[0], tiki[2]], rot: facing(tubeFrom), r: 5, params: { scale: 1.3 } },
+    { kind: 'seaplanes', at: [40, -392], r: 0, params: { radius: 160, alt: 55 } },
+  ];
+}
 layout.takedownSpots = [
   { s: sAt(0, -440, 13), name: 'The Freeway' },
   { s: sAt(60, 430), name: 'The Harbour' },

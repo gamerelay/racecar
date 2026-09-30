@@ -185,12 +185,12 @@ export function buildTrackVisual(track: Track, palette: Palette, seed: number): 
     // The Freeway's pillars, down into the bay.
     const under = track.splines.map((sp) => deckPillars(sp, land.deck[sp.index], (x, z) => land.height(x, z) - 0.5, () => false, 0xd9d0bd, 0xbdb3a0));
     extras.push(boxes(under.flatMap((u) => u.pillars), toon()), boxes(under.flatMap((u) => u.caps), toon()));
-    const dressing = buildIsland(track, seed, land);
+    const dressing = buildIsland(track, seed, land, landmarkCircles(track.layout));
     extras.push(...dressing.objects);
     covers = dressing.covers;
-    update = (t) => {
+    update = (t, _dt, _cam, live) => {
       land.time.value = t;
-      dressing.update(t);
+      dressing.update(t, live?.wetness ?? 0);
     };
   } else if (land) {
     const forest = buildForest(track, palette, seed, land, landmarkCircles(track.layout));

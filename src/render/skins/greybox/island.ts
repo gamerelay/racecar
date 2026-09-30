@@ -34,7 +34,8 @@ import { faceted, toon } from './toon';
 
 export interface Island {
   objects: Object3D[];
-  update(time: number): void;
+  /** Per frame: world seconds, and how wet it is (the lighthouse's beam shows through a shower's gloom). */
+  update(time: number, wetness?: number): void;
   /** Stretches of road under a roof the scenery puts over them (the Lava Tube): no rain there. */
   covers: Cover[];
 }
@@ -110,11 +111,12 @@ function palmGeometry(): { trunk: BufferGeometry; fronds: BufferGeometry } {
   return { trunk: mergeGeometries(parts)!, fronds: faceted(mergeGeometries(fronds)!) };
 }
 
-export function buildIsland(track: Track, seed: number, land: Terrain): Island {
+/** `marks`: ground the landmarks keep (landmarks.ts), clear of palms, huts and houses. */
+export function buildIsland(track: Track, seed: number, land: Terrain, marks: { x: number; z: number; r: number }[] = []): Island {
   const rng = Rng.stream(seed, 'island');
   const objects: Object3D[] = [];
   const time = { value: 0 };
-  const updates: ((t: number) => void)[] = [];
+  const updates: ((t: number, wet: number) => void)[] = [];
   const layout = track.layout;
   const seaY = land.sea?.y ?? 0;
   const coast = (x: number, z: number) => land.sea?.coast(x, z) ?? Infinity;
@@ -171,7 +173,7 @@ export function buildIsland(track: Track, seed: number, land: Terrain): Island {
     return best;
   };
   /** Circles kept clear of trees (buildings, the harbour, the lighthouse). */
-  const keep: { x: number; z: number; r: number }[] = [];
+  const keep: { x: number; z: number; r: number }[] = [...marks];
   const kept = (x: number, z: number) => keep.some((k) => (k.x - x) ** 2 + (k.z - z) ** 2 < k.r * k.r);
   /** How far up the cone (0 at the crater's middle, 1 at its foot); Infinity with no volcano. */
   const onCone = (x: number, z: number) => (volcano ? Math.hypot(x - volcano.x, z - volcano.z) / volcano.r : Infinity);
@@ -324,15 +326,17 @@ export function buildIsland(track: Track, seed: number, land: Terrain): Island {
   }
   if (lamp) {
     objects.push(glowPoints([lamp.x, lamp.y, lamp.z], 0xfff2b0, 9));
-    // The beam: a long faint cone, turning.
-    const beam = new Mesh(
-      new ConeGeometry(9, 160, 16, 1, true).translate(0, -80, 0).rotateX(Math.PI / 2),
-      new MeshBasicMaterial({ color: 0xfff4c0, transparent: true, opacity: 0.1, blending: AdditiveBlending, depthWrite: false, side: DoubleSide, fog: false }),
-    );
+    // The beam: two long faint cones back to back, turning. In a shower's gloom it stands out:
+    // brighter and a touch longer (PLAN phase 6's landmark).
+    const beamMat = new MeshBasicMaterial({ color: 0xfff4c0, transparent: true, opacity: 0.1, blending: AdditiveBlending, depthWrite: false, side: DoubleSide, fog: false });
+    const cone = new ConeGeometry(9, 160, 16, 1, true).translate(0, -80, 0).rotateX(Math.PI / 2);
+    const beam = new Mesh(mergeGeometries([cone, cone.clone().rotateY(Math.PI)])!, beamMat);
     beam.position.set(lamp.x, lamp.y, lamp.z);
     objects.push(beam);
-    updates.push((t) => {
+    updates.push((t, wet) => {
       beam.rotation.y = t * 0.6;
+      beamMat.opacity = 0.1 + 0.22 * wet;
+      beam.scale.setScalar(1 + 0.25 * wet);
       beam.updateMatrix();
     });
     beam.matrixAutoUpdate = false;
@@ -657,9 +661,9 @@ export function buildIsland(track: Track, seed: number, land: Terrain): Island {
 
   return {
     objects,
-    update(t) {
+    update(t, wetness = 0) {
       time.value = t;
-      for (const u of updates) u(t);
+      for (const u of updates) u(t, wetness);
     },
     covers: tube ? [{ spline: tube.index, from: tube.length * 0.22, to: tube.length * 0.78, height: TUBE_H + 0.6 }] : [],
   };

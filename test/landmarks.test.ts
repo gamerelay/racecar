@@ -26,6 +26,17 @@ describe('landmarks', () => {
     expect(valley.landmarks!.find((m) => m.kind === 'water-tower')!.label).toBe('MILLBROOK');
   });
 
+  test('Paradise has its five (the lighthouse is the island\'s own), clear of the road, the tiki head at the Lava Tube\'s mouth', () => {
+    const island = layout('paradise/island');
+    const kinds = (island.landmarks ?? []).map((m) => m.kind);
+    expect(kinds.sort()).toEqual(['seaplanes', 'shipwreck', 'surf-shack', 'tiki-head', 'whale']);
+    expect(landmarkProblems(island)).toEqual([]);
+    const tiki = island.landmarks!.find((m) => m.kind === 'tiki-head')!;
+    const tube = island.branches!.find((b) => b.id === 'lava-tube')!;
+    const mouth = tube.points[0].p;
+    expect(Math.hypot(tiki.at[0] - mouth[0], tiki.at[1] - mouth[2])).toBeLessThan(40);
+  });
+
   test('the validator refuses one on the road, and a kind it doesn\'t know', () => {
     const onRoad: TrackLayout = { ...DOWNTOWN, landmarks: [{ kind: 'fountain', at: [0, 200], r: 10 }] };
     expect(landmarkProblems(onRoad)[0].message).toContain('needs 10 m clear');
