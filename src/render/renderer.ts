@@ -189,6 +189,7 @@ export class GameRenderer {
       u.uSky.value.copy(fog.color);
     }
     u.uWet.value = this.sim.wetness;
+    u.uWater.value = this.trackVisual.water ? 1 : 0;
     this.camera.updateMatrixWorld();
     u.uProj.value.copy(this.camera.projectionMatrix);
     u.uInvProj.value.copy(this.camera.projectionMatrixInverse);
@@ -281,6 +282,21 @@ export class GameRenderer {
     const rz = fx;
     const cls = this.sim.classes[c.cls[i]];
     const back = cls.size[1] - 0.6;
+    // Off the asphalt: a dust trail on dirt (thicker in a slide), clods thrown up off the grass.
+    const surf = this.sim.surfaces[c.surface[i]];
+    if (surf?.offroad && c.grounded[i] && speed > 6) {
+      const sliding = c.drift[i] === 1 || Math.abs(c.slip[i]) > 0.15;
+      const grass = surf.id === 'grass';
+      const rate = (grass ? 0.25 : 0.55) * speed * (sliding ? 2.2 : 1);
+      for (let s = -1; s <= 1; s += 2) {
+        if (Math.random() > dt * rate) continue;
+        const wx = x - fx * back + rx * s * cls.size[0];
+        const wz = z - fz * back + rz * s * cls.size[0];
+        const kick = speed * (grass ? 0.2 : 0.08);
+        if (grass) this.fx.emit(wx, y + 0.2, wz, -fx * kick + (Math.random() - 0.5) * 2, 2 + Math.random() * 2, -fz * kick + (Math.random() - 0.5) * 2, 0.5, 0x4d6a2e, 22, 0.5);
+        else this.fx.emit(wx, y + 0.35, wz, -fx * kick + (Math.random() - 0.5) * 2.5, 0.6 + Math.random() * 1.4, -fz * kick + (Math.random() - 0.5) * 2.5, 1.2 + Math.random() * 0.8, Math.random() < 0.5 ? 0xb39670 : 0x9c7f5a, -1.2, 2.2);
+      }
+    }
     // Tire smoke while drifting, and while the slide carries on after it.
     if ((c.drift[i] || (c.driftExit[i] > 0 && Math.abs(c.slip[i]) > 0.15)) && c.grounded[i]) {
       const stage = c.driftStage[i];

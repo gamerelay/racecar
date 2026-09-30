@@ -12,7 +12,6 @@ import {
   ZeroFactor,
   BufferGeometry,
   Color,
-  ConeGeometry,
   DoubleSide,
   Float32BufferAttribute,
   Group,
@@ -25,13 +24,14 @@ import {
   Vector3,
   type Object3D,
 } from 'three';
-import { Rng } from '../../../core/rng';
 import type { BakedSpline, Track } from '../../../core/track/bake';
-import { newHit, projectGlobal, sampleAt } from '../../../core/track/query';
+import { newHit, sampleAt } from '../../../core/track/query';
 import type { TrackVisual } from '../../skin';
 import { buildCityscape } from './cityscape';
+import { buildForest } from './forest';
+import { buildTerrain } from './terrain';
 import { disposeTree } from './dispose';
-import { faceted, toon, WET } from './toon';
+import { toon, WET } from './toon';
 import type { Palette } from './palettes';
 
 const WALL_HEIGHT = 1.1;
@@ -119,12 +119,15 @@ export function buildTrackVisual(track: Track, palette: Palette, seed: number): 
   }
   const city = track.layout.scenery === 'city';
   const groundY = city ? CITY_GROUND : minY - 0.4;
+  // Open country gets real land: roads meet it at their edges, and bridges come from its mask.
+  const land = track.layout.scenery === 'countryside' ? buildTerrain(track, palette, seed) : null;
+  const style: Style = land ? { country: true, floor: land.height } : { country: false };
 
   for (const sp of track.splines) {
-    const deck = deckMask(sp, groundY);
+    const deck = land ? land.deck[sp.index] : deckMask(sp, groundY);
     for (let k = 0; k < sp.chunks.length - 1; k++) {
       const g = new Geo();
-      buildChunk(g, track, sp, sp.chunks[k], sp.chunks[k + 1], groundY, city, deck);
+      buildChunk(g, track, sp, sp.chunks[k], sp.chunks[k + 1], groundY, city, deck, style);
       const mesh = new Mesh(g.build(), road);
       mesh.matrixAutoUpdate = false;
       chunks.push(mesh);
@@ -137,8 +140,8 @@ export function buildTrackVisual(track: Track, palette: Palette, seed: number): 
   ground.updateMatrix();
   ground.matrixAutoUpdate = false;
 
-  // The city lays its own ground (streets, with holes where a trench runs).
-  const extras: Object3D[] = city ? [] : [ground];
+  // The city lays its own ground (streets, with holes where a trench runs); the country has its land.
+  const extras: Object3D[] = city ? [] : land ? [...land.objects] : [ground];
   const wet = puddles(track);
   if (wet) extras.push(wet);
   // Solid props on the road (the pillars): tall striped boxes.
@@ -161,7 +164,14 @@ export function buildTrackVisual(track: Track, palette: Palette, seed: number): 
     extras.push(...scape.objects);
     update = scape.update;
   }
-  if (track.layout.scenery === 'countryside') extras.push(...countryside(track, palette, seed, groundY));
+  if (land) {
+    const forest = buildForest(track, palette, seed, land);
+    extras.push(...forest.objects);
+    update = (t, dt, cam) => {
+      land.time.value = t;
+      forest.update(t, dt, cam);
+    };
+  }
 
   const debug = debugVolumes(track);
   return {
@@ -169,6 +179,7 @@ export function buildTrackVisual(track: Track, palette: Palette, seed: number): 
     extras,
     debug,
     update,
+    water: !!land?.objects.length && !!track.layout.terrain?.river,
     dispose() {
       for (const c of chunks) (c as Mesh).geometry.dispose();
       road.dispose();
@@ -179,7 +190,21 @@ export function buildTrackVisual(track: Track, palette: Palette, seed: number): 
 }
 
 /** Steel railing along one edge between two cross-sections: posts every 3 m, a top and a mid rail. */
-function railing(g: Geo, A: Cross, B: Cross, la: number, lb: number, s: number, step: number): void {
+interface RailStyle {
+  top: string;
+  mid: string;
+  post: string;
+  /** Where the posts start (above the curb), how high the top rail is, and the post spacing. */
+  base: number;
+  height: number;
+  every: number;
+  /** Half thickness of the top rail. */
+  thick: number;
+}
+const STEEL: RailStyle = { top: '#c9c0e0', mid: '#a89cc0', post: '#8f84a8', base: BARRIER, height: RAIL_TOP, every: 3, thick: 0.09 };
+const TIMBER: RailStyle = { top: '#9a7a52', mid: '#86683f', post: '#5e4630', base: -0.2, height: 0.95, every: 2.5, thick: 0.13 };
+
+function railing(g: Geo, A: Cross, B: Cross, la: number, lb: number, s: number, step: number, st: RailStyle): void {
   const at = (c: Cross, l: number, y: number) => [c.cx + c.rx * l, c.cy - l * c.tb + y, c.cz + c.rz * l];
   const bar = (y0: number, y1: number, half: number, color: string) => {
     const a0 = at(A, la - half, y0);
@@ -194,20 +219,20 @@ function railing(g: Geo, A: Cross, B: Cross, la: number, lb: number, s: number, 
     g.face(a0, b0, b2, a2, color);
     g.face(a1, b1, b3, a3, color);
   };
-  bar(CURB + RAIL_TOP - 0.12, CURB + RAIL_TOP, 0.09, '#c9c0e0');
-  bar(CURB + 0.86, CURB + 0.92, 0.05, '#a89cc0');
-  if (Math.floor(s / 3) !== Math.floor((s + step) / 3)) {
+  bar(CURB + st.height - 0.16, CURB + st.height, st.thick, st.top);
+  bar(CURB + st.height * 0.55 - 0.05, CURB + st.height * 0.55 + 0.05, st.thick * 0.6, st.mid);
+  if (Math.floor(s / st.every) !== Math.floor((s + step) / st.every)) {
     // A post: a thin box at A, the length of a tenth of a step along the road.
     const t = 0.12;
     const post = (dl: number, y: number) => at(A, la + dl, y);
     const dx = (B.cx - A.cx) * t;
     const dz = (B.cz - A.cz) * t;
-    const p = [post(-0.07, CURB + BARRIER), post(0.07, CURB + BARRIER), post(-0.07, CURB + RAIL_TOP), post(0.07, CURB + RAIL_TOP)];
+    const p = [post(-0.09, CURB + st.base), post(0.09, CURB + st.base), post(-0.09, CURB + st.height + 0.05), post(0.09, CURB + st.height + 0.05)];
     const q = p.map((v) => [v[0] + dx, v[1], v[2] + dz]);
-    g.face(p[0], p[1], p[3], p[2], '#8f84a8');
-    g.face(q[0], q[1], q[3], q[2], '#8f84a8');
-    g.face(p[0], q[0], q[2], p[2], '#8f84a8');
-    g.face(p[1], q[1], q[3], p[3], '#8f84a8');
+    g.face(p[0], p[1], p[3], p[2], st.post);
+    g.face(q[0], q[1], q[3], q[2], st.post);
+    g.face(p[0], q[0], q[2], p[2], st.post);
+    g.face(p[1], q[1], q[3], p[3], st.post);
   }
 }
 
@@ -238,7 +263,10 @@ export function deckMask(sp: BakedSpline, groundY: number): Uint8Array {
   return out;
 }
 
-function buildChunk(g: Geo, track: Track, sp: BakedSpline, i0: number, i1: number, groundY: number, levels: boolean, deck: Uint8Array): void {
+/** How roads look off the city grid: timber and earth, land under them rather than a flat ground. */
+type Style = { country: false } | { country: true; floor: (x: number, z: number) => number };
+
+function buildChunk(g: Geo, track: Track, sp: BakedSpline, i0: number, i1: number, groundY: number, levels: boolean, deck: Uint8Array, style: Style): void {
   const A: Cross = { cx: 0, cy: 0, cz: 0, rx: 0, rz: 0, tb: 0 };
   const B: Cross = { cx: 0, cy: 0, cz: 0, rx: 0, rz: 0, tb: 0 };
   const at = (c: Cross, l: number, lift: number) => [c.cx + c.rx * l, c.cy - l * c.tb + lift, c.cz + c.rz * l] as const;
@@ -257,7 +285,7 @@ function buildChunk(g: Geo, track: Track, sp: BakedSpline, i0: number, i1: numbe
     // Levels (city): high roads are decks on pillars, low ones trenches, very low ones tunnels.
     const hA = A.cy - groundY;
     const hB = B.cy - groundY;
-    const bridge = levels && deck[i] === 1 && deck[j] === 1;
+    const bridge = (levels || style.country) && deck[i] === 1 && deck[j] === 1;
     const sunk = levels && Math.max(hA, hB) < -0.5;
     const covered = levels && Math.max(hA, hB) < -TUNNEL_H;
     g.shade = covered ? 0.5 : 1;
@@ -278,21 +306,26 @@ function buildChunk(g: Geo, track: Track, sp: BakedSpline, i0: number, i1: numbe
       const outB = at(B, side * sb, CURB);
       const curbA = at(A, side * wa, 0);
       const curbB = at(B, side * wb, 0);
-      const color = shoulderColor;
+      // A bridge's verge in the country is its timber deck.
+      const color = style.country && bridge ? (Math.floor(s / 1.5) % 2 === 0 ? '#7a5c3c' : '#6e5236') : shoulderColor;
       if (side < 0) g.quad(inA[0], inA[1], inA[2], outA[0], outA[1], outA[2], outB[0], outB[1], outB[2], inB[0], inB[1], inB[2], color);
       else g.quad(outA[0], outA[1], outA[2], inA[0], inA[1], inA[2], inB[0], inB[1], inB[2], outB[0], outB[1], outB[2], color);
-      // Curb face, striped red and white on corners of the lap for speed.
-      const stripe = Math.floor(s / 4) % 2 === 0 ? '#e0d6f0' : '#c43a5a';
+      // Curb face, striped red and white on corners of the lap for speed (a grass verge in the country).
+      const stripe = style.country ? (bridge ? '#5e4630' : '#4d5f32') : Math.floor(s / 4) % 2 === 0 ? '#e0d6f0' : '#c43a5a';
       if (side < 0) g.quad(curbA[0], curbA[1], curbA[2], inA[0], inA[1], inA[2], inB[0], inB[1], inB[2], curbB[0], curbB[1], curbB[2], stripe);
       else g.quad(inA[0], inA[1], inA[2], curbA[0], curbA[1], curbA[2], curbB[0], curbB[1], curbB[2], inB[0], inB[1], inB[2], stripe);
 
       const wall = side < 0 ? sp.wallL[i] && sp.wallL[j] : sp.wallR[i] && sp.wallR[j];
       const baseA = at(A, side * sa, CURB);
       const baseB = at(B, side * sb, CURB);
-      // Where the outside drops to: the deck's underside on a bridge, else the ground.
-      const lowA = bridge ? A.cy - DECK : groundY;
-      const lowB = bridge ? B.cy - DECK : groundY;
-      if (wall) {
+      // Where the outside drops to: the deck's underside on a bridge, else the ground (the land).
+      const lowA = bridge ? A.cy - DECK : style.country ? Math.min(baseA[1] - 0.3, style.floor(baseA[0], baseA[2]) - 0.3) : groundY;
+      const lowB = bridge ? B.cy - DECK : style.country ? Math.min(baseB[1] - 0.3, style.floor(baseB[0], baseB[2]) - 0.3) : groundY;
+      if (wall && style.country) {
+        // Timber: a guardrail on posts, or a bridge's railing; the edge drops to the land below.
+        g.face(baseA, baseB, [baseB[0], lowB, baseB[2]], [baseA[0], lowA, baseA[2]], bridge ? '#4a3626' : '#6b553b');
+        railing(g, A, B, side * (sa - 0.15), side * (sb - 0.15), s, sp.step, TIMBER);
+      } else if (wall) {
         // A trench's walls hold the ground back, so they reach up past it.
         // A bridge's is a low barrier with a railing on top, so you can see over the edge.
         const plain = bridge ? CURB + BARRIER : CURB + WALL_HEIGHT;
@@ -314,10 +347,10 @@ function buildChunk(g: Geo, track: Track, sp: BakedSpline, i0: number, i1: numbe
           g.face([backA[0], y, backA[2]], [backB[0], y, backB[2]], [lipB[0], y, lipB[2]], [lipA[0], y, lipA[2]], '#6d5f86');
         }
         outer[side < 0 ? 0 : 1] = WALL_THICK;
-        if (bridge) railing(g, A, B, side * (sa + WALL_THICK / 2), side * (sb + WALL_THICK / 2), s, sp.step);
+        if (bridge) railing(g, A, B, side * (sa + WALL_THICK / 2), side * (sb + WALL_THICK / 2), s, sp.step, STEEL);
       } else if (baseA[1] > lowA + 0.2) {
         // No wall: the shoulder's edge drops to the ground (or the deck's underside).
-        g.face(baseA, baseB, [baseB[0], lowB, baseB[2]], [baseA[0], lowA, baseA[2]], embankment(levels && !bridge && hA > 1.2, s));
+        g.face(baseA, baseB, [baseB[0], lowB, baseB[2]], [baseA[0], lowA, baseA[2]], style.country ? (bridge ? '#4a3626' : '#6b553b') : embankment(levels && !bridge && hA > 1.2, s));
       }
     }
     if (bridge) {
@@ -328,7 +361,7 @@ function buildChunk(g: Geo, track: Track, sp: BakedSpline, i0: number, i1: numbe
       const ra = at(A, r, 0);
       const lb = at(B, -(sb + outer[0]), 0);
       const rb = at(B, sb + outer[1], 0);
-      g.face([la[0], A.cy - DECK, la[2]], [lb[0], B.cy - DECK, lb[2]], [rb[0], B.cy - DECK, rb[2]], [ra[0], A.cy - DECK, ra[2]], '#2c2440');
+      g.face([la[0], A.cy - DECK, la[2]], [lb[0], B.cy - DECK, lb[2]], [rb[0], B.cy - DECK, rb[2]], [ra[0], A.cy - DECK, ra[2]], style.country ? '#3a2a1e' : '#2c2440');
     }
     if (covered) {
       // The tunnel roof: a concrete slab at street level, the plaza on top.
@@ -354,6 +387,16 @@ function buildChunk(g: Geo, track: Track, sp: BakedSpline, i0: number, i1: numbe
       t = at(B, l0, lift);
       g.quad(q[0], q[1], q[2], p[0], p[1], p[2], t[0], t[1], t[2], r[0], r[1], r[2], color);
     };
+    if (surf.offroad) {
+      // Dirt: two worn ruts per lane.
+      const lw = (2 * wa) / lanes;
+      for (let k = 0; k < lanes; k++) {
+        const mid = -wa + lw * (k + 0.5);
+        line(mid - 1.05, mid - 0.6, '#6f5438');
+        line(mid + 0.6, mid + 1.05, '#6f5438');
+      }
+      continue;
+    }
     line(-wa + 0.35, -wa + 0.5, '#f4efe6');
     line(wa - 0.5, wa - 0.35, '#f4efe6');
     if (s % 10 < 3.5) {
@@ -372,65 +415,6 @@ function buildChunk(g: Geo, track: Track, sp: BakedSpline, i0: number, i1: numbe
       }
     }
   }
-}
-
-/** Trees in clumps along the road, and flat field patches: enough to read speed and the lie of the land. */
-function countryside(track: Track, palette: Palette, seed: number, groundY: number): Object3D[] {
-  const rng = Rng.stream(seed, 'scenery');
-  const hit = newHit();
-  const trees: { x: number; y: number; z: number; s: number; c: number }[] = [];
-  const fields: { x: number; y: number; z: number; w: number; d: number; h: number; c: number }[] = [];
-  const clear = (x: number, z: number, r: number) => {
-    for (const other of track.splines) {
-      projectGlobal(other, x, z, hit);
-      if (Math.abs(hit.lateral) < hit.width / 2 + hit.shoulder + r + 2 && hit.s > 0.5 && hit.s < other.length - 0.5) return false;
-    }
-    return true;
-  };
-  for (const sp of track.splines) {
-    for (let s = 0; s < sp.length; s += rng.range(6, 14)) {
-      const i = Math.min(sp.n - 1, Math.round(s / sp.step));
-      const edge = sp.width[i] / 2 + sp.shoulder[i] + 3;
-      for (const side of [-1, 1]) {
-        if (rng.next() < 0.45) continue;
-        const off = edge + rng.range(0, 40) * rng.next();
-        const x = sp.px[i] - sp.tz[i] * off * side;
-        const z = sp.pz[i] + sp.tx[i] * off * side;
-        if (!clear(x, z, 2)) continue;
-        trees.push({ x, y: sp.py[i], z, s: rng.range(0.7, 1.5), c: palette.blocks[Math.floor(rng.next() * 4)] });
-      }
-      if (rng.next() < 0.05) {
-        const side = rng.next() < 0.5 ? -1 : 1;
-        const off = edge + 30 + rng.range(0, 60);
-        const x = sp.px[i] - sp.tz[i] * off * side;
-        const z = sp.pz[i] + sp.tx[i] * off * side;
-        if (clear(x, z, 25)) fields.push({ x, y: groundY + 0.05, z, w: rng.range(40, 90), d: rng.range(40, 90), h: Math.atan2(sp.tx[i], sp.tz[i]), c: [0xc9a94a, 0x8fae4a, 0x6f8f3a, 0xb58a4a][Math.floor(rng.next() * 4)] });
-      }
-    }
-  }
-  const crown = new InstancedMesh(faceted(new ConeGeometry(2.4, 7, 7).translate(0, 5.5, 0)), toon(), trees.length);
-  const trunk = new InstancedMesh(new BoxGeometry(0.5, 2.2, 0.5).translate(0, 1.1, 0), toon({ color: 0x5a3f2a }), trees.length);
-  const m = new Matrix4();
-  const q = new Quaternion();
-  const c = new Color();
-  trees.forEach((t, k) => {
-    m.compose(new Vector3(t.x, Math.min(t.y, groundY + 20) - 0.5, t.z), q, new Vector3(t.s, t.s, t.s));
-    crown.setMatrixAt(k, m);
-    trunk.setMatrixAt(k, m);
-    crown.setColorAt(k, c.set(t.c));
-  });
-  crown.computeBoundingSphere();
-  trunk.computeBoundingSphere();
-  const patch = new InstancedMesh(new BoxGeometry(1, 0.1, 1), toon(), Math.max(1, fields.length));
-  const up = new Vector3(0, 1, 0);
-  fields.forEach((f, k) => {
-    m.compose(new Vector3(f.x, f.y, f.z), q.setFromAxisAngle(up, f.h), new Vector3(f.w, 1, f.d));
-    patch.setMatrixAt(k, m);
-    patch.setColorAt(k, c.set(f.c));
-  });
-  patch.count = fields.length;
-  patch.computeBoundingSphere();
-  return [crown, trunk, patch];
 }
 
 function debugVolumes(track: Track): Object3D {

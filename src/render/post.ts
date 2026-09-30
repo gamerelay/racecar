@@ -35,6 +35,8 @@ export class PostPass {
     uInvProj: { value: new Matrix4() },
     uView: { value: new Matrix4() },
     uWet: { value: 0 },
+    /** 1 when the scene has standing water that mirrors in any weather. */
+    uWater: { value: 0 },
     uSky: { value: new Color(0x3a4460) },
     uPixel: { value: [1, 1] },
     tInk: { value: null as unknown },
@@ -53,7 +55,7 @@ export class PostPass {
       depthWrite: false,
       vertexShader: `varying vec2 vUv;void main(){vUv=uv;gl_Position=vec4(position.xy,0.0,1.0);}`,
       fragmentShader: `uniform sampler2D tDiffuse,tDepth,tInk,tInkDepth;uniform float uCarInk;uniform float uTime,uSpeed,uBoost,uImpact,uSlow,uAspect,uNear,uFar,uOutline,uFogNear,uFogFar;
-      uniform int uTaps;uniform vec2 uTexel,uPixel;uniform vec3 uInk,uSky;uniform mat4 uProj,uInvProj,uView;uniform float uWet;varying vec2 vUv;
+      uniform int uTaps;uniform vec2 uTexel,uPixel;uniform vec3 uInk,uSky;uniform mat4 uProj,uInvProj,uView;uniform float uWet,uWater;varying vec2 vUv;
       float hash(float n){return fract(sin(n)*43758.5453);}
       // Inverse view distance from the (perspective) depth buffer: linear across planes on screen.
       float invZ(vec2 uv){float d=texture2D(tDepth,uv).x;return (uFar-d*(uFar-uNear))/(uNear*uFar);}
@@ -110,6 +112,9 @@ export class PostPass {
       // puddle (puddles clear the alpha channel where they're drawn; everything else writes 1).
       // Returns the reflected color in rgb and the amount in a.
       vec4 reflection(vec2 uv){
+        // Standing water (rivers) clears alpha too, and mirrors even when it's dry.
+        float puddle=1.0-texture2D(tDiffuse,uv).a;
+        if(uWet<=0.001&&puddle<0.02)return vec4(0.0);
         vec3 p0=viewPos(uv);
         if(-p0.z>uFar*0.5)return vec4(0.0);
         vec3 n=normalize(cross(viewPos(uv+vec2(uPixel.x,0.0))-p0,viewPos(uv+vec2(0.0,uPixel.y))-p0));
@@ -117,8 +122,7 @@ export class PostPass {
         vec3 upV=normalize((uView*vec4(0.0,1.0,0.0,0.0)).xyz);
         float flat_=smoothstep(0.9,0.97,dot(n,upV));
         if(flat_<=0.0)return vec4(0.0);
-        float puddle=1.0-texture2D(tDiffuse,uv).a;
-        float amount=uWet*flat_*mix(0.13,1.0,puddle);
+        float amount=flat_*max(uWet*mix(0.13,1.0,puddle),puddle*0.8);
         vec3 v=normalize(p0);
         vec3 r=reflect(v,n);
         float fres=0.35+0.65*pow(1.0-max(dot(-v,n),0.0),3.0);
@@ -163,7 +167,7 @@ export class PostPass {
           n+=1.0;
         }
         col/=n;
-        if(uWet>0.001){
+        if(uWet>0.001||uWater>0.0){
           vec4 rf=reflection(vUv);
           // Wet surfaces darken, then mirror.
           col*=1.0-0.3*rf.a;

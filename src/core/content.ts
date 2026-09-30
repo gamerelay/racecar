@@ -109,6 +109,11 @@ export interface TrackLayout {
   scenery?: string;
   /** Surface between the road edge and the wall (default 'sidewalk'). */
   shoulderSurface?: string;
+  /**
+   * Shape of the land around the lap, for scenery only (the sim drives on the road): a river's
+   * course as [x, z] points, how wide it is and where its water sits.
+   */
+  terrain?: { river?: [number, number][]; riverWidth?: number; riverY?: number };
 }
 
 export interface MapDef {

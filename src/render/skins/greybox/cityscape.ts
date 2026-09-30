@@ -26,9 +26,7 @@ import {
   PlaneGeometry,
   Points,
   Quaternion,
-  ShaderMaterial,
   Vector3,
-  type Material,
   type Object3D,
 } from 'three';
 import { hashString, Rng } from '../../../core/rng';
@@ -40,6 +38,8 @@ import { LampPoints, lampSpots, trafficModels } from './car/traffic';
 /** Ambient city cars farther than this from the camera aren't posed (they're specks by then). */
 const AMBIENT_RANGE = 420;
 import { deckMask } from './track';
+import { animatedPoints, boxes, canvas, FONT, glowMaterial, glowPoints, type Box } from './scenery';
+
 import { faceted, glow, toon } from './toon';
 
 /** The street grid: blocks this big (street to street), streets this wide, sidewalks inside that. */
@@ -151,17 +151,6 @@ class Corridors {
 
 // ---- small builders ----
 
-interface Box {
-  x: number;
-  y: number;
-  z: number;
-  w: number;
-  h: number;
-  d: number;
-  rot: number;
-  color: number;
-}
-
 const up = new Vector3(0, 1, 0);
 const m4 = new Matrix4();
 const q4 = new Quaternion();
@@ -169,39 +158,10 @@ const v3 = new Vector3();
 const s3 = new Vector3();
 const col = new Color();
 
-/** One instanced mesh for a list of boxes (unit geometry scaled per instance). */
-function boxes(list: Box[], mat: Material, geo: BufferGeometry = new BoxGeometry(1, 1, 1)): InstancedMesh {
-  const mesh = new InstancedMesh(geo, mat, Math.max(1, list.length));
-  list.forEach((b, k) => {
-    m4.compose(v3.set(b.x, b.y, b.z), q4.setFromAxisAngle(up, b.rot), s3.set(b.w, b.h, b.d));
-    mesh.setMatrixAt(k, m4);
-    mesh.setColorAt(k, col.setHex(b.color));
-  });
-  mesh.count = list.length;
-  mesh.computeBoundingSphere();
-  return mesh;
-}
 
-function canvas(w: number, h: number, draw: (g: CanvasRenderingContext2D) => void): CanvasTexture {
-  const c = document.createElement('canvas');
-  c.width = w;
-  c.height = h;
-  const g = c.getContext('2d')!;
-  draw(g);
-  const t = new CanvasTexture(c);
-  t.anisotropy = 4;
-  // Redraw once the display font has loaded (the first draw may have used a fallback).
-  document.fonts?.ready.then(() => {
-    g.clearRect(0, 0, w, h);
-    draw(g);
-    t.needsUpdate = true;
-  });
-  return t;
-}
 
 const NEON = ['#ff2e88', '#35f0ff', '#ffd23f', '#7cff6b', '#b26bff', '#ff7a2e'];
 const WORDS = ['RAMEN', '24H', 'HOTEL', 'ARCADE', 'NOODLE', 'GARAGE', 'DINER', 'KARAOKE'];
-const FONT = "'Bungee', 'Impact', 'Arial Black', sans-serif";
 
 /** A vertical neon blade sign, like the prototype's. */
 function bladeTexture(word: string, color: string): CanvasTexture {
@@ -288,36 +248,6 @@ function signTexture(lines: [string, string]): CanvasTexture {
  * Points whose look runs in the shader from a time uniform: `blink` (aviation lights) or `steam`
  * (puffs rising and spreading from a vent). No per-frame buffer updates.
  */
-function animatedPoints(pos: number[], phase: number[], colors: number[], mode: 'blink' | 'steam', size: number, time: { value: number }): Points {
-  const geo = new BufferGeometry();
-  geo.setAttribute('position', new Float32BufferAttribute(pos, 3));
-  geo.setAttribute('phase', new Float32BufferAttribute(phase, 1));
-  geo.setAttribute('color', new Float32BufferAttribute(colors, 3));
-  const mat = new ShaderMaterial({
-    uniforms: { uTime: time, uSize: { value: size }, map: { value: glow() } },
-    transparent: true,
-    depthWrite: false,
-    blending: mode === 'blink' ? AdditiveBlending : undefined,
-    vertexShader: `attribute float phase;attribute vec3 color;uniform float uTime,uSize;varying vec3 vColor;varying float vA;
-      void main(){
-        vec3 p=position;float a=1.0;float s=uSize;
-        ${
-          mode === 'blink'
-            ? 'a=step(0.5,fract(uTime*0.8+phase))*0.9+0.1;'
-            : 'float u=fract(uTime*0.35+phase);p.y+=u*7.0;p.x+=sin(phase*40.0+u*3.0)*u*1.5;p.z+=cos(phase*23.0+u*2.0)*u*1.5;s*=0.6+u*1.8;a=(1.0-u)*smoothstep(0.0,0.1,u)*0.5;'
-        }
-        vColor=color;vA=a;
-        vec4 mv=modelViewMatrix*vec4(p,1.0);
-        gl_PointSize=s*300.0/-mv.z;
-        gl_Position=projectionMatrix*mv;
-      }`,
-    fragmentShader: `uniform sampler2D map;varying vec3 vColor;varying float vA;
-      void main(){vec4 t=texture2D(map,gl_PointCoord);gl_FragColor=vec4(vColor,t.a*vA);}`,
-  });
-  const pts = new Points(geo, mat);
-  pts.frustumCulled = false;
-  return pts;
-}
 
 // ---- the city ----
 
@@ -996,23 +926,5 @@ export function buildCityscape(track: Track, palette: Palette, ground: number): 
   };
 }
 
-function glowMaterial(size: number, vertexColors = false, color = 0xffffff): ShaderMaterial {
-  return new ShaderMaterial({
-    uniforms: { map: { value: glow() }, uSize: { value: size }, uColor: { value: new Color(color) } },
-    transparent: true,
-    depthWrite: false,
-    blending: AdditiveBlending,
-    vertexShader: `uniform float uSize;${vertexColors ? 'attribute vec3 color;' : ''}varying vec3 vColor;
-      void main(){vColor=${vertexColors ? 'color' : 'vec3(1.0)'};vec4 mv=modelViewMatrix*vec4(position,1.0);gl_PointSize=uSize*300.0/-mv.z;gl_Position=projectionMatrix*mv;}`,
-    fragmentShader: `uniform sampler2D map;uniform vec3 uColor;varying vec3 vColor;
-      void main(){vec4 t=texture2D(map,gl_PointCoord);gl_FragColor=vec4(vColor*uColor,t.a);}`,
-  });
-}
 
 /** Static glow points (lamp heads), sized in world meters. */
-function glowPoints(pos: number[], color: number, size: number): Points {
-  const geo = new BufferGeometry();
-  geo.setAttribute('position', new Float32BufferAttribute(pos, 3));
-  geo.computeBoundingSphere();
-  return new Points(geo, glowMaterial(size, false, color));
-}
