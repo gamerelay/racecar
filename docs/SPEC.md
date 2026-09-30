@@ -816,6 +816,27 @@ Milestone 1 (2026-09-30):
 
 Milestone 2 (2026-09-30):
 
+- **City v2: smaller, wider, and in three dimensions** (playtest: "some parts feel empty",
+  "make the maps 1/4 smaller", "play with verticality"). Downtown is 3.26 km (was 4.3). Roads are
+  wider: 26 m for the Boulevard, 20 m for avenues and the Skyway, 17 m in the Market. The lap
+  climbs onto the Skyway, 12 m up, which crosses over the start Boulevard. It drops to street
+  level for the Market (a hump bridge and the Alley shortcut), then into a trench and a covered
+  tunnel, and comes out over a crest just before the line. A lap that crosses itself needed three
+  engine changes: whole-track searches (spawn, teleport, reanchor) weigh height, solid props only
+  touch cars at their own level, and the validator rejects roads that overlap with under 7 m of
+  headroom. Per-tick tracking was already height-safe, since it follows each car's own spline.
+  The oncoming bonus now only counts where that lane has traffic; before, the empty Market's left
+  lane was free boost.
+- **The city is scenery built from the track, not authored.** A street grid fills the fog
+  distance around the lap, with blocks and lots kept clear of every road and further back from
+  raised ones so the Skyway has a view. Buildings are sized by district: towers with setbacks
+  round the middle of the lap, low shops wherever the streets are narrow (the Market). Roofs carry
+  clutter, water towers, masts and blinking lights. Buildings near the road get neon blade signs,
+  billboards and awnings. The side streets have lamps, trees, parked cars and ambient traffic,
+  and a few manholes steam; searchlights sweep the sky. Raised roads render as decks on pillars,
+  sunken ones as trenches with retaining walls, and deep ones as a lit tunnel with neon strips.
+  All of it is instanced (about 40 draw calls), the same every race, and animated by a few
+  uniforms and one instance buffer (the ambient cars).
 - **Playtest tuning, first round.** Drift is now only a better way round a corner: no charge,
   no mini-turbo on release, no boost from drifting (`miniTurbo: false` keeps the code for later),
   less scrub so it keeps its speed, and harder to trigger by accident (more steer to enter, a

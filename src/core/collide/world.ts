@@ -12,7 +12,7 @@ import { Cause, Ev } from '../events';
 import type { SimState } from '../state';
 import { mainDistance, wrap } from '../track/bake';
 import type { Hazards } from '../world/hazards';
-import { TRAFFIC_KINDS, type Traffic } from '../world/traffic';
+import { laneActive, TRAFFIC_KINDS, type Traffic } from '../world/traffic';
 import { newContact, obbOverlap } from './obb';
 
 const contact = newContact();
@@ -98,7 +98,8 @@ export function collideWorld(sim: SimState, i: number, ctx: WorldCtx): void {
     const frac = (2 * c.lateral[i]) / Math.max(1, main.width[Math.round(c.s[i] / main.step) % main.n]);
     let best = traffic.lanes[0];
     for (let l = 1; l < traffic.lanes.length; l++) if (Math.abs(traffic.lanes[l].pos - frac) < Math.abs(best.pos - frac)) best = traffic.lanes[l];
-    if (best.dir < 0 && Math.abs(best.pos - frac) < 0.5) {
+    // Only where that lane has traffic: an empty street's wrong side is just a road.
+    if (best.dir < 0 && Math.abs(best.pos - frac) < 0.5 && laneActive(best, c.s[i])) {
       if (c.oncomingT[i] === 0) sim.events.push(tick, Ev.Oncoming, i, c.x[i], c.y[i], c.z[i]);
       c.oncomingT[i] += sim.dt;
       c.boost[i] = Math.min(1, c.boost[i] + T.boostFromOncoming * sim.dt);

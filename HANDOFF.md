@@ -22,8 +22,9 @@ Where racecar stands and what's next. The design is [docs/SPEC.md](./docs/SPEC.m
     minimap, rain/traffic/hazard visuals, Countryside blocked in (golden palette, trees).
   - PostHog sink wired, off until `VITE_POSTHOG_KEY` is set (no racecar PostHog project yet).
   - 26 tests incl. exact replay of a full race and zero allocation over the full world.
-- **Numbers to know:** AI lap floor City 70 s / Countryside 62 s (Countryside is short vs the
-  70–100 s target: lengthen it in the editor). 8-AI race wrecks: City ~8, Countryside ~16.
+- **Numbers to know:** City is 3.26 km (v2: the Skyway, Market, Underpass), AI lap floor 58 s;
+  Countryside 3.79 km, 63 s. 8-AI race wrecks: City ~5–9, Countryside ~10. City draws ~90–250
+  calls and holds 120 fps on the dev Mac.
   Tick 0.025 ms with 8 AI + traffic + chaos + rain. Greybox draws ~40–140 calls.
 - **Not yet done by a human:** nobody has played milestone 1 or 2 for feel. Drift/boost/takedown
   numbers are first guesses (F4 tuning panel, F8 reports).

@@ -21,6 +21,8 @@ export interface TrackVisual {
   extras: Object3D[];
   /** Debug volumes (checkpoints, gaps, branch starts); toggled from the HUD. */
   debug: Object3D;
+  /** Per frame, for animated scenery (seconds since start, seconds since last frame). */
+  update?(time: number, dt: number): void;
   dispose(): void;
 }
 

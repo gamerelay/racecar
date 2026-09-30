@@ -40,6 +40,18 @@ export const TRAFFIC_RESPAWN = 12;
 const GRID_CLEAR = { behind: 160, ahead: 60, seconds: 10 };
 const POOL = 128;
 
+/** Whether a lane has traffic at main distance s (inside one of its sections, or it has none). */
+export function laneActive(lane: TrafficLaneDef, s: number): boolean {
+  const sections = lane.sections;
+  if (!sections) return true;
+  for (let j = 0; j < sections.length; j++) {
+    const a = sections[j][0];
+    const b = sections[j][1];
+    if (a <= b ? s >= a && s <= b : s >= a || s <= b) return true;
+  }
+  return false;
+}
+
 export class Traffic {
   readonly lanes: TrafficLaneDef[];
   readonly count: number;
@@ -104,17 +116,7 @@ export class Traffic {
   present(k: number, t: number): boolean {
     const w = this.wreckedAt[k];
     if (w >= 0 && t >= w && t < w + TRAFFIC_RESPAWN) return false;
-    const sections = this.lanes[this.lane[k]].sections;
-    if (sections) {
-      const s = this.sAt(k, t);
-      let inside = false;
-      for (let j = 0; j < sections.length; j++) {
-        const a = sections[j][0];
-        const b = sections[j][1];
-        if (a <= b ? s >= a && s <= b : s >= a || s <= b) inside = true;
-      }
-      if (!inside) return false;
-    }
+    if (!laneActive(this.lanes[this.lane[k]], this.sAt(k, t))) return false;
     if (t < GRID_CLEAR.seconds) {
       const s = this.sAt(k, t);
       const L = this.track.main.length;

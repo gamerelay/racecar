@@ -43,6 +43,8 @@ export class GameRenderer {
   opts: RenderOptions;
   focus = 0;
   lookBack = false;
+  /** Dev: leave the camera where it was put (fly-overs, screenshots). */
+  freeCamera = false;
   /** Frames per second, smoothed, and the last frame's draw calls, for the HUD and telemetry. */
   fps = 60;
   drawCalls = 0;
@@ -154,6 +156,7 @@ export class GameRenderer {
     this.fx.update(dt * this.sim.timeScale);
     this.updateCamera(dt);
     this.worldVisual.update(dt * this.sim.timeScale, this.camera.position);
+    this.trackVisual.update?.(this.time, dt);
     this.skin.update?.(this.time, this.camera.position.x, this.camera.position.y, this.camera.position.z, this.sim.wetness);
 
     const u = this.post.uniforms;
@@ -190,6 +193,7 @@ export class GameRenderer {
   }
 
   private updateCamera(dt: number): void {
+    if (this.freeCamera) return;
     const c = this.sim.cars;
     const i = this.focus;
     const car = this.visuals[i].root.position;

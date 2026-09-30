@@ -6,8 +6,8 @@
 //   the Climb       right onto the avenue and up a ramp onto the Skyway
 //   the Skyway      12 m up: a long banked right-hand sweeper round the towers, then the
 //                   straight west, straight over the Boulevard you started on
-//   the Market      down off the Skyway into tight two-lane streets: a dog-leg with a crest,
-//                   and the Alley shortcut straight through the middle of it
+//   the Market      down off the Skyway into tight two-lane streets: a dog-leg, a hump bridge
+//                   to fly off, and the Alley shortcut straight through the middle of it
 //   the Underpass   down into a trench and a covered tunnel under the plaza, then up and out
 //                   over a crest just before the line
 //
@@ -33,12 +33,12 @@ const corners: V[] = [
   { x: 560, z: 620, y: 12, w: 20, lanes: 2, r: 95, bank: 0.12 },
   { x: 560, z: 250, y: 12, w: 20, lanes: 2, r: 80, bank: 0.1 },
   { x: -220, z: 250, y: 12, w: 20, lanes: 2, r: 45, bank: -0.06 },
-  { x: -220, z: 110, y: 6, w: 17, lanes: 2, r: 28 },
-  { x: -120, z: 110, y: 4, w: 17, lanes: 2, r: 26 },
-  { x: -120, z: -30, y: 3, w: 17, lanes: 2, r: 26 },
-  // The Market crest.
-  { x: -200, z: -30, y: 7, w: 17, lanes: 2 },
-  { x: -280, z: -30, y: 1, w: 17, lanes: 2, r: 32 },
+  { x: -220, z: 110, y: 2.5, w: 17, lanes: 2, r: 28 },
+  { x: -120, z: 110, y: 0, w: 17, lanes: 2, r: 26 },
+  { x: -120, z: -30, y: 0, w: 17, lanes: 2, r: 26 },
+  // The Market crest: a hump bridge.
+  { x: -200, z: -30, y: 5.5, w: 17, lanes: 2 },
+  { x: -280, z: -30, y: 0, w: 17, lanes: 2, r: 32 },
   { x: -280, z: -190, y: -6, w: 20, lanes: 2, r: 42 },
   { x: 0, z: -190, y: -6, w: 26, lanes: 4, r: 48 },
   // Up out of the tunnel and over a crest just before the line.
@@ -106,20 +106,20 @@ const alley: BranchDef = {
   from: sAt(-178, 110),
   to: sAt(-215, -30),
   points: [
-    { p: [-162, 4.5, 102], width: 10, lanes: 1, shoulder: 1.5 },
-    { p: [-154, 4.2, 82], width: 9, lanes: 1, shoulder: 1.5 },
-    { p: [-152, 3.8, 45], width: 9, lanes: 1, shoulder: 1.5 },
-    { p: [-155, 3.4, 10], width: 9, lanes: 1, shoulder: 1.5 },
-    { p: [-168, 4, -16], width: 10, lanes: 1, shoulder: 1.5 },
+    { p: [-162, 0, 102], width: 10, lanes: 1, shoulder: 1.5 },
+    { p: [-154, 0, 82], width: 9, lanes: 1, shoulder: 1.5 },
+    { p: [-152, 0, 45], width: 9, lanes: 1, shoulder: 1.5 },
+    { p: [-155, 0, 10], width: 9, lanes: 1, shoulder: 1.5 },
+    { p: [-168, 1.5, -16], width: 10, lanes: 1, shoulder: 1.5 },
   ],
 };
 layout.branches = [alley];
 const alleySp = bakeTrack(layout, surfaces).splines[1];
 layout.ramps = [{ spline: 'alley', s: Math.round(alleySp.length * 0.5), height: 1.2, length: 10 }];
 
-// The colonnade: pillars down the Boulevard's median under the Skyway. Shove a rival into one.
+// The colonnade: the Skyway's pillars stand in the Boulevard's median. Shove a rival into one.
 const under = sAt(0, 250, 0);
-layout.props = [-60, -30, 0, 30, 60].map((d) => ({ kind: 'pillar', s: under + d, lateral: 0, size: [2.2, 11, 2.2] as Vec3 }));
+layout.props = [-11, 0, 11].map((d) => ({ kind: 'pillar', s: under + d, lateral: 0, size: [2.2, 11, 2.2] as Vec3 }));
 layout.takedownSpots = [{ s: under, name: 'The colonnade' }];
 
 // Traffic: the Boulevard (out of the tunnel to the first corner), the Skyway straight (two-way,
@@ -146,7 +146,7 @@ const puddle = (x: number, z: number, y: number, len: number, l0: number, l1: nu
   const s0 = sAt(x, z, y);
   return { s: [s0, s0 + len] as [number, number], lateral: [l0, l1] as [number, number], surface: 'puddle', when: 'wet' as const };
 };
-layout.zones = [puddle(-120, 90, 4, 25, -6, 2), puddle(-150, -30, 3, 25, -2, 6), puddle(0, 400, 0, 30, 2, 11), puddle(-280, -120, -3, 30, -7, 1)];
+layout.zones = [puddle(-120, 90, 0, 25, -6, 2), puddle(-150, -30, 1, 25, -2, 6), puddle(0, 400, 0, 30, 2, 11), puddle(-280, -120, -3, 30, -7, 1)];
 
 writeFileSync(new URL('../content/maps/city/downtown.track.json', import.meta.url), JSON.stringify(layout, null, 1) + '\n');
 const final = bakeTrack(layout, surfaces);
