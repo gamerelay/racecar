@@ -49,6 +49,8 @@ const signMat = new MeshBasicMaterial({ color: 0xffb13b });
 const glassMat = carPaint({ id: 'glass', name: 'glass', color: '#27366a', finish: 'gloss' }, 'none');
 const headGlow = new SpriteMaterial({ map: glow(), color: 0xfff0c0, transparent: true, blending: AdditiveBlending, depthWrite: false });
 const flameMat = new MeshBasicMaterial({ map: glow(), color: 0xff7a1a, transparent: true, blending: AdditiveBlending, depthWrite: false });
+/** Light bar lens colors, off and lit. */
+const BEACON = { red: [0x5a0a1c, 0xff2848], blue: [0x0c1a5c, 0x3a7bff] } as const;
 let beamShared: MeshBasicMaterial | undefined;
 
 function beamMat(): MeshBasicMaterial {
@@ -81,7 +83,9 @@ function prep(geo: BufferGeometry): BufferGeometry {
   return g;
 }
 
-type Key = 'paint' | 'trim' | 'metal' | 'glass' | 'lens' | 'head' | 'tail' | 'plate' | 'sign';
+type Key = 'paint' | 'trim' | 'metal' | 'glass' | 'lens' | 'head' | 'tail' | 'plate' | 'sign' | 'red' | 'blue';
+/** Ink id for a bucket: the light bar's two colors are one part, lines come from its housing. */
+const inkOf = (key: Key) => (key === 'red' || key === 'blue' ? INK.beacon : INK[key]);
 
 class Parts {
   readonly buckets = new Map<Key, BufferGeometry[]>();
@@ -322,6 +326,23 @@ export function buildCar(cls: Pick<CarClass, 'id' | 'size'>, paint: PaintDef): C
     const [[z0, y0], [z1, y1]] = d.cabin;
     return { z: z0 + ((z1 - z0) * (y - y0)) / (y1 - y0) + BS, tilt: Math.atan2(z1 - z0, y1 - y0) };
   };
+  if (d.cargo) {
+    // The box behind the cab: a second, square extrusion on the frame, so the gap to the cab is real.
+    const { z0, z1, y0, y1 } = d.cargo;
+    parts.add('paint', extrudeProfile([[z0, y0], [z0, y1], [z1, y1], [z1, y0]], W));
+    const bz = z1 - BS;
+    // Roll-up door on the back: a sill, runner seams up each side and the slat lines across.
+    parts.box('trim', W - 0.3, 0.08, 0.03, 0, y0 + 0.08, bz - 0.01);
+    for (const sx of [-1, 1]) seams.box('trim', 0.018, y1 - y0 - 0.3, 0.01, sx * (W / 2 - 0.2), (y0 + y1) / 2, bz - 0.004);
+    for (let i = 1; i <= 5; i++) seams.box('trim', W - 0.4, 0.018, 0.01, 0, y0 + 0.08 + ((y1 - y0 - 0.2) * i) / 6, bz - 0.004);
+    // Marker lamps along the top edges: amber over the cab, red (lit with the brakes) at the back.
+    for (const x of [-0.3, 0, 0.3]) parts.box('sign', 0.14, 0.07, 0.03, x, y1 - 0.12, z0 + BS + 0.01);
+    for (const sx of [-1, 1]) parts.box('tail', 0.14, 0.07, 0.03, sx * (W / 2 - 0.2), y1 - 0.12, bz - 0.01);
+    // Side guards between the axles, under the box.
+    const g0 = d.wheel.front - d.wheel.r - 0.25;
+    const g1 = d.wheel.rear + d.wheel.r + 0.25;
+    for (const sx of [-1, 1]) parts.box('trim', 0.05, 0.1, g0 - g1, sx * (W / 2 - 0.08), d.sill - 0.12, (g0 + g1) / 2);
+  }
   if (d.mirrors === 'bus') {
     // Bus mirrors: arms out of the roof corners, reaching forward, heads hanging past the screen.
     for (const sx of [-1, 1]) {
@@ -402,6 +423,14 @@ export function buildCar(cls: Pick<CarClass, 'id' | 'size'>, paint: PaintDef): C
         tails.push([sx * (tailHW - 0.3), ty]);
       }
       break;
+    case 'dot':
+      // One round lamp a side in a dark ring, the compact's.
+      for (const sx of [-1, 1]) {
+        parts.pipe('trim', th / 2 + 0.035, 0.03, sx * (tailHW - 0.2), ty, tz, 14);
+        parts.pipe('tail', th / 2, 0.04, sx * (tailHW - 0.2), ty, tz - 0.01, 14);
+        tails.push([sx * (tailHW - 0.2), ty]);
+      }
+      break;
     case 'block':
       for (const sx of [-1, 1]) {
         parts.box('lens', 0.26, th + 0.05, 0.03, sx * (tailHW - 0.15), ty, tz);
@@ -445,6 +474,10 @@ export function buildCar(cls: Pick<CarClass, 'id' | 'size'>, paint: PaintDef): C
     else if (d.head.style === 'round') {
       parts.pipe('head', 0.11, 0.04, x, hy, hf.z);
       parts.pipe('head', 0.08, 0.04, x - sx * 0.26, hy, hf.z);
+    } else if (d.head.style === 'bug') {
+      // One big round lamp a side in a dark ring: the compact's friendly face.
+      parts.pipe('trim', 0.185, 0.03, x, hy, hf.z, 16);
+      parts.pipe('head', 0.15, 0.04, x, hy, hf.z + 0.01, 16);
     } else if (d.head.style === 'square') parts.box('head', 0.34, 0.14, 0.04, x, hy, hf.z, hf.tilt);
     else parts.box('head', 0.4, 0.2, 0.04, x, hy, hf.z, hf.tilt);
     heads.push([x, hy, hf.z]);
@@ -460,6 +493,28 @@ export function buildCar(cls: Pick<CarClass, 'id' | 'size'>, paint: PaintDef): C
   const fby = hy - 0.13;
   const fb = headAt(fby);
   seams.box('trim', noseHW * 2 - 0.1, 0.018, 0.01, 0, fby, fb.z + 0.004, fb.tilt);
+  if (d.grille) {
+    // A truck face: a tall dark grille between the lamps, bright slats across it, a heavy bumper.
+    const { y, h } = d.grille;
+    const gw = (noseHW - 0.3 - 0.25) * 2;
+    const g = headAt(y + h / 2);
+    parts.box('trim', gw, h, 0.06, 0, y + h / 2, g.z + 0.02, g.tilt);
+    for (let i = 1; i <= 4; i++) parts.box('metal', gw - 0.08, 0.035, 0.03, 0, y + (h * i) / 5, g.z + 0.06, g.tilt);
+    const b = headAt(y);
+    parts.box('trim', noseHW * 2 + 0.12, 0.24, 0.22, 0, y - 0.08, b.z + 0.04);
+  }
+  if (d.pushBar) {
+    // A push bar bolted ahead of the grille: two uprights and two rails, the first thing off in a head-on.
+    const y0 = d.sill - 0.02;
+    const y1 = hy + 0.16;
+    const z = zFront + BS + 0.16;
+    const bar = piece(new Vector3(0, (y0 + y1) / 2, z), 0.6, { trim: INK.lip });
+    for (const sx of [-1, 1]) {
+      bar.box('trim', 0.07, y1 - y0, 0.07, sx * 0.34, (y0 + y1) / 2, z);
+      bar.box('trim', 0.05, 0.05, 0.2, sx * 0.34, d.sill + 0.12, z - 0.12);
+    }
+    for (const y of [y1 - 0.04, d.sill + 0.2]) bar.box('trim', 0.9, 0.06, 0.06, 0, y, z + 0.01);
+  }
   // A splitter lip on the sporty ones: the first thing to go in a head-on.
   if (d.diffuser) piece(new Vector3(0, d.sill - 0.03, zFront), 0.7, { trim: INK.lip }).box('trim', noseHW * 2 - 0.1, 0.05, 0.28, 0, d.sill - 0.03, zFront - 0.06);
 
@@ -509,6 +564,23 @@ export function buildCar(cls: Pick<CarClass, 'id' | 'size'>, paint: PaintDef): C
       podLamps.push([x, y, z + 0.1]);
     }
   }
+  const beacons: { x: number; y: number; z: number; red: boolean }[] = [];
+  let lightBar: Parts | undefined;
+  if (d.lightBar) {
+    // Across the middle of the roof: a dark housing, red lenses on the left, blue on the right.
+    const back = d.cabin.reduce((a, p) => (p[1] > cy1 - 0.1 && p[0] < a[0] ? p : a), d.cabin[1]);
+    const z = (d.cabin[1][0] + back[0]) / 2;
+    const span = Wc * k * 0.9;
+    const y = cy1 + 0.05;
+    lightBar = piece(new Vector3(0, y, z), 0.85, { trim: INK.lip });
+    lightBar.box('trim', span, 0.07, 0.3, 0, y, z);
+    lightBar.box('trim', 0.14, 0.13, 0.26, 0, y + 0.08, z);
+    for (const sx of [-1, 1]) {
+      const w = span / 2 - 0.12;
+      lightBar.box(sx > 0 ? 'red' : 'blue', w, 0.12, 0.26, sx * (0.07 + w / 2), y + 0.09, z);
+      beacons.push({ x: sx * (0.07 + w / 2), y: y + 0.1, z, red: sx > 0 });
+    }
+  }
   if (d.roofRack) {
     const rack = piece(new Vector3(0, cy1 + 0.1, -0.8), 0.5);
     for (const sx of [-1, 1]) rack.box('trim', 0.05, 0.06, 3.2, sx * (Wc * k * 0.44), cy1 + 0.08, -0.8);
@@ -535,7 +607,10 @@ export function buildCar(cls: Pick<CarClass, 'id' | 'size'>, paint: PaintDef): C
   const paintMat = carPaint(paint, d.livery, d.band);
   paintMat.side = DoubleSide;
   const tailMat = new MeshBasicMaterial({ color: 0xc4153a });
-  const mats: Record<Key, Material> = { paint: paintMat, trim, metal, glass: glassMat, lens, head: headMat, tail: tailMat, plate: plateMat, sign: signMat };
+  // The light bar's lenses, per car: they flash in `update`.
+  const redMat = new MeshBasicMaterial({ color: BEACON.red[0] });
+  const blueMat = new MeshBasicMaterial({ color: BEACON.blue[0] });
+  const mats: Record<Key, Material> = { paint: paintMat, trim, metal, glass: glassMat, lens, head: headMat, tail: tailMat, plate: plateMat, sign: signMat, red: redMat, blue: blueMat };
   const root = new Group();
   // For traffic (traffic.ts), which tints the body per instance.
   root.userData.paint = paintMat;
@@ -549,7 +624,7 @@ export function buildCar(cls: Pick<CarClass, 'id' | 'size'>, paint: PaintDef): C
       for (const g of list) g.dispose();
       merged.translate(-offset.x, -offset.y, -offset.z);
       const mesh = new Mesh(merged, mats[key]);
-      markInk(mesh, ids[key] ?? INK[key]);
+      markInk(mesh, ids[key] ?? inkOf(key));
       into.add(mesh);
       deform.push({ mesh, offset });
       if (key === 'glass' && into === shell) glassMesh = mesh;
@@ -559,6 +634,7 @@ export function buildCar(cls: Pick<CarClass, 'id' | 'size'>, paint: PaintDef): C
   bake(parts, shell, zero);
   const detachables: Detachable[] = [];
   const box = new Box3();
+  let barGroup: Group | undefined;
   for (const pc of pieces) {
     const g = new Group();
     g.position.copy(pc.pivot);
@@ -566,6 +642,7 @@ export function buildCar(cls: Pick<CarClass, 'id' | 'size'>, paint: PaintDef): C
     box.makeEmpty();
     for (const list of pc.parts.buckets.values()) for (const geo of list) box.union((geo.computeBoundingBox(), geo.boundingBox!));
     bake(pc.parts, g, pc.pivot, pc.ids);
+    if (pc.parts === lightBar) barGroup = g;
     detachables.push({ obj: g, hinge: pc.hinge, at: box.getCenter(new Vector3()), weak: pc.weak });
   }
   for (const list of seams.buckets.values()) {
@@ -596,6 +673,18 @@ export function buildCar(cls: Pick<CarClass, 'id' | 'size'>, paint: PaintDef): C
     s.position.set(x, y, tz - 0.1);
     shell.add(s);
   }
+  // Beacon glows ride on the light bar, so they fly off with it.
+  const redGlow = new SpriteMaterial({ map: glow(), color: BEACON.red[1], transparent: true, blending: AdditiveBlending, depthWrite: false });
+  const blueGlow = new SpriteMaterial({ map: glow(), color: BEACON.blue[1], transparent: true, blending: AdditiveBlending, depthWrite: false });
+  const flashes = beacons.map((b) => {
+    const s = new Sprite(b.red ? redGlow : blueGlow);
+    s.scale.set(1.4, 1.4, 1);
+    s.position.set(b.x, b.y, b.z).sub(barGroup!.position);
+    s.visible = false;
+    barGroup!.add(s);
+    return { s, red: b.red };
+  });
+  let flashT = 0;
 
   // Wheels: tyre, a rim face with five spokes and a hub, on steering pivots up front.
   const { r, w, front: wf, rear: wr } = d.wheel;
@@ -629,6 +718,13 @@ export function buildCar(cls: Pick<CarClass, 'id' | 'size'>, paint: PaintDef): C
       markInk(tm, INK.wheel);
       markInk(rm, INK.rim);
       wheel.add(tm, rm);
+      if (d.dualRear && z === wr) {
+        // The inner twin: a second tyre just inboard, sharing the geometry.
+        const inner = new Mesh(tyre, trim);
+        inner.position.x = -sx * (w + 0.03);
+        markInk(inner, INK.wheel);
+        wheel.add(inner);
+      }
       pivot.add(wheel);
       root.add(pivot);
       wheels.push(wheel);
@@ -671,7 +767,7 @@ export function buildCar(cls: Pick<CarClass, 'id' | 'size'>, paint: PaintDef): C
     return f;
   });
 
-  const top = Math.max(...d.cabin.map((p) => p[1]));
+  const top = Math.max(...d.cabin.map((p) => p[1]), d.cargo?.y1 ?? 0);
   const wreck = new CarWreck(root, deform, detachables, glassMesh!, glassMat, paintMat, { hw, hl, top });
   const spinScale = 0.38 / r;
   return {
@@ -686,6 +782,16 @@ export function buildCar(cls: Pick<CarClass, 'id' | 'size'>, paint: PaintDef): C
       for (const f of flames) {
         f.visible = boosting;
         if (boosting) f.scale.set(1, 0.7 + Math.random() * 0.6, 1);
+      }
+      if (flashes.length) {
+        // Double blinks, red then blue, a second a cycle: swap the lens colors, toggle the glows.
+        flashT = (flashT + dt) % 1;
+        const ph = Math.floor(flashT * 8);
+        const red = ph === 0 || ph === 2;
+        const blue = ph === 4 || ph === 6;
+        redMat.color.setHex(BEACON.red[red ? 1 : 0]);
+        blueMat.color.setHex(BEACON.blue[blue ? 1 : 0]);
+        for (const f of flashes) f.s.visible = f.red ? red : blue;
       }
     },
     wreck(dx, dz, strength) {
@@ -704,6 +810,10 @@ export function buildCar(cls: Pick<CarClass, 'id' | 'size'>, paint: PaintDef): C
       paintMat.dispose();
       tailMat.dispose();
       tailGlow.dispose();
+      redMat.dispose();
+      blueMat.dispose();
+      redGlow.dispose();
+      blueGlow.dispose();
       dark.dispose();
       if (rimMat !== metal) rimMat.dispose();
     },

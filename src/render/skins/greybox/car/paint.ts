@@ -1,15 +1,15 @@
 // Car paint: the skin's three-step toon ramp plus what makes a finish read at a glance in a cel
 // look. Gloss gets a small hard highlight, metallic a wide tinted one, pearl a hue shift at grazing
 // angles, matte nothing, chrome a banded horizon reflection. A livery (stripes, a side flash, a
-// band, rally blocks with number roundels) is painted in the shader from object-space position,
+// band, rally blocks with number roundels, a police black-and-white) is painted in the shader from object-space position,
 // so the body needs no UVs.
 
 import { Color, type MeshToonMaterial, Vector2 } from 'three';
 import type { PaintDef } from '../../../../core/content';
 import { toon } from '../toon';
 
-export type Livery = 'none' | 'stripes' | 'flash' | 'band' | 'rally';
-const LIVERIES: Livery[] = ['none', 'stripes', 'flash', 'band', 'rally'];
+export type Livery = 'none' | 'stripes' | 'flash' | 'band' | 'rally' | 'police';
+const LIVERIES: Livery[] = ['none', 'stripes', 'flash', 'band', 'rally', 'police'];
 
 const FINISH = { matte: 0, gloss: 1, metallic: 2, pearl: 3, chrome: 4 } as const;
 
@@ -19,8 +19,8 @@ export function carPaint(paint: PaintDef, livery: Livery, band: [number, number]
   const mat = toon({ color: chrome ? 0x8a8fa8 : paint.color });
   const uniforms = {
     uFinish: { value: FINISH[paint.finish] ?? 1 },
-    // Rally numbers go on whatever the paint; the blocks need a second color.
-    uLivery: { value: paint.secondary || livery === 'rally' ? LIVERIES.indexOf(livery) : 0 },
+    // Rally numbers and police colors go on whatever the paint; the rest need a second color.
+    uLivery: { value: paint.secondary || livery === 'rally' || livery === 'police' ? LIVERIES.indexOf(livery) : 0 },
     uLiveryColor: { value: new Color(paint.secondary ?? paint.color) },
     uPaint: { value: new Color(paint.color) },
     uBand: { value: new Vector2(...band) },
@@ -61,6 +61,20 @@ export function carPaint(paint: PaintDef, livery: Livery, band: [number, number]
           }
           return 0.0;
         }
+        // Police: always black and white, whatever the paint (only the finish shows through). White
+        // front and rear doors (the sedan's cuts at z 1.05 and −1.3) and roof, with a block of dark
+        // "lettering" along the doors: six cells read as a word at racing speed.
+        vec3 police(){
+          vec3 p=vObjPos;vec3 n=normalize(vObjN);
+          vec3 dark=vec3(0.07,0.07,0.11);vec3 white=vec3(0.95,0.95,1.0);
+          if(abs(n.x)>0.7&&p.z<1.05&&p.z>-1.3){
+            float z=0.82-p.z;float cell=fract(z/0.3);
+            float word=step(0.0,z)*step(z,1.8)*step(0.14,cell)*step(abs(p.y-0.58),0.07);
+            return mix(white,dark,word);
+          }
+          if(n.y>0.85&&p.y>1.2)return white;
+          return dark;
+        }
         // A seven-segment 7 in a (u, v) box of ±1.
         float seven(vec2 q){
           float t=0.2;
@@ -86,7 +100,7 @@ export function carPaint(paint: PaintDef, livery: Livery, band: [number, number]
           return c;
         }`,
       )
-      .replace('#include <color_fragment>', '#include <color_fragment>\ndiffuseColor.rgb=mix(diffuseColor.rgb,uLiveryColor,liveryMask());\nif(uLivery==4)diffuseColor.rgb=rallyNumbers(diffuseColor.rgb);')
+      .replace('#include <color_fragment>', '#include <color_fragment>\ndiffuseColor.rgb=mix(diffuseColor.rgb,uLiveryColor,liveryMask());\nif(uLivery==4)diffuseColor.rgb=rallyNumbers(diffuseColor.rgb);\nif(uLivery==5)diffuseColor.rgb=police();')
       .replace(
         '#include <opaque_fragment>',
         `{

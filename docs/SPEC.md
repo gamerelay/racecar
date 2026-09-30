@@ -892,3 +892,16 @@ Car art (branch `car-models`, 2026-09-30):
   could reuse the hatch or a shortened sedan). The rally car hooks in by adding a class JSON with
   id `rally` to `content/cars` and `CLASSES`: `buildCar` looks designs up by class id, so the
   skin needs nothing more. Garage: keys 5–7, and the lineup (0) shows all seven.
+- **Compact, truck and police** (branch `car-fleet`): every traffic kind now has a design, so
+  none are boxes. The compact is a short tall city car with big round lamps; the truck is a cab
+  plus a separate cargo box (`cargo` in the design, a second extrusion) with twin rear tyres and
+  a slatted grille. Both are drawn at their traffic kind's sim size, 14 instanced draws each, so
+  traffic is at most ~70 instanced draws with all five kinds near (was ~46 with two box kinds).
+  The police car is the sedan's shell with a forced black-and-white livery, a push bar and a
+  roof light bar whose red and blue lenses double-blink in `update(dt)` (colour swaps and glow
+  sprites, no new draws); the bar and push bar come off in a wreck. It's garage-only (key `-`):
+  no sim class, no traffic kind. Cops could hook in later as a pursuit AI on the existing car
+  sim (a `police` class JSON reusing sedan stats, a racer brain that targets the leader or the
+  player instead of the racing line, takedowns scored like any other), or as a traffic kind that
+  switches from lane-following to pursuit near a racer; either way `buildCar` already draws it
+  by id, and the light bar would want an on/off flag for the idle traffic case.
