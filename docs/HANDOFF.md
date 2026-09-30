@@ -5,7 +5,7 @@ The design is [SPEC.md](./SPEC.md): decisions in §17, and what building changed
 building". This file is "where are we"; the spec is "what are we making".
 
 **Last updated:** 2026-09-30. `main` is tagged **`alpha-1.2`**: milestone 2 (PR #2, tagged
-`alpha-1.0`), Countryside v2 (PR #4, `alpha-1.1`), and seven cars plus polish (PR #5).
+`alpha-1.0`), Countryside v2 (PR #4, `alpha-1.1`), and seven cars plus polish (PR #6).
 
 ## Resume in five minutes
 
@@ -21,7 +21,7 @@ building". This file is "where are we"; the spec is "what are we making".
 - **Repo:** `gamerelay/racecar`, private until milestone 3, cloned at `~/dev/racecar`. The default
   branch is `main`.
 - **Milestone 1 (greybox sandbox): merged** (PR #1).
-- **Seven cars and polish: merged** (PR #5) and tagged `alpha-1.2`:
+- **Seven cars and polish: merged** (PR #6) and tagged `alpha-1.2`:
   - sedan (Cruiser), rally (Mudlark) and bus (Route 88) join as player and AI classes; race
     traffic is drawn from the racer designs (sedan, van, bus, the compact as the hatch);
   - every class balanced to within ±5% of the mean lap on both layouts (`bun tools/lap-report.ts
