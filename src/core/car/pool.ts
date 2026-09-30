@@ -8,7 +8,7 @@ export const CAR_FIELDS = [
   'px', 'py', 'pz', 'ph', 'ppitch', 'proll', 'prx', 'prz',
   // driving
   'grounded', 'airT', 'boost', 'boosting', 'miniT', 'miniStage',
-  'drift', 'driftDir', 'driftT', 'driftCharge', 'driftStage', 'slip', 'driftCooldown', 'driftTight', 'driftExit',
+  'drift', 'driftDir', 'driftT', 'driftCharge', 'driftStage', 'slip', 'driftCooldown', 'driftTight', 'driftExit', 'driftBank',
   'spinT', 'ghostT', 'resetCooldown', 'wallT', 'stuckT', 'oncomingT', 'startPress', 'stallT',
   // wreck body
   'wreck', 'wreckT', 'rx', 'rz', 'wx', 'wy', 'wz',

@@ -29,7 +29,7 @@ export class Hud {
       </div>
       <div class="hud" id="pops" aria-live="polite"></div>
       <div class="hud" id="drift"><div id="driftPts">0</div><div id="driftStage"><i></i><i></i><i></i></div><div id="driftChain"></div></div>
-      <div class="hud" id="meterWrap"><label>Boost</label><div id="meter"><div id="meterFill"></div></div></div>
+      <div class="hud" id="meterWrap"><label>Boost</label><div id="meter"><div id="meterBank"></div><div id="meterFill"></div></div></div>
       <div class="hud" id="speedo"><span id="spd">0</span><small>km/h</small></div>
       <div class="hud" id="hint"><kbd>WASD</kbd>/<kbd>←↑→↓</kbd> drive · <kbd>Shift</kbd> drift · <kbd>Space</kbd> boost · <kbd>R</kbd> reset · <kbd>C</kbd> look back · <kbd>\`</kbd> editor · <kbd>F2</kbd> debug · <kbd>F6</kbd> ink · <kbd>F8</kbd> felt wrong?</div>
       <div class="hud" id="debug"></div>`,
@@ -62,6 +62,9 @@ export class Hud {
     $('score').textContent = Math.floor(c.score[i]).toLocaleString();
     $('spd').textContent = String(Math.round(Math.hypot(c.vx[i], c.vz[i]) * KMH));
     ($('meterFill') as HTMLElement).style.transform = `scaleX(${c.boost[i].toFixed(3)})`;
+    // What the current drift will pay in, as a pale segment past the fill.
+    const bank = c.drift[i] === 1 && c.driftBank[i] >= TUNING.driftBankMin ? c.driftBank[i] : 0;
+    ($('meterBank') as HTMLElement).style.transform = `scaleX(${Math.min(1, c.boost[i] + bank).toFixed(3)})`;
     document.body.classList.toggle('boosting', c.boosting[i] === 1 || c.miniT[i] > 0);
     document.body.classList.toggle('full', c.boost[i] > 0.98);
     const drifting = c.drift[i] === 1;
@@ -82,6 +85,7 @@ export class Hud {
   private readonly onEvent = (e: GameEvent): void => {
     const i = this.focus;
     if (e.type === Ev.DriftStart && e.car === i) this.driftStart = this.sim.cars.score[i];
+    if (e.type === Ev.DriftBoost && e.car === i) this.pop(`Drift boost +${Math.round(e.a * 100)}%`, e.a > 0.25 ? 's2' : 's1');
     if (e.type === Ev.MiniTurbo && e.car === i) this.pop(['', 'Mini-turbo', 'Super turbo', 'Ultra turbo'][e.b] + '!', `s${e.b}`);
     if (e.type === Ev.Wreck && e.car === i && e.other < 0) this.pop(e.b === 4 ? 'Reset' : 'Wrecked', 'bad');
     if (e.type === Ev.Takedown && e.car === i) this.pop(e.b ? 'Revenge!' : 'Takedown!', 'big');

@@ -116,7 +116,7 @@ describe('sim', () => {
     expect(sim.cars.wreck[i]).toBe(0);
   });
 
-  test('a held drift turns the car and keeps its speed, with no boost after', () => {
+  test('a held drift turns the car, keeps its speed, and banks boost that a clean exit pays in', () => {
     // A huge open ring, so a drift can circle freely without meeting a wall.
     const sim = ringSim(1, 600, 320);
     const i = sim.addCar({ cls: 'hatch', human: true });
@@ -125,13 +125,14 @@ describe('sim', () => {
     for (let t = 0; t < 60 * 2.5; t++) sim.step([c]);
     const entry = Math.hypot(sim.cars.vx[i], sim.cars.vz[i]);
     const h0 = sim.cars.h[i];
+    const boost0 = sim.cars.boost[i];
     c.drift = true;
     c.steer = -1;
     const seen: number[] = [];
     let cursor = sim.events.head;
     const watch = () =>
       (cursor = sim.events.read(cursor, (e) => {
-        if (e.type === Ev.DriftStage || e.type === Ev.MiniTurbo) seen.push(e.type);
+        if (e.type === Ev.DriftStage || e.type === Ev.MiniTurbo || e.type === Ev.DriftBoost) seen.push(e.type);
       }));
     for (let t = 0; t < 60 * 2; t++) {
       sim.step([c]);
@@ -155,9 +156,12 @@ describe('sim', () => {
     expect(sim.cars.wreck[i]).toBe(0);
     expect(turned).toBeGreaterThan(1.5);
     expect(held).toBeGreaterThan(entry * 0.85);
-    expect(seen).toEqual([]);
+    // Banked while drifting (the meter doesn't move), paid in on release; no mini-turbo kick.
+    expect(boost).toBe(boost0);
+    expect(seen).toEqual([Ev.DriftBoost]);
     expect(sim.cars.miniT[i]).toBe(0);
-    expect(sim.cars.boost[i]).toBeLessThanOrEqual(boost);
+    expect(sim.cars.boost[i] - boost).toBeGreaterThan(0.1);
+    expect(sim.cars.boost[i] - boost).toBeLessThan(0.3);
   });
 
   test('ramming a pace car at speed takes it down', () => {

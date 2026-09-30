@@ -34,7 +34,9 @@ cars) merged into it.
   An 8-car race with traffic, hazards and rain costs 0.025 ms a tick, and a full race replays
   exactly.
   - **Cars:** grip-alignment handling, and a hold-to-drift that is only a cornering tool. There's no
-    mini-turbo and no boost from drifting; `TUNING.miniTurbo: false` keeps the code for later.
+    mini-turbo; a drift banks boost that a clean release pays into the meter (a spin-out loses
+    it). `TUNING.miniTurbo: false` keeps the mini-turbo code for later. Each car carries its slide
+    differently (`driftCarry`).
     Boost, air, wrecks with aftertouch, slow-mo, and collisions between cars.
   - **Track:** baked Catmull-Rom splines with branches for shortcuts. Laps may cross over
     themselves: whole-track searches, pillars and the validator all take height into account.

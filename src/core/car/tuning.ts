@@ -50,7 +50,13 @@ export const TUNING = {
   spinAngle: 1.22,
   spinTime: 1.1,
 
-  boostFromDrift: 0,
+  /**
+   * Boost a drift banks per second at full angle and 40 m/s; paid into the meter when the drift
+   * ends cleanly, lost on a spin-out or wreck. No kick on release, just meter (playtest).
+   */
+  boostFromDrift: 0.1,
+  /** Smallest bank that pays out (a tap-drift earns nothing). */
+  driftBankMin: 0.02,
   boostFromAir: 0.08,
   /** Drift points per second at full angle and 30 m/s. */
   driftPoints: 400,

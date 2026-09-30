@@ -102,6 +102,7 @@ export function stepCar(sim: SimState, i: number, c: Controls, dt: number): void
       cars.slip[i] = wrapAngle(h - vdir);
       cars.driftTight[i] = clamp((c.steer * cars.driftDir[i] + 1) / 2, 0, 1);
       cars.driftExit[i] = 0;
+      cars.driftBank[i] = 0;
       cars.vy[i] = T.driftHop;
       cars.grounded[i] = 0;
       sim.events.push(tick, Ev.DriftStart, i, cars.x[i], cars.y[i], cars.z[i], speed, cars.driftDir[i]);
@@ -141,7 +142,7 @@ export function stepCar(sim: SimState, i: number, c: Controls, dt: number): void
         cars.driftStage[i] = stage;
         sim.events.push(tick, Ev.DriftStage, i, cars.x[i], cars.y[i], cars.z[i], cars.driftT[i], stage);
       }
-      cars.boost[i] = Math.min(1, cars.boost[i] + T.boostFromDrift * dt);
+      cars.driftBank[i] += T.boostFromDrift * angleFrac * pace * surf.driftCharge * cls.drift * dt;
       cars.score[i] += T.driftPoints * angleFrac * pace * dt * (1 + cars.driftChain[i] * 0.25);
       if (Math.abs(slip) > T.spinAngle) spinOut(sim, i);
       else if (!c.drift || speed < 10) endDrift(sim, i, c.drift ? 0 : cars.driftStage[i]);
@@ -149,7 +150,9 @@ export function stepCar(sim: SimState, i: number, c: Controls, dt: number): void
       // Normal grip: yaw from steering, velocity swings round toward the heading. Just out of a
       // drift, grip comes back gradually (1 → 0 over driftExit), so the car carries its slide.
       if (cars.driftExit[i] > 0) cars.driftExit[i] = Math.max(0, cars.driftExit[i] - dt);
-      const exit = smoothstep(0, 1, cars.driftExit[i] / T.driftExit);
+      // driftCarry (per car) stretches all of it: longer, looser and slower to straighten.
+      const carry = cls.driftCarry ?? 1;
+      const exit = smoothstep(0, 1, cars.driftExit[i] / (T.driftExit * carry));
       const falloff = speed / T.steerFalloff;
       let yawTarget = -c.steer * cls.turn * clamp(Math.abs(fwd) / 6, 0, 1) / (1 + falloff * falloff * 0.9);
       if (fwd < -0.5) yawTarget = -yawTarget;
@@ -157,12 +160,12 @@ export function stepCar(sim: SimState, i: number, c: Controls, dt: number): void
       h += cars.yaw[i] * dt;
       // Recovering: the nose swings back toward the travel as well, so the car keeps going the way
       // the slide was taking it instead of whipping round to where it pointed.
-      if (exit > 0 && speed > 3) h = vdir + approach(wrapAngle(h - vdir), 0, T.driftExitStraighten * exit * dt);
+      if (exit > 0 && speed > 3) h = vdir + approach(wrapAngle(h - vdir), 0, (T.driftExitStraighten / carry) * exit * dt);
       const slip = wrapAngle(h - vdir);
       const reversing = fwd < -0.5;
       const target = reversing ? wrapAngle(h + Math.PI) : h;
       const off = wrapAngle(target - vdir);
-      const align = T.gripAlign * grip * lerp(1, T.driftExitGrip, exit) * dt;
+      const align = T.gripAlign * grip * lerp(1, T.driftExitGrip / carry, exit) * dt;
       const turnBy = clamp(off, -align, align);
       vdir += speed > 0.5 ? turnBy : off;
       speed *= 1 - Math.min(0.5, Math.abs(reversing ? 0 : slip) * T.slipScrub * lerp(1, T.driftExitScrub, exit) * dt);
@@ -250,7 +253,15 @@ export function endDrift(sim: SimState, i: number, stage: number): void {
   if (cars.drift[i] !== 1) return;
   cars.drift[i] = 0;
   cars.driftCooldown[i] = 0.15;
-  cars.driftExit[i] = T.driftExit;
+  cars.driftExit[i] = T.driftExit * (sim.classes[cars.cls[i]].driftCarry ?? 1);
+  // A clean finish pays the drift's banked boost into the meter.
+  const bank = cars.driftBank[i];
+  cars.driftBank[i] = 0;
+  if (bank >= T.driftBankMin) {
+    const paid = Math.min(bank, 1 - cars.boost[i]);
+    cars.boost[i] += paid;
+    sim.events.push(sim.tick, Ev.DriftBoost, i, cars.x[i], cars.y[i], cars.z[i], bank);
+  }
   sim.events.push(sim.tick, Ev.DriftEnd, i, cars.x[i], cars.y[i], cars.z[i], cars.driftT[i], stage);
   if (stage > 0) {
     cars.miniT[i] = T.miniTurboTimes[stage];
@@ -265,6 +276,7 @@ export function endDrift(sim: SimState, i: number, stage: number): void {
 
 function spinOut(sim: SimState, i: number): void {
   const cars = sim.cars;
+  cars.driftBank[i] = 0;
   endDrift(sim, i, 0);
   cars.driftChain[i] = 0;
   cars.spinT[i] = T.spinTime;
@@ -277,6 +289,7 @@ function spinOut(sim: SimState, i: number): void {
 export function wreckCar(sim: SimState, i: number, cause: number, ix: number, iz: number, by: number): void {
   const cars = sim.cars;
   if (cars.wreck[i]) return;
+  cars.driftBank[i] = 0;
   endDrift(sim, i, 0);
   cars.driftChain[i] = 0;
   cars.boosting[i] = 0;

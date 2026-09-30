@@ -26,6 +26,7 @@ html, body { height: 100%; margin: 0; overflow: hidden; background: var(--bg); c
 #meterWrap label { font-family: var(--display); font-size: 15px; display: block; margin: 0 0 4px 6px; text-shadow: 2px 2px 0 var(--outline); }
 #meter { position: relative; height: 20px; background: rgba(10, 4, 20, 0.7); border: 2px solid var(--ink); transform: skewX(-20deg); overflow: hidden; box-shadow: 0 0 0 3px var(--outline); }
 #meterFill { position: absolute; inset: 0; transform-origin: left center; background: linear-gradient(90deg, var(--flame), var(--sun)); transform: scaleX(0.3); }
+#meterBank { position: absolute; inset: 0; transform-origin: left center; background: rgba(255, 244, 214, 0.55); transform: scaleX(0); transition: transform 0.08s linear; }
 #meter::after { content: ''; position: absolute; inset: 0; background: repeating-linear-gradient(90deg, transparent 0 24px, rgba(18, 10, 32, 0.95) 24px 27px); }
 body.full #meter { box-shadow: 0 0 0 3px var(--outline), 0 0 22px var(--sun); }
 body.boosting #meterFill { filter: brightness(1.35); animation: flick 0.09s infinite alternate; }

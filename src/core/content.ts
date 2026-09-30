@@ -155,6 +155,8 @@ export interface CarClass {
   drift: number;
   /** how quickly the car reaches its drift angle, 1 = reference */
   driftRotation: number;
+  /** how long the car carries its slide after a drift, 1 = reference (TUNING.driftExit) */
+  driftCarry?: number;
   /** half extents in meters: width, length, height */
   size: Vec3;
 }

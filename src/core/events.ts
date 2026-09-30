@@ -36,6 +36,8 @@ export const Ev = {
   StartBoost: 23,
   /** A traffic car was wrecked (by a car, a hazard or debris). other = traffic index. */
   TrafficWreck: 24,
+  /** A clean drift paid its banked boost into the meter. a = amount (0..1 of a bar). */
+  DriftBoost: 25,
 } as const;
 export type Ev = (typeof Ev)[keyof typeof Ev];
 
@@ -64,6 +66,7 @@ export const EV_NAMES: Record<number, string> = {
   22: 'finish',
   23: 'start_boost',
   24: 'traffic_wreck',
+  25: 'drift_boost',
 };
 
 /** Wreck causes, in `GameEvent.b` of a Wreck. */

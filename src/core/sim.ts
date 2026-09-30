@@ -303,6 +303,7 @@ export class Sim implements SimState {
         this.events.push(this.tick, Ev.StartBoost, i, cars.x[i], cars.y[i], cars.z[i], lead, 0);
       }
       cars.startPress[i] = -1;
+      cars.driftBank[i] = 0;
       endDrift(this, i, 0);
     }
   }

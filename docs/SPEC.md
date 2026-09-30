@@ -879,6 +879,20 @@ Milestone 2 (2026-09-30):
     slide was taking it. The slide straightens in 0.5–0.6 s without losing speed.
   - The numbers are in TUNING (`driftEase`, `driftSteerRate`, `driftExit*`) and can be changed live
     with F4. The AI doesn't drift, so its lap floors are unchanged.
+- **Drift boost is back, as a bank** (playtest: "add back drift for boost"). The earlier
+  complaint was the kick after release. Now:
+  - A drift banks boost as it goes, by angle, speed, surface and the car's `drift` rating. It shows
+    as a pale segment past the boost meter's fill.
+  - A clean release pays the bank into the meter with a "Drift boost +N%" pop.
+  - A spin-out or wreck loses the bank, and a tap-drift earns nothing (`driftBankMin`).
+  - There's still no mini-turbo. A 1.5 s full drift at speed banks 9–17% of a bar, depending on
+    the car.
+- **Each car carries its slide differently** (`driftCarry` in the car file). It stretches the
+  release grip, looseness and straightening. A 50° slide straightens in:
+  - 0.37 s on the hatch (quick),
+  - 0.48 s on the coupe,
+  - 0.65 s on the van,
+  - 0.72 s on the muscle car (long and lazy).
 - **The greybox got the prototype's cel look early** (asked for in playtesting): a three-step
   toon ramp on every lit surface, ink outlines, lit windows and street lamps in City, and glow
   on head and tail lights with a headlight beam on the road. Outlines are drawn in the post pass
