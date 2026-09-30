@@ -865,6 +865,8 @@ Milestone 2 (2026-09-30):
   Across six seeds, AI wrecks per 8-car race fell on Countryside (15.8 to 10.5) and hardly moved
   on City (22 to 21), where nearly all of them are head-ons with traffic, which still wreck by
   design. The chase camera sits closer and pulls back and widens much less with speed and boost.
+  A later playtest asked for closer still, for immersion: 4.7 m back and 1.85 m up (was 5.9 and
+  2.35), with a 60° base FOV (was 62°).
 - **The greybox got the prototype's cel look early** (asked for in playtesting): a three-step
   toon ramp on every lit surface, ink outlines, lit windows and street lamps in City, and glow
   on head and tail lights with a headlight beam on the road. Outlines are drawn in the post pass
