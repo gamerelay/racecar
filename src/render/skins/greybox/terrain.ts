@@ -107,12 +107,16 @@ export function buildTerrain(track: Track, palette: Palette, seed: number): Terr
     walled: boolean;
     sp: number;
     i: number;
+    /** The road's right, and the bank's slope along it: the land follows the banked surface. */
+    rx: number;
+    rz: number;
+    tb: number;
   }
   const samples: S[] = [];
   let x0 = Infinity, x1 = -Infinity, z0 = Infinity, z1 = -Infinity, ySum = 0;
   for (const sp of track.splines) {
     for (let i = 0; i < sp.n; i += 3) {
-      const s: S = { x: sp.px[i], z: sp.pz[i], y: sp.py[i], half: sp.width[i] / 2 + sp.shoulder[i], walled: sp.wallL[i] === 1 || sp.wallR[i] === 1, sp: sp.index, i };
+      const s: S = { x: sp.px[i], z: sp.pz[i], y: sp.py[i], half: sp.width[i] / 2 + sp.shoulder[i], walled: sp.wallL[i] === 1 || sp.wallR[i] === 1, sp: sp.index, i, rx: -sp.tz[i], rz: sp.tx[i], tb: Math.tan(sp.bank[i]) };
       samples.push(s);
       x0 = Math.min(x0, s.x);
       x1 = Math.max(x1, s.x);
@@ -190,17 +194,22 @@ export function buildTerrain(track: Track, palette: Palette, seed: number): Terr
     const cj = Math.round((s.z - gz0) / CELL);
     for (let j = Math.max(0, cj - reachCells); j <= Math.min(nz - 1, cj + reachCells); j++) {
       for (let i = Math.max(0, ci - reachCells); i <= Math.min(nx - 1, ci + reachCells); i++) {
-        const d = Math.hypot(gx0 + i * CELL - s.x, gz0 + j * CELL - s.z);
+        const dx = gx0 + i * CELL - s.x;
+        const dz = gz0 + j * CELL - s.z;
+        const d = Math.hypot(dx, dz);
         if (d > REACH) continue;
         const e = Math.max(0, d - s.half);
+        // The road's height across from here: banked, and level past its edge.
+        const lat = Math.max(-s.half, Math.min(s.half, dx * s.rx + dz * s.rz));
+        const y = s.y - lat * s.tb;
         const w = 1 / (1 + (e / 16) ** 2) ** 2;
         const k = j * nx + i;
         wsum[k] += w;
-        wy[k] += w * s.y;
+        wy[k] += w * y;
         const w2 = 1 / (1 + (e / 3) ** 2) ** 3;
         wsum2[k] += w2;
-        wy2[k] += w2 * s.y;
-        if (e < 1.5) cap[k] = Math.min(cap[k], s.y - 0.6);
+        wy2[k] += w2 * y;
+        if (e < 1.5) cap[k] = Math.min(cap[k], y - 0.6);
         if (e < dmin[k]) {
           dmin[k] = e;
           flat[k] = s.walled ? 4 : 12;

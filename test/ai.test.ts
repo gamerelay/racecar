@@ -42,9 +42,12 @@ describe('getting unstuck', () => {
 });
 
 describe('triggers', () => {
-  // The Valley's falling sign is at 212 m on the main road, inside the Barn shortcut's span.
+  // A falling sign on the main road, 130 m into the Barn shortcut's span (so a car can pass it on either).
   const valley = layout('countryside/valley');
+  const barnDef = valley.branches!.find((b) => b.id === 'barn')!;
+  const at = barnDef.from + 130;
   const sign = valley.hazards!.findIndex((h) => h.use === 'falling-sign');
+  valley.hazards![sign] = { ...valley.hazards![sign], s: at };
   const signs = (spline: number, s: number) => {
     const sim = new Sim(bakeTrack(valley, SURFACES), CLASSES, SURFACES, { seed: 1, traffic: 0 });
     const i = sim.addCar({ cls: 'coupe', human: true });
@@ -62,17 +65,17 @@ describe('triggers', () => {
   };
   test('a car on the main road past the sign sets it off', () => {
     expect(sign).toBeGreaterThanOrEqual(0);
-    const r = signs(0, 190);
-    expect(r.mapped).toBeGreaterThan(212);
+    const r = signs(0, at - 22);
+    expect(r.mapped).toBeGreaterThan(at);
     expect(r.n).toBe(1);
   });
   test('a car on the shortcut passing the same mapped distance does not', () => {
     const track = bakeTrack(valley, SURFACES);
     const barn = track.splines.find((sp) => sp.id === 'barn')!;
-    // Start where the barn maps to 190 m on the main road.
-    const s = ((190 - barn.mainFrom) / (barn.mainTo - barn.mainFrom)) * barn.length;
+    // Start where the barn maps to 22 m short of the sign.
+    const s = ((at - 22 - barn.mainFrom) / (barn.mainTo - barn.mainFrom)) * barn.length;
     const r = signs(barn.index, s);
-    expect(r.mapped).toBeGreaterThan(212);
+    expect(r.mapped).toBeGreaterThan(at);
     expect(r.n).toBe(0);
   });
 });

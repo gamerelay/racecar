@@ -3,7 +3,7 @@
 
 import type { CarClass, SurfaceDef, TrackLayout } from '../content';
 import { KINDS } from '../world/hazards';
-import { bakeTrack, wrap } from './bake';
+import { bakeTrack, sampleIndex, wrap } from './bake';
 
 export interface Problem {
   level: 'error' | 'warning';
@@ -14,6 +14,8 @@ export interface Problem {
 }
 
 const GRID_LENGTH = 50;
+/** The sharpest a branch may leave or rejoin the main road at, in degrees. */
+const MAX_FORK = 35;
 
 export function validateLayout(layout: TrackLayout, surfaces: SurfaceDef[], classes: CarClass[]): Problem[] {
   const out: Problem[] = [];
@@ -101,6 +103,24 @@ export function validateLayout(layout: TrackLayout, surfaces: SurfaceDef[], clas
   const h0 = Math.atan2(track.main.tx[g0], track.main.tz[g0]);
   const h1 = Math.atan2(track.main.tx[g1], track.main.tz[g1]);
   if (Math.abs(wrap(h1 - h0 + Math.PI, Math.PI * 2) - Math.PI) > 0.35) err('the start grid (50 m behind the line) should be straight', 'main', L - GRID_LENGTH);
+
+  // Branches fork off and rejoin gently: an end's nearest point well along the road, not out to
+  // the side (the baker adds a slip point when there's room; a sharp fork is a hard kink).
+  for (const b of layout.branches ?? []) {
+    const ends = [
+      [b.from, b.points[0], 1],
+      [b.to, b.points[b.points.length - 1], -1],
+    ] as const;
+    for (const [s, p, dir] of ends) {
+      if (!p) continue;
+      const i = sampleIndex(track.main, s);
+      const m = track.main;
+      const along = ((p.p[0] - m.px[i]) * m.tx[i] + (p.p[2] - m.pz[i]) * m.tz[i]) * dir;
+      const lat = (p.p[0] - m.px[i]) * -m.tz[i] + (p.p[2] - m.pz[i]) * m.tx[i];
+      const angle = (Math.atan2(Math.abs(lat), along) * 180) / Math.PI;
+      if (angle > MAX_FORK) warn(`branch ${b.id} ${dir > 0 ? 'leaves' : 'rejoins'} the main road at ${angle.toFixed(0)}°; put its ${dir > 0 ? 'first' : 'last'} point further along and closer in (under ${MAX_FORK}°)`, b.id, dir > 0 ? 0 : undefined);
+    }
+  }
 
   // Branches rejoin forward, and don't skip a checkpoint without a replacement.
   for (const sp of track.splines.slice(1)) {

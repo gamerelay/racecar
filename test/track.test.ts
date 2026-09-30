@@ -1,0 +1,144 @@
+import { describe, expect, test } from 'bun:test';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+import type { TrackLayout } from '../src/core/content';
+import { bakeTrack, wrap, type BakedSpline } from '../src/core/track/bake';
+import { newHit, projectGlobal } from '../src/core/track/query';
+import { validateLayout } from '../src/core/track/validate';
+import { CLASSES, SURFACES } from './helpers';
+
+// Shortcut junctions (they used to meet the main road up to 1.7 m off its surface, with a curb
+// across the mouth) and the Valley's v3 shape (sweepers to drift, a wider road, banked corners).
+
+const layout = (key: string): TrackLayout => {
+  const [map, name] = key.split('/');
+  return JSON.parse(readFileSync(join(import.meta.dir, '..', 'content', 'maps', map, `${name}.track.json`), 'utf8')) as TrackLayout;
+};
+const MAPS = ['city/downtown', 'countryside/valley'];
+
+/** Heading change (radians) over ±`half` samples at i: positive turns left. */
+const turnAt = (sp: BakedSpline, i: number, half: number) => {
+  const a = (i - half + sp.n) % sp.n;
+  const b = (i + half) % sp.n;
+  return wrap(Math.atan2(sp.tx[b], sp.tz[b]) - Math.atan2(sp.tx[a], sp.tz[a]) + Math.PI, Math.PI * 2) - Math.PI;
+};
+
+describe('shortcut junctions', () => {
+  for (const key of MAPS) {
+    const track = bakeTrack(layout(key), SURFACES);
+    const main = track.main;
+
+    test(`${key}: where a shortcut is on the main road, it's at the main road's height`, () => {
+      const hit = newHit();
+      for (const sp of track.splines.slice(1)) {
+        let worst = 0;
+        for (const i of [...Array(60).keys(), ...Array.from({ length: 60 }, (_, k) => sp.n - 1 - k)]) {
+          projectGlobal(main, sp.px[i], sp.pz[i], hit, sp.py[i]);
+          if (Math.abs(hit.lateral) > hit.width / 2) continue;
+          worst = Math.max(worst, Math.abs(sp.py[i] - hit.ground));
+        }
+        expect(worst).toBeLessThan(0.08);
+      }
+    });
+
+    test(`${key}: the main road's verge opens only across the shortcuts' mouths`, () => {
+      const forks = track.splines.slice(1).flatMap((sp) => [sp.mainFrom, sp.mainTo]);
+      let open = 0;
+      for (let i = 0; i < main.n; i++) {
+        if (!main.openL[i] && !main.openR[i]) continue;
+        open++;
+        const s = i * main.step;
+        const nearest = Math.min(...forks.map((f) => Math.abs(wrap(s - f + main.length / 2, main.length) - main.length / 2)));
+        expect(nearest).toBeLessThan(90);
+      }
+      // Each mouth opens it for a stretch.
+      expect(open).toBeGreaterThan(forks.length * 5);
+    });
+  }
+
+  test('the baker adds a slip road: a shortcut forks off along the main road, not at its first point', () => {
+    const strip: TrackLayout = {
+      id: 'strip',
+      name: 'Strip',
+      main: { points: [0, 1, 2, 3, 4].map((k) => ({ p: [0, 0, k * 200] as [number, number, number], width: 16 })) },
+      branches: [{ id: 'b', kind: 'shortcut', from: 100, to: 500, points: [{ p: [-25, 0, 160], width: 10 }, { p: [-40, 0, 300], width: 10 }, { p: [-25, 0, 440], width: 10 }] }],
+    };
+    const b = bakeTrack(strip, SURFACES).splines[1];
+    // The first authored point is 23° off; 6 m in, the branch still runs within 10° of the road.
+    const i = Math.round(6 / b.step);
+    expect(Math.abs(Math.atan2(b.tx[i], b.tz[i])) * (180 / Math.PI)).toBeLessThan(10);
+    expect(validateLayout(strip, SURFACES, CLASSES).filter((p) => p.message.includes('leaves the main road'))).toEqual([]);
+  });
+
+  test('the validator warns about a shortcut that forks off sharply', () => {
+    const bad = layout('countryside/valley');
+    const creek = bad.branches!.find((b) => b.id === 'creek')!;
+    // Its first point swung out to the side of the fork: 10 m along, 25 m out.
+    const main = bakeTrack(bad, SURFACES).main;
+    const i = Math.round((creek.from + 10) / main.step);
+    creek.points[0] = { ...creek.points[0], p: [main.px[i] + main.tz[i] * 25, main.py[i], main.pz[i] - main.tx[i] * 25] };
+    const warnings = validateLayout(bad, SURFACES, CLASSES).filter((m) => m.level === 'warning' && m.message.includes('creek leaves the main road'));
+    expect(warnings.length).toBe(1);
+    for (const key of MAPS) expect(validateLayout(layout(key), SURFACES, CLASSES).filter((m) => m.message.includes('the main road at'))).toEqual([]);
+  });
+});
+
+describe('Valley v3', () => {
+  const track = bakeTrack(layout('countryside/valley'), SURFACES);
+  const main = track.main;
+
+  test('a lap of corners to drift: more of them, sweepers among them, and shorter straights', () => {
+    // A corner is a run turning more than 20° over 40 m; its radius is at its tightest.
+    // (v2: 18 corners, 8 of them sweepers, 41% of the lap curved, a 454 m straight.)
+    const radii: number[] = [];
+    let peak = 0;
+    let curved = 0;
+    let longest = 0;
+    let straight = 0;
+    const first = (() => {
+      let k = 0;
+      while (Math.abs(turnAt(main, k, 20)) > (20 * Math.PI) / 180) k++;
+      return k;
+    })();
+    for (let j = 0; j <= main.n; j++) {
+      const i = (first + j) % main.n;
+      const turn = Math.abs(turnAt(main, i, 20));
+      if (turn > (20 * Math.PI) / 180) peak = Math.max(peak, turn);
+      else if (peak > 0) {
+        radii.push((40 * main.step) / peak);
+        peak = 0;
+      }
+      if (j < main.n && turn > (10 * Math.PI) / 180) curved++;
+      straight = turn < (4 * Math.PI) / 180 ? straight + main.step : 0;
+      longest = Math.max(longest, straight);
+    }
+    expect(radii.length).toBeGreaterThanOrEqual(24);
+    expect(radii.filter((r) => r >= 35 && r <= 110).length).toBeGreaterThanOrEqual(16);
+    expect(curved / main.n).toBeGreaterThan(0.55);
+    expect(longest).toBeLessThan(350);
+  });
+
+  test('the road is wider, and wider still through the sweepers', () => {
+    let narrowest = Infinity;
+    for (let i = 0; i < main.n; i++) narrowest = Math.min(narrowest, main.width[i]);
+    expect(narrowest).toBeGreaterThanOrEqual(13);
+    expect(Math.max(...main.width)).toBeGreaterThanOrEqual(15.5);
+  });
+
+  test('corners bank into the turn, and the bank rolls over rather than flips', () => {
+    let banked = 0;
+    let steepest = 0;
+    for (let i = 0; i < main.n; i++) {
+      const turn = turnAt(main, i, 10);
+      if (Math.abs(main.bank[i]) > 0.04 && Math.abs(turn) > 0.15) {
+        banked++;
+        // A left turn (positive) lowers the left side, which is a negative bank.
+        expect(Math.sign(main.bank[i])).toBe(-Math.sign(turn));
+      }
+      steepest = Math.max(steepest, Math.abs(main.bank[(i + 1) % main.n] - main.bank[i]) / main.step);
+    }
+    expect(banked).toBeGreaterThan(300);
+    // Under 0.5° per meter.
+    expect(steepest).toBeLessThan((0.5 * Math.PI) / 180);
+  });
+});

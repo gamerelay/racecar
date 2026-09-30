@@ -54,7 +54,6 @@ export class Hud {
       'beforeend',
       `<div class="hud" id="race">
         <div class="stat" id="statPos"><small>Pos</small><b id="pos">1/1</b></div>
-        <div class="stat"><small>Lap</small><b id="lap">1/3</b></div>
         <div class="stat"><small>Time</small><b id="time">0:00.0</b></div>
         <div class="stat"><small>Best</small><b id="best">–</b></div>
         <div class="stat"><small>Score</small><b id="score">0</b></div>
@@ -63,7 +62,7 @@ export class Hud {
       <div class="hud" id="drift"><div id="driftPts">0</div><div id="driftStage"><i></i><i></i><i></i></div><div id="driftChain"></div></div>
       <div class="hud" id="meterWrap"><label>Boost</label><div id="meter"><div id="meterBank"></div><div id="meterFill"></div></div></div>
       <div class="hud" id="speedo"><svg viewBox="0 0 160 160" aria-hidden="true"><g id="gTicks"></g><circle class="track" cx="80" cy="80" r="${R}" pathLength="100"/><circle id="gBoost" cx="80" cy="80" r="${R}" pathLength="100"/><circle id="gFill" cx="80" cy="80" r="${R}" pathLength="100"/></svg><span id="spd">0</span><small>mph</small></div>
-      <div class="hud" id="hint"></div>
+      <div class="hud stat" id="lapBadge"><small>Lap</small><b id="lap">1/3</b></div>
       <div class="hud" id="debug"></div>`,
     );
   }
@@ -110,16 +109,20 @@ export class Hud {
     return $('debug').classList.toggle('on');
   }
 
-  /** The controls hint for the device in use (pad glyphs once a pad is used); dev keys in dev builds. */
+  /** The controls for the device in use (pad glyphs once a pad is used), for the pause menu; dev keys in dev builds. */
+  keys = '';
+
   setDevice(device: 'keyboard' | 'gamepad' | 'touch'): void {
     if (device === this.device) return;
     this.device = device;
     const k = (s: string) => `<kbd>${s}</kbd>`;
     const dev = import.meta.env.DEV ? ` · ${k('`')} editor · ${k('F2')} debug · ${k('F6')} ink` : '';
-    $('hint').innerHTML =
+    this.keys =
       device === 'gamepad'
         ? `${k('RT')}/${k('LT')} drive · ${k('RB')} drift · ${k('A')} boost · ${k('Y')} reset · ${k('B')} look back · ${k('Start')} pause`
         : `${k('WASD')}/${k('←↑→↓')} drive · ${k('Shift')} drift · ${k('Space')} boost · ${k('R')} reset · ${k('C')} look back · ${k('Esc')} pause · ${k('M')} sound · ${k('N')} music${dev} · ${k('F8')} felt wrong?`;
+    const el = document.getElementById('keys');
+    if (el) el.innerHTML = this.keys;
   }
 
   update(): void {
@@ -134,6 +137,7 @@ export class Hud {
     const laps = this.sim.race.laps;
     // Free drive has no race length: just the lap you're on.
     text('lap', racing ? `${Math.min(laps, c.lap[i] + 1)}/${laps}` : String(c.lap[i] + 1));
+    $('lapBadge').classList.toggle('final', racing && laps > 1 && c.lap[i] + 1 >= laps && !c.finished[i]);
     text('time', c.finished[i] ? fmt(c.finishTime[i]) : racing ? fmt(Math.max(0, this.sim.time - this.sim.race.goTime)) : fmt(this.sim.time - c.lapStartTime[i]));
     text('best', c.bestLap[i] ? fmt(c.bestLap[i]) : '–');
     text('score', Math.floor(c.score[i]).toLocaleString());
