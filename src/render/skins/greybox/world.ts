@@ -39,6 +39,7 @@ import { FADE_ATTR, fadeAttribute, fadeMaterial } from '../../fade';
 import { markInk, unmarkInk } from '../../ink';
 import { LampPoints, lampSpots, trafficModel, trafficModels } from './car/traffic';
 import { disposeTree } from './dispose';
+import { buildSmashVisual } from './smash';
 import { glow, toon } from './toon';
 
 const TRAFFIC_COLORS = [0xf2f2f2, 0x3a86ff, 0xffbe0b, 0x8338ec, 0x06d6a0, 0xef476f, 0x2a2a3a, 0xff7b00, 0x9bf6ff, 0xc9c1d9];
@@ -78,6 +79,10 @@ export function buildWorldVisual(scene: Scene, sim: Sim, roof?: (x: number, z: n
   const pos = new Vector3();
   const scl = new Vector3();
   const col = new Color();
+
+  // ---- smashables ----
+  const smash = buildSmashVisual(sim);
+  for (const o of smash.objects) root.add(o);
 
   // ---- traffic: each kind as instanced parts, with glowing lamps ----
   // A kind with a racer design is that car, flattened to one instanced mesh per material and ink
@@ -269,6 +274,7 @@ export function buildWorldVisual(scene: Scene, sim: Sim, roof?: (x: number, z: n
   return {
     update(dt, cam, time) {
       cursor = sim.events.read(cursor, onEvent);
+      smash.update(time);
       const tr = sim.world.traffic;
       // Pose traffic at the render time, like the cars: it's a formula, so it's exactly where it
       // should be between ticks, and so is how visible it is. Everything near the camera is drawn,

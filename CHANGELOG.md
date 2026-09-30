@@ -11,6 +11,9 @@ and where things stand is [docs/HANDOFF.md](./docs/HANDOFF.md).
   legs, and the falling sign is gone from the Valley. The AI field wrecks about half as often.
 
 ### Added
+- **Smashables:** cones and newspaper boxes Downtown, hay bales and mailboxes on Backroads,
+  beach umbrellas and fruit stands on Paradise. Drive through them for a burst, a pinch of boost
+  and some points. They're back 30 s later.
 - **Paradise's landmarks:** a shipwreck in the shallows and a whale breaching beyond it, a surf
   shack, a tiki head at the Lava Tube's mouth, and seaplanes on the lagoon. The lighthouse's beam
   now cuts through a shower's gloom.

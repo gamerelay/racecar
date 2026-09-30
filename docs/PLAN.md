@@ -164,7 +164,7 @@ roads and elevation changes.
   flies the jumps and takes the shortcuts clean, corners bank into the turn, the road is wide
   enough, the lap floor and wrecks are in range, and the sea is below the road everywhere.
 
-## Phase 6: landmarks (every map) — next
+## Phase 6: landmarks (every map) — done, PRs #26, #28–#30
 
 Small, distinct things you remember a lap by. They're built from the track and the same every
 race; some move, and a few you can hit.

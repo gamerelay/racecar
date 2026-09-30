@@ -121,8 +121,19 @@ editor edits are for trying things and get overwritten.
   near 415 with detailed traffic around).
 - **Clear of the road:** scenery keeps off every road's footprint and verge (`roadGap`) and off
   the water.
-- **Landmarks:** one per section, distinct in silhouette. A few move (a windmill, a whale), and
-  small props you can smash make the verge part of the game.
+- **Landmarks:** one per section, distinct in silhouette, in the layout (`landmarks`, from the
+  generator). A few move (a windmill, a whale), and some show the race (the clock tower's race
+  time, the billboard's leader).
+  - Place each where the road sees it. Check from the road in the browser: the Valley's cow stood
+    behind the village's houses, and Downtown's billboard behind a block of towers, until they
+    moved (or got a `view` sight line kept clear).
+  - Give it the ground it needs (`r`): the validator keeps roads that far off, and the scenery
+    leaves it empty.
+  - Keep each to a draw call or three: still boxes as one instanced mesh, merged dials and signs.
+- **Smashables:** rows of small props on the verge (`smashables`: a kind, a stretch, a spacing,
+  a side) make it part of the game. They're sim pieces: hitting one pays a pinch of boost and
+  costs a little speed, and it stands again 30 s later. Put them where drivers go wide (a corner's
+  outside, a sidewalk along a straight), on a shoulder with room for them (2 × radius + 0.4 m).
 
 ## Measuring
 

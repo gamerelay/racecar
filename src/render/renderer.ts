@@ -15,6 +15,7 @@ import { PostPass } from './post';
 import { Showroom } from './showroom';
 import type { CarPlate, CarVisual, SceneLive, Skin, TrackVisual, WorldVisual } from './skin';
 import { positions } from '../core/rules/progress';
+import { SMASH_IDS } from '../core/world/smash';
 import { Skids } from './skids';
 
 const STAGE_COLORS = [0xffffff, 0x35a8ff, 0xff8a1a, 0xff2e88];
@@ -40,6 +41,9 @@ export interface RenderOptions {
   /** Each car's license plate, by car index (none: blank plates). */
   plates?: (CarPlate | undefined)[];
 }
+
+/** A smashed prop's burst, in its colour. */
+const SMASH_BURST: Record<string, number> = { cone: 0xff7a1a, 'newspaper-box': 0x3a86ff, 'hay-bale': 0xe2c36a, mailbox: 0xb8bcc4, 'beach-umbrella': 0xff2e88, 'fruit-stand': 0xffd23f };
 
 export class GameRenderer {
   readonly renderer: WebGLRenderer;
@@ -501,6 +505,10 @@ export class GameRenderer {
           this.shake = Math.max(this.shake, Math.min(1, e.a / 20));
           this.impact = Math.max(this.impact, Math.min(0.5, e.a / 40));
         }
+        break;
+      case Ev.Smash:
+        this.fx.burst(e.x, e.y, e.z, 28, 5 + Math.min(8, e.a * 0.12), SMASH_BURST[SMASH_IDS[e.b]] ?? 0xffffff);
+        if (mine) this.shake = Math.max(this.shake, 0.12);
         break;
       case Ev.CarContact:
         this.fx.burst(e.x, e.y, e.z, Math.min(40, 6 + e.a * 2), 6 + e.a * 0.2, 0xffc060);

@@ -53,10 +53,13 @@ The third map is **Paradise** (`content/maps/paradise`, key `paradise/island`).
   Also in #24, the HUD tweaks: "Powerglide" (was "Drift boost"), a **Superman** for boosting
   through the air (`superT`, 1.5× air pay, `supermanMin`/`supermanPay`), and a bold outline
   on the countdown's numbers. SPEC "HUD tweaks".
+- **Smashables: in review** (branch `smashables`, stacked on `landmarks-paradise`). These close PLAN
+  phase 6. Sim pieces (`core/world/smash.ts`), placed from the layout's `smashables` rows, carried
+  in snapshots, back 30 s after a hit. A hit pays a pinch of boost and costs a little speed.
+  Greybox models in `render/skins/greybox/smash.ts`. SPEC "Smashables".
 - **Landmarks, part 3 (Paradise): in review** (branch `landmarks-paradise`, stacked on
   `landmarks-backroads`). A shipwreck, a breaching whale, a surf shack, a tiki head and seaplanes,
-  plus the lighthouse beam in the rain. Builders get `ctx.sea`. SPEC "Landmarks, part 3". Left in
-  phase 6: the smashables.
+  plus the lighthouse beam in the rain. Builders get `ctx.sea`. SPEC "Landmarks, part 3".
 - **Landmarks, part 2 (Backroads): in review** (branch `landmarks-backroads`, stacked on
   `valley-wrecks`). A cow, a water tower (`label`), a scarecrow, a windpump, a drive-in and a
   balloon. The forest keeps their ground (`marks`), and builders get `ctx.ground`. SPEC
@@ -292,13 +295,13 @@ Clockwise round a tropical island, the volcano in the middle and the sea all rou
 
 ## Next, in order
 
-1. **PLAN phase 6, landmarks (every map)** (phase 5, Paradise, is done and tagged `alpha-1.11`).
-   See PLAN.md. Worth doing alongside:
-   - (The Valley's field-wreck sweep is done: `valley-wrecks`, 1.13 a race.) Downtown's ~1.6 is
-     the one map left over MAPS.md's 1.5.
-   - The four issues the misdirected review found in gamerelay.io's merged PR #24 (platform, not
-     racecar). The worst: the room-code throttle runs before the room lookup, so a throttled
-     reconnect (`join_room` with `resume`) drops players from their room on a shared address.
+1. **Merge PLAN phase 6** (PRs #26–#30, stacked, CI green, reviewed and fixed): Downtown's
+   landmarks (#26), the Valley's wrecks (#27), Backroads' landmarks (#28), Paradise's (#29) and
+   the smashables (#30). Merge in order without `--delete-branch` on all but the last, then tag
+   (`alpha-1.12`: retitle CHANGELOG's "Unreleased"). The last of the PLAN's phases.
+   - Worth a sweep next: Downtown's field wrecks, ~1.6 a race, the one map over MAPS.md's 1.5.
+   - gamerelay.io's four audit follow-ups are its PR #35 (platform, not racecar): not deployed.
+     Production and both relays need it.
 2. **Milestone 3 (online), per the spec:**
    - A `relay` LobbyBackend (`src/lobby/backend.ts`): lobbies as rooms with `setListing`, the
      list from `listRooms('race', { includeFull: true })`, and actions sent to the host, who

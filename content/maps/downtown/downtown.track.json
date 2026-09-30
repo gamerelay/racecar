@@ -753,5 +753,31 @@
     "draw": 448
    }
   }
+ ],
+ "smashables": [
+  {
+   "kind": "newspaper-box",
+   "s": [
+    30,
+    380
+   ],
+   "every": 45
+  },
+  {
+   "kind": "cone",
+   "s": [
+    2411,
+    2520
+   ],
+   "every": 9
+  },
+  {
+   "kind": "cone",
+   "s": [
+    2655,
+    2711
+   ],
+   "every": 5
+  }
  ]
 }

@@ -3422,6 +3422,34 @@
    }
   }
  ],
+ "smashables": [
+  {
+   "kind": "hay-bale",
+   "s": [
+    130,
+    280
+   ],
+   "every": 24
+  },
+  {
+   "kind": "mailbox",
+   "s": [
+    2800,
+    2915
+   ],
+   "every": 28,
+   "side": 1
+  },
+  {
+   "kind": "mailbox",
+   "s": [
+    15,
+    110
+   ],
+   "every": 28,
+   "side": -1
+  }
+ ],
  "trestles": true,
  "terrain": {
   "river": [

@@ -353,6 +353,9 @@ export class GameAudio {
           this.horn(0.14, pan);
         }
         break;
+      case Ev.Smash:
+        this.play(at(0.3), pan, (s) => noiseShot(s, 'bandpass', 1500, 500, 0.002, 0.16, 1.2));
+        break;
       case Ev.TrafficCheck:
         this.play(at(0.45), pan, (s) => noiseShot(s, 'lowpass', 1200, 250, 0.002, 0.25, 0.8));
         this.horn(at(0.12), pan);

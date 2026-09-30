@@ -45,6 +45,8 @@ export const Ev = {
   ChainLost: 27,
   /** A clean landing paid for the air time. a = boost paid (0..1 of a bar), b = seconds in the air, other = 1 for a Superman (boosted through it). */
   AirBoost: 28,
+  /** car smashed a smashable. a = its speed, b = the prop's kind (SMASH_KINDS). */
+  Smash: 29,
 } as const;
 export type Ev = (typeof Ev)[keyof typeof Ev];
 
@@ -76,6 +78,8 @@ export const EV_NAMES: Record<number, string> = {
   25: 'drift_boost',
   26: 'drift_chain',
   27: 'chain_lost',
+  28: 'air_boost',
+  29: 'smash',
 };
 
 /** Wreck causes, in `GameEvent.b` of a Wreck. */

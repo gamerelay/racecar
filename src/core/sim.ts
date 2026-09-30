@@ -22,6 +22,7 @@ import { mainDistance, type Track } from './track/bake';
 import { newHit, projectGlobal, sampleAt } from './track/query';
 import { Hazards, type Mayhem } from './world/hazards';
 import { Traffic } from './world/traffic';
+import { Smashables } from './world/smash';
 import { planWeather, weatherAt, type WeatherOption, type WeatherPlan, type WeatherState } from './world/weather';
 
 export const TICK_RATE = 60;
@@ -73,7 +74,7 @@ export class Sim implements SimState {
   wetness = 0;
   weatherPlan: WeatherPlan;
   readonly weatherState: WeatherState = { wetness: 0, grip: 1, wet: false, visibility: 1 };
-  world: { traffic: Traffic; hazards: Hazards };
+  world: { traffic: Traffic; hazards: Hazards; smash: Smashables };
   race: RaceState = { phase: 'free', goTime: 0, laps: 3, finishedCount: 0 };
   private readonly grid = new SpatialGrid(16, 1024, MAX_CARS);
   private readonly isActive = (i: number) => this.cars.active[i] === 1;
@@ -100,13 +101,13 @@ export class Sim implements SimState {
     this.controls = Array.from({ length: MAX_CARS }, neutralControls);
     this.weatherPlan = planWeather(opts.weather ?? 'clear', this.seed, opts.weatherAllowed);
     this.world = this.buildWorld(track);
-    this.ctx = { traffic: this.world.traffic, hazards: this.world.hazards, t: 0, tPrev: 0, prevMain: new Float64Array(MAX_CARS) };
+    this.ctx = { traffic: this.world.traffic, hazards: this.world.hazards, smash: this.world.smash, t: 0, tPrev: 0, prevMain: new Float64Array(MAX_CARS) };
     this.applyWeather();
   }
 
-  private buildWorld(track: Track): { traffic: Traffic; hazards: Hazards } {
+  private buildWorld(track: Track): { traffic: Traffic; hazards: Hazards; smash: Smashables } {
     const traffic = new Traffic(track, this.seed, this.options.traffic ?? 1);
-    return { traffic, hazards: new Hazards(track, traffic, this.seed, this.options.mayhem ?? 'normal') };
+    return { traffic, hazards: new Hazards(track, traffic, this.seed, this.options.mayhem ?? 'normal'), smash: new Smashables(track) };
   }
 
   private applyWeather(): void {
@@ -204,6 +205,7 @@ export class Sim implements SimState {
     this.world = this.buildWorld(track);
     this.ctx.traffic = this.world.traffic;
     this.ctx.hazards = this.world.hazards;
+    this.ctx.smash = this.world.smash;
     const c = this.cars;
     for (let i = 0; i < c.count; i++) {
       c.spline[i] = 0;
@@ -383,6 +385,7 @@ export class Sim implements SimState {
       race: { ...this.race },
       trafficWrecked: Array.from(this.world.traffic.wreckedAt),
       triggered: this.world.hazards.triggered.map((x) => [...x] as [number, number, number, number]),
+      smashed: this.world.smash.broken(this.time),
       cars: snapshotCars(this.cars),
     };
   }
@@ -395,6 +398,7 @@ export class Sim implements SimState {
     if (s.race) this.race = { ...s.race };
     if (s.trafficWrecked) this.world.traffic.wreckedAt.set(s.trafficWrecked);
     this.world.hazards.restoreTriggered(s.triggered ?? [], this.time);
+    this.world.smash.restore(s.smashed ?? []);
     restoreCars(this.cars, s.cars);
     this.applyWeather();
   }
@@ -408,5 +412,7 @@ export interface SimSnapshot {
   race: RaceState;
   trafficWrecked: number[];
   triggered: [number, number, number, number][];
+  /** Smashables down: [index, world time smashed]. */
+  smashed?: [number, number][];
   cars: ReturnType<typeof snapshotCars>;
 }
