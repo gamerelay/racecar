@@ -1,12 +1,14 @@
 // The garage: every car on a stretch of road under the greybox sky, with the game's post pass, so
 // car art can be worked on without driving. Dev tool; state lives in the URL so a view can be shared.
 //
-//   1–4 class · 0 lineup · P paint · V view · C compare with the old boxes · M palette
+//   1–7 class (5–7: sedan, bus, rally, not player classes) · 0 lineup · P paint · V view · C compare with the old boxes · M palette
 //   O ink · K car ink · F post · W wreck (R repairs) · hold B brake · hold Space boost · ←/→ steer
 //   S stop the road
 
 import { BoxGeometry, type Fog, Group, Mesh, PerspectiveCamera, PlaneGeometry, Scene, Vector3, WebGLRenderer } from 'three';
 import { CLASSES, PAINTS } from '../content';
+import type { CarClass } from '../core/content';
+import { TRAFFIC_KINDS } from '../core/world/traffic';
 import type { CarVisual } from '../render/skin';
 import { InkPass } from '../render/ink';
 import { PostPass } from '../render/post';
@@ -17,6 +19,15 @@ import { toon } from '../render/skins/greybox/toon';
 const VIEWS = ['chase', 'orbit', 'rear34', 'side', 'front34', 'top'] as const;
 type View = (typeof VIEWS)[number];
 const PALETTE_NAMES = ['dusk', 'midnight', 'golden'];
+/** Designs with no player class: traffic at its traffic size, and the rally car at hatch size. */
+const kind = (id: string) => TRAFFIC_KINDS.find((k) => k.id === id)!;
+const sized = (id: string, name: string, size: [number, number, number]): CarClass => ({ ...CLASSES[2], id, name, size });
+const SHOWN: CarClass[] = [
+  ...CLASSES,
+  sized('sedan', 'Sedan (traffic)', [kind('sedan').hw, kind('sedan').hl, kind('sedan').hh]),
+  sized('bus', 'Bus (traffic)', [kind('bus').hw, kind('bus').hl, kind('bus').hh]),
+  sized('rally', 'Rally', [0.95, 1.97, 0.78]),
+];
 
 const q = new URLSearchParams(location.search);
 const state = {
@@ -48,6 +59,8 @@ let skin: GreyboxSkin;
 interface Shown {
   v: CarVisual;
   x: number;
+  /** Where it sits along the road in a side-on lineup. */
+  z: number;
   /** Viewer-only wreck tumble: seconds since the hit (−1: driving), velocity, spin. */
   t: number;
   vy: number;
@@ -120,15 +133,22 @@ function rebuild(): void {
   road = buildRoad();
   scene.add(road);
   const paint = PAINTS.find((p) => p.id === state.paint) ?? PAINTS[0];
-  const classes = state.cls === 'all' ? CLASSES : CLASSES.filter((c) => c.id === state.cls);
+  const classes = state.cls === 'all' ? SHOWN : SHOWN.filter((c) => c.id === state.cls);
   cars = [];
-  const place = (v: CarVisual, x: number) => {
+  const place = (v: CarVisual, x: number, z = 0) => {
     v.root.position.x = x;
     scene.add(v.root);
-    cars.push({ v, x, t: -1, vy: 0, w: [0, 0, 0] });
+    cars.push({ v, x, z, t: -1, vy: 0, w: [0, 0, 0] });
   };
   if (state.cls === 'all') {
-    classes.forEach((c, i) => place(skin.car(c, PAINTS[(PAINTS.indexOf(paint) + i) % PAINTS.length]), (i - 1.5) * 3.6));
+    // Across the road for the chase views; nose to tail by length for the side view.
+    const total = classes.reduce((a, c) => a + c.size[1] * 2 + 1.2, -1.2);
+    let z = total / 2;
+    classes.forEach((c, i) => {
+      z -= c.size[1];
+      place(skin.car(c, PAINTS[(PAINTS.indexOf(paint) + i) % PAINTS.length]), (i - (classes.length - 1) / 2) * 3.6, z);
+      z -= c.size[1] + 1.2;
+    });
   } else if (state.compare) {
     // +x is screen-left from behind: old on the left, new on the right.
     place(buildLegacyCar(classes[0], paint), 1.8);
@@ -160,13 +180,17 @@ function resize(): void {
 }
 
 function placeCamera(): void {
-  const wide = cars.length > 1 ? 1.7 : 1;
-  const look = new Vector3(0, 0.8, 0);
+  // Back off for a lineup, and for anything longer than the van (the bus), up as well as back.
+  const one = SHOWN.find((c) => c.id === state.cls);
+  const big = one ? Math.max(1, one.size[1] / 2.4) : 1;
+  const wide = cars.length > 1 ? (1.7 * cars.length) / 4 : big;
+  const lift = cars.length > 1 ? 1 : big;
+  const look = new Vector3(0, 0.8 * lift, 0);
   camera.fov = 62;
   switch (state.view) {
     case 'chase':
-      camera.position.set(0, 2.35, -5.9 * wide);
-      look.set(0, 1.1, 12);
+      camera.position.set(0, 2.35 * lift, -5.9 * wide);
+      look.set(0, 1.1 * lift, 12);
       break;
     case 'orbit':
       camera.fov = 40;
@@ -174,16 +198,17 @@ function placeCamera(): void {
       break;
     case 'rear34':
       camera.fov = 40;
-      camera.position.set(4.8 * wide, 1.9, -6.5 * wide);
+      camera.position.set(4.8 * wide, 1.9 * lift, -6.5 * wide);
       break;
     case 'front34':
       camera.fov = 40;
-      camera.position.set(-5 * wide, 1.7, 6.6 * wide);
+      camera.position.set(-5 * wide, 1.7 * lift, 6.6 * wide);
       break;
     case 'side':
-      camera.fov = cars.length > 1 ? 58 : 36;
-      camera.position.set(cars.length > 1 ? 12.5 : 10, 1.2, 0);
-      look.set(0, 0.8, 0);
+      // Inside the blocks at x = ±17: a long lineup gets a wider lens, not a farther camera.
+      camera.fov = cars.length > 1 ? 58 + (cars.length - 4) * 7 : 36;
+      camera.position.set(cars.length > 1 ? 16 : 10 * big, 1.2 * lift, 0);
+      look.set(0, 0.8 * lift, 0);
       break;
     case 'top':
       camera.fov = 40;
@@ -217,7 +242,7 @@ function frame(now: number): void {
   for (const c of cars) {
     const r = c.v.root;
     if (c.t < 0) {
-      r.position.set(along ? 0 : c.x, 0, along ? c.x * 1.6 : 0);
+      r.position.set(along ? 0 : c.x, 0, along ? c.z : 0);
       r.rotation.set(0, steer * 0.08, -steer * 0.03);
     } else {
       // A cheap wreck body: up, over, down, settle.
@@ -268,7 +293,7 @@ function frame(now: number): void {
   }
   hud.textContent =
     `${state.cls === 'all' ? 'lineup' : state.cls}${state.compare ? '  (old | new)' : ''} · ${state.paint} · ${state.view} · ${state.palette}   ${calls} draws\n` +
-    `1–4 class · 0 lineup · P paint · V view · C compare · M palette · O ink${state.carInk ? '' : ' (car ink off: K)'} · K car ink · F post · S road\nW wreck · R repair · hold B brake · Space boost · ←/→ steer · drag to orbit`;
+    `1–7 class · 0 lineup · P paint · V view · C compare · M palette · O ink${state.carInk ? '' : ' (car ink off: K)'} · K car ink · F post · S road\nW wreck · R repair · hold B brake · Space boost · ←/→ steer · drag to orbit`;
   requestAnimationFrame(frame);
 }
 
@@ -294,8 +319,8 @@ function repair(c: Shown): void {
 window.addEventListener('keydown', (e) => {
   keys.add(e.key.length === 1 ? e.key.toLowerCase() : e.key);
   const k = e.key.toLowerCase();
-  const ids = CLASSES.map((c) => c.id);
-  if (k >= '1' && k <= '4') state.cls = ids[Number(k) - 1];
+  const ids = SHOWN.map((c) => c.id);
+  if (k >= '1' && k <= String(ids.length)) state.cls = ids[Number(k) - 1];
   else if (k === '0') state.cls = 'all';
   else if (k === 'p') state.paint = PAINTS[(PAINTS.findIndex((p) => p.id === state.paint) + (e.shiftKey ? PAINTS.length - 1 : 1)) % PAINTS.length].id;
   else if (k === 'v') state.view = VIEWS[(VIEWS.indexOf(state.view) + 1) % VIEWS.length];

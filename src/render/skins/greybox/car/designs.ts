@@ -2,10 +2,12 @@
 // camera sees. Coordinates are meters in the car's frame: +z is the nose, y is up from the road.
 // Each class should read at a glance from behind: the coupe's light bar and wing, the muscle car's
 // quad pipes and round tails, the hatch's tall glass and vertical lamps, the van's slab back.
+// The last three aren't player classes yet: the sedan and the bus are traffic, the rally car is
+// here for when the sim grows a class for it (SPEC, "Car art").
 
 import type { Livery } from './paint';
 
-export type TailStyle = 'bar' | 'round' | 'vertical' | 'block';
+export type TailStyle = 'bar' | 'round' | 'vertical' | 'block' | 'rect';
 export type HeadStyle = 'slit' | 'round' | 'square' | 'wide';
 export type ExhaustStyle = 'twin' | 'quad' | 'side' | 'none';
 
@@ -41,6 +43,36 @@ export interface CarDesign {
   /** Door cut lines along each flank (z), drawn as ink seams. */
   doors?: number[];
   livery: Livery;
+  /** Band livery height range (y), when the default car-height band is wrong (the bus). */
+  band?: [number, number];
+  /** Glass set into a painted cabin: side panes (z0, z1, y0, y1) and and the back glass (one pane, or a pair at ±x). */
+  sideWindows?: [number, number, number, number][];
+  rearWindow?: { x: number; w: number; y: number; h: number };
+  /** Hood and trunk lids cut out of the body top (default on). Off for bodies with no real deck. */
+  lids?: boolean;
+  /** Gap between tyre and arch (default 0.08): bigger reads as raised suspension. */
+  archGap?: number;
+  /** Door mirrors (default), bus mirrors reaching forward from the roof corners, or none. */
+  mirrors?: 'car' | 'bus';
+  /** Glass doors on the right (−x) flank, sill to window top: (z0, z1). */
+  glassDoors?: [number, number][];
+  /** A lit destination sign across the top of the screen. */
+  destination?: boolean;
+  /** A box on the roof (the bus's AC unit): center z, length, width as a fraction of the roof, height. */
+  roofBox?: { z: number; l: number; w: number; h: number };
+  /** Rally bits: flaps behind the wheels, a scoop at the front of the roof, a pod of lamps on the nose. */
+  mudFlaps?: boolean;
+  roofScoop?: boolean;
+  lightPod?: boolean;
+}
+
+/** Bus side glass: panes of `pane` meters with `gap`-wide painted pillars between, from z0 back to z1. */
+function panes(z0: number, z1: number, n: number, y0: number, y1: number, gap = 0.12): [number, number, number, number][] {
+  const pane = (z0 - z1 - gap * (n - 1)) / n;
+  return Array.from({ length: n }, (_, i) => {
+    const a = z0 - i * (pane + gap);
+    return [a - pane, a, y0, y1] as [number, number, number, number];
+  });
 }
 
 export const DESIGNS: Record<string, CarDesign> = {
@@ -175,5 +207,124 @@ export const DESIGNS: Record<string, CarDesign> = {
     roofRack: true,
     doors: [1.45, 0.1, -1.55],
     livery: 'band',
+    sideWindows: [
+      [0.15, 0.95, 1.3, 1.85],
+      [-1.5, -0.3, 1.35, 1.85],
+    ],
+    rearWindow: { x: 0.45, w: 0.72, y: 1.66, h: 0.42 },
+  },
+  // Sedan: the forgettable one you smash into. Three boxes, upright glass, a proper trunk step,
+  // plain rectangular lamps, four doors.
+  sedan: {
+    body: [
+      [2.25, 0.32],
+      [2.27, 0.6],
+      [2.17, 0.74],
+      [1.1, 0.86],
+      [-1.4, 0.9],
+      [-2.13, 0.93],
+      [-2.25, 0.87],
+      [-2.25, 0.32],
+    ],
+    sill: 0.33,
+    cabin: [
+      [1.12, 0.84],
+      [0.35, 1.4],
+      [-0.85, 1.42],
+      [-1.42, 0.94],
+      [-1.42, 0.86],
+    ],
+    cabinBase: 0.87,
+    cabinRoof: 0.72,
+    // Gentle: more pinch than this creases the long flat flank in the ink pass.
+    noseTaper: 0.03,
+    tailTaper: 0.02,
+    wheel: { r: 0.33, w: 0.25, front: 1.42, rear: -1.4 },
+    head: { style: 'square', y: 0.64 },
+    tail: { style: 'rect', y: 0.76, h: 0.14 },
+    exhaust: 'side',
+    pillar: -0.25,
+    doors: [1.05, -0.2, -1.3],
+    livery: 'none',
+  },
+  // City bus: a long painted box with a strip of glass down each side, a flat screen under a lit
+  // destination sign, small wheels set in from the ends, glass doors on the curb side, an AC unit.
+  bus: {
+    body: [
+      [5.2, 0.42],
+      [5.22, 1.05],
+      [5.18, 1.28],
+      [-5.18, 1.28],
+      [-5.2, 1.2],
+      [-5.2, 0.42],
+    ],
+    sill: 0.45,
+    cabin: [
+      [5.17, 1.22],
+      [5.08, 2.86],
+      [4.96, 3.0],
+      [-5.08, 3.0],
+      [-5.17, 2.9],
+      [-5.17, 1.22],
+    ],
+    cabinBase: 0.99,
+    cabinRoof: 0.95,
+    cabinPainted: true,
+    // Square in plan: any pinch creases ten meters of flat flank.
+    noseTaper: 0,
+    tailTaper: 0,
+    wheel: { r: 0.5, w: 0.32, front: 3.1, rear: -2.75 },
+    head: { style: 'square', y: 0.78 },
+    tail: { style: 'block', y: 1.0, h: 0.5 },
+    exhaust: 'none',
+    livery: 'band',
+    band: [0.92, 1.18],
+    sideWindows: panes(4.7, -4.85, 6, 1.5, 2.45),
+    rearWindow: { x: 0, w: 1.9, y: 2.28, h: 0.62 },
+    lids: false,
+    mirrors: 'bus',
+    glassDoors: [
+      [3.75, 4.85],
+      [-0.35, 0.85],
+    ],
+    destination: true,
+    roofBox: { z: -1.2, l: 2.8, w: 0.62, h: 0.3 },
+  },
+  // Rally: a boxy hatch jacked up on chunky tyres, mud flaps, a roof scoop, a big wing, a pod of
+  // lamps on the nose and a loud livery.
+  rally: {
+    body: [
+      [1.95, 0.42],
+      [1.98, 0.7],
+      [1.88, 0.82],
+      [0.95, 0.96],
+      [-1.8, 1.04],
+      [-1.95, 1.02],
+      [-1.95, 0.42],
+    ],
+    sill: 0.44,
+    cabin: [
+      [0.98, 0.94],
+      [0.25, 1.5],
+      [-1.55, 1.53],
+      [-1.9, 1.08],
+      [-1.9, 1.0],
+    ],
+    cabinBase: 0.88,
+    cabinRoof: 0.76,
+    noseTaper: 0.1,
+    tailTaper: 0.05,
+    wheel: { r: 0.37, w: 0.34, front: 1.3, rear: -1.28 },
+    archGap: 0.17,
+    head: { style: 'square', y: 0.72 },
+    tail: { style: 'vertical', y: 0.86, h: 0.32 },
+    exhaust: 'side',
+    wing: { y: 1.62, z: -1.78, chord: 0.46 },
+    pillar: -0.45,
+    doors: [0.9, -0.4],
+    mudFlaps: true,
+    roofScoop: true,
+    lightPod: true,
+    livery: 'rally',
   },
 };

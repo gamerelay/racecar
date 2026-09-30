@@ -1,5 +1,6 @@
-// Greybox visuals for the world systems: traffic (instanced, one mesh per kind, posed at the exact
-// render time since traffic is a formula), wrecked traffic tumbling as cosmetic debris (category L),
+// Greybox visuals for the world systems: traffic (instanced, posed at the exact render time since
+// traffic is a formula; kinds with a car design are that car flattened, the rest are boxes),
+// wrecked traffic tumbling as cosmetic debris (category L),
 // hazard pieces and telegraph markers, sign gantries, and rain.
 
 import {
@@ -30,7 +31,9 @@ import type { Sim } from '../../../core/sim';
 import { sampleAt, newHit } from '../../../core/track/query';
 import { Piece } from '../../../core/world/hazards';
 import { TRAFFIC_KINDS } from '../../../core/world/traffic';
+import { markInk } from '../../ink';
 import type { WorldVisual } from '../../skin';
+import { trafficModel } from './car/traffic';
 import { toon } from './toon';
 
 const TRAFFIC_COLORS = [0xf2f2f2, 0x3a86ff, 0xffbe0b, 0x8338ec, 0x06d6a0, 0xef476f, 0x2a2a3a, 0xff7b00, 0x9bf6ff, 0xc9c1d9];
@@ -60,6 +63,7 @@ export function buildWorldVisual(scene: Scene, sim: Sim): WorldVisual {
   const root = new Group();
   scene.add(root);
   const m = new Matrix4();
+  const m2 = new Matrix4();
   const q = new Quaternion();
   const e = new Object3D();
   const pos = new Vector3();
@@ -69,6 +73,19 @@ export function buildWorldVisual(scene: Scene, sim: Sim): WorldVisual {
   // ---- traffic: body + cabin per kind, instanced ----
   const bodyMat = toon();
   const glassMat = toon({ color: 0x243a66 });
+  // Kinds with a design are drawn as that car: one instanced mesh per material and ink id, with
+  // room for the debris too (a wrecked one tumbles as itself).
+  const models = TRAFFIC_KINDS.map((k) => {
+    const parts = trafficModel(k.id, [k.hw, k.hl, k.hh]);
+    return parts?.map((p) => {
+      const mesh = new InstancedMesh(p.geometry, p.material, MAX_TRAFFIC + DEBRIS);
+      mesh.count = 0;
+      mesh.frustumCulled = false;
+      if (p.ink !== undefined) markInk(mesh as unknown as Mesh, p.ink, p.inkOnly);
+      root.add(mesh);
+      return { mesh, tint: p.tint };
+    });
+  });
   const bodies = TRAFFIC_KINDS.map((k) => {
     const body = new InstancedMesh(new BoxGeometry(k.hw * 2, k.hh * 1.2, k.hl * 2), bodyMat, MAX_TRAFFIC);
     const cabin = new InstancedMesh(new BoxGeometry(k.hw * 1.8, k.hh * 0.7, k.hl * (k.big ? 1.9 : 1.0)), glassMat, MAX_TRAFFIC);
@@ -176,9 +193,27 @@ export function buildWorldVisual(scene: Scene, sim: Sim): WorldVisual {
       const tr = sim.world.traffic;
       // Pose traffic at the render time: it's a formula, so it's exactly where it should be.
       for (const b of bodies) b.body.count = b.cabin.count = 0;
+      for (const ms of models) for (const p of ms ?? []) p.mesh.count = 0;
+      const put = (ms: { mesh: InstancedMesh; tint: boolean }[], mat: Matrix4, color: number) => {
+        col.setHex(color);
+        for (const p of ms) {
+          if (p.mesh.count >= MAX_TRAFFIC + DEBRIS) continue;
+          const n = p.mesh.count++;
+          p.mesh.setMatrixAt(n, mat);
+          if (p.tint) p.mesh.setColorAt(n, col);
+        }
+      };
       for (let p = 0; p < tr.posed; p++) {
         const k = tr.idx[p];
         const kind = TRAFFIC_KINDS[tr.kind[k]];
+        const ms = models[tr.kind[k]];
+        if (ms) {
+          e.position.set(tr.x[p], tr.y[p], tr.z[p]);
+          e.rotation.set(0, tr.h[p], 0);
+          e.updateMatrix();
+          put(ms, e.matrix, trafficColor(k));
+          continue;
+        }
         const b = bodies[tr.kind[k]];
         e.position.set(tr.x[p], tr.y[p] + kind.hh * 0.6 + 0.35, tr.z[p]);
         e.rotation.set(0, tr.h[p], 0);
@@ -212,8 +247,10 @@ export function buildWorldVisual(scene: Scene, sim: Sim): WorldVisual {
         d.h += d.wy * dt;
         d.rx += d.wx * dt;
         d.rz += d.wz * dt;
-        if (d.y < 0.9 + d.ground) {
-          d.y = 0.9 + d.ground;
+        // Rests on its middle: the box's, or a designed car's half height.
+        const rest = models[d.kind] ? TRAFFIC_KINDS[d.kind].hh : 0.9;
+        if (d.y < rest + d.ground) {
+          d.y = rest + d.ground;
           d.vy *= -0.3;
           d.vx *= 0.7;
           d.vz *= 0.7;
@@ -223,9 +260,18 @@ export function buildWorldVisual(scene: Scene, sim: Sim): WorldVisual {
       }
       debrisMeshes.forEach((mesh, k) => {
         const d = debris[k];
-        mesh.visible = !!d;
+        const ms = d && models[d.kind];
+        mesh.visible = !!d && !ms;
         if (!d) return;
         const kind = TRAFFIC_KINDS[d.kind];
+        if (ms) {
+          // The car itself, spun about its middle (its origin is on the road, hh below).
+          e.position.set(d.x, d.y, d.z);
+          e.rotation.set(d.rx, d.h, d.rz, 'YXZ');
+          e.updateMatrix();
+          put(ms, m.multiplyMatrices(e.matrix, m2.makeTranslation(0, -kind.hh, 0)), d.color);
+          return;
+        }
         mesh.position.set(d.x, d.y, d.z);
         mesh.rotation.set(d.rx, d.h, d.rz, 'YXZ');
         mesh.scale.set(kind.hw * 2, kind.hh * 1.6, kind.hl * 2);
@@ -249,6 +295,12 @@ export function buildWorldVisual(scene: Scene, sim: Sim): WorldVisual {
           e.updateMatrix();
           signs.setMatrixAt(signs.count++, e.matrix);
           e.scale.set(1, 1, 1);
+        }
+      }
+      for (const ms of models) {
+        for (const p of ms ?? []) {
+          p.mesh.instanceMatrix.needsUpdate = true;
+          if (p.mesh.instanceColor) p.mesh.instanceColor.needsUpdate = true;
         }
       }
       logs.instanceMatrix.needsUpdate = true;

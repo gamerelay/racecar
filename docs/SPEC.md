@@ -884,3 +884,11 @@ Car art (branch `car-models`, 2026-09-30):
   lids spring open or tear off, wing, mirrors, plate, splitter and sometimes a wheel fly off,
   glass cracks and shards spray. The renderer infers where the car was hit (the other car, or
   the nose for walls) from the Wreck event, so the sim is unchanged; `repair()` on Respawn.
+- **Traffic and rally designs** (branch `car-variety`): three designs with no player class, a
+  sedan and a city bus (10.4 m) for traffic and a rally car. Traffic kinds with a design
+  (`sedan`, `van`, `bus` in `core/world/traffic.ts`) are drawn as that car flattened into one
+  instanced mesh per material and ink id (`car/traffic.ts`), tinted per instance, with a wrecked
+  one tumbling as itself; `compact` and `truck` stay boxes until they get designs (a compact
+  could reuse the hatch or a shortened sedan). The rally car hooks in by adding a class JSON with
+  id `rally` to `content/cars` and `CLASSES`: `buildCar` looks designs up by class id, so the
+  skin needs nothing more. Garage: keys 5–7, and the lineup (0) shows all seven.
