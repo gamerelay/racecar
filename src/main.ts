@@ -55,7 +55,7 @@ const lobbies = new LocalBackend(storage());
 const plate = loadPlate(storage());
 // Behind a lobby, its map runs.
 const lobbyMap = params.get('lobby') ? lobbies.peek(params.get('lobby')!)?.options.map : undefined;
-const run: RaceSetup = setup ?? { mode: 'race', map: resolveLayout(params.get('map') ?? lobbyMap, LAYOUT_KEYS) ?? DEFAULT_LAYOUT, car: 'coupe', paint: 0, seats: 'hnehnehn', laps: 3, weather: 'random', time: 'random', mayhem: 'normal', traffic: true, seed: Math.floor(Math.random() * 1e9) };
+const run: RaceSetup = setup ?? { mode: 'race', map: resolveLayout(params.get('map') ?? lobbyMap, LAYOUT_KEYS) ?? DEFAULT_LAYOUT, car: 'coupe', paint: 0, seats: 'hnehnehn', laps: 3, weather: 'random', time: 'day', mayhem: 'normal', traffic: true, seed: Math.floor(Math.random() * 1e9) };
 let layoutKey = resolveLayout(run.map, LAYOUT_KEYS) ?? DEFAULT_LAYOUT;
 
 let layout: TrackLayout = structuredClone(LAYOUTS[layoutKey] ?? Object.values(LAYOUTS)[0]);
@@ -120,10 +120,10 @@ function preview(p: Preview | null): void {
     if (key && key !== layoutKey) swapMap(key, p.weather, previewTime(p.time));
     else {
       if (p.weather !== weatherShown) sim.setWeather(p.weather, map.weather);
-      if (p.time !== timeShown) renderer.setMap(paletteFor(map, previewTime(p.time), run.seed));
+      if (previewTime(p.time) !== timeShown) renderer.setMap(paletteFor(map, previewTime(p.time), run.seed));
     }
     weatherShown = p.weather;
-    timeShown = p.time;
+    timeShown = previewTime(p.time);
   }
   const car = p?.car && CLASSES.find((c) => c.id === p.car!.car);
   if (!p?.car || !car) return renderer.showroom.hide();

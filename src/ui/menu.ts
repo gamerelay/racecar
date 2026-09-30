@@ -371,9 +371,9 @@ export class Menu {
             <div class="opts">${this.optionFields(o, !host)}</div>
           </aside>
         </div>
+        <p class="muted">${host ? 'You host: set each seat from its row. ' : ''}Online lobbies arrive with milestone 3; for now it's you and the bots.</p>
         <div class="row">${host ? '<button id="lStart">Start race</button>' : `<button id="lReady">${mine >= 0 && lobby.seats[mine].kind === 'player' && lobby.seats[mine].ready ? 'Not ready' : 'Ready'}</button>`}
           <button id="lBack" class="ghost">Title</button><button id="lLeave" class="ghost danger">${host && s.players === 1 ? 'Close lobby' : 'Leave'}</button></div>
-        <p class="muted">${host ? 'You host: set each seat from its row. ' : ''}Online lobbies arrive with milestone 3; for now it's you and the bots.</p>
       </div>
       <div class="stage" aria-hidden="true"></div>
       ${mine >= 0 ? this.carPanel(yours) : ''}`,
