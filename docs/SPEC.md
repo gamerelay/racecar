@@ -1102,3 +1102,5 @@ road, and smoother edges; shortcuts (the city's alley most) met the main road ro
   could dodge it; just past the Barn's exit, cars leaving the barn don't see it in time);
   the Trestle's traffic on a straight trestle after a curve (traffic sections need straights).
   AI wrecks per race: v2 0.76, v3 0.88; the lap is 7 s quicker (77.5 to 70.6 s, AI field).
+- **HUD:** the key hints left the bottom-left corner for the pause menu (Esc or ✕ Menu), for the
+  device in use; the lap moved there instead, as a bigger badge, gold on the final lap.
