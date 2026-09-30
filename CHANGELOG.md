@@ -58,7 +58,16 @@ PRs #14 and #16: phases 1 (the quick wins) and 2 (the title screen and lobbies) 
 - The race setup card is gone; its choices are split between Create lobby and the lobby. Old
   links (`opponents`, `difficulty`) still start the race they meant.
 
+### Added
+- **Marketing art and link previews:** `poster.html` (dev) stages shots on the real tracks with
+  the game's cars, wrecks, particles, skid marks, post pass and ink, frozen at a seeded moment;
+  `bun tools/poster.ts` renders them all into `marketing/` through headless Chrome. The og:image
+  (`public/og.png`) and Open Graph and Twitter tags are on `index.html`.
+- **Favicon and meta:** crossed chequered flags (16, 32, 192, 512 and an Apple touch icon), a web
+  manifest, canonical URL, theme colour, app titles and JSON-LD; the dev pages are `noindex`.
+
 ### Docs
+- **docs/CARS.md:** how the cars are designed and built, the process, lessons, and adding a car.
 - **docs/MAPS.md:** how maps are made and what makes a good lap (rhythm, drift corners, width,
   banking, height, shortcuts, traffic, hazards, scenery, measuring, and a new-map checklist).
 - **docs/PLAN.md:** the plan for lobbies, plates, the car select screen, Paradise and landmarks.

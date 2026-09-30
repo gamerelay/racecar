@@ -1,0 +1,15 @@
+{
+  "name": "Racecar",
+  "short_name": "Racecar",
+  "description": "An arcade racer in your browser: drift, boost and take your rivals down through traffic at dusk.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "fullscreen",
+  "orientation": "landscape",
+  "background_color": "#0d0620",
+  "theme_color": "#0d0620",
+  "icons": [
+    { "src": "/favicon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/favicon-512.png", "sizes": "512x512", "type": "image/png" }
+  ]
+}

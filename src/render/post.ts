@@ -42,6 +42,8 @@ export class PostPass {
     tInk: { value: null as unknown },
     tInkDepth: { value: null as unknown },
     uCarInk: { value: 0 },
+    /** Film grain amount (1 in play; stills can turn it down). */
+    uGrain: { value: 1 },
   };
 
   constructor(width: number, height: number) {
@@ -54,7 +56,7 @@ export class PostPass {
       depthTest: false,
       depthWrite: false,
       vertexShader: `varying vec2 vUv;void main(){vUv=uv;gl_Position=vec4(position.xy,0.0,1.0);}`,
-      fragmentShader: `uniform sampler2D tDiffuse,tDepth,tInk,tInkDepth;uniform float uCarInk;uniform float uTime,uSpeed,uBoost,uImpact,uSlow,uAspect,uNear,uFar,uOutline,uFogNear,uFogFar;
+      fragmentShader: `uniform sampler2D tDiffuse,tDepth,tInk,tInkDepth;uniform float uCarInk,uGrain;uniform float uTime,uSpeed,uBoost,uImpact,uSlow,uAspect,uNear,uFar,uOutline,uFogNear,uFogFar;
       uniform int uTaps;uniform vec2 uTexel,uPixel;uniform vec3 uInk,uSky;uniform mat4 uProj,uInvProj,uView;uniform float uWet,uWater;varying vec2 vUv;
       float hash(float n){return fract(sin(n)*43758.5453);}
       // Inverse view distance from the (perspective) depth buffer: linear across planes on screen.
@@ -186,7 +188,7 @@ export class PostPass {
         col=mix(col,vec3(g)*vec3(1.08,0.92,1.25),uSlow*0.6);
         col+=uImpact*vec3(1.0,0.72,0.5)*0.3;
         col*=1.0-smoothstep(0.45,1.05,len)*(0.5+0.25*uBoost);
-        col+=(hash(dot(vUv,vec2(12.9898,78.233))*917.0+fract(uTime)*31.0)-0.5)*0.03;
+        col+=(hash(dot(vUv,vec2(12.9898,78.233))*917.0+fract(uTime)*31.0)-0.5)*0.03*uGrain;
         gl_FragColor=vec4(col,1.0);
         #include <colorspace_fragment>
       }`,

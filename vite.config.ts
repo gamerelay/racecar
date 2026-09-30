@@ -2,6 +2,7 @@
 //   POST /__telemetry    {session, lines}  → appends to telemetry/<date>/<session>.jsonl
 //   POST /__report       Report            → telemetry/reports/<time>.json (the F8 key)
 //   POST /__editor/save  {path, layout}    → writes a layout under content/maps (the editor)
+//   POST /__poster/save  {name, data}      → writes a PNG or JPEG (a data URL) into marketing/ (poster.html)
 
 import { appendFileSync, mkdirSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve, sep } from 'node:path';
@@ -54,6 +55,12 @@ function devEndpoints(): Plugin {
             if (!target.startsWith(join(root, 'content', 'maps') + sep) || !target.endsWith('.track.json')) throw new Error('layouts only');
             mkdirSync(dirname(target), { recursive: true });
             writeFileSync(target, JSON.stringify(json.layout, null, 1) + '\n');
+          } else if (req.url === '/__poster/save') {
+            const name = String(json.name);
+            const m = /^data:image\/(png|jpeg);base64,(.+)$/.exec(String(json.data));
+            if (!/^[\w-]+\.(png|jpg)$/.test(name) || !m) throw new Error('marketing images only');
+            mkdirSync(join(root, 'marketing'), { recursive: true });
+            writeFileSync(join(root, 'marketing', name), Buffer.from(m[2], 'base64'));
           } else return next();
           res.statusCode = 204;
           res.end();
@@ -69,14 +76,14 @@ function devEndpoints(): Plugin {
 export default defineConfig({
   plugins: [devEndpoints()],
   define: { __BUILD_TIME__: JSON.stringify(Date.now().toString(36)) },
-  server: { port: 5178, watch: { ignored: ['**/telemetry/**'] } },
+  server: { port: 5178, watch: { ignored: ['**/telemetry/**', '**/marketing/**'] } },
   build: {
     target: 'es2022',
     sourcemap: true,
     // three.js is most of the bundle: its own chunk, so the game's reads as the game's.
     chunkSizeWarningLimit: 800,
     rolldownOptions: {
-      input: { main: join(root, 'index.html'), cars: join(root, 'cars.html') },
+      input: { main: join(root, 'index.html'), cars: join(root, 'cars.html'), poster: join(root, 'poster.html') },
       output: { advancedChunks: { groups: [{ name: 'three', test: /node_modules[\\/]three/ }] } },
     },
   },
