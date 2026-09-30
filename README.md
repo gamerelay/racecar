@@ -4,9 +4,10 @@ A cel-shaded arcade street racer for the browser: Burnout 3's crashes, Mario Kar
 8 players online through [GameRelay](https://gamerelay.io), with long circuits, shortcuts, traffic,
 hazards and weather.
 
-**Status: milestone 1 (the greybox sandbox).** One City layout, the driving model (grip, drift with
-a three-stage mini-turbo, boost, air, wrecks with aftertouch), pace cars to race and ram, the level
-editor, local telemetry and replayable reports. Online play is milestone 3. The design is in
+**Status: milestone 2 (the world).** Single-player races on City and Countryside against up to 7 AI
+drivers, with traffic, hazards (log trucks, falling signs), rain, shortcuts, takedowns, near misses
+and drift mini-turbos; the level editor, local telemetry and replayable reports. Online play is
+milestone 3. The design is in
 [docs/SPEC.md](./docs/SPEC.md).
 
 ## Run it
@@ -26,8 +27,8 @@ bun run dev        # http://localhost:5178
 | Felt wrong? (saves the last 30 s) | F8 | Select + Start |
 | Editor (dev) · debug · tuning | \` · F2 · F4 | |
 
-URL options: `?car=coupe|muscle|hatch|van`, `&paint=0…8`, `&pace=4` (pace cars), `&post=0` (no post
-pass), `&trace=1` (per-tick trace of your car into telemetry), `&seed=1`.
+The setup screen writes the race into the URL (`?mode=race&map=city/downtown&car=hatch&opponents=7&difficulty=1&laps=3&weather=random&mayhem=normal&traffic=1`);
+add `&post=0` (no post pass) or `&trace=1` (per-tick trace of your car into telemetry).
 
 ## Editing tracks
 
@@ -45,7 +46,8 @@ and place, drifts, air, wall hits, contacts, frame times, errors.
 ```sh
 bun tools/telemetry.ts          # summary of the latest session (--all, --json)
 bun tools/replay.ts             # re-run the latest F8 report headless (--trace)
-bun tools/validate.ts           # check every layout
+bun tools/validate.ts --ai      # check every layout; the AI must finish it
+bun tools/lap-report.ts --field # an 8-AI race per layout: times, wrecks and where
 bun test                        # core tests: physics, tracks, determinism, no allocation per tick
 ```
 

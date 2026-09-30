@@ -1,6 +1,6 @@
 # racecar: design
 
-> **Status (2026-09-30): milestone 1 (the greybox sandbox) built on branch `m1-sandbox`.** A loose outline: when building teaches us
+> **Status (2026-09-30): milestone 1 merged; milestone 2 (the world) built on branch `m2-world`.** A loose outline: when building teaches us
 > something, we change it here and say so under "Changed while building". Decisions made so far
 > are in §17.
 >
@@ -813,3 +813,42 @@ Milestone 1 (2026-09-30):
   doesn't run.
 - The greybox City draws in 20–110 calls, well under the 250 budget; a tick with 9 cars is under
   0.5 ms in Bun.
+
+Milestone 2 (2026-09-30):
+
+- **Traffic lives in sections, not the whole lap.** With traffic everywhere, the AI (and
+  anyone) hit head-ons in every narrow two-way hairpin: carrying speed through one puts you on
+  the inside, which is the oncoming lane. Lanes now take `sections` (distance ranges on the
+  main spline), which is what §5 already said a lap wants ("a traffic-heavy section"). Sections
+  also stay off blind crests: landing into traffic you couldn't see isn't fair. Traffic outside
+  its sections is simply absent (still a pure function of seed and time).
+- **The AI steers by path tracking, not pure pursuit.** Pure pursuit aims at a point ahead and
+  cuts every corner, straight into the oncoming lane. A Stanley-style controller (match the
+  road's heading and curvature ahead, steer out the sideways error) follows the line.
+- **The AI judges threats by time to contact, over seven candidate lines**, including the lines
+  it must cross to get to one, and commits to a choice for 0.8 s (without that it dithered
+  between gaps until it hit something). The committed line is in the car pool (`aiLat`,
+  `aiHold`), so it's snapshotted; a host change that loses it only costs one decision.
+  Result in a full 8-AI race: City from ~75 wrecks to ~8, Countryside from ~65 to ~16.
+- **Checkpoints stepped off a shortcut are de-duplicated**, and progress counts every checkpoint
+  a car passes in one tick: two checkpoints landing past the same shortcut made every lap take
+  two trips round (found by the AI lap report: "lap 160 s").
+- **Hazards schedule "starts in the future"** as §4 said, and triggered occurrences are part of
+  the snapshot. A full race (AI, traffic, chaos hazards, random weather) replays exactly from a
+  mid-race snapshot (test/world.test.ts).
+- **Zero allocation holds for the full world** (8 AI, traffic, chaos, rain): 0.025 ms a tick in
+  Bun. The first version allocated ~480 bytes a tick (forEach closures and small arrays in the
+  hazard and traffic checks); the allocation test now runs the full world.
+- **Race phases are in the sim** (`startRace`, countdown, start boost / stall, finish order),
+  since they change how cars move; the race UI reads them.
+- **AI drifting is left for later**: the AI takes corners on grip. Drifting AI needs the drift
+  controller tuned against the lap report; not needed for a good race yet.
+- **Countryside laps are short**: the AI floor is 62 s (people ~70 s). Worth lengthening in the
+  editor before skins; `tools/validate.ts --ai` warns below 55 s.
+- **Single player has a setup screen over an attract mode** (an AI race behind the menu), and
+  the setup lives in the URL, so every race is a clean start and a shareable link. The lobby
+  replaces the setup screen in milestone 3.
+- **PostHog is wired but off**: it needs `VITE_POSTHOG_KEY` (a racecar project) at build time.
+- **The platform asks are built** in GameRelay PR #30 (host kick, lock, `setAccess`,
+  `setListing`, `listRooms(includeFull)`, plus `transferHost` and `online()`), not yet merged,
+  deployed or released.
