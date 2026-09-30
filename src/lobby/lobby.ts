@@ -79,7 +79,7 @@ export type LobbyAction =
   | { type: 'start' }
   | { type: 'end' };
 
-export const DEFAULT_OPTIONS: LobbyOptions = { map: 'downtown/downtown', laps: 3, weather: 'random', time: 'random', mayhem: 'normal', traffic: true };
+export const DEFAULT_OPTIONS: LobbyOptions = { map: 'downtown/downtown', laps: 2, weather: 'random', time: 'random', mayhem: 'normal', traffic: true };
 const MAX_NAME = 32;
 
 /** A new lobby: the host in the first seat, the rest open. */

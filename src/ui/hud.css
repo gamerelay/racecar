@@ -208,7 +208,6 @@ svg.thumb .cut { stroke: var(--sun); stroke-width: 1.5; stroke-dasharray: 3 2; }
 .card .sub { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 0; color: var(--muted); font-size: 13px; margin: 0 0 22px; }
 /* Items with room between them, split by a dim dot. */
 .card .sub span + span::before { content: '·'; margin: 0 14px; opacity: 0.5; }
-.lobbyGrid { display: grid; grid-template-columns: 1fr 230px; gap: 18px; margin: 0 0 16px; align-items: start; }
 .seats { width: 100%; border-collapse: collapse; font-size: 14px; }
 .seats th { text-align: left; color: var(--muted); font-weight: 700; padding: 6px 10px 8px; border-bottom: 2px solid var(--muted); }
 .seats td { padding: 0 10px; border-bottom: 1px solid rgba(216, 198, 242, 0.2); height: 56px; vertical-align: middle; }
@@ -227,18 +226,7 @@ svg.thumb .cut { stroke: var(--sun); stroke-width: 1.5; stroke-dasharray: 3 2; }
 .seats .tag { font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; line-height: 1; color: var(--outline); background: var(--sun); padding: 3px 5px; margin-left: 6px; vertical-align: middle; }
 .seats .ready { color: #7cff6b; }
 .seats .ping { color: var(--muted); }
-.mapCard { display: grid; gap: 8px; justify-items: start; background: rgba(10, 4, 20, 0.6); border: 2px solid var(--ink); padding: 16px; }
-.mapCard b { font-family: var(--display); font-weight: 400; font-size: 20px; }
-.mapCard small { color: var(--muted); margin: -4px 0 6px; }
-.mapCard .opts { display: grid; gap: 14px; width: 100%; }
-.mapCard label { display: grid; gap: 6px; font-weight: 700; font-size: 12px; color: var(--muted); }
-.mapCard select { width: 100%; }
-.card select:disabled { opacity: 0.7; cursor: default; border-color: rgba(216, 198, 242, 0.4); background-image: none; }
 @media (max-width: 760px) {
-  .lobbyGrid { grid-template-columns: 1fr; }
-  .mapCard { grid-template-columns: auto 1fr; }
-  .mapCard svg { grid-row: 1 / 3; width: 80px; height: 80px; }
-  .mapCard .opts { grid-column: 1 / -1; grid-template-columns: 1fr 1fr; }
   .seats th:last-child, .seats td:last-child { display: none; }
 }
 @media (max-width: 560px) {
@@ -268,40 +256,78 @@ svg.thumb .cut { stroke: var(--sun); stroke-width: 1.5; stroke-dasharray: 3 2; }
 .card.plateEdit input { font-size: 22px; letter-spacing: 0.12em; text-transform: uppercase; text-align: center; }
 .card .err { color: #ff8fb8; font-size: 13px; min-height: 1.4em; margin: 8px 0 10px; }
 
-/* ---- the car select (PLAN phase 4): the lobby docks left, your car turns on a table beside it
-   (render/showroom.ts frames it into .stage), with its pickers and stat bars below it ---- */
-#menu.dock { display: block; padding: 0; background: linear-gradient(90deg, rgba(13, 6, 32, 0.72), rgba(13, 6, 32, 0.35) 42%, rgba(13, 6, 32, 0.08) 70%); }
-#menu.dock .card.lobby { position: absolute; left: 0; top: 0; bottom: 0; width: clamp(440px, 36vw, 600px); max-width: none; margin: 0; overflow-y: auto; border-width: 0 3px 0 0; box-shadow: 8px 0 0 var(--outline); padding: 26px 26px 20px; box-sizing: border-box; }
-#menu.dock .lobbyGrid { grid-template-columns: 1fr; }
-#menu.dock .mapCard { grid-template-columns: auto 1fr; column-gap: 16px; }
-#menu.dock .mapCard svg { grid-row: 1 / 3; width: 84px; height: 84px; }
-#menu.dock .mapCard .opts { grid-column: 1 / -1; grid-template-columns: 1fr 1fr; }
+/* ---- the car select (PLAN phase 4): the seats dock left, your car turns on a table in the middle
+   (render/showroom.ts frames it into .stage) with arrows either side and its panel under it, and
+   the race's options float top right. It all fits the window: nothing scrolls. ---- */
+#menu.dock { --side: clamp(420px, 31vw, 540px); --under: 196px; --opts: 360px; display: block; padding: 0; overflow: hidden; background: linear-gradient(90deg, rgba(13, 6, 32, 0.72), rgba(13, 6, 32, 0.35) 36%, rgba(13, 6, 32, 0.08) 64%); }
+#menu.dock .card.lobby { position: absolute; left: 0; top: 0; bottom: 0; width: var(--side); max-width: none; margin: 0; display: flex; flex-direction: column; overflow-y: auto; scrollbar-width: none; border-width: 0 3px 0 0; box-shadow: 8px 0 0 var(--outline); padding: clamp(16px, 2.6vh, 26px) 24px clamp(14px, 2vh, 20px); }
+#menu.dock .card.lobby::-webkit-scrollbar { display: none; }
+#menu.dock .card.lobby h1 { font-size: clamp(28px, 4.4vh, 46px); margin-bottom: 8px; }
+#menu.dock .card.lobby .sub { margin-bottom: clamp(10px, 2vh, 20px); }
+/* The rows share what height there is, down to a pad-sized minimum. */
+#menu.dock .seats td { height: clamp(40px, 6.2vh, 58px); }
 #menu.dock .seats th:last-child, #menu.dock .seats td:last-child { display: none; }
-/* Start race stays in view: on a laptop-height window the seats and options run past the fold. */
-#menu.dock .card.lobby > .row { position: sticky; bottom: -20px; z-index: 1; margin: 16px -26px -20px; padding: 14px 26px 16px; background: rgba(18, 8, 38, 0.96); border-top: 2px solid var(--outline); }
-#menu.dock .stage { position: absolute; left: clamp(440px, 36vw, 600px); right: 0; top: 0; bottom: 230px; pointer-events: none; }
-.card.carPanel { position: absolute; right: 32px; bottom: 28px; left: calc(clamp(440px, 36vw, 600px) + 40px); width: auto; max-width: 720px; margin-left: auto; padding: 16px 20px; display: grid; grid-template-columns: 1fr auto; gap: 10px 22px; align-items: center; background: rgba(18, 8, 38, 0.82); }
-/* The pickers one above the other, so the pad's up and down move between them (left and right change a dropdown). */
-.carPanel .carPick { grid-column: 2; grid-row: 1 / 3; display: grid; gap: 8px; }
-.carPanel .carPick label { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
-.carPanel .carHead { display: flex; align-items: center; gap: 10px; }
+#menu.dock .card.lobby > .row { margin: auto 0 0; padding-top: clamp(12px, 2vh, 20px); flex-wrap: nowrap; }
+#menu.dock .card.lobby > .row button { padding: 8px 16px; white-space: nowrap; }
+#menu.dock .card.lobby > .row button:last-child { margin-right: 0; }
+#menu.dock .seats td:nth-child(2) { width: 150px; }
+#menu.dock .seats td:nth-child(2) select { width: 132px; }
+@media (max-width: 1500px) { #menu.dock .card.lobby > .row button { font-size: 15px; padding: 7px 12px; } }
+
+/* The race's options: the host's to set, a summary for everyone else. */
+#menu.dock .mapCard { position: absolute; top: 24px; right: 24px; width: var(--opts); max-width: none; margin: 0; padding: 14px 16px 16px; display: grid; grid-template-columns: auto 1fr; gap: 12px 14px; align-items: center; background: rgba(18, 8, 38, 0.86); box-shadow: 6px 6px 0 var(--outline); }
+.mapCard .mapHead { display: grid; gap: 2px; }
+.mapCard b { font-family: var(--display); font-weight: 400; font-size: 20px; line-height: 1.05; }
+.mapCard small { color: var(--muted); font-size: 13px; }
+.mapCard .opts { grid-column: 1 / -1; display: grid; grid-template-columns: 1fr 1fr; gap: 10px 12px; }
+.mapCard label { display: grid; gap: 4px; font-weight: 700; font-size: 12px; color: var(--muted); }
+.card.mapCard select { width: 100%; padding-top: 5px; padding-bottom: 5px; font-size: 14px; }
+#menu.dock .mapCard.mini { width: auto; max-width: 320px; padding: 10px 14px; gap: 6px 12px; }
+.mapCard .optLine { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 5px; margin: 0; }
+.mapCard .optLine span { font-size: 12px; font-weight: 700; color: var(--ink); background: rgba(10, 4, 20, 0.7); border: 1px solid rgba(216, 198, 242, 0.45); padding: 2px 7px; white-space: nowrap; }
+.card select:disabled { opacity: 0.7; cursor: default; border-color: rgba(216, 198, 242, 0.4); background-image: none; }
+
+/* The turntable's box, and the arrows either side of the table (sized as frameStage sizes it). */
+#menu.dock .stage { position: absolute; left: var(--side); right: calc(var(--opts) + 24px); top: 0; bottom: var(--under); pointer-events: none; container-type: size; }
+.card button.carArrow, .carArrow { position: absolute; top: 58%; width: 52px; height: 68px; margin: 0; padding: 0; display: grid; place-items: center; transform: translateY(-50%); pointer-events: auto; color: var(--ink); background: rgba(18, 8, 38, 0.72); border: 3px solid var(--ink); box-shadow: 5px 5px 0 var(--outline); cursor: pointer; }
+.carArrow:hover, .carArrow:focus-visible { color: var(--cyan); border-color: var(--cyan); outline: none; }
+.carArrow:active { transform: translate(3px, calc(-50% + 3px)); box-shadow: 2px 2px 0 var(--outline); }
+.carArrow svg { width: 26px; height: 26px; fill: none; stroke: currentColor; stroke-width: 4; stroke-linecap: square; }
+#lPrev svg { transform: scaleX(-1); }
+#lPrev { left: max(12px, calc(50% - min(36cqh, 36cqw) - 84px)); }
+#lNext { right: max(12px, calc(50% - min(36cqh, 36cqw) - 84px)); }
+
+/* Under the car (the stage's middle), as far as it can be without running into the seats. */
+.card.carPanel { --pw: min(720px, calc(100vw - var(--side) - 48px)); position: absolute; bottom: 24px; left: max(calc(var(--side) + 24px + var(--pw) / 2), calc(var(--side) + (100vw - var(--side) - var(--opts) - 24px) / 2)); transform: translateX(-50%); width: var(--pw); max-width: none; margin: 0; padding: 14px 20px 16px; display: grid; gap: 8px; background: rgba(18, 8, 38, 0.84); box-shadow: 6px 6px 0 var(--outline); }
+.carPanel .carHead { display: flex; align-items: baseline; gap: 12px; }
 .carPanel .carName { font-family: var(--display); font-weight: 400; font-size: 30px; line-height: 1; color: var(--sun); -webkit-text-stroke: 2px var(--outline); paint-order: stroke fill; text-shadow: 3px 3px 0 var(--pink); }
-.carPanel label { font-weight: 700; font-size: 12px; color: var(--muted); }
-.carPanel select { min-width: 150px; height: 38px; box-sizing: border-box; }
-.carPanel .blurb { grid-column: 1; margin: 0; font-size: 14px; line-height: 1.45; color: var(--ink); }
-.carPanel .bars { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; }
+.carPanel .carCount { font-size: 12px; font-weight: 700; color: var(--muted); font-variant-numeric: tabular-nums; }
+.carPanel .blurb { margin: 0; font-size: 14px; line-height: 1.4; color: var(--ink); }
+.carPanel .bars { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; }
 .carPanel .bar small { display: block; font-size: 11px; font-weight: 700; color: var(--muted); }
 .carPanel .bar i { display: block; height: 8px; margin-top: 4px; background: linear-gradient(90deg, var(--cyan) calc(var(--t) * 100%), rgba(216, 198, 242, 0.18) 0); transform: skewX(-20deg); }
-/* A phone (or a narrow window): the car on top, its pickers under it, then the lobby, all one column that scrolls. */
-@media (max-width: 760px) {
-  #menu.dock { display: flex; flex-direction: column; align-items: stretch; overflow-y: auto; padding: 0 16px 16px; background: linear-gradient(180deg, transparent 0, rgba(13, 6, 32, 0.4) 34vh, rgba(13, 6, 32, 0.75) 60vh); }
-  #menu.dock .stage { position: static; order: -2; flex: none; height: 36vh; min-height: 200px; }
-  .card.carPanel { position: static; order: -1; width: 100%; box-sizing: border-box; margin: 0 0 16px; grid-template-columns: 1fr; }
-  .carPanel .carPick { grid-column: 1; grid-row: auto; }
-  .carPanel .blurb { grid-column: 1; }
-  .carPanel select { min-width: 0; width: 100%; }
+.carPanel .paints { display: flex; align-items: center; gap: 12px; margin-top: 4px; }
+.carPanel .paintName { font-weight: 700; font-size: 13px; min-width: 76px; }
+.carPanel .swatches { display: flex; gap: 6px; flex-wrap: wrap; }
+.card button.swatch { width: 22px; height: 22px; margin: 0; padding: 0; border: 2px solid var(--outline); border-radius: 50%; background: linear-gradient(135deg, var(--c) 55%, var(--c2) 55%); box-shadow: 2px 2px 0 var(--outline); }
+.card button.swatch:hover { transform: none; box-shadow: 0 0 0 2px var(--cyan); }
+.card button.swatch.on { box-shadow: 0 0 0 2px var(--outline), 0 0 0 4px var(--sun); }
+.carPanel .keysHint { margin-left: auto; font-size: 11px; font-weight: 700; color: var(--muted); white-space: nowrap; }
+.carPanel kbd { font: 700 10px var(--ui); border: 1px solid var(--muted); padding: 0 4px; border-radius: 3px; color: var(--ink); margin-right: 2px; }
+/* A phone, or a window too small for the three panels: the car on top, its panel under it, then
+   the options and the seats, all one column that scrolls (without a bar). */
+@media (max-width: 1000px), (max-height: 560px) {
+  #menu.dock { display: flex; flex-direction: column; align-items: stretch; overflow-y: auto; scrollbar-width: none; padding: 0 16px 16px; background: linear-gradient(180deg, transparent 0, rgba(13, 6, 32, 0.4) 34vh, rgba(13, 6, 32, 0.75) 60vh); }
+  #menu.dock::-webkit-scrollbar { display: none; }
+  #menu.dock .stage { position: relative; left: auto; right: auto; bottom: auto; width: 100%; order: -3; flex: none; height: 36vh; min-height: 200px; }
+  .card.carPanel { position: static; order: -2; transform: none; width: 100%; margin: 0 0 16px; }
   .carPanel .bars { gap: 8px; }
   .carPanel .bar small { font-size: 10px; }
+  .carPanel .keysHint { display: none; }
+  .carPanel .paintName { min-width: 0; }
+  .carPanel .paints { gap: 10px; }
+  .carPanel .swatches { gap: 5px; }
+  #menu.dock .mapCard, #menu.dock .mapCard.mini { position: static; order: -1; width: 100%; max-width: none; margin: 0 0 16px; }
   #menu.dock .card.lobby { position: static; width: 100%; flex: none; overflow: visible; border-width: 3px; box-shadow: 8px 8px 0 var(--outline); }
-  #menu.dock .card.lobby > .row { position: static; margin: 16px 0 12px; padding: 0; background: none; border: 0; }
+  #menu.dock .card.lobby > .row { flex-wrap: wrap; }
 }
