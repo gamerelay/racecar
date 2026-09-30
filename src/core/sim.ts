@@ -17,7 +17,7 @@ import { Rng } from './rng';
 import { updateProgress } from './rules/progress';
 import type { SimState } from './state';
 import type { Track } from './track/bake';
-import { newHit, sampleAt } from './track/query';
+import { newHit, projectGlobal, sampleAt } from './track/query';
 
 export const TICK_RATE = 60;
 export const MAX_CARS = 16;
@@ -36,7 +36,7 @@ export interface CarSpec {
 }
 
 export class Sim implements SimState {
-  readonly track: Track;
+  track: Track;
   readonly cars: CarPool;
   readonly classes: CarClass[];
   readonly surfaces: SurfaceDef[];
@@ -84,7 +84,8 @@ export class Sim implements SimState {
     const col = i % 2 === 0 ? -1 : 1;
     const main = this.track.main;
     const at = sampleAt(main, main.length - 10 - row * 9, this.hitA);
-    const lat = spec.follow ? spec.follow.lane : col * at.width * 0.22;
+    // Everyone starts in a grid slot; pace cars merge into their lane once moving.
+    const lat = col * at.width * 0.22;
     this.placeCar(i, 0, at.s, lat);
     c.lap[i] = 0;
     c.nextCp[i] = 0;
@@ -92,6 +93,20 @@ export class Sim implements SimState {
     c.lapStartTick[i] = this.tick;
     c.boost[i] = 0.3;
     return i;
+  }
+
+  /** Swaps in a rebaked track (the editor) and finds every car on it again. */
+  setTrack(track: Track): void {
+    this.track = track;
+    const c = this.cars;
+    for (let i = 0; i < c.count; i++) {
+      c.spline[i] = 0;
+      projectGlobal(track.main, c.x[i], c.z[i], this.hitA);
+      c.s[i] = this.hitA.s;
+      c.lastSpline[i] = 0;
+      c.lastS[i] = this.hitA.s;
+      c.lastLat[i] = 0;
+    }
   }
 
   /** Puts car i on a spline at (s, lateral), facing along it, stopped. */

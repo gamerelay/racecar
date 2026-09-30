@@ -40,7 +40,8 @@ export function driveFollow(sim: SimState, i: number, d: FollowDriver, out: Cont
   const tz = look.cz + look.tx * d.lane;
   const want = Math.atan2(tx - cars.x[i], tz - cars.z[i]);
   const err = wrapAngle(want - cars.h[i]);
-  out.steer = clamp(err * 2.2, -1, 1);
+  // err > 0: the target is to the left (heading grows to the left), so steer negative.
+  out.steer = clamp(-err * 2.2, -1, 1);
   // Slow for corners: how much the road turns over the next stretch.
   sampleAt(sp, cars.s[i] + ahead * 2, look);
   const turn = Math.abs(wrapAngle(Math.atan2(look.tx, look.tz) - cars.h[i]));
@@ -49,6 +50,6 @@ export function driveFollow(sim: SimState, i: number, d: FollowDriver, out: Cont
   out.brake = speed > target + 4 ? 0.6 : 0;
   out.boost = false;
   out.drift = false;
-  out.reset = cars.wreck[i] === 0 && speed < 1 && cars.resetCooldown[i] <= 0 && sim.tick % 180 === 0;
+  out.reset = cars.wreck[i] === 0 && cars.stuckT[i] > 3;
   return out;
 }

@@ -41,6 +41,9 @@ export function stepCar(sim: SimState, i: number, c: Controls, dt: number): void
   }
 
   const cls = sim.classes[cars.cls[i]];
+  // Stuck: flooring it and going nowhere (drivers use this to reset).
+  if (c.throttle > 0.5 && Math.hypot(cars.vx[i], cars.vz[i]) < 2) cars.stuckT[i] += dt;
+  else cars.stuckT[i] = 0;
   locateCar(sim, i);
   const surf = sim.surfaces[cars.surface[i]];
   const grip = surf.grip * sim.weatherGrip * cls.grip;
@@ -104,8 +107,9 @@ export function stepCar(sim: SimState, i: number, c: Controls, dt: number): void
     if (cars.drift[i] === 1) {
       const dir = cars.driftDir[i];
       const tight = clamp((c.steer * dir + 1) / 2, 0, 1);
-      const targetSlip = dir * lerp(T.driftAngleMin, T.driftAngleMax, tight);
-      const arc = dir * lerp(T.driftArcMin, T.driftArcMax, tight) * (cls.turn / 2.4) * clamp(1.5 - speed / 80, 0.6, 1.2);
+      // Turning right lowers the heading (right = (-cos h, sin h)); the nose points into the turn.
+      const targetSlip = -dir * lerp(T.driftAngleMin, T.driftAngleMax, tight);
+      const arc = -dir * lerp(T.driftArcMin, T.driftArcMax, tight) * (cls.turn / 2.4) * clamp(1.5 - speed / 80, 0.6, 1.2);
       vdir += arc * dt;
       let slip = wrapAngle(h - vdir);
       slip = approach(slip, targetSlip, T.driftSettle * cls.driftRotation * surf.looseness ** 0.3 * dt);
@@ -135,7 +139,7 @@ export function stepCar(sim: SimState, i: number, c: Controls, dt: number): void
     } else {
       // Normal grip: yaw from steering, velocity swings round toward the heading.
       const falloff = speed / T.steerFalloff;
-      let yawTarget = c.steer * cls.turn * clamp(Math.abs(fwd) / 6, 0, 1) / (1 + falloff * falloff * 0.9);
+      let yawTarget = -c.steer * cls.turn * clamp(Math.abs(fwd) / 6, 0, 1) / (1 + falloff * falloff * 0.9);
       if (fwd < -0.5) yawTarget = -yawTarget;
       cars.yaw[i] = approach(cars.yaw[i], yawTarget, T.steerResponse * dt * cls.turn);
       h += cars.yaw[i] * dt;
@@ -155,7 +159,7 @@ export function stepCar(sim: SimState, i: number, c: Controls, dt: number): void
     }
   } else {
     // In the air: a little yaw control, no traction.
-    cars.yaw[i] = approach(cars.yaw[i], c.steer * 0.8, 3 * dt);
+    cars.yaw[i] = approach(cars.yaw[i], -c.steer * 0.8, 3 * dt);
     h += cars.yaw[i] * dt;
     cars.airT[i] += dt;
     cars.boost[i] = Math.min(1, cars.boost[i] + T.boostFromAir * dt);

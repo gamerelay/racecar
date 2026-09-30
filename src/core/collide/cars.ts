@@ -53,7 +53,7 @@ function resolve(sim: SimState, a: number, b: number, ma: number, mb: number): v
   cars.vx[b] += j * ib * nx;
   cars.vz[b] += j * ib * nz;
   const tick = sim.tick;
-  sim.events.push(tick, Ev.CarContact, a, contact.x, (cars.y[a] + cars.y[b]) / 2 + 0.5, contact.z, closing, 0, b);
+  if (closing > 1.5) sim.events.push(tick, Ev.CarContact, a, contact.x, (cars.y[a] + cars.y[b]) / 2 + 0.5, contact.z, closing, 0, b);
   cars.lastHitBy[a] = b;
   cars.lastHitT[a] = tick;
   cars.lastHitBy[b] = a;

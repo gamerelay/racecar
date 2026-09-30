@@ -27,7 +27,7 @@ export const TUNING = {
   driftAngleMin: 0.26,
   driftAngleMax: 0.87,
   /** How fast the car's travel direction turns while drifting, rad/s: wide … tight. */
-  driftArcMin: 0.45,
+  driftArcMin: 0.15,
   driftArcMax: 1.25,
   /** Assist: how fast the body settles to the target angle, rad/s. */
   driftSettle: 3.5,

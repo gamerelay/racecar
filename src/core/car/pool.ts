@@ -9,7 +9,7 @@ export const CAR_FIELDS = [
   // driving
   'grounded', 'airT', 'boost', 'boosting', 'miniT', 'miniStage',
   'drift', 'driftDir', 'driftT', 'driftCharge', 'driftStage', 'slip', 'driftCooldown',
-  'spinT', 'ghostT', 'resetCooldown', 'wallT',
+  'spinT', 'ghostT', 'resetCooldown', 'wallT', 'stuckT',
   // wreck body
   'wreck', 'wreckT', 'rx', 'rz', 'wx', 'wy', 'wz',
   // where on the track

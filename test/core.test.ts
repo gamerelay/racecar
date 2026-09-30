@@ -115,18 +115,17 @@ describe('sim', () => {
   });
 
   test('a held drift charges the mini-turbo and pays it out', () => {
-    const sim = ringSim();
+    // A huge open ring, so a drift can circle freely without meeting a wall.
+    const sim = ringSim(1, 600, 320);
     const i = sim.addCar({ cls: 'hatch', human: true });
     const c = neutralControls();
     c.throttle = 1;
-    for (let t = 0; t < 60 * 3; t++) sim.step([c]);
-    c.steer = 1;
+    for (let t = 0; t < 60 * 2.5; t++) sim.step([c]);
     c.drift = true;
+    c.steer = -1;
     const stages: number[] = [];
     let cursor = sim.events.head;
-    for (let t = 0; t < 60 * 4; t++) {
-      // Hold the drift round the ring: steer against drifting off the racing line.
-      if (t > 5) c.steer = Math.max(-1, Math.min(1, -sim.cars.lateral[i] * 0.15));
+    for (let t = 0; t < 60 * 3.5; t++) {
       sim.step([c]);
       cursor = sim.events.read(cursor, (e) => {
         if (e.type === Ev.DriftStage) stages.push(e.b);
@@ -141,8 +140,9 @@ describe('sim', () => {
       });
     }
     expect(sim.cars.wreck[i]).toBe(0);
-    expect(stages.length).toBeGreaterThanOrEqual(1);
-    expect(mini).toBe(stages[stages.length - 1]);
+    expect(stages).toEqual([1, 2, 3]);
+    expect(mini).toBe(3);
+    expect(sim.cars.miniT[i]).toBeGreaterThan(1);
   });
 
   test('ramming a pace car at speed takes it down', () => {
