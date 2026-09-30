@@ -9,7 +9,7 @@
 import type { SmashDef } from '../content';
 import { hash01 } from '../rng';
 import type { Track } from '../track/bake';
-import { newHit, sampleAt } from '../track/query';
+import { newHit, projectGlobal, sampleAt } from '../track/query';
 
 export interface SmashKind {
   id: string;
@@ -49,6 +49,14 @@ export class Smashables {
 
   constructor(track: Track) {
     const hit = newHit();
+    const other = newHit();
+    /** Whether (x, z) at height y is on some other road (a branch running alongside, the Sandbar by the beach road). */
+    const onAnotherRoad = (x: number, y: number, z: number, own: number, r: number) =>
+      track.splines.some((sp) => {
+        if (sp.index === own) return false;
+        projectGlobal(sp, x, z, other, y);
+        return Math.abs(other.cy - y) < 4 && Math.abs(other.lateral) < other.width / 2 + other.shoulder + r;
+      });
     const out: { kind: number; spline: number; s: number; x: number; y: number; z: number }[] = [];
     for (const d of track.layout.smashables ?? []) {
       const kind = SMASH_IDS.indexOf(d.kind);
@@ -64,7 +72,12 @@ export class Smashables {
           if (room < k.r * 2 + 0.4) continue;
           // On the verge: out past the road's edge, a little under halfway to the wall.
           const lat = side * (at.width / 2 + (d.lateral ?? Math.min(room * 0.45, room - k.r - 0.3)));
-          out.push({ kind, spline: sp.index, s: at.s, x: at.cx - at.tz * lat, y: at.cy - lat * Math.tan(at.bank), z: at.cz + at.tx * lat });
+          const x = at.cx - at.tz * lat;
+          const y = at.cy - lat * Math.tan(at.bank);
+          const z = at.cz + at.tx * lat;
+          // Not where another road runs: a car on it couldn't hit it (only props on your own road count).
+          if (onAnotherRoad(x, y, z, sp.index, k.r)) continue;
+          out.push({ kind, spline: sp.index, s: at.s, x, y, z });
         }
       }
     }

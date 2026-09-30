@@ -448,18 +448,18 @@ export function buildCityscape(track: Track, palette: Palette, ground: number, k
     }
   };
 
-  /** A sidewalk slab, less any strip a canal cuts across it (a cut that runs right through it one way). */
+  /**
+   * A sidewalk slab less what a canal cuts out of it: up to four boxes round the cut (the strips
+   * either side of it, and above and below it between them), dropping slivers under a meter.
+   */
   const trimmed = (b: Box): Box[] => {
+    const [bx0, bx1, bz0, bz1] = [b.x - b.w / 2, b.x + b.w / 2, b.z - b.d / 2, b.z + b.d / 2];
     for (const k of keep) {
-      if (!k.cut || b.x + b.w / 2 <= k.x0 || b.x - b.w / 2 >= k.x1 || b.z + b.d / 2 <= k.z0 || b.z - b.d / 2 >= k.z1) continue;
-      const alongZ = k.z0 <= b.z - b.d / 2 && k.z1 >= b.z + b.d / 2;
-      const [lo, hi, c, len] = alongZ ? [k.x0, k.x1, b.x, b.w] : [k.z0, k.z1, b.z, b.d];
-      const out: Box[] = [];
-      for (const [a, e] of [[c - len / 2, lo], [hi, c + len / 2]]) {
-        if (e - a < 1) continue;
-        out.push(alongZ ? { ...b, x: (a + e) / 2, w: e - a } : { ...b, z: (a + e) / 2, d: e - a });
-      }
-      return out;
+      if (!k.cut || bx1 <= k.x0 || bx0 >= k.x1 || bz1 <= k.z0 || bz0 >= k.z1) continue;
+      const cx0 = Math.max(bx0, k.x0);
+      const cx1 = Math.min(bx1, k.x1);
+      const rect = (x0: number, x1: number, z0: number, z1: number): Box[] => (x1 - x0 < 1 || z1 - z0 < 1 ? [] : [{ ...b, x: (x0 + x1) / 2, w: x1 - x0, z: (z0 + z1) / 2, d: z1 - z0 }]);
+      return [...rect(bx0, cx0, bz0, bz1), ...rect(cx1, bx1, bz0, bz1), ...rect(cx0, cx1, bz0, Math.max(bz0, k.z0)), ...rect(cx0, cx1, Math.min(bz1, k.z1), bz1)];
     }
     return [b];
   };

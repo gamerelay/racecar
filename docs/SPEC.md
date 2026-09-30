@@ -1612,3 +1612,16 @@ Smashables (PLAN phase 6):
   second at most, so a row of cones isn't a flood), and there's a crunch.
 - The AI doesn't aim for them or avoid them. The lap floors didn't move, and the field tests still
   hold.
+
+Review fixes (PRs #26–#30):
+
+- **A Smash event has no `other`.** It carried the prop's index there, and the renderer and the
+  audio read `other` as a car. An AI smashing prop #0 shook the camera of whoever drove car 0,
+  and played the crunch as theirs.
+- **No smashables on another road.** Four of Paradise's beach umbrellas stood on the Sandbar's
+  roadway, and two of the Valley's props by the Barn shortcut stood on its road. Hits are only
+  checked on the car's own road, so a car on the branch drove through them. A prop that would
+  land on any other road (within its width and shoulder, at the same level) is left out.
+- **The canal cuts only its own footprint from a sidewalk slab.** At the canal's two ends the
+  cut ran across the whole slab. It subtracts the canal's rectangle now, leaving up to four
+  pieces round it.

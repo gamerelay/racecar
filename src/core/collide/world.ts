@@ -114,7 +114,8 @@ export function collideWorld(sim: SimState, i: number, ctx: WorldCtx): void {
       const dz = sm.z[k] - c.z[i];
       if (Math.abs(dx * fx + dz * fz) > cls.size[1] + kind.r || Math.abs(dx * fz - dz * fx) > cls.size[0] + kind.r) continue;
       sm.brokenAt[k] = ctx.t;
-      sim.events.push(tick, Ev.Smash, i, sm.x[k], sm.y[k] + kind.h / 2, sm.z[k], speed, sm.kind[k], k);
+      // (No `other`: listeners read it as a car, and the prop's index isn't one.)
+      sim.events.push(tick, Ev.Smash, i, sm.x[k], sm.y[k] + kind.h / 2, sm.z[k], speed, sm.kind[k], -1);
       if (c.wreck[i]) continue;
       c.vx[i] *= kind.slow;
       c.vz[i] *= kind.slow;

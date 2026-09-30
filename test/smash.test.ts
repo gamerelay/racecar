@@ -41,6 +41,12 @@ describe('smashables', () => {
         const out = Math.abs(hit.lateral) - hit.width / 2;
         expect(out - r, `${key} #${k}`).toBeGreaterThan(-0.05);
         expect(out + r, `${key} #${k}`).toBeLessThan(hit.shoulder + 0.05);
+        // ...and not on any other road (the Sandbar runs along the beach road's verge).
+        for (const other of track.splines) {
+          if (other.index === sp.index) continue;
+          projectGlobal(other, sm.x[k], sm.z[k], hit, sm.y[k]);
+          if (Math.abs(hit.cy - sm.y[k]) < 4) expect(Math.abs(hit.lateral), `${key} #${k} on ${other.id}`).toBeGreaterThan(hit.width / 2 + hit.shoulder);
+        }
       }
       expect(validateLayout(l, SURFACES, CLASSES).filter((p) => p.message.startsWith('smash'))).toEqual([]);
     }
@@ -57,16 +63,22 @@ describe('smashables', () => {
     const { sim, i, sm } = atProp(0);
     sim.cars.boost[i] = 0;
     let smashed = -1;
+    let other = 0;
     let speedBefore = 0;
     let cursor = sim.events.head;
     for (let t = 0; t < 120 && smashed < 0; t++) {
       speedBefore = Math.hypot(sim.cars.vx[i], sim.cars.vz[i]);
       sim.step([{ ...neutralControls(), throttle: 0.4 }]);
       cursor = sim.events.read(cursor, (e) => {
-        if (e.type === Ev.Smash && e.car === i) smashed = e.other;
+        if (e.type === Ev.Smash && e.car === i) {
+          smashed = sm.standing(0, sim.time) ? -2 : 0;
+          other = e.other;
+        }
       });
     }
     expect(smashed).toBe(0);
+    // No `other`: it isn't a car (listeners check it against the car they follow).
+    expect(other).toBe(-1);
     expect(sm.standing(0, sim.time)).toBe(false);
     expect(sim.cars.boost[i]).toBeGreaterThan(0);
     expect(sim.cars.score[i]).toBeGreaterThanOrEqual(SMASH_KINDS[sm.kind[0]].points);
