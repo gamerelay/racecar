@@ -30,7 +30,7 @@ export class Hud {
       <div class="hud" id="drift"><div id="driftPts">0</div><div id="driftStage"><i></i><i></i><i></i></div><div id="driftChain"></div></div>
       <div class="hud" id="meterWrap"><label>Boost</label><div id="meter"><div id="meterFill"></div></div></div>
       <div class="hud" id="speedo"><span id="spd">0</span><small>km/h</small></div>
-      <div class="hud" id="hint"><kbd>WASD</kbd>/<kbd>←↑→↓</kbd> drive · <kbd>Shift</kbd> drift · <kbd>Space</kbd> boost · <kbd>R</kbd> reset · <kbd>C</kbd> look back · <kbd>\`</kbd> editor · <kbd>F2</kbd> debug · <kbd>F8</kbd> felt wrong?</div>
+      <div class="hud" id="hint"><kbd>WASD</kbd>/<kbd>←↑→↓</kbd> drive · <kbd>Shift</kbd> drift · <kbd>Space</kbd> boost · <kbd>R</kbd> reset · <kbd>C</kbd> look back · <kbd>\`</kbd> editor · <kbd>F2</kbd> debug · <kbd>F6</kbd> ink · <kbd>F8</kbd> felt wrong?</div>
       <div class="hud" id="debug"></div>`,
     );
   }

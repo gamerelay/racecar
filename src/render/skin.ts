@@ -9,8 +9,8 @@ import type { Track } from '../core/track/bake';
 
 export interface CarVisual {
   root: Object3D;
-  /** Per frame: wheel spin (radians), front wheel steer, and light states. */
-  update(wheelSpin: number, steer: number, braking: boolean, boosting: boolean): void;
+  /** Per frame: wheel spin (radians), front wheel steer, light states, and whether it's on the road (not airborne or wrecked). */
+  update(wheelSpin: number, steer: number, braking: boolean, boosting: boolean, onRoad: boolean): void;
   dispose(): void;
 }
 
@@ -31,6 +31,8 @@ export interface WorldVisual {
 
 export interface Skin {
   id: string;
+  /** Ink color for the post pass's outlines, once environment() has run. */
+  ink?: number;
   /** Sky, fog, lights. Called once per scene. */
   environment(scene: Scene, palette: string): void;
   track(track: Track, seed: number): TrackVisual;

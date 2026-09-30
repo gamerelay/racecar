@@ -3,7 +3,7 @@
 // builds), local telemetry and the F8 report as in milestone 1.
 //
 // URL: the setup (see ui/setup.ts: mode, map, car, paint, opponents, difficulty, laps, weather,
-// mayhem, traffic, seed) plus &post=0 &trace=1.
+// mayhem, traffic, seed) plus &post=0 &ink=0 &trace=1.
 
 import './ui/hud.css';
 import { TUNING } from './core/car/tuning';
@@ -58,7 +58,7 @@ const me = 0;
 if (run.mode === 'race') sim.startRace(run.laps, attract ? 1 : 4);
 
 const input = new Input();
-const renderer = new GameRenderer(document.getElementById('stage')!, new GreyboxSkin(), sim, PAINTS, map.palette, { post: params.get('post') !== '0' });
+const renderer = new GameRenderer(document.getElementById('stage')!, new GreyboxSkin(), sim, PAINTS, map.palette, { post: params.get('post') !== '0', outline: params.get('ink') !== '0' });
 const hud = new Hud(sim);
 const raceUi = new RaceUi(sim, CLASSES, names, specs.map((x) => PAINTS[(x.paint ?? 0) % PAINTS.length].color));
 raceUi.onAgain = () => raceAgain(run);
@@ -156,6 +156,7 @@ input.on((a) => {
     renderer.debug = hud.toggleDebug();
   } else if (a === 'editor' && import.meta.env.DEV) toggleEditor();
   else if (a === 'tuning' && import.meta.env.DEV) import('./editor/tuning').then((m) => m.toggleTuning(TUNING));
+  else if (a === 'ink') renderer.opts.outline = !renderer.opts.outline;
 });
 
 function setPaused(on: boolean): void {

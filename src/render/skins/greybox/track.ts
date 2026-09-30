@@ -14,7 +14,6 @@ import {
   Matrix4,
   Mesh,
   MeshBasicMaterial,
-  MeshLambertMaterial,
   PlaneGeometry,
   Quaternion,
   Vector3,
@@ -24,6 +23,8 @@ import { Rng } from '../../../core/rng';
 import type { BakedSpline, Track } from '../../../core/track/bake';
 import { newHit, projectGlobal } from '../../../core/track/query';
 import type { TrackVisual } from '../../skin';
+import { streetLamps, windowMaterial } from './city';
+import { faceted, toon } from './toon';
 import type { Palette } from './palettes';
 
 const WALL_HEIGHT = 1.1;
@@ -47,6 +48,7 @@ class Geo {
     g.setAttribute('position', new Float32BufferAttribute(this.pos, 3));
     g.setAttribute('color', new Float32BufferAttribute(this.col, 3));
     g.setIndex(this.idx);
+    g.computeVertexNormals();
     g.computeBoundingSphere();
     return g;
   }
@@ -72,7 +74,7 @@ function cross(sp: BakedSpline, i: number, out: Cross): Cross {
 }
 
 export function buildTrackVisual(track: Track, palette: Palette, seed: number): TrackVisual {
-  const road = new MeshLambertMaterial({ vertexColors: true, flatShading: true, side: DoubleSide });
+  const road = toon({ vertexColors: true, side: DoubleSide });
   const chunks: Object3D[] = [];
   let minY = Infinity;
   let minX = Infinity;
@@ -100,7 +102,7 @@ export function buildTrackVisual(track: Track, palette: Palette, seed: number): 
     }
   }
 
-  const ground = new Mesh(new PlaneGeometry(maxX - minX + 3000, maxZ - minZ + 3000), new MeshLambertMaterial({ color: palette.ground }));
+  const ground = new Mesh(new PlaneGeometry(maxX - minX + 3000, maxZ - minZ + 3000), toon({ color: palette.ground }));
   ground.rotation.x = -Math.PI / 2;
   ground.position.set((minX + maxX) / 2, groundY, (minZ + maxZ) / 2);
   ground.updateMatrix();
@@ -110,7 +112,7 @@ export function buildTrackVisual(track: Track, palette: Palette, seed: number): 
   // Solid props on the road (the pillars): tall striped boxes.
   const solid = track.props.filter((p) => p.solid);
   if (solid.length) {
-    const mesh = new InstancedMesh(new BoxGeometry(1, 1, 1), new MeshLambertMaterial({ color: 0xbfb3d6, flatShading: true }), solid.length);
+    const mesh = new InstancedMesh(new BoxGeometry(1, 1, 1), toon({ color: 0xbfb3d6 }), solid.length);
     const mat = new Matrix4();
     const q = new Quaternion();
     const up = new Vector3(0, 1, 0);
@@ -121,7 +123,7 @@ export function buildTrackVisual(track: Track, palette: Palette, seed: number): 
     mesh.computeBoundingSphere();
     extras.push(mesh);
   }
-  if (track.layout.scenery === 'city') extras.push(cityBlocks(track, palette, seed, groundY));
+  if (track.layout.scenery === 'city') extras.push(cityBlocks(track, palette, seed, groundY), streetLamps(track));
   if (track.layout.scenery === 'countryside') extras.push(...countryside(track, palette, seed, groundY));
 
   return {
@@ -272,7 +274,7 @@ function cityBlocks(track: Track, palette: Palette, seed: number, groundY: numbe
       s += rng.range(18, 28);
     }
   }
-  const mesh = new InstancedMesh(new BoxGeometry(1, 1, 1), new MeshLambertMaterial({ flatShading: true }), placed.length);
+  const mesh = new InstancedMesh(new BoxGeometry(1, 1, 1), windowMaterial(palette.windows), placed.length);
   const m = new Matrix4();
   const q = new Quaternion();
   const up = new Vector3(0, 1, 0);
@@ -321,8 +323,8 @@ function countryside(track: Track, palette: Palette, seed: number, groundY: numb
       }
     }
   }
-  const crown = new InstancedMesh(new ConeGeometry(2.4, 7, 7).translate(0, 5.5, 0), new MeshLambertMaterial({ flatShading: true }), trees.length);
-  const trunk = new InstancedMesh(new BoxGeometry(0.5, 2.2, 0.5).translate(0, 1.1, 0), new MeshLambertMaterial({ color: 0x5a3f2a, flatShading: true }), trees.length);
+  const crown = new InstancedMesh(faceted(new ConeGeometry(2.4, 7, 7).translate(0, 5.5, 0)), toon(), trees.length);
+  const trunk = new InstancedMesh(new BoxGeometry(0.5, 2.2, 0.5).translate(0, 1.1, 0), toon({ color: 0x5a3f2a }), trees.length);
   const m = new Matrix4();
   const q = new Quaternion();
   const c = new Color();
@@ -334,7 +336,7 @@ function countryside(track: Track, palette: Palette, seed: number, groundY: numb
   });
   crown.computeBoundingSphere();
   trunk.computeBoundingSphere();
-  const patch = new InstancedMesh(new BoxGeometry(1, 0.1, 1), new MeshLambertMaterial({ flatShading: true }), Math.max(1, fields.length));
+  const patch = new InstancedMesh(new BoxGeometry(1, 0.1, 1), toon(), Math.max(1, fields.length));
   const up = new Vector3(0, 1, 0);
   fields.forEach((f, k) => {
     m.compose(new Vector3(f.x, f.y, f.z), q.setFromAxisAngle(up, f.h), new Vector3(f.w, 1, f.d));

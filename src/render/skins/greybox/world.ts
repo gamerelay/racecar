@@ -17,7 +17,7 @@ import {
   Matrix4,
   Mesh,
   MeshBasicMaterial,
-  MeshLambertMaterial,
+  MeshToonMaterial,
   Object3D,
   Quaternion,
   RingGeometry,
@@ -31,6 +31,7 @@ import { sampleAt, newHit } from '../../../core/track/query';
 import { Piece } from '../../../core/world/hazards';
 import { TRAFFIC_KINDS } from '../../../core/world/traffic';
 import type { WorldVisual } from '../../skin';
+import { toon } from './toon';
 
 const TRAFFIC_COLORS = [0xf2f2f2, 0x3a86ff, 0xffbe0b, 0x8338ec, 0x06d6a0, 0xef476f, 0x2a2a3a, 0xff7b00, 0x9bf6ff, 0xc9c1d9];
 const MAX_TRAFFIC = 128;
@@ -66,8 +67,8 @@ export function buildWorldVisual(scene: Scene, sim: Sim): WorldVisual {
   const col = new Color();
 
   // ---- traffic: body + cabin per kind, instanced ----
-  const bodyMat = new MeshLambertMaterial({ flatShading: true });
-  const glassMat = new MeshLambertMaterial({ color: 0x243a66, flatShading: true });
+  const bodyMat = toon();
+  const glassMat = toon({ color: 0x243a66 });
   const bodies = TRAFFIC_KINDS.map((k) => {
     const body = new InstancedMesh(new BoxGeometry(k.hw * 2, k.hh * 1.2, k.hl * 2), bodyMat, MAX_TRAFFIC);
     const cabin = new InstancedMesh(new BoxGeometry(k.hw * 1.8, k.hh * 0.7, k.hl * (k.big ? 1.9 : 1.0)), glassMat, MAX_TRAFFIC);
@@ -81,17 +82,17 @@ export function buildWorldVisual(scene: Scene, sim: Sim): WorldVisual {
   // ---- debris: wrecked traffic, tumbling for a few seconds ----
   const debris: Debris[] = [];
   const debrisMeshes = Array.from({ length: DEBRIS }, () => {
-    const g = new Mesh(new BoxGeometry(1, 1, 1), new MeshLambertMaterial({ flatShading: true }));
+    const g = new Mesh(new BoxGeometry(1, 1, 1), toon());
     g.visible = false;
     root.add(g);
     return g;
   });
 
   // ---- hazards ----
-  const logs = new InstancedMesh(new CylinderGeometry(0.35, 0.35, 4.2, 10).rotateX(Math.PI / 2), new MeshLambertMaterial({ color: 0x8a5a33, flatShading: true }), 64);
+  const logs = new InstancedMesh(new CylinderGeometry(0.35, 0.35, 4.2, 10).rotateX(Math.PI / 2), toon({ color: 0x8a5a33 }), 64);
   logs.frustumCulled = false;
   logs.count = 0;
-  const signs = new InstancedMesh(new BoxGeometry(1, 1, 1), new MeshLambertMaterial({ color: 0x1f7a4a, flatShading: true }), 16);
+  const signs = new InstancedMesh(new BoxGeometry(1, 1, 1), toon({ color: 0x1f7a4a }), 16);
   signs.frustumCulled = false;
   signs.count = 0;
   const ringMat = new MeshBasicMaterial({ color: 0xff2e88, transparent: true, opacity: 0.6, side: DoubleSide, depthWrite: false, blending: AdditiveBlending });
@@ -106,7 +107,7 @@ export function buildWorldVisual(scene: Scene, sim: Sim): WorldVisual {
 
   // Gantries for the signs: two posts and a beam over the road.
   const hit = newHit();
-  const post = new MeshLambertMaterial({ color: 0x5a5470, flatShading: true });
+  const post = toon({ color: 0x5a5470 });
   for (const def of sim.world.hazards.defs) {
     if (def.use !== 'falling-sign' || typeof def.s !== 'number') continue;
     const at = sampleAt(sim.track.main, def.s - 6, hit);
@@ -228,7 +229,7 @@ export function buildWorldVisual(scene: Scene, sim: Sim): WorldVisual {
         mesh.position.set(d.x, d.y, d.z);
         mesh.rotation.set(d.rx, d.h, d.rz, 'YXZ');
         mesh.scale.set(kind.hw * 2, kind.hh * 1.6, kind.hl * 2);
-        (mesh.material as MeshLambertMaterial).color.setHex(d.color);
+        (mesh.material as MeshToonMaterial).color.setHex(d.color);
       });
 
       // Hazard pieces.

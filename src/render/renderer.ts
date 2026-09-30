@@ -2,7 +2,7 @@
 // boost pull-back, shake, look-back, wreck orbit), particles from the event queue, and the post
 // pass. Reads core state; never writes it.
 
-import { PerspectiveCamera, Scene, Vector3, WebGLRenderer } from 'three';
+import { type Fog, PerspectiveCamera, Scene, Vector3, WebGLRenderer } from 'three';
 import type { PaintDef } from '../core/content';
 import { Ev, type GameEvent } from '../core/events';
 import { clamp, damp, wrapAngle } from '../core/math';
@@ -15,6 +15,8 @@ const STAGE_COLORS = [0xffffff, 0x35a8ff, 0xff8a1a, 0xff2e88];
 
 export interface RenderOptions {
   post: boolean;
+  /** Ink outlines (in the post pass). */
+  outline: boolean;
   pixelRatio: number;
 }
 
@@ -53,12 +55,13 @@ export class GameRenderer {
     palette: string,
     opts: Partial<RenderOptions> = {},
   ) {
-    this.opts = { post: true, pixelRatio: Math.min(window.devicePixelRatio || 1, 2), ...opts };
+    this.opts = { post: true, outline: true, pixelRatio: Math.min(window.devicePixelRatio || 1, 2), ...opts };
     this.renderer = new WebGLRenderer({ antialias: !this.opts.post, powerPreference: 'high-performance' });
     this.renderer.setPixelRatio(this.opts.pixelRatio);
     container.appendChild(this.renderer.domElement);
     this.post = new PostPass(1, 1);
     skin.environment(this.scene, palette);
+    if (skin.ink !== undefined) this.post.uniforms.uInk.value.setHex(skin.ink);
     this.trackVisual = skin.track(sim.track, sim.seed);
     for (const c of this.trackVisual.chunks) this.scene.add(c);
     for (const e of this.trackVisual.extras) this.scene.add(e);
@@ -107,7 +110,7 @@ export class GameRenderer {
     this.renderer.setSize(w, h);
     this.camera.aspect = w / h;
     this.camera.updateProjectionMatrix();
-    this.post.setSize(Math.floor(w * this.opts.pixelRatio), Math.floor(h * this.opts.pixelRatio));
+    this.post.setSize(Math.floor(w * this.opts.pixelRatio), Math.floor(h * this.opts.pixelRatio), 1.5 * this.opts.pixelRatio);
   }
 
   snapCamera(): void {
@@ -143,7 +146,7 @@ export class GameRenderer {
       const speed = Math.hypot(cars.vx[i], cars.vz[i]);
       const fwd = cars.vx[i] * Math.sin(cars.h[i]) + cars.vz[i] * Math.cos(cars.h[i]);
       this.spin[i] += (fwd / 0.38) * dt * this.sim.timeScale;
-      v.update(this.spin[i], steer[i] ?? 0, braking[i] ?? false, cars.boosting[i] === 1 || cars.miniT[i] > 0);
+      v.update(this.spin[i], steer[i] ?? 0, braking[i] ?? false, cars.boosting[i] === 1 || cars.miniT[i] > 0, cars.grounded[i] === 1 && !cars.wreck[i]);
       // Ghosted after a respawn: blink.
       if (cars.ghostT[i] > 0) v.root.visible = Math.floor(this.time * 12) % 2 === 0;
       this.carParticles(i, x, y, z, h, speed, dt);
@@ -160,6 +163,14 @@ export class GameRenderer {
     u.uBoost.value = this.boostVis;
     u.uImpact.value = this.impact;
     u.uSlow.value = clamp((1 - this.sim.timeScale) / 0.7, 0, 1);
+    u.uOutline.value = this.opts.outline ? 1 : 0;
+    u.uNear.value = this.camera.near;
+    u.uFar.value = this.camera.far;
+    const fog = this.scene.fog as Fog | null;
+    if (fog) {
+      u.uFogNear.value = fog.near;
+      u.uFogFar.value = fog.far;
+    }
     this.impact *= Math.exp(-dt * 4);
     if (this.opts.post) {
       this.renderer.setRenderTarget(this.post.target);

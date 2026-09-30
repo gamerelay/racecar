@@ -816,6 +816,14 @@ Milestone 1 (2026-09-30):
 
 Milestone 2 (2026-09-30):
 
+- **The greybox got the prototype's cel look early** (asked for in playtesting): a three-step
+  toon ramp on every lit surface, ink outlines, lit windows and street lamps in City, and glow
+  on head and tail lights with a headlight beam on the road. Outlines are drawn in the post pass
+  from the depth buffer (the Laplacian of 1/z, which is zero across any flat face), not with
+  the prototype's inverted hulls, so instanced traffic, merged road chunks and city blocks all
+  get them with no extra draw calls; F6 or `&ink=0` turns them off. Windows are computed in the
+  shader from world position, so the instanced blocks need no UVs. City's draw calls barely
+  move (lamps and windows are about five for the lap).
 - **Traffic lives in sections, not the whole lap.** With traffic everywhere, the AI (and
   anyone) hit head-ons in every narrow two-way hairpin: carrying speed through one puts you on
   the inside, which is the oncoming lane. Lanes now take `sections` (distance ranges on the
