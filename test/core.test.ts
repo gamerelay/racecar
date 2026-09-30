@@ -11,6 +11,7 @@ import { bakeTrack, mainDistance } from '../src/core/track/bake';
 import { newHit, project, projectGlobal, sampleAt } from '../src/core/track/query';
 import { validateLayout } from '../src/core/track/validate';
 import { Sim } from '../src/core/sim';
+import { respawn } from '../src/core/car/physics';
 import { CLASSES, DOWNTOWN, SURFACES, citySim, ringSim } from './helpers';
 
 describe('rng', () => {
@@ -162,6 +163,95 @@ describe('sim', () => {
     expect(sim.cars.miniT[i]).toBe(0);
     expect(sim.cars.boost[i] - boost).toBeGreaterThan(0.1);
     expect(sim.cars.boost[i] - boost).toBeLessThan(0.3);
+  });
+
+  describe('drift feel', () => {
+    // Up to speed on the open ring, then a full-lock drift to the right for `hold` seconds.
+    const drift = (cls: string, hold: number) => {
+      const sim = ringSim(1, 600, 320);
+      const i = sim.addCar({ cls, human: true });
+      const c = neutralControls();
+      c.throttle = 1;
+      for (let t = 0; t < 60 * 3; t++) sim.step([c]);
+      c.drift = true;
+      c.steer = -1;
+      for (let t = 0; t < 60 * hold; t++) sim.step([c]);
+      return { sim, i, c };
+    };
+    const events = (sim: Sim, type: number, run: () => void) => {
+      let n = 0;
+      let cursor = sim.events.head;
+      run();
+      sim.events.read(cursor, (e) => {
+        if (e.type === type) n++;
+      });
+      return n;
+    };
+
+    test('a tap-drift banks nothing', () => {
+      const { sim, i, c } = drift('coupe', 0.1);
+      const boost = sim.cars.boost[i];
+      c.drift = false;
+      const paid = events(sim, Ev.DriftBoost, () => {
+        for (let t = 0; t < 30; t++) sim.step([c]);
+      });
+      expect(paid).toBe(0);
+      expect(sim.cars.boost[i]).toBe(boost);
+    });
+
+    test('a spin-out loses the bank', () => {
+      const { sim, i, c } = drift('coupe', 1.5);
+      expect(sim.cars.driftBank[i]).toBeGreaterThan(0.05);
+      const boost = sim.cars.boost[i];
+      // Overcook it: swing the nose far past the drift angle.
+      sim.cars.h[i] = wrapAngle(sim.cars.h[i] + Math.sign(sim.cars.slip[i]) * 0.6);
+      const paid = events(sim, Ev.DriftBoost, () => {
+        for (let t = 0; t < 30; t++) sim.step([c]);
+      });
+      expect(sim.cars.spinT[i]).toBeGreaterThan(0);
+      expect(paid).toBe(0);
+      expect(sim.cars.driftBank[i]).toBe(0);
+      expect(sim.cars.boost[i]).toBe(boost);
+    });
+
+    test('the bank never overfills the meter', () => {
+      const { sim, i, c } = drift('hatch', 1.5);
+      sim.cars.boost[i] = 0.95;
+      c.drift = false;
+      sim.step([c]);
+      expect(sim.cars.boost[i]).toBeLessThanOrEqual(1);
+    });
+
+    test('heavier cars carry their slide longer (driftCarry)', () => {
+      const straighten = (cls: string) => {
+        const { sim, i, c } = drift(cls, 1.5);
+        c.drift = false;
+        c.steer = 0;
+        let t = 0;
+        while (Math.abs(sim.cars.slip[i]) > 0.02 && t < 300) {
+          sim.step([c]);
+          t++;
+        }
+        return t;
+      };
+      const hatch = straighten('hatch');
+      const coupe = straighten('coupe');
+      const muscle = straighten('muscle');
+      expect(hatch).toBeLessThan(coupe);
+      expect(coupe).toBeLessThan(muscle);
+      expect(muscle).toBeLessThan(60);
+    });
+
+    test('a respawn clears the drift state', () => {
+      const { sim, i, c } = drift('coupe', 1);
+      c.drift = false;
+      sim.step([c]);
+      expect(sim.cars.driftExit[i]).toBeGreaterThan(0);
+      respawn(sim, i);
+      expect(sim.cars.driftExit[i]).toBe(0);
+      expect(sim.cars.driftBank[i]).toBe(0);
+      expect(sim.cars.drift[i]).toBe(0);
+    });
   });
 
   test('ramming a pace car at speed takes it down', () => {
