@@ -11,6 +11,7 @@ traffic that fades instead of popping (PR #7, `alpha-1.3`), audio plus a review 
 **Map names:** City is now **Downtown** and Countryside is **Backroads** (content in
 `content/maps/downtown` and `content/maps/backroads`; keys `downtown/downtown`, `backroads/valley`;
 old keys still resolve). This file still says City and Countryside in places; they're the same maps.
+The third map is **Paradise** (`content/maps/paradise`, key `paradise/island`).
 
 ## Resume in five minutes
 
@@ -181,8 +182,8 @@ old keys still resolve). This file still says City and Countryside in places; th
 | Lap length | 3.26 km | 2.92 km | 3.44 km |
 | AI lap floor (hard, empty track) | 58.6 s | 63.4 s | 68.2 s |
 | Wrecks per 8-AI race (8 seeds; `lap-report --field --seed N`) | ~1.6 | ~1 | ~0.75 |
-| Draw calls | ~90–415 | ~65–330 |
-| Scenery build (per editor edit) | ~200 ms | ~150 ms |
+| Draw calls | ~90–415 | ~65–330 | ~35–150 for the world; ~350 in the chase view with the field on screen (mostly cars) |
+| Scenery build (per editor edit) | ~200 ms | ~150 ms | ~600 ms (land and scenery, measured in bun) |
 
 The game holds 120 fps (the display's cap) on the dev Mac, rain included. The frame rate hasn't
 been measured since the detailed cars went in, so watch it. City has 150 draw calls on the grid in
@@ -220,6 +221,28 @@ editor.
   (always wet). A kink puts you onto the home straight.
 
 `tools/gen-countryside.ts` generates it; the river's course is `terrain` in the layout.
+
+### The Paradise lap (Island), in order
+
+Clockwise round a tropical island, the volcano in the middle and the sea all round.
+
+- **Harbor Town:** the start on the harbour front, two-way traffic, pastel houses both sides,
+  the tiki bar on the sand and the pier with fishing boats. A flowing S out of town.
+- **Coconut Coast:** the wide beach road (18.5 m, 20 in the sweepers) up the west shore, palms
+  leaning over it, round a headland inland. The **Sandbar** runs straight on along the
+  waterline on loose sand, with a dune to jump and wet sand (`shore`) at the water's edge.
+- **The Freeway:** up a ramp to a deck 10–14 m over the bay, one long banked sweep round the
+  north shore on concrete pillars. It's one-way, both lanes with the race, and the traffic
+  keeps to the straights either side of its bend.
+- **Jungle Switchbacks:** off the deck into the jungle, two wide hairpins on red earth, under a
+  rope bridge, past a waterfall.
+- **Volcano Rim:** the climb round the cone's flank on lava rock, over the shoulder's crest. The
+  **Lava Tube** cuts through inside it, roofed with rock and lit by lava.
+- **Lighthouse Point:** a jump off the rim, the lighthouse on its point, the cliff road, and the
+  S back into town.
+
+`tools/gen-paradise.ts` generates it on `tools/lib/lap.ts`; the coastline, sea and volcano are
+`terrain` in the layout, and the dressing is `island.ts`.
 
 ## GameRelay side (the platform asks, SPEC §11)
 
@@ -265,8 +288,10 @@ editor.
 ### Smaller follow-ups
 
 - From the review, not done yet (organization and perf, no bugs):
-  - One road spatial index for `cityscape.ts` (Corridors), `forest.ts` and `terrain.ts`; one
-    instancing builder for `scenery.boxes()` and `forest.instanced()`; a `gantry()` helper.
+  - One road spatial index for `cityscape.ts` (Corridors), `forest.ts`, `island.ts` and
+    `terrain.ts` (the forest and the island each hash the road the same way); one instancing
+    builder for `scenery.boxes()` and `forest.instanced()` (the island uses the latter); a
+    `gantry()` helper.
   - Tile the Valley's terrain (one 256k-triangle mesh, never culled); upload only live ambient
     cars and particles instead of whole buffers each frame.
   - Touch controls: phones can't drive yet.
@@ -292,8 +317,11 @@ editor.
   - `logTruck.at` rescans traffic every tick for its truck: remember it on the occurrence.
   - `src/content.ts` (the bundle loader) and `src/core/content.ts` (types) share a name.
   - Unused surfaces (`ice`, `oil`, `lava-crust`, `boost-pad`) wait for a map that uses them.
-  - Both layouts' lap floors (58.6, 63.6 s) are under SPEC's 70–100 s target; validate warns
-    only under 55 s.
+  - Downtown's and the Valley's lap floors (58.6, 63.4 s) are under SPEC's 70–100 s target;
+    Paradise's (68.2 s) is close. Validate warns only under 55 s.
+- From Paradise part 2: the land over the Lava Tube is still cut open (every road caps the land
+  below it), so the tube reads as a roofed cutting, not a tunnel under the cone. A branch that's
+  a tunnel would need to leave the land alone over its middle and draw portals.
 - Loading a layout builds the whole City in about 200 ms. That's fine per editor edit (edits
   apply when you let go of a point); if it ever runs per frame, cache it.
 
