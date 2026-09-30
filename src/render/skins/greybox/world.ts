@@ -31,7 +31,7 @@ import { hash01 } from '../../../core/rng';
 import type { Sim } from '../../../core/sim';
 import { sampleAt, newHit } from '../../../core/track/query';
 import { Piece } from '../../../core/world/hazards';
-import { newTrafficPose, TRAFFIC_KINDS } from '../../../core/world/traffic';
+import { TRAFFIC_KINDS, type TrafficPose } from '../../../core/world/traffic';
 import type { WorldVisual } from '../../skin';
 import { FADE_ATTR, fadeAttribute, fadeMaterial } from '../../fade';
 import { markInk } from '../../ink';
@@ -122,8 +122,18 @@ export function buildWorldVisual(scene: Scene, sim: Sim, roof?: (x: number, z: n
   const lampPoints = new Points(lamps.geo, new PointsMaterial({ map: glow(), size: 1.5, vertexColors: true, transparent: true, blending: AdditiveBlending, depthWrite: false }));
   lampPoints.frustumCulled = false;
   root.add(lampPoints);
-  const pose = newTrafficPose();
   const trafficColor = (k: number) => TRAFFIC_COLORS[Math.floor(hash01(sim.seed, k, 9) * TRAFFIC_COLORS.length)];
+
+  let lit = 0;
+  const drawTraffic = (k: number, v: number, pose: TrafficPose) => {
+    const tr = sim.world.traffic;
+    e.position.set(pose.x, pose.y, pose.z);
+    e.rotation.set(0, pose.h, 0);
+    e.updateMatrix();
+    put(tr.kind[k], e.matrix, trafficColor(k), v);
+    // Lamps are glow sprites that can't fade: they come on once the car is mostly there.
+    if (v > 0.6 && lit < MAX_TRAFFIC) lamps.write(lit++, e.matrix, bodies[tr.kind[k]].lamps);
+  };
 
   // ---- debris: wrecked traffic, tumbling for a few seconds ----
   const debris: Debris[] = [];
@@ -226,19 +236,8 @@ export function buildWorldVisual(scene: Scene, sim: Sim, roof?: (x: number, z: n
           if (p.ghost) p.ghost.count = 0;
         }
       }
-      let lit = 0;
-      for (let k = 0; k < tr.count; k++) {
-        const v = tr.visibility(k, time);
-        if (v <= 0) continue;
-        tr.poseAt(k, time, pose);
-        if ((pose.x - cam.x) ** 2 + (pose.z - cam.z) ** 2 > DRAW * DRAW) continue;
-        e.position.set(pose.x, pose.y, pose.z);
-        e.rotation.set(0, pose.h, 0);
-        e.updateMatrix();
-        put(tr.kind[k], e.matrix, trafficColor(k), v);
-        // Lamps are glow sprites with no dither: they come on once the car is mostly there.
-        if (v > 0.6 && lit < MAX_TRAFFIC) lamps.write(lit++, e.matrix, bodies[tr.kind[k]].lamps);
-      }
+      lit = 0;
+      tr.visibleNear(time, cam.x, cam.z, DRAW, drawTraffic);
       lamps.commit(lit);
 
       // Debris.

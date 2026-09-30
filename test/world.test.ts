@@ -4,7 +4,7 @@ import { Ev } from '../src/core/events';
 import { Sim } from '../src/core/sim';
 import { bakeTrack } from '../src/core/track/bake';
 import { Hazards } from '../src/core/world/hazards';
-import { FADE, newTrafficPose, Traffic } from '../src/core/world/traffic';
+import { newTrafficPose, Traffic } from '../src/core/world/traffic';
 import { planWeather, weatherAt } from '../src/core/world/weather';
 import { CLASSES, DOWNTOWN, SURFACES } from './helpers';
 
@@ -36,7 +36,8 @@ describe('traffic', () => {
     const tr = new Traffic(track, 1);
     const dt = 1 / 60;
     // The fastest a fade can go: a lane's speed over FADE meters, or FADE_BACK's one second.
-    const maxStep = Math.max(...tr.lanes.map((l) => (l.speed * dt) / FADE), dt) * 1.001;
+    // Against a fixed 30 m / 0.5 s floor, so shrinking FADE can't pass by moving the bar.
+    const maxStep = Math.max(...tr.lanes.map((l) => (l.speed * dt) / 30), dt / 0.5);
     let fading = 0;
     for (let k = 0; k < tr.count; k++) {
       let prev = tr.visibility(k, 0);

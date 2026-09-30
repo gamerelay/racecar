@@ -39,14 +39,14 @@ export const TRUCK = 3;
 
 /** How close (along the road, or in a straight line) a traffic car must be to a racer to be posed this tick. */
 const LOD = 350;
-const LOD_STRAIGHT = 250;
+export const LOD_STRAIGHT = 250;
 /** Meters of road a car fades over entering or leaving traffic; seconds a returning wreck takes. */
 export const FADE = 45;
-const FADE_BACK = 1;
+export const FADE_BACK = 1;
 /** Seconds a wrecked traffic car stays gone. */
 export const TRAFFIC_RESPAWN = 12;
 /** No traffic within this much of the start line for the first seconds of a race. */
-const GRID_CLEAR = { behind: 160, ahead: 60, seconds: 10 };
+export const GRID_CLEAR = { behind: 160, ahead: 60, seconds: 10 };
 const POOL = 128;
 
 /** Whether a lane has traffic at main distance s (inside one of its sections, or it has none). */
@@ -232,6 +232,21 @@ export class Traffic {
       if (close) this.pose(k, t, p++);
     }
     this.posed = p;
+  }
+
+  /**
+   * Calls `fn` for every car with any visibility within `range` (straight line) of (x, z) at time
+   * t, with its visibility and pose (reused: copy what you keep). What the renderer draws: it
+   * doesn't depend on the sim's pool, which only holds solid cars near a racer.
+   */
+  visibleNear(t: number, x: number, z: number, range: number, fn: (k: number, visibility: number, pose: TrafficPose) => void): void {
+    const o = this.scratch;
+    for (let k = 0; k < this.count; k++) {
+      const v = this.visibility(k, t);
+      if (v <= 0) continue;
+      this.poseAt(k, t, o, this.renderHit);
+      if ((o.x - x) ** 2 + (o.z - z) ** 2 <= range * range) fn(k, v, o);
+    }
   }
 
   /** Every traffic car's pose at time t, regardless of LOD (the editor's scrubber, tests). */
