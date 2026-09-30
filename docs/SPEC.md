@@ -816,6 +816,12 @@ Milestone 1 (2026-09-30):
 
 Milestone 2 (2026-09-30):
 
+- **Traffic in the car style.** Each traffic kind (sedan, compact, van, box truck, bus) is one
+  merged mesh, built from a side profile like the racers (arches, glass, bumpers, wheels, lamps).
+  A kind is one instanced draw however many are posed. A vertex mask picks which parts take the
+  instance's paint and which glow (lamps), and lamp glow sprites go on posed traffic. Wreck
+  debris, and the city's parked and background cars, use the same models. The garage
+  (`cars.html`) shows them all with T.
 - **Rain shows on the road.** A screen-space reflection pass (in the post pass, from the depth
   buffer) gives every flat surface a wet sheen, smeared into vertical streaks like wet asphalt.
   Puddles are sharp mirrors. The puddle zones were slippery but invisible; now they're drawn as

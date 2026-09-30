@@ -17,8 +17,9 @@ import {
   Matrix4,
   Mesh,
   MeshBasicMaterial,
-  MeshToonMaterial,
   Object3D,
+  Points,
+  PointsMaterial,
   Quaternion,
   RingGeometry,
   Vector3,
@@ -31,7 +32,8 @@ import { sampleAt, newHit } from '../../../core/track/query';
 import { Piece } from '../../../core/world/hazards';
 import { TRAFFIC_KINDS } from '../../../core/world/traffic';
 import type { WorldVisual } from '../../skin';
-import { toon } from './toon';
+import { lampSpots, trafficModels } from './car/traffic';
+import { glow, toon } from './toon';
 
 const TRAFFIC_COLORS = [0xf2f2f2, 0x3a86ff, 0xffbe0b, 0x8338ec, 0x06d6a0, 0xef476f, 0x2a2a3a, 0xff7b00, 0x9bf6ff, 0xc9c1d9];
 const MAX_TRAFFIC = 128;
@@ -66,27 +68,38 @@ export function buildWorldVisual(scene: Scene, sim: Sim): WorldVisual {
   const scl = new Vector3();
   const col = new Color();
 
-  // ---- traffic: body + cabin per kind, instanced ----
-  const bodyMat = toon();
-  const glassMat = toon({ color: 0x243a66 });
+  // ---- traffic: one instanced model per kind (car/traffic.ts), with glowing lamps ----
+  const models = trafficModels();
   const bodies = TRAFFIC_KINDS.map((k) => {
-    const body = new InstancedMesh(new BoxGeometry(k.hw * 2, k.hh * 1.2, k.hl * 2), bodyMat, MAX_TRAFFIC);
-    const cabin = new InstancedMesh(new BoxGeometry(k.hw * 1.8, k.hh * 0.7, k.hl * (k.big ? 1.9 : 1.0)), glassMat, MAX_TRAFFIC);
-    body.count = cabin.count = 0;
-    body.frustumCulled = cabin.frustumCulled = false;
-    root.add(body, cabin);
-    return { body, cabin, kind: k };
+    const body = new InstancedMesh(models.geos[k.id], models.material, MAX_TRAFFIC);
+    body.count = 0;
+    body.frustumCulled = false;
+    root.add(body);
+    return { body, kind: k, lamps: lampSpots(k.id) };
   });
+  const lampPos = new Float32Array(MAX_TRAFFIC * 4 * 3);
+  const lampCol = new Float32Array(MAX_TRAFFIC * 4 * 3);
+  for (let n = 0; n < MAX_TRAFFIC; n++) lampCol.set([1, 0.95, 0.8, 1, 0.95, 0.8, 1, 0.13, 0.2, 1, 0.13, 0.2], n * 12);
+  const lampGeo = new BufferGeometry();
+  lampGeo.setAttribute('position', new BufferAttribute(lampPos, 3));
+  lampGeo.setAttribute('color', new BufferAttribute(lampCol, 3));
+  const lamps = new Points(lampGeo, new PointsMaterial({ map: glow(), size: 1.5, vertexColors: true, transparent: true, blending: AdditiveBlending, depthWrite: false }));
+  lamps.frustumCulled = false;
+  root.add(lamps);
+  const lampV = new Vector3();
   const trafficColor = (k: number) => TRAFFIC_COLORS[Math.floor(hash01(sim.seed, k, 9) * TRAFFIC_COLORS.length)];
 
   // ---- debris: wrecked traffic, tumbling for a few seconds ----
   const debris: Debris[] = [];
-  const debrisMeshes = Array.from({ length: DEBRIS }, () => {
-    const g = new Mesh(new BoxGeometry(1, 1, 1), toon());
-    g.visible = false;
-    root.add(g);
-    return g;
+  const debrisMeshes = TRAFFIC_KINDS.map((k) => {
+    const mesh = new InstancedMesh(models.geos[k.id], models.material, DEBRIS);
+    mesh.count = 0;
+    mesh.frustumCulled = false;
+    root.add(mesh);
+    return mesh;
   });
+  // Debris tumbles about its middle; the models stand on the road, so lift them by half a height.
+  const center = new Matrix4();
 
   // ---- hazards ----
   const logs = new InstancedMesh(new CylinderGeometry(0.35, 0.35, 4.2, 10).rotateX(Math.PI / 2), toon({ color: 0x8a5a33 }), 64);
@@ -175,27 +188,31 @@ export function buildWorldVisual(scene: Scene, sim: Sim): WorldVisual {
       cursor = sim.events.read(cursor, onEvent);
       const tr = sim.world.traffic;
       // Pose traffic at the render time: it's a formula, so it's exactly where it should be.
-      for (const b of bodies) b.body.count = b.cabin.count = 0;
+      for (const b of bodies) b.body.count = 0;
+      let lit = 0;
       for (let p = 0; p < tr.posed; p++) {
         const k = tr.idx[p];
-        const kind = TRAFFIC_KINDS[tr.kind[k]];
         const b = bodies[tr.kind[k]];
-        e.position.set(tr.x[p], tr.y[p] + kind.hh * 0.6 + 0.35, tr.z[p]);
+        e.position.set(tr.x[p], tr.y[p], tr.z[p]);
         e.rotation.set(0, tr.h[p], 0);
         e.updateMatrix();
         const n = b.body.count++;
         b.body.setMatrixAt(n, e.matrix);
         b.body.setColorAt(n, col.setHex(trafficColor(k)));
-        e.position.y += kind.hh * 0.9;
-        e.position.x += Math.sin(tr.h[p]) * (kind.big ? kind.hl * 0.02 : -kind.hl * 0.1);
-        e.position.z += Math.cos(tr.h[p]) * (kind.big ? kind.hl * 0.02 : -kind.hl * 0.1);
-        e.updateMatrix();
-        b.cabin.setMatrixAt(b.cabin.count++, e.matrix);
+        for (const l of b.lamps) {
+          lampV.set(l[0], l[1], l[2]).applyMatrix4(e.matrix);
+          lampPos[lit * 3] = lampV.x;
+          lampPos[lit * 3 + 1] = lampV.y;
+          lampPos[lit * 3 + 2] = lampV.z;
+          lit++;
+        }
       }
       for (const b of bodies) {
-        b.body.instanceMatrix.needsUpdate = b.cabin.instanceMatrix.needsUpdate = true;
+        b.body.instanceMatrix.needsUpdate = true;
         if (b.body.instanceColor) b.body.instanceColor.needsUpdate = true;
       }
+      lampGeo.setDrawRange(0, lit);
+      (lampGeo.attributes.position as BufferAttribute).needsUpdate = true;
 
       // Debris.
       for (let k = debris.length - 1; k >= 0; k--) {
@@ -221,16 +238,22 @@ export function buildWorldVisual(scene: Scene, sim: Sim): WorldVisual {
           d.wz *= 0.6;
         }
       }
-      debrisMeshes.forEach((mesh, k) => {
-        const d = debris[k];
-        mesh.visible = !!d;
-        if (!d) return;
+      for (const mesh of debrisMeshes) mesh.count = 0;
+      for (const d of debris) {
         const kind = TRAFFIC_KINDS[d.kind];
-        mesh.position.set(d.x, d.y, d.z);
-        mesh.rotation.set(d.rx, d.h, d.rz, 'YXZ');
-        mesh.scale.set(kind.hw * 2, kind.hh * 1.6, kind.hl * 2);
-        (mesh.material as MeshToonMaterial).color.setHex(d.color);
-      });
+        const mesh = debrisMeshes[d.kind];
+        e.position.set(d.x, d.y, d.z);
+        e.rotation.set(d.rx, d.h, d.rz, 'YXZ');
+        e.updateMatrix();
+        e.matrix.multiply(center.makeTranslation(0, -kind.hh, 0));
+        const n = mesh.count++;
+        mesh.setMatrixAt(n, e.matrix);
+        mesh.setColorAt(n, col.setHex(d.color));
+      }
+      for (const mesh of debrisMeshes) {
+        mesh.instanceMatrix.needsUpdate = true;
+        if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
+      }
 
       // Hazard pieces.
       const hz = sim.world.hazards;

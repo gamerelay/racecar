@@ -34,6 +34,7 @@ import { hashString, Rng } from '../../../core/rng';
 import type { Track } from '../../../core/track/bake';
 import { streetLamps, windowMaterial } from './city';
 import type { Palette } from './palettes';
+import { lampSpots, trafficModels } from './car/traffic';
 import { faceted, glow, toon } from './toon';
 
 /** The street grid: blocks this big (street to street), streets this wide, sidewalks inside that. */
@@ -43,6 +44,9 @@ const SIDEWALK = 3;
 /** How far past the track the city goes (the fog takes it from there). */
 const MARGIN = 460;
 const WALL_THICK = 0.5;
+/** Cars parked and driving on the side streets: mostly sedans and compacts, some vans. */
+const STREET_KINDS = ['sedan', 'compact', 'van'];
+const pickKind = (r: number) => (r < 0.5 ? 0 : r < 0.85 ? 1 : 2);
 
 export interface CityScape {
   objects: Object3D[];
@@ -622,7 +626,7 @@ export function buildCityscape(track: Track, palette: Palette, ground: number): 
     }
   }
 
-  const parked: Box[] = [];
+  const parked: { x: number; z: number; rot: number; color: number; kind: number }[] = [];
   const trees: { x: number; z: number; s: number; c: number }[] = [];
   const lampPos: number[] = [];
   const poles: Box[] = [];
@@ -637,7 +641,7 @@ export function buildCityscape(track: Track, palette: Palette, ground: number): 
       const z = sg.z + sg.dz * u;
       dashes.push({ x, y: ground + 0.015, z, w: sg.dx ? 3 : 0.18, h: 0.02, d: sg.dx ? 0.18 : 3, rot: 0, color: 0xa89cc0 });
       for (const side of [-1, 1]) {
-        if (rng.next() < 0.45) parked.push({ x: x + rx * side * (STREET / 2 - 1.2), y: ground + 0.75, z: z + rz * side * (STREET / 2 - 1.2), w: 1.9, h: 1.3, d: 4.2, rot, color: PARK[Math.floor(rng.next() * PARK.length)] });
+        if (rng.next() < 0.45) parked.push({ x: x + rx * side * (STREET / 2 - 1.4), z: z + rz * side * (STREET / 2 - 1.4), rot: rot + (rng.next() < 0.5 ? 0 : Math.PI), color: PARK[Math.floor(rng.next() * PARK.length)], kind: pickKind(rng.next()) });
       }
     }
     for (let u = 10, side = 1; u < sg.len - 10; u += 26, side = -side) {
@@ -656,7 +660,21 @@ export function buildCityscape(track: Track, palette: Palette, ground: number): 
       }
     }
   }
-  objects.push(boxes(parked, toon()));
+  {
+    const models = trafficModels();
+    STREET_KINDS.forEach((id, i) => {
+      const list = parked.filter((p) => p.kind === i);
+      if (!list.length) return;
+      const mesh = new InstancedMesh(models.geos[id], models.material, list.length);
+      list.forEach((p, k) => {
+        m4.compose(v3.set(p.x, ground, p.z), q4.setFromAxisAngle(up, p.rot), s3.set(1, 1, 1));
+        mesh.setMatrixAt(k, m4);
+        mesh.setColorAt(k, col.setHex(p.color));
+      });
+      mesh.computeBoundingSphere();
+      objects.push(mesh);
+    });
+  }
   objects.push(boxes(poles, toon()));
   objects.push(boxes(dashes, new MeshBasicMaterial({ color: 0xa89cc0 })));
   objects.push(glowPoints(lampPos, 0xffc27a, 3.2));
@@ -675,18 +693,28 @@ export function buildCityscape(track: Track, palette: Palette, ground: number): 
     objects.push(crown, trunk);
   }
 
-  // Ambient cars: driving the side streets both ways, wrapping at each segment's ends.
+  // Ambient cars: driving the side streets both ways, wrapping at each segment's ends. The same
+  // models as the race traffic, one instanced mesh per kind.
   {
-    const cars: { sg: number; u: number; v: number; lane: number; color: number; long: number }[] = [];
+    const models = trafficModels();
+    const cars: { sg: number; u: number; v: number; lane: number; color: number; kind: number; slot: number }[] = [];
+    const counts = STREET_KINDS.map(() => 0);
     segments.forEach((sg, k) => {
       const count = Math.floor(sg.len / 45);
-      for (let c = 0; c < count; c++) cars.push({ sg: k, u: rng.next() * sg.len, v: 8 + rng.next() * 6, lane: rng.next() < 0.5 ? -1 : 1, color: PARK[Math.floor(rng.next() * PARK.length)], long: rng.next() < 0.15 ? 1.4 : 1 });
+      for (let c = 0; c < count; c++) {
+        const kind = pickKind(rng.next());
+        cars.push({ sg: k, u: rng.next() * sg.len, v: 8 + rng.next() * 6, lane: rng.next() < 0.5 ? -1 : 1, color: PARK[Math.floor(rng.next() * PARK.length)], kind, slot: counts[kind]++ });
+      }
     });
-    const body = new InstancedMesh(new BoxGeometry(1.9, 1.1, 4.3), toon(), Math.max(1, cars.length));
-    const cabin = new InstancedMesh(new BoxGeometry(1.7, 0.6, 2.2), toon({ color: 0x243a66 }), Math.max(1, cars.length));
-    body.frustumCulled = cabin.frustumCulled = false;
-    cars.forEach((c, k) => body.setColorAt(k, col.setHex(c.color)));
-    body.count = cabin.count = cars.length;
+    const meshes = STREET_KINDS.map((id, i) => {
+      const mesh = new InstancedMesh(models.geos[id], models.material, Math.max(1, counts[i]));
+      mesh.count = counts[i];
+      mesh.frustumCulled = false;
+      objects.push(mesh);
+      return mesh;
+    });
+    for (const c of cars) meshes[c.kind].setColorAt(c.slot, col.setHex(c.color));
+    const spots = STREET_KINDS.map((id) => lampSpots(id));
     const lights = new Float32Array(cars.length * 4 * 3);
     const lightCol = new Float32Array(cars.length * 4 * 3);
     for (let k = 0; k < cars.length; k++) {
@@ -697,34 +725,28 @@ export function buildCityscape(track: Track, palette: Palette, ground: number): 
     lgeo.setAttribute('color', new BufferAttribute(lightCol, 3));
     const lpts = new Points(lgeo, glowMaterial(1.3, true));
     lpts.frustumCulled = false;
-    objects.push(body, cabin, lpts);
+    objects.push(lpts);
+    const lamp = new Vector3();
     animators.push((_t, dt) => {
       for (let k = 0; k < cars.length; k++) {
         const c = cars[k];
         const sg = segments[c.sg];
         c.u = (c.u + c.v * dt * c.lane + sg.len) % sg.len;
-        const rx = sg.dz;
-        const rz = -sg.dx;
         const off = c.lane * 2.6;
-        const x = sg.x + sg.dx * c.u + rx * off;
-        const z = sg.z + sg.dz * c.u + rz * off;
-        const hx = sg.dx * c.lane;
-        const hz = sg.dz * c.lane;
-        const rot = Math.atan2(hx, hz);
-        q4.setFromAxisAngle(up, rot);
-        m4.compose(v3.set(x, ground + 0.8, z), q4, s3.set(1, 1, c.long));
-        body.setMatrixAt(k, m4);
-        m4.compose(v3.set(x - hx * 0.3, ground + 1.6, z - hz * 0.3), q4, s3.set(1, 1, c.long));
-        cabin.setMatrixAt(k, m4);
-        const L = 2.2 * c.long;
+        const x = sg.x + sg.dx * c.u + sg.dz * off;
+        const z = sg.z + sg.dz * c.u - sg.dx * off;
+        q4.setFromAxisAngle(up, Math.atan2(sg.dx * c.lane, sg.dz * c.lane));
+        m4.compose(v3.set(x, ground, z), q4, s3.set(1, 1, 1));
+        meshes[c.kind].setMatrixAt(c.slot, m4);
         const j = k * 12;
-        for (const [n, along, side] of [[0, L, -0.6], [1, L, 0.6], [2, -L, -0.6], [3, -L, 0.6]] as const) {
-          lights[j + n * 3] = x + hx * along + -hz * side;
-          lights[j + n * 3 + 1] = ground + 0.8;
-          lights[j + n * 3 + 2] = z + hz * along + hx * side;
-        }
+        spots[c.kind].forEach((l, n) => {
+          lamp.set(l[0], l[1], l[2]).applyMatrix4(m4);
+          lights[j + n * 3] = lamp.x;
+          lights[j + n * 3 + 1] = lamp.y;
+          lights[j + n * 3 + 2] = lamp.z;
+        });
       }
-      body.instanceMatrix.needsUpdate = cabin.instanceMatrix.needsUpdate = true;
+      for (const mesh of meshes) mesh.instanceMatrix.needsUpdate = true;
       (lgeo.attributes.position as BufferAttribute).needsUpdate = true;
     });
   }

@@ -1,17 +1,19 @@
 // The garage: every car on a stretch of road under the greybox sky, with the game's post pass, so
 // car art can be worked on without driving. Dev tool; state lives in the URL so a view can be shared.
 //
-//   1–4 class · 0 lineup · P paint · V view · M palette
+//   1–4 class · 0 lineup · T traffic lineup · P paint · V view · M palette
 //   O ink · K car ink · F post · W wreck (R repairs) · hold B brake · hold Space boost · ←/→ steer
 //   S stop the road
 
-import { BoxGeometry, type Fog, Group, Mesh, PerspectiveCamera, PlaneGeometry, Scene, Vector3, WebGLRenderer } from 'three';
+import { BoxGeometry, Color, type Fog, Group, InstancedMesh, Matrix4, Mesh, PerspectiveCamera, PlaneGeometry, Scene, Vector3, WebGLRenderer } from 'three';
 import { CLASSES, PAINTS } from '../content';
 import type { CarVisual } from '../render/skin';
 import { InkPass } from '../render/ink';
 import { PostPass } from '../render/post';
 import { GreyboxSkin } from '../render/skins/greybox';
 import { toon } from '../render/skins/greybox/toon';
+import { trafficModels } from '../render/skins/greybox/car/traffic';
+import { TRAFFIC_KINDS } from '../core/world/traffic';
 
 const VIEWS = ['chase', 'orbit', 'rear34', 'side', 'front34', 'top'] as const;
 type View = (typeof VIEWS)[number];
@@ -125,7 +127,24 @@ function rebuild(): void {
     scene.add(v.root);
     cars.push({ v, x, t: -1, vy: 0, w: [0, 0, 0] });
   };
-  if (state.cls === 'all') {
+  if (state.cls === 'traffic') {
+    // Every traffic kind, side by side, in the colors traffic uses.
+    const { geos, material } = trafficModels();
+    const colors = [0xf2f2f2, 0x3a86ff, 0xffbe0b, 0x8338ec, 0xef476f];
+    let x = 0;
+    const widths = TRAFFIC_KINDS.map((k) => k.hw * 2 + 1.4);
+    x = widths.reduce((a, b) => a + b, 0) / 2;
+    TRAFFIC_KINDS.forEach((k, i) => {
+      const mesh = new InstancedMesh(geos[k.id], material, 1);
+      mesh.setMatrixAt(0, new Matrix4());
+      mesh.setColorAt(0, new Color(colors[i % colors.length]));
+      const root = new Group();
+      root.add(mesh);
+      x -= widths[i] / 2;
+      place({ root, update() {}, dispose() {} }, x);
+      x -= widths[i] / 2;
+    });
+  } else if (state.cls === 'all') {
     classes.forEach((c, i) => place(skin.car(c, PAINTS[(PAINTS.indexOf(paint) + i) % PAINTS.length]), (i - 1.5) * 3.6));
   } else place(skin.car(classes[0], paint), 0);
   const url = new URL(location.href);
@@ -261,7 +280,7 @@ function frame(now: number): void {
   }
   hud.textContent =
     `${state.cls === 'all' ? 'lineup' : state.cls} · ${state.paint} · ${state.view} · ${state.palette}   ${calls} draws\n` +
-    `1–4 class · 0 lineup · P paint · V view · M palette · O ink${state.carInk ? '' : ' (car ink off: K)'} · K car ink · F post · S road\nW wreck · R repair · hold B brake · Space boost · ←/→ steer · drag to orbit`;
+    `1–4 class · 0 lineup · T traffic · P paint · V view · M palette · O ink${state.carInk ? '' : ' (car ink off: K)'} · K car ink · F post · S road\nW wreck · R repair · hold B brake · Space boost · ←/→ steer · drag to orbit`;
   requestAnimationFrame(frame);
 }
 
@@ -290,6 +309,7 @@ window.addEventListener('keydown', (e) => {
   const ids = CLASSES.map((c) => c.id);
   if (k >= '1' && k <= '4') state.cls = ids[Number(k) - 1];
   else if (k === '0') state.cls = 'all';
+  else if (k === 't') state.cls = 'traffic';
   else if (k === 'p') state.paint = PAINTS[(PAINTS.findIndex((p) => p.id === state.paint) + (e.shiftKey ? PAINTS.length - 1 : 1)) % PAINTS.length].id;
   else if (k === 'v') state.view = VIEWS[(VIEWS.indexOf(state.view) + 1) % VIEWS.length];
   else if (k === 'm') state.palette = PALETTE_NAMES[(PALETTE_NAMES.indexOf(state.palette) + 1) % PALETTE_NAMES.length];

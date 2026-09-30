@@ -72,7 +72,7 @@ function beamMat(): MeshBasicMaterial {
 }
 
 /** Non-indexed, position and normal only, flat normals: what every merged bucket holds. */
-function prep(geo: BufferGeometry): BufferGeometry {
+export function prep(geo: BufferGeometry): BufferGeometry {
   const g = geo.index ? geo.toNonIndexed() : geo;
   if (g !== geo) geo.dispose();
   for (const name of Object.keys(g.attributes)) if (name !== 'position') g.deleteAttribute(name);
@@ -114,7 +114,7 @@ class Parts {
 }
 
 /** Side profile → solid across the car: shape (u, v) = (z, y), extruded along x and centered. */
-function extrudeProfile(points: [number, number][], width: number): BufferGeometry {
+export function extrudeProfile(points: [number, number][], width: number): BufferGeometry {
   const shape = new Shape();
   shape.moveTo(points[0][0], points[0][1]);
   for (let i = 1; i < points.length; i++) shape.lineTo(points[i][0], points[i][1]);
