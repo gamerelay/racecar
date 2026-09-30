@@ -5,13 +5,13 @@
 // to store lobbies and pass actions along. Pure: no DOM, no network.
 
 import type { CarSpec } from '../core/sim';
+import { aiPlate } from './plate';
 
 export const SEATS = 8;
 export type Difficulty = 0 | 1 | 2;
 export const DIFFICULTY_NAMES = ['easy', 'normal', 'hard'] as const;
 /** What an open seat's bot drives at when the race starts. */
 export const FILL_DIFFICULTY: Difficulty = 1;
-export const AI_NAMES = ['Nova', 'Rook', 'Vex', 'Juno', 'Blitz', 'Kai', 'Mako', 'Ziggy'];
 
 export interface Player {
   id: string;
@@ -67,6 +67,8 @@ export type LobbyAction =
   | { type: 'seat'; index: number; to: SeatChoice }
   | { type: 'options'; options?: Partial<LobbyOptions>; name?: string; visibility?: Lobby['visibility'] }
   | { type: 'car'; car: string; paint: number }
+  /** Your name (your plate) changed. */
+  | { type: 'name'; name: string }
   | { type: 'ready'; ready: boolean }
   | { type: 'join'; player: Player }
   | { type: 'leave' }
@@ -143,6 +145,13 @@ export function apply(lobby: Lobby, actor: string, action: LobbyAction): Lobby |
       next.seats[mine] = { ...s, car: action.car, paint: action.paint, ready: actor === lobby.host };
       return next;
     }
+    case 'name': {
+      const s = lobby.seats[mine];
+      const name = cleanName(action.name);
+      if (mine < 0 || s.kind !== 'player' || !name) return null;
+      next.seats[mine] = { ...s, name };
+      return next;
+    }
     case 'ready': {
       const s = lobby.seats[mine];
       if (mine < 0 || s.kind !== 'player') return null;
@@ -214,11 +223,12 @@ export interface Roster {
 }
 
 /**
- * The race's cars from its seats, in seat order (which is the grid). An AI's car and paint come
- * from its seat, so a seat keeps its rival from race to race: seat `s` drives class `s` and your
- * paint plus `s`. Closed seats get no car.
+ * The race's cars from its seats, in seat order (which is the grid), and their names: plates
+ * (plate.ts), yours and each AI class's. An AI's car and paint come from its seat, so a seat keeps
+ * its rival from race to race: seat `s` drives class `s` in your paint plus `s`, with that class's
+ * plate. Closed seats get no car.
  */
-export function roster(seats: string, classes: readonly string[], paints: number, you: { car: string; paint: number }): Roster {
+export function roster(seats: string, classes: readonly string[], paints: number, you: { car: string; paint: number; plate?: string }): Roster {
   const specs: CarSpec[] = [];
   const names: string[] = [];
   let me = -1;
@@ -227,12 +237,13 @@ export function roster(seats: string, classes: readonly string[], paints: number
     if (c === 'p') {
       me = specs.length;
       specs.push({ cls: you.car, paint: you.paint, human: true });
-      names.push('You');
+      names.push(you.plate ?? 'YOU');
       return;
     }
     const difficulty = (c === 'o' ? FILL_DIFFICULTY : AI_LETTERS.indexOf(c)) as Difficulty;
-    specs.push({ cls: classes[s % classes.length], paint: (you.paint + s) % paints, racer: { difficulty } });
-    names.push(AI_NAMES[(s + SEATS - 1) % SEATS]);
+    const cls = classes[s % classes.length];
+    specs.push({ cls, paint: (you.paint + s) % paints, racer: { difficulty } });
+    names.push(aiPlate(cls));
   });
   return { specs, names, me };
 }

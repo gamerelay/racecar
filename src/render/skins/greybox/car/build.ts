@@ -35,6 +35,7 @@ import type { CarVisual } from '../../../skin';
 import { glow, toon } from '../toon';
 import { type CarDesign, DESIGNS } from './designs';
 import { carPaint } from './paint';
+import { plateAtlas, takePlate, WHITE_UV, type CellUv, type Plate } from './plates';
 import { SHADOW, shadowOpacity } from './shadow';
 import { CarWreck, WRECK_SHARED, type Detachable } from './wreck';
 
@@ -49,7 +50,11 @@ const BS = 0.03;
 const trim = toon({ color: 0x16121f });
 // A touch blue: the dusk key light is pink, and a neutral grey came out rosy under it.
 const metal = toon({ color: 0xaeb6cc });
-/** Unlit parts that never change color (lens surrounds, lamps, plates, signs) share one mesh, colored per vertex. */
+/**
+ * Unlit parts that never change color (lens surrounds, lamps, plates, signs) share one mesh,
+ * colored per vertex. Its map is the plate atlas (plates.ts): plate text samples a car's cell,
+ * everything else the atlas's white half.
+ */
 const LAMP: Partial<Record<Key, number>> = { lens: 0x3a0a18, head: 0xfff4cc, plate: 0xd6d0e4, sign: 0xffb13b };
 const lampMat = new MeshBasicMaterial({ vertexColors: true });
 /** Rims: a flat face colored per vertex (bright spokes and lip over a dark dish), one mesh a wheel. */
@@ -62,7 +67,7 @@ const flameMat = new MeshBasicMaterial({ map: glow(), color: 0xff7a1a, transpare
 export const CAR_MATERIALS: readonly Material[] = [trim, metal, lampMat, rimMat, glassMat, headGlow, flameMat];
 /** Everything module-level that cars share, the beam once made and the wreck's: never freed with one car or one world. */
 export function sharedCarResources(): unknown[] {
-  return [...CAR_MATERIALS, ...WRECK_SHARED, ...(beamShared ? [beamShared, beamShared.map] : [])];
+  return [...CAR_MATERIALS, ...WRECK_SHARED, ...(beamShared ? [beamShared, beamShared.map] : []), ...(lampMat.map ? [lampMat.map] : [])];
 }
 /** Light bar lens colors, off and lit. */
 const BEACON = { red: [0x5a0a1c, 0xff2848], blue: [0x0c1a5c, 0x3a7bff] } as const;
@@ -138,6 +143,26 @@ class Parts {
     const g = new CylinderGeometry(r, r, d, segments);
     g.rotateX(Math.PI / 2);
     this.put(key, g, x, y, z);
+  }
+
+  /**
+   * A plate's lettering: a `w` × `h` quad showing atlas cell `uv`, just proud of a plate face at
+   * (x, y, z), facing +z (the nose) or −z (the tail), tipped by rx like the plate.
+   */
+  plateText(uv: CellUv, w: number, h: number, x: number, y: number, z: number, facing: 1 | -1, rx = 0): void {
+    const g = new PlaneGeometry(w, h).toNonIndexed();
+    const t = g.attributes.uv;
+    const [u0, v0, u1, v1] = uv;
+    for (let i = 0; i < t.count; i++) t.setXY(i, u0 + t.getX(i) * (u1 - u0), v0 + t.getY(i) * (v1 - v0));
+    if (facing < 0) g.rotateY(Math.PI);
+    // Clear of the plate's face (its boxes are 3 cm deep) by 4 mm.
+    g.translate(0, 0, facing * 0.019);
+    paintVertices(g, 0xffffff);
+    this.q.setFromEuler(this.e.set(rx, 0, 0));
+    g.applyMatrix4(this.m.compose(new Vector3(x, y, z), this.q, new Vector3(1, 1, 1)));
+    const list = this.buckets.get('lamp') ?? [];
+    list.push(g);
+    this.buckets.set('lamp', list);
   }
 
   put(key: Key, geo: BufferGeometry, x: number, y: number, z: number, rx = 0, rz = 0): void {
@@ -299,7 +324,13 @@ interface Piece {
 }
 
 /** Only the id (which design) and size are read, so traffic and garage-only designs can build too. */
-export function buildCar(cls: Pick<CarClass, 'id' | 'size'>, paint: PaintDef): CarVisual {
+/** `lettering`: what its plates say, front and rear; without it they're blank (traffic's). */
+export function buildCar(cls: Pick<CarClass, 'id' | 'size'>, paint: PaintDef, lettering?: Plate): CarVisual {
+  if (!lampMat.map) {
+    lampMat.map = plateAtlas();
+    lampMat.needsUpdate = true;
+  }
+  const cell = lettering ? takePlate(lettering) : null;
   const d = DESIGNS[cls.id] ?? DESIGNS.coupe;
   const [hw, hl] = cls.size;
   const W = hw * 2;
@@ -574,6 +605,7 @@ export function buildCar(cls: Pick<CarClass, 'id' | 'size'>, paint: PaintDef): C
   const plate = piece(new Vector3(0, plateY, tailAt(plateY).z), 0.6);
   plate.box('trim', 0.6, 0.18, 0.03, 0, plateY, tailAt(plateY).z - 0.01);
   plate.box('plate', 0.52, 0.12, 0.03, 0, plateY, tailAt(plateY).z - 0.02);
+  if (cell) plate.plateText(cell.uv, 0.48, 0.12, 0, plateY, tailAt(plateY).z - 0.02, -1);
   // Bumper line under the lamps.
   const by = ty - th / 2 - 0.1;
   seams.box('trim', tailHW * 2 - 0.1, 0.018, 0.01, 0, by, tailAt(by).z - 0.004);
@@ -630,6 +662,7 @@ export function buildCar(cls: Pick<CarClass, 'id' | 'size'>, paint: PaintDef): C
   const fpz = d.grille ? headAt(d.grille.y).z + 0.17 : fp.z + 0.02;
   parts.box('trim', 0.46, 0.15, 0.03, 0, fpy, fpz, d.grille ? 0 : fp.tilt);
   parts.box('plate', 0.4, 0.1, 0.03, 0, fpy, fpz + 0.01, d.grille ? 0 : fp.tilt);
+  if (cell) parts.plateText(cell.uv, 0.4, 0.1, 0, fpy, fpz + 0.01, 1, d.grille ? 0 : fp.tilt);
   const fby = hy - 0.13;
   const fb = headAt(fby);
   seams.box('trim', noseHW * 2 - 0.1, 0.018, 0.01, 0, fby, fb.z + 0.004, fb.tilt);
@@ -766,6 +799,8 @@ export function buildCar(cls: Pick<CarClass, 'id' | 'size'>, paint: PaintDef): C
   let glassMesh: Mesh | undefined;
   const bake = (p: Parts, into: Group, offset: Vector3, ids: Piece['ids'] = {}) => {
     for (const [key, list] of p.buckets) {
+      // The lamp mesh is mapped with the plate atlas: all but the lettering sample its white half.
+      if (key === 'lamp') for (const g of list) if (!g.attributes.uv) g.setAttribute('uv', new BufferAttribute(new Float32Array(g.attributes.position.count * 2).map((_, i) => WHITE_UV[i % 2]), 2));
       const merged = mergeGeometries(list)!;
       for (const g of list) g.dispose();
       merged.translate(-offset.x, -offset.y, -offset.z);
@@ -959,6 +994,7 @@ export function buildCar(cls: Pick<CarClass, 'id' | 'size'>, paint: PaintDef): C
       });
       flameGeo.dispose();
       paintMat.dispose();
+      cell?.release();
       tailMat.dispose();
       tailGlow.dispose();
       redMat.dispose();

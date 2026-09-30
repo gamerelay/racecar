@@ -25,6 +25,7 @@ import { backToSetup, raceAgain, readChoices, readSetup, restart, type RaceSetup
 import { Menu } from './ui/menu';
 import { LocalBackend } from './lobby/backend';
 import { roster } from './lobby/lobby';
+import { loadPlate } from './lobby/plate';
 import { CLASSES, LAYOUTS, MAPS, PAINTS, SURFACES } from './content';
 import { resolveLayout } from './core/content';
 
@@ -48,6 +49,8 @@ const setup: RaceSetup | null = readSetup(params, DEFAULT_LAYOUT, known);
 const attract = !setup;
 /** Lobbies in this browser (online ones come with milestone 3). */
 const lobbies = new LocalBackend(storage());
+/** Your plate: your name on your car, in lobbies and in the results. */
+const plate = loadPlate(storage());
 // Behind a lobby, its map runs.
 const lobbyMap = params.get('lobby') ? lobbies.peek(params.get('lobby')!)?.options.map : undefined;
 const run: RaceSetup = setup ?? { mode: 'race', map: resolveLayout(params.get('map') ?? lobbyMap, LAYOUT_KEYS) ?? DEFAULT_LAYOUT, car: 'coupe', paint: 0, seats: 'hnehnehn', laps: 3, weather: 'random', mayhem: 'normal', traffic: true, seed: Math.floor(Math.random() * 1e9) };
@@ -65,14 +68,19 @@ const sim = new Sim(bakeTrack(layout, SURFACES), CLASSES, SURFACES, {
   traffic: run.traffic ? 1 : 0,
 });
 // The seats become the cars, in grid order; behind the menu, eight AIs of every skill.
-const { specs, names, me: you } = roster(run.seats, CLASSES.map((c) => c.id), PAINTS.length, run);
+const { specs, names, me: you } = roster(run.seats, CLASSES.map((c) => c.id), PAINTS.length, { ...run, plate });
 for (const s of specs) sim.addCar(s);
 /** The car the HUD, telemetry and the debug readout follow: yours, or the attract race's first. */
 const me = Math.max(0, you);
 if (run.mode === 'race') sim.startRace(run.laps, attract ? 1 : 4);
 
 const input = new Input();
-const renderer = new GameRenderer(document.getElementById('stage')!, new GreyboxSkin(), sim, PAINTS, map.palette, { post: params.get('post') !== '0', outline: params.get('ink') !== '0' });
+const renderer = new GameRenderer(document.getElementById('stage')!, new GreyboxSkin(), sim, PAINTS, map.palette, {
+  post: params.get('post') !== '0',
+  outline: params.get('ink') !== '0',
+  // Every car's plate says its driver's name, over the map's region.
+  plates: names.map((text) => ({ text, region: map.name, map: map.id })),
+});
 const hud = new Hud(sim);
 const audio = new GameAudio(sim);
 const raceUi = new RaceUi(sim, CLASSES, names, specs.map((x) => PAINTS[(x.paint ?? 0) % PAINTS.length].color));
@@ -93,7 +101,7 @@ document.getElementById('quit')!.onclick = () => backToSetup(run);
 if (attract) {
   document.body.classList.add('attract');
   // Back from a race (Main menu, Change setup): its choices are the defaults.
-  screens = new Menu(lobbies, { maps: MAPS, layouts: LAYOUTS, classes: CLASSES, paints: PAINTS }, readChoices(params, layoutKey, known));
+  screens = new Menu(lobbies, { maps: MAPS, layouts: LAYOUTS, classes: CLASSES, paints: PAINTS }, readChoices(params, layoutKey, known), plate, storage());
   void screens.open(params.get('lobby'));
 }
 const telemetry = new Telemetry(sim, specs, () => layout, BUILD, { enabled: import.meta.env.DEV, trace: params.get('trace') === '1' });

@@ -41,6 +41,13 @@ export interface WorldVisual {
   dispose(): void;
 }
 
+/** A car's license plate: its lettering, the region printed across the top, and the map it's from. */
+export interface CarPlate {
+  text: string;
+  region: string;
+  map: string;
+}
+
 export interface Skin {
   id: string;
   /** Ink color for the post pass's outlines, once environment() has run. */
@@ -48,7 +55,8 @@ export interface Skin {
   /** Sky, fog, lights. Called once per scene. */
   environment(scene: Scene, palette: string): void;
   track(track: Track, seed: number): TrackVisual;
-  car(cls: CarClass, paint: PaintDef): CarVisual;
+  /** `plate`: what its license plates say, and the map's region and id for their look. */
+  car(cls: CarClass, paint: PaintDef, plate?: CarPlate): CarVisual;
   /** `track` is this track's visual, for what it covers (rain stops under a roof). */
   world(scene: Scene, sim: Sim, track?: TrackVisual): WorldVisual;
   /** Per frame, for animated skies and the like. */

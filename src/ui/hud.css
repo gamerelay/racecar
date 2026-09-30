@@ -241,3 +241,18 @@ svg.thumb .cut { stroke: var(--sun); stroke-width: 1.5; stroke-dasharray: 3 2; }
   .card.lobby { padding: 16px; }
   .seats td:nth-child(4), .seats th:nth-child(4) { display: none; }
 }
+
+/* ---- license plates (PLAN phase 3): your name, and every driver's, as a little plate ---- */
+.plate { display: inline-block; font: 700 13px var(--ui); letter-spacing: 0.08em; line-height: 1; white-space: pre; color: #1b1f5e; background: linear-gradient(#ffffff, #eceefb 50%, #c9cce2); border: 2px solid #1b1f5e; border-radius: 3px; padding: 3px 6px 2px; box-shadow: 2px 2px 0 var(--outline); vertical-align: middle; }
+.seats tr.me .plate { border-color: var(--sun); box-shadow: 2px 2px 0 var(--outline), 0 0 0 2px var(--sun); }
+.card.results .plate { font-size: 12px; padding: 2px 5px 1px; }
+.titleTop { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; margin: 0 0 8px; }
+.titleTop h2 { margin: 0; }
+.card button.plateBtn { display: inline-flex; align-items: center; gap: 8px; padding: 6px 10px; margin: 0; font-size: 12px; box-shadow: 3px 3px 0 var(--outline); }
+.card button.plateBtn .plate { font-size: 17px; }
+.card button.plateBtn small { font: 700 10px var(--ui); letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); }
+.card.plateEdit { max-width: 520px; }
+.platePreview { display: grid; place-items: center; padding: 18px 0 14px; }
+.platePreview .plate { font-size: clamp(34px, 9vw, 48px); padding: 8px 18px 6px; border-width: 4px; border-radius: 6px; box-shadow: 5px 5px 0 var(--outline); min-width: 5ch; text-align: center; }
+.card.plateEdit input { font-size: 22px; letter-spacing: 0.12em; text-transform: uppercase; text-align: center; }
+.card .err { color: #ff8fb8; font-size: 13px; min-height: 1.4em; margin: 8px 0 10px; }

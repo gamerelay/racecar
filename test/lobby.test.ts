@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'bun:test';
 import { LocalBackend, type KeyValue } from '../src/lobby/backend';
-import { AI_NAMES, FILL_DIFFICULTY, SEATS, allReady, apply, createLobby, encodeSeats, legacySeats, roster, summarize, type Lobby, type Player } from '../src/lobby/lobby';
+import { aiPlate } from '../src/lobby/plate';
+import { FILL_DIFFICULTY, SEATS, allReady, apply, createLobby, encodeSeats, legacySeats, roster, summarize, type Lobby, type Player } from '../src/lobby/lobby';
 import { raceFromLobby, readSetup, toQuery } from '../src/ui/setup';
 import { thumb } from '../src/ui/thumb';
 import { CLASSES, LAYOUT_KEYS, layout as readLayout } from '../tools/content';
@@ -95,15 +96,17 @@ describe('seats become the race', () => {
     expect(r.specs.length).toBe(5);
     expect(r.specs[0]).toEqual({ cls: 'bus', paint: 2, human: true });
     expect(r.specs.slice(1).map((s) => s.racer?.difficulty)).toEqual([0, 2, FILL_DIFFICULTY, FILL_DIFFICULTY]);
-    expect(r.names).toEqual(['You', ...AI_NAMES.slice(0, 4)]);
+    expect(r.names).toEqual(['YOU', ...ids.slice(1, 5).map(aiPlate)]);
+    // Your plate is your name.
+    expect(roster(seats, ids, 9, { ...host, plate: 'ACE 7' }).names[0]).toBe('ACE 7');
   });
 
-  test("a seat keeps its rival: the same car, paint and name as an old link's rival in that place", () => {
-    // Before lobbies, rival k drove class k + 1 in your paint plus k + 1, named AI_NAMES[k].
+  test("a seat keeps its rival: the same car and paint as an old link's rival in that place, and its class's plate", () => {
+    // Before lobbies, rival k drove class k + 1 in your paint plus k + 1.
     const r = roster(legacySeats(7, 2), ids, 9, { car: 'coupe', paint: 3 });
     for (let k = 0; k < 7; k++) {
       expect(r.specs[k + 1]).toEqual({ cls: ids[(k + 1) % ids.length], paint: (3 + k + 1) % 9, racer: { difficulty: 2 } });
-      expect(r.names[k + 1]).toBe(AI_NAMES[k]);
+      expect(r.names[k + 1]).toBe(aiPlate(ids[(k + 1) % ids.length]));
     }
   });
 

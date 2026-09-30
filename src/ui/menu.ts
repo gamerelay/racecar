@@ -1,12 +1,14 @@
-// The front door (PLAN phase 2): the title screen with the lobby list, Create lobby, and the lobby
-// itself, Civilization-style, with eight seats the host sets to a player, open, an AI or closed.
-// Every race starts from a lobby; playing alone is your lobby with bots in the open seats. The
-// screens only see a LobbyBackend, so online lobbies plug in behind them in milestone 3.
+// The front door (PLAN phases 2 and 3): the title screen with the lobby list, Create lobby, your
+// plate, and the lobby itself, Civilization-style, with eight seats the host sets to a player,
+// open, an AI or closed. Every race starts from a lobby; playing alone is your lobby with bots in
+// the open seats. The screens only see a LobbyBackend, so online lobbies plug in behind them in
+// milestone 3.
 
 import type { CarClass, MapDef, PaintDef, TrackLayout } from '../core/content';
-import type { LobbyBackend } from '../lobby/backend';
+import type { KeyValue, LobbyBackend } from '../lobby/backend';
 import { LOCAL_ID } from '../lobby/backend';
-import { AI_NAMES, DIFFICULTY_NAMES, FILL_DIFFICULTY, SEATS, legacySeats, seatIndex, summarize, type Lobby, type LobbyAction, type LobbyOptions, type LobbySummary, type SeatChoice } from '../lobby/lobby';
+import { aiPlate, cleanPlate, plateProblem, PLATE_MAX, savePlate, typedPlate } from '../lobby/plate';
+import { DIFFICULTY_NAMES, FILL_DIFFICULTY, SEATS, legacySeats, seatIndex, summarize, type Lobby, type LobbyAction, type LobbyOptions, type LobbySummary, type SeatChoice } from '../lobby/lobby';
 import { MAX_LAPS, raceFromLobby, toQuery, type RaceSetup } from './setup';
 import { thumb, thumbSvg } from './thumb';
 
@@ -17,9 +19,11 @@ export interface MenuContent {
   paints: PaintDef[];
 }
 
-type Screen = { kind: 'title' } | { kind: 'create' } | { kind: 'lobby'; id: string };
+type Screen = { kind: 'title' } | { kind: 'create' } | { kind: 'plate' } | { kind: 'lobby'; id: string };
 
 const esc = (s: string) => s.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
+/** A name as a little license plate (the results use the same chip). */
+export const plateChip = (name: string) => `<span class="plate">${esc(name)}</span>`;
 
 export class Menu {
   private root: HTMLElement;
@@ -33,6 +37,9 @@ export class Menu {
     private backend: LobbyBackend,
     private content: MenuContent,
     choices: Partial<RaceSetup>,
+    /** Your plate, and where it's kept. */
+    private plate: string,
+    private store: KeyValue | null,
   ) {
     this.yours = { car: choices.car ?? 'coupe', paint: choices.paint ?? 0 };
     this.defaults = {
@@ -53,11 +60,12 @@ export class Menu {
     // tab, the title's URL): it's waiting again, or Start and the seats would refuse.
     const own = await this.backend.get(LOCAL_ID);
     if (own?.phase === 'racing') await this.backend.send(own.id, { type: 'end' });
+    await this.syncName();
     const lobby = lobbyId ? await this.backend.get(lobbyId) : null;
     return this.show(lobby ? { kind: 'lobby', id: lobby.id } : { kind: 'title' });
   }
 
-  /** Back (Esc, the pad's B): lobby and create go to the title. */
+  /** Back (Esc, the pad's B): lobby, create and the plate go to the title. */
   back(): void {
     if (this.screen.kind !== 'title') void this.show({ kind: 'title' });
   }
@@ -69,6 +77,7 @@ export class Menu {
     history.replaceState(null, '', screen.kind === 'lobby' ? `?lobby=${encodeURIComponent(screen.id)}` : location.pathname);
     if (screen.kind === 'title') this.renderTitle(await this.backend.list());
     else if (screen.kind === 'create') this.renderCreate();
+    else if (screen.kind === 'plate') this.renderPlate();
     else {
       const lobby = await this.backend.get(screen.id);
       if (!lobby) return this.show({ kind: 'title' });
@@ -102,7 +111,8 @@ export class Menu {
     this.paint(
       `<div class="card title">
         <div class="wordmark" aria-label="Racecar">RACECAR</div>
-        <h2>Lobbies</h2>
+        <div class="titleTop"><h2>Lobbies</h2>
+          <button id="mPlate" class="ghost plateBtn" title="Your plate: your name in races">${plateChip(this.plate)}<small>edit plate</small></button></div>
         <div class="lobbies">${rows}
           <div class="lrow soon"><span class="thumb"></span><span class="lname">Online lobbies arrive soon</span><span class="lmeta">Race friends and strangers here, with bots in the empty seats.</span></div>
         </div>
@@ -114,6 +124,7 @@ export class Menu {
     );
     for (const l of lobbies) this.on(`lobby-${l.id}`, () => void this.show({ kind: 'lobby', id: l.id }));
     this.on('mCreate', () => void this.show({ kind: 'create' }));
+    this.on('mPlate', () => void this.show({ kind: 'plate' }));
     this.on('mQuick', () => void this.quickRace());
     this.on('mFree', () => void this.freeDrive());
   }
@@ -129,7 +140,7 @@ export class Menu {
 
   /** Your lobby, made with the defaults if there isn't one. */
   private async ownLobby(): Promise<Lobby> {
-    return (await this.backend.get(LOCAL_ID)) ?? this.backend.create({ id: this.backend.you, name: 'You', ...this.yours }, { name: 'My lobby', options: this.defaults });
+    return (await this.backend.get(LOCAL_ID)) ?? this.backend.create(this.me(), { options: this.defaults });
   }
 
   /** Straight into a race from your lobby, as it's set up. */
@@ -154,6 +165,71 @@ export class Menu {
       seed: Math.floor(Math.random() * 1e9),
     };
     location.search = toQuery(setup);
+  }
+
+  /** You, as a lobby player: your plate is your name. */
+  private me(): { id: string; name: string; car: string; paint: number } {
+    return { id: this.backend.you, name: this.plate, ...this.yours };
+  }
+
+  // ---- your plate ----
+
+  private renderPlate(): void {
+    this.paint(
+      `<div class="card plateEdit">
+        <h1>Your plate</h1>
+        <p class="muted">Your name on your car, in lobbies and in the results: up to ${PLATE_MAX} letters, numbers and spaces.</p>
+        <div class="platePreview" id="pPreview">${plateChip(this.plate)}</div>
+        <input id="pText" maxlength="${PLATE_MAX + 4}" autocomplete="off" autocapitalize="characters" spellcheck="false" data-1p-ignore data-lpignore="true" value="${esc(this.plate)}">
+        <p class="err" id="pErr"></p>
+        <div class="row"><button id="pSave">Save</button><button id="pBack" class="ghost">Back</button></div>
+      </div>`,
+      'pText',
+    );
+    const field = document.getElementById('pText') as HTMLInputElement;
+    const err = document.getElementById('pErr')!;
+    const preview = document.getElementById('pPreview')!;
+    // Typed straight into plate form: uppercase, only what a plate can show.
+    field.oninput = () => {
+      const t = typedPlate(field.value, field.selectionStart ?? field.value.length);
+      field.value = t.value;
+      field.setSelectionRange(t.cursor, t.cursor);
+      const clean = cleanPlate(field.value);
+      preview.innerHTML = plateChip(clean || ' ');
+      err.textContent = clean ? (plateProblem(clean) ?? '') : '';
+    };
+    const save = async () => {
+      const plate = cleanPlate(field.value);
+      const problem = savePlate(this.store, plate);
+      if (problem) return void (err.textContent = problem);
+      const old = this.plate;
+      this.plate = plate;
+      await this.syncName(old);
+      void this.show({ kind: 'title' });
+    };
+    field.onkeydown = (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        void save();
+      }
+    };
+    this.on('pSave', () => void save());
+    this.on('pBack', () => this.back());
+    field.select();
+  }
+
+  /**
+   * Your lobby goes by your plate: your seat's name, and the lobby's own name while it's still
+   * the one it was given (`‹old›'s lobby`). Also mends lobbies saved before plates (a seat named
+   * "You"), when the menu opens.
+   */
+  private async syncName(old?: string): Promise<void> {
+    const own = await this.backend.get(LOCAL_ID);
+    const seat = own?.seats[seatIndex(own, this.backend.you)];
+    if (!own || seat?.kind !== 'player') return;
+    if (seat.name !== this.plate) await this.backend.send(own.id, { type: 'name', name: this.plate });
+    const was = old ?? seat.name;
+    if (own.host === this.backend.you && own.name === `${was}'s lobby` && was !== this.plate) await this.backend.send(own.id, { type: 'options', name: `${this.plate}'s lobby` });
   }
 
   private yourCar(lobby: Lobby | null): { car: string; paint: number } {
@@ -193,7 +269,7 @@ export class Menu {
       `<div class="card setup create">
         <h1>Create lobby</h1>
         <div class="grid">
-          <label class="wide">Name <input id="cName" maxlength="32" autocomplete="off" data-1p-ignore data-lpignore="true" value="My lobby"></label>
+          <label class="wide">Name <input id="cName" maxlength="32" autocomplete="off" data-1p-ignore data-lpignore="true" value="${esc(this.plate)}'s lobby"></label>
           ${this.optionFields(o, false)}
           <label>Who can join ${this.sel('cVis', [['public', 'public: listed'], ['private', 'private: by link']], 'public')}</label>
         </div>
@@ -206,7 +282,7 @@ export class Menu {
     this.on('cGo', async () => {
       const name = (document.getElementById('cName') as HTMLInputElement).value;
       const visibility = (document.getElementById('cVis') as HTMLSelectElement).value as Lobby['visibility'];
-      const lobby = await this.backend.create({ id: this.backend.you, name: 'You', ...this.yours }, { name, visibility, options: this.readOptions() });
+      const lobby = await this.backend.create(this.me(), { name, visibility, options: this.readOptions() });
       void this.show({ kind: 'lobby', id: lobby.id });
     });
   }
@@ -231,7 +307,7 @@ export class Menu {
         let who: string, car: string, status: string;
         if (s.kind === 'player') {
           const me = s.id === you;
-          who = `<b>${esc(s.name)}</b>${s.id === lobby.host ? ' <small class="tag">host</small>' : ''}`;
+          who = `${plateChip(s.name)}${s.id === lobby.host ? ' <small class="tag">host</small>' : ''}`;
           car = me
             ? `${this.sel('lCar', classes.map((c) => [c.id, c.name]), s.car)} ${this.sel('lPaint', paints.map((p, i) => [String(i), p.name]), String(s.paint))}`
             : `${dot(s.paint)}${esc(className(s.car))}`;
@@ -243,7 +319,7 @@ export class Menu {
         // The rival a seat brings (the same one every race: see roster in lobby.ts).
         const cls = classes[k % classes.length];
         const paint = (yours.paint + k) % paints.length;
-        if (s.kind === 'ai') car = `${dot(paint)}${esc(AI_NAMES[(k + SEATS - 1) % SEATS])} · ${esc(cls.name)}`;
+        if (s.kind === 'ai') car = `${dot(paint)}${plateChip(aiPlate(cls.id))} ${esc(cls.name)}`;
         else if (s.kind === 'open') car = `<span class="muted">a ${DIFFICULTY_NAMES[FILL_DIFFICULTY]} bot joins at the start</span>`;
         else car = '';
         status = s.kind === 'ai' ? 'bot' : '';
