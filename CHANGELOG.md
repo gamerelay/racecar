@@ -21,6 +21,8 @@ PLAN phase 3: license plates (PR #18).
 
 ### Changed
 - The AI names (Nova, Rook…) are gone; drivers are their plates.
+- **The lobby screen is tidier** (PR #19): capitalised labels, a spaced-out subheader, more room
+  under the title, seat rows all the same height, and a roomier map card.
 
 ## alpha-1.8: title screen, lobbies, Downtown and Backroads
 
