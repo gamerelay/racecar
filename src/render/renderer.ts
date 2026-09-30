@@ -8,6 +8,7 @@ import { Cause, Ev, type GameEvent } from '../core/events';
 import { clamp, damp, wrapAngle } from '../core/math';
 import type { Sim } from '../core/sim';
 import { Particles } from './fx';
+import { chaseOffset, lookBackOffset, type ChaseOffset } from './camera';
 import { InkPass } from './ink';
 import { PostPass } from './post';
 import type { CarVisual, Skin, TrackVisual, WorldVisual } from './skin';
@@ -39,6 +40,9 @@ export class GameRenderer {
   private boostVis = 0;
   private camHeading = 0;
   private camPos = new Vector3();
+  private readonly offset: ChaseOffset = { dist: 0, height: 0, ahead: 0, lookUp: 0 };
+  /** Paused: the camera still settles, but nothing in the world moves (smoke, wheels, debris). */
+  paused = false;
   /** Smoothed distance behind the car (the camera follows in the car's frame, so speed doesn't stretch it). */
   private camDist = 4.7;
   private look = new Vector3();
@@ -86,10 +90,12 @@ export class GameRenderer {
     for (const c of this.trackVisual.chunks) this.scene.remove(c);
     for (const e of this.trackVisual.extras) this.scene.remove(e);
     this.scene.remove(this.trackVisual.debug);
+    const debug = this.trackVisual.debug.visible;
     this.trackVisual.dispose();
     this.trackVisual = this.skin.track(this.sim.track, this.sim.seed);
     for (const c of this.trackVisual.chunks) this.scene.add(c);
     for (const e of this.trackVisual.extras) this.scene.add(e);
+    this.trackVisual.debug.visible = debug;
     this.scene.add(this.trackVisual.debug);
     // Gantries and the like are placed from the track, so the world visual is rebuilt too.
     this.worldVisual.dispose();
@@ -130,8 +136,10 @@ export class GameRenderer {
     const c = this.sim.cars;
     const i = this.focus;
     this.camHeading = c.h[i];
-    this.camDist = 4.7;
-    this.camPos.set(c.x[i] - Math.sin(c.h[i]) * 4.7, c.y[i] + 1.85, c.z[i] - Math.cos(c.h[i]) * 4.7);
+    // Where the chase camera settles for this car at rest (outside even the bus).
+    const o = chaseOffset(this.sim.classes[c.cls[i]].size, 0, 0, this.offset);
+    this.camDist = o.dist;
+    this.camPos.set(c.x[i] - Math.sin(c.h[i]) * o.dist, c.y[i] + o.height, c.z[i] - Math.cos(c.h[i]) * o.dist);
     this.camera.position.copy(this.camPos);
   }
 
@@ -142,6 +150,8 @@ export class GameRenderer {
     this.cursor = this.sim.events.read(this.cursor, this.onEvent);
     this.syncCars();
     const cars = this.sim.cars;
+    // World time since the last frame: slowed in slow-mo, stopped while paused.
+    const sdt = this.paused ? 0 : dt * this.sim.timeScale;
     for (let i = 0; i < cars.count; i++) {
       const v = this.visuals[i];
       if (!cars.active[i]) {
@@ -159,16 +169,16 @@ export class GameRenderer {
       v.root.rotation.set(pitch, h, roll, 'YXZ');
       const speed = Math.hypot(cars.vx[i], cars.vz[i]);
       const fwd = cars.vx[i] * Math.sin(cars.h[i]) + cars.vz[i] * Math.cos(cars.h[i]);
-      this.spin[i] += (fwd / 0.38) * dt * this.sim.timeScale;
-      v.update(this.spin[i], steer[i] ?? 0, braking[i] ?? false, cars.boosting[i] === 1 || cars.miniT[i] > 0, cars.grounded[i] === 1 && !cars.wreck[i], dt * this.sim.timeScale);
+      this.spin[i] += (fwd / 0.38) * sdt;
+      v.update(this.spin[i], steer[i] ?? 0, braking[i] ?? false, cars.boosting[i] === 1 || cars.miniT[i] > 0, cars.grounded[i] === 1 && !cars.wreck[i], sdt);
       // Ghosted after a respawn: blink.
       if (cars.ghostT[i] > 0) v.root.visible = Math.floor(this.time * 12) % 2 === 0;
-      this.carParticles(i, x, y, z, h, speed, dt);
+      if (!this.paused) this.carParticles(i, x, y, z, h, speed, dt);
     }
-    this.fx.update(dt * this.sim.timeScale);
+    this.fx.update(sdt);
     this.updateCamera(dt);
     // The world is drawn at the same moment as the cars: between the last two ticks.
-    this.worldVisual.update(dt * this.sim.timeScale, this.camera.position, this.sim.time - (1 - alpha) * this.sim.dt * this.sim.timeScale);
+    this.worldVisual.update(sdt, this.camera.position, this.sim.time - (1 - alpha) * this.sim.dt * this.sim.timeScale);
     this.trackVisual.update?.(this.time, dt, this.camera.position);
     this.skin.update?.(this.time, this.camera.position.x, this.camera.position.y, this.camera.position.z, this.sim.wetness);
 
@@ -237,29 +247,22 @@ export class GameRenderer {
       this.camHeading += wrapAngle(want - this.camHeading) * damp(6, dt);
       const fx = Math.sin(this.camHeading);
       const fz = Math.cos(this.camHeading);
+      const size = this.sim.classes[c.cls[i]].size;
       if (this.lookBack) {
-        cam.position.set(car.x + fx * 5, car.y + 2.4, car.z + fz * 5);
-        this.look.set(car.x - fx * 20, car.y + 1, car.z - fz * 20);
+        const o = lookBackOffset(size, this.offset);
+        cam.position.set(car.x + fx * o.dist, car.y + o.height, car.z + fz * o.dist);
+        this.look.set(car.x - fx * o.ahead, car.y + o.lookUp, car.z - fz * o.ahead);
       } else {
-        // Tight and low behind the car, with only a little pull-back with speed and boost (playtest:
-        // it stretched too far, then wanted closer still for immersion). Taller and longer cars (the
-        // van) sit the camera higher and further back, so the roof doesn't fill the screen; the coupe
-        // (0.65 m half height, 2.15 m half length) is the base.
-        const size = this.sim.classes[c.cls[i]].size;
-        const tall = Math.max(0, size[2] - 0.65);
-        const dist = 4.7 + this.boostVis * 0.5 + speed * 0.005 + Math.max(0, size[1] - 2.15) * 1.4 + tall * 1.5;
+        const o = chaseOffset(size, speed, this.boostVis, this.offset);
         // Smooth the distance, not the world position: chasing a world point lags by about speed/rate
         // meters, which tugged the camera ~5 m back under acceleration. Heading smoothing above still
         // gives the swing through corners.
-        this.camDist += (dist - this.camDist) * damp(4, dt);
+        this.camDist += (o.dist - this.camDist) * damp(4, dt);
         this.camPos.x = car.x - fx * this.camDist;
         this.camPos.z = car.z - fz * this.camDist;
-        // Very long cars (the bus) also lift the camera and look further ahead, over the roof.
-        const long = Math.max(0, size[1] - 2.5);
-        const ty = car.y + 1.85 + tall * 2.2 + long * 0.35 - this.boostVis * 0.12;
-        this.camPos.y += (ty - this.camPos.y) * damp(5, dt);
+        this.camPos.y += (car.y + o.height - this.camPos.y) * damp(5, dt);
         cam.position.copy(this.camPos);
-        this.look.set(car.x + fx * (11 + long * 2), car.y + 1.0 + long * 0.2, car.z + fz * (11 + long * 2));
+        this.look.set(car.x + fx * o.ahead, car.y + o.lookUp, car.z + fz * o.ahead);
       }
     }
     this.lastWreck = c.wreck[i] === 1;
@@ -314,6 +317,8 @@ export class GameRenderer {
     if (c.boosting[i] || c.miniT[i] > 0) {
       const color = c.miniT[i] > 0 ? STAGE_COLORS[c.miniStage[i]] : Math.random() < 0.5 ? 0xff7a1a : 0x35f0ff;
       for (let k = 0; k < 2; k++) {
+        // About 60 a second from each pipe, whatever the frame rate.
+        if (Math.random() > dt * 60) continue;
         const s = k ? -0.4 : 0.4;
         this.fx.emit(x - fx * (back + 0.5) + rx * s, y + 0.55, z - fz * (back + 0.5) + rz * s, -fx * speed * 0.3 + (Math.random() - 0.5), Math.random(), -fz * speed * 0.3 + (Math.random() - 0.5), 0.15 + Math.random() * 0.1, color, 0, 0);
       }

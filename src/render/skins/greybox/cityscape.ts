@@ -41,6 +41,7 @@ import { deckMask } from './track';
 import { animatedPoints, boxes, canvas, FONT, glowMaterial, glowPoints, type Box } from './scenery';
 
 import { faceted, glow, toon } from './toon';
+import { chunks } from '../../shader';
 
 /** The street grid: blocks this big (street to street), streets this wide, sidewalks inside that. */
 const BLOCK = 64;
@@ -604,7 +605,7 @@ export function buildCityscape(track: Track, palette: Palette, ground: number): 
       // flipped, which makes gl_FrontFacing true on the back face and undoes the flip.
       mat.forceSinglePass = true;
       mat.onBeforeCompile = (shader) => {
-        shader.fragmentShader = shader.fragmentShader.replace('#include <map_fragment>', 'vec4 sampledDiffuseColor=texture2D(map,gl_FrontFacing?vMapUv:vec2(1.0-vMapUv.x,vMapUv.y));diffuseColor*=sampledDiffuseColor;');
+        shader.fragmentShader = chunks(shader.fragmentShader, 'blade signs').replace('#include <map_fragment>', 'vec4 sampledDiffuseColor=texture2D(map,gl_FrontFacing?vMapUv:vec2(1.0-vMapUv.x,vMapUv.y));diffuseColor*=sampledDiffuseColor;').text;
       };
       mat.customProgramCacheKey = () => 'greybox-blade';
       const mesh = new InstancedMesh(geo, mat, list.length);

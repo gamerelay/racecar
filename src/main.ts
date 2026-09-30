@@ -139,6 +139,7 @@ function frame(now: number): void {
   // Silent while paused or in the editor.
   audio.update(dt, { focus: renderer.focus, camera: renderer.camera, paused: paused || editorOpen, menu: attract });
   if (!editorOpen) {
+    renderer.paused = paused;
     renderer.frame(acc * TICK_RATE, dt, steer, braking);
     if (attract) {
       // Follow whoever leads.

@@ -646,6 +646,9 @@ export function buildCar(cls: Pick<CarClass, 'id' | 'size'>, paint: PaintDef): C
     root.add(m);
   }
 
+  // Headlight beam, underglow, contact shadow, boost flames. This car's own materials, freed with it.
+  const owned: Material[] = [];
+  const own = <M extends Material>(m: M): M => (owned.push(m), m);
   // Headlight beam, underglow, contact shadow, boost flames.
   const L = hl * 2;
   const beam = new Mesh(new PlaneGeometry(W + 1.4, 12), beamMat());
@@ -654,12 +657,12 @@ export function buildCar(cls: Pick<CarClass, 'id' | 'size'>, paint: PaintDef): C
   beam.position.set(0, 0.05, L / 2 + 6.1);
   root.add(beam);
   if (paint.underglow) {
-    const u = new Mesh(new PlaneGeometry(W + 2.2, L + 1.6), new MeshBasicMaterial({ map: glow(), color: paint.underglow, transparent: true, opacity: 0.85, blending: AdditiveBlending, depthWrite: false }));
+    const u = new Mesh(new PlaneGeometry(W + 2.2, L + 1.6), own(new MeshBasicMaterial({ map: glow(), color: paint.underglow, transparent: true, opacity: 0.85, blending: AdditiveBlending, depthWrite: false })));
     u.rotation.x = -Math.PI / 2;
     u.position.y = 0.06;
     root.add(u);
   }
-  const shadow = new Mesh(new PlaneGeometry(W + 0.6, L + 0.6), new MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.4, depthWrite: false }));
+  const shadow = new Mesh(new PlaneGeometry(W + 0.6, L + 0.6), own(new MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.4, depthWrite: false })));
   shadow.rotation.x = -Math.PI / 2;
   shadow.position.y = 0.04;
   root.add(shadow);
@@ -708,6 +711,7 @@ export function buildCar(cls: Pick<CarClass, 'id' | 'size'>, paint: PaintDef): C
       tailGlow.dispose();
       dark.dispose();
       if (rimMat !== metal) rimMat.dispose();
+      for (const m of owned) m.dispose();
     },
   };
 }

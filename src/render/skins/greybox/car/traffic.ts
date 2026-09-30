@@ -12,6 +12,7 @@ import { SEAM } from '../../../ink';
 import { toon } from '../toon';
 import { buildCar, extrudeProfile, prep } from './build';
 import { DESIGNS as CAR_DESIGNS } from './designs';
+import { chunks } from '../../../shader';
 
 interface TrafficDesign {
   /** Half width and half length, meters (from the traffic kind's collider). */
@@ -205,7 +206,7 @@ export function trafficModels(): { geos: Record<string, BufferGeometry>; materia
   for (const [id, d] of Object.entries(DESIGNS)) geos[id] = build(d);
   const material = toon({ vertexColors: true });
   material.onBeforeCompile = (shader) => {
-    shader.vertexShader = shader.vertexShader
+    shader.vertexShader = chunks(shader.vertexShader, 'traffic')
       .replace('#include <common>', '#include <common>\nattribute vec2 surf;\nvarying float vGlow;')
       .replace(
         '#include <color_vertex>',
@@ -215,10 +216,10 @@ export function trafficModels(): { geos: Record<string, BufferGeometry>; materia
           vColor.rgb=mix(vColor.rgb,vColor.rgb*instanceColor.rgb,surf.x);
         #endif
         vGlow=surf.y;`,
-      );
-    shader.fragmentShader = shader.fragmentShader
+      ).text;
+    shader.fragmentShader = chunks(shader.fragmentShader, 'traffic')
       .replace('#include <common>', '#include <common>\nvarying float vGlow;')
-      .replace('#include <emissivemap_fragment>', '#include <emissivemap_fragment>\ntotalEmissiveRadiance+=vColor.rgb*vGlow*1.4;');
+      .replace('#include <emissivemap_fragment>', '#include <emissivemap_fragment>\ntotalEmissiveRadiance+=vColor.rgb*vGlow*1.4;').text;
   };
   material.customProgramCacheKey = () => 'greybox-traffic';
   return (cache = { geos, material });
