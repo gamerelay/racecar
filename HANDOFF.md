@@ -3,7 +3,7 @@
 Where racecar stands and what's next. The design is [docs/SPEC.md](./docs/SPEC.md) (decisions in
 §17, what building changed in "Changed while building"); this file is just "where are we".
 
-**Last updated:** 2026-09-30 (milestone 2 in PR #2, CI green, not merged).
+**Last updated:** 2026-09-30 (milestone 2 in PR #2 with PR #3 merged into it, CI green, not merged).
 
 ## Where things stand
 
@@ -23,8 +23,10 @@ Where racecar stands and what's next. The design is [docs/SPEC.md](./docs/SPEC.m
   - PostHog sink wired, off until `VITE_POSTHOG_KEY` is set (no racecar PostHog project yet).
   - 26 tests incl. exact replay of a full race and zero allocation over the full world.
 - **Numbers to know:** City is 3.26 km (v2: the Skyway, Market, Underpass), AI lap floor 58 s;
-  Countryside 3.79 km, 63 s. 8-AI race wrecks: City ~5–9, Countryside ~10. City draws ~90–250
-  calls and holds 120 fps on the dev Mac.
+  Countryside 3.79 km, 63 s. 8-AI race wrecks (8 seeds): City ~0.5, Countryside ~5, since traffic
+  sections now start and end on straights. City draws ~90–250 calls and holds 120 fps on the dev
+  Mac. Since then: detailed cars and traffic (PR #3 merged in), wet reflections, the Skyway
+  railing, the Alley dressed, tunnel portals.
   Tick 0.025 ms with 8 AI + traffic + chaos + rain. Greybox draws ~40–140 calls.
 - **Not yet done by a human:** nobody has played milestone 1 or 2 for feel. Drift/boost/takedown
   numbers are first guesses (F4 tuning panel, F8 reports).
