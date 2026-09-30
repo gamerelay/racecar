@@ -319,7 +319,7 @@ export function trafficModel(design: string, size: [number, number, number]): Tr
     if (mat.transparent && !inkOnly) return;
     const g = (o.geometry as BufferGeometry).clone().applyMatrix4(o.matrixWorld);
     const flat = g.index ? g.toNonIndexed() : g;
-    for (const name of Object.keys(flat.attributes)) if (name !== 'position' && name !== 'normal' && name !== 'color') flat.deleteAttribute(name);
+    for (const name of Object.keys(flat.attributes)) if (name !== 'position' && name !== 'normal' && name !== 'color' && name !== 'uv') flat.deleteAttribute(name);
     const key = `${mat.uuid}:${o.userData.ink ?? ''}`;
     const e = groups.get(key) ?? { list: [], part: { material: mat, ink: o.userData.ink as number | undefined, inkOnly, tint: mat === paint } };
     e.list.push(flat);

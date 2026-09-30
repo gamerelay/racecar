@@ -1252,3 +1252,34 @@ Title screen and local lobbies (2026-09-30, PLAN phase 2):
 - **Not yet:** changing the map in the lobby doesn't swap the race behind it until a reload
   (phase 4's live preview does that). Lobby-list filters wait until there's more than your own
   lobby to filter.
+
+License plates (2026-09-30, PLAN phase 3):
+
+- **Your name is a plate** (`src/lobby/plate.ts`): up to seven characters, A–Z, 0–9 and single
+  spaces, uppercase. A new player gets `RC` and four digits, kept in localStorage
+  (`racecar.plate`), and changes it from the plate button on the title screen. The field types
+  in plate form as you go. The plate is your seat's name in the lobby (a `name` action) and
+  your name in the results.
+- **The blocklist is small on purpose.** It checks with spaces removed and look-alike digits
+  read as letters (0 O, 1 I, 3 E, 4 A, 5 S, 7 T, 8 B). Short words, and words that sit inside
+  ordinary ones (RAPE in GRAPE, SPIC in SPICY), only count as the whole plate. Words people
+  use for themselves (GAY, JEW) are never on it.
+- **AI plates are per class** (`AI_PLATES`: VANTA 1, BRUTE, ZIPZAP, HAULR 2, CRUZN, MUD LRK,
+  RT 88, PD 911). They replace the old AI names (Nova, Rook…): a seat drives its class, so a
+  seat keeps its plate from race to race, like its car.
+- **On the car, for no draw calls:** the cars' shared unlit material (lamps, lenses, plates) is
+  mapped with one canvas atlas (`car/plates.ts`). It has 16 cells of 256×64 in the top half,
+  and the bottom half is white. A plate's lettering is a quad in that same mesh with uvs into
+  its car's cell, and every other vertex samples the white half, so its colour is unchanged.
+  No mesh is added, so no draw call either.
+  - Identical plates share a cell, and a cell is freed when the last car using it is disposed.
+  - A full atlas gives blank plates.
+  - Traffic keeps its blank plates (no lettering), and its instanced geometry keeps the uv, so
+    it samples white.
+- **Plates look like their map's:** Downtown's are white-lilac with navy lettering and a pink
+  DOWNTOWN across the top. Backroads' are cream with green lettering and a rust BACKROADS.
+  Other maps get a stock grey. Each has a bevel, a border and bolts, and the lettering is
+  squeezed to fit seven characters. They're redrawn once Chakra Petch has loaded.
+- **Wrecks:** the rear plate was already a part that breaks away. Its lettering is in that part,
+  so it flies off and lands with it.
+- **Not yet:** names over cars online (milestone 3). The garage viewer's cars have blank plates.

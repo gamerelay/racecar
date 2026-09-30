@@ -6,6 +6,22 @@ and where things stand is [docs/HANDOFF.md](./docs/HANDOFF.md).
 
 ## Unreleased
 
+PLAN phase 3: license plates.
+
+### Added
+- **Your name is a license plate:** up to seven letters, numbers and spaces, set from the plate
+  button on the title screen. A new player gets one like `RC 4821`. It's on your car's front
+  and rear plates, on your lobby seat and in the results.
+- **Every car has plates,** in its map's style: white and navy with a pink DOWNTOWN tag, or
+  cream and green with a rust BACKROADS tag, beveled with a border and bolts. They add no draw
+  calls.
+- **AI rivals go by their plates,** one per class (VANTA 1, BRUTE, ZIPZAP, HAULR 2, CRUZN,
+  MUD LRK, RT 88, PD 911), so a seat keeps its rival's plate from race to race.
+- The rear plate can come off in a wreck and land on the road, lettering and all.
+
+### Changed
+- The AI names (Nova, Rook…) are gone; drivers are their plates.
+
 ## alpha-1.8: title screen, lobbies, Downtown and Backroads
 
 PRs #14 and #16: phases 1 (the quick wins) and 2 (the title screen and lobbies) of

@@ -176,7 +176,7 @@ export class RaceUi {
     document.getElementById('rRows')!.innerHTML = rows
       .map(
         (i) =>
-          `<tr class="${i === this.focus ? 'me' : ''}"><td>${c.place[i] || '–'}</td><td><i class="dot" style="background:${this.colors[i]}"></i>${this.names[i]}</td><td>${this.classes[c.cls[i]].name}</td><td>${time(i)}</td><td>${c.bestLap[i] ? fmt(c.bestLap[i]) : '–'}${i === fastest ? ' <b class="fast" title="Fastest lap">★</b>' : ''}</td><td>${c.takedowns[i]}</td><td>${c.wrecks[i]}</td><td>${Math.floor(c.score[i]).toLocaleString()}</td></tr>`,
+          `<tr class="${i === this.focus ? 'me' : ''}"><td>${c.place[i] || '–'}</td><td><i class="dot" style="background:${this.colors[i]}"></i><span class="plate">${this.names[i]}</span></td><td>${this.classes[c.cls[i]].name}</td><td>${time(i)}</td><td>${c.bestLap[i] ? fmt(c.bestLap[i]) : '–'}${i === fastest ? ' <b class="fast" title="Fastest lap">★</b>' : ''}</td><td>${c.takedowns[i]}</td><td>${c.wrecks[i]}</td><td>${Math.floor(c.score[i]).toLocaleString()}</td></tr>`,
       )
       .join('');
   }

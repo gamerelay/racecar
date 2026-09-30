@@ -79,7 +79,7 @@ is a lobby with seven bots.
   - the host rules (only the host changes seats);
   - old `?mode=race` links still start a race.
 
-## Phase 3: names and license plates
+## Phase 3: names and license plates — built, branch `plates`
 
 - **A plate name:** up to 7 characters, A–Z, 0–9 and a space, uppercase, with a small
   blocklist. It's set on the title screen (the plate button) and kept in localStorage. It's also

@@ -15,7 +15,7 @@ import {
 import type { CarClass, PaintDef } from '../../../core/content';
 import type { Track } from '../../../core/track/bake';
 import type { Sim } from '../../../core/sim';
-import type { CarVisual, Skin, TrackVisual, WorldVisual } from '../../skin';
+import type { CarPlate, CarVisual, Skin, TrackVisual, WorldVisual } from '../../skin';
 import { buildCar } from './car/build';
 import { WET } from './toon';
 import { buildWorldVisual } from './world';
@@ -90,8 +90,8 @@ export class GreyboxSkin implements Skin {
     return buildTrackVisual(track, this.palette, seed);
   }
 
-  car(cls: CarClass, paint: PaintDef): CarVisual {
-    return buildCar(cls, paint);
+  car(cls: CarClass, paint: PaintDef, plate?: CarPlate): CarVisual {
+    return buildCar(cls, paint, plate);
   }
 
   world(scene: Scene, sim: Sim, track?: TrackVisual): WorldVisual {

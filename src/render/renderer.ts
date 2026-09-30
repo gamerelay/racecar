@@ -12,7 +12,7 @@ import { Particles } from './fx';
 import { chaseOffset, lookBackOffset, type ChaseOffset } from './camera';
 import { InkPass } from './ink';
 import { PostPass } from './post';
-import type { CarVisual, Skin, TrackVisual, WorldVisual } from './skin';
+import type { CarPlate, CarVisual, Skin, TrackVisual, WorldVisual } from './skin';
 import { Skids } from './skids';
 
 const STAGE_COLORS = [0xffffff, 0x35a8ff, 0xff8a1a, 0xff2e88];
@@ -35,6 +35,8 @@ export interface RenderOptions {
   /** Ink outlines (in the post pass). */
   outline: boolean;
   pixelRatio: number;
+  /** Each car's license plate, by car index (none: blank plates). */
+  plates?: (CarPlate | undefined)[];
 }
 
 export class GameRenderer {
@@ -136,7 +138,7 @@ export class GameRenderer {
   syncCars(): void {
     const cars = this.sim.cars;
     for (let i = this.visuals.length; i < cars.count; i++) {
-      const v = this.skin.car(this.sim.classes[cars.cls[i]], this.paints[cars.paint[i] % this.paints.length]);
+      const v = this.skin.car(this.sim.classes[cars.cls[i]], this.paints[cars.paint[i] % this.paints.length], this.opts.plates?.[i]);
       this.scene.add(v.root);
       this.visuals.push(v);
       this.spin.push(0);
