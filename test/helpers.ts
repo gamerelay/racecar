@@ -1,14 +1,12 @@
-import coupe from '../content/cars/coupe.json';
-import hatch from '../content/cars/hatch.json';
-import muscle from '../content/cars/muscle.json';
-import van from '../content/cars/van.json';
 import downtown from '../content/maps/city/downtown.track.json';
 import surfaces from '../content/surfaces.json';
-import type { CarClass, SurfaceDef, TrackLayout } from '../src/core/content';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { CLASS_ORDER, type CarClass, type SurfaceDef, type TrackLayout } from '../src/core/content';
 import { Sim } from '../src/core/sim';
 import { bakeTrack } from '../src/core/track/bake';
 
-export const CLASSES = [coupe, muscle, hatch, van] as CarClass[];
+export const CLASSES = CLASS_ORDER.map((id) => JSON.parse(readFileSync(join(import.meta.dir, '..', 'content', 'cars', `${id}.json`), 'utf8')) as CarClass);
 export const SURFACES = surfaces as SurfaceDef[];
 export const DOWNTOWN = downtown as unknown as TrackLayout;
 

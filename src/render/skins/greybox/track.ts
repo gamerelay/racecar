@@ -179,6 +179,7 @@ export function buildTrackVisual(track: Track, palette: Palette, seed: number): 
     extras,
     debug,
     update,
+    roof: roofMap(track, groundY, city, land ? (sp) => land.deck[sp.index] : (sp) => deckMask(sp, groundY)),
     water: !!land?.objects.length && !!track.layout.terrain?.river,
     dispose() {
       for (const c of chunks) (c as Mesh).geometry.dispose();
@@ -240,6 +241,32 @@ function railing(g: Geo, A: Cross, B: Cross, la: number, lb: number, s: number, 
  * Which samples are bridge deck: high above the ground for a long enough run. A short hump (the
  * Market's bridge) is an embankment: solid to the ground, no pillars.
  */
+/** Roof cells: 4 m on a side, keyed by cell, holding the highest cover over that ground. */
+const ROOF_CELL = 4;
+const roofKey = (x: number, z: number) => (Math.floor(x / ROOF_CELL) + 32768) * 65536 + (Math.floor(z / ROOF_CELL) + 32768);
+
+/**
+ * Where the sky is covered, and how high the cover is: the tunnel roof at street level, and every
+ * bridge deck over whatever runs beneath it. Rain stops under it.
+ */
+function roofMap(track: Track, groundY: number, levels: boolean, deckOf: (sp: BakedSpline) => Uint8Array): (x: number, z: number) => number {
+  const cells = new Map<number, number>();
+  for (const sp of track.splines) {
+    const deck = deckOf(sp);
+    for (let i = 0; i < sp.n; i++) {
+      const y = sp.py[i] + sp.ramp[i];
+      const top = levels && y - groundY < -TUNNEL_H ? groundY : deck[i] === 1 ? y : -Infinity;
+      if (top === -Infinity) continue;
+      const reach = sp.width[i] / 2 + sp.shoulder[i] + WALL_THICK + 1;
+      for (let l = -reach; l <= reach; l += ROOF_CELL / 2) {
+        const k = roofKey(sp.px[i] - sp.tz[i] * l, sp.pz[i] + sp.tx[i] * l);
+        cells.set(k, Math.max(cells.get(k) ?? -Infinity, top));
+      }
+    }
+  }
+  return (x, z) => cells.get(roofKey(x, z)) ?? -Infinity;
+}
+
 /** The outside face of a raised road: dressed stone in the city (a hump bridge, a ramp), else shadow. */
 function embankment(stone: boolean, s: number): string {
   if (!stone) return '#3a2f52';

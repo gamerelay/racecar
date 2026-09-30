@@ -139,9 +139,14 @@ export interface SurfaceDef {
   color: string;
 }
 
+/** Every car class, in picker order (content/cars/<id>.json). AI fields cycle through it. */
+export const CLASS_ORDER = ['coupe', 'muscle', 'hatch', 'van', 'sedan', 'rally', 'bus'] as const;
+
 export interface CarClass {
   id: string;
   name: string;
+  /** One line for the car picker: what it's good at. */
+  blurb?: string;
   /** m/s without boost */
   topSpeed: number;
   /** m/s² at low speed */
@@ -162,6 +167,8 @@ export interface CarClass {
   driftRotation: number;
   /** how long the car carries its slide after a drift, 1 = reference (TUNING.driftExit) */
   driftCarry?: number;
+  /** 0–1: how much of an offroad surface's lost grip and extra drag the car shrugs off (rally tyres). */
+  offroad?: number;
   /** half extents in meters: width, length, height */
   size: Vec3;
 }

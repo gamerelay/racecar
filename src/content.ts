@@ -1,15 +1,12 @@
 // All content, bundled. Layouts are picked up by glob, so a new layout file needs no code change,
 // and in dev an edited layout hot-reloads (main.ts accepts this module).
 
-import coupe from '../content/cars/coupe.json';
-import hatch from '../content/cars/hatch.json';
-import muscle from '../content/cars/muscle.json';
 import paints from '../content/cars/paints.json';
-import van from '../content/cars/van.json';
 import surfaces from '../content/surfaces.json';
-import type { CarClass, MapDef, PaintDef, SurfaceDef, TrackLayout } from './core/content';
+import { CLASS_ORDER, type CarClass, type MapDef, type PaintDef, type SurfaceDef, type TrackLayout } from './core/content';
 
-export const CLASSES = [coupe, muscle, hatch, van] as CarClass[];
+const carFiles = import.meta.glob<CarClass>('../content/cars/*.json', { eager: true, import: 'default' });
+export const CLASSES: CarClass[] = CLASS_ORDER.map((id) => carFiles[`../content/cars/${id}.json`]);
 export const PAINTS = paints as PaintDef[];
 export const SURFACES = surfaces as SurfaceDef[];
 

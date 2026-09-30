@@ -1,14 +1,16 @@
 // Freeing what a build made on the GPU: geometries, materials, their maps, and instanced meshes'
-// instance buffers. Things shared across builds (the traffic models, the glow sprite) are skipped.
+// instance buffers. Things shared across builds (the traffic models, the cars' common materials, the glow sprite)
+// are skipped.
 
 import type { InstancedMesh, Mesh, MeshBasicMaterial, Object3D } from 'three';
+import { CAR_MATERIALS } from './car/build';
 import { trafficModels } from './car/traffic';
 import { glow } from './toon';
 
 /** What every greybox build shares and must not free. */
 export function sharedResources(): Set<unknown> {
   const models = trafficModels();
-  return new Set<unknown>([...Object.values(models.geos), models.material, glow()]);
+  return new Set<unknown>([...Object.values(models.geos), models.material, glow(), ...CAR_MATERIALS]);
 }
 
 export function disposeTree(roots: Object3D[], shared = sharedResources()): void {

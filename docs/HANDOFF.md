@@ -4,8 +4,8 @@ Where racecar stands and what's next, for whoever picks it up (a person or a fre
 The design is [SPEC.md](./SPEC.md): decisions in §17, and what building changed in "Changed while
 building". This file is "where are we"; the spec is "what are we making".
 
-**Last updated:** 2026-09-30. `main` is tagged **`alpha-1.1`**: milestone 2 (PR #2, tagged
-`alpha-1.0`) plus Countryside v2 (PR #4).
+**Last updated:** 2026-09-30. `main` is tagged **`alpha-1.2`**: milestone 2 (PR #2, tagged
+`alpha-1.0`), Countryside v2 (PR #4, `alpha-1.1`), and seven cars plus polish (PR #6).
 
 ## Resume in five minutes
 
@@ -14,13 +14,20 @@ building". This file is "where are we"; the spec is "what are we making".
 3. Check the open platform PR: in `~/dev/gamerelay.io`, `gh pr view 30` (the host controls
    racecar's lobby needs).
 4. Before changing anything: `bun test && bun run typecheck && bun tools/validate.ts`. All three
-   are green on `main` at `alpha-1.1`. Branch off `main` for milestone 3.
+   are green on `main` at `alpha-1.2`. Branch off `main` for milestone 3.
 
 ## Where things stand
 
 - **Repo:** `gamerelay/racecar`, private until milestone 3, cloned at `~/dev/racecar`. The default
   branch is `main`.
 - **Milestone 1 (greybox sandbox): merged** (PR #1).
+- **Seven cars and polish: merged** (PR #6) and tagged `alpha-1.2`:
+  - sedan (Cruiser), rally (Mudlark) and bus (Route 88) join as player and AI classes; race
+    traffic is drawn from the racer designs (sedan, van, bus, the compact as the hatch);
+  - every class balanced to within ±5% of the mean lap on both layouts (`bun tools/lap-report.ts
+    --cars`, held by `test/cars.test.ts`), each with a job on the picker; a new `offroad` stat;
+  - an mph dial, a Menu button, no rain under roofs, more drift boost, and catch-up boost on
+    respawn after a wreck (10% plus up to 50% by how far behind the leader).
 - **Countryside v2: merged** (PR #4) and tagged `alpha-1.1`: the Valley rebuilt on real terrain
   (see "The Countryside lap" below).
 - **Milestone 2 (the world): merged** (PR #2) and tagged `alpha-1.0`. It contains everything
@@ -102,12 +109,13 @@ building". This file is "where are we"; the spec is "what are we making".
 | Lap length | 3.26 km | 2.88 km |
 | AI lap floor (hard, empty track) | 58.8 s | 68.2 s |
 | Wrecks per 8-AI race (8 seeds; `lap-report --field --seed N`) | ~1 | ~1.6 |
-| Draw calls | ~90–250 | ~65–330 |
+| Draw calls | ~90–415 | ~65–330 |
 | Scenery build (per editor edit) | ~200 ms | ~150 ms |
 
 The game holds 120 fps (the display's cap) on the dev Mac, rain included. The frame rate hasn't
 been measured since the detailed cars went in, so watch it. City has 150 draw calls on the grid in
-the rain with all 8 new cars.
+the rain with all 8 new cars, and up to ~415 with detailed traffic around (60 fps in a background
+tab, which is Chrome's cap there).
 
 ### The City lap (v2), in order
 

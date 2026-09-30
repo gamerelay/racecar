@@ -94,8 +94,8 @@ export class GreyboxSkin implements Skin {
     return buildCar(cls, paint);
   }
 
-  world(scene: Scene, sim: Sim): WorldVisual {
-    return buildWorldVisual(scene, sim);
+  world(scene: Scene, sim: Sim, track?: TrackVisual): WorldVisual {
+    return buildWorldVisual(scene, sim, track?.roof);
   }
 
   update(time: number, x: number, y: number, z: number, wetness = 0): void {

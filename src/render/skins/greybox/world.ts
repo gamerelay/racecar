@@ -14,6 +14,7 @@ import {
   InstancedMesh,
   LineBasicMaterial,
   LineSegments,
+  type Material,
   Matrix4,
   Mesh,
   MeshBasicMaterial,
@@ -32,7 +33,8 @@ import { sampleAt, newHit } from '../../../core/track/query';
 import { Piece } from '../../../core/world/hazards';
 import { newTrafficPose, TRAFFIC_KINDS } from '../../../core/world/traffic';
 import type { WorldVisual } from '../../skin';
-import { LampPoints, lampSpots, trafficModels } from './car/traffic';
+import { markInk } from '../../ink';
+import { LampPoints, lampSpots, trafficModel, trafficModels } from './car/traffic';
 import { disposeTree } from './dispose';
 import { glow, toon } from './toon';
 
@@ -40,6 +42,8 @@ const TRAFFIC_COLORS = [0xf2f2f2, 0x3a86ff, 0xffbe0b, 0x8338ec, 0x06d6a0, 0xef47
 const MAX_TRAFFIC = 128;
 const DEBRIS = 24;
 const UP = new Vector3(0, 1, 0);
+/** Traffic kinds drawn as a racer design (the compact borrows the hatch); the rest use car/traffic.ts's simple models. */
+const TRAFFIC_DESIGN: Record<string, string> = { sedan: 'sedan', compact: 'hatch', van: 'van', bus: 'bus' };
 
 interface Debris {
   kind: number;
@@ -60,7 +64,7 @@ interface Debris {
   ground: number;
 }
 
-export function buildWorldVisual(scene: Scene, sim: Sim): WorldVisual {
+export function buildWorldVisual(scene: Scene, sim: Sim, roof?: (x: number, z: number) => number): WorldVisual {
   const root = new Group();
   scene.add(root);
   const m = new Matrix4();
@@ -70,15 +74,34 @@ export function buildWorldVisual(scene: Scene, sim: Sim): WorldVisual {
   const scl = new Vector3();
   const col = new Color();
 
-  // ---- traffic: one instanced model per kind (car/traffic.ts), with glowing lamps ----
-  const models = trafficModels();
+  // ---- traffic: each kind as instanced parts, with glowing lamps ----
+  // A kind with a racer design is that car, flattened to one instanced mesh per material and ink
+  // id; the rest are one simple model. Both have room for the debris too (a wreck tumbles as itself).
+  const simple = trafficModels();
+  const instanced = (geometry: BufferGeometry, material: Material, tint: boolean, ink?: number, inkOnly = false) => {
+    const mesh = new InstancedMesh(geometry, material, MAX_TRAFFIC + DEBRIS);
+    mesh.count = 0;
+    mesh.frustumCulled = false;
+    if (ink !== undefined) markInk(mesh as unknown as Mesh, ink, inkOnly);
+    root.add(mesh);
+    return { mesh, tint };
+  };
   const bodies = TRAFFIC_KINDS.map((k) => {
-    const body = new InstancedMesh(models.geos[k.id], models.material, MAX_TRAFFIC);
-    body.count = 0;
-    body.frustumCulled = false;
-    root.add(body);
-    return { body, kind: k, lamps: lampSpots(k.id) };
+    const design = TRAFFIC_DESIGN[k.id];
+    const detailed = design ? trafficModel(design, [k.hw, k.hl, k.hh]) : undefined;
+    const parts = detailed ? detailed.map((p) => instanced(p.geometry, p.material, p.tint, p.ink, p.inkOnly)) : [instanced(simple.geos[k.id], simple.material, true)];
+    return { parts, lamps: lampSpots(k.id) };
   });
+  /** Adds one instance of kind `kind` at `mat`. */
+  const put = (kind: number, mat: Matrix4, color: number) => {
+    col.setHex(color);
+    for (const p of bodies[kind].parts) {
+      if (p.mesh.count >= MAX_TRAFFIC + DEBRIS) continue;
+      const n = p.mesh.count++;
+      p.mesh.setMatrixAt(n, mat);
+      if (p.tint) p.mesh.setColorAt(n, col);
+    }
+  };
   const lamps = new LampPoints(MAX_TRAFFIC);
   const lampPoints = new Points(lamps.geo, new PointsMaterial({ map: glow(), size: 1.5, vertexColors: true, transparent: true, blending: AdditiveBlending, depthWrite: false }));
   lampPoints.frustumCulled = false;
@@ -88,13 +111,6 @@ export function buildWorldVisual(scene: Scene, sim: Sim): WorldVisual {
 
   // ---- debris: wrecked traffic, tumbling for a few seconds ----
   const debris: Debris[] = [];
-  const debrisMeshes = TRAFFIC_KINDS.map((k) => {
-    const mesh = new InstancedMesh(models.geos[k.id], models.material, DEBRIS);
-    mesh.count = 0;
-    mesh.frustumCulled = false;
-    root.add(mesh);
-    return mesh;
-  });
   // Debris tumbles about its middle; the models stand on the road, so lift them by half a height.
   const center = new Matrix4();
 
@@ -187,22 +203,15 @@ export function buildWorldVisual(scene: Scene, sim: Sim): WorldVisual {
       const tr = sim.world.traffic;
       // Pose traffic at the render time, like the cars: it's a formula, so it's exactly where it
       // should be between ticks. The sim's LOD pool says which cars are near.
-      for (const b of bodies) b.body.count = 0;
+      for (const b of bodies) for (const p of b.parts) p.mesh.count = 0;
       for (let p = 0; p < tr.posed; p++) {
         const k = tr.idx[p];
-        const b = bodies[tr.kind[k]];
         tr.poseAt(k, time, pose);
         e.position.set(pose.x, pose.y, pose.z);
         e.rotation.set(0, pose.h, 0);
         e.updateMatrix();
-        const n = b.body.count++;
-        b.body.setMatrixAt(n, e.matrix);
-        b.body.setColorAt(n, col.setHex(trafficColor(k)));
-        lamps.write(p, e.matrix, b.lamps);
-      }
-      for (const b of bodies) {
-        b.body.instanceMatrix.needsUpdate = true;
-        if (b.body.instanceColor) b.body.instanceColor.needsUpdate = true;
+        put(tr.kind[k], e.matrix, trafficColor(k));
+        lamps.write(p, e.matrix, bodies[tr.kind[k]].lamps);
       }
       lamps.commit(tr.posed);
 
@@ -230,21 +239,17 @@ export function buildWorldVisual(scene: Scene, sim: Sim): WorldVisual {
           d.wz *= 0.6;
         }
       }
-      for (const mesh of debrisMeshes) mesh.count = 0;
       for (const d of debris) {
-        const kind = TRAFFIC_KINDS[d.kind];
-        const mesh = debrisMeshes[d.kind];
         e.position.set(d.x, d.y, d.z);
         e.rotation.set(d.rx, d.h, d.rz, 'YXZ');
         e.updateMatrix();
-        e.matrix.multiply(center.makeTranslation(0, -kind.hh, 0));
-        const n = mesh.count++;
-        mesh.setMatrixAt(n, e.matrix);
-        mesh.setColorAt(n, col.setHex(d.color));
+        put(d.kind, e.matrix.multiply(center.makeTranslation(0, -TRAFFIC_KINDS[d.kind].hh, 0)), d.color);
       }
-      for (const mesh of debrisMeshes) {
-        mesh.instanceMatrix.needsUpdate = true;
-        if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
+      for (const b of bodies) {
+        for (const p of b.parts) {
+          p.mesh.instanceMatrix.needsUpdate = true;
+          if (p.mesh.instanceColor) p.mesh.instanceColor.needsUpdate = true;
+        }
       }
 
       // Hazard pieces.
@@ -289,12 +294,14 @@ export function buildWorldVisual(scene: Scene, sim: Sim): WorldVisual {
           const x = cam.x + (seeds[d * 3] - 0.5) * box;
           const z = cam.z + (seeds[d * 3 + 1] - 0.5) * box;
           const y = cam.y + 25 - ((seeds[d * 3 + 2] * 50 + time * fall) % 50);
+          // Under a roof: no rain (a zero-length streak draws nothing).
+          const dry = roof !== undefined && roof(x, z) > y - 1.2;
           const j = d * 6;
           rainPos[j] = x;
           rainPos[j + 1] = y;
           rainPos[j + 2] = z;
           rainPos[j + 3] = x + 0.1;
-          rainPos[j + 4] = y - 1.2;
+          rainPos[j + 4] = dry ? y : y - 1.2;
           rainPos[j + 5] = z;
         }
         (rainGeo.attributes.position as BufferAttribute).needsUpdate = true;

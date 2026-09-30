@@ -3,14 +3,14 @@
 
 import { TUNING } from '../core/car/tuning';
 import { Ev, type GameEvent } from '../core/events';
-import { KMH } from '../core/math';
+import { MPH } from '../core/math';
 import { positions } from '../core/rules/progress';
 import type { Sim } from '../core/sim';
 
 // Elements are looked up once, and text and transforms are written only when they change: the HUD
 // updates every frame, and most of it is the same as last frame.
-const els = new Map<string, HTMLElement>();
-const $ = (id: string): HTMLElement => {
+const els = new Map<string, HTMLElement | SVGElement>();
+const $ = (id: string): HTMLElement | SVGElement => {
   let e = els.get(id);
   if (!e || !e.isConnected) els.set(id, (e = document.getElementById(id)!));
   return e;
@@ -21,15 +21,24 @@ function text(id: string, v: string): void {
   last.set(id, v);
   $(id).textContent = v;
 }
-function transform(id: string, v: string): void {
-  const key = `${id}.t`;
+function style(id: string, prop: 'transform' | 'strokeDasharray', v: string): void {
+  const key = `${id}.${prop}`;
   if (last.get(key) === v) return;
   last.set(key, v);
-  $(id).style.transform = v;
+  $(id).style[prop] = v;
 }
+const transform = (id: string, v: string) => style(id, 'transform', v);
+
+// The speedometer: a 270° arc from bottom left, clockwise, round to bottom right.
+const R = 64;
+const SWEEP = 270;
+const ARC = (SWEEP / 360) * 100;
 
 export class Hud {
   private cursor = 0;
+  /** The gauge's full scale in mph, and the class it was drawn for. */
+  private gaugeMax = 300;
+  private gaugeCls = -1;
   private readonly order: number[] = [];
   private driftStart = 0;
   focus = 0;
@@ -49,10 +58,29 @@ export class Hud {
       <div class="hud" id="pops" aria-live="polite"></div>
       <div class="hud" id="drift"><div id="driftPts">0</div><div id="driftStage"><i></i><i></i><i></i></div><div id="driftChain"></div></div>
       <div class="hud" id="meterWrap"><label>Boost</label><div id="meter"><div id="meterBank"></div><div id="meterFill"></div></div></div>
-      <div class="hud" id="speedo"><span id="spd">0</span><small>km/h</small></div>
+      <div class="hud" id="speedo"><svg viewBox="0 0 160 160" aria-hidden="true"><g id="gTicks"></g><circle class="track" cx="80" cy="80" r="${R}" pathLength="100"/><circle id="gBoost" cx="80" cy="80" r="${R}" pathLength="100"/><circle id="gFill" cx="80" cy="80" r="${R}" pathLength="100"/></svg><span id="spd">0</span><small>mph</small></div>
       <div class="hud" id="hint"><kbd>WASD</kbd>/<kbd>←↑→↓</kbd> drive · <kbd>Shift</kbd> drift · <kbd>Space</kbd> boost · <kbd>R</kbd> reset · <kbd>C</kbd> look back · <kbd>\`</kbd> editor · <kbd>F2</kbd> debug · <kbd>F6</kbd> ink · <kbd>F8</kbd> felt wrong?</div>
       <div class="hud" id="debug"></div>`,
     );
+  }
+
+  /** Ticks every 10 mph (longer every 50) up to the class's boosted top speed; past its top speed is the boost zone. */
+  private drawGauge(cls: number): void {
+    this.gaugeCls = cls;
+    const top = this.sim.classes[cls].topSpeed * MPH;
+    this.gaugeMax = Math.ceil((top * TUNING.boostTop) / 10) * 10;
+    let ticks = '';
+    for (let v = 0; v <= this.gaugeMax; v += 10) {
+      const a = ((135 + (v / this.gaugeMax) * SWEEP) * Math.PI) / 180;
+      const major = v % 50 === 0;
+      const r0 = R + 6;
+      const r1 = R + (major ? 14 : 10);
+      const f = (r: number) => `${(80 + Math.cos(a) * r).toFixed(1)} ${(80 + Math.sin(a) * r).toFixed(1)}`;
+      ticks += `<path d="M${f(r0)}L${f(r1)}" class="${major ? 'major' : ''} ${v > top ? 'hot' : ''}"/>`;
+    }
+    $('gTicks').innerHTML = ticks;
+    const from = ARC * (top / this.gaugeMax);
+    style('gBoost', 'strokeDasharray', `0 ${from.toFixed(2)} ${(ARC - from).toFixed(2)} 100`);
   }
 
   pop(text: string, cls = ''): void {
@@ -79,7 +107,10 @@ export class Hud {
     text('time', c.finished[i] ? fmt(c.finishTime[i]) : racing ? fmt(Math.max(0, this.sim.time - this.sim.race.goTime)) : fmt((this.sim.tick - c.lapStartTick[i]) * this.sim.dt));
     text('best', c.bestLap[i] ? fmt(c.bestLap[i]) : '–');
     text('score', Math.floor(c.score[i]).toLocaleString());
-    text('spd', String(Math.round(Math.hypot(c.vx[i], c.vz[i]) * KMH)));
+    const mph = Math.hypot(c.vx[i], c.vz[i]) * MPH;
+    text('spd', String(Math.round(mph)));
+    if (c.cls[i] !== this.gaugeCls) this.drawGauge(c.cls[i]);
+    style('gFill', 'strokeDasharray', `${(ARC * Math.min(1, mph / this.gaugeMax)).toFixed(1)} 100`);
     transform('meterFill', `scaleX(${c.boost[i].toFixed(3)})`);
     // What the current drift will pay in, as a pale segment past the fill.
     const bank = c.drift[i] === 1 && c.driftBank[i] >= TUNING.driftBankMin ? c.driftBank[i] : 0;
@@ -104,6 +135,7 @@ export class Hud {
   private readonly onEvent = (e: GameEvent): void => {
     const i = this.focus;
     if (e.type === Ev.DriftStart && e.car === i) this.driftStart = this.sim.cars.score[i];
+    if (e.type === Ev.Respawn && e.car === i && e.a >= 0.01) this.pop(`Catch-up boost +${Math.round(e.a * 100)}%`, 'hot');
     if (e.type === Ev.DriftBoost && e.car === i) this.pop(`Drift boost +${Math.round(e.a * 100)}%`, e.a > 0.25 ? 's2' : 's1');
     if (e.type === Ev.MiniTurbo && e.car === i) this.pop(['', 'Mini-turbo', 'Super turbo', 'Ultra turbo'][e.b] + '!', `s${e.b}`);
     if (e.type === Ev.Wreck && e.car === i && e.other < 0) this.pop(e.b === 4 ? 'Reset' : 'Wrecked', 'bad');

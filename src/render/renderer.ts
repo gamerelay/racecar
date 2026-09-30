@@ -75,7 +75,7 @@ export class GameRenderer {
     for (const e of this.trackVisual.extras) this.scene.add(e);
     this.scene.add(this.trackVisual.debug);
     this.scene.add(this.fx.points);
-    this.worldVisual = skin.world(this.scene, sim);
+    this.worldVisual = skin.world(this.scene, sim, this.trackVisual);
     this.syncCars();
     this.resize();
     this.snapCamera();
@@ -93,7 +93,7 @@ export class GameRenderer {
     this.scene.add(this.trackVisual.debug);
     // Gantries and the like are placed from the track, so the world visual is rebuilt too.
     this.worldVisual.dispose();
-    this.worldVisual = this.skin.world(this.scene, this.sim);
+    this.worldVisual = this.skin.world(this.scene, this.sim, this.trackVisual);
   }
 
   set debug(on: boolean) {
@@ -254,10 +254,12 @@ export class GameRenderer {
         this.camDist += (dist - this.camDist) * damp(4, dt);
         this.camPos.x = car.x - fx * this.camDist;
         this.camPos.z = car.z - fz * this.camDist;
-        const ty = car.y + 1.85 + tall * 2.2 - this.boostVis * 0.12;
+        // Very long cars (the bus) also lift the camera and look further ahead, over the roof.
+        const long = Math.max(0, size[1] - 2.5);
+        const ty = car.y + 1.85 + tall * 2.2 + long * 0.35 - this.boostVis * 0.12;
         this.camPos.y += (ty - this.camPos.y) * damp(5, dt);
         cam.position.copy(this.camPos);
-        this.look.set(car.x + fx * 11, car.y + 1.0, car.z + fz * 11);
+        this.look.set(car.x + fx * (11 + long * 2), car.y + 1.0 + long * 0.2, car.z + fz * (11 + long * 2));
       }
     }
     this.lastWreck = c.wreck[i] === 1;

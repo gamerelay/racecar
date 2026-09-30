@@ -63,6 +63,9 @@ const hud = new Hud(sim);
 const raceUi = new RaceUi(sim, CLASSES, names, specs.map((x) => PAINTS[(x.paint ?? 0) % PAINTS.length].color));
 raceUi.onAgain = () => raceAgain(run);
 raceUi.onSetup = () => backToSetup(run);
+// Quit to the main menu from anywhere in a race. Not focusable, so Space (boost) can't press it.
+document.body.insertAdjacentHTML('beforeend', '<button id="quit" tabindex="-1" title="Quit to the main menu">✕ Menu</button>');
+document.getElementById('quit')!.onclick = () => backToSetup(run);
 if (attract) {
   document.body.classList.add('attract');
   showSetup(MAPS, Object.keys(LAYOUTS), CLASSES, PAINTS, { map: layoutKey });
@@ -172,7 +175,7 @@ function setPaused(on: boolean): void {
       'beforeend',
       `<div id="pause"><div class="card"><h1>Paused</h1>
         <dl><dt>Drive</dt><dd>WASD / arrows, or a gamepad (RT, LT, stick)</dd><dt>Drift</dt><dd>hold Shift (RB) while steering: steer in to tighten, out to widen: a quicker way round a corner</dd><dt>Boost</dt><dd>Space (A): fills from air, near misses, the oncoming lane in traffic, checking traffic and takedowns</dd><dt>Takedowns</dt><dd>ram a rival hard, boost into them, or shove them into a wall, a pillar or traffic</dd><dt>Traffic</dt><dd>boost into the back of a small car to check it out of the way; don't hit anything head on</dd><dt>Start</dt><dd>hit the throttle just before GO for a perfect start; too early and you stall</dd><dt>Felt wrong?</dt><dd>F8 (Select+Start) saves the last 30 s with a note</dd></dl>
-        <button id="pResume">Resume</button><button id="pRestart">Restart</button><button id="pSetup" class="ghost">Setup</button></div></div>`,
+        <button id="pResume">Resume</button><button id="pRestart">Restart</button><button id="pSetup" class="ghost">Main menu</button></div></div>`,
     );
     el = document.getElementById('pause')!;
     document.getElementById('pResume')!.onclick = () => setPaused(false);

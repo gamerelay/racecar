@@ -35,3 +35,5 @@ export const forwardZ = (h: number): number => Math.cos(h);
 export const headingOf = (x: number, z: number): number => Math.atan2(x, z);
 
 export const KMH = 3.6;
+/** Meters per second to miles per hour: what the speedometer reads. */
+export const MPH = 2.2369363;

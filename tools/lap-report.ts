@@ -5,10 +5,13 @@
 //   bun tools/lap-report.ts                       every layout
 //   bun tools/lap-report.ts city/downtown         one
 //   --laps 3  --field (8 AI with traffic and hazards, as a race)  --seed 7  --json
+//   --cars                                        every class's hard lap floor per layout (balance)
+//   --car rally                                   the solo lap in that class
 
 import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import type { CarClass, SurfaceDef, TrackLayout } from '../src/core/content';
+import { CLASS_ORDER, type CarClass, type SurfaceDef, type TrackLayout } from '../src/core/content';
+import { neutralControls } from '../src/core/controls';
 import { Cause, Ev } from '../src/core/events';
 import { Sim } from '../src/core/sim';
 import { bakeTrack } from '../src/core/track/bake';
@@ -21,7 +24,8 @@ const laps = Number(args[args.indexOf('--laps') + 1]) || 3;
 const seed = args.includes('--seed') ? Number(args[args.indexOf('--seed') + 1]) : 7;
 const only = args.find((a) => a.includes('/') && !a.startsWith('-'));
 const surfaces = JSON.parse(readFileSync(join(root, 'surfaces.json'), 'utf8')) as SurfaceDef[];
-const classes = ['coupe', 'muscle', 'hatch', 'van'].map((id) => JSON.parse(readFileSync(join(root, 'cars', `${id}.json`), 'utf8')) as CarClass);
+const classes = CLASS_ORDER.map((id) => JSON.parse(readFileSync(join(root, 'cars', `${id}.json`), 'utf8')) as CarClass);
+const soloCar = args.includes('--car') ? args[args.indexOf('--car') + 1] : 'coupe';
 const CAUSE: Record<number, string> = Object.fromEntries(Object.entries(Cause).map(([k, v]) => [v, k.toLowerCase()]));
 
 export interface LapReport {
@@ -36,11 +40,11 @@ export interface LapReport {
   field?: { place: number; car: string; difficulty: number; time: number; wrecks: number; takedowns: number }[];
 }
 
-export function lapReport(key: string, layout: TrackLayout): LapReport {
+export function lapReport(key: string, layout: TrackLayout, car = soloCar): LapReport {
   const track = bakeTrack(layout, surfaces);
   const sim = new Sim(track, classes, surfaces, { seed, slowmo: 'wreck', traffic: field ? 1 : 0, mayhem: field ? 'normal' : 'off' });
   const cars = field ? 8 : 1;
-  for (let k = 0; k < cars; k++) sim.addCar({ cls: field ? classes[k % 4].id : 'coupe', racer: { difficulty: field ? ((k % 3) as 0 | 1 | 2) : 2 } });
+  for (let k = 0; k < cars; k++) sim.addCar({ cls: field ? classes[k % classes.length].id : car, racer: { difficulty: field ? ((k % 3) as 0 | 1 | 2) : 2 } });
   sim.startRace(laps, 0.1);
   const out: LapReport = { layout: key, km: +(track.main.length / 1000).toFixed(2), laps: [], lapFloor: null, sections: [], wrecks: [], topKmh: 0, finished: false };
   let cursor = 0;
@@ -73,7 +77,41 @@ export function lapReport(key: string, layout: TrackLayout): LapReport {
   return out;
 }
 
-if (import.meta.main) {
+/** Seconds from a standstill to 100 km/h on the flat, full throttle, no boost. */
+function zeroTo100(cls: CarClass): number {
+  const layout: TrackLayout = { id: 'strip', name: 'Strip', main: { points: [0, 1, 2, 3].map((k) => ({ p: [0, 0, k * 400] as [number, number, number], width: 30 })) } };
+  const sim = new Sim(bakeTrack(layout, surfaces), classes, surfaces, { seed: 1 });
+  const i = sim.addCar({ cls: cls.id, human: true });
+  sim.placeCar(i, 0, 20, 0, 0);
+  const c = { ...neutralControls(), throttle: 1 };
+  for (let t = 0; t < 60 * 20; t++) {
+    sim.step([c]);
+    if (Math.hypot(sim.cars.vx[i], sim.cars.vz[i]) * 3.6 >= 100) return +(t / 60).toFixed(2);
+  }
+  return Infinity;
+}
+
+if (import.meta.main && args.includes('--cars')) {
+  // Balance: every class's hard solo lap on every layout, against the field's mean.
+  const keys: [string, TrackLayout][] = [];
+  for (const map of readdirSync(join(root, 'maps')))
+    for (const f of readdirSync(join(root, 'maps', map)).filter((x) => x.endsWith('.track.json'))) {
+      const key = `${map}/${f.replace('.track.json', '')}`;
+      if (!only || key === only) keys.push([key, JSON.parse(readFileSync(join(root, 'maps', map, f), 'utf8'))]);
+    }
+  const rows = classes.map((cls) => ({ cls, runs: keys.map(([key, layout]) => lapReport(key, layout, cls.id)) }));
+  for (let m = 0; m < keys.length; m++) {
+    const floors = rows.map((r) => r.runs[m].lapFloor ?? Infinity);
+    const mean = floors.filter(Number.isFinite).reduce((a, b, _, all) => a + b / all.length, 0);
+    console.log(`${keys[m][0]} (mean floor ${mean.toFixed(1)} s)`);
+    for (const r of rows) {
+      const run = r.runs[m];
+      const f = run.lapFloor;
+      console.log(`  ${r.cls.id.padEnd(7)} floor ${f ? f.toFixed(1).padStart(5) : '  DNF'} s ${f ? `${((f / mean - 1) * 100).toFixed(1).padStart(5)}%` : '      '}  top ${String(run.topKmh).padStart(3)} km/h  wrecks ${run.wrecks.length}`);
+    }
+  }
+  console.log('0–100 km/h: ' + classes.map((c) => `${c.id} ${zeroTo100(c)} s`).join(' · '));
+} else if (import.meta.main) {
   const reports: LapReport[] = [];
   for (const map of readdirSync(join(root, 'maps'))) {
     for (const f of readdirSync(join(root, 'maps', map)).filter((x) => x.endsWith('.track.json'))) {
