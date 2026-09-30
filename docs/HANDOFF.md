@@ -4,8 +4,8 @@ Where racecar stands and what's next, for whoever picks it up (a person or a fre
 The design is [SPEC.md](./SPEC.md): decisions in §17, and what building changed in "Changed while
 building". This file is "where are we"; the spec is "what are we making".
 
-**Last updated:** 2026-09-30. Milestone 2 is merged to `main` and tagged **`alpha-1.0`**
-(PR #2, with PR #3's detailed cars in it).
+**Last updated:** 2026-09-30. `main` is tagged **`alpha-1.1`**: milestone 2 (PR #2, tagged
+`alpha-1.0`) plus Countryside v2 (PR #4).
 
 ## Resume in five minutes
 
@@ -14,13 +14,15 @@ building". This file is "where are we"; the spec is "what are we making".
 3. Check the open platform PR: in `~/dev/gamerelay.io`, `gh pr view 30` (the host controls
    racecar's lobby needs).
 4. Before changing anything: `bun test && bun run typecheck && bun tools/validate.ts`. All three
-   are green on `main` at `alpha-1.0`. Branch off `main` for milestone 3.
+   are green on `main` at `alpha-1.1`. Branch off `main` for milestone 3.
 
 ## Where things stand
 
 - **Repo:** `gamerelay/racecar`, private until milestone 3, cloned at `~/dev/racecar`. The default
   branch is `main`.
 - **Milestone 1 (greybox sandbox): merged** (PR #1).
+- **Countryside v2: merged** (PR #4) and tagged `alpha-1.1`: the Valley rebuilt on real terrain
+  (see "The Countryside lap" below).
 - **Milestone 2 (the world): merged** (PR #2) and tagged `alpha-1.0`. It contains everything
   below; PR #3 (detailed cars, car ink, visible wrecks) was merged into it first. Just before the
   tag it had a code review, and these were fixed:
