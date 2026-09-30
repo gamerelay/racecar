@@ -41,7 +41,10 @@ export interface HazardKind {
 }
 
 /** Piece types, for the renderer. */
-export const Piece = { Log: 1, Sign: 2 } as const;
+export const Piece = { Log: 1, Sign: 2, Bomb: 3, Coconut: 4 } as const;
+
+/** `pSolid`: a piece you bounce off (and wreck on, fast enough), or one you hop over (a coconut). */
+export const Solid = { None: 0, Hard: 1, Bump: 2 } as const;
 
 const MAX_PIECES = 256;
 const MAX_MARKERS = 64;
@@ -67,7 +70,7 @@ export class Hazards {
   readonly py = new Float64Array(MAX_PIECES);
   readonly pz = new Float64Array(MAX_PIECES);
   readonly ph = new Float64Array(MAX_PIECES);
-  /** Tilt for the renderer (a falling sign). */
+  /** Tilt for the renderer (a falling sign); for a bomb, how far through its flight (0–1), then 1 + seconds since it landed. */
   readonly pTilt = new Float64Array(MAX_PIECES);
   readonly phw = new Float64Array(MAX_PIECES);
   readonly phl = new Float64Array(MAX_PIECES);
@@ -181,7 +184,7 @@ export class Hazards {
     return this.occurrences[this.pOcc[p]];
   }
 
-  addPiece(occ: number, type: number, s: number, x: number, y: number, z: number, h: number, hw: number, hl: number, hh: number, solid: boolean, wreckSpeed: number, tilt = 0): void {
+  addPiece(occ: number, type: number, s: number, x: number, y: number, z: number, h: number, hw: number, hl: number, hh: number, solid: boolean | number, wreckSpeed: number, tilt = 0): void {
     if (this.pieces >= MAX_PIECES) return;
     const p = this.pieces++;
     this.pType[p] = type;
@@ -193,7 +196,7 @@ export class Hazards {
     this.phw[p] = hw;
     this.phl[p] = hl;
     this.phh[p] = hh;
-    this.pSolid[p] = solid ? 1 : 0;
+    this.pSolid[p] = solid === true ? Solid.Hard : solid === false ? Solid.None : solid;
     this.pWreck[p] = wreckSpeed;
     this.pTilt[p] = tilt;
     this.pS[p] = s;
@@ -305,10 +308,107 @@ const fallingSign: HazardKind = {
   },
 };
 
+/** How long a volcano bomb is in the air: the telegraph (rings on the road where they'll land). */
+const BOMB_FLIGHT = 2;
+
+/**
+ * The volcano throws glowing rocks onto the rim road: rings grow where each will land while they
+ * arc in from the crater, then they lie on the road as solid, cooling rocks. Scheduled from the
+ * seed, so online every screen has them land at the same moment in the same places.
+ */
+const volcanoBombs: HazardKind = {
+  id: 'volcano-bombs',
+  schedule: 'random',
+  telegraph: BOMB_FLIGHT,
+  life: (def) => def.params?.life ?? 10,
+  every: (def) => def.params?.every ?? 45,
+  at(h, occ, u) {
+    const def = h.defs[occ.def];
+    const [a, b] = typeof def.s === 'number' ? [def.s - 40, def.s + 40] : def.s;
+    const span = wrapSpan(a, b, h.track.main.length);
+    const n = def.params?.bombs ?? 3;
+    const r = def.params?.size ?? 0.9;
+    for (let j = 0; j < n; j++) {
+      const land = bombLanding(h, occ, j, n, a, span);
+      if (u < 0) {
+        const f = 1 + u / BOMB_FLIGHT;
+        // In the air: a marker where it'll land, and the rock itself at its height (the renderer
+        // draws it along the arc from the crater), not solid yet. The AI steers round it already.
+        h.addMarker(land.x, land.y, land.z, r * 2.2, f);
+        const y = land.y + r + (1 - f) * (1 - f) * 70 + Math.sin(Math.PI * f) * 30;
+        h.addPiece(occ.id, Piece.Bomb, land.s, land.x, y, land.z, land.yaw, r, r, r, false, 0, f);
+        continue;
+      }
+      h.addPiece(occ.id, Piece.Bomb, land.s, land.x, land.y + r * 0.7, land.z, land.yaw, r, r, r * 0.8, true, def.params?.wreck ?? 18, 1 + u);
+    }
+  },
+};
+
+/** How far from a to b along a closed road of length L. */
+function wrapSpan(a: number, b: number, L: number): number {
+  return b >= a ? b - a : b + L - a;
+}
+
+const landing = { s: 0, x: 0, y: 0, z: 0, yaw: 0 };
+/** Where bomb j of n lands: each in its own share of the range, somewhere across the road, clear of its edges. */
+function bombLanding(h: Hazards, occ: Occurrence, j: number, n: number, a: number, span: number): typeof landing {
+  const s = wrap(a + ((j + 0.15 + 0.7 * hash01(occ.seed, j, 11)) * span) / n, h.track.main.length);
+  const at = sampleAt(h.track.main, s, h.hit);
+  const lat = (hash01(occ.seed, j, 12) - 0.5) * (at.width - 3);
+  landing.s = at.s;
+  landing.x = at.cx - at.tz * lat;
+  landing.z = at.cz + at.tx * lat;
+  // The road's surface there, banked (a banked corner's edge is well off the centre's height).
+  landing.y = at.cy - lat * Math.tan(at.bank);
+  landing.yaw = hash01(occ.seed, j, 13) * Math.PI * 2;
+  return landing;
+}
+
+/**
+ * Coconuts off the palms that lean over the coast road. The first car past shakes them loose;
+ * they drop behind it, bounce and roll a little way across the road. Running one over is a hop
+ * and a little lost speed, not a wreck.
+ */
+const coconuts: HazardKind = {
+  id: 'coconuts',
+  schedule: 'trigger',
+  telegraph: 0.7,
+  life: (def) => def.params?.life ?? 16,
+  every: (def) => def.params?.rearm ?? 25,
+  at(h, occ, u) {
+    const def = h.defs[occ.def];
+    const s0 = typeof def.s === 'number' ? def.s : def.s[0];
+    const side = def.side ?? (hash01(occ.seed, 0, 21) < 0.5 ? -1 : 1);
+    const n = 2 + Math.floor(hash01(occ.seed, 0, 22) * 2);
+    // They fall from the crowns over the road's edge, onto the half of it under the palms.
+    const drop = 0.9;
+    for (let j = 0; j < n; j++) {
+      const at = sampleAt(h.track.main, s0 + 6 + j * 9 + hash01(occ.seed, j, 23) * 7, h.hit);
+      const half = at.width / 2;
+      const lat0 = side * (half - 1.5 - hash01(occ.seed, j, 24) * 2);
+      const bank = Math.tan(at.bank);
+      if (u < -drop) {
+        // Shaken loose: a marker under each, the nut still up in the crown.
+        h.addMarker(at.cx - at.tz * lat0, at.cy - lat0 * bank, at.cz + at.tx * lat0, 1.2, 1 + u / coconuts.telegraph);
+        continue;
+      }
+      const t = u + drop;
+      // Falls 9 m (it lands at u = 0), then rolls in toward the middle, slowing to a stop.
+      const fall = Math.max(0, 9 - 11.1 * t * t);
+      const roll = u > 0 ? ((1 - Math.exp(-1.4 * u)) / 1.4) * (2 + hash01(occ.seed, j, 25) * 3) : 0;
+      const lat = lat0 - side * roll;
+      const hop = u > 0 ? 0.5 * Math.abs(Math.sin(u * 7)) * Math.exp(-3 * u) : 0;
+      h.addPiece(occ.id, Piece.Coconut, at.s, at.cx - at.tz * lat, at.cy - lat * bank + 0.28 + fall + hop, at.cz + at.tx * lat, u * 4 + j, 0.3, 0.3, 0.28, u > 0 ? Solid.Bump : Solid.None, Infinity);
+    }
+  },
+};
+
 /** Every hazard kind a layout can `use`, by id. */
 export const KINDS: Record<string, HazardKind> = {
   'log-truck': logTruck,
   'falling-sign': fallingSign,
+  'volcano-bombs': volcanoBombs,
+  coconuts,
 };
 
 export const HAZARD_KINDS = Object.keys(KINDS);

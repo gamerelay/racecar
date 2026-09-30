@@ -11,8 +11,14 @@ and where things stand is [docs/HANDOFF.md](./docs/HANDOFF.md).
   race and pass again, with the sun still out and puddles while it lasts.
 - **Sunset on Paradise:** a low sun over the sea and a pink-and-orange sky. The lobby has a new
   Time option (Random, Day, Sunset) for maps that have one.
+- **Volcano bombs on the Volcano Rim:** glowing rocks arc in from the crater. Rings show where
+  they'll land, and then they lie on the road for a while. The Lava Tube skips them.
+- **Falling coconuts on Coconut Coast:** the first car past shakes them loose onto the road
+  behind it. Run one over and you hop.
 
 ### Changed
+- **The Sandbar is re-laid:** it now runs straight along the waterline instead of zigzagging, so
+  it's quicker and the AI pack no longer piles up at its mouth.
 - **The sky clouds over in the rain** on every map: the sun fades behind cloud and the sky goes
   grey (only a little on Paradise).
 

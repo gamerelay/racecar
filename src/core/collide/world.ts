@@ -9,9 +9,10 @@
 import { earnBoost, recentAttacker, wreckCar } from '../car/physics';
 import { TUNING as T } from '../car/tuning';
 import { Cause, Ev } from '../events';
+import { hash01 } from '../rng';
 import type { SimState } from '../state';
 import { mainDistance, signedGap } from '../track/bake';
-import type { Hazards } from '../world/hazards';
+import { Solid, type Hazards } from '../world/hazards';
 import { laneActive, TRAFFIC_KINDS, type Traffic } from '../world/traffic';
 import { newContact, obbOverlap } from './obb';
 
@@ -118,6 +119,17 @@ export function collideWorld(sim: SimState, i: number, ctx: WorldCtx): void {
     if (Math.abs(c.y[i] + 0.5 - hazards.py[p]) > hazards.phh[p] + 1.2) continue;
     if (ghost) continue;
     if (!obbOverlap(c.x[i], c.z[i], c.h[i], cls.size[0], cls.size[1], hazards.px[p], hazards.pz[p], hazards.ph[p], hazards.phw[p], hazards.phl[p], contact)) continue;
+    if (hazards.pSolid[p] === Solid.Bump) {
+      // Run over: a hop, a little speed lost and a nudge off line, once (it lands past it).
+      if (!c.grounded[i] || c.wreck[i]) continue;
+      c.vx[i] *= 0.9;
+      c.vz[i] *= 0.9;
+      c.vy[i] = Math.max(c.vy[i], 2.4);
+      c.grounded[i] = 0;
+      c.h[i] += (hash01(hazards.seed, p, tick) - 0.5) * 0.12;
+      sim.events.push(tick, Ev.CarContact, i, hazards.px[p], hazards.py[p], hazards.pz[p], 3, 0, -1);
+      continue;
+    }
     const closing = bounce(sim, i, 0, 0, 0.2);
     if (closing <= 0.5 || c.wreck[i]) continue;
     const occ = hazards.occurrenceOf(p);
@@ -181,7 +193,7 @@ export function hazardsWreckTraffic(sim: SimState, ctx: WorldCtx): void {
     if (!traffic.present(k, ctx.t)) continue;
     const s = traffic.sAt(k, ctx.t);
     for (let p = 0; p < hazards.pieces; p++) {
-      if (!hazards.pSolid[p]) continue;
+      if (hazards.pSolid[p] !== Solid.Hard) continue;
       if (Math.abs(signedGap(s, hazards.pS[p], L)) > 4) continue;
       const lane = traffic.lanes[traffic.lane[k]];
       // Close enough along the road; check across it.

@@ -35,7 +35,7 @@ The third map is **Paradise** (`content/maps/paradise`, key `paradise/island`).
   one.
 - **Paradise, parts 1 and 2: merged** (PRs #21 and #22, PLAN phase 5, `alpha-1.10`). Part 1, the
   Island (`tools/gen-paradise.ts`, `content/maps/paradise`): 3.44 km clockwise, a 68.2 s hard-AI
-  floor, the Sandbar and the Lava Tube, and ~0.75 AI wrecks a race. The shared lap-laying is
+  floor (66.8 s after part 3's Sandbar), the Sandbar and the Lava Tube. The shared lap-laying is
   `tools/lib/lap.ts` (the Valley regenerates byte-for-byte). The land is `buildTerrain` with
   `terrain.island`/`sea`/`volcano`: the sea, a beach, the cone; roads over the sea are decks, so
   the Freeway stands on `deckPillars` over the bay. New surfaces `sand`, `red-earth`,
@@ -46,8 +46,10 @@ The third map is **Paradise** (`content/maps/paradise`, key `paradise/island`).
   weather and time (branch `paradise-weather`), adds passing tropical showers (`shower` in a
   map's weather), a sky that clouds over in the rain on every map (`overcast` per palette), the
   `sunset` palette with a lobby Time option (`paletteFor`), and no rain in the Lava Tube
-  (`covers`). SPEC "Paradise, part 3a". The second is the hazards (volcano bombs, coconuts)
-  and tuning sweeps.
+  (`covers`). SPEC "Paradise, part 3a". The second, stacked on it (branch `paradise-hazards`),
+  is the hazards and tuning: volcano bombs on the rim (a scheduled kind), coconuts on the beach
+  road (a trigger, and a new bump contact, `Solid.Bump`), and the Sandbar re-laid straight along
+  the waterline. The old one was most of the field's wrecks. SPEC "Paradise, part 3b".
 - **Car select: merged** (PR #20, PLAN phase 4, `alpha-1.9`). The lobby docks left and your car turns on a table
   beside it (`src/render/showroom.ts`), a 1:50 model held in front of the world camera, so the
   post pass and weather treat it like the world, framed into the lobby's `.stage` box so CSS places it (beside the menu, or above it
@@ -184,8 +186,8 @@ The third map is **Paradise** (`content/maps/paradise`, key `paradise/island`).
 | | City (Downtown) | Countryside (Valley) | Paradise (Island) |
 |---|---|---|---|
 | Lap length | 3.26 km | 2.92 km | 3.44 km |
-| AI lap floor (hard, empty track) | 58.6 s | 63.4 s | 68.2 s |
-| Wrecks per 8-AI race (8 seeds; `lap-report --field --seed N`) | ~1.6 | ~1 | ~0.75 |
+| AI lap floor (hard, empty track) | 58.6 s | 63.4 s | 66.8 s |
+| Wrecks per 8-AI race (8 seeds; `lap-report --field --seed N`) | ~1.6 (1.0 on seeds 1–8) | ~1 (2.0 on seeds 1–8) | ~1.2 with the hazards, 16 seeds (0.5 without) |
 | Draw calls | ~90–415 | ~65–330 | ~35–150 for the world; ~350 in the chase view with the field on screen (mostly cars) |
 | Scenery build (per editor edit) | ~200 ms | ~150 ms | ~600 ms (land and scenery, measured in bun) |
 
@@ -235,13 +237,15 @@ Clockwise round a tropical island, the volcano in the middle and the sea all rou
 - **Coconut Coast:** the wide beach road (18.5 m, 20 in the sweepers) up the west shore, palms
   leaning over it, round a headland inland. The **Sandbar** runs straight on along the
   waterline on loose sand, with a dune to jump and wet sand (`shore`) at the water's edge.
+  Coconuts drop off the palms before it.
 - **The Freeway:** up a ramp to a deck 10–14 m over the bay, one long banked sweep round the
   north shore on concrete pillars. It's one-way, both lanes with the race, and the traffic
   keeps to the straights either side of its bend.
 - **Jungle Switchbacks:** off the deck into the jungle, two wide hairpins on red earth, under a
   rope bridge, past a waterfall.
 - **Volcano Rim:** the climb round the cone's flank on lava rock, over the shoulder's crest. The
-  **Lava Tube** cuts through inside it, roofed with rock and lit by lava.
+  **Lava Tube** cuts through inside it, roofed with rock and lit by lava. Volcano bombs land on
+  the rim road's last stretch, which the tube skips.
 - **Lighthouse Point:** a jump off the rim, the lighthouse on its point, the cliff road, and the
   S back into town.
 
@@ -264,10 +268,9 @@ Clockwise round a tropical island, the volcano in the middle and the sea all rou
 ## Next, in order
 
 1. **PLAN phase 5, Paradise, part 3** (parts 1 and 2 are merged):
-   - Part 3a (weather and time) is the `paradise-weather` PR: showers, the sky in the rain,
-     sunset, the Lava Tube's rain, per-map lap lengths in the lobby test.
-   - Part 3b: volcano bombs (a scheduled moment on the rim), falling coconuts on the coast, and
-     hazard sweeps with the field report (AI wrecks ≤ 1.5 a race, classes within ±5%).
+   - Part 3a (weather and time) is PR #23; part 3b (hazards, the Sandbar, sweeps) is stacked
+     on it. Merge #23 first, without `--delete-branch`, then retarget the second to main.
+   - Then phase 6 (landmarks) or milestone 3 (online), per PLAN.
 2. **Milestone 3 (online), per the spec:**
    - A `relay` LobbyBackend (`src/lobby/backend.ts`): lobbies as rooms with `setListing`, the
      list from `listRooms('race', { includeFull: true })`, and actions sent to the host, who
@@ -323,6 +326,11 @@ Clockwise round a tropical island, the volcano in the middle and the sea all rou
 - From Paradise part 2: the land over the Lava Tube is still cut open (every road caps the land
   below it), so the tube reads as a roofed cutting, not a tunnel under the cone. A branch that's
   a tunnel would need to leave the land alone over its middle and draw portals.
+- From Paradise part 3: the Valley's field wrecked 2.0 times a race on seeds 1–8 (16 in 8),
+  above MAPS.md's 1.5. The earlier ~1 was other seeds; worth a sweep like the Sandbar's.
+  Downtown was 1.0 on the same seeds.
+- The falling sign's and log truck's markers use the road's centre height, like the bombs did
+  before; on a banked stretch their rings would sink. Neither sits on a steep bank today.
 - Loading a layout builds the whole City in about 200 ms. That's fine per editor edit (edits
   apply when you let go of a point); if it ever runs per frame, cache it.
 

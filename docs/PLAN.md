@@ -105,7 +105,7 @@ is a lobby with seven bots.
 - Stat bars next to the car (speed, accel, handling, weight, boost), from the class numbers.
 - On a phone the preview stacks above the menu.
 
-## Phase 5: Paradise — parts 1 and 2 done, PRs #21 and #22; part 3 next
+## Phase 5: Paradise — parts 1 and 2 done, PRs #21 and #22; part 3 in review, PRs #23 and (hazards) next
 
 A tropical island in daytime. Sunny, with palm trees, beaches and sand, a volcano in the
 middle, and an elevated freeway along part of the coast. Curvy all the way round, with wide
@@ -141,7 +141,7 @@ roads and elevation changes.
 - **Traffic:** town and freeway only, with sections on straights as MAPS.md says.
 
 **Parts:** 1. the lap, land, sea, palette and freeway (PR #21); 2. scenery, waves and the grade (PR #22);
-3. hazards, the shower and sunset, and tuning sweeps.
+3. the shower and sunset (PR #23), then the hazards and tuning sweeps (the PR stacked on it).
 
 **How to build it:**
 - **Generator:** `tools/gen-paradise.ts`, the Valley's generator made general: filleted arcs,

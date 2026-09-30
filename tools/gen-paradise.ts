@@ -114,17 +114,21 @@ const { sAt, yAt, fork } = onLap(baked);
 // ---- shortcuts ----
 
 // The Sandbar: straight on along the waterline instead of round the headland, on loose sand.
-const sandFrom = sAt(-412, 140);
-const sandTo = sAt(-418, -60);
+// It forks where the coast road still runs straight down the shore, before the road bends inland
+// round the headland, and rejoins where the road comes back to the water: straight on along the
+// waterline, so it's quick to take (a Sandbar that zigzagged out and back had the AIs taking it
+// braking to 120 km/h in the fast line, and the field running into them).
+const sandFrom = sAt(-414, 230);
+const sandTo = sAt(-440, -120);
 const sandbar: BranchDef = {
   id: 'sandbar',
   kind: 'shortcut',
   from: sandFrom,
   to: sandTo,
   points: [
-    fork(sandFrom, 26, -7, -0.4, 11, 'sand'),
-    { p: [-432, r1(yAt(-410, 40) - 1.4), 40], width: 11, lanes: 1, shoulder: 2, surface: 'sand' },
-    fork(sandTo, -26, -7, -0.4, 11, 'sand'),
+    fork(sandFrom, 30, -3, -0.4, 11, 'sand'),
+    ...([[-431, 100], [-434, 0]] as [number, number][]).map(([x, z]) => ({ p: [x, r1(yAt(-410, z) - 1.4), z] as [number, number, number], width: 11, lanes: 1, shoulder: 2, surface: 'sand' })),
+    fork(sandTo, -30, -3, -0.4, 11, 'sand'),
   ],
 };
 // The Lava Tube: through the cone's shoulder, inside the rim road, a chord across two corners.
@@ -179,7 +183,13 @@ layout.traffic = {
     { pos: -0.5, dir: 1, speed: 24, sections: freeway },
   ],
 };
-layout.hazards = [];
+// Placed by sweeping the field report (MAPS.md): bombs on the rim's last stretch before the
+// jump, where the Lava Tube skips them (0.13 hazard wrecks a race here against 0.5–1.25 further
+// up the rim), and coconuts on the beach road before the Sandbar, which hop you but never wreck.
+layout.hazards = [
+  { use: 'volcano-bombs', s: [sAt(...rim(0, 210), 35), sAt(...rim(33, 210), 35)], params: { every: 45 } },
+  { use: 'coconuts', s: 560 },
+];
 layout.takedownSpots = [
   { s: sAt(0, -440, 13), name: 'The Freeway' },
   { s: sAt(60, 430), name: 'The Harbour' },
