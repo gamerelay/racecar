@@ -991,6 +991,8 @@ Car art (branch `car-models`, 2026-09-30):
   lids spring open or tear off, wing, mirrors, plate, splitter and sometimes a wheel fly off,
   glass cracks and shards spray. The renderer infers where the car was hit (the other car, or
   the nose for walls) from the Wreck event, so the sim is unchanged; `repair()` on Respawn.
+- **Sedan, bus and rally designs** (branch `car-variety`): a three-box sedan, a 10.4 m city bus
+  and a jacked-up rally hatch, in the same style as the first four.
 
 Polish (2026-09-30):
 

@@ -121,10 +121,12 @@ export class CarWreck {
     const { hw, hl, top } = this.size;
     const t = Math.min(hw / Math.max(Math.abs(dx), 1e-3), hl / Math.max(Math.abs(dz), 1e-3));
     const p = new Vector3(dx * t, 0.6, dz * t);
-    this.crumple(p, dx, dz, 0.2 + 0.35 * strength, 1.0 + 0.6 * strength, 1);
+    // Dents and "near the hit" grow with the body past van size, so a bus doesn't take a car's dent.
+    const big = Math.max(1, hl / 2.5);
+    this.crumple(p, dx, dz, 0.2 + 0.35 * strength, (1.0 + 0.6 * strength) * big, 1);
     // A second, lighter dent on the roof or a flank: the tumble.
     const r = Math.random;
-    this.crumple(new Vector3((r() - 0.5) * hw, top, (r() - 0.5) * hl), 0, 0, 0.12 * strength, 0.9, 2);
+    this.crumple(new Vector3((r() - 0.5) * hw, top, (r() - 0.5) * hl), 0, 0, 0.12 * strength, 0.9 * big, 2);
     this.glass.material = crackedGlass;
 
     this.root.updateMatrixWorld(true);
@@ -132,7 +134,7 @@ export class CarWreck {
     const carM = this.root.matrixWorld;
     const rot = new Quaternion().setFromRotationMatrix(carM);
     for (const part of this.parts) {
-      const near = Math.max(0, 1 - part.at.distanceTo(p) / 2.6);
+      const near = Math.max(0, 1 - part.at.distanceTo(p) / (2.6 * big));
       const chance = part.weak * (0.35 + 0.65 * near) * (0.5 + 0.5 * strength);
       if (part.hinge && r() > chance * 0.8) {
         // Springs open instead: further the nearer the hit.
