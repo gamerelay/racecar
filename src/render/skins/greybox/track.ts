@@ -30,7 +30,7 @@ import type { TrackVisual } from '../../skin';
 import { buildCityscape } from './cityscape';
 import { buildForest } from './forest';
 import { buildIsland } from './island';
-import { buildLandmarks, landmarkKeeps } from './landmarks';
+import { buildLandmarks, landmarkCircles, landmarkKeeps } from './landmarks';
 import { buildTerrain } from './terrain';
 import { boxes, type Box } from './scenery';
 import { disposeTree } from './dispose';
@@ -193,7 +193,7 @@ export function buildTrackVisual(track: Track, palette: Palette, seed: number): 
       dressing.update(t);
     };
   } else if (land) {
-    const forest = buildForest(track, palette, seed, land);
+    const forest = buildForest(track, palette, seed, land, landmarkCircles(track.layout));
     extras.push(...forest.objects);
     update = (t, dt, cam) => {
       land.time.value = t;

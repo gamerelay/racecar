@@ -2,7 +2,7 @@ import { describe, expect, test } from 'bun:test';
 import { LANDMARK_KINDS, type TrackLayout } from '../src/core/content';
 import { validateLayout } from '../src/core/track/validate';
 import { clockText, landmarkKeeps } from '../src/render/skins/greybox/landmarks';
-import { CLASSES, DOWNTOWN, SURFACES } from './helpers';
+import { CLASSES, DOWNTOWN, SURFACES, layout } from './helpers';
 
 // Landmarks (PLAN phase 6): scenery placed by the layout. The validator keeps roads off them, the
 // city leaves their ground empty, and the clock tower reads the race time.
@@ -15,6 +15,15 @@ describe('landmarks', () => {
     expect(kinds.sort()).toEqual(['canal', 'clock-tower', 'donut-shop', 'fountain', 'leader-board']);
     for (const k of kinds) expect(LANDMARK_KINDS as readonly string[]).toContain(k);
     expect(landmarkProblems(DOWNTOWN)).toEqual([]);
+  });
+
+  test('Backroads has its six, clear of the road; the water tower says the town', () => {
+    const valley = layout('backroads/valley');
+    const kinds = (valley.landmarks ?? []).map((m) => m.kind);
+    expect(kinds.sort()).toEqual(['balloon', 'cow', 'drive-in', 'scarecrow', 'water-tower', 'windmill']);
+    for (const k of kinds) expect(LANDMARK_KINDS as readonly string[]).toContain(k);
+    expect(landmarkProblems(valley)).toEqual([]);
+    expect(valley.landmarks!.find((m) => m.kind === 'water-tower')!.label).toBe('MILLBROOK');
   });
 
   test('the validator refuses one on the road, and a kind it doesn\'t know', () => {

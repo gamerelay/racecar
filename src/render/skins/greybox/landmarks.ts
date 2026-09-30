@@ -24,6 +24,8 @@ import {
   TorusGeometry,
   Vector3,
   Color,
+  Float32BufferAttribute,
+  SphereGeometry,
 } from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import type { LandmarkDef, TrackLayout } from '../../../core/content';
@@ -67,7 +69,12 @@ export function landmarkKeeps(layout: TrackLayout): Keep[] {
   });
 }
 
-/** Mins and maxes of a race time as the clock's readout: m:ss. */
+/** The ground each landmark keeps as a circle (for the country and the island, which place by circles). */
+export function landmarkCircles(layout: TrackLayout): { x: number; z: number; r: number }[] {
+  return (layout.landmarks ?? []).filter((m) => m.r > 0).map((m) => ({ x: m.at[0], z: m.at[1], r: m.r }));
+}
+
+/** A race time as the clock's readout: m:ss. */
 export function clockText(seconds: number): string {
   const s = Math.max(0, Math.floor(seconds));
   return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
@@ -84,7 +91,12 @@ export function buildLandmarks(layout: TrackLayout, floor: (x: number, z: number
   for (const m of layout.landmarks ?? []) {
     const build = BUILDERS[m.kind];
     if (!build) continue;
-    const b = build(m, time);
+    // The ground under a point in the landmark's own frame, relative to its middle (it stands on a slope).
+    const base = floor(m.at[0], m.at[1]);
+    const sc = m.params?.scale ?? 1;
+    const [cs, sn] = [Math.cos(m.rot ?? 0), Math.sin(m.rot ?? 0)];
+    const ground = (lx: number, lz: number) => (floor(m.at[0] + (lx * cs + lz * sn) * sc, m.at[1] + (-lx * sn + lz * cs) * sc) - base) / sc;
+    const b = build(m, { time, ground });
     b.root.position.set(m.at[0], floor(m.at[0], m.at[1]), m.at[1]);
     b.root.name = `landmark:${m.kind}`;
     b.root.rotation.y = m.rot ?? 0;
@@ -477,11 +489,332 @@ function canal(m: LandmarkDef, time: { value: number }): Built {
   };
 }
 
-/** Each kind's builder; `time` is world seconds, for what's animated in a shader. */
-const BUILDERS: Record<string, (m: LandmarkDef, time: { value: number }) => Built> = {
+/** What a builder gets: world seconds for what's animated in a shader, and the ground under a point of its own frame. */
+interface Ctx {
+  time: { value: number };
+  ground(lx: number, lz: number): number;
+}
+
+// ---- Backroads ----
+
+/** A mesh posed by position and turn (Euler, radians). */
+const posed = (mesh: Mesh, x: number, y: number, z: number, rx = 0, ry = 0, rz = 0): Mesh => {
+  mesh.position.set(x, y, z);
+  mesh.rotation.set(rx, ry, rz);
+  return mesh;
+};
+
+/** A farm windpump: a lattice tower, a many-bladed wheel that spins faster the wetter (and windier) it gets, and a tail vane. */
+function windmill(): Built {
+  const root = new Group();
+  const S = solids();
+  const H = 17;
+  const steel = toon({ color: 0xb8bcc4 });
+  // Four legs leaning in from a 6 m square to a 1.6 m one at the top, braced every few meters.
+  const lean = Math.atan2(2.2, H);
+  for (const [a, b] of [[-1, -1], [1, -1], [1, 1], [-1, 1]]) {
+    root.add(posed(new Mesh(new BoxGeometry(0.3, H + 0.3, 0.3), steel), a * 1.9, H / 2, b * 1.9, -b * lean, 0, a * lean));
+  }
+  for (let y = 3; y < H - 1; y += 3.5) {
+    const half = 3 - (2.2 * y) / H;
+    for (const sgn of [-1, 1]) {
+      S.add(half * 2, 0.15, 0.15, 0xa8acb4, 0, y, sgn * half);
+      S.add(0.15, 0.15, half * 2, 0xa8acb4, sgn * half, y, 0);
+    }
+  }
+  S.add(2.4, 0.3, 2.4, 0x8a8e96, 0, H, 0);
+  S.add(3, 1.2, 0.8, 0x2a2140, 0, -0.4, 0);
+  // The head: a hub facing +z, the wheel's blades round it, the vane behind.
+  const head = new Group();
+  head.position.set(0, H + 1.2, 0);
+  root.add(head);
+  head.add(posed(new Mesh(new BoxGeometry(0.9, 0.9, 2.4), steel), 0, 0, 0));
+  const vane = new Mesh(new BoxGeometry(0.12, 2.2, 4.2), toon({ color: 0xd7263d }));
+  head.add(posed(vane, 0, 0.3, -3.6));
+  const wheel = new Group();
+  wheel.position.z = 1.4;
+  head.add(wheel);
+  const blade = new BoxGeometry(0.9, 2.6, 0.06);
+  blade.translate(0, 2.4, 0);
+  const bladeMat = toon({ color: 0xe2e5ea });
+  for (let k = 0; k < 18; k++) wheel.add(posed(new Mesh(blade, bladeMat), 0, 0, 0, 0, 0.35, (k / 18) * Math.PI * 2));
+  wheel.add(new Mesh(new TorusGeometry(3.6, 0.08, 4, 36), steel));
+  root.add(S.mesh());
+  let angle = 0;
+  let last = 0;
+  return {
+    root,
+    update(t, live) {
+      const dt = Math.min(0.1, Math.max(0, t - last));
+      last = t;
+      const wind = 0.9 + (live?.wetness ?? 0) * 2.6;
+      // Gusts: the wheel speeds up and slows, and the head hunts a little into the wind.
+      const gust = 0.75 + 0.35 * Math.sin(t * 0.37) + 0.15 * Math.sin(t * 1.3);
+      angle += dt * wind * gust * 2.2;
+      wheel.rotation.z = angle;
+      head.rotation.y = 0.12 * Math.sin(t * 0.21);
+    },
+  };
+}
+
+/** A giant fibreglass cow on a plinth by the road: black and white, pink nose and udder, and a tail that swishes. */
+function cow(): Built {
+  const root = new Group();
+  const S = solids();
+  const W = 0xf6f3ee;
+  const B = 0x1f1a24;
+  const P = 0xf2a0b4;
+  S.add(11, 1.6, 6, 0x8f7d69, 0, 0.3);
+  // Legs, body, spots, head (facing +x, along the plinth), horns, udder.
+  for (const [x, z] of [[-3, -1.3], [-3, 1.3], [3, -1.3], [3, 1.3]]) S.add(1, 3.4, 1, W, x, 2.8, z);
+  for (const [x, z] of [[-3, -1.3], [3, 1.3]]) S.add(1.05, 0.7, 1.05, B, x, 1.45, z);
+  S.add(8.4, 3.6, 3.8, W, 0, 6.2, 0);
+  S.add(2.6, 2.2, 3.9, B, -1.6, 6.8, 0);
+  S.add(1.8, 1.6, 3.9, B, 2.2, 5.4, 0);
+  S.add(1.4, 1.3, 0.2, B, 0.6, 7.2, -1.98);
+  S.add(3, 2.6, 2.6, W, 5.2, 7.6, 0);
+  S.add(1.3, 1.4, 2.2, P, 6.9, 7.1, 0);
+  S.add(1.4, 0.9, 0.4, B, 4.8, 8.6, -1.5);
+  S.add(1.4, 0.9, 0.4, B, 4.8, 8.6, 1.5);
+  for (const z of [-1, 1]) S.add(0.35, 1.2, 0.35, 0xe8dcc0, 5, 9.4, z);
+  S.add(1.8, 1, 1.8, P, 2.4, 4, 0);
+  root.add(S.mesh());
+  const tail = new Group();
+  tail.position.set(-4.2, 7.2, 0);
+  tail.add(posed(new Mesh(new BoxGeometry(0.3, 3.4, 0.3), toon({ color: W })), 0, -1.7, 0));
+  tail.add(posed(new Mesh(new BoxGeometry(0.6, 1, 0.6), toon({ color: B })), 0, -3.5, 0));
+  root.add(tail);
+  const sign = staticCanvas(512, 96, (g) => {
+    g.fillStyle = '#3a6b35';
+    g.fillRect(0, 0, 512, 96);
+    g.fillStyle = '#fff6ee';
+    g.font = `54px ${FONT}`;
+    g.textAlign = 'center';
+    g.textBaseline = 'middle';
+    g.fillText('BIG BESSIE', 256, 52);
+  });
+  const f = face(sign, 8, 1.5);
+  f.position.set(0, 0.5, 3.02);
+  root.add(f);
+  return {
+    root,
+    update(t) {
+      tail.rotation.x = 0.35 * Math.sin(t * 1.7);
+    },
+  };
+}
+
+/** A water tower on four legs, the town's name round its tank, and a red light on top. */
+function waterTower(m: LandmarkDef): Built {
+  const root = new Group();
+  const S = solids();
+  const H = 16;
+  const r = 5.2;
+  for (const [a, b] of [[-1, -1], [1, -1], [1, 1], [-1, 1]]) S.add(0.5, H, 0.5, 0x6b7078, a * 3.2, H / 2, b * 3.2);
+  for (const y of [5, 10]) {
+    S.add(6.9, 0.2, 0.2, 0x6b7078, 0, y, 3.2);
+    S.add(6.9, 0.2, 0.2, 0x6b7078, 0, y, -3.2);
+    S.add(0.2, 0.2, 6.9, 0x6b7078, 3.2, y, 0);
+    S.add(0.2, 0.2, 6.9, 0x6b7078, -3.2, y, 0);
+  }
+  root.add(S.mesh());
+  root.add(cyl(r, r, 7, 0xc9ced6, H + 3.5, 24));
+  const roof = new Mesh(faceted(new ConeGeometry(r + 0.4, 3.2, 24)), toon({ color: 0x8a919c }));
+  roof.position.y = H + 8.6;
+  root.add(roof);
+  root.add(glowPoints([0, H + 10.6, 0], 0xff3355, 3));
+  const name = m.label ?? 'MILLBROOK';
+  const band = staticCanvas(1024, 128, (g) => {
+    g.clearRect(0, 0, 1024, 128);
+    g.fillStyle = '#1b3a6b';
+    g.font = `76px ${FONT}`;
+    g.textAlign = 'center';
+    g.textBaseline = 'middle';
+    // Twice round, so it reads from any side.
+    g.fillText(name, 256, 68);
+    g.fillText(name, 768, 68);
+  });
+  const ring = new Mesh(new CylinderGeometry(r + 0.05, r + 0.05, 2.6, 32, 1, true), new MeshBasicMaterial({ map: band, transparent: true, toneMapped: false }));
+  ring.position.y = H + 4;
+  root.add(ring);
+  return { root };
+}
+
+/** A drive-in on the flats: a big screen on its frame, flickering with a film, a projection booth and its beam, and rows of cars facing it. */
+function driveIn(c: Ctx): Built {
+  const root = new Group();
+  const S = solids();
+  const W = 30;
+  const H = 14;
+  const lift = 5;
+  // The frame behind the screen, and its footings down into the slope.
+  for (const x of [-W / 2 + 1, -W / 6, W / 6, W / 2 - 1]) S.add(0.8, H + lift + 4, 0.8, 0x5e4630, x, (H + lift) / 2 - 2 + c.ground(x, -1), -1);
+  S.add(W + 1.4, H + 1.2, 0.6, 0xe8e2d4, 0, lift + H / 2, -0.4);
+  const film = staticCanvas(1024, 480, (g) => {
+    const sky = g.createLinearGradient(0, 0, 0, 480);
+    sky.addColorStop(0, '#1b0b45');
+    sky.addColorStop(1, '#ff6a00');
+    g.fillStyle = sky;
+    g.fillRect(0, 0, 1024, 480);
+    g.fillStyle = '#120a20';
+    g.beginPath();
+    g.moveTo(0, 480);
+    g.lineTo(0, 380);
+    g.quadraticCurveTo(300, 300, 520, 360);
+    g.quadraticCurveTo(760, 420, 1024, 330);
+    g.lineTo(1024, 480);
+    g.fill();
+    g.fillStyle = '#ffd23f';
+    g.font = `64px ${FONT}`;
+    g.textAlign = 'center';
+    g.fillText('ATTACK OF THE', 512, 120);
+    g.font = `92px ${FONT}`;
+    g.fillStyle = '#ff2e88';
+    g.fillText('50 FT COMBINE', 512, 230);
+  });
+  const screenMat = new MeshBasicMaterial({ map: film, toneMapped: false });
+  const screen = new Mesh(new PlaneGeometry(W, H), screenMat);
+  screen.position.set(0, lift + H / 2, 0);
+  root.add(screen);
+  // The booth, at the back of the lot, and the beam from it to the screen.
+  const bz = 46;
+  S.add(5, 3.2, 4, 0xd8c7ad, 0, 1.6 + c.ground(0, bz), bz);
+  root.add(S.mesh());
+  const beamLen = Math.hypot(bz, lift + H / 2 - 2.8);
+  const beam = new Mesh(new ConeGeometry(W * 0.42, beamLen, 4, 1, true), new MeshBasicMaterial({ color: 0xfff1c9, transparent: true, opacity: 0.06, depthWrite: false, side: DoubleSide }));
+  beam.position.set(0, (lift + H / 2 + 2.8 + c.ground(0, bz)) / 2, bz / 2);
+  beam.rotation.x = -Math.PI / 2 + Math.atan2(lift + H / 2 - 2.8 - c.ground(0, bz), bz);
+  beam.rotation.y = Math.PI / 4;
+  root.add(beam);
+  // Cars in rows facing the screen (little boxes of body and cabin), each by a speaker post.
+  const rng = Rng.stream(0xd1, 'drive-in');
+  const COLORS = [0xf2f2f2, 0x3a86ff, 0xffbe0b, 0x8338ec, 0x06d6a0, 0xef476f, 0x2a2a3a];
+  const lot: Box[] = [];
+  for (let row = 0; row < 3; row++) {
+    for (let k = -3; k <= 3; k++) {
+      const x = k * 4.4;
+      const z = 14 + row * 9;
+      const y = c.ground(x, z);
+      lot.push({ x: x + 2.2, y: y + 0.6, z: z + 1, w: 0.15, h: 1.2, d: 0.15, rot: 0, color: 0x3a3050 });
+      if (rng.next() < 0.3) continue;
+      const color = COLORS[Math.floor(rng.next() * COLORS.length)];
+      lot.push({ x, y: y + 0.75, z, w: 1.9, h: 0.9, d: 4.4, rot: 0, color });
+      lot.push({ x, y: y + 1.55, z: z + 0.3, w: 1.7, h: 0.7, d: 2.2, rot: 0, color: 0x2a2140 });
+    }
+  }
+  root.add(boxes(lot, toon()));
+  return {
+    root,
+    update(t) {
+      // The film flickers.
+      const f = 0.86 + 0.1 * Math.sin(t * 23) * Math.sin(t * 7.1) + 0.04 * Math.sin(t * 61);
+      screenMat.color.setScalar(f);
+    },
+  };
+}
+
+/** A scarecrow in a patch of corn, swaying in the wind, crows circling over it. */
+function scarecrow(c: Ctx): Built {
+  const root = new Group();
+  const figure = new Group();
+  root.add(figure);
+  const S = solids();
+  S.add(0.25, 5, 0.25, 0x6b4a3a, 0, 2.5, 0);
+  S.add(3.8, 0.22, 0.22, 0x6b4a3a, 0, 3.8, 0);
+  S.add(1.3, 1.9, 0.8, 0xc0392b, 0, 3.2, 0);
+  S.add(3.4, 0.55, 0.6, 0xc0392b, 0, 3.8, 0);
+  S.add(0.5, 1.8, 0.5, 0x3d5a8a, -0.35, 1.5, 0);
+  S.add(0.5, 1.8, 0.5, 0x3d5a8a, 0.35, 1.5, 0);
+  const head = new Mesh(faceted(new CylinderGeometry(0.55, 0.6, 1.1, 8)), toon({ color: 0xd9b77a }));
+  head.position.y = 4.8;
+  figure.add(head);
+  figure.add(cyl(1.3, 1.3, 0.12, 0x6b553b, 5.4, 10));
+  figure.add(cyl(0.3, 0.6, 0.9, 0x6b553b, 5.9, 10));
+  for (const x of [-1.9, 1.9]) S.add(0.4, 0.5, 0.4, 0xe2c36a, x, 3.6, 0);
+  figure.add(S.mesh());
+  // The corn: stalks in rows round it (not on it), each on the ground where it stands.
+  const rng = Rng.stream(0xc0, 'corn');
+  const stalks: Box[] = [];
+  for (let x = -12; x <= 12; x += 1.6) {
+    for (let z = -8; z <= 8; z += 1.1) {
+      if (Math.hypot(x, z) < 2.4) continue;
+      const h = 2 + rng.next() * 0.8;
+      stalks.push({ x: x + (rng.next() - 0.5) * 0.4, y: c.ground(x, z) + h / 2, z, w: 0.35, h, d: 0.35, rot: rng.next() * 3, color: rng.next() < 0.5 ? 0x7a9a3a : 0xa8b04a });
+    }
+  }
+  root.add(boxes(stalks, toon()));
+  const pos: number[] = [];
+  const phase: number[] = [];
+  const colors: number[] = [];
+  for (let k = 0; k < 5; k++) {
+    pos.push(0, 8, 0);
+    phase.push(k / 5 + rng.next() * 0.1);
+    colors.push(0.08, 0.06, 0.1);
+  }
+  root.add(animatedPoints(pos, phase, colors, 'bird', 1.6, c.time));
+  return {
+    root,
+    update(t, live) {
+      const wind = 0.04 + (live?.wetness ?? 0) * 0.08;
+      figure.rotation.z = wind * Math.sin(t * 1.1);
+      figure.rotation.x = wind * 0.5 * Math.sin(t * 0.7 + 1);
+    },
+  };
+}
+
+/** A hot-air balloon drifting in a slow loop over the Ridge: striped, a basket, the burner flaring now and then. */
+function balloon(m: LandmarkDef): Built {
+  const root = new Group();
+  const alt = m.params?.alt ?? 70;
+  const R = m.params?.radius ?? 50;
+  const craft = new Group();
+  root.add(craft);
+  // The envelope's gores, alternating colors round it (a color per face, by its longitude).
+  const geo = faceted(new SphereGeometry(9, 12, 9));
+  const pos = geo.getAttribute('position');
+  const cols: number[] = [];
+  const STRIPES = [new Color(0xff2e88), new Color(0xffd23f), new Color(0x35a8ff)];
+  for (let f = 0; f < pos.count; f += 3) {
+    const cx = (pos.getX(f) + pos.getX(f + 1) + pos.getX(f + 2)) / 3;
+    const cz = (pos.getZ(f) + pos.getZ(f + 1) + pos.getZ(f + 2)) / 3;
+    const band = Math.floor(((Math.atan2(cz, cx) + Math.PI) / (Math.PI * 2)) * 12) % 3;
+    for (let k = 0; k < 3; k++) cols.push(STRIPES[band].r, STRIPES[band].g, STRIPES[band].b);
+  }
+  geo.setAttribute('color', new Float32BufferAttribute(cols, 3));
+  const env = new Mesh(geo, toon({ vertexColors: true }));
+  env.scale.set(1, 1.15, 1);
+  env.position.y = 14;
+  craft.add(env);
+  const skirt = new Mesh(faceted(new CylinderGeometry(4.2, 1.6, 4, 12, 1, true)), toon({ color: 0xff2e88, side: DoubleSide }));
+  skirt.position.y = 4.4;
+  craft.add(skirt);
+  craft.add(box(2, 1.4, 2, 0x8a5a33, 0, 0, 0));
+  for (const [a, b] of [[-1, -1], [1, -1], [1, 1], [-1, 1]]) craft.add(posed(new Mesh(new BoxGeometry(0.06, 2.6, 0.06), toon({ color: 0x3a2a20 })), a * 1.2, 1.9, b * 1.2, b * 0.18, 0, -a * 0.18));
+  const flame = glowPoints([0, 2.8, 0], 0xffa23a, 6);
+  craft.add(flame);
+  return {
+    root,
+    update(t) {
+      const w = t * 0.02;
+      craft.position.set(Math.cos(w) * R, alt + 4 * Math.sin(t * 0.13), Math.sin(w * 1.3) * R * 0.7);
+      craft.rotation.y = t * 0.03;
+      // The burner: a flare for a couple of seconds every twelve or so.
+      flame.visible = t % 12 < 2 && Math.floor(t * 8) % 3 !== 0;
+    },
+  };
+}
+
+/** Each kind's builder. */
+const BUILDERS: Record<string, (m: LandmarkDef, ctx: Ctx) => Built> = {
   'clock-tower': (m) => clockTower(m),
   'donut-shop': () => donutShop(),
-  fountain: (m, time) => fountain(m, time),
+  fountain: (m, c) => fountain(m, c.time),
   'leader-board': (m) => leaderBoard(m),
-  canal: (m, time) => canal(m, time),
+  canal: (m, c) => canal(m, c.time),
+  windmill: () => windmill(),
+  cow: () => cow(),
+  'water-tower': (m) => waterTower(m),
+  'drive-in': (m, c) => driveIn(c),
+  scarecrow: (m, c) => scarecrow(c),
+  balloon: (m) => balloon(m),
 };

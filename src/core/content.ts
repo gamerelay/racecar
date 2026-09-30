@@ -109,11 +109,17 @@ export interface LandmarkDef {
    */
   r: number;
   /** Kind-specific numbers (a height, a length), and `scale` for any kind. */
-  params?: Record<string, number>;
+  params?: Record<string, number>;  /** Words it shows (the water tower's town name). */
+  label?: string;
 }
 
 /** The landmark kinds a layout can use. */
-export const LANDMARK_KINDS = ['clock-tower', 'donut-shop', 'fountain', 'leader-board', 'canal'] as const;
+export const LANDMARK_KINDS = [
+  // Downtown
+  'clock-tower', 'donut-shop', 'fountain', 'leader-board', 'canal',
+  // Backroads
+  'windmill', 'cow', 'water-tower', 'drive-in', 'scarecrow', 'balloon',
+] as const;
 
 export interface TrackLayout {
   id: string;

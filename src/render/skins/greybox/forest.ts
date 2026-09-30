@@ -99,7 +99,11 @@ const LEAVES = [0xd98a2b, 0xc9642a, 0xe0b33a, 0x9a4b2a, 0x7d9a3a, 0xb8552a];
 const HOUSES = [0xe9dcc4, 0xc9573f, 0xe4c46a, 0xb9c9c4, 0x9a6a4a, 0xf1ece0];
 const ROOFS = [0x4a3a3a, 0x6b3a2a, 0x3a4450, 0x5a4a3a];
 
-export function buildForest(track: Track, palette: Palette, seed: number, land: Terrain): Forest {
+/**
+ * The countryside round the lap. `marks` is ground the landmarks keep (render/skins/greybox/
+ * landmarks.ts): no houses, pastures or trees in it.
+ */
+export function buildForest(track: Track, palette: Palette, seed: number, land: Terrain, marks: { x: number; z: number; r: number }[] = []): Forest {
   const rng = Rng.stream(seed, 'forest');
   const objects: Object3D[] = [];
   const time = { value: 0 };
@@ -159,8 +163,10 @@ export function buildForest(track: Track, palette: Palette, seed: number, land: 
   };
   const wet = (x: number, z: number, margin = 3) => land.river(x, z) < land.riverHalf + margin;
   /** Circles kept clear of trees (buildings, fields, the campsite). */
-  const keep: { x: number; z: number; r: number }[] = [];
+  const keep: { x: number; z: number; r: number }[] = [...marks];
   const kept = (x: number, z: number) => keep.some((k) => (k.x - x) ** 2 + (k.z - z) ** 2 < k.r * k.r);
+  /** Whether something `r` m round (x, z) would reach into a landmark's ground. */
+  const onMark = (x: number, z: number, r: number) => marks.some((k) => Math.hypot(k.x - x, k.z - z) < k.r + r);
   const at = (sp: BakedSpline, s: number) => Math.max(0, Math.min(sp.n - 1, Math.round(s / sp.step)));
 
   // ---- the village: houses along the road either side of the start ----
@@ -178,6 +184,7 @@ export function buildForest(track: Track, palette: Palette, seed: number, land: 
     }
   };
   const house = (x: number, z: number, yaw: number, w: number, d: number, h: number, color: number, chimney: boolean) => {
+    if (onMark(x, z, Math.max(w, d) * 0.7)) return;
     const y = land.height(x, z) - 0.3;
     houses.push({ x, y: y + h / 2, z, yaw, sx: w, sy: h, sz: d, color });
     roofs.push({ x, y: y + h, z, yaw, sx: w * 1.12, sy: w * 0.45, sz: d * 1.08, color: ROOFS[Math.floor(rng.next() * ROOFS.length)] });
@@ -288,7 +295,7 @@ export function buildForest(track: Track, palette: Palette, seed: number, land: 
     const w = rng.range(36, 56);
     const d = rng.range(30, 48);
     const r = Math.hypot(w, d) / 2;
-    if (roadGap(cx, cz, 60) < r + 4 || wet(cx, cz, r + 6) || kept(cx, cz)) continue;
+    if (roadGap(cx, cz, 60) < r + 4 || wet(cx, cz, r + 6) || kept(cx, cz) || onMark(cx, cz, r)) continue;
     n++;
     const yaw = Math.atan2(main.tx[i], main.tz[i]);
     keep.push({ x: cx, z: cz, r: r + 2 });
