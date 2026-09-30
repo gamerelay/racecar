@@ -63,5 +63,5 @@ export default defineConfig({
   plugins: [devEndpoints()],
   define: { __BUILD_TIME__: JSON.stringify(Date.now().toString(36)) },
   server: { port: 5178, watch: { ignored: ['**/telemetry/**'] } },
-  build: { target: 'es2022', sourcemap: true },
+  build: { target: 'es2022', sourcemap: true, rollupOptions: { input: { main: join(root, 'index.html'), cars: join(root, 'cars.html') } } },
 });

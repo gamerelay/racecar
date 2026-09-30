@@ -18,6 +18,26 @@ export const Ev = {
   Lap: 13,
   SpinOut: 14,
   DriftStage: 15,
+  /** a = gap (m), b = 1 if oncoming. */
+  NearMiss: 16,
+  /** Started driving in the oncoming lane (once per stint). */
+  Oncoming: 17,
+  /** Rammed a traffic car out of the way while boosting. other = traffic index. */
+  TrafficCheck: 18,
+  /** A hazard occurrence starts its telegraph. a = occurrence id, b = kind index. */
+  Hazard: 19,
+  /** car took down other. a = points, b = 1 if revenge. */
+  Takedown: 20,
+  /** The lights went green. */
+  RaceStart: 21,
+  /** car finished the race. a = race time, b = place. */
+  Finish: 22,
+  /** car got a start boost (b = 1) or stalled (b = 0). */
+  StartBoost: 23,
+  /** A traffic car was wrecked (by a car, a hazard or debris). other = traffic index. */
+  TrafficWreck: 24,
+  /** A clean drift paid its banked boost into the meter. a = amount (0..1 of a bar). */
+  DriftBoost: 25,
 } as const;
 export type Ev = (typeof Ev)[keyof typeof Ev];
 
@@ -37,10 +57,20 @@ export const EV_NAMES: Record<number, string> = {
   13: 'lap',
   14: 'spin_out',
   15: 'drift_stage',
+  16: 'near_miss',
+  17: 'oncoming',
+  18: 'traffic_check',
+  19: 'hazard',
+  20: 'takedown',
+  21: 'race_start',
+  22: 'finish',
+  23: 'start_boost',
+  24: 'traffic_wreck',
+  25: 'drift_boost',
 };
 
 /** Wreck causes, in `GameEvent.b` of a Wreck. */
-export const Cause = { Wall: 1, Car: 2, OutOfBounds: 3, Reset: 4, SpinOut: 5 } as const;
+export const Cause = { Wall: 1, Car: 2, OutOfBounds: 3, Reset: 4, SpinOut: 5, Traffic: 6, Hazard: 7, Prop: 8 } as const;
 
 /**
  * One event. Fields are generic so the record can be reused; each type documents what it puts

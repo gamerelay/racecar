@@ -1,2 +1,2 @@
 { "id": "coupe", "name": "Vanta", "topSpeed": 64, "accel": 17, "brake": 30, "turn": 2.6, "grip": 1.15, "mass": 1150,
-  "boostCapacity": 3.4, "drift": 1.0, "driftRotation": 1.15, "size": [0.95, 2.15, 0.65] }
+  "boostCapacity": 3.4, "drift": 1.0, "driftRotation": 1.15, "driftCarry": 1.0, "size": [0.95, 2.15, 0.65] }

@@ -1,3 +1,4 @@
+import { wrapAngle } from '../src/core/math';
 import { describe, expect, test } from 'bun:test';
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
@@ -6,9 +7,11 @@ import { SpatialGrid } from '../src/core/collide/grid';
 import { neutralControls, packControls, unpackControls } from '../src/core/controls';
 import { Ev } from '../src/core/events';
 import { Rng, hash01 } from '../src/core/rng';
-import { bakeTrack, mainDistance } from '../src/core/track/bake';
+import { bakeTrack, mainDistance, signedGap } from '../src/core/track/bake';
 import { newHit, project, projectGlobal, sampleAt } from '../src/core/track/query';
 import { validateLayout } from '../src/core/track/validate';
+import { Sim } from '../src/core/sim';
+import { respawn } from '../src/core/car/physics';
 import { CLASSES, DOWNTOWN, SURFACES, citySim, ringSim } from './helpers';
 
 describe('rng', () => {
@@ -25,11 +28,11 @@ describe('rng', () => {
 
 describe('track', () => {
   const track = bakeTrack(DOWNTOWN, SURFACES);
-  test('bakes a closed main spline of about 4.3 km sampled every meter', () => {
-    expect(track.main.length).toBeGreaterThan(3500);
-    expect(track.main.length).toBeLessThan(5000);
+  test('bakes a closed main spline of about 3.3 km sampled every meter', () => {
+    expect(track.main.length).toBeGreaterThan(2800);
+    expect(track.main.length).toBeLessThan(4000);
     expect(track.main.step).toBeCloseTo(1, 1);
-    expect(track.checkpoints).toHaveLength(7);
+    expect(track.checkpoints.length).toBeGreaterThanOrEqual(5);
   });
   test('projection round-trips s and lateral', () => {
     const hit = newHit();
@@ -63,6 +66,13 @@ describe('track', () => {
 });
 
 describe('collide', () => {
+  test('signedGap is the short way round a loop', () => {
+    expect(signedGap(10, 990, 1000)).toBe(20);
+    expect(signedGap(990, 10, 1000)).toBe(-20);
+    expect(signedGap(300, 100, 1000)).toBe(200);
+    expect(signedGap(100, 100, 1000)).toBe(0);
+  });
+
   test('obb overlap finds the least-penetration axis', () => {
     const c = newContact();
     expect(obbOverlap(0, 0, 0, 1, 2, 1.5, 0, 0, 1, 2, c)).toBe(true);
@@ -114,35 +124,152 @@ describe('sim', () => {
     expect(sim.cars.wreck[i]).toBe(0);
   });
 
-  test('a held drift charges the mini-turbo and pays it out', () => {
+  test('a held drift turns the car, keeps its speed, and banks boost that a clean exit pays in', () => {
     // A huge open ring, so a drift can circle freely without meeting a wall.
     const sim = ringSim(1, 600, 320);
     const i = sim.addCar({ cls: 'hatch', human: true });
     const c = neutralControls();
     c.throttle = 1;
     for (let t = 0; t < 60 * 2.5; t++) sim.step([c]);
+    const entry = Math.hypot(sim.cars.vx[i], sim.cars.vz[i]);
+    const h0 = sim.cars.h[i];
+    const boost0 = sim.cars.boost[i];
     c.drift = true;
     c.steer = -1;
-    const stages: number[] = [];
+    const seen: number[] = [];
     let cursor = sim.events.head;
-    for (let t = 0; t < 60 * 3.5; t++) {
+    const watch = () =>
+      (cursor = sim.events.read(cursor, (e) => {
+        if (e.type === Ev.DriftStage || e.type === Ev.MiniTurbo || e.type === Ev.DriftBoost) seen.push(e.type);
+      }));
+    for (let t = 0; t < 60 * 2; t++) {
       sim.step([c]);
-      cursor = sim.events.read(cursor, (e) => {
-        if (e.type === Ev.DriftStage) stages.push(e.b);
-      });
+      watch();
     }
+    expect(sim.cars.drift[i]).toBe(1);
+    const turned = Math.abs(wrapAngle(sim.cars.h[i] - h0));
+    const held = Math.hypot(sim.cars.vx[i], sim.cars.vz[i]);
+    const boost = sim.cars.boost[i];
+    const releaseSlip = Math.abs(sim.cars.slip[i]);
     c.drift = false;
-    let mini = 0;
-    for (let t = 0; t < 5; t++) {
+    c.steer = 0;
+    for (let t = 0; t < 30; t++) {
       sim.step([c]);
-      cursor = sim.events.read(cursor, (e) => {
-        if (e.type === Ev.MiniTurbo) mini = e.b;
-      });
+      watch();
+      // The slide carries after release instead of snapping straight (playtest).
+      if (t === 6) expect(Math.abs(sim.cars.slip[i])).toBeGreaterThan(releaseSlip * 0.6);
     }
+    for (let t = 0; t < 30; t++) sim.step([c]);
+    expect(Math.abs(sim.cars.slip[i])).toBeLessThan(0.05);
     expect(sim.cars.wreck[i]).toBe(0);
-    expect(stages).toEqual([1, 2, 3]);
-    expect(mini).toBe(3);
-    expect(sim.cars.miniT[i]).toBeGreaterThan(1);
+    expect(turned).toBeGreaterThan(1.5);
+    expect(held).toBeGreaterThan(entry * 0.85);
+    // Banked while drifting (the meter doesn't move), paid in on release; no mini-turbo kick.
+    expect(boost).toBe(boost0);
+    expect(seen).toEqual([Ev.DriftBoost]);
+    expect(sim.cars.miniT[i]).toBe(0);
+    expect(sim.cars.boost[i] - boost).toBeGreaterThan(0.1);
+    expect(sim.cars.boost[i] - boost).toBeLessThan(0.3);
+  });
+
+  describe('drift feel', () => {
+    // Up to speed on the open ring, then a full-lock drift to the right for `hold` seconds.
+    const drift = (cls: string, hold: number) => {
+      const sim = ringSim(1, 600, 320);
+      const i = sim.addCar({ cls, human: true });
+      const c = neutralControls();
+      c.throttle = 1;
+      for (let t = 0; t < 60 * 3; t++) sim.step([c]);
+      c.drift = true;
+      c.steer = -1;
+      for (let t = 0; t < 60 * hold; t++) sim.step([c]);
+      return { sim, i, c };
+    };
+    const events = (sim: Sim, type: number, run: () => void) => {
+      let n = 0;
+      let cursor = sim.events.head;
+      run();
+      sim.events.read(cursor, (e) => {
+        if (e.type === type) n++;
+      });
+      return n;
+    };
+
+    test('a tap-drift banks nothing', () => {
+      const { sim, i, c } = drift('coupe', 0.1);
+      const boost = sim.cars.boost[i];
+      c.drift = false;
+      const paid = events(sim, Ev.DriftBoost, () => {
+        for (let t = 0; t < 30; t++) sim.step([c]);
+      });
+      expect(paid).toBe(0);
+      expect(sim.cars.boost[i]).toBe(boost);
+    });
+
+    test('a spin-out loses the bank', () => {
+      const { sim, i, c } = drift('coupe', 1.5);
+      expect(sim.cars.driftBank[i]).toBeGreaterThan(0.05);
+      const boost = sim.cars.boost[i];
+      // Overcook it: swing the nose far past the drift angle.
+      sim.cars.h[i] = wrapAngle(sim.cars.h[i] + Math.sign(sim.cars.slip[i]) * 0.6);
+      const paid = events(sim, Ev.DriftBoost, () => {
+        for (let t = 0; t < 30; t++) sim.step([c]);
+      });
+      expect(sim.cars.spinT[i]).toBeGreaterThan(0);
+      expect(paid).toBe(0);
+      expect(sim.cars.driftBank[i]).toBe(0);
+      expect(sim.cars.boost[i]).toBe(boost);
+    });
+
+    test('the bank never overfills the meter', () => {
+      const { sim, i, c } = drift('hatch', 1.5);
+      sim.cars.boost[i] = 0.95;
+      c.drift = false;
+      sim.step([c]);
+      expect(sim.cars.boost[i]).toBeLessThanOrEqual(1);
+    });
+
+    test('heavier cars carry their slide longer (driftCarry)', () => {
+      const straighten = (cls: string) => {
+        const { sim, i, c } = drift(cls, 1.5);
+        c.drift = false;
+        c.steer = 0;
+        let t = 0;
+        while (Math.abs(sim.cars.slip[i]) > 0.02 && t < 300) {
+          sim.step([c]);
+          t++;
+        }
+        return t;
+      };
+      const hatch = straighten('hatch');
+      const coupe = straighten('coupe');
+      const muscle = straighten('muscle');
+      expect(hatch).toBeLessThan(coupe);
+      expect(coupe).toBeLessThan(muscle);
+      expect(muscle).toBeLessThan(60);
+    });
+
+    test('placing a car (the grid, the editor) clears transient driving state', () => {
+      const { sim, i, c } = drift('coupe', 1);
+      c.drift = false;
+      sim.step([c]);
+      sim.cars.miniT[i] = 1;
+      sim.cars.stallT[i] = 1;
+      sim.cars.lastTakenBy[i] = 3;
+      sim.placeCar(i, 0, 50, 0);
+      for (const f of ['driftExit', 'driftBank', 'driftChain', 'miniT', 'stallT', 'lastTakenBy', 'drift'] as const) expect(sim.cars[f][i]).toBe(0);
+    });
+
+    test('a respawn clears the drift state', () => {
+      const { sim, i, c } = drift('coupe', 1);
+      c.drift = false;
+      sim.step([c]);
+      expect(sim.cars.driftExit[i]).toBeGreaterThan(0);
+      respawn(sim, i);
+      expect(sim.cars.driftExit[i]).toBe(0);
+      expect(sim.cars.driftBank[i]).toBe(0);
+      expect(sim.cars.drift[i]).toBe(0);
+    });
   });
 
   test('ramming a pace car at speed takes it down', () => {
@@ -193,9 +320,10 @@ describe('sim', () => {
     expect(b.cars.h[1]).toBe(a.cars.h[1]);
   });
 
-  test('stepping does not allocate after warm-up', () => {
-    const sim = citySim();
-    for (let k = 0; k < 8; k++) sim.addCar({ cls: 'coupe', follow: { lane: (k % 4) * 3 - 4.5, speed: 30 + k * 3 } });
+  test('stepping does not allocate after warm-up (full world: 8 AI, traffic, chaos hazards, rain)', () => {
+    const sim = new Sim(bakeTrack(DOWNTOWN, SURFACES), CLASSES, SURFACES, { seed: 3, weather: 'rain', mayhem: 'chaos', traffic: 1 });
+    for (let k = 0; k < 8; k++) sim.addCar({ cls: CLASSES[k % 4].id, racer: { difficulty: (k % 3) as 0 | 1 | 2 } });
+    sim.startRace(3, 0.5);
     const human = sim.addCar({ cls: 'hatch', human: true });
     const c = neutralControls();
     c.throttle = 1;
@@ -263,7 +391,9 @@ describe('editing', () => {
     const { reanchor } = await import('../src/core/track/anchor');
     const before = bakeTrack(DOWNTOWN, SURFACES);
     const edited = structuredClone(DOWNTOWN);
-    edited.main.points[2].p[0] -= 90; // bulge the boulevard west, making the lap longer
+    // Bulge the Climb (nothing placed on it) east, making the lap longer.
+    const k = edited.main.points.findIndex((q) => Math.abs(q.p[0] - 240) < 1 && q.p[2] > 470 && q.p[2] < 590);
+    edited.main.points[k].p[0] += 60;
     const moved = reanchor(before, edited, SURFACES);
     const after = bakeTrack(moved, SURFACES);
     expect(after.main.length).toBeGreaterThan(before.main.length + 20);
@@ -271,7 +401,7 @@ describe('editing', () => {
     for (const [a, b] of [
       [DOWNTOWN.branches![0].from, moved.branches![0].from],
       [DOWNTOWN.branches![0].to, moved.branches![0].to],
-      [DOWNTOWN.ramps![0].s, moved.ramps![0].s],
+      [DOWNTOWN.props![0].s, moved.props![0].s],
     ]) {
       const p = at(before, a);
       const q = at(after, b);

@@ -8,7 +8,7 @@ import { TUNING } from '../core/car/tuning';
 import type { TrackLayout } from '../core/content';
 import { packControls, type Controls } from '../core/controls';
 import { Cause, EV_NAMES, Ev, type GameEvent } from '../core/events';
-import type { CarSpec, Sim, SimSnapshot } from '../core/sim';
+import type { CarSpec, Sim, SimOptions, SimSnapshot } from '../core/sim';
 
 export const TELEMETRY_VERSION = 1;
 
@@ -26,6 +26,8 @@ export interface Report {
   createdAt: string;
   note: string;
   seed: number;
+  /** The sim's options (weather, mayhem, traffic…), so the replay runs the same world. */
+  options: SimOptions;
   layout: TrackLayout;
   layoutVersion: string;
   cars: CarSpec[];
@@ -38,7 +40,7 @@ export interface Report {
   records: Record[];
 }
 
-const CAUSES: { [k: number]: string } = { [Cause.Wall]: 'wall', [Cause.Car]: 'car', [Cause.OutOfBounds]: 'out_of_bounds', [Cause.Reset]: 'reset', [Cause.SpinOut]: 'spin_out' };
+const CAUSES: { [k: number]: string } = { [Cause.Wall]: 'wall', [Cause.Car]: 'car', [Cause.OutOfBounds]: 'out_of_bounds', [Cause.Reset]: 'reset', [Cause.SpinOut]: 'spin_out', [Cause.Traffic]: 'traffic', [Cause.Hazard]: 'hazard', [Cause.Prop]: 'prop' };
 const SNAP_EVERY = 60 * 5;
 const WINDOW = 60 * 30;
 
@@ -173,6 +175,27 @@ export class Telemetry {
       case Ev.CarContact:
         if (e.car === focus || e.other === focus) this.record('contact', { a: e.car, b: e.other, closing: r1(e.a) });
         break;
+      case Ev.NearMiss:
+        if (e.car === focus) this.record('near_miss', { ...who, gap: r2(e.a), oncoming: e.b === 1, s: r1(c.s[e.car]) });
+        break;
+      case Ev.TrafficCheck:
+        if (e.car === focus) this.record('traffic_check', { ...who, s: r1(c.s[e.car]) });
+        break;
+      case Ev.Takedown:
+        this.record('takedown', { ...who, victim: e.other, revenge: e.b === 1, s: r1(c.s[e.other]) });
+        break;
+      case Ev.Hazard:
+        this.record('hazard', { occurrence: e.a, def: e.b, by: e.car });
+        break;
+      case Ev.StartBoost:
+        if (e.car === focus) this.record('start', { ...who, lead: r2(e.a), boost: e.b === 1 });
+        break;
+      case Ev.Finish:
+        this.record('finish', { ...who, time: r2(e.a), place: e.b, score: Math.round(c.score[e.car]), takedowns: c.takedowns[e.car], wrecks: c.wrecks[e.car] });
+        break;
+      case Ev.RaceStart:
+        this.record('race_start', { laps: this.sim.race.laps, cars: c.count, wet: this.sim.wet, weather: this.sim.weatherPlan, traffic: this.sim.world.traffic.count, mayhem: this.sim.world.hazards.mayhem });
+        break;
       default:
         break;
     }
@@ -182,11 +205,19 @@ export class Telemetry {
   flush(beacon = false): void {
     this.lastFlush = performance.now();
     if (!this.enabled || this.queue.length === 0) return;
-    const body = JSON.stringify({ session: this.session, lines: this.queue });
+    const lines = this.queue;
     this.queue = [];
+    if (this.sink) {
+      this.sink(lines, beacon);
+      return;
+    }
+    const body = JSON.stringify({ session: this.session, lines });
     if (beacon && navigator.sendBeacon) navigator.sendBeacon('/__telemetry', body);
     else fetch('/__telemetry', { method: 'POST', body, keepalive: true }).catch(() => {});
   }
+
+  /** Where records go instead of the dev server (PostHog in playtest builds). */
+  sink: ((lines: Record[], beacon: boolean) => void) | null = null;
 
   /** The last ~30 s, replayable: the oldest snapshot inside the window and every input since. */
   report(note: string, focus: number): Report {
@@ -199,6 +230,7 @@ export class Telemetry {
       createdAt: new Date().toISOString(),
       note,
       seed: this.sim.seed,
+      options: structuredClone(this.sim.options),
       layout: this.getLayout(),
       layoutVersion: this.sim.track.version,
       cars: this.specs,

@@ -8,14 +8,17 @@ export const CAR_FIELDS = [
   'px', 'py', 'pz', 'ph', 'ppitch', 'proll', 'prx', 'prz',
   // driving
   'grounded', 'airT', 'boost', 'boosting', 'miniT', 'miniStage',
-  'drift', 'driftDir', 'driftT', 'driftCharge', 'driftStage', 'slip', 'driftCooldown',
-  'spinT', 'ghostT', 'resetCooldown', 'wallT', 'stuckT',
+  'drift', 'driftDir', 'driftT', 'driftCharge', 'driftStage', 'slip', 'driftCooldown', 'driftTight', 'driftExit', 'driftBank',
+  'spinT', 'ghostT', 'resetCooldown', 'wallT', 'stuckT', 'oncomingT', 'startPress', 'stallT',
   // wreck body
   'wreck', 'wreckT', 'rx', 'rz', 'wx', 'wy', 'wz',
   // where on the track
   'spline', 's', 'lateral', 'surface', 'junctionFree', 'lastSpline', 'lastS', 'lastLat',
   // race
   'lap', 'nextCp', 'progress', 'lapStartTick', 'bestLap', 'lastLap', 'score', 'driftChain', 'chainT', 'lastHitBy', 'lastHitT',
+  'finished', 'finishTime', 'place', 'takedowns', 'wrecks', 'lastTakenBy',
+  // AI: the lateral line it has committed to round something, and for how long (s).
+  'aiLat', 'aiHold',
   // identity
   'active', 'cls', 'paint', 'human',
 ] as const;

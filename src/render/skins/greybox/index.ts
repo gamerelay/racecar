@@ -2,29 +2,27 @@
 // borrows City's sky, fog and light from day one, so it already feels like City).
 
 import {
-  AdditiveBlending,
   BackSide,
-  BoxGeometry,
-  CanvasTexture,
   Color,
-  CylinderGeometry,
   DirectionalLight,
   Fog,
-  Group,
   HemisphereLight,
   Mesh,
-  MeshBasicMaterial,
-  MeshLambertMaterial,
-  PlaneGeometry,
   ShaderMaterial,
   SphereGeometry,
   type Scene,
 } from 'three';
 import type { CarClass, PaintDef } from '../../../core/content';
 import type { Track } from '../../../core/track/bake';
-import type { CarVisual, Skin, TrackVisual } from '../../skin';
+import type { Sim } from '../../../core/sim';
+import type { CarVisual, Skin, TrackVisual, WorldVisual } from '../../skin';
+import { buildCar } from './car/build';
+import { WET } from './toon';
+import { buildWorldVisual } from './world';
 import { PALETTES, type Palette } from './palettes';
 import { buildTrackVisual } from './track';
+
+const RAIN_FOG = new Color(0x3a4460);
 
 export class GreyboxSkin implements Skin {
   readonly id = 'greybox';
@@ -32,12 +30,16 @@ export class GreyboxSkin implements Skin {
   private sky?: Mesh;
   private skyTime?: { value: number };
   private sun?: DirectionalLight;
+  private fog?: Fog;
+  private hemi?: HemisphereLight;
+  ink = PALETTES.dusk.ink;
 
   environment(scene: Scene, palette: string): void {
     const p = (this.palette = PALETTES[palette] ?? PALETTES.dusk);
+    this.ink = p.ink;
     scene.background = new Color(p.fog);
-    scene.fog = new Fog(p.fog, p.fogNear, p.fogFar);
-    scene.add(new HemisphereLight(p.hemiSky, p.hemiGround, p.hemiIntensity));
+    scene.fog = this.fog = new Fog(p.fog, p.fogNear, p.fogFar);
+    scene.add((this.hemi = new HemisphereLight(p.hemiSky, p.hemiGround, p.hemiIntensity)));
     const sun = (this.sun = new DirectionalLight(p.dir, p.dirIntensity));
     sun.position.set(-300, 400, -800);
     scene.add(sun);
@@ -92,8 +94,21 @@ export class GreyboxSkin implements Skin {
     return buildCar(cls, paint);
   }
 
-  update(time: number, x: number, y: number, z: number): void {
+  world(scene: Scene, sim: Sim): WorldVisual {
+    return buildWorldVisual(scene, sim);
+  }
+
+  update(time: number, x: number, y: number, z: number, wetness = 0): void {
+    WET.value = wetness;
     if (this.skyTime) this.skyTime.value = time;
+    if (this.fog) {
+      const p = this.palette;
+      this.fog.near = p.fogNear * (1 - 0.5 * wetness);
+      this.fog.far = p.fogFar * (1 - 0.55 * wetness);
+      this.fog.color.setHex(p.fog).lerp(RAIN_FOG, wetness * 0.6);
+      if (this.hemi) this.hemi.intensity = p.hemiIntensity * (1 - 0.35 * wetness);
+      if (this.sun) this.sun.intensity = p.dirIntensity * (1 - 0.6 * wetness);
+    }
     this.sky?.position.set(x, y, z);
     if (this.sun) {
       this.sun.position.set(x - 300, y + 400, z - 800);
@@ -102,124 +117,3 @@ export class GreyboxSkin implements Skin {
   }
 }
 
-// ---- Cars: box-built, one shape per class, like the prototype ----
-
-const trim = new MeshLambertMaterial({ color: 0x16121f, flatShading: true });
-const glass = new MeshLambertMaterial({ color: 0x243a66, emissive: 0x0c1638, flatShading: true });
-const headMat = new MeshBasicMaterial({ color: 0xfff4cc });
-let glowTex: CanvasTexture | undefined;
-
-function glow(): CanvasTexture {
-  if (glowTex) return glowTex;
-  const c = document.createElement('canvas');
-  c.width = c.height = 64;
-  const g = c.getContext('2d')!;
-  const r = g.createRadialGradient(32, 32, 0, 32, 32, 32);
-  r.addColorStop(0, 'rgba(255,255,255,1)');
-  r.addColorStop(0.3, 'rgba(255,255,255,.5)');
-  r.addColorStop(1, 'rgba(255,255,255,0)');
-  g.fillStyle = r;
-  g.fillRect(0, 0, 64, 64);
-  return (glowTex = new CanvasTexture(c));
-}
-
-const wheelGeo = new CylinderGeometry(0.38, 0.38, 0.3, 12);
-wheelGeo.rotateZ(Math.PI / 2);
-
-function buildCar(cls: CarClass, paint: PaintDef): CarVisual {
-  const [hw, hl] = cls.size;
-  const root = new Group();
-  const body = new Group();
-  root.add(body);
-  const bodyMat = new MeshLambertMaterial({
-    color: paint.color,
-    flatShading: true,
-    emissive: paint.finish === 'chrome' ? 0x222233 : 0x000000,
-  });
-  const second = new MeshLambertMaterial({ color: paint.secondary ?? paint.color, flatShading: true });
-  const box = (w: number, h: number, d: number, m: MeshLambertMaterial | MeshBasicMaterial, x: number, y: number, z: number) => {
-    const mesh = new Mesh(new BoxGeometry(w, h, d), m);
-    mesh.position.set(x, y, z);
-    body.add(mesh);
-    return mesh;
-  };
-  const W = hw * 2;
-  const L = hl * 2;
-  if (cls.id === 'van') {
-    box(W, 1.7, L, bodyMat, 0, 1.25, 0);
-    box(W + 0.04, 0.55, 0.9, glass, 0, 1.6, L / 2 - 0.5);
-    box(W + 0.04, 0.45, L * 0.55, glass, 0, 1.7, -0.3);
-    box(W + 0.02, 0.15, L - 0.2, second, 0, 0.75, 0);
-  } else if (cls.id === 'muscle') {
-    box(W, 0.55, L, bodyMat, 0, 0.66, 0);
-    box(W * 0.84, 0.38, L * 0.36, glass, 0, 1.12, -0.35);
-    box(W * 0.8, 0.12, L * 0.3, bodyMat, 0, 1.35, -0.35);
-    box(0.5, 0.04, L * 0.45, second, 0, 0.95, L * 0.22);
-    box(W + 0.05, 0.08, 0.45, trim, 0, 1.12, -L / 2 + 0.2);
-  } else if (cls.id === 'hatch') {
-    box(W, 0.62, L, bodyMat, 0, 0.72, 0);
-    box(W * 0.88, 0.48, L * 0.52, glass, 0, 1.25, -0.2);
-    box(W * 0.84, 0.12, L * 0.5, bodyMat, 0, 1.54, -0.2);
-  } else {
-    // coupe
-    box(W, 0.5, L, bodyMat, 0, 0.62, 0);
-    box(W * 0.85, 0.32, L * 0.42, glass, 0, 1.02, -0.25);
-    box(W * 0.79, 0.12, L * 0.35, bodyMat, 0, 1.22, -0.3);
-    box(W + 0.05, 0.08, 0.5, trim, 0, 1.2, -L / 2 + 0.1);
-    box(0.45, 0.03, L * 0.35, second, 0, 0.885, L * 0.25);
-  }
-  const lightY = cls.id === 'van' ? 0.8 : 0.7;
-  const tailMat = new MeshBasicMaterial({ color: 0x991122 });
-  for (const s of [-1, 1]) {
-    box(0.42, 0.16, 0.06, headMat, s * (hw - 0.36), lightY, L / 2 + 0.01);
-    box(0.42, 0.14, 0.06, tailMat, s * (hw - 0.36), lightY, -L / 2 - 0.01);
-  }
-  const wheels: Mesh[] = [];
-  const front: Group[] = [];
-  const wz = hl - 0.75;
-  for (const z of [wz, -wz]) {
-    for (const s of [-1, 1]) {
-      const pivot = new Group();
-      pivot.position.set(s * (hw - 0.08), 0.38, z);
-      const w = new Mesh(wheelGeo, trim);
-      pivot.add(w);
-      root.add(pivot);
-      wheels.push(w);
-      if (z > 0) front.push(pivot);
-    }
-  }
-  if (paint.underglow) {
-    const u = new Mesh(new PlaneGeometry(W + 2.2, L + 1.6), new MeshBasicMaterial({ map: glow(), color: paint.underglow, transparent: true, opacity: 0.8, blending: AdditiveBlending, depthWrite: false }));
-    u.rotation.x = -Math.PI / 2;
-    u.position.y = 0.06;
-    root.add(u);
-  }
-  const shadow = new Mesh(new PlaneGeometry(W + 0.8, L + 0.8), new MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.35, depthWrite: false }));
-  shadow.rotation.x = -Math.PI / 2;
-  shadow.position.y = 0.04;
-  root.add(shadow);
-  const flame = new Mesh(new PlaneGeometry(0.9, 2.2), new MeshBasicMaterial({ map: glow(), color: 0xff7a1a, transparent: true, blending: AdditiveBlending, depthWrite: false }));
-  flame.rotation.x = -Math.PI / 2;
-  flame.position.set(0, lightY, -L / 2 - 1.1);
-  flame.visible = false;
-  root.add(flame);
-
-  return {
-    root,
-    update(spin, steer, braking, boosting) {
-      for (const w of wheels) w.rotation.x = spin;
-      for (const f of front) f.rotation.y = steer * 0.45;
-      tailMat.color.setHex(braking ? 0xff2344 : 0x991122);
-      flame.visible = boosting;
-      if (boosting) flame.scale.set(1, 0.8 + Math.random() * 0.5, 1);
-    },
-    dispose() {
-      root.traverse((o) => {
-        if (o instanceof Mesh && o.geometry !== wheelGeo) o.geometry.dispose();
-      });
-      bodyMat.dispose();
-      second.dispose();
-      tailMat.dispose();
-    },
-  };
-}

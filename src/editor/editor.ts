@@ -78,7 +78,7 @@ export class Editor {
     this.panel.id = 'edPanel';
     const help = document.createElement('div');
     help.id = 'edHelp';
-    help.innerHTML = '<b>F</b> fit · drag point: move · drag empty: pan · wheel: zoom · double-click road: add point · <b>P</b> drive from cursor · <b>Del</b> remove · <b>⌘Z</b> undo · <b>⌘S</b> save · <b>`</b> back';
+    help.innerHTML = '<span style="color:#7cff6b">green</span>: traffic · <span style="color:#ff6a00">orange</span>: hazards · <b>F</b> fit · drag point: move · drag empty: pan · wheel: zoom · double-click road: add point · <b>P</b> drive from cursor · <b>Del</b> remove · <b>⌘Z</b> undo · <b>⌘S</b> save · <b>`</b> back';
     this.root.append(this.canvas, this.panel, help);
     document.body.appendChild(this.root);
     this.g = this.canvas.getContext('2d')!;
@@ -593,6 +593,51 @@ export class Editor {
     };
     tick(0, '#fff6ee', 'start');
     this.track.checkpoints.forEach((cp, k) => tick(cp, '#35f0ff', `cp${k + 1}`));
+    // Traffic sections: a green line down the middle of the road where traffic runs.
+    const lanes = this.layout.traffic?.lanes ?? [];
+    const sections = lanes[0]?.sections ?? (lanes.length ? [[0, main.length] as [number, number]] : []);
+    g.strokeStyle = 'rgba(124,255,107,.7)';
+    g.lineWidth = 3 * devicePixelRatio;
+    for (const [a, b] of sections) {
+      g.beginPath();
+      const len = ((b - a) % main.length + main.length) % main.length;
+      for (let d = 0; d <= len; d += 4) {
+        const i = Math.round(((a + d) % main.length) / main.step) % main.n;
+        const x = this.sx(main.px[i]);
+        const y = this.sy(main.pz[i]);
+        if (d === 0) g.moveTo(x, y);
+        else g.lineTo(x, y);
+      }
+      g.stroke();
+    }
+    // Hazards: orange for roaming ranges, a diamond for fixed ones.
+    for (const hz of this.layout.hazards ?? []) {
+      g.fillStyle = g.strokeStyle = '#ff6a00';
+      g.font = `${11 * devicePixelRatio}px ui-monospace, monospace`;
+      if (typeof hz.s === 'number') {
+        const i = Math.round(hz.s / main.step) % main.n;
+        const x = this.sx(main.px[i]);
+        const y = this.sy(main.pz[i]);
+        g.beginPath();
+        g.moveTo(x, y - 8);
+        g.lineTo(x + 8, y);
+        g.lineTo(x, y + 8);
+        g.lineTo(x - 8, y);
+        g.closePath();
+        g.fill();
+        g.fillText(hz.use, x + 10, y + 4);
+      } else {
+        tick(hz.s[0], '#ff6a00', hz.use);
+        tick(hz.s[1], '#ff6a00');
+      }
+    }
+    // Solid props (pillars).
+    g.fillStyle = '#bfb3d6';
+    for (const p of this.track.props) {
+      if (!p.solid) continue;
+      const w = Math.max(3, p.hx * 2 * this.zoom);
+      g.fillRect(this.sx(p.x) - w / 2, this.sy(p.z) - w / 2, w, w);
+    }
   }
 }
 

@@ -4,7 +4,7 @@
 
 import type { Controls } from '../controls';
 import { Cause, Ev } from '../events';
-import { approach, clamp, damp, lerp, sign, wrapAngle } from '../math';
+import { approach, clamp, damp, lerp, sign, smoothstep, wrapAngle } from '../math';
 import type { SimState } from '../state';
 import { locateCar } from '../track/locate';
 import { sampleAt } from '../track/query';
@@ -81,7 +81,8 @@ export function stepCar(sim: SimState, i: number, c: Controls, dt: number): void
   } else if (grounded) {
     // Longitudinal.
     let a = 0;
-    if (c.throttle > 0) a += fwd < top ? cls.accel * c.throttle * Math.max(0.08, 1 - (fwd / top) ** 2) : -(fwd - top) * 0.8;
+    if (cars.stallT[i] > 0) cars.stallT[i] -= dt;
+    else if (c.throttle > 0) a += fwd < top ? cls.accel * c.throttle * Math.max(0.08, 1 - (fwd / top) ** 2) : -(fwd - top) * 0.8;
     if (boosting && fwd < top) a += T.boostAccel * (1 - fwd / (top * 1.05));
     if (mini) a += T.miniTurboAccel * (cars.miniStage[i] / 3 + 0.34);
     if (c.brake > 0) {
@@ -99,6 +100,9 @@ export function stepCar(sim: SimState, i: number, c: Controls, dt: number): void
       cars.driftCharge[i] = 0;
       cars.driftStage[i] = 0;
       cars.slip[i] = wrapAngle(h - vdir);
+      cars.driftTight[i] = clamp((c.steer * cars.driftDir[i] + 1) / 2, 0, 1);
+      cars.driftExit[i] = 0;
+      cars.driftBank[i] = 0;
       cars.vy[i] = T.driftHop;
       cars.grounded[i] = 0;
       sim.events.push(tick, Ev.DriftStart, i, cars.x[i], cars.y[i], cars.z[i], speed, cars.driftDir[i]);
@@ -106,13 +110,19 @@ export function stepCar(sim: SimState, i: number, c: Controls, dt: number): void
 
     if (cars.drift[i] === 1) {
       const dir = cars.driftDir[i];
-      const tight = clamp((c.steer * dir + 1) / 2, 0, 1);
+      // Steering eases the tightness rather than setting it, and the arc builds up after entry:
+      // both keep the drift from snapping (playtest).
+      const tight = (cars.driftTight[i] = approach(cars.driftTight[i], clamp((c.steer * dir + 1) / 2, 0, 1), T.driftSteerRate * dt));
+      const ease = smoothstep(0, T.driftEase, cars.driftT[i]);
       // Turning right lowers the heading (right = (-cos h, sin h)); the nose points into the turn.
       const targetSlip = -dir * lerp(T.driftAngleMin, T.driftAngleMax, tight);
-      const arc = -dir * lerp(T.driftArcMin, T.driftArcMax, tight) * (cls.turn / 2.4) * clamp(1.5 - speed / 80, 0.6, 1.2);
-      vdir += arc * dt;
+      const arc = -dir * lerp(T.driftArcMin, T.driftArcMax, tight) * ease * (cls.turn / 2.4) * clamp(1.5 - speed / 80, 0.6, 1.2);
+      // The body turns with the arc; the assist only closes the angle.
       let slip = wrapAngle(h - vdir);
-      slip = approach(slip, targetSlip, T.driftSettle * cls.driftRotation * surf.looseness ** 0.3 * dt);
+      vdir += arc * dt;
+      // Rate-limited going in, easing out near the target, so the rotation doesn't stop dead.
+      const settle = T.driftSettle * cls.driftRotation * surf.looseness ** 0.3 * dt;
+      slip = approach(slip, targetSlip, Math.min(settle, Math.abs(targetSlip - slip) * damp(5, dt)));
       const newH = vdir + slip;
       cars.yaw[i] = wrapAngle(newH - h) / dt;
       h = newH;
@@ -126,30 +136,39 @@ export function stepCar(sim: SimState, i: number, c: Controls, dt: number): void
       const angleFrac = Math.min(1, Math.abs(slip) / T.driftAngleMax);
       const pace = clamp(speed / 40, 0.5, 1);
       cars.driftT[i] += dt;
-      cars.driftCharge[i] += dt * angleFrac * pace * surf.driftCharge * cls.drift;
+      if (T.miniTurbo) cars.driftCharge[i] += dt * angleFrac * pace * surf.driftCharge * cls.drift;
       const stage = cars.driftCharge[i] >= T.driftStages[2] ? 3 : cars.driftCharge[i] >= T.driftStages[1] ? 2 : cars.driftCharge[i] >= T.driftStages[0] ? 1 : 0;
       if (stage > cars.driftStage[i]) {
         cars.driftStage[i] = stage;
         sim.events.push(tick, Ev.DriftStage, i, cars.x[i], cars.y[i], cars.z[i], cars.driftT[i], stage);
       }
-      cars.boost[i] = Math.min(1, cars.boost[i] + T.boostFromDrift * dt);
+      cars.driftBank[i] += T.boostFromDrift * angleFrac * pace * surf.driftCharge * cls.drift * dt;
       cars.score[i] += T.driftPoints * angleFrac * pace * dt * (1 + cars.driftChain[i] * 0.25);
       if (Math.abs(slip) > T.spinAngle) spinOut(sim, i);
       else if (!c.drift || speed < 10) endDrift(sim, i, c.drift ? 0 : cars.driftStage[i]);
     } else {
-      // Normal grip: yaw from steering, velocity swings round toward the heading.
+      // Normal grip: yaw from steering, velocity swings round toward the heading. Just out of a
+      // drift, grip comes back gradually (1 → 0 over driftExit), so the car carries its slide.
+      if (cars.driftExit[i] > 0) cars.driftExit[i] = Math.max(0, cars.driftExit[i] - dt);
+      // driftCarry (per car) stretches all of it: longer, looser and slower to straighten.
+      const carry = cls.driftCarry ?? 1;
+      const exit = smoothstep(0, 1, cars.driftExit[i] / (T.driftExit * carry));
       const falloff = speed / T.steerFalloff;
       let yawTarget = -c.steer * cls.turn * clamp(Math.abs(fwd) / 6, 0, 1) / (1 + falloff * falloff * 0.9);
       if (fwd < -0.5) yawTarget = -yawTarget;
-      cars.yaw[i] = approach(cars.yaw[i], yawTarget, T.steerResponse * dt * cls.turn);
+      cars.yaw[i] = approach(cars.yaw[i], yawTarget, T.steerResponse * dt * cls.turn * lerp(1, 0.25, exit));
       h += cars.yaw[i] * dt;
+      // Recovering: the nose swings back toward the travel as well, so the car keeps going the way
+      // the slide was taking it instead of whipping round to where it pointed.
+      if (exit > 0 && speed > 3) h = vdir + approach(wrapAngle(h - vdir), 0, (T.driftExitStraighten / carry) * exit * dt);
       const slip = wrapAngle(h - vdir);
       const reversing = fwd < -0.5;
       const target = reversing ? wrapAngle(h + Math.PI) : h;
       const off = wrapAngle(target - vdir);
-      const turnBy = clamp(off, -T.gripAlign * grip * dt, T.gripAlign * grip * dt);
+      const align = T.gripAlign * grip * lerp(1, T.driftExitGrip / carry, exit) * dt;
+      const turnBy = clamp(off, -align, align);
       vdir += speed > 0.5 ? turnBy : off;
-      speed *= 1 - Math.min(0.5, Math.abs(reversing ? 0 : slip) * T.slipScrub * dt);
+      speed *= 1 - Math.min(0.5, Math.abs(reversing ? 0 : slip) * T.slipScrub * lerp(1, T.driftExitScrub, exit) * dt);
       cars.slip[i] = reversing ? 0 : slip;
       vx = Math.sin(vdir) * speed;
       vz = Math.cos(vdir) * speed;
@@ -234,6 +253,15 @@ export function endDrift(sim: SimState, i: number, stage: number): void {
   if (cars.drift[i] !== 1) return;
   cars.drift[i] = 0;
   cars.driftCooldown[i] = 0.15;
+  cars.driftExit[i] = T.driftExit * (sim.classes[cars.cls[i]].driftCarry ?? 1);
+  // A clean finish pays the drift's banked boost into the meter.
+  const bank = cars.driftBank[i];
+  cars.driftBank[i] = 0;
+  if (bank >= T.driftBankMin && cars.boost[i] < 1) {
+    const paid = Math.min(bank, 1 - cars.boost[i]);
+    cars.boost[i] += paid;
+    sim.events.push(sim.tick, Ev.DriftBoost, i, cars.x[i], cars.y[i], cars.z[i], paid);
+  }
   sim.events.push(sim.tick, Ev.DriftEnd, i, cars.x[i], cars.y[i], cars.z[i], cars.driftT[i], stage);
   if (stage > 0) {
     cars.miniT[i] = T.miniTurboTimes[stage];
@@ -248,9 +276,11 @@ export function endDrift(sim: SimState, i: number, stage: number): void {
 
 function spinOut(sim: SimState, i: number): void {
   const cars = sim.cars;
+  cars.driftBank[i] = 0;
   endDrift(sim, i, 0);
   cars.driftChain[i] = 0;
   cars.spinT[i] = T.spinTime;
+  cars.driftExit[i] = 0;
   cars.yaw[i] = sign(cars.slip[i]) * 5;
   sim.events.push(sim.tick, Ev.SpinOut, i, cars.x[i], cars.y[i], cars.z[i]);
 }
@@ -259,6 +289,7 @@ function spinOut(sim: SimState, i: number): void {
 export function wreckCar(sim: SimState, i: number, cause: number, ix: number, iz: number, by: number): void {
   const cars = sim.cars;
   if (cars.wreck[i]) return;
+  cars.driftBank[i] = 0;
   endDrift(sim, i, 0);
   cars.driftChain[i] = 0;
   cars.boosting[i] = 0;
@@ -278,7 +309,19 @@ export function wreckCar(sim: SimState, i: number, cause: number, ix: number, iz
     cars.lastHitBy[i] = by;
     cars.lastHitT[i] = sim.tick;
   }
+  cars.wrecks[i]++;
   sim.events.push(sim.tick, Ev.Wreck, i, cars.x[i], cars.y[i], cars.z[i], Math.hypot(ix, iz), cause, by);
+  if (by >= 0 && by !== i && cause !== Cause.Reset) {
+    // A takedown: full boost for the attacker (Burnout), points, and "revenge" on whoever last got them.
+    const revenge = cars.lastTakenBy[by] === i + 1;
+    if (revenge) cars.lastTakenBy[by] = 0;
+    cars.lastTakenBy[i] = by + 1;
+    cars.takedowns[by]++;
+    cars.boost[by] = Math.min(1, cars.boost[by] + T.takedownBoost);
+    const pts = T.takedownPoints * (revenge ? 1.5 : 1);
+    cars.score[by] += pts;
+    sim.events.push(sim.tick, Ev.Takedown, by, cars.x[i], cars.y[i], cars.z[i], pts, revenge ? 1 : 0, i);
+  }
 }
 
 function stepWreck(sim: SimState, i: number, c: Controls, dt: number): void {
@@ -322,7 +365,16 @@ export function respawn(sim: SimState, i: number): void {
   const sp = sim.track.splines[cars.lastSpline[i]];
   const at = sampleAt(sp, cars.lastS[i], sim.hitA);
   const half = at.width / 2 - 2;
-  const lat = clamp(cars.lastLat[i], -half, half);
+  let lat = clamp(cars.lastLat[i], -half, half);
+  // Not on top of a pillar: step sideways until clear of every solid prop nearby.
+  for (let tries = 0; tries < 4; tries++) {
+    let blocked = false;
+    for (const pr of sim.track.props) {
+      if (pr.solid && pr.spline === sp.index && Math.abs(pr.s - at.s) < 20 && Math.abs(pr.lateral - lat) < Math.max(pr.hx, pr.hz) + 2.5) blocked = true;
+    }
+    if (!blocked) break;
+    lat = clamp(lat + (lat >= 0 ? 1 : -1) * 3, -half, half);
+  }
   // right = (-tz, tx)
   cars.x[i] = at.cx - at.tz * lat;
   cars.z[i] = at.cz + at.tx * lat;
@@ -340,6 +392,7 @@ export function respawn(sim: SimState, i: number): void {
   cars.spinT[i] = 0;
   cars.grounded[i] = 1;
   cars.drift[i] = 0;
+  cars.driftExit[i] = 0;
   cars.slip[i] = 0;
   cars.spline[i] = sp.index;
   cars.s[i] = at.s;

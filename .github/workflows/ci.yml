@@ -12,5 +12,5 @@ jobs:
       - run: bun install --frozen-lockfile
       - run: bunx tsc --noEmit
       - run: bun test
-      - run: bun tools/validate.ts
+      - run: bun tools/validate.ts --ai
       - run: bunx vite build

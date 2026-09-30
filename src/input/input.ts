@@ -6,7 +6,7 @@
 import type { Controls } from '../core/controls';
 import { approach, clamp } from '../core/math';
 
-export type SystemAction = 'pause' | 'report' | 'editor' | 'debug' | 'tuning' | 'camera';
+export type SystemAction = 'pause' | 'report' | 'editor' | 'debug' | 'tuning' | 'camera' | 'ink';
 
 const KEYS: Record<string, keyof typeof held> = {
   ArrowLeft: 'left',
@@ -33,6 +33,7 @@ const SYSTEM: Record<string, SystemAction> = {
   Backquote: 'editor',
   F2: 'debug',
   F4: 'tuning',
+  F6: 'ink',
   KeyV: 'camera',
 };
 

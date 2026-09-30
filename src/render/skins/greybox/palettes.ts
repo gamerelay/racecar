@@ -16,6 +16,10 @@ export interface Palette {
   /** Greybox building tints. */
   blocks: number[];
   ground: number;
+  /** Outline ink. */
+  ink: number;
+  /** Lit-window brightness on city blocks (0: none). */
+  windows: number;
 }
 
 export const PALETTES: Record<string, Palette> = {
@@ -34,6 +38,26 @@ export const PALETTES: Record<string, Palette> = {
     dirIntensity: 1.9,
     blocks: [0x3b2a5c, 0x2e3b63, 0x5a2f55, 0x24324a, 0x46345e, 0x33264a, 0x402a48],
     ground: 0x1c1432,
+    ink: 0x120a20,
+    windows: 1,
+  },
+  golden: {
+    top: 0x2d4f9a,
+    mid: 0xe49a6a,
+    horizon: 0xffcf7a,
+    sun: 0xfff2b8,
+    fog: 0xe6b98a,
+    fogNear: 160,
+    fogFar: 1100,
+    hemiSky: 0xffe6bf,
+    hemiGround: 0x4a5a2e,
+    hemiIntensity: 1.5,
+    dir: 0xffe2b0,
+    dirIntensity: 2.2,
+    blocks: [0x3f6b3a, 0x4f7d3a, 0x2f5a32, 0x5b7f36, 0x8a6a45],
+    ground: 0x5f7d3c,
+    ink: 0x2a1c14,
+    windows: 0.4,
   },
   midnight: {
     top: 0x02030f,
@@ -50,5 +74,7 @@ export const PALETTES: Record<string, Palette> = {
     dirIntensity: 1.2,
     blocks: [0x1c2440, 0x222c52, 0x2a2244, 0x18203a, 0x262e56],
     ground: 0x080a18,
+    ink: 0x02030a,
+    windows: 1.35,
   },
 };

@@ -56,21 +56,38 @@ export interface RampDef {
 export interface PropDef {
   kind: string;
   s: number;
-  /** -1 left, 1 right. */
-  side: -1 | 1;
+  /** -1 left, 1 right (beyond the wall). */
+  side?: -1 | 1;
   /** Meters beyond the wall (default 2). */
   offset?: number;
+  /** On the road instead: meters from the centerline. Props on the road are solid. */
+  lateral?: number;
   size: Vec3;
   spline?: string;
 }
 
 export interface TrafficLaneDef {
-  /** Lateral offset of the lane center. */
-  offset: number;
+  /** Lane center as a fraction of the half width: -1 left edge … 1 right edge (0.5 = middle of the right half). */
+  pos: number;
   /** 1 = with the track direction, -1 = oncoming. */
   dir: 1 | -1;
   /** m/s */
   speed: number;
+  /**
+   * Stretches of the main spline (distance ranges) where this lane has traffic; everywhere if
+   * left out. Traffic belongs on the traffic-heavy section of a lap, not in every hairpin.
+   */
+  sections?: [number, number][];
+}
+
+export interface HazardDef {
+  /** A hazard kind (core/world/hazards.ts), e.g. 'log-truck', 'falling-sign'. */
+  use: string;
+  /** Where on the main spline: a range for roaming hazards, a point for fixed ones. */
+  s: number | [number, number];
+  side?: -1 | 1;
+  /** Kind-specific numbers (mean interval, lifetime…). */
+  params?: Record<string, number>;
 }
 
 export interface TrackLayout {
@@ -83,11 +100,15 @@ export interface TrackLayout {
   ramps?: RampDef[];
   /** 'auto' = every 1/8 of the main spline, or a list of main distances. */
   checkpoints?: 'auto' | number[];
+  /** Traffic lanes on the main spline; density is cars per km per lane. */
   traffic?: { lanes: TrafficLaneDef[]; density: number };
+  hazards?: HazardDef[];
   props?: PropDef[];
   takedownSpots?: { s: number; name: string }[];
   /** Scenery the skin fills in beyond the walls (not gameplay). */
   scenery?: string;
+  /** Surface between the road edge and the wall (default 'sidewalk'). */
+  shoulderSurface?: string;
 }
 
 export interface MapDef {
@@ -134,6 +155,8 @@ export interface CarClass {
   drift: number;
   /** how quickly the car reaches its drift angle, 1 = reference */
   driftRotation: number;
+  /** how long the car carries its slide after a drift, 1 = reference (TUNING.driftExit) */
+  driftCarry?: number;
   /** half extents in meters: width, length, height */
   size: Vec3;
 }

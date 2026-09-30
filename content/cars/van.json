@@ -1,2 +1,2 @@
 { "id": "van", "name": "Hauler", "topSpeed": 60, "accel": 13, "brake": 24, "turn": 2.0, "grip": 0.9, "mass": 2300,
-  "boostCapacity": 3.6, "drift": 0.8, "driftRotation": 0.7, "size": [1.05, 2.5, 1.0] }
+  "boostCapacity": 3.6, "drift": 0.8, "driftRotation": 0.7, "driftCarry": 1.4, "size": [1.05, 2.5, 1.0] }

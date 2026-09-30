@@ -39,6 +39,39 @@ export function validateLayout(layout: TrackLayout, surfaces: SurfaceDef[], clas
 
   const track = bakeTrack(layout, surfaces);
   const L = track.main.length;
+
+  // Roads that cross (an overpass, a lap that loops over itself) need headroom; roads that meet at
+  // one level must be a junction (a branch's ends), not two roads running through each other.
+  {
+    const CLEAR = 7;
+    const pts: { sp: number; s: number; x: number; y: number; z: number; r: number }[] = [];
+    for (const sp of track.splines) for (let i = 0; i < sp.n; i += 4) pts.push({ sp: sp.index, s: i * sp.step, x: sp.px[i], y: sp.py[i], z: sp.pz[i], r: sp.width[i] / 2 + sp.shoulder[i] });
+    const near = (a: number, b: number, len: number) => Math.abs(wrap(a - b + len / 2, len) - len / 2);
+    const reported = new Set<string>();
+    for (let a = 0; a < pts.length; a++) {
+      for (let b = a + 1; b < pts.length; b++) {
+        const A = pts[a];
+        const B = pts[b];
+        if (Math.abs(A.x - B.x) > A.r + B.r || Math.abs(A.z - B.z) > A.r + B.r) continue;
+        if (Math.hypot(A.x - B.x, A.z - B.z) > A.r + B.r || Math.abs(A.y - B.y) >= CLEAR) continue;
+        if (A.sp === B.sp) {
+          const sp = track.splines[A.sp];
+          if ((sp.closed ? near(A.s, B.s, sp.length) : Math.abs(A.s - B.s)) < 3 * (A.r + B.r) + 20) continue;
+        } else {
+          // A branch meets the main road at its ends.
+          const br = track.splines[Math.max(A.sp, B.sp)];
+          const other = A.sp === 0 ? A : B.sp === 0 ? B : null;
+          const self = A.sp === br.index ? A : B;
+          if (self.s < 90 || self.s > br.length - 90) continue;
+          if (other && (near(other.s, br.mainFrom, L) < 120 || near(other.s, br.mainTo, L) < 120)) continue;
+        }
+        const key = `${A.sp}:${Math.round(A.s / 50)}`;
+        if (reported.has(key)) continue;
+        reported.add(key);
+        err(`roads overlap with ${Math.abs(A.y - B.y).toFixed(1)} m between them (${track.splines[A.sp].id} ${A.s.toFixed(0)} m and ${track.splines[B.sp].id} ${B.s.toFixed(0)} m); cross with ${CLEAR} m of headroom or not at all`, track.splines[A.sp].id, A.s);
+      }
+    }
+  }
   const widest = Math.max(...classes.map((c) => c.size[0] * 2));
   const minWidth = widest * 2 + 1;
   for (const sp of track.splines) {
@@ -78,8 +111,66 @@ export function validateLayout(layout: TrackLayout, surfaces: SurfaceDef[], clas
     if (sp.length > span) warn(`branch ${sp.id} is longer (${sp.length.toFixed(0)} m) than what it skips (${span.toFixed(0)} m), so it isn't a shortcut`, sp.id);
   }
 
+  if (track.checkpoints.length < 5) warn(`only ${track.checkpoints.length} checkpoints after moving them off shortcuts; list them in "checkpoints"`);
   for (const r of layout.ramps ?? []) if (r.s < 0 || r.s > L) err(`ramp at ${r.s} is off the main spline (0–${L.toFixed(0)})`);
   for (const z of layout.zones ?? []) if (z.s[0] < 0 || z.s[1] > L) warn(`zone ${z.surface} runs past the spline's length`);
   if (L < 2000) warn(`lap is ${L.toFixed(0)} m; full layouts aim for 3,500–5,000 m (70–100 s)`);
+  // Traffic appears where its section starts and vanishes where it ends (oncoming traffic the other
+  // way round). Popping in mid-corner, round a blind bend, is a wreck nobody could see coming.
+  {
+    const main = track.main;
+    const turnAt = (s: number) => {
+      const i = Math.round(wrap(s, L) / main.step) % main.n;
+      const a = (i - 20 + main.n) % main.n;
+      const b = (i + 20) % main.n;
+      return Math.abs(wrap(Math.atan2(main.tx[b], main.tz[b]) - Math.atan2(main.tx[a], main.tz[a]) + Math.PI, Math.PI * 2) - Math.PI);
+    };
+    const seen = new Set<number>();
+    for (const lane of layout.traffic?.lanes ?? []) {
+      for (const [a, b] of lane.sections ?? []) {
+        for (const s of [a, b]) {
+          if (seen.has(s)) continue;
+          seen.add(s);
+          if (turnAt(s) > (8 * Math.PI) / 180) warn(`traffic section ends at ${s.toFixed(0)} m, in a corner: traffic pops in and out there; end it on a straight`, 'main', s);
+        }
+      }
+    }
+  }
+
   return out;
+}
+
+/**
+ * Moves every traffic section's ends inward (the start forward, the end back) until each sits on
+ * a straight with 40 m of straight road leading to it, so traffic appears and leaves where drivers
+ * can see it coming. Sections that shrink to nothing are dropped. Returns the layout, changed.
+ */
+export function straightenSections(layout: TrackLayout, surfaces: SurfaceDef[]): TrackLayout {
+  const track = bakeTrack(layout, surfaces);
+  const main = track.main;
+  const L = main.length;
+  const straightAt = (s: number) => {
+    for (let d = -40; d <= 40; d += 10) {
+      const i = Math.round(wrap(s + d, L) / main.step) % main.n;
+      const a = (i - 20 + main.n) % main.n;
+      const b = (i + 20) % main.n;
+      const turn = Math.abs(wrap(Math.atan2(main.tx[b], main.tz[b]) - Math.atan2(main.tx[a], main.tz[a]) + Math.PI, Math.PI * 2) - Math.PI);
+      if (turn > (5 * Math.PI) / 180) return false;
+    }
+    return true;
+  };
+  for (const lane of layout.traffic?.lanes ?? []) {
+    if (!lane.sections) continue;
+    lane.sections = lane.sections
+      .map(([a, b]) => {
+        const len = wrap(b - a, L);
+        let lo = 0;
+        let hi = len;
+        while (lo < hi && !straightAt(a + lo)) lo += 5;
+        while (hi > lo && !straightAt(a + hi)) hi -= 5;
+        return hi - lo < 80 ? null : ([Math.round(wrap(a + lo, L)), Math.round(wrap(a + hi, L))] as [number, number]);
+      })
+      .filter((x): x is [number, number] => x !== null);
+  }
+  return layout;
 }

@@ -3,7 +3,7 @@
 // inside both roads, neither road's wall applies (`junctionFree`).
 
 import type { SimState } from '../state';
-import { mainDistance, wrap } from './bake';
+import { mainDistance, signedGap } from './bake';
 import { project, projectGlobal, surfaceAt, type TrackHit } from './query';
 
 const WINDOW = 90;
@@ -17,7 +17,7 @@ export function locateCar(sim: SimState, i: number): TrackHit {
   const sp = track.splines[cars.spline[i]];
   project(sp, cars.x[i], cars.z[i], cars.s[i], cur);
   // A stale hint (a teleport, a wreck flung across a corner) projects badly: search again.
-  if (Math.abs(cur.lateral) > cur.width / 2 + cur.shoulder + 60) projectGlobal(sp, cars.x[i], cars.z[i], cur);
+  if (Math.abs(cur.lateral) > cur.width / 2 + cur.shoulder + 60) projectGlobal(sp, cars.x[i], cars.z[i], cur, cars.y[i]);
 
   let free = 0;
   const L = track.main.length;
@@ -29,8 +29,8 @@ export function locateCar(sim: SimState, i: number): TrackHit {
     if (sp.index === 0) {
       for (let b = 1; b < track.splines.length; b++) {
         const br = track.splines[b];
-        const dFrom = wrap(cur.s - br.mainFrom + L / 2, L) - L / 2;
-        const dTo = wrap(cur.s - br.mainTo + L / 2, L) - L / 2;
+        const dFrom = signedGap(cur.s, br.mainFrom, L);
+        const dTo = signedGap(cur.s, br.mainTo, L);
         let hint = -1;
         if (dFrom > -WINDOW && dFrom < WINDOW) hint = Math.max(0, dFrom);
         else if (dTo > -WINDOW && dTo < WINDOW) hint = Math.min(br.length, br.length + dTo);

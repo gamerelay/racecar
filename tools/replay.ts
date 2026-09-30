@@ -36,7 +36,7 @@ const surfaces = JSON.parse(readFileSync(join(root, 'content', 'surfaces.json'),
 const classes = ['coupe', 'muscle', 'hatch', 'van'].map((id) => JSON.parse(readFileSync(join(root, 'content', 'cars', `${id}.json`), 'utf8')) as CarClass);
 Object.assign(TUNING, report.tuning);
 
-const sim = new Sim(bakeTrack(report.layout, surfaces), classes, surfaces, { seed: report.seed, slowmo: 'world' });
+const sim = new Sim(bakeTrack(report.layout, surfaces), classes, surfaces, { ...(report.options ?? {}), seed: report.seed, slowmo: report.options?.slowmo ?? 'world' });
 for (const spec of report.cars) sim.addCar(spec);
 sim.restore(report.start);
 

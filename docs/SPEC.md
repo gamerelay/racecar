@@ -1,6 +1,6 @@
 # racecar: design
 
-> **Status (2026-09-30): milestone 1 (the greybox sandbox) built on branch `m1-sandbox`.** A loose outline: when building teaches us
+> **Status (2026-09-30): milestone 1 merged; milestone 2 (the world) built on branch `m2-world`.** A loose outline: when building teaches us
 > something, we change it here and say so under "Changed while building". Decisions made so far
 > are in §17.
 >
@@ -813,3 +813,159 @@ Milestone 1 (2026-09-30):
   doesn't run.
 - The greybox City draws in 20–110 calls, well under the 250 budget; a tick with 9 cars is under
   0.5 ms in Bun.
+
+Milestone 2 (2026-09-30):
+
+- **Traffic sections start and end on straights.** Traffic pops in where its section starts
+  and out where it ends; oncoming traffic pops in at the end, driving at you. Every section on
+  both maps ended in a corner, which made blind pop-in head-ons the biggest cause of wrecks. The
+  validator now warns about a section ending in a corner, and `straightenSections` (in the City
+  generator, and `bun tools/fix-traffic.ts <layout>`) slides the ends onto straights. AI wrecks
+  per 8-car race over 8 seeds: City 7 to 0.5, Countryside 13 to 4.8. The tunnel's section was too
+  short to keep.
+- **Traffic in the car style.** Each traffic kind (sedan, compact, van, box truck, bus) is one
+  merged mesh, built from a side profile like the racers (arches, glass, bumpers, wheels, lamps).
+  A kind is one instanced draw however many are posed. A vertex mask picks which parts take the
+  instance's paint and which glow (lamps), and lamp glow sprites go on posed traffic. Wreck
+  debris, and the city's parked and background cars, use the same models. The garage
+  (`cars.html`) shows them all with T.
+- **Rain shows on the road.** A screen-space reflection pass (in the post pass, from the depth
+  buffer) gives every flat surface a wet sheen, smeared into vertical streaks like wet asphalt.
+  Puddles are sharp mirrors. The puddle zones were slippery but invisible; now they're drawn as
+  dark water, and each one clears the render target's alpha where it's drawn, which the post pass
+  reads as "mirror here". So a mirror always means low grip. Bridges now have a low barrier with a
+  steel railing on top (collision unchanged), so you can see over the Skyway's edge.
+- **City v2: smaller, wider, and in three dimensions** (playtest: "some parts feel empty",
+  "make the maps 1/4 smaller", "play with verticality"). Downtown is 3.26 km (was 4.3). Roads are
+  wider: 26 m for the Boulevard, 20 m for avenues and the Skyway, 17 m in the Market. The lap
+  climbs onto the Skyway, 12 m up, which crosses over the start Boulevard. It drops to street
+  level for the Market (a hump bridge and the Alley shortcut), then into a trench and a covered
+  tunnel, and comes out over a crest just before the line. A lap that crosses itself needed three
+  engine changes: whole-track searches (spawn, teleport, reanchor) weigh height, solid props only
+  touch cars at their own level, and the validator rejects roads that overlap with under 7 m of
+  headroom. Per-tick tracking was already height-safe, since it follows each car's own spline.
+  The oncoming bonus now only counts where that lane has traffic; before, the empty Market's left
+  lane was free boost.
+- **The city is scenery built from the track, not authored.** A street grid fills the fog
+  distance around the lap, with blocks and lots kept clear of every road and further back from
+  raised ones so the Skyway has a view. Buildings are sized by district: towers with setbacks
+  round the middle of the lap, low shops wherever the streets are narrow (the Market). Roofs carry
+  clutter, water towers, masts and blinking lights. Buildings near the road get neon blade signs,
+  billboards and awnings. The side streets have lamps, trees, parked cars and ambient traffic,
+  and a few manholes steam; searchlights sweep the sky. Raised roads render as decks on pillars,
+  sunken ones as trenches with retaining walls, and deep ones as a lit tunnel with neon strips.
+  All of it is instanced (about 40 draw calls), the same every race, and animated by a few
+  uniforms and one instance buffer (the ambient cars).
+- **Playtest tuning, first round.** Drift is now only a better way round a corner: no charge,
+  no mini-turbo on release, no boost from drifting (`miniTurbo: false` keeps the code for later),
+  less scrub so it keeps its speed, and harder to trigger by accident (more steer to enter, a
+  smaller hop, a slower angle settle). Less boost: every source roughly halved, a takedown gives
+  half a bar instead of a full one, and races start at 0.2. Tougher cars: a wreck takes 25 m/s
+  into a wall (was 19), 21 closing on traffic (was 16), 16 from a rival (was 13, 9 boosting).
+  Across six seeds, AI wrecks per 8-car race fell on Countryside (15.8 to 10.5) and hardly moved
+  on City (22 to 21), where nearly all of them are head-ons with traffic, which still wreck by
+  design. The chase camera sits closer and pulls back and widens much less with speed and boost.
+  A later playtest asked for closer still, for immersion: 4.7 m back and 1.85 m up (was 5.9 and
+  2.35), with a 60° base FOV (was 62°). It then got tugged back under acceleration: it chased a
+  world point, which lags by about speed ÷ rate (~5 m at 180 km/h). It now follows in the car's
+  frame with only the distance smoothed, so the gap stays 4.7–5.5 m at any speed, and the speed and
+  boost FOV widen less (+4° and +3.5°).
+- **Drift smoothed, and the slide carries after release** (playtest: "too snappy… carry sideways
+  momentum, especially after releasing"). Before, letting go took a 50° slide to straight in under
+  0.1 s. Now:
+  - The drift angle builds and settles smoothly, and steering changes the tightness gradually.
+  - For 1.1 s after release, grip comes back from 5% of normal.
+  - The nose also swings back toward the direction of travel, so the car keeps going the way the
+    slide was taking it. The slide straightens in 0.5–0.6 s without losing speed.
+  - The numbers are in TUNING (`driftEase`, `driftSteerRate`, `driftExit*`) and can be changed live
+    with F4. The AI doesn't drift, so its lap floors are unchanged.
+- **Drift boost is back, as a bank** (playtest: "add back drift for boost"). The earlier
+  complaint was the kick after release. Now:
+  - A drift banks boost as it goes, by angle, speed, surface and the car's `drift` rating. It shows
+    as a pale segment past the boost meter's fill.
+  - A clean release pays the bank into the meter with a "Drift boost +N%" pop.
+  - A spin-out or wreck loses the bank, and a tap-drift earns nothing (`driftBankMin`).
+  - There's still no mini-turbo. A 1.5 s full drift at speed banks 9–17% of a bar, depending on
+    the car.
+- **Review before `alpha-1.0`** (fixes, not design changes):
+  - **Traffic and AI:**
+    - Traffic is drawn at the render time, between ticks like the cars, using `Traffic.poseAt`,
+      which is pure and doesn't touch the sim's pool.
+    - The AI now sees cars and pillars across the start/finish seam (`signedGap`, now shared by
+      every loop-distance check).
+  - **Leaks and replays:**
+    - An editor rebuild frees instanced buffers and rebuilds the world visual.
+    - Restoring a snapshot doesn't re-fire hazard telegraphs.
+    - `placeCar` clears transient driving state.
+  - **Attract mode:** the player's input and rumble no longer reach AI car 0.
+  - **Performance:** the AI no longer allocates closures each tick. The HUD writes only what
+    changed, the minimap's roads are drawn once, and ambient city cars move as a function of
+    time, posed only near the camera.
+  - **Drift details:**
+    - Tire smoke continues through the slide after a drift.
+    - The "Drift boost" pop shows what was actually added to the meter.
+- **Each car carries its slide differently** (`driftCarry` in the car file). It stretches the
+  release grip, looseness and straightening. A 50° slide straightens in:
+  - 0.37 s on the hatch (quick),
+  - 0.48 s on the coupe,
+  - 0.65 s on the van,
+  - 0.72 s on the muscle car (long and lazy).
+- **The greybox got the prototype's cel look early** (asked for in playtesting): a three-step
+  toon ramp on every lit surface, ink outlines, lit windows and street lamps in City, and glow
+  on head and tail lights with a headlight beam on the road. Outlines are drawn in the post pass
+  from the depth buffer (the Laplacian of 1/z, which is zero across any flat face), not with
+  the prototype's inverted hulls, so instanced traffic, merged road chunks and city blocks all
+  get them with no extra draw calls; F6 or `&ink=0` turns them off. Windows are computed in the
+  shader from world position, so the instanced blocks need no UVs. City's draw calls barely
+  move (lamps and windows are about five for the lap).
+- **Traffic lives in sections, not the whole lap.** With traffic everywhere, the AI (and
+  anyone) hit head-ons in every narrow two-way hairpin: carrying speed through one puts you on
+  the inside, which is the oncoming lane. Lanes now take `sections` (distance ranges on the
+  main spline), which is what §5 already said a lap wants ("a traffic-heavy section"). Sections
+  also stay off blind crests: landing into traffic you couldn't see isn't fair. Traffic outside
+  its sections is simply absent (still a pure function of seed and time).
+- **The AI steers by path tracking, not pure pursuit.** Pure pursuit aims at a point ahead and
+  cuts every corner, straight into the oncoming lane. A Stanley-style controller (match the
+  road's heading and curvature ahead, steer out the sideways error) follows the line.
+- **The AI judges threats by time to contact, over seven candidate lines**, including the lines
+  it must cross to get to one, and commits to a choice for 0.8 s (without that it dithered
+  between gaps until it hit something). The committed line is in the car pool (`aiLat`,
+  `aiHold`), so it's snapshotted; a host change that loses it only costs one decision.
+  Result in a full 8-AI race: City from ~75 wrecks to ~8, Countryside from ~65 to ~16.
+- **Checkpoints stepped off a shortcut are de-duplicated**, and progress counts every checkpoint
+  a car passes in one tick: two checkpoints landing past the same shortcut made every lap take
+  two trips round (found by the AI lap report: "lap 160 s").
+- **Hazards schedule "starts in the future"** as §4 said, and triggered occurrences are part of
+  the snapshot. A full race (AI, traffic, chaos hazards, random weather) replays exactly from a
+  mid-race snapshot (test/world.test.ts).
+- **Zero allocation holds for the full world** (8 AI, traffic, chaos, rain): 0.025 ms a tick in
+  Bun. The first version allocated ~480 bytes a tick (forEach closures and small arrays in the
+  hazard and traffic checks); the allocation test now runs the full world.
+- **Race phases are in the sim** (`startRace`, countdown, start boost / stall, finish order),
+  since they change how cars move; the race UI reads them.
+- **AI drifting is left for later**: the AI takes corners on grip. Drifting AI needs the drift
+  controller tuned against the lap report; not needed for a good race yet.
+- **Countryside laps are short**: the AI floor is 62 s (people ~70 s). Worth lengthening in the
+  editor before skins; `tools/validate.ts --ai` warns below 55 s.
+- **Single player has a setup screen over an attract mode** (an AI race behind the menu), and
+  the setup lives in the URL, so every race is a clean start and a shareable link. The lobby
+  replaces the setup screen in milestone 3.
+- **PostHog is wired but off**: it needs `VITE_POSTHOG_KEY` (a racecar project) at build time.
+- **The platform asks are built** in GameRelay PR #30 (host kick, lock, `setAccess`,
+  `setListing`, `listRooms(includeFull)`, plus `transferHost` and `online()`), not yet merged,
+  deployed or released.
+
+Car art (branch `car-models`, 2026-09-30):
+
+- **Greybox cars are built from side profiles, not boxes** (`render/skins/greybox/car/`): each
+  class's design is a side outline extruded with chamfers, arches and a plan-view pinch, plus
+  per-class rear detail (the chase camera's view), a finish-aware toon paint (gloss, metallic,
+  pearl, matte, chrome) and a livery in the shader. Static parts merge per material, ~25 draws a
+  car. `cars.html` is a garage for working on them (old vs new, all views, wreck test).
+- **Cars get a second ink pass** (`render/ink.ts`): marked meshes render a part id and normal,
+  and the post pass inks id changes and sharp creases, which depth alone never sees (windows,
+  lamps, lids, door cuts as ink-only seams). One draw per near car mesh, only with ink on.
+- **Wrecks are visible on the car** (SPEC §9), all cosmetic: the body crumples toward the hit,
+  lids spring open or tear off, wing, mirrors, plate, splitter and sometimes a wheel fly off,
+  glass cracks and shards spray. The renderer infers where the car was hit (the other car, or
+  the nose for walls) from the Wreck event, so the sim is unchanged; `repair()` on Respawn.

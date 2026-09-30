@@ -1,23 +1,28 @@
-// The tick pipeline (SPEC §3). One `step` runs every system in the table's order at a fixed 60 Hz.
-// Milestone 1 has: clock, own/AI cars, broadphase, collisions, rules. Weather, traffic and hazards
-// slot in at their rows in milestone 2.
+// The tick pipeline (SPEC §3). One `step` runs every system in the table's order at a fixed 60 Hz:
+// clock, weather, traffic, hazards, own and AI cars, broadphase, collisions (walls, cars, world),
+// rules (progress, laps, the race), then the tick's events are in the queue for everyone else.
 
 import { driveFollow, type FollowDriver } from './ai/follow';
-import { stepCar } from './car/physics';
+import { driveRacer, type RacerDriver } from './ai/racer';
+import { endDrift, stepCar } from './car/physics';
 import { createCarPool, restoreCars, snapshotCars, type CarPool } from './car/pool';
 import { TUNING } from './car/tuning';
 import { collideCars } from './collide/cars';
 import { SpatialGrid } from './collide/grid';
 import { collideWalls } from './collide/walls';
+import { collideWorld, hazardsWreckTraffic, type WorldCtx } from './collide/world';
 import type { CarClass, SurfaceDef } from './content';
 import { neutralControls, type Controls } from './controls';
-import { EventQueue } from './events';
+import { Ev, EventQueue } from './events';
 import { damp } from './math';
-import { Rng } from './rng';
+import { Rng, hash01 } from './rng';
 import { updateProgress } from './rules/progress';
-import type { SimState } from './state';
-import type { Track } from './track/bake';
+import type { RaceState, SimState } from './state';
+import { mainDistance, type Track } from './track/bake';
 import { newHit, projectGlobal, sampleAt } from './track/query';
+import { Hazards, type Mayhem } from './world/hazards';
+import { Traffic } from './world/traffic';
+import { planWeather, weatherAt, type WeatherOption, type WeatherPlan, type WeatherState } from './world/weather';
 
 export const TICK_RATE = 60;
 export const MAX_CARS = 16;
@@ -25,14 +30,22 @@ export const MAX_CARS = 16;
 export interface SimOptions {
   seed: number;
   slowmo?: 'world' | 'wreck';
+  weather?: WeatherOption;
+  /** The map's allowed weather (from map.json). */
+  weatherAllowed?: string[];
+  mayhem?: Mayhem;
+  /** Multiplies the layout's traffic density (0 = no traffic). */
+  traffic?: number;
 }
 
 export interface CarSpec {
   cls: string;
   paint?: number;
   human?: boolean;
-  /** A lane-following driver (pace car). Humans leave this out. */
+  /** A lane-following driver (pace car). */
   follow?: FollowDriver;
+  /** A racing driver (the AI). */
+  racer?: RacerDriver;
 }
 
 export class Sim implements SimState {
@@ -49,27 +62,54 @@ export class Sim implements SimState {
   readonly hitB = newHit();
   readonly shoulderSurface: number;
   readonly drivers: (FollowDriver | null)[] = [];
+  readonly racers: (RacerDriver | null)[] = [];
   readonly controls: Controls[];
+  readonly options: SimOptions;
   tick = 0;
+  time = 0;
   timeScale = 1;
   weatherGrip = 1;
   wet = false;
+  wetness = 0;
+  weatherPlan: WeatherPlan;
+  readonly weatherState: WeatherState = { wetness: 0, grip: 1, wet: false, visibility: 1 };
+  world: { traffic: Traffic; hazards: Hazards };
+  race: RaceState = { phase: 'free', goTime: 0, laps: 3, finishedCount: 0 };
   private readonly grid = new SpatialGrid(16, 1024, MAX_CARS);
   private readonly isActive = (i: number) => this.cars.active[i] === 1;
+  private readonly nearS = new Float64Array(MAX_CARS);
+  private readonly ctx: WorldCtx;
 
   constructor(track: Track, classes: CarClass[], surfaces: SurfaceDef[], opts: SimOptions) {
     this.track = track;
     this.classes = classes;
     this.surfaces = surfaces;
+    this.options = opts;
     this.cars = createCarPool(MAX_CARS);
     this.seed = opts.seed >>> 0;
     this.rng = Rng.stream(this.seed, 'sim');
     this.slowmo = opts.slowmo ?? 'world';
-    this.shoulderSurface = track.surfaceIndex.get('sidewalk') ?? 0;
+    this.shoulderSurface = track.surfaceIndex.get(track.layout.shoulderSurface ?? 'sidewalk') ?? 0;
     this.controls = Array.from({ length: MAX_CARS }, neutralControls);
+    this.weatherPlan = planWeather(opts.weather ?? 'clear', this.seed, opts.weatherAllowed);
+    this.world = this.buildWorld(track);
+    this.ctx = { traffic: this.world.traffic, hazards: this.world.hazards, t: 0, tPrev: 0, prevMain: new Float64Array(MAX_CARS) };
+    this.applyWeather();
   }
 
-  /** Adds a car on the start grid (2 wide, 8 m rows, behind the line) and returns its index. */
+  private buildWorld(track: Track): { traffic: Traffic; hazards: Hazards } {
+    const traffic = new Traffic(track, this.seed, this.options.traffic ?? 1);
+    return { traffic, hazards: new Hazards(track, traffic, this.seed, this.options.mayhem ?? 'normal') };
+  }
+
+  private applyWeather(): void {
+    weatherAt(this.weatherPlan, this.time, this.weatherState);
+    this.weatherGrip = this.weatherState.grip;
+    this.wet = this.weatherState.wet;
+    this.wetness = this.weatherState.wetness;
+  }
+
+  /** Adds a car on the start grid (2 wide, 9 m rows, behind the line) and returns its index. */
   addCar(spec: CarSpec): number {
     const i = this.cars.count++;
     const cls = this.classes.findIndex((c) => c.id === spec.cls);
@@ -80,28 +120,51 @@ export class Sim implements SimState {
     c.paint[i] = spec.paint ?? i;
     c.human[i] = spec.human ? 1 : 0;
     this.drivers[i] = spec.follow ?? null;
+    this.racers[i] = spec.racer ?? null;
+    this.gridCar(i);
+    return i;
+  }
+
+  /** Puts car i in its grid slot, lap 0. */
+  private gridCar(i: number): void {
+    const c = this.cars;
     const row = Math.floor(i / 2);
     const col = i % 2 === 0 ? -1 : 1;
     const main = this.track.main;
     const at = sampleAt(main, main.length - 10 - row * 9, this.hitA);
-    // Everyone starts in a grid slot; pace cars merge into their lane once moving.
-    const lat = col * at.width * 0.22;
-    this.placeCar(i, 0, at.s, lat);
+    this.placeCar(i, 0, at.s, col * at.width * 0.22);
     c.lap[i] = 0;
     c.nextCp[i] = 0;
     c.progress[i] = at.s - main.length;
     c.lapStartTick[i] = this.tick;
-    c.boost[i] = 0.3;
-    return i;
+    c.boost[i] = TUNING.startBoost;
+    c.finished[i] = 0;
+    c.finishTime[i] = 0;
+    c.place[i] = 0;
+    c.startPress[i] = -1;
+    c.score[i] = 0;
+    c.takedowns[i] = 0;
+    c.wrecks[i] = 0;
+    c.bestLap[i] = 0;
+    c.lastLap[i] = 0;
+  }
+
+  /** Puts everyone back on the grid and starts a countdown: the lights go green in `seconds`. */
+  startRace(laps: number, seconds = 3): void {
+    for (let i = 0; i < this.cars.count; i++) if (this.cars.active[i]) this.gridCar(i);
+    this.race = { phase: 'countdown', goTime: this.time + seconds, laps, finishedCount: 0 };
   }
 
   /** Swaps in a rebaked track (the editor) and finds every car on it again. */
   setTrack(track: Track): void {
     this.track = track;
+    this.world = this.buildWorld(track);
+    this.ctx.traffic = this.world.traffic;
+    this.ctx.hazards = this.world.hazards;
     const c = this.cars;
     for (let i = 0; i < c.count; i++) {
       c.spline[i] = 0;
-      projectGlobal(track.main, c.x[i], c.z[i], this.hitA);
+      projectGlobal(track.main, c.x[i], c.z[i], this.hitA, c.y[i]);
       c.s[i] = this.hitA.s;
       c.lastSpline[i] = 0;
       c.lastS[i] = this.hitA.s;
@@ -109,7 +172,7 @@ export class Sim implements SimState {
     }
   }
 
-  /** Puts car i on a spline at (s, lateral), facing along it, stopped. */
+  /** Puts car i on a spline at (s, lateral), facing along it. */
   placeCar(i: number, spline: number, s: number, lateral: number, speed = 0): void {
     const c = this.cars;
     const at = sampleAt(this.track.splines[spline], s, this.hitA);
@@ -124,8 +187,16 @@ export class Sim implements SimState {
     c.grounded[i] = 1;
     c.wreck[i] = 0;
     c.drift[i] = 0;
+    c.spinT[i] = 0;
+    // Nothing transient carries over a teleport: drift recovery, mini-turbo, stall, streaks.
+    c.driftExit[i] = c.driftBank[i] = c.driftChain[i] = c.chainT[i] = 0;
+    c.miniT[i] = c.stallT[i] = c.boosting[i] = c.oncomingT[i] = c.wreckT[i] = 0;
+    c.aiHold[i] = 0;
+    c.lastTakenBy[i] = 0;
+    c.rx[i] = c.rz[i] = 0;
     c.spline[i] = spline;
     c.s[i] = at.s;
+    c.lateral[i] = lateral;
     c.lastSpline[i] = spline;
     c.lastS[i] = at.s;
     c.lastLat[i] = lateral;
@@ -139,19 +210,58 @@ export class Sim implements SimState {
   step(input: readonly (Controls | undefined)[]): void {
     const dt = this.dt * this.timeScale;
     const cars = this.cars;
+    const ctx = this.ctx;
+    const { traffic, hazards } = this.world;
+    // System 2: clock.
+    ctx.tPrev = this.time;
+    this.time += dt;
+    ctx.t = this.time;
+    for (let i = 0; i < cars.count; i++) ctx.prevMain[i] = mainDistance(this.track, cars.spline[i], cars.s[i]);
+    // Systems 3–5: weather, traffic, hazards (all functions of the seed and time).
+    this.applyWeather();
+    let n = 0;
+    for (let i = 0; i < cars.count; i++) if (cars.active[i]) this.nearS[n++] = ctx.prevMain[i];
+    traffic.update(this.time, this.nearS, n);
+    hazards.update(this.time, this.events, this.tick);
+    hazardsWreckTraffic(this, ctx);
+
+    // The countdown: cars wait on the grid; holding throttle into "GO" earns a start boost.
+    if (this.race.phase === 'countdown') {
+      for (let i = 0; i < cars.count; i++) {
+        if (!cars.active[i]) continue;
+        const c = this.controlsFor(i, input);
+        if (c.throttle > 0.5) {
+          if (cars.startPress[i] < 0) cars.startPress[i] = this.time;
+        } else cars.startPress[i] = -1;
+      }
+      if (this.time >= this.race.goTime) this.go();
+      this.tick++;
+      return;
+    }
+
     // Systems 7–8: own and AI cars.
     for (let i = 0; i < cars.count; i++) {
       if (!cars.active[i]) continue;
-      const d = this.drivers[i];
-      const c = d ? driveFollow(this, i, d, this.controls[i]) : (input[i] ?? this.controls[i]);
-      stepCar(this, i, c, dt);
+      stepCar(this, i, this.controlsFor(i, input), dt);
     }
     // Systems 10–11: broadphase and collisions.
     this.grid.rebuild(cars.count, cars.x, cars.z, this.isActive);
     for (let i = 0; i < cars.count; i++) if (cars.active[i]) collideWalls(this, i);
     collideCars(this, this.grid);
+    for (let i = 0; i < cars.count; i++) collideWorld(this, i, ctx);
     // System 12: rules.
-    for (let i = 0; i < cars.count; i++) if (cars.active[i]) updateProgress(this, i);
+    for (let i = 0; i < cars.count; i++) {
+      if (!cars.active[i]) continue;
+      updateProgress(this, i);
+      const sMain = mainDistance(this.track, cars.spline[i], cars.s[i]);
+      if (!cars.wreck[i]) hazards.crossTriggers(i, ctx.prevMain[i], sMain, this.time, this.events, this.tick);
+      if (this.race.phase === 'racing' && !cars.finished[i] && cars.lap[i] >= this.race.laps) {
+        cars.finished[i] = 1;
+        cars.finishTime[i] = this.time - this.race.goTime;
+        cars.place[i] = ++this.race.finishedCount;
+        this.events.push(this.tick, Ev.Finish, i, cars.x[i], cars.y[i], cars.z[i], cars.finishTime[i], cars.place[i]);
+      }
+    }
     // Single-player slow-mo: a human's fresh wreck slows the world.
     if (this.slowmo === 'world') {
       let slow = false;
@@ -162,32 +272,80 @@ export class Sim implements SimState {
     this.tick++;
   }
 
+  private controlsFor(i: number, input: readonly (Controls | undefined)[]): Controls {
+    const f = this.drivers[i];
+    if (f) return driveFollow(this, i, f, this.controls[i]);
+    const r = this.racers[i];
+    if (r) {
+      const c = driveRacer(this, i, r, this.controls[i]);
+      // The AI's start: throttle a moment before green, a touch less well on easier settings.
+      if (this.race.phase === 'countdown') {
+        const lead = 0.15 + hash01(this.seed, i, 7) * (0.35 + (2 - r.difficulty) * 0.5);
+        c.throttle = this.race.goTime - this.time <= lead ? 1 : 0;
+      }
+      return c;
+    }
+    return input[i] ?? this.controls[i];
+  }
+
+  /** Green light: start boosts and stalls, lap timers start. */
+  private go(): void {
+    const cars = this.cars;
+    this.race.phase = 'racing';
+    this.events.push(this.tick, Ev.RaceStart, -1);
+    for (let i = 0; i < cars.count; i++) {
+      if (!cars.active[i]) continue;
+      cars.lapStartTick[i] = this.tick;
+      const press = cars.startPress[i];
+      if (press < 0) continue;
+      const lead = this.race.goTime - press;
+      if (lead <= TUNING.startBoostWindow) {
+        cars.miniT[i] = TUNING.miniTurboTimes[2];
+        cars.miniStage[i] = 2;
+        this.events.push(this.tick, Ev.StartBoost, i, cars.x[i], cars.y[i], cars.z[i], lead, 1);
+      } else if (lead > TUNING.stallEarly) {
+        cars.stallT[i] = 0.8;
+        this.events.push(this.tick, Ev.StartBoost, i, cars.x[i], cars.y[i], cars.z[i], lead, 0);
+      }
+      cars.startPress[i] = -1;
+      cars.driftBank[i] = 0;
+      endDrift(this, i, 0);
+    }
+  }
+
   snapshot(): SimSnapshot {
     return {
       tick: this.tick,
+      time: this.time,
       timeScale: this.timeScale,
       rng: this.rng.state,
-      weatherGrip: this.weatherGrip,
-      wet: this.wet,
+      race: { ...this.race },
+      trafficWrecked: Array.from(this.world.traffic.wreckedAt),
+      triggered: this.world.hazards.triggered.map((x) => [...x] as [number, number, number, number]),
       cars: snapshotCars(this.cars),
     };
   }
 
   restore(s: SimSnapshot): void {
     this.tick = s.tick;
+    this.time = s.time ?? 0;
     this.timeScale = s.timeScale;
     this.rng.state = s.rng;
-    this.weatherGrip = s.weatherGrip;
-    this.wet = s.wet;
+    if (s.race) this.race = { ...s.race };
+    if (s.trafficWrecked) this.world.traffic.wreckedAt.set(s.trafficWrecked);
+    this.world.hazards.restoreTriggered(s.triggered ?? [], this.time);
     restoreCars(this.cars, s.cars);
+    this.applyWeather();
   }
 }
 
 export interface SimSnapshot {
   tick: number;
+  time: number;
   timeScale: number;
   rng: number;
-  weatherGrip: number;
-  wet: boolean;
+  race: RaceState;
+  trafficWrecked: number[];
+  triggered: [number, number, number, number][];
   cars: ReturnType<typeof snapshotCars>;
 }
