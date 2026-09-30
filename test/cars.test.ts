@@ -20,6 +20,17 @@ describe('car content', () => {
   });
 });
 
+describe('the police car', () => {
+  test('is a player class with the sedan shell it is drawn on, heavier for the push bar', () => {
+    const police = CLASSES.find((c) => c.id === 'police')!;
+    const sedan = CLASSES.find((c) => c.id === 'sedan')!;
+    expect(CLASS_ORDER).toContain('police');
+    expect(police.name).toBe('Interceptor');
+    expect(police.size).toEqual(sedan.size);
+    expect(police.mass).toBeGreaterThan(sedan.mass);
+  });
+});
+
 describe('car balance', () => {
   for (const [key, layout] of layouts) {
     test(`${key}: every class laps clean within ±5% of the mean (rally ±7% on dirt)`, () => {

@@ -5,6 +5,7 @@ import { newHit, projectGlobal } from '../src/core/track/query';
 import { Cause, Ev } from '../src/core/events';
 import { neutralControls } from '../src/core/controls';
 import { Sim } from '../src/core/sim';
+import { racingLine } from '../src/core/ai/racer';
 import { validateLayout } from '../src/core/track/validate';
 import { CLASSES, SURFACES, layout } from './helpers';
 
@@ -185,5 +186,37 @@ describe('the Trestle stands on the road under it', () => {
       });
     }
     expect(cause).toBe(Cause.Prop);
+  });
+});
+
+describe('the AI under the Trestle', () => {
+  const track = bakeTrack(layout('countryside/valley'), SURFACES);
+  const legs = track.props.filter((p) => p.kind === 'trestle-leg');
+
+  test('the racing line threads a gap between the legs, with room for a car either side', () => {
+    const line = racingLine(track, track.main);
+    for (const p of legs) {
+      const i = Math.round(p.s / track.main.step);
+      expect(Math.abs(line.offset[i] - p.lateral)).toBeGreaterThan(p.hx + 2);
+    }
+  });
+
+  test('hard AIs race through it without wrecking (they swerved late into the traffic lane)', () => {
+    for (const [seed, cls] of [[1, 'coupe'], [3, 'coupe'], [5, 'police'], [8, 'muscle']] as const) {
+      const sim = new Sim(track, CLASSES, SURFACES, { seed });
+      const i = sim.addCar({ cls, racer: { difficulty: 2 } });
+      let wrecks = 0;
+      let cursor = sim.events.head;
+      let passed = false;
+      for (let t = 0; t < 60 * 75; t++) {
+        sim.step([]);
+        if (sim.cars.spline[i] === 0 && sim.cars.s[i] > 2760 && sim.cars.s[i] < 2800) passed = true;
+        cursor = sim.events.read(cursor, (e) => {
+          if (e.car === i && e.type === Ev.Wreck && sim.cars.s[i] > 2600 && sim.cars.s[i] < 2800) wrecks++;
+        });
+      }
+      expect(passed).toBe(true);
+      expect(wrecks).toBe(0);
+    }
   });
 });

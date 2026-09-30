@@ -6,7 +6,7 @@ building". This file is "where are we"; the spec is "what are we making".
 
 **Last updated:** 2026-09-30. `main` is tagged **`alpha-1.6`**: milestone 2 (PR #2, tagged
 `alpha-1.0`), Countryside v2 (PR #4, `alpha-1.1`), seven cars plus polish (PR #6, `alpha-1.2`),
-traffic that fades instead of popping (PR #7, `alpha-1.3`), audio plus a review pass (PR #9, `alpha-1.4`), Valley v3 with smooth shortcut joins (PR #10, `alpha-1.5`), and drift chains, skid marks, new car designs and a second review pass (PR #12).
+traffic that fades instead of popping (PR #7, `alpha-1.3`), audio plus a review pass (PR #9, `alpha-1.4`), Valley v3 with smooth shortcut joins (PR #10, `alpha-1.5`), drift chains, skid marks, new car designs and a second review pass (PR #12, `alpha-1.6`), and since the tag the police car, solid Trestle legs, air boost and boost by position (PR #13, merged, not tagged yet). Every release is in [CHANGELOG.md](../CHANGELOG.md): add to its "Unreleased" section as you go, and retitle that section when you tag.
 
 ## Resume in five minutes
 
@@ -15,18 +15,18 @@ traffic that fades instead of popping (PR #7, `alpha-1.3`), audio plus a review 
 3. Check the open platform PR: in `~/dev/gamerelay.io`, `gh pr view 30` (the host controls
    racecar's lobby needs).
 4. Before changing anything: `bun test && bun run typecheck && bun tools/validate.ts`. All three
-   are green on `main` at `alpha-1.6`. Branch off `main` for milestone 3.
+   are green on `main`. Branch off `main` for milestone 3.
 
 ## Where things stand
 
 - **Repo:** `gamerelay/racecar`, private until milestone 3, cloned at `~/dev/racecar`. The default
   branch is `main`.
 - **Milestone 1 (greybox sandbox): merged** (PR #1).
-- **Police car, Trestle legs, air boost, boost by position: in review** (branch
-  `cop-car-and-catchup`): the Interceptor is the eighth class, the Trestle's legs on the home
+- **Police car, Trestle legs, air boost, boost by position: merged** (PR #13), not tagged
+  yet: the Interceptor is the eighth class, the Trestle's legs on the home
   stretch are solid (crash if you clip one), air time pays on a clean landing, boost from moves
   is scaled ×0.9 (leading) to ×1.35 (last), and the contact shadow fades when a car flips. SPEC
-  "Police car, Trestle legs, air boost and boost by position". 119 tests.
+  "Police car, Trestle legs, air boost and boost by position". 126 tests.
 - **Drift chains, skid marks, the new car designs and a second review pass: merged** (PR #12)
   and tagged `alpha-1.6`: chains that link S-bends and pay boost and a pop, rubber
   on the road, the compact, truck and police designs plus the car polish pass from `car-polish`,
@@ -74,16 +74,22 @@ traffic that fades instead of popping (PR #7, `alpha-1.3`), audio plus a review 
   It runs at a fixed 60 Hz, keeps cars in a struct-of-arrays pool and allocates nothing per tick.
   An 8-car race with traffic, hazards and rain costs 0.025 ms a tick, and a full race replays
   exactly.
-  - **Cars:** grip-alignment handling, and a hold-to-drift that is only a cornering tool. There's no
+  - **Cars:** eight classes (`content/cars`, in `CLASS_ORDER`), the police Interceptor the latest.
+    Grip-alignment handling, and a hold-to-drift that is only a cornering tool. There's no
     mini-turbo; a drift banks boost that a clean release pays into the meter (a spin-out loses
     it). `TUNING.miniTurbo: false` keeps the mini-turbo code for later. Each car carries its slide
     differently (`driftCarry`).
-    Boost, air, wrecks with aftertouch, slow-mo, and collisions between cars.
+    Boost, air, wrecks with aftertouch, slow-mo, and collisions between cars. Boost is earned
+    from drifts and drift chains, air time (paid on a clean landing), near misses, oncoming and
+    traffic checks, all scaled by race position (×0.9 leading to ×1.35 last, `earnBoost`).
   - **Track:** baked Catmull-Rom splines with branches for shortcuts. Laps may cross over
     themselves: whole-track searches, pillars and the validator all take height into account.
+    With `trestles: true` (the Valley), a bridge high over another road stands on solid legs
+    there (`supports` in `bake.ts`, drawn by `forest.ts` on the same grid).
   - **World:** traffic that is a pure function of time and only exists in per-lane sections,
     seeded weather, and hazards (log truck, falling sign).
-  - **Racing AI** (`core/ai/racer.ts`): racing line, path tracking, time-to-contact avoidance,
+  - **Racing AI** (`core/ai/racer.ts`): a racing line that threads solid props, path tracking,
+    time-to-contact avoidance (judged where the car will be, not just where it's aiming),
     shortcut choice, boost and catch-up. It doesn't drift.
   - **Races:** countdown, perfect start or stall, laps, finish order.
 - **Rendering** (`src/render`, and the greybox skin in `src/render/skins/greybox`):
@@ -94,7 +100,8 @@ traffic that fades instead of popping (PR #7, `alpha-1.3`), audio plus a review 
     in puddles. Puddles clear the render target's alpha, which is the post pass's mirror mask.
   - **Cars** (`car/build.ts`, `designs.ts`, `paint.ts`, `wreck.ts`): profile-extruded bodies with
     per-class rear detail and paint finishes. Wrecks crumple the body, throw parts and spray
-    shards; respawn repairs the car.
+    shards; respawn repairs the car. The contact shadow fades when a car flips or flies
+    (`car/shadow.ts`).
   - **Traffic** (`car/traffic.ts`): sedan, compact, van, box truck and bus in the same style. Each
     kind is one instanced draw; a vertex mask picks which parts take the paint and which glow.
   - **City** (`cityscape.ts`, `city.ts`, `track.ts`):
@@ -131,7 +138,7 @@ traffic that fades instead of popping (PR #7, `alpha-1.3`), audio plus a review 
 | | City (Downtown) | Countryside (Valley) |
 |---|---|---|
 | Lap length | 3.26 km | 2.92 km |
-| AI lap floor (hard, empty track) | 58.6 s | 63.6 s |
+| AI lap floor (hard, empty track) | 58.6 s | 63.4 s |
 | Wrecks per 8-AI race (8 seeds; `lap-report --field --seed N`) | ~1.6 | ~1 |
 | Draw calls | ~90–415 | ~65–330 |
 | Scenery build (per editor edit) | ~200 ms | ~150 ms |
@@ -166,7 +173,8 @@ editor.
 - **The Ridge:** dirt along the top at about 52 m, sweeping over two crests with kickers.
   **Logger's Leap** jumps off the edge to cut the corner onto the Descent.
 - **The Descent:** asphalt S-bends down, then a curve onto **the Trestle**, straight and high over
-  the river and the start road, with traffic.
+  the river and the start road, with traffic. Its legs stand on the home stretch below: three
+  rows to thread, and solid.
 - **Pine Hollow:** dirt hairpins down to the flats. The **Creek Bed** cuts across the stream
   (always wet). A kink puts you onto the home straight.
 
@@ -230,6 +238,12 @@ editor.
 - Ambient city cars could animate in the vertex shader instead of on the CPU (they're only posed
   within 420 m of the camera). Out-of-range ones are still written as zero-scale instances and the
   whole buffer is uploaded each frame: write the near ones compactly and set `count` instead.
+- From PR #13:
+  - Logs from the log truck's spill roll through the Trestle's legs (hazard pieces don't collide
+    with props). The one AI reset left in the field tests is a car the spill shoved off the road
+    the wrong way.
+  - The police car's lights always flash; a siren and a pursuit mode would suit it.
+  - A wrecked car sitting on its wheels loses its shadow too (it goes with `onRoad`).
 - From the second review (2026-09-30), not done:
   - Split the two biggest functions: `buildCar` (`car/build.ts`, ~665 lines: body, cabin, lamps,
     wheels, glows) and `buildCityscape` (`cityscape.ts`, ~675: buildings, signs, streets, ambience).

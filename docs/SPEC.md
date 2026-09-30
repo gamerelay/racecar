@@ -1189,4 +1189,11 @@ Police car, Trestle legs, air boost and boost by position (2026-09-30, playtest)
   `boostPlaceLast`), by a live `rank` the sim keeps each tick. The start boost, takedowns and the
   respawn catch-up boost aren't scaled; outside a race nothing is.
 - **Contact shadow:** fades out when a car is tipped past ~30° or in the air (it hung off the floor
-  pan like a black slab when a car flipped) and back in on its wheels.
+  pan like a black slab when a car flipped) and back in on its wheels. The fade is a pure
+  function (`car/shadow.ts`) so it's tested without a DOM.
+- **Tests** (`test/boost.test.ts`, and in `track`, `cars` and `render`): air pays on landing and
+  not for a hop; position scales a move's boost, and a real drift's payout, by the lead-to-last
+  ratio; ranks follow the race order; the legs are solid, leave gaps, wreck you, and aren't in the
+  city; the racing line clears every leg; hard AIs pass under the Trestle clean on four seeds and
+  three cars; the police class; the shadow on its wheels, flipped, on its side and in the air.
+- **Changelog:** releases are recorded in `CHANGELOG.md` at the repo root from here on.

@@ -35,6 +35,7 @@ import type { CarVisual } from '../../../skin';
 import { glow, toon } from '../toon';
 import { type CarDesign, DESIGNS } from './designs';
 import { carPaint } from './paint';
+import { SHADOW, shadowOpacity } from './shadow';
 import { CarWreck, WRECK_SHARED, type Detachable } from './wreck';
 
 /**
@@ -64,8 +65,6 @@ export function sharedCarResources(): unknown[] {
   return [...CAR_MATERIALS, ...WRECK_SHARED, ...(beamShared ? [beamShared, beamShared.map] : [])];
 }
 /** Light bar lens colors, off and lit. */
-/** The contact shadow's opacity on its wheels. */
-const SHADOW = 0.4;
 const BEACON = { red: [0x5a0a1c, 0xff2848], blue: [0x0c1a5c, 0x3a7bff] } as const;
 let beamShared: MeshBasicMaterial | undefined;
 
@@ -920,13 +919,8 @@ export function buildCar(cls: Pick<CarClass, 'id' | 'size'>, paint: PaintDef): C
     update(spin, steer, braking, boosting, onRoad, dt = 0) {
       wreck.update(dt);
       beam.visible = onRoad && !wreck.wrecked;
-      // The contact shadow is stuck to the floor pan: on its wheels it sits on the road, but tipped
-      // over or in the air it'd be a black slab hanging off the car. It fades out and back in.
-      const q = root.quaternion;
-      const upright = 1 - 2 * (q.x * q.x + q.z * q.z);
-      const want = onRoad && upright > 0.85 ? SHADOW : 0;
-      const k = dt > 0 ? Math.min(1, dt * 10) : 1;
-      shadowMat.opacity += (want - shadowMat.opacity) * k;
+      // Fades out tipped over or in the air, and back in on its wheels.
+      shadowMat.opacity = shadowOpacity(shadowMat.opacity, root.quaternion.x, root.quaternion.z, onRoad, dt);
       shadow.visible = shadowMat.opacity > 0.01;
       for (const wh of wheels) if (wh.parent!.parent === root) wh.rotation.x = spin * spinScale;
       for (const s of steerers) if (s.parent === root) s.rotation.y = steer * 0.45;

@@ -8,7 +8,8 @@ hazards and weather.
 drivers, with traffic, hazards (log trucks, falling signs), rain, shortcuts, takedowns, near misses
 and drifting; the level editor, local telemetry and replayable reports. Online play is
 milestone 3. The design is in
-[docs/SPEC.md](./docs/SPEC.md).
+[docs/SPEC.md](./docs/SPEC.md); what changed in each release is in [CHANGELOG.md](./CHANGELOG.md),
+and where things stand is [docs/HANDOFF.md](./docs/HANDOFF.md).
 
 ## Run it
 

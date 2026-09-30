@@ -87,3 +87,39 @@ describe('boost by position', () => {
     expect(earnBoost(free, 1, 0.1)).toBeCloseTo(0.1, 6);
   });
 });
+
+describe('boost by position, in a drift', () => {
+  test("last place's drift pays more than the same drift leading", () => {
+    const payout = (rank: number) => {
+      const sim = ringSim(1, 600, 320);
+      const i = sim.addCar({ cls: 'coupe', human: true });
+      // A parked rival, so there's a race to be placed in.
+      const j = sim.addCar({ cls: 'coupe', human: true });
+      sim.startRace(3, 0.1);
+      const c = { ...neutralControls(), throttle: 1 };
+      const idle = neutralControls();
+      for (let t = 0; t < 60 * 3; t++) sim.step([c, idle]);
+      sim.cars.boost[i] = 0;
+      let paid = 0;
+      let cursor = sim.events.head;
+      const drive = (ctl: typeof c, ticks: number) => {
+        for (let t = 0; t < ticks; t++) {
+          // Hold the rank we're testing (the sim sets it at the end of each tick).
+          sim.cars.rank[i] = rank;
+          sim.cars.rank[j] = 1 - rank;
+          sim.step([ctl, idle]);
+          cursor = sim.events.read(cursor, (e) => {
+            if (e.car === i && e.type === Ev.DriftBoost) paid += e.a;
+          });
+        }
+      };
+      drive({ ...c, drift: true, steer: -1 }, 72);
+      drive(c, 30);
+      return paid;
+    };
+    const lead = payout(0);
+    const last = payout(1);
+    expect(lead).toBeGreaterThan(0);
+    expect(last / lead).toBeCloseTo(TUNING.boostPlaceLast / TUNING.boostPlaceLead, 1);
+  });
+});
