@@ -259,8 +259,14 @@ describe('hazards', () => {
       });
     }
     expect(fired).toBe(true);
-    // Down (lead and telegraph are about a second), on the road, behind the car that shook them.
-    for (let t = 0; t < 40; t++) sim.step([c]);
+    // Rings on the road under them before they fall (the telegraph), then nuts in the air.
+    const occ = sim.world.hazards.occurrences.at(-1)!;
+    sim.world.hazards.update(occ.t0 - 1.1, quiet, 0);
+    expect(sim.world.hazards.markers).toBeGreaterThanOrEqual(2);
+    sim.world.hazards.update(occ.t0 - 0.3, quiet, 0);
+    expect(piecesOf(sim.world.hazards, Piece.Coconut).length).toBeGreaterThanOrEqual(2);
+    // Down (lead and telegraph are about 1.5 s), on the road, behind the car that shook them.
+    for (let t = 0; t < 80; t++) sim.step([c]);
     const hz = sim.world.hazards;
     const nuts = piecesOf(hz, Piece.Coconut);
     expect(nuts.length).toBeGreaterThanOrEqual(2);

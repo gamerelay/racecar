@@ -1473,6 +1473,12 @@ Paradise, part 3b: hazards and tuning (2026-09-30, PLAN phase 5):
   the hard lap floor went from 68.2 to 66.8 s.
 - **Placed by sweeps** (field report, 8 then 16 seeds). Bombs higher up the rim cost 0.5–1.25
   hazard wrecks a race; the rim's last stretch cost 0.13. Coconuts wreck no one anywhere, so they
-  went where every car meets them, before the Sandbar. With both, the field wrecks **1.19 times a
-  race** (0.5 from hazards; 16 seeds), with 0.9 m rocks that wreck above 18 m/s closing. Classes
+  went where every car meets them, before the Sandbar. With both, the field wrecks **1.25 times a
+  race** (0.44 from hazards; 16 seeds), with 0.9 m rocks that wreck above 18 m/s closing. Classes
   hold within ±5% on all three maps (van +4.8%, bus +4.9% on Paradise).
+- **Review fixes (PRs #23 and #24):**
+  - The coconuts never showed their rings: the fall (0.9 s) was longer than the telegraph (0.7 s),
+    so the warning never drew. The telegraph is 1.3 s now: 0.4 s of rings, then the fall.
+  - Coconuts spun forever after they stopped rolling; their spin follows the roll now.
+  - With Time on Random, the lobby showed the background race's pick, which could differ from the
+    race's own (a new seed at the start). The lobby shows the day for Random.

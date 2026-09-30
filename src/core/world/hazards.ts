@@ -372,7 +372,8 @@ function bombLanding(h: Hazards, occ: Occurrence, j: number, n: number, a: numbe
 const coconuts: HazardKind = {
   id: 'coconuts',
   schedule: 'trigger',
-  telegraph: 0.7,
+  // 0.4 s of rings under the crowns, then the 0.9 s fall (drop, below).
+  telegraph: 1.3,
   life: (def) => def.params?.life ?? 16,
   every: (def) => def.params?.rearm ?? 25,
   at(h, occ, u) {
@@ -398,7 +399,8 @@ const coconuts: HazardKind = {
       const roll = u > 0 ? ((1 - Math.exp(-1.4 * u)) / 1.4) * (2 + hash01(occ.seed, j, 25) * 3) : 0;
       const lat = lat0 - side * roll;
       const hop = u > 0 ? 0.5 * Math.abs(Math.sin(u * 7)) * Math.exp(-3 * u) : 0;
-      h.addPiece(occ.id, Piece.Coconut, at.s, at.cx - at.tz * lat, at.cy - lat * bank + 0.28 + fall + hop, at.cz + at.tx * lat, u * 4 + j, 0.3, 0.3, 0.28, u > 0 ? Solid.Bump : Solid.None, Infinity);
+      // It spins as it rolls, and stops when the roll does.
+      h.addPiece(occ.id, Piece.Coconut, at.s, at.cx - at.tz * lat, at.cy - lat * bank + 0.28 + fall + hop, at.cz + at.tx * lat, j + roll * 2.5, 0.3, 0.3, 0.28, u > 0 ? Solid.Bump : Solid.None, Infinity);
     }
   },
 };
