@@ -1,6 +1,7 @@
-// Traffic in the new car style: every traffic kind (sedan, compact, van, box truck, bus) as one
-// merged mesh built from a side profile with arches, glass, bumpers, wheels and lamps, so a kind is
-// one instanced draw however many are on the road. Parked and ambient city cars use them too.
+// Traffic models, two ways. trafficModel: a car design (car/designs.ts) flattened into instanced
+// parts, which is how race traffic is drawn (every kind has a design). trafficModels: simple
+// one-draw cars (a side profile with arches, glass, bumpers, wheels and lamps, one merged mesh a
+// kind) for the city's parked and ambient cars, the garage's T lineup, and any kind with no design.
 //
 // Each vertex carries a color and `surf` = (paint, glow): paint 1 takes the instance's color (the
 // body), paint 0 keeps its own (glass, trim, lamps); glow lights it regardless of the sun (lamps).
@@ -318,7 +319,7 @@ export function trafficModel(design: string, size: [number, number, number]): Tr
     if (mat.transparent && !inkOnly) return;
     const g = (o.geometry as BufferGeometry).clone().applyMatrix4(o.matrixWorld);
     const flat = g.index ? g.toNonIndexed() : g;
-    for (const name of Object.keys(flat.attributes)) if (name !== 'position' && name !== 'normal') flat.deleteAttribute(name);
+    for (const name of Object.keys(flat.attributes)) if (name !== 'position' && name !== 'normal' && name !== 'color') flat.deleteAttribute(name);
     const key = `${mat.uuid}:${o.userData.ink ?? ''}`;
     const e = groups.get(key) ?? { list: [], part: { material: mat, ink: o.userData.ink as number | undefined, inkOnly, tint: mat === paint } };
     e.list.push(flat);

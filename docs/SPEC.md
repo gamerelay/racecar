@@ -1104,3 +1104,59 @@ road, and smoother edges; shortcuts (the city's alley most) met the main road ro
   AI wrecks per race: v2 0.76, v3 0.88; the lap is 7 s quicker (77.5 to 70.6 s, AI field).
 - **HUD:** the key hints left the bottom-left corner for the pause menu (Esc or ✕ Menu), for the
   device in use; the lap moved there instead, as a bigger badge, gold on the final lap.
+
+Compact, truck and police designs (from branch `car-fleet`, 2026-09-30):
+
+- **Every traffic kind now has its own design**, so none borrow another's: the compact is a short
+  tall city car with big round lamps (it used to be drawn as the hatch); the truck is a cab plus a
+  separate cargo box (`cargo` in the design, a second extrusion) with twin rear tyres and a
+  slatted grille (it used to be a one-draw box). Both are drawn at their traffic kind's sim size.
+- **The police car** is the sedan's shell with a black-and-white livery, a push bar and a roof
+  light bar whose red and blue lenses double-blink in `update(dt)`; the bar and push bar come off
+  in a wreck. Garage-only (key `-`) for now: no sim class, no traffic kind (a pursuit mode could
+  use it).
+
+Drift chains and skid marks (2026-09-30), the next of the "lean into the loop" ideas:
+
+- **Drift chains pay now.** Start the next drift within 1.6 s of the last one's end (was 1 s)
+  and it links; an S-bend is one chain. Each link multiplies a drift's points by 1 + 0.25 a link
+  (as before) and now its banked boost by 1 + 0.2 a link, up to double (`chainBoost`,
+  `chainBoostMax`). When a chain of two drifts or more runs out cleanly it pops "Drift chain ×N"
+  with its points (`Ev.DriftChain`) and a rising chime, a note a drift; a spin-out, wreck or wall
+  in the middle of one loses it ("Chain lost", `Ev.ChainLost`). The HUD's drift readout shows the
+  chain's running points, ×N, and a bar draining the time left to link the next.
+- **Fixed:** the chain's clock ran during the next drift too, so any drift longer than the window
+  dropped the chain it was part of: in practice chains of long drifts never held. It runs only
+  between drifts now (`test/drift.test.ts` fails on the old clock).
+- **Skid marks** (`render/skids.ts`): the rear wheels lay rubber in a drift, the slide out of one,
+  a spin, or a hard stop, for cars within 220 m of the camera. One ring of 6000 quads, one draw;
+  each wheel joins its own strip, a strip fades in from nothing, a teleport starts a new one, and
+  marks fade out over their last 10 of 30 s. They multiply the ground they're on (dark on asphalt,
+  churned brown on dirt, green-dark on grass, none in water), so they read in shadow, lit or wet,
+  and they leave the post pass's mirror mask alone. Presentation only; the sim never sees them.
+- **Compact, truck and police designs** came in from branch `car-polish` (with its polish pass:
+  clean ink, one detail language, reflective glass). Traffic draws the compact and the truck as
+  their own designs now; the police car is garage-only.
+
+Second review pass (2026-09-30), four parallel reviews again (core, render, UI and audio, project
+shape), each finding checked before fixing; the notable ones, with tests where they can have one:
+
+- **Core:** the main road's wall opened on the wrong side at a shortcut's mouth on a curve (the
+  Barn); replays drifted from the live run because the sim stepped on unrounded input (human input
+  is quantized on the way in now, to what reports record); a reset no longer slows the world; an
+  empty checkpoint list falls back to automatic; a respawn clears the AI's stuck timers; a wall
+  knock between drifts loses the chain.
+- **Render:** scenery, rain and flames run on world time (they carried on while paused); skid
+  marks fade into the fog; particle rates hold below 60 fps; far traffic skips the ink pass; the
+  blur takes one tap where there's none.
+- **UI and audio:** the F8 form owns the controls while up (the pad could unpause the game behind
+  it); dropdowns in menus don't trap the arrows, and Space presses buttons; a hidden tab or mute
+  suspends audio (the engine droned on in background tabs); one-shots end on the audio clock
+  (music cut out after every unpause).
+- **Project:** one content loader for tools and tests (`tools/content.ts`), the lap report split
+  from its CLI (`tools/lap.ts`), replay loads all seven classes (it loaded four), validate and a
+  test check `content/cars` against `CLASS_ORDER`, three.js in its own chunk, the dev save endpoint
+  checks its path and origin.
+
+The larger refactors it suggested (splitting `buildCar` and `buildCityscape`, one road index for
+the scenery) are in HANDOFF's follow-ups.

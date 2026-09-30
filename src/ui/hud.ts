@@ -6,6 +6,7 @@ import { Ev, type GameEvent } from '../core/events';
 import { MPH } from '../core/math';
 import { positions } from '../core/rules/progress';
 import type { Sim } from '../core/sim';
+import type { InputDevice } from '../input/input';
 import { delta, fmt, ordinal } from './format';
 
 // Elements are looked up once, and text and transforms are written only when they change: the HUD
@@ -41,13 +42,17 @@ export class Hud {
   private gaugeMax = 300;
   private gaugeCls = -1;
   private readonly order: number[] = [];
-  private driftStart = 0;
   focus = 0;
-  laps = 3;
   debugText = '';
+  /** The debug panel (F2) is up: main builds debugText only then. */
+  debugOn = false;
+  /** Numbers last formatted (toLocaleString is slow), and the drift stage last drawn. */
+  private shownScore = -1;
+  private shownChain = -1;
+  private shownStage = -1;
   /** The focus car's best lap before the one just finished (for the lap pop's delta). */
   private bestBefore = 0;
-  private device: 'keyboard' | 'gamepad' | 'touch' | '' = '';
+  private device: InputDevice | '' = '';
 
   constructor(private readonly sim: Sim) {
     document.body.insertAdjacentHTML(
@@ -59,7 +64,7 @@ export class Hud {
         <div class="stat"><small>Score</small><b id="score">0</b></div>
       </div>
       <div class="hud" id="pops" aria-live="polite"></div>
-      <div class="hud" id="drift"><div id="driftPts">0</div><div id="driftStage"><i></i><i></i><i></i></div><div id="driftChain"></div></div>
+      <div class="hud" id="drift"><div id="driftPts">0</div><div id="driftStage"><i></i><i></i><i></i></div><div id="driftChain"></div><div id="chainBar"><i id="chainFill"></i></div></div>
       <div class="hud" id="meterWrap"><label>Boost</label><div id="meter"><div id="meterBank"></div><div id="meterFill"></div></div></div>
       <div class="hud" id="speedo"><svg viewBox="0 0 160 160" aria-hidden="true"><g id="gTicks"></g><circle class="track" cx="80" cy="80" r="${R}" pathLength="100"/><circle id="gBoost" cx="80" cy="80" r="${R}" pathLength="100"/><circle id="gFill" cx="80" cy="80" r="${R}" pathLength="100"/></svg><span id="spd">0</span><small>mph</small></div>
       <div class="hud stat" id="lapBadge"><small>Lap</small><b id="lap">1/3</b></div>
@@ -106,13 +111,13 @@ export class Hud {
   }
 
   toggleDebug(): boolean {
-    return $('debug').classList.toggle('on');
+    return (this.debugOn = $('debug').classList.toggle('on'));
   }
 
   /** The controls for the device in use (pad glyphs once a pad is used), for the pause menu; dev keys in dev builds. */
   keys = '';
 
-  setDevice(device: 'keyboard' | 'gamepad' | 'touch'): void {
+  setDevice(device: InputDevice): void {
     if (device === this.device) return;
     this.device = device;
     const k = (s: string) => `<kbd>${s}</kbd>`;
@@ -140,7 +145,8 @@ export class Hud {
     $('lapBadge').classList.toggle('final', racing && laps > 1 && c.lap[i] + 1 >= laps && !c.finished[i]);
     text('time', c.finished[i] ? fmt(c.finishTime[i]) : racing ? fmt(Math.max(0, this.sim.time - this.sim.race.goTime)) : fmt(this.sim.time - c.lapStartTime[i]));
     text('best', c.bestLap[i] ? fmt(c.bestLap[i]) : '–');
-    text('score', Math.floor(c.score[i]).toLocaleString());
+    const score = Math.floor(c.score[i]);
+    if (score !== this.shownScore) text('score', (this.shownScore = score).toLocaleString());
     const mph = Math.hypot(c.vx[i], c.vz[i]) * MPH;
     text('spd', String(Math.round(mph)));
     if (c.cls[i] !== this.gaugeCls) this.drawGauge(c.cls[i]);
@@ -152,24 +158,31 @@ export class Hud {
     document.body.classList.toggle('boosting', c.boosting[i] === 1 || c.miniT[i] > 0);
     document.body.classList.toggle('full', c.boost[i] > 0.98);
     const drifting = c.drift[i] === 1;
-    $('drift').classList.toggle('on', drifting || c.driftChain[i] > 0);
-    if (drifting) {
-      text('driftPts', Math.floor(c.score[i] - this.driftStart).toLocaleString());
-      const stage = c.driftStage[i];
-      ($('driftStage') as HTMLElement).style.display = TUNING.miniTurbo ? '' : 'none';
+    // The chain's points so far (a lone drift's own), the drifts in it, and the time left to link the next.
+    const drifts = c.driftChain[i] + (drifting ? 1 : 0);
+    $('drift').classList.toggle('on', drifting || c.chainT[i] > 0);
+    const chainPts = Math.floor(c.chainPts[i]);
+    if ((drifting || c.chainT[i] > 0) && chainPts !== this.shownChain) text('driftPts', (this.shownChain = chainPts).toLocaleString());
+    // The mini-turbo stage bars (hidden when that's off, the default).
+    const stage = TUNING.miniTurbo && drifting ? c.driftStage[i] : -1;
+    if (stage !== this.shownStage) {
+      this.shownStage = stage;
+      ($('driftStage') as HTMLElement).style.display = stage >= 0 ? '' : 'none';
       const bars = $('driftStage').children;
       for (let k = 0; k < 3; k++) bars[k].className = stage > k ? `s${stage}` : '';
     }
-    text('driftChain', c.driftChain[i] > 0 ? `chain ×${c.driftChain[i] + 1}` : '');
-    if ($('debug').classList.contains('on')) text('debug', this.debugText);
+    text('driftChain', drifts >= 2 ? `chain ×${drifts}` : '');
+    transform('chainFill', `scaleX(${drifting ? 1 : Math.max(0, c.chainT[i] / TUNING.chainWindow).toFixed(3)})`);
+    if (this.debugOn) text('debug', this.debugText);
   }
 
   private lastOncoming = -Infinity;
 
   private readonly onEvent = (e: GameEvent): void => {
     const i = this.focus;
-    if (e.type === Ev.DriftStart && e.car === i) this.driftStart = this.sim.cars.score[i];
     if (e.type === Ev.Respawn && e.car === i && e.a >= 0.01) this.pop(`Catch-up boost +${Math.round(e.a * 100)}%`, 'hot');
+    if (e.type === Ev.DriftChain && e.car === i) this.pop(`Drift chain ×${e.b} · ${Math.floor(e.a).toLocaleString()}`, e.b >= 4 ? 's3' : 's2');
+    if (e.type === Ev.ChainLost && e.car === i) this.pop(`Chain lost ×${e.b}`, 'bad');
     if (e.type === Ev.DriftBoost && e.car === i) this.pop(`Drift boost +${Math.round(e.a * 100)}%`, e.a > 0.25 ? 's2' : 's1');
     if (e.type === Ev.MiniTurbo && e.car === i) this.pop(['', 'Mini-turbo', 'Super turbo', 'Ultra turbo'][e.b] + '!', `s${e.b}`);
     if (e.type === Ev.Wreck && e.car === i && e.other < 0) this.pop(e.b === 4 ? 'Reset' : 'Wrecked', 'bad');

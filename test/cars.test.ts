@@ -1,16 +1,23 @@
 import { describe, expect, test } from 'bun:test';
-import { readFileSync } from 'node:fs';
+import { readdirSync } from 'node:fs';
 import { join } from 'node:path';
-import type { TrackLayout } from '../src/core/content';
-import { lapReport } from '../tools/lap-report';
-import { CLASSES } from './helpers';
+import { CLASS_ORDER } from '../src/core/content';
+import { CONTENT } from '../tools/content';
+import { lapReport } from '../tools/lap';
+import { CLASSES, layout } from './helpers';
 
 // Balance (SPEC "Changed while building"): every class's hard solo lap stays within a band of the
 // field's mean on every layout, so a car is a style, not a win button. The rally car's dirt edge
 // on the Valley is the one allowed outlier, and it's still bounded.
-const layouts = ['city/downtown', 'countryside/valley'].map((key) => {
-  const [map, name] = key.split('/');
-  return [key, JSON.parse(readFileSync(join(import.meta.dir, '..', 'content', 'maps', map, `${name}.track.json`), 'utf8')) as TrackLayout] as const;
+const layouts = ['city/downtown', 'countryside/valley'].map((key) => [key, layout(key)] as const);
+
+describe('car content', () => {
+  test('every car file is a class the game loads (CLASS_ORDER), and every class has a file', () => {
+    const files = readdirSync(join(CONTENT, 'cars'))
+      .filter((f) => f.endsWith('.json') && f !== 'paints.json')
+      .map((f) => f.replace('.json', ''));
+    expect(files.sort()).toEqual([...CLASS_ORDER].sort());
+  });
 });
 
 describe('car balance', () => {

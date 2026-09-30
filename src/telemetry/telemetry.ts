@@ -7,7 +7,7 @@
 import { TUNING } from '../core/car/tuning';
 import type { TrackLayout } from '../core/content';
 import { packControls, type Controls } from '../core/controls';
-import { Cause, EV_NAMES, Ev, type GameEvent } from '../core/events';
+import { Cause, Ev, type GameEvent } from '../core/events';
 import type { CarSpec, Sim, SimOptions, SimSnapshot } from '../core/sim';
 
 export const TELEMETRY_VERSION = 1;
@@ -138,10 +138,18 @@ export class Telemetry {
     if (now - this.lastFlush > 2000) this.flush();
   }
 
+  /** Errors seen this session, by message and first stack line: a throw in the frame loop repeats every frame. */
+  private readonly errorsSeen = new Map<string, number>();
+
   error(err: unknown): void {
     const e = err instanceof Error ? err : new Error(String(err));
-    this.record('error', { message: e.message, stack: e.stack?.split('\n').slice(0, 8).join('\n') });
-    this.flush();
+    const stack = e.stack?.split('\n').slice(0, 8).join('\n');
+    const key = `${e.message}|${e.stack?.split('\n')[1] ?? ''}`;
+    const n = (this.errorsSeen.get(key) ?? 0) + 1;
+    this.errorsSeen.set(key, n);
+    // The first of each, then a count at powers of ten; flushed with the rest, not per error.
+    if (n === 1) this.record('error', { message: e.message, stack });
+    else if (Number.isInteger(Math.log10(n))) this.record('error_repeat', { message: e.message, count: n });
   }
 
   private onEvent(e: GameEvent, focus: number): void {
@@ -199,7 +207,6 @@ export class Telemetry {
       default:
         break;
     }
-    void EV_NAMES;
   }
 
   flush(beacon = false): void {

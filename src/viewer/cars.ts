@@ -1,16 +1,18 @@
 // The garage: every car on a stretch of road under the greybox sky, with the game's post pass, so
 // car art can be worked on without driving. Dev tool; state lives in the URL so a view can be shared.
 //
-//   1–7 class · 0 lineup · T traffic lineup · P paint · V view · M palette
+//   1–7 class · 8, 9, - compact, truck, police (designs with no player class) · 0 lineup · T traffic lineup · P paint · V view · M palette
 //   O ink · K car ink · F post · W wreck (R repairs) · hold B brake · hold Space boost · ←/→ steer
 //   S stop the road
 
 import { BoxGeometry, Color, type Fog, Group, InstancedMesh, Matrix4, Mesh, PerspectiveCamera, PlaneGeometry, Scene, Vector3, WebGLRenderer } from 'three';
+import type { CarClass } from '../core/content';
 import { CLASSES, PAINTS } from '../content';
 import type { CarVisual } from '../render/skin';
 import { InkPass } from '../render/ink';
 import { PostPass } from '../render/post';
 import { GreyboxSkin } from '../render/skins/greybox';
+import { disposeTree } from '../render/skins/greybox/dispose';
 import { toon } from '../render/skins/greybox/toon';
 import { trafficModels } from '../render/skins/greybox/car/traffic';
 import { TRAFFIC_KINDS } from '../core/world/traffic';
@@ -18,6 +20,17 @@ import { TRAFFIC_KINDS } from '../core/world/traffic';
 const VIEWS = ['chase', 'orbit', 'rear34', 'side', 'front34', 'top'] as const;
 type View = (typeof VIEWS)[number];
 const PALETTE_NAMES = ['dusk', 'midnight', 'golden'];
+/** Designs with no player class, at their traffic kind's size (the police car at the sedan's). */
+const kind = (id: string) => TRAFFIC_KINDS.find((k) => k.id === id)!;
+const sized = (id: string, name: string, size: [number, number, number]): CarClass => ({ ...CLASSES[2], id, name, size });
+const SHOWN: CarClass[] = [
+  ...CLASSES,
+  sized('compact', 'Compact (traffic)', [kind('compact').hw, kind('compact').hl, kind('compact').hh]),
+  sized('truck', 'Truck (traffic)', [kind('truck').hw, kind('truck').hl, kind('truck').hh]),
+  sized('police', 'Police', [kind('sedan').hw, kind('sedan').hl, kind('sedan').hh]),
+];
+/** Class keys, in SHOWN order: the tenth is `-`, next to 0 on the keyboard. */
+const CLASS_KEYS = '123456789-';
 
 const q = new URLSearchParams(location.search);
 const state = {
@@ -114,7 +127,12 @@ function buildRoad(): Group {
 }
 
 function rebuild(): void {
-  for (const c of cars) c.v.dispose();
+  // The old scene's cars (their own dispose), then everything else in it: road, blocks, sky.
+  for (const c of cars) {
+    scene?.remove(c.v.root);
+    c.v.dispose();
+  }
+  if (scene) disposeTree([scene]);
   scene = new Scene();
   skin = new GreyboxSkin();
   skin.environment(scene, state.palette);
@@ -122,7 +140,7 @@ function rebuild(): void {
   road = buildRoad();
   scene.add(road);
   const paint = PAINTS.find((p) => p.id === state.paint) ?? PAINTS[0];
-  const classes = state.cls === 'all' ? CLASSES : CLASSES.filter((c) => c.id === state.cls);
+  const classes = state.cls === 'all' ? CLASSES : SHOWN.filter((c) => c.id === state.cls);
   cars = [];
   const place = (v: CarVisual, x: number, z = 0) => {
     v.root.position.x = x;
@@ -147,12 +165,14 @@ function rebuild(): void {
       x -= widths[i] / 2;
     });
   } else if (state.cls === 'all') {
-    // Across the road for the chase views; nose to tail by length for the side view.
+    // Across the road for the chase views (closing up so ten stay off the curbs); nose to tail by
+    // length for the side view.
+    const gap = Math.min(3.6, 26 / (classes.length - 1));
     const total = classes.reduce((a, c) => a + c.size[1] * 2 + 1.2, -1.2);
     let z = total / 2;
     classes.forEach((c, i) => {
       z -= c.size[1];
-      place(skin.car(c, PAINTS[(PAINTS.indexOf(paint) + i) % PAINTS.length]), (i - (classes.length - 1) / 2) * 3.6, z);
+      place(skin.car(c, PAINTS[(PAINTS.indexOf(paint) + i) % PAINTS.length]), (i - (classes.length - 1) / 2) * gap, z);
       z -= c.size[1] + 1.2;
     });
   } else place(skin.car(classes[0], paint), 0);
@@ -181,8 +201,13 @@ function resize(): void {
 }
 
 function placeCamera(): void {
-  const wide = cars.length > 1 ? 1.7 : 1;
-  const look = new Vector3(0, 0.8, 0);
+  // Back off for a lineup, and for anything longer than the van (the bus), up as well as back.
+  const one = SHOWN.find((c) => c.id === state.cls);
+  const big = one ? Math.max(1, one.size[1] / 2.4) : 1;
+  // Capped so the front34 camera stays out of the blocks at x = ±17.
+  const wide = cars.length > 1 ? Math.min(3.2, (1.7 * cars.length) / 4) : big;
+  const lift = cars.length > 1 ? 1 : big;
+  const look = new Vector3(0, 0.8 * lift, 0);
   camera.fov = 62;
   switch (state.view) {
     case 'chase':
@@ -289,7 +314,7 @@ function frame(now: number): void {
   }
   hud.textContent =
     `${state.cls === 'all' ? 'lineup' : state.cls} · ${state.paint} · ${state.view} · ${state.palette}   ${calls} draws\n` +
-    `1–${CLASSES.length} class · 0 lineup · T traffic · P paint · V view · M palette · O ink${state.carInk ? '' : ' (car ink off: K)'} · K car ink · F post · S road\nW wreck · R repair · hold B brake · Space boost · ←/→ steer · drag to orbit`;
+    `1–9, - class · 0 lineup · T traffic · P paint · V view · M palette · O ink${state.carInk ? '' : ' (car ink off: K)'} · K car ink · F post · S road\nW wreck · R repair · hold B brake · Space boost · ←/→ steer · drag to orbit`;
   requestAnimationFrame(frame);
 }
 
@@ -315,8 +340,8 @@ function repair(c: Shown): void {
 window.addEventListener('keydown', (e) => {
   keys.add(e.key.length === 1 ? e.key.toLowerCase() : e.key);
   const k = e.key.toLowerCase();
-  const ids = CLASSES.map((c) => c.id);
-  if (k >= '1' && k <= String(ids.length)) state.cls = ids[Number(k) - 1];
+  const pick = CLASS_KEYS.indexOf(k);
+  if (pick >= 0 && pick < SHOWN.length) state.cls = SHOWN[pick].id;
   else if (k === '0') state.cls = 'all';
   else if (k === 't') state.cls = 'traffic';
   else if (k === 'p') state.paint = PAINTS[(PAINTS.findIndex((p) => p.id === state.paint) + (e.shiftKey ? PAINTS.length - 1 : 1)) % PAINTS.length].id;

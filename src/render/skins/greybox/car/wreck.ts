@@ -59,6 +59,8 @@ const shardGeo = (() => {
 })();
 const glassShardMat = new MeshBasicMaterial({ color: 0xcdefff, side: DoubleSide });
 export const crackedGlass = new MeshBasicMaterial({ color: 0x9fb8ea });
+/** Module-level wreck resources every car shares (never freed with one car). */
+export const WRECK_SHARED: readonly unknown[] = [shardGeo, glassShardMat, crackedGlass];
 
 /** Stable per-vertex noise in [−1, 1] from a position, so coincident vertices move together. */
 function hash(x: number, y: number, z: number, s: number): number {
@@ -68,6 +70,8 @@ function hash(x: number, y: number, z: number, s: number): number {
 
 export class CarWreck {
   private readonly original = new Map<Mesh, Float32Array>();
+  /** Normals as built, some set by hand (the flanks), so a repair restores them rather than recomputing. */
+  private readonly originalN = new Map<Mesh, Float32Array>();
   private readonly flying: Flying[] = [];
   private readonly hinged: Hinged[] = [];
   private readonly shards: InstancedMesh[];
@@ -110,10 +114,13 @@ export class CarWreck {
     this.last.copy(root.position);
   }
 
-  /** `dx, dz`: direction from the car's center to the impact, in the car's frame. `strength` 0–1. */
-  hit(dx: number, dz: number, strength: number): void {
+  /**
+   * `dx, dz`: direction from the car's center to the impact, in the car's frame. `strength` 0–1.
+   * Returns where it hit (car frame) and the dent's reach, or undefined if it didn't take.
+   */
+  hit(dx: number, dz: number, strength: number): { at: Vector3; radius: number } | undefined {
     const scene = this.root.parent;
-    if (!scene || this.wrecked) return;
+    if (!scene || this.wrecked) return undefined;
     this.wrecked = true;
     const len = Math.hypot(dx, dz) || 1;
     dx /= len;
@@ -121,9 +128,11 @@ export class CarWreck {
     const { hw, hl, top } = this.size;
     const t = Math.min(hw / Math.max(Math.abs(dx), 1e-3), hl / Math.max(Math.abs(dz), 1e-3));
     const p = new Vector3(dx * t, 0.6, dz * t);
-    // Dents and "near the hit" grow with the body past van size, so a bus doesn't take a car's dent.
+    // Dents and "near the hit" grow with the body past van size, so a bus doesn't take a car's dent;
+    // deeper too, or on ten meters of bus a car-deep dent barely shows.
     const big = Math.max(1, hl / 2.5);
-    this.crumple(p, dx, dz, 0.2 + 0.35 * strength, (1.0 + 0.6 * strength) * big, 1);
+    const radius = (1.0 + 0.6 * strength) * big;
+    this.crumple(p, dx, dz, (0.2 + 0.35 * strength) * (1 + 0.6 * (big - 1)), radius, 1);
     // A second, lighter dent on the roof or a flank: the tumble.
     const r = Math.random;
     this.crumple(new Vector3((r() - 0.5) * hw, top, (r() - 0.5) * hl), 0, 0, 0.12 * strength, 0.9 * big, 2);
@@ -167,12 +176,16 @@ export class CarWreck {
     }
     for (const s of this.shards) scene.add(s);
     this.shardsLive = true;
+    return { at: p, radius };
   }
 
   private crumple(p: Vector3, dx: number, dz: number, depth: number, radius: number, seed: number): void {
     for (const { mesh, offset } of this.deform) {
       const pos = mesh.geometry.attributes.position as BufferAttribute;
-      if (!this.original.has(mesh)) this.original.set(mesh, (pos.array as Float32Array).slice());
+      if (!this.original.has(mesh)) {
+        this.original.set(mesh, (pos.array as Float32Array).slice());
+        this.originalN.set(mesh, (mesh.geometry.attributes.normal.array as Float32Array).slice());
+      }
       const a = pos.array as Float32Array;
       for (let i = 0; i < a.length; i += 3) {
         const x = a[i] + offset.x;
@@ -246,7 +259,8 @@ export class CarWreck {
     for (const [mesh, a] of this.original) {
       (mesh.geometry.attributes.position.array as Float32Array).set(a);
       mesh.geometry.attributes.position.needsUpdate = true;
-      mesh.geometry.computeVertexNormals();
+      (mesh.geometry.attributes.normal.array as Float32Array).set(this.originalN.get(mesh)!);
+      mesh.geometry.attributes.normal.needsUpdate = true;
     }
     this.glass.material = this.glassMat;
     for (const f of this.flying) {

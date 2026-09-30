@@ -24,6 +24,9 @@ export interface Known {
   paints: number;
 }
 
+/** The most laps a race can have (the menu offers 1 to this; a link asking for more gets this). */
+const MAX_LAPS = 5;
+
 /**
  * The race the URL asks for, or null for the menu (no mode). Anything missing or out of range
  * falls back to a default, so a hand-edited or stale link still starts a race.
@@ -45,7 +48,7 @@ export function readSetup(q: URLSearchParams, defaultMap: string, known?: Known)
     paint: int('paint', 0, 0, Math.max(0, (known?.paints ?? 1e9) - 1)),
     opponents: int('opponents', 7, 0, 7),
     difficulty: int('difficulty', 1, 0, 2) as 0 | 1 | 2,
-    laps: int('laps', 3, 1, 9),
+    laps: int('laps', 3, 1, MAX_LAPS),
     weather: oneOf('weather', ['clear', 'rain', 'random'] as const, 'random'),
     mayhem: oneOf('mayhem', ['off', 'normal', 'chaos'] as const, 'normal'),
     traffic: q.get('traffic') !== '0',
@@ -84,7 +87,7 @@ export function showSetup(maps: MapDef[], layouts: string[], classes: CarClass[]
       <label>Paint ${sel('sPaint', paints.map((p, k) => [String(k), `${p.name} · ${p.finish}`]), String(current.paint ?? 0))}</label>
       <label>Rivals ${sel('sOpp', Array.from({ length: 8 }, (_, k) => [String(k), k === 0 ? 'none (time trial)' : String(k)]), String(current.opponents ?? 7))}</label>
       <label>AI ${sel('sDiff', [['0', 'easy'], ['1', 'normal'], ['2', 'hard']], String(current.difficulty ?? 1))}</label>
-      <label>Laps ${sel('sLaps', ['1', '2', '3', '4', '5'].map((v) => [v, v]), String(current.laps ?? 3))}</label>
+      <label>Laps ${sel('sLaps', Array.from({ length: MAX_LAPS }, (_, k) => [String(k + 1), String(k + 1)] as [string, string]), String(current.laps ?? 3))}</label>
       <label>Weather ${sel('sWeather', [['random', 'random'], ['clear', 'clear'], ['rain', 'rain']], current.weather ?? 'random')}</label>
       <label>Mayhem ${sel('sMayhem', [['normal', 'normal'], ['chaos', 'chaos'], ['off', 'off']], current.mayhem ?? 'normal')}</label>
       <label>Traffic ${sel('sTraffic', [['1', 'on'], ['0', 'off']], current.traffic === false ? '0' : '1')}</label>

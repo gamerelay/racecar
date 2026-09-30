@@ -4,7 +4,7 @@
 
 import { driveFollow, type FollowDriver } from './ai/follow';
 import { driveRacer, type RacerDriver } from './ai/racer';
-import { endDrift, stepCar } from './car/physics';
+import { stepCar } from './car/physics';
 import { createCarPool, restoreCars, snapshotCars, type CarPool } from './car/pool';
 import { TUNING } from './car/tuning';
 import { collideCars } from './collide/cars';
@@ -12,8 +12,8 @@ import { SpatialGrid } from './collide/grid';
 import { collideWalls } from './collide/walls';
 import { collideWorld, hazardsWreckTraffic, type WorldCtx } from './collide/world';
 import type { CarClass, SurfaceDef } from './content';
-import { neutralControls, type Controls } from './controls';
-import { Ev, EventQueue } from './events';
+import { neutralControls, quantizeControls, type Controls } from './controls';
+import { Cause, Ev, EventQueue } from './events';
 import { damp } from './math';
 import { Rng, hash01 } from './rng';
 import { updateProgress } from './rules/progress';
@@ -229,7 +229,7 @@ export class Sim implements SimState {
     c.drift[i] = 0;
     c.spinT[i] = 0;
     // Nothing transient carries over a teleport: drift recovery, mini-turbo, stall, streaks.
-    c.driftExit[i] = c.driftBank[i] = c.driftChain[i] = c.chainT[i] = 0;
+    c.driftExit[i] = c.driftBank[i] = c.driftChain[i] = c.chainT[i] = c.chainPts[i] = 0;
     c.miniT[i] = c.stallT[i] = c.boosting[i] = c.oncomingT[i] = c.wreckT[i] = 0;
     c.aiHold[i] = c.aiBack[i] = 0;
     c.lastTakenBy[i] = 0;
@@ -238,7 +238,7 @@ export class Sim implements SimState {
     c.pitch[i] = c.roll[i] = c.ppitch[i] = c.proll[i] = 0;
     c.miniStage[i] = 0;
     c.lastHitBy[i] = c.lastHitT[i] = 0;
-    c.rx[i] = c.rz[i] = 0;
+    c.rx[i] = c.rz[i] = c.prx[i] = c.prz[i] = c.slip[i] = 0;
     c.spline[i] = spline;
     c.s[i] = at.s;
     c.lateral[i] = lateral;
@@ -314,7 +314,8 @@ export class Sim implements SimState {
     // Single-player slow-mo: a human's fresh wreck slows the world.
     if (this.slowmo === 'world') {
       let slow = false;
-      for (let i = 0; i < cars.count; i++) if (cars.human[i] && cars.wreck[i] && cars.wreckT[i] < TUNING.wreckSlowTime * TUNING.wreckSlowScale) slow = true;
+      // (Not a reset: that's asked for, and there's nothing to watch.)
+      for (let i = 0; i < cars.count; i++) if (cars.human[i] && cars.wreck[i] && cars.wreckCause[i] !== Cause.Reset && cars.wreckT[i] < TUNING.wreckSlowTime * TUNING.wreckSlowScale) slow = true;
       const target = slow ? TUNING.wreckSlowScale : 1;
       this.timeScale += (target - this.timeScale) * damp(slow ? 30 : 6, this.dt);
     }
@@ -334,7 +335,9 @@ export class Sim implements SimState {
       }
       return c;
     }
-    return input[i] ?? this.controls[i];
+    // A person's input, at the precision it's recorded at (see quantizeControls).
+    const human = input[i];
+    return human ? quantizeControls(human, this.controls[i]) : this.controls[i];
   }
 
   /** Green light: start boosts and stalls, lap timers start. */
@@ -357,8 +360,6 @@ export class Sim implements SimState {
         this.events.push(this.tick, Ev.StartBoost, i, cars.x[i], cars.y[i], cars.z[i], lead, 0);
       }
       cars.startPress[i] = -1;
-      cars.driftBank[i] = 0;
-      endDrift(this, i, 0);
     }
   }
 

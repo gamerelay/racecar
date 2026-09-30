@@ -45,7 +45,7 @@ export const FADE = 45;
 export const FADE_BACK = 1;
 /** Seconds a wrecked traffic car stays gone. */
 export const TRAFFIC_RESPAWN = 12;
-/** No traffic within this much of the start line for the first seconds of a race. */
+/** No traffic within this much of the start line for the first `seconds` of sim time (the countdown and just after green). */
 export const GRID_CLEAR = { behind: 160, ahead: 60, seconds: 10 };
 const POOL = 128;
 
@@ -154,7 +154,9 @@ export class Traffic {
     if (lane.sections && !laneActive(lane, s)) {
       // Road still to go to the next section's start, or already gone past the last one's end.
       let best = 0;
-      for (const [a, b] of lane.sections) {
+      for (let q = 0; q < lane.sections.length; q++) {
+        const a = lane.sections[q][0];
+        const b = lane.sections[q][1];
         const entry = lane.dir > 0 ? a : b;
         const exit = lane.dir > 0 ? b : a;
         best = Math.max(best, 1 - wrap((entry - s) * lane.dir, L) / FADE, 1 - wrap((s - exit) * lane.dir, L) / FADE);

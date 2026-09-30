@@ -2,13 +2,14 @@
 // camera sees. Coordinates are meters in the car's frame: +z is the nose, y is up from the road.
 // Each class should read at a glance from behind: the coupe's light bar and wing, the muscle car's
 // quad pipes and round tails, the hatch's tall glass and vertical lamps, the van's slab back.
-// The last three aren't player classes yet: the sedan and the bus are traffic, the rally car is
-// here for when the sim grows a class for it (SPEC, "Car art").
+// The rest aren't player classes: the sedan, compact, truck and bus are traffic, and the rally car
+// and the police car are here for when the sim grows a class (or a pursuit mode) for them (SPEC,
+// "Car art").
 
 import type { Livery } from './paint';
 
-export type TailStyle = 'bar' | 'round' | 'vertical' | 'block' | 'rect';
-export type HeadStyle = 'slit' | 'round' | 'square' | 'wide';
+export type TailStyle = 'bar' | 'round' | 'vertical' | 'block' | 'rect' | 'dot';
+export type HeadStyle = 'slit' | 'round' | 'square' | 'wide' | 'bug';
 export type ExhaustStyle = 'twin' | 'quad' | 'side' | 'none';
 
 export interface CarDesign {
@@ -64,6 +65,15 @@ export interface CarDesign {
   mudFlaps?: boolean;
   roofScoop?: boolean;
   lightPod?: boolean;
+  /** A box truck's cargo box, its own extrusion behind the cab: z front to back, y floor to roof. */
+  cargo?: { z0: number; z1: number; y0: number; y1: number };
+  /** Twin tyres on the rear axle. */
+  dualRear?: boolean;
+  /** A big slatted grille between the lamps, over a heavy bumper: bottom y and height. */
+  grille?: { y: number; h: number };
+  /** Police kit: a flashing bar of lamps on the roof and a push bar on the nose. */
+  lightBar?: boolean;
+  pushBar?: boolean;
 }
 
 /** Bus side glass: panes of `pane` meters with `gap`-wide painted pillars between, from z0 back to z1. */
@@ -74,6 +84,41 @@ function panes(z0: number, z1: number, n: number, y0: number, y1: number, gap = 
     return [a - pane, a, y0, y1] as [number, number, number, number];
   });
 }
+
+// Sedan: the forgettable one you smash into. Three boxes, upright glass, a proper trunk step,
+// plain rectangular lamps, four doors. Out here so the police car can borrow its shell.
+const sedan: CarDesign = {
+  body: [
+    [2.25, 0.32],
+    [2.27, 0.6],
+    [2.17, 0.74],
+    [1.1, 0.86],
+    [-1.4, 0.9],
+    [-2.13, 0.93],
+    [-2.25, 0.87],
+    [-2.25, 0.32],
+  ],
+  sill: 0.33,
+  cabin: [
+    [1.12, 0.84],
+    [0.35, 1.4],
+    [-0.85, 1.42],
+    [-1.42, 0.94],
+    [-1.42, 0.86],
+  ],
+  cabinBase: 0.87,
+  cabinRoof: 0.72,
+  // Gentle: more pinch than this creases the long flat flank in the ink pass.
+  noseTaper: 0.03,
+  tailTaper: 0.02,
+  wheel: { r: 0.33, w: 0.25, front: 1.42, rear: -1.4 },
+  head: { style: 'square', y: 0.64 },
+  tail: { style: 'rect', y: 0.76, h: 0.14 },
+  exhaust: 'side',
+  pillar: -0.25,
+  doors: [1.05, -0.2, -1.3],
+  livery: 'none',
+};
 
 export const DESIGNS: Record<string, CarDesign> = {
   // Vanta: a low wedge with a fastback, a full-width light bar and a proper wing.
@@ -190,13 +235,14 @@ export const DESIGNS: Record<string, CarDesign> = {
     ],
     sill: 0.36,
     cabin: [
-      [1.62, 1.1],
+      [1.62, 1.16],
       [1.02, 2.0],
       [-2.36, 2.02],
-      [-2.38, 1.1],
+      [-2.38, 1.16],
     ],
-    cabinBase: 0.98,
-    cabinRoof: 0.9,
+    // Painted cabins stand on the body's top edge at full width, so the flanks meet flush.
+    cabinBase: 1,
+    cabinRoof: 0.92,
     cabinPainted: true,
     noseTaper: 0.1,
     tailTaper: 0.02,
@@ -215,38 +261,7 @@ export const DESIGNS: Record<string, CarDesign> = {
   },
   // Sedan: the forgettable one you smash into. Three boxes, upright glass, a proper trunk step,
   // plain rectangular lamps, four doors.
-  sedan: {
-    body: [
-      [2.25, 0.32],
-      [2.27, 0.6],
-      [2.17, 0.74],
-      [1.1, 0.86],
-      [-1.4, 0.9],
-      [-2.13, 0.93],
-      [-2.25, 0.87],
-      [-2.25, 0.32],
-    ],
-    sill: 0.33,
-    cabin: [
-      [1.12, 0.84],
-      [0.35, 1.4],
-      [-0.85, 1.42],
-      [-1.42, 0.94],
-      [-1.42, 0.86],
-    ],
-    cabinBase: 0.87,
-    cabinRoof: 0.72,
-    // Gentle: more pinch than this creases the long flat flank in the ink pass.
-    noseTaper: 0.03,
-    tailTaper: 0.02,
-    wheel: { r: 0.33, w: 0.25, front: 1.42, rear: -1.4 },
-    head: { style: 'square', y: 0.64 },
-    tail: { style: 'rect', y: 0.76, h: 0.14 },
-    exhaust: 'side',
-    pillar: -0.25,
-    doors: [1.05, -0.2, -1.3],
-    livery: 'none',
-  },
+  sedan,
   // City bus: a long painted box with a strip of glass down each side, a flat screen under a lit
   // destination sign, small wheels set in from the ends, glass doors on the curb side, an AC unit.
   bus: {
@@ -260,15 +275,15 @@ export const DESIGNS: Record<string, CarDesign> = {
     ],
     sill: 0.45,
     cabin: [
-      [5.17, 1.22],
+      [5.17, 1.28],
       [5.08, 2.86],
       [4.96, 3.0],
       [-5.08, 3.0],
       [-5.17, 2.9],
-      [-5.17, 1.22],
+      [-5.17, 1.28],
     ],
-    cabinBase: 0.99,
-    cabinRoof: 0.95,
+    cabinBase: 1,
+    cabinRoof: 0.96,
     cabinPainted: true,
     // Square in plan: any pinch creases ten meters of flat flank.
     noseTaper: 0,
@@ -326,5 +341,93 @@ export const DESIGNS: Record<string, CarDesign> = {
     roofScoop: true,
     lightPod: true,
     livery: 'rally',
+  },
+  // Compact: the city car you punt across an intersection. A short rounded nose, a tall bubble of
+  // glass with a domed roof, little wheels pushed out to the corners, big round friendly lamps.
+  compact: {
+    body: [
+      [1.82, 0.3],
+      [1.86, 0.5],
+      [1.83, 0.62],
+      [1.73, 0.73],
+      [1.5, 0.82],
+      [1.08, 0.87],
+      [-1.62, 0.93],
+      [-1.77, 0.91],
+      [-1.84, 0.84],
+      [-1.84, 0.3],
+    ],
+    sill: 0.3,
+    cabin: [
+      [1.1, 0.85],
+      [0.55, 1.34],
+      [0.3, 1.48],
+      [0.02, 1.55],
+      [-1.2, 1.57],
+      [-1.45, 1.53],
+      [-1.64, 1.38],
+      [-1.78, 1.02],
+      [-1.78, 0.9],
+    ],
+    cabinBase: 0.9,
+    cabinRoof: 0.74,
+    noseTaper: 0.14,
+    tailTaper: 0.07,
+    wheel: { r: 0.29, w: 0.24, front: 1.22, rear: -1.2 },
+    head: { style: 'bug', y: 0.6 },
+    tail: { style: 'dot', y: 0.76, h: 0.2 },
+    exhaust: 'side',
+    pillar: -0.4,
+    doors: [1.0, -0.5],
+    livery: 'none',
+  },
+  // Box truck: a flat-fronted cab with a big grille, a gap, then a tall box on the frame with a
+  // band down it, twin tyres at the back. The box is its own extrusion (`cargo`).
+  truck: {
+    body: [
+      [3.8, 0.55],
+      [3.82, 1.28],
+      [3.72, 1.42],
+      [1.95, 1.42],
+      [1.95, 1.1],
+      [-3.8, 1.1],
+      [-3.8, 0.55],
+    ],
+    sill: 0.58,
+    cabin: [
+      [3.7, 1.42],
+      [3.5, 2.56],
+      [3.36, 2.64],
+      [1.99, 2.64],
+      [1.99, 1.42],
+    ],
+    cabinBase: 1,
+    cabinRoof: 0.96,
+    cabinPainted: true,
+    // Square in plan, like the bus: a pinch creases the long flat sides.
+    noseTaper: 0,
+    tailTaper: 0,
+    wheel: { r: 0.5, w: 0.3, front: 2.85, rear: -2.35 },
+    head: { style: 'square', y: 1.08 },
+    tail: { style: 'block', y: 0.82, h: 0.4 },
+    exhaust: 'none',
+    doors: [3.35, 2.1],
+    livery: 'band',
+    band: [1.28, 1.6],
+    sideWindows: [[2.2, 3.3, 1.72, 2.36]],
+    lids: false,
+    mirrors: 'bus',
+    cargo: { z0: 1.78, z1: -3.8, y0: 1.1, y1: 3.0 },
+    dualRear: true,
+    grille: { y: 0.66, h: 0.56 },
+  },
+  // Police: the sedan's shell on bigger wheels, a black-and-white livery, a light bar and a push bar.
+  police: {
+    ...sedan,
+    wheel: { r: 0.35, w: 0.28, front: 1.42, rear: -1.4 },
+    exhaust: 'twin',
+    livery: 'police',
+    lightBar: true,
+    pushBar: true,
   },
 };

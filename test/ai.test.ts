@@ -1,6 +1,4 @@
 import { describe, expect, test } from 'bun:test';
-import { readFileSync } from 'node:fs';
-import { join } from 'node:path';
 import type { TrackLayout } from '../src/core/content';
 import { neutralControls } from '../src/core/controls';
 import { Ev } from '../src/core/events';
@@ -8,16 +6,12 @@ import { Sim } from '../src/core/sim';
 import { bakeTrack, forRange, mainDistance } from '../src/core/track/bake';
 import { validateLayout } from '../src/core/track/validate';
 import { Traffic } from '../src/core/world/traffic';
-import { lapReport } from '../tools/lap-report';
-import { CLASSES, DOWNTOWN, SURFACES } from './helpers';
+import { lapReport } from '../tools/lap';
+import { CLASSES, DOWNTOWN, SURFACES, layout } from './helpers';
 
 // The AI and the track at their edges: getting unstuck, triggers on the right road, ranges through
 // the line, and the validator catching layouts that would silently misbehave.
 
-const layout = (key: string): TrackLayout => {
-  const [map, name] = key.split('/');
-  return JSON.parse(readFileSync(join(import.meta.dir, '..', 'content', 'maps', map, `${name}.track.json`), 'utf8')) as TrackLayout;
-};
 const strip: TrackLayout = { id: 'strip', name: 'Strip', main: { points: [0, 1, 2, 3].map((k) => ({ p: [0, 0, k * 300] as [number, number, number], width: 30 })) } };
 
 describe('getting unstuck', () => {

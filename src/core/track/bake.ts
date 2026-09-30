@@ -3,6 +3,7 @@
 // branches mapped onto the main spline's distance, checkpoints, zones, ramps and render chunks.
 
 import type { BranchDef, SurfaceDef, TrackLayout, TrackPoint, Vec3, ZoneDef } from '../content';
+import { smoothstep } from '../math';
 import { sampleDense, type DenseSample } from './spline';
 
 /** Samples per meter of arc length. */
@@ -141,7 +142,9 @@ export function bakeTrack(layout: TrackLayout, surfaces: SurfaceDef[]): Track {
   let checkpoints: number[];
   // A checkpoint on the line itself would be taken just after the lap counts, halving the laps:
   // the line is the lap, so drop any within 20 m of it.
-  if (Array.isArray(layout.checkpoints)) checkpoints = layout.checkpoints.map((c) => (c >= 0 && c < L ? c : wrap(c, L))).filter((c) => c > 20 && c < L - 20).sort((a, b) => a - b);
+  const listed = Array.isArray(layout.checkpoints) ? layout.checkpoints.map((c) => (c >= 0 && c < L ? c : wrap(c, L))).filter((c) => c > 20 && c < L - 20).sort((a, b) => a - b) : [];
+  // None listed (or none left): auto. Progress needs at least one, or it's a lap out half the lap.
+  if (listed.length) checkpoints = listed;
   else {
     // Every 1/8 of the lap, stepped past any shortcut's span so no branch can skip one.
     checkpoints = Array.from({ length: 7 }, (_, k) => {
@@ -341,20 +344,19 @@ function nearestSample(main: BakedSpline, x: number, z: number, hint: number): n
   return best;
 }
 
-const smoothstep = (e0: number, e1: number, x: number): number => {
-  const t = Math.max(0, Math.min(1, (x - e0) / (e1 - e0)));
-  return t * t * (3 - 2 * t);
-};
-
 function mainPoint(main: BakedSpline, s: number): TrackPoint {
   const i = sampleIndex(main, s);
   return { p: [main.px[i], main.py[i], main.pz[i]], width: main.width[i], bank: main.bank[i], shoulder: main.shoulder[i], lanes: main.lanes[i] };
 }
 
-/** Which side of `main` (at main distance `mainS`) the branch sample at `branchS` lies on. */
+/**
+ * Which side of `main` the branch sample at `branchS` lies on, measured at the main-road point
+ * beside it (searched from `mainS`): the tangent where the branch forks can point the wrong way
+ * by the time the branch is 30 m along, if the main road curves.
+ */
 function sideOf(main: BakedSpline, branch: BakedSpline, branchS: number, mainS: number): -1 | 1 {
-  const i = sampleIndex(main, mainS);
   const j = sampleIndex(branch, branchS);
+  const i = nearestSample(main, branch.px[j], branch.pz[j], mainS);
   const lat = (branch.px[j] - main.px[i]) * -main.tz[i] + (branch.pz[j] - main.pz[i]) * main.tx[i];
   return lat < 0 ? -1 : 1;
 }

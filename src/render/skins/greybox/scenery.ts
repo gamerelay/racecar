@@ -2,7 +2,7 @@
 // sprites, and points animated entirely in the shader (blinking lights, steam and smoke, fireflies,
 // embers, birds), so scenery that moves costs no CPU per frame.
 
-import { AdditiveBlending, BoxGeometry, BufferGeometry, CanvasTexture, Color, Float32BufferAttribute, InstancedMesh, Matrix4, Points, Quaternion, ShaderMaterial, Vector3, type Material } from 'three';
+import { AdditiveBlending, BoxGeometry, NormalBlending, BufferGeometry, CanvasTexture, Color, Float32BufferAttribute, InstancedMesh, Matrix4, Points, Quaternion, ShaderMaterial, Vector3, type Material } from 'three';
 import { glow } from './toon';
 
 const up = new Vector3(0, 1, 0);
@@ -82,7 +82,7 @@ export function animatedPoints(pos: number[], phase: number[], colors: number[],
     uniforms: { uTime: time, uSize: { value: size }, map: { value: glow() } },
     transparent: true,
     depthWrite: false,
-    blending: mode === 'blink' || mode === 'firefly' || mode === 'ember' ? AdditiveBlending : undefined,
+    blending: mode === 'blink' || mode === 'firefly' || mode === 'ember' ? AdditiveBlending : NormalBlending,
     vertexShader: `attribute float phase;attribute vec3 color;uniform float uTime,uSize;varying vec3 vColor;varying float vA;
       void main(){
         vec3 p=position;float a=1.0;float s=uSize;

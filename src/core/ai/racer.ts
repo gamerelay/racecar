@@ -147,8 +147,9 @@ export function driveRacer(sim: SimState, i: number, d: RacerDriver, out: Contro
   }
   const lineTarget = target;
   // Holding a line round something: keep it until the hold runs out.
+  // (World time, like the physics: slow-mo slows these too.)
   if (c.aiHold[i] > 0) {
-    c.aiHold[i] -= sim.dt;
+    c.aiHold[i] -= sim.dt * sim.timeScale;
     target = c.aiLat[i];
   }
   target = avoid(sim, i, sp, s, target, speed, skill, lineTarget);
@@ -194,10 +195,11 @@ export function driveRacer(sim: SimState, i: number, d: RacerDriver, out: Contro
   out.boost = skill.boost && straight && c.boost[i] > 0.25 && c.wreck[i] === 0 && Math.abs(out.steer) < 0.3;
 
   // Pinned against something: back off for a moment, steering the other way, then try again.
-  if (c.aiBack[i] < 0) c.aiBack[i] = Math.min(0, c.aiBack[i] + sim.dt);
-  if (c.aiBack[i] === 0 && c.stuckT[i] > 0.6) c.aiBack[i] = 1.1;
+  // (Not while wrecked: stuckT is frozen then, and a respawn clears it.)
+  if (c.aiBack[i] < 0) c.aiBack[i] = Math.min(0, c.aiBack[i] + sim.dt * sim.timeScale);
+  if (c.aiBack[i] === 0 && c.stuckT[i] > 0.6 && !c.wreck[i]) c.aiBack[i] = 1.1;
   if (c.aiBack[i] > 0) {
-    c.aiBack[i] -= sim.dt;
+    c.aiBack[i] -= sim.dt * sim.timeScale;
     if (c.aiBack[i] <= 0) c.aiBack[i] = -4;
     out.throttle = 0;
     out.brake = 1;

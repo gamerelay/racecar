@@ -38,10 +38,25 @@ export function copyControls(from: Controls, to: Controls): Controls {
   return to;
 }
 
+/** The precision analog controls are stepped and recorded at (a thousandth). */
+const quantize = (v: number): number => Math.round(v * 1000) / 1000;
+
+/**
+ * `from` at the precision reports record, into `to`. The sim steps human input through this, so
+ * a replay (or a peer, online) steps on exactly what the player's sim did.
+ */
+export function quantizeControls(from: Controls, to: Controls): Controls {
+  copyControls(from, to);
+  to.steer = quantize(from.steer);
+  to.throttle = quantize(from.throttle);
+  to.brake = quantize(from.brake);
+  return to;
+}
+
 /** Packs controls into a small array for reports: [steer, throttle, brake, bits]. */
 export function packControls(c: Controls): [number, number, number, number] {
   const bits = (c.boost ? 1 : 0) | (c.drift ? 2 : 0) | (c.reset ? 4 : 0) | (c.lookBack ? 8 : 0) | (c.horn ? 16 : 0);
-  return [Math.round(c.steer * 1000) / 1000, Math.round(c.throttle * 1000) / 1000, Math.round(c.brake * 1000) / 1000, bits];
+  return [quantize(c.steer), quantize(c.throttle), quantize(c.brake), bits];
 }
 
 export function unpackControls(p: readonly number[], out: Controls): Controls {

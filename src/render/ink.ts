@@ -25,7 +25,7 @@ import {
 
 export const INK_LAYER = 2;
 /** Part ids, 1–254; 0 is "nothing here". Anything with a different id from its neighbour gets a line. */
-export const INK = { paint: 1, trim: 2, metal: 3, glass: 4, lens: 5, head: 6, tail: 7, plate: 8, hood: 9, trunk: 10, lip: 11, mirror: 12, wheel: 13, rim: 14, debris: 15, sign: 16 } as const;
+export const INK = { paint: 1, trim: 2, metal: 3, glass: 4, lens: 5, head: 6, tail: 7, plate: 8, hood: 9, trunk: 10, lip: 11, mirror: 12, wheel: 13, rim: 14, debris: 15, sign: 16, beacon: 17 } as const;
 export const SEAM = 255;
 /** This frame's near marked meshes: what the pass actually draws. */
 const PASS_LAYER = 3;
@@ -97,8 +97,10 @@ export class InkPass {
     list.length = 0;
     for (const m of marked) {
       const e = m.matrixWorld.elements;
-      // Instanced debris sits at the world origin; its instances are wherever the wreck was.
-      if ((m as { isInstancedMesh?: boolean }).isInstancedMesh || (e[12] - cam.x) ** 2 + (e[13] - cam.y) ** 2 + (e[14] - cam.z) ** 2 < FAR * FAR) list.push(m);
+      // An instanced mesh (traffic, debris) sits at the world origin with its instances anywhere:
+      // its owner says whether any are near (userData.inkNear), else it's inked.
+      const near = (m as { isInstancedMesh?: boolean }).isInstancedMesh ? m.userData.inkNear !== false : (e[12] - cam.x) ** 2 + (e[13] - cam.y) ** 2 + (e[14] - cam.z) ** 2 < FAR * FAR;
+      if (near) list.push(m);
     }
     this.saved.length = 0;
     for (const m of list) {

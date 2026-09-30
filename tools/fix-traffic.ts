@@ -7,6 +7,10 @@ import { straightenSections } from '../src/core/track/validate';
 import surfaces from '../content/surfaces.json';
 
 const file = process.argv[2];
+if (!file?.endsWith('.track.json')) {
+  console.log('usage: bun tools/fix-traffic.ts content/maps/<map>/<layout>.track.json');
+  process.exit(1);
+}
 const layout = JSON.parse(readFileSync(file, 'utf8'));
 const before = JSON.stringify(layout.traffic?.lanes?.map((l: { sections?: unknown }) => l.sections));
 straightenSections(layout, surfaces);

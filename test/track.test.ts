@@ -1,19 +1,13 @@
 import { describe, expect, test } from 'bun:test';
-import { readFileSync } from 'node:fs';
-import { join } from 'node:path';
 import type { TrackLayout } from '../src/core/content';
 import { bakeTrack, wrap, type BakedSpline } from '../src/core/track/bake';
 import { newHit, projectGlobal } from '../src/core/track/query';
 import { validateLayout } from '../src/core/track/validate';
-import { CLASSES, SURFACES } from './helpers';
+import { CLASSES, SURFACES, layout } from './helpers';
 
 // Shortcut junctions (they used to meet the main road up to 1.7 m off its surface, with a curb
 // across the mouth) and the Valley's v3 shape (sweepers to drift, a wider road, banked corners).
 
-const layout = (key: string): TrackLayout => {
-  const [map, name] = key.split('/');
-  return JSON.parse(readFileSync(join(import.meta.dir, '..', 'content', 'maps', map, `${name}.track.json`), 'utf8')) as TrackLayout;
-};
 const MAPS = ['city/downtown', 'countryside/valley'];
 
 /** Heading change (radians) over ±`half` samples at i: positive turns left. */
@@ -38,6 +32,15 @@ describe('shortcut junctions', () => {
           worst = Math.max(worst, Math.abs(sp.py[i] - hit.ground));
         }
         expect(worst).toBeLessThan(0.08);
+      }
+    });
+
+    test(`${key}: where the verge opens for a shortcut, the wall is open too (on that side)`, () => {
+      // The side came from the main road's heading where the branch forks, measured 30 m on: on a
+      // curve it picked the wrong side (the Barn's mouths had the far wall open, the near one up).
+      for (let i = 0; i < main.n; i++) {
+        if (main.openL[i]) expect(main.wallL[i]).toBe(0);
+        if (main.openR[i]) expect(main.wallR[i]).toBe(0);
       }
     });
 
