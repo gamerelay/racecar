@@ -4,8 +4,9 @@ Where racecar stands and what's next, for whoever picks it up (a person or a fre
 The design is [SPEC.md](./SPEC.md): decisions in §17, and what building changed in "Changed while
 building". This file is "where are we"; the spec is "what are we making".
 
-**Last updated:** 2026-09-30. `main` is tagged **`alpha-1.2`**: milestone 2 (PR #2, tagged
-`alpha-1.0`), Countryside v2 (PR #4, `alpha-1.1`), and seven cars plus polish (PR #6).
+**Last updated:** 2026-09-30. `main` is tagged **`alpha-1.3`**: milestone 2 (PR #2, tagged
+`alpha-1.0`), Countryside v2 (PR #4, `alpha-1.1`), seven cars plus polish (PR #6, `alpha-1.2`),
+and traffic that fades instead of popping (PR #7).
 
 ## Resume in five minutes
 
@@ -14,13 +15,17 @@ building". This file is "where are we"; the spec is "what are we making".
 3. Check the open platform PR: in `~/dev/gamerelay.io`, `gh pr view 30` (the host controls
    racecar's lobby needs).
 4. Before changing anything: `bun test && bun run typecheck && bun tools/validate.ts`. All three
-   are green on `main` at `alpha-1.2`. Branch off `main` for milestone 3.
+   are green on `main` at `alpha-1.3`. Branch off `main` for milestone 3.
 
 ## Where things stand
 
 - **Repo:** `gamerelay/racecar`, private until milestone 3, cloned at `~/dev/racecar`. The default
   branch is `main`.
 - **Milestone 1 (greybox sandbox): merged** (PR #1).
+- **Traffic fades instead of popping: merged** (PR #7) and tagged `alpha-1.3`: visibility is part
+  of the traffic formula (45 m fades at lane sections and the grid, 1 s back after a wreck), the
+  renderer draws fading cars see-through, and `test/traffic.test.ts` holds it (0 pops measured).
+  Follow-up: AI resets near the Valley's finish (lap-report seeds 2 and 4), same on `alpha-1.2`.
 - **Seven cars and polish: merged** (PR #6) and tagged `alpha-1.2`:
   - sedan (Cruiser), rally (Mudlark) and bus (Route 88) join as player and AI classes; race
     traffic is drawn from the racer designs (sedan, van, bus, the compact as the hatch);

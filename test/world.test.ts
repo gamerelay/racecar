@@ -32,9 +32,45 @@ describe('traffic', () => {
       }
     }
   });
+  test('nothing pops: visibility changes no faster than a fade, and only solid cars are posed', () => {
+    const tr = new Traffic(track, 1);
+    const dt = 1 / 60;
+    // The fastest a fade can go: a lane's speed over FADE meters, or FADE_BACK's one second.
+    // Against a fixed 30 m / 0.5 s floor, so shrinking FADE can't pass by moving the bar.
+    const maxStep = Math.max(...tr.lanes.map((l) => (l.speed * dt) / 30), dt / 0.5);
+    let fading = 0;
+    for (let k = 0; k < tr.count; k++) {
+      let prev = tr.visibility(k, 0);
+      for (let t = dt; t < 90; t += dt) {
+        const v = tr.visibility(k, t);
+        expect(Math.abs(v - prev)).toBeLessThanOrEqual(maxStep);
+        if (v > 0 && v < 1) fading++;
+        prev = v;
+      }
+    }
+    expect(fading).toBeGreaterThan(0);
+    // A wreck vanishes at once (the renderer tumbles a copy) and fades back in.
+    const w = [...Array(tr.count).keys()].find((j) => tr.visibility(j, 32.5) === 1 && tr.visibility(j, 33.5) === 1)!;
+    tr.wreckedAt[w] = 20;
+    expect(tr.visibility(w, 25)).toBe(0);
+    expect(tr.visibility(w, 32.5)).toBeGreaterThan(0);
+    expect(tr.visibility(w, 32.5)).toBeLessThan(1);
+    expect(tr.visibility(w, 33.5)).toBe(1);
+    tr.wreckedAt[w] = -1;
+    tr.update(60, new Float64Array([100, 1500]), new Float64Array([1e6, 1e6]), new Float64Array([1e6, 1e6]), 2);
+    for (let p = 0; p < tr.posed; p++) expect(tr.visibility(tr.idx[p], 60)).toBe(1);
+  });
+  test('a car near in a straight line is posed even when far by road', () => {
+    const tr = new Traffic(track, 1);
+    const k = [...Array(tr.count).keys()].find((j) => tr.present(j, 60))!;
+    const at = tr.poseAt(k, 60, newTrafficPose());
+    // The racer stands next to it but reports a main distance half a lap away.
+    tr.update(60, new Float64Array([(at.s + track.main.length / 2) % track.main.length]), new Float64Array([at.x + 30]), new Float64Array([at.z]), 1);
+    expect(Array.from(tr.idx.subarray(0, tr.posed))).toContain(k);
+  });
   test('poseAt matches the pooled pose, and leaves the pool alone', () => {
     const tr = new Traffic(track, 1);
-    tr.update(60, new Float64Array([100]), 1);
+    tr.update(60, new Float64Array([100]), new Float64Array([1e6]), new Float64Array([1e6]), 1);
     expect(tr.posed).toBeGreaterThan(0);
     const before = Array.from(tr.x.subarray(0, tr.posed));
     const pose = newTrafficPose();
@@ -51,7 +87,8 @@ describe('traffic', () => {
   });
   test('LOD poses only cars near a racer', () => {
     const tr = new Traffic(track, 1);
-    tr.update(60, new Float64Array([100]), 1);
+    // A racer far away in a straight line: only the along-the-road test counts.
+    tr.update(60, new Float64Array([100]), new Float64Array([1e6]), new Float64Array([1e6]), 1);
     const L = track.main.length;
     for (let p = 0; p < tr.posed; p++) {
       const d = Math.abs(((tr.s[p] - 100 + L * 1.5) % L) - L / 2);

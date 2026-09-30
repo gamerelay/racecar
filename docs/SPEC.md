@@ -1024,3 +1024,20 @@ Seven cars (2026-09-30):
   car shrugs off. Rally 0.25, van and bus 0.3 (the van's is why it keeps up on the Valley).
 - **Very long cars lift the chase camera** and look further ahead, so the bus's roof doesn't
   hide the road.
+
+Traffic that doesn't pop (2026-09-30):
+
+- **Traffic fades instead of popping.** Measured first (three AI races a layout, cars within
+  160 m of the leader): the City had 31 pops, 24 at lane-section edges (often 10–20 m away) and
+  7 at the start grid's clear zone; the Valley's were cars near in a straight line but over
+  350 m away by road, so never posed. Now a car's visibility (0–1) is part of the traffic formula
+  (`Traffic.visibility`): it fades in over 45 m of road before its section, out over 45 m after,
+  out of and back into the grid's clear zone, and back over a second after a wreck. Only fully
+  visible cars are solid (collisions, near misses, the AI), so the sections play as before.
+  Measured again: 0 pops.
+- **The renderer draws traffic near the camera, not the sim's pool**: every car within 500 m
+  with any visibility, the fading ones through a see-through copy of each part (`render/fade.ts`:
+  opacity per instance, no depth write). A screen-door dither was tried first: the depth outlines
+  ink every dithered pixel, so a fading car went solid black.
+- **The sim's pool also takes cars within 250 m in a straight line** of a racer, for laps that
+  fold back or cross.

@@ -31,8 +31,9 @@ import { hash01 } from '../../../core/rng';
 import type { Sim } from '../../../core/sim';
 import { sampleAt, newHit } from '../../../core/track/query';
 import { Piece } from '../../../core/world/hazards';
-import { newTrafficPose, TRAFFIC_KINDS } from '../../../core/world/traffic';
+import { TRAFFIC_KINDS, type TrafficPose } from '../../../core/world/traffic';
 import type { WorldVisual } from '../../skin';
+import { FADE_ATTR, fadeAttribute, fadeMaterial } from '../../fade';
 import { markInk } from '../../ink';
 import { LampPoints, lampSpots, trafficModel, trafficModels } from './car/traffic';
 import { disposeTree } from './dispose';
@@ -41,6 +42,8 @@ import { glow, toon } from './toon';
 const TRAFFIC_COLORS = [0xf2f2f2, 0x3a86ff, 0xffbe0b, 0x8338ec, 0x06d6a0, 0xef476f, 0x2a2a3a, 0xff7b00, 0x9bf6ff, 0xc9c1d9];
 const MAX_TRAFFIC = 128;
 const DEBRIS = 24;
+/** Traffic is drawn within this of the camera (fog has it well before). */
+const DRAW = 500;
 const UP = new Vector3(0, 1, 0);
 /** Traffic kinds drawn as a racer design (the compact borrows the hatch); the rest use car/traffic.ts's simple models. */
 const TRAFFIC_DESIGN: Record<string, string> = { sedan: 'sedan', compact: 'hatch', van: 'van', bus: 'bus' };
@@ -78,13 +81,24 @@ export function buildWorldVisual(scene: Scene, sim: Sim, roof?: (x: number, z: n
   // A kind with a racer design is that car, flattened to one instanced mesh per material and ink
   // id; the rest are one simple model. Both have room for the debris too (a wreck tumbles as itself).
   const simple = trafficModels();
+  // Each part is two instanced meshes: the solid cars (inked), and a see-through copy for the ones
+  // fading in or out of their lanes (render/fade.ts). A mesh with nothing in it this frame is hidden.
+  const fading = new Map<Material, Material>();
+  const CAP = MAX_TRAFFIC + DEBRIS;
   const instanced = (geometry: BufferGeometry, material: Material, tint: boolean, ink?: number, inkOnly = false) => {
-    const mesh = new InstancedMesh(geometry, material, MAX_TRAFFIC + DEBRIS);
-    mesh.count = 0;
-    mesh.frustumCulled = false;
-    if (ink !== undefined) markInk(mesh as unknown as Mesh, ink, inkOnly);
-    root.add(mesh);
-    return { mesh, tint };
+    const solid = new InstancedMesh(geometry, material, CAP);
+    if (ink !== undefined) markInk(solid as unknown as Mesh, ink, inkOnly);
+    // Ink-only seams have nothing to fade.
+    const fade = fadeAttribute(CAP);
+    geometry.setAttribute(FADE_ATTR, fade);
+    const ghost = inkOnly ? undefined : new InstancedMesh(geometry, fadeMaterial(material, fading), CAP);
+    for (const m of [solid, ghost]) {
+      if (!m) continue;
+      m.count = 0;
+      m.frustumCulled = false;
+      root.add(m);
+    }
+    return { solid, ghost, tint, fade };
   };
   const bodies = TRAFFIC_KINDS.map((k) => {
     const design = TRAFFIC_DESIGN[k.id];
@@ -92,22 +106,34 @@ export function buildWorldVisual(scene: Scene, sim: Sim, roof?: (x: number, z: n
     const parts = detailed ? detailed.map((p) => instanced(p.geometry, p.material, p.tint, p.ink, p.inkOnly)) : [instanced(simple.geos[k.id], simple.material, true)];
     return { parts, lamps: lampSpots(k.id) };
   });
-  /** Adds one instance of kind `kind` at `mat`. */
-  const put = (kind: number, mat: Matrix4, color: number) => {
+  /** Adds one instance of kind `kind` at `mat`, `fade` of it visible. */
+  const put = (kind: number, mat: Matrix4, color: number, fade = 1) => {
     col.setHex(color);
     for (const p of bodies[kind].parts) {
-      if (p.mesh.count >= MAX_TRAFFIC + DEBRIS) continue;
-      const n = p.mesh.count++;
-      p.mesh.setMatrixAt(n, mat);
-      if (p.tint) p.mesh.setColorAt(n, col);
+      const m = fade >= 1 ? p.solid : p.ghost;
+      if (!m || m.count >= CAP) continue;
+      const n = m.count++;
+      m.setMatrixAt(n, mat);
+      if (p.tint) m.setColorAt(n, col);
+      if (m === p.ghost) p.fade.setX(n, fade);
     }
   };
   const lamps = new LampPoints(MAX_TRAFFIC);
   const lampPoints = new Points(lamps.geo, new PointsMaterial({ map: glow(), size: 1.5, vertexColors: true, transparent: true, blending: AdditiveBlending, depthWrite: false }));
   lampPoints.frustumCulled = false;
   root.add(lampPoints);
-  const pose = newTrafficPose();
   const trafficColor = (k: number) => TRAFFIC_COLORS[Math.floor(hash01(sim.seed, k, 9) * TRAFFIC_COLORS.length)];
+
+  let lit = 0;
+  const drawTraffic = (k: number, v: number, pose: TrafficPose) => {
+    const tr = sim.world.traffic;
+    e.position.set(pose.x, pose.y, pose.z);
+    e.rotation.set(0, pose.h, 0);
+    e.updateMatrix();
+    put(tr.kind[k], e.matrix, trafficColor(k), v);
+    // Lamps are glow sprites that can't fade: they come on once the car is mostly there.
+    if (v > 0.6 && lit < MAX_TRAFFIC) lamps.write(lit++, e.matrix, bodies[tr.kind[k]].lamps);
+  };
 
   // ---- debris: wrecked traffic, tumbling for a few seconds ----
   const debris: Debris[] = [];
@@ -202,18 +228,17 @@ export function buildWorldVisual(scene: Scene, sim: Sim, roof?: (x: number, z: n
       cursor = sim.events.read(cursor, onEvent);
       const tr = sim.world.traffic;
       // Pose traffic at the render time, like the cars: it's a formula, so it's exactly where it
-      // should be between ticks. The sim's LOD pool says which cars are near.
-      for (const b of bodies) for (const p of b.parts) p.mesh.count = 0;
-      for (let p = 0; p < tr.posed; p++) {
-        const k = tr.idx[p];
-        tr.poseAt(k, time, pose);
-        e.position.set(pose.x, pose.y, pose.z);
-        e.rotation.set(0, pose.h, 0);
-        e.updateMatrix();
-        put(tr.kind[k], e.matrix, trafficColor(k));
-        lamps.write(p, e.matrix, bodies[tr.kind[k]].lamps);
+      // should be between ticks, and so is how visible it is. Everything near the camera is drawn,
+      // fading ones dithered; the sim's pool (solid cars near a racer) is for collisions.
+      for (const b of bodies) {
+        for (const p of b.parts) {
+          p.solid.count = 0;
+          if (p.ghost) p.ghost.count = 0;
+        }
       }
-      lamps.commit(tr.posed);
+      lit = 0;
+      tr.visibleNear(time, cam.x, cam.z, DRAW, drawTraffic);
+      lamps.commit(lit);
 
       // Debris.
       for (let k = debris.length - 1; k >= 0; k--) {
@@ -247,8 +272,14 @@ export function buildWorldVisual(scene: Scene, sim: Sim, roof?: (x: number, z: n
       }
       for (const b of bodies) {
         for (const p of b.parts) {
-          p.mesh.instanceMatrix.needsUpdate = true;
-          if (p.mesh.instanceColor) p.mesh.instanceColor.needsUpdate = true;
+          for (const m of [p.solid, p.ghost]) {
+            if (!m) continue;
+            m.visible = m.count > 0;
+            if (!m.visible) continue;
+            m.instanceMatrix.needsUpdate = true;
+            if (m.instanceColor) m.instanceColor.needsUpdate = true;
+          }
+          if (p.ghost?.visible) p.fade.needsUpdate = true;
         }
       }
 
