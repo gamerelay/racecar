@@ -52,7 +52,7 @@ export interface Skin {
   id: string;
   /** Ink color for the post pass's outlines, once environment() has run. */
   ink?: number;
-  /** Sky, fog, lights. Called once per scene. */
+  /** Sky, fog, lights. Called again on the same scene for another palette, it replaces them. */
   environment(scene: Scene, palette: string): void;
   track(track: Track, seed: number): TrackVisual;
   /** `plate`: what its license plates say, and the map's region and id for their look. */

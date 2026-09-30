@@ -90,7 +90,8 @@ export class InkPass {
   /** This frame's meshes to ink (reused, so a frame doesn't allocate). */
   private readonly list: Mesh[] = [];
 
-  render(renderer: WebGLRenderer, scene: Scene, camera: PerspectiveCamera): void {
+  /** `over`: drawn on top of what's there (the car select's turntable after the world), depth cleared first. */
+  render(renderer: WebGLRenderer, scene: Scene, camera: PerspectiveCamera, over = false): void {
     // Car lines fade out by ~80 m (post.ts), so farther meshes are skipped rather than drawn for nothing.
     const cam = camera.position;
     const list = this.list;
@@ -118,8 +119,13 @@ export class InkPass {
     const alpha = renderer.getClearAlpha();
     renderer.setRenderTarget(this.target);
     renderer.setClearColor(0x000000, 0);
-    renderer.clear();
+    const autoClear = renderer.autoClear;
+    if (over) {
+      renderer.autoClear = false;
+      renderer.clearDepth();
+    } else renderer.clear();
     renderer.render(scene, camera);
+    renderer.autoClear = autoClear;
     renderer.setClearColor(this.clear, alpha);
     camera.layers.mask = layers;
     scene.background = bg;

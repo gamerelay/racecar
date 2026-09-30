@@ -95,7 +95,7 @@ is a lobby with seven bots.
 - **Tests:** plate text rules (length, charset, blocklist, uppercase); the atlas gives each car a
   cell.
 
-## Phase 4: car select on one screen
+## Phase 4: car select on one screen — done, PR #20
 
 - The menu docks to the left third. Your car sits centre-right on a slow turntable, with your
   paint and plate. It swaps live as you change car or paint, and a short drive-up plays when

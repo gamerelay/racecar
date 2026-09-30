@@ -35,6 +35,15 @@ export class GreyboxSkin implements Skin {
   ink = PALETTES.dusk.ink;
 
   environment(scene: Scene, palette: string): void {
+    // Again for another map (behind the menu): the last sky and lights go first.
+    if (this.sky) {
+      this.sky.removeFromParent();
+      this.sky.geometry.dispose();
+      (this.sky.material as ShaderMaterial).dispose();
+      this.hemi?.removeFromParent();
+      this.sun?.target.removeFromParent();
+      this.sun?.removeFromParent();
+    }
     const p = (this.palette = PALETTES[palette] ?? PALETTES.dusk);
     this.ink = p.ink;
     scene.background = new Color(p.fog);

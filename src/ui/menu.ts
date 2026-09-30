@@ -1,7 +1,9 @@
-// The front door (PLAN phases 2 and 3): the title screen with the lobby list, Create lobby, your
+// The front door (PLAN phases 2 to 4): the title screen with the lobby list, Create lobby, your
 // plate, and the lobby itself, Civilization-style, with eight seats the host sets to a player,
 // open, an AI or closed. Every race starts from a lobby; playing alone is your lobby with bots in
-// the open seats. The screens only see a LobbyBackend, so online lobbies plug in behind them in
+// the open seats. The lobby is also the car select: it docks left, and your car turns on a table
+// beside it (render/showroom.ts) over its map, with the car and paint pickers and stat bars next
+// to the car. The screens only see a LobbyBackend, so online lobbies plug in behind them in
 // milestone 3.
 
 import type { CarClass, MapDef, PaintDef, TrackLayout } from '../core/content';
@@ -10,6 +12,7 @@ import { LOCAL_ID } from '../lobby/backend';
 import { aiPlate, cleanPlate, plateProblem, PLATE_MAX, savePlate, typedPlate } from '../lobby/plate';
 import { DIFFICULTY_NAMES, FILL_DIFFICULTY, SEATS, legacySeats, seatIndex, summarize, type Lobby, type LobbyAction, type LobbyOptions, type LobbySummary, type SeatChoice } from '../lobby/lobby';
 import { MAX_LAPS, raceFromLobby, toQuery, type RaceSetup } from './setup';
+import { carStats } from './stats';
 import { thumb, thumbSvg } from './thumb';
 
 export interface MenuContent {
@@ -17,6 +20,14 @@ export interface MenuContent {
   layouts: Record<string, TrackLayout>;
   classes: CarClass[];
   paints: PaintDef[];
+}
+
+/** What runs behind the lobby: its map and weather, and your car on the table (null: the title's race, no table). */
+export interface Preview {
+  map: string;
+  weather: LobbyOptions['weather'];
+  /** Your car, paint and plate; none when you have no seat. */
+  car?: { car: string; paint: number; plate: string };
 }
 
 type Screen = { kind: 'title' } | { kind: 'create' } | { kind: 'plate' } | { kind: 'lobby'; id: string };
@@ -32,6 +43,8 @@ export class Menu {
   /** Your car and paint for a new lobby (the last race's, when you come back from one). */
   private yours: { car: string; paint: number };
   private defaults: Partial<LobbyOptions>;
+  /** The lobby's map and your car, for the scene behind the menu (main.ts); null off the lobby. */
+  onPreview?: (p: Preview | null) => void;
 
   constructor(
     private backend: LobbyBackend,
@@ -75,6 +88,9 @@ export class Menu {
     this.unsubscribe = null;
     this.screen = screen;
     history.replaceState(null, '', screen.kind === 'lobby' ? `?lobby=${encodeURIComponent(screen.id)}` : location.pathname);
+    // The lobby docks left for the car beside it; the other screens are cards in the middle.
+    this.root.classList.toggle('dock', screen.kind === 'lobby');
+    if (screen.kind !== 'lobby') this.onPreview?.(null);
     if (screen.kind === 'title') this.renderTitle(await this.backend.list());
     else if (screen.kind === 'create') this.renderCreate();
     else if (screen.kind === 'plate') this.renderPlate();
@@ -91,7 +107,8 @@ export class Menu {
     const was = document.activeElement?.id;
     this.root.innerHTML = html;
     const el = (was && document.getElementById(was)) || (focus && document.getElementById(focus));
-    (el as HTMLElement | null)?.focus();
+    // Without scrolling to it: on a phone the lobby opens at the top, with your car.
+    (el as HTMLElement | null)?.focus({ preventScroll: true });
   }
 
   private on(id: string, fn: () => void): void {
@@ -308,9 +325,8 @@ export class Menu {
         if (s.kind === 'player') {
           const me = s.id === you;
           who = `${plateChip(s.name)}${s.id === lobby.host ? ' <small class="tag">host</small>' : ''}`;
-          car = me
-            ? `${this.sel('lCar', classes.map((c) => [c.id, c.name]), s.car)} ${this.sel('lPaint', paints.map((p, i) => [String(i), p.name]), String(s.paint))}`
-            : `${dot(s.paint)}${esc(className(s.car))}`;
+          // Your own car is picked beside the turntable.
+          car = `${dot(s.paint)}${esc(className(s.car))}`;
           status = s.id === lobby.host ? '' : s.ready ? '<span class="ready">Ready</span>' : 'Not ready';
           return `<tr class="${me ? 'me' : ''}"><td>${k + 1}</td><td>${who}</td><td><div class="car">${car}</div></td><td>${status}</td><td class="ping">—</td></tr>`;
         }
@@ -335,8 +351,7 @@ export class Menu {
         <h1>${esc(lobby.name)}</h1>
         <p class="sub"><span>${lobby.visibility === 'public' ? 'Public' : 'Private'}</span><span>${SEATS - lobby.seats.filter((x) => x.kind === 'closed').length} cars on the grid</span><span>This browser</span></p>
         <div class="lobbyGrid">
-          <div><table class="seats"><thead><tr><th>#</th><th>Seat</th><th>Car</th><th></th><th>Ping</th></tr></thead><tbody>${rows}</tbody></table>
-          ${mine >= 0 ? `<p class="muted" id="sBlurb">${this.carBlurb(yours.car)}</p>` : ''}</div>
+          <table class="seats"><thead><tr><th>#</th><th>Seat</th><th>Car</th><th></th><th>Ping</th></tr></thead><tbody>${rows}</tbody></table>
           <aside class="mapCard">
             ${thumbSvg(layout, 150)}
             <b>${esc(this.mapName(o.map))}</b><small>${km}</small>
@@ -346,9 +361,12 @@ export class Menu {
         <div class="row">${host ? '<button id="lStart">Start race</button>' : `<button id="lReady">${mine >= 0 && lobby.seats[mine].kind === 'player' && lobby.seats[mine].ready ? 'Not ready' : 'Ready'}</button>`}
           <button id="lBack" class="ghost">Title</button><button id="lLeave" class="ghost danger">${host && s.players === 1 ? 'Close lobby' : 'Leave'}</button></div>
         <p class="muted">${host ? 'You host: set each seat from its row. ' : ''}Online lobbies arrive with milestone 3; for now it's you and the bots.</p>
-      </div>`,
+      </div>
+      <div class="stage" aria-hidden="true"></div>
+      ${mine >= 0 ? this.carPanel(yours) : ''}`,
       host ? 'lStart' : 'lReady',
     );
+    this.onPreview?.({ map: o.map, weather: o.weather, car: mine >= 0 ? { ...yours, plate: this.plate } : undefined });
     this.on('lStart', () => void this.start(lobby));
     this.on('lReady', () => {
       const me = lobby.seats[mine];
@@ -367,26 +385,20 @@ export class Menu {
     if (host) for (const id of ['oMap', 'oLaps', 'oWeather', 'oMayhem', 'oTraffic']) change(id, () => this.send(lobby, { type: 'options', options: this.readOptions() }));
   }
 
-  /** Your car's job and how it compares: a bar per stat against the range across the classes. */
-  private carBlurb(id: string): string {
-    const classes = this.content.classes;
-    const c = classes.find((k) => k.id === id);
-    if (!c) return '';
-    const stats: [string, (c: CarClass) => number][] = [
-      ['Top speed', (c) => c.topSpeed],
-      ['Accel', (c) => c.accel],
-      ['Handling', (c) => c.turn * c.grip],
-      ['Weight', (c) => c.mass],
-    ];
-    const bars = stats
-      .map(([name, f]) => {
-        const vals = classes.map(f);
-        const lo = Math.min(...vals) * 0.8;
-        const t = (f(c) - lo) / (Math.max(...vals) - lo);
-        return `<span class="bar"><small>${name}</small><i style="--t:${t.toFixed(2)}"></i></span>`;
-      })
+  /** Beside the turntable: your car's name and job, the car and paint pickers, and its stat bars. */
+  private carPanel(yours: { car: string; paint: number }): string {
+    const { classes, paints } = this.content;
+    const c = classes.find((k) => k.id === yours.car);
+    const bars = carStats(classes, yours.car)
+      .map((b) => `<span class="bar"><small>${b.name}</small><i style="--t:${b.t.toFixed(2)}"></i></span>`)
       .join('');
-    return `<b>${esc(c.name)}</b>: ${esc(c.blurb ?? '')}<span class="bars">${bars}</span>`;
+    return `<div class="card carPanel">
+        <div class="carHead"><b class="carName">${esc(c?.name ?? yours.car)}</b><span class="dot" style="background:${paints[yours.paint % paints.length].color}"></span></div>
+        <div class="carPick"><label>Car ${this.sel('lCar', classes.map((k) => [k.id, k.name]), yours.car)}</label>
+          <label>Paint ${this.sel('lPaint', paints.map((p, i) => [String(i), p.name]), String(yours.paint))}</label></div>
+        <p class="blurb" id="sBlurb">${esc(c?.blurb ?? '')}</p>
+        <div class="bars">${bars}</div>
+      </div>`;
   }
 
   /** The host starts: the lobby's seats become the race's cars, and the page loads into it. */
