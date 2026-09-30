@@ -4,9 +4,9 @@ Where racecar stands and what's next, for whoever picks it up (a person or a fre
 The design is [SPEC.md](./SPEC.md): decisions in §17, and what building changed in "Changed while
 building". This file is "where are we"; the spec is "what are we making".
 
-**Last updated:** 2026-09-30. `main` is tagged **`alpha-1.4`**: milestone 2 (PR #2, tagged
+**Last updated:** 2026-09-30. `main` is tagged **`alpha-1.5`**: milestone 2 (PR #2, tagged
 `alpha-1.0`), Countryside v2 (PR #4, `alpha-1.1`), seven cars plus polish (PR #6, `alpha-1.2`),
-traffic that fades instead of popping (PR #7, `alpha-1.3`), and audio plus a review pass (PR #9).
+traffic that fades instead of popping (PR #7, `alpha-1.3`), audio plus a review pass (PR #9, `alpha-1.4`), and Valley v3 with smooth shortcut joins (PR #10).
 
 ## Resume in five minutes
 
@@ -15,16 +15,17 @@ traffic that fades instead of popping (PR #7, `alpha-1.3`), and audio plus a rev
 3. Check the open platform PR: in `~/dev/gamerelay.io`, `gh pr view 30` (the host controls
    racecar's lobby needs).
 4. Before changing anything: `bun test && bun run typecheck && bun tools/validate.ts`. All three
-   are green on `main` at `alpha-1.4`. Branch off `main` for milestone 3.
+   are green on `main` at `alpha-1.5`. Branch off `main` for milestone 3.
 
 ## Where things stand
 
 - **Repo:** `gamerelay/racecar`, private until milestone 3, cloned at `~/dev/racecar`. The default
   branch is `main`.
 - **Milestone 1 (greybox sandbox): merged** (PR #1).
-- **Valley v3 and smooth shortcut joins: on branch `valley-v3`** (PR, not merged): the Valley
-  re-laid for drifting (more sweepers, wider road, banked corners, grass banks at the edges) and
-  shortcuts that meet the main road flush on every map. SPEC "Changed while building", Valley v3.
+- **Valley v3 and smooth shortcut joins: merged** (PR #10) and tagged `alpha-1.5`: the Valley
+  re-laid for drifting (more sweepers, wider road, banked corners, grass banks at the edges),
+  shortcuts that meet the main road flush on every map, and the HUD's key hints moved to the
+  pause menu with a bigger lap badge bottom left. SPEC "Changed while building", Valley v3. 97 tests.
 - **Audio and a review pass: merged** (PR #9) and tagged `alpha-1.4`: synthesized audio
   (`src/audio/`: engines, tyres, impacts, cues, a music loop; M mutes, N music) and the fixes
   from a four-way code review (SPEC "Review pass"). 88 tests.
