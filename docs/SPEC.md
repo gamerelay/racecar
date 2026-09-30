@@ -1287,3 +1287,48 @@ License plates (2026-09-30, PLAN phase 3):
   (a seat called "You") take your plate when the menu opens. The plate field keeps the cursor
   where you were typing when it drops a character (`typedPlate`).
 - **Not yet:** names over cars online (milestone 3). The garage viewer's cars have blank plates.
+
+Car select (2026-09-30, PLAN phase 4):
+
+- **The lobby is the car select.** It docks to the left (a column 440–600 px wide), and your car
+  turns on a table in the rest of the screen, over the lobby's map. Under the car is a panel
+  with its name and job, the car and paint pickers, and five stat bars (speed, accel, handling,
+  weight, boost; `ui/stats.ts`, each against the range across the classes). The pickers moved
+  there from your seat row, which now shows your car like everyone else's.
+- **The table is a small model in the world's own scene** (`render/showroom.ts`): 1:50,
+  held a hand's length in front of the world camera, so the same camera draws it into the same
+  depth buffer, lit by the same lights. The post pass (ink, wet reflections, grade, grain) and
+  the weather treat it like everything else, so the preview looks like the game and dims in
+  the rain with the world. Behind the lobby the camera is a crane above the traffic, so nothing
+  in the world comes that close to it.
+  - **From the review:** the first version was a scene of its own, drawn over the world with
+    the depth cleared. That wiped the world's depth before the post pass read it, so the race
+    behind lost its outlines and reflections. It also left the table lit at dry strength in the
+    rain. The model in the world fixes both.
+- **CSS decides where the car goes:** the lobby has an empty `.stage` box, and the table is
+  framed into it each frame (`frameStage`: where on screen, and a distance that fits the table
+  to the box). So the same code puts it beside the menu on a desktop and above it on a phone.
+  - On a phone (760 px and under), it's one column that scrolls, with a 16 px gutter: the car,
+    then its panel, then the lobby.
+  - The lobby's first focus no longer scrolls, so a phone opens at the top, on the car.
+- **A new car drives up; a new paint or plate swaps in place.** The drive-up starts with the
+  car's nose at the table's rim (the table floats over the race, so there's nothing past it to
+  drive on). It eases to a stop in 0.9 s, with the wheels turning, the boost on at the start
+  and the brake lights at the end. The table and camera ease to a new car's size (the bus needs
+  the biggest).
+- **Behind the lobby, the world is calm.** A slow crane camera moves down the lap, over the
+  left edge of the road and above the traffic, instead of a chase camera filling the screen,
+  and the post pass has no speed blur, boost, flash or slow-mo grade. The title screen keeps the
+  chase camera.
+- **Another map swaps in place** (`swapMap` in `main.ts`). This fixes the lobby's one gap: the
+  race behind only changed map on a reload.
+  - The sim takes the new track (`setTrack` now also updates the shoulder surface) and the
+    map's weather (`setWeather`), and restarts the race from the grid.
+  - The renderer takes the new sky and light (`setMap`: the greybox skin's `environment` can
+    run again and replaces its sky and lights), then the track and world, and rebuilds the
+    cars' visuals so their plates name the new map.
+  - The lobby's weather is shown too: Rain makes it rain behind the lobby.
+- **The pad:** left and right change a dropdown's value, so the car and paint pickers sit one
+  above the other, and up and down move between them. Right from the lobby's buttons reaches
+  them, and up from them goes back into the lobby.
+

@@ -7,11 +7,12 @@ import type { PaintDef } from '../core/content';
 import { Cause, Ev, type GameEvent } from '../core/events';
 import { clamp, damp, wrapAngle } from '../core/math';
 import type { Sim } from '../core/sim';
-import { newHit, project } from '../core/track/query';
+import { newHit, project, sampleAt } from '../core/track/query';
 import { Particles } from './fx';
 import { chaseOffset, lookBackOffset, type ChaseOffset } from './camera';
 import { InkPass } from './ink';
 import { PostPass } from './post';
+import { Showroom } from './showroom';
 import type { CarPlate, CarVisual, Skin, TrackVisual, WorldVisual } from './skin';
 import { Skids } from './skids';
 
@@ -48,6 +49,9 @@ export class GameRenderer {
   private readonly fx = new Particles();
   private readonly skids = new Skids();
   private readonly skidHit = newHit();
+  private readonly scenicHit = newHit();
+  /** Where the car select's camera is along the lap (m). */
+  private scenicS = -1;
   private readonly visuals: CarVisual[] = [];
   private readonly spin: number[] = [];
   private trackVisual: TrackVisual;
@@ -74,6 +78,8 @@ export class GameRenderer {
   lookBack = false;
   /** Dev: leave the camera where it was put (fly-overs, screenshots). */
   freeCamera = false;
+  /** The car select's turntable, drawn over the world while it's visible (the lobby). */
+  readonly showroom: Showroom;
   /** Frames per second, smoothed, and the last frame's draw calls, for the HUD and telemetry. */
   fps = 60;
   drawCalls = 0;
@@ -102,6 +108,8 @@ export class GameRenderer {
     this.scene.add(this.fx.points);
     this.scene.add(this.skids.mesh);
     this.worldVisual = skin.world(this.scene, sim, this.trackVisual);
+    this.showroom = new Showroom(skin);
+    this.scene.add(this.showroom.root);
     this.syncCars();
     this.resize();
     this.snapCamera();
@@ -124,6 +132,25 @@ export class GameRenderer {
     // Gantries and the like are placed from the track, so the world visual is rebuilt too.
     this.worldVisual.dispose();
     this.worldVisual = this.skin.world(this.scene, this.sim, this.trackVisual);
+  }
+
+  /** Another map behind the menu: its sky and light, then its track (the sim has the new one already). */
+  setMap(palette: string): void {
+    this.skin.environment(this.scene, palette);
+    if (this.skin.ink !== undefined) this.post.uniforms.uInk.value.setHex(this.skin.ink);
+    this.setTrack();
+  }
+
+  /** New plates (another map prints another region on them): every car's visual is built again. */
+  setPlates(plates: (CarPlate | undefined)[]): void {
+    for (const v of this.visuals) {
+      this.scene.remove(v.root);
+      v.dispose();
+    }
+    this.visuals.length = 0;
+    this.spin.length = 0;
+    this.opts.plates = plates;
+    this.syncCars();
   }
 
   set debug(on: boolean) {
@@ -206,6 +233,11 @@ export class GameRenderer {
     const haze = this.scene.fog as Fog | null;
     this.skids.update(sdt, haze?.near, haze?.far);
     this.updateCamera(dt);
+    // The turntable rides in front of the camera, so it's placed once the camera has moved.
+    if (this.showroom.visible) {
+      this.camera.updateMatrixWorld();
+      this.showroom.update(dt, this.camera);
+    } else this.showroom.hide();
     // The world is drawn at the same moment as the cars: between the last two ticks.
     this.worldVisual.update(sdt, this.camera.position, this.sim.time - (1 - alpha) * this.sim.dt * this.sim.timeScale);
     // Scenery (the city's cars, searchlights, birds, smoke) runs on world time: it stops when
@@ -214,13 +246,18 @@ export class GameRenderer {
     this.trackVisual.update?.(this.worldTime, sdt, this.camera.position);
     this.skin.update?.(this.worldTime, this.camera.position.x, this.camera.position.y, this.camera.position.z, this.sim.wetness);
 
+    const stage = this.showroom.visible ? this.showroom : null;
+    if (stage) {
+      // Behind the car select the world stays calm: no speed blur, boost, flash or slow-mo grade.
+      this.boostVis = this.impact = this.shake = 0;
+    }
     const u = this.post.uniforms;
-    const fs = this.focusSpeed();
+    const fs = stage ? 0 : this.focusSpeed();
     u.uTime.value = this.time;
     u.uSpeed.value = clamp((fs - 20) / 50, 0, 1);
     u.uBoost.value = this.boostVis;
     u.uImpact.value = this.impact;
-    u.uSlow.value = clamp((1 - this.sim.timeScale) / 0.7, 0, 1);
+    u.uSlow.value = stage ? 0 : clamp((1 - this.sim.timeScale) / 0.7, 0, 1);
     u.uOutline.value = this.opts.outline ? 1 : 0;
     u.uNear.value = this.camera.near;
     u.uFar.value = this.camera.far;
@@ -258,6 +295,8 @@ export class GameRenderer {
 
   private updateCamera(dt: number): void {
     if (this.freeCamera) return;
+    if (this.showroom.visible) return this.scenicCamera(dt);
+    this.scenicS = -1;
     const c = this.sim.cars;
     const i = this.focus;
     const car = this.visuals[i].root.position;
@@ -304,6 +343,26 @@ export class GameRenderer {
     cam.lookAt(this.look);
     const fov = 60 + clamp((speed - 20) / 50, 0, 1) * 4 + this.boostVis * 3.5;
     cam.fov += (fov - cam.fov) * damp(3, dt);
+    cam.updateProjectionMatrix();
+  }
+
+  /**
+   * Behind the car select: a slow crane down the lap, over the left edge of the road and above
+   * the traffic, so the racers and traffic pass under it rather than a chase camera filling the
+   * screen. It starts behind the grid, looking up the straight.
+   */
+  private scenicCamera(dt: number): void {
+    const main = this.sim.track.main;
+    if (this.scenicS < 0) this.scenicS = main.length - 60;
+    this.scenicS = (this.scenicS + dt * 6) % main.length;
+    const a = sampleAt(main, this.scenicS, this.scenicHit);
+    const lat = -(a.width / 2 - 1);
+    const cam = this.camera;
+    cam.position.set(a.cx - a.tz * lat, a.cy + 5.5, a.cz + a.tx * lat);
+    const b = sampleAt(main, this.scenicS + 45, this.scenicHit);
+    this.look.set(b.cx, b.cy + 1.5, b.cz);
+    cam.lookAt(this.look);
+    cam.fov = 60;
     cam.updateProjectionMatrix();
   }
 

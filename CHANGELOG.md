@@ -6,10 +6,15 @@ and where things stand is [docs/HANDOFF.md](./docs/HANDOFF.md).
 
 ## Unreleased
 
-PLAN phase 3: license plates (PR #18), the lobby polish (PR #19), the cars doc (PR #15) and the
-marketing art (PR #17).
+PLAN phase 3: license plates (PR #18), the lobby polish (PR #19), the cars doc (PR #15), the
+marketing art (PR #17), and PLAN phase 4: the car select.
 
 ### Added
+- **The lobby is the car select:** the lobby docks left, and your car turns on a table beside
+  it with your paint and plate, over the lobby's map. A new car drives up onto the table; a new
+  paint swaps in place. Under the car are its name and job, the car and paint pickers, and
+  five stat bars (speed, accel, handling, weight, boost). On a phone the car sits above the
+  lobby.
 - **Your name is a license plate:** up to seven letters, numbers and spaces, set from the plate
   button on the title screen. A new player gets one like `RC 4821`. It's on your car's front
   and rear plates, on your lobby seat and in the results.
@@ -30,6 +35,9 @@ marketing art (PR #17).
   a car.
 
 ### Changed
+- **Changing the lobby's map changes the race behind it straight away,** without a reload, and
+  the lobby's weather shows there too. Behind the lobby the camera is a slow crane down the
+  lap rather than a chase camera.
 - The AI names (Nova, Rook…) are gone; drivers are their plates.
 - **The lobby screen is tidier** (PR #19): capitalised labels, a spaced-out subheader, more room
   under the title, seat rows all the same height, and a roomier map card.

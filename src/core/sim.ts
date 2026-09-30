@@ -60,7 +60,7 @@ export class Sim implements SimState {
   readonly rng: Rng;
   readonly hitA = newHit();
   readonly hitB = newHit();
-  readonly shoulderSurface: number;
+  shoulderSurface: number;
   readonly drivers: (FollowDriver | null)[] = [];
   readonly racers: (RacerDriver | null)[] = [];
   readonly controls: Controls[];
@@ -197,9 +197,10 @@ export class Sim implements SimState {
     this.timeScale = 1;
   }
 
-  /** Swaps in a rebaked track (the editor) and finds every car on it again. */
+  /** Swaps in a rebaked track (the editor, or another map behind the menu) and finds every car on it again. */
   setTrack(track: Track): void {
     this.track = track;
+    this.shoulderSurface = track.surfaceIndex.get(track.layout.shoulderSurface ?? 'sidewalk') ?? 0;
     this.world = this.buildWorld(track);
     this.ctx.traffic = this.world.traffic;
     this.ctx.hazards = this.world.hazards;
@@ -212,6 +213,12 @@ export class Sim implements SimState {
       c.lastS[i] = this.hitA.s;
       c.lastLat[i] = 0;
     }
+  }
+
+  /** Plans the weather again (another map behind the menu, which may not see rain). */
+  setWeather(weather: WeatherOption, allowed?: string[]): void {
+    this.weatherPlan = planWeather(weather, this.seed, allowed);
+    this.applyWeather();
   }
 
   /** Puts car i on a spline at (s, lateral), facing along it. */

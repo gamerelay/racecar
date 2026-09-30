@@ -1,5 +1,7 @@
 // The game: the title screen and lobbies (ui/menu.ts) over a live AI race (attract mode), then a
-// race from a lobby's seats with traffic, hazards and weather, or free drive. The editor (` key,
+// race from a lobby's seats with traffic, hazards and weather, or free drive. In a lobby, the race
+// behind runs on its map (swapped in place when the host picks another) and your car turns on a
+// table beside the menu (render/showroom.ts). The editor (` key,
 // dev builds), local telemetry and the F8 report as in milestone 1.
 //
 // URL: a race (see ui/setup.ts: mode, map, car, paint, seats, laps, weather, mayhem, traffic,
@@ -22,7 +24,7 @@ import { Hud } from './ui/hud';
 import { RaceUi } from './ui/race';
 import { accept, navigate } from './ui/nav';
 import { backToSetup, raceAgain, readChoices, readSetup, restart, type RaceSetup } from './ui/setup';
-import { Menu } from './ui/menu';
+import { Menu, type Preview } from './ui/menu';
 import { LocalBackend } from './lobby/backend';
 import { roster } from './lobby/lobby';
 import { loadPlate } from './lobby/plate';
@@ -54,10 +56,11 @@ const plate = loadPlate(storage());
 // Behind a lobby, its map runs.
 const lobbyMap = params.get('lobby') ? lobbies.peek(params.get('lobby')!)?.options.map : undefined;
 const run: RaceSetup = setup ?? { mode: 'race', map: resolveLayout(params.get('map') ?? lobbyMap, LAYOUT_KEYS) ?? DEFAULT_LAYOUT, car: 'coupe', paint: 0, seats: 'hnehnehn', laps: 3, weather: 'random', mayhem: 'normal', traffic: true, seed: Math.floor(Math.random() * 1e9) };
-const layoutKey = resolveLayout(run.map, LAYOUT_KEYS) ?? DEFAULT_LAYOUT;
+let layoutKey = resolveLayout(run.map, LAYOUT_KEYS) ?? DEFAULT_LAYOUT;
 
 let layout: TrackLayout = structuredClone(LAYOUTS[layoutKey] ?? Object.values(LAYOUTS)[0]);
-const map = MAPS.find((m) => layoutKey.startsWith(m.id + '/')) ?? MAPS[0];
+const mapOf = (key: string) => MAPS.find((m) => key.startsWith(m.id + '/')) ?? MAPS[0];
+let map = mapOf(layoutKey);
 
 const sim = new Sim(bakeTrack(layout, SURFACES), CLASSES, SURFACES, {
   seed: run.seed,
@@ -98,11 +101,42 @@ raceUi.canShow = () => !paused;
 // Quit to the main menu from anywhere in a race. Not focusable, so Space (boost) can't press it.
 document.body.insertAdjacentHTML('beforeend', '<button id="quit" tabindex="-1" title="Quit to the main menu">✕ Menu</button>');
 document.getElementById('quit')!.onclick = () => backToSetup(run);
+/** The weather the race behind the menu was last given (a lobby's own, once one is up). */
+let weatherShown = run.weather;
 if (attract) {
   document.body.classList.add('attract');
   // Back from a race (Main menu, Change setup): its choices are the defaults.
   screens = new Menu(lobbies, { maps: MAPS, layouts: LAYOUTS, classes: CLASSES, paints: PAINTS }, readChoices(params, layoutKey, known), plate, storage());
+  screens.onPreview = preview;
   void screens.open(params.get('lobby'));
+}
+
+/** Behind the lobby: its map and weather, and your car on the table; off the lobby, just the race. */
+function preview(p: Preview | null): void {
+  if (p) {
+    const key = resolveLayout(p.map, LAYOUT_KEYS);
+    if (key && key !== layoutKey) swapMap(key, p.weather);
+    else if (p.weather !== weatherShown) sim.setWeather(p.weather, map.weather);
+    weatherShown = p.weather;
+  }
+  const car = p?.car && CLASSES.find((c) => c.id === p.car!.car);
+  if (!p?.car || !car) return renderer.showroom.hide();
+  renderer.showroom.show(car, PAINTS[p.car.paint % PAINTS.length], { text: p.car.plate, region: map.name, map: map.id });
+}
+
+/** Another map behind the menu, in place (no reload): its track, weather and sky, and the race on it from the grid. */
+function swapMap(key: string, weather: RaceSetup['weather']): void {
+  layoutKey = key;
+  map = mapOf(key);
+  layout = structuredClone(LAYOUTS[key]);
+  sim.setTrack(bakeTrack(layout, SURFACES));
+  sim.setWeather(weather, map.weather);
+  sim.startRace(run.laps, 1);
+  renderer.setMap(map.palette);
+  // The plates say the new map's region.
+  renderer.setPlates(names.map((text) => ({ text, region: map.name, map: map.id })));
+  renderer.snapCamera();
+  raceUi.buildMap();
 }
 const telemetry = new Telemetry(sim, specs, () => layout, BUILD, { enabled: import.meta.env.DEV, trace: params.get('trace') === '1' });
 // Dev builds write local files; playtest builds with a PostHog key send there (unless opted out).
@@ -177,6 +211,9 @@ function frame(now: number): void {
   audio.update(dt, { focus: renderer.focus, camera: renderer.camera, paused: paused || editorOpen, menu: attract });
   if (!editorOpen) {
     renderer.paused = paused;
+    // The turntable goes where the lobby leaves room for it.
+    const stage = renderer.showroom.visible ? document.querySelector<HTMLElement>('#menu .stage') : null;
+    if (stage) renderer.showroom.frame(stage.getBoundingClientRect(), window.innerWidth, window.innerHeight);
     renderer.frame(acc * TICK_RATE, dt, steer, braking);
     if (attract) {
       // Follow whoever leads.
