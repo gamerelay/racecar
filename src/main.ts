@@ -1,7 +1,9 @@
-// Milestone 1 sandbox: one City layout, your car and a few pace cars, the greybox skin, keyboard
-// and gamepad, the editor (` key, dev builds), local telemetry and the F8 report.
+// The single-player game (milestone 2): a setup menu over a live AI race (attract mode), then a
+// race against AI with traffic, hazards and weather, or free drive. The editor (` key, dev
+// builds), local telemetry and the F8 report as in milestone 1.
 //
-// URL options: ?map=city/downtown &car=coupe|muscle|hatch|van &paint=0 &pace=4 &post=0 &trace=1 &seed=1
+// URL: the setup (see ui/setup.ts: mode, map, car, paint, opponents, difficulty, laps, weather,
+// mayhem, traffic, seed) plus &post=0 &trace=1.
 
 import './ui/hud.css';
 import { TUNING } from './core/car/tuning';
@@ -13,42 +15,77 @@ import { bakeTrack } from './core/track/bake';
 import { Input } from './input/input';
 import { GameRenderer } from './render/renderer';
 import { GreyboxSkin } from './render/skins/greybox';
+import { posthogEnabled, posthogSink } from './telemetry/posthog';
 import { Telemetry } from './telemetry/telemetry';
 import { Hud } from './ui/hud';
+import { RaceUi } from './ui/race';
+import { backToSetup, raceAgain, readSetup, showSetup, type RaceSetup } from './ui/setup';
 import { CLASSES, LAYOUTS, MAPS, PAINTS, SURFACES } from './content';
 
 const params = new URLSearchParams(location.search);
-const layoutKey = params.get('map') ?? 'city/downtown';
-const carId = params.get('car') ?? 'coupe';
-const paint = Number(params.get('paint') ?? 0);
-const paceCount = Number(params.get('pace') ?? 4);
-const seed = Number(params.get('seed') ?? 1);
 const BUILD = `${import.meta.env.MODE}-${__BUILD_TIME__}`;
+const setup: RaceSetup | null = readSetup(params, 'city/downtown');
+// No setup yet: attract mode, a hard AI race on City behind the menu.
+const attract = !setup;
+const run: RaceSetup = setup ?? { mode: 'race', map: params.get('map') ?? 'city/downtown', car: 'coupe', paint: 0, opponents: 7, difficulty: 2, laps: 3, weather: 'random', mayhem: 'normal', traffic: true, seed: Math.floor(Math.random() * 1e9) };
+const layoutKey = LAYOUTS[run.map] ? run.map : 'city/downtown';
 
 let layout: TrackLayout = structuredClone(LAYOUTS[layoutKey] ?? Object.values(LAYOUTS)[0]);
 const map = MAPS.find((m) => layoutKey.startsWith(m.id + '/')) ?? MAPS[0];
 
-const sim = new Sim(bakeTrack(layout, SURFACES), CLASSES, SURFACES, { seed, slowmo: 'world' });
-const specs: CarSpec[] = [{ cls: carId, paint, human: true }];
-const paceClasses = ['muscle', 'hatch', 'van', 'coupe'];
-for (let k = 0; k < paceCount; k++) specs.push({ cls: paceClasses[k % 4], paint: (paint + k + 1) % PAINTS.length, follow: { lane: (k + 1) % 2 ? -3 : 3, speed: 34 + k * 4 } });
+const sim = new Sim(bakeTrack(layout, SURFACES), CLASSES, SURFACES, {
+  seed: run.seed,
+  slowmo: 'world',
+  weather: run.weather,
+  weatherAllowed: map.weather,
+  mayhem: run.mayhem,
+  traffic: run.traffic ? 1 : 0,
+});
+const AI_NAMES = ['Nova', 'Rook', 'Vex', 'Juno', 'Blitz', 'Kai', 'Mako', 'Ziggy'];
+const specs: CarSpec[] = [];
+const names: string[] = [];
+if (!attract) {
+  specs.push({ cls: run.car, paint: run.paint, human: true });
+  names.push('You');
+}
+const rivals = attract ? 8 : run.mode === 'free' ? 3 : run.opponents;
+for (let k = 0; k < rivals; k++) {
+  specs.push({ cls: CLASSES[(k + 1) % CLASSES.length].id, paint: (run.paint + k + 1) % PAINTS.length, racer: { difficulty: attract ? ((k % 3) as 0 | 1 | 2) : run.difficulty } });
+  names.push(AI_NAMES[k]);
+}
 for (const s of specs) sim.addCar(s);
 const me = 0;
+if (run.mode === 'race') sim.startRace(run.laps, attract ? 1 : 4);
 
 const input = new Input();
 const renderer = new GameRenderer(document.getElementById('stage')!, new GreyboxSkin(), sim, PAINTS, map.palette, { post: params.get('post') !== '0' });
 const hud = new Hud(sim);
+const raceUi = new RaceUi(sim, CLASSES, names, specs.map((x) => PAINTS[(x.paint ?? 0) % PAINTS.length].color));
+raceUi.onAgain = () => raceAgain(run);
+raceUi.onSetup = () => backToSetup(run);
+if (attract) {
+  document.body.classList.add('attract');
+  showSetup(MAPS, Object.keys(LAYOUTS), CLASSES, PAINTS, { map: layoutKey });
+}
 const telemetry = new Telemetry(sim, specs, () => layout, BUILD, { enabled: import.meta.env.DEV, trace: params.get('trace') === '1' });
+// Dev builds write local files; playtest builds with a PostHog key send there (unless opted out).
+if (!import.meta.env.DEV || params.get('posthog') === '1') {
+  if (posthogEnabled()) {
+    telemetry.enabled = true;
+    telemetry.sink = posthogSink(telemetry.session, BUILD);
+  }
+}
 telemetry.start(input.lastDevice);
 window.addEventListener('error', (e) => telemetry.error(e.error ?? e.message));
 window.addEventListener('unhandledrejection', (e) => telemetry.error(e.reason));
 window.addEventListener('resize', () => renderer.resize());
 
 const controls: Controls = neutralControls();
-const inputs: (Controls | undefined)[] = [controls];
+const inputs: (Controls | undefined)[] = attract ? [] : [controls];
 const steer: number[] = [];
 const braking: boolean[] = [];
 let paused = false;
+let lastSwitch = 0;
 let editorOpen = false;
 let acc = 0;
 let last = performance.now();
@@ -92,7 +129,18 @@ function frame(now: number): void {
   }
   if (!editorOpen) {
     renderer.frame(acc * TICK_RATE, dt, steer, braking);
+    if (attract) {
+      // Follow whoever leads.
+      let lead = 0;
+      for (let i = 1; i < sim.cars.count; i++) if (sim.cars.progress[i] > sim.cars.progress[lead]) lead = i;
+      if (lead !== renderer.focus && performance.now() - lastSwitch > 6000) {
+        renderer.focus = hud.focus = raceUi.focus = lead;
+        renderer.snapCamera();
+        lastSwitch = performance.now();
+      }
+    }
     hud.update();
+    raceUi.update();
     rumble();
     hud.debugText = `fps ${renderer.fps.toFixed(0)}  draws ${renderer.drawCalls}\ntick ${sim.tick}  scale ${sim.timeScale.toFixed(2)}\ns ${sim.cars.s[me].toFixed(1)} lat ${sim.cars.lateral[me].toFixed(2)} spline ${sim.cars.spline[me]}\nslip ${sim.cars.slip[me].toFixed(2)} charge ${sim.cars.driftCharge[me].toFixed(2)}\nsurface ${SURFACES[sim.cars.surface[me]]?.id}  input ${input.lastDevice}\nlayout ${sim.track.layout.id} ${sim.track.version}  ${(sim.track.main.length / 1000).toFixed(2)} km`;
     telemetry.frame(dt * 1000, renderer.fps, renderer.drawCalls, me);
@@ -111,25 +159,20 @@ input.on((a) => {
 });
 
 function setPaused(on: boolean): void {
+  if (attract) return;
   paused = on;
   let el = document.getElementById('pause');
   if (!el) {
     document.body.insertAdjacentHTML(
       'beforeend',
-      `<div id="pause"><div class="card"><h1>racecar</h1>
-        <div class="row"><label>Car <select id="pCar">${CLASSES.map((c) => `<option value="${c.id}"${c.id === carId ? ' selected' : ''}>${c.name} (${c.id})</option>`).join('')}</select></label>
-        <label>Paint <select id="pPaint">${PAINTS.map((p, k) => `<option value="${k}"${k === paint ? ' selected' : ''}>${p.name} · ${p.finish}</option>`).join('')}</select></label></div>
-        <dl><dt>Drive</dt><dd>WASD / arrows, or a gamepad (RT, LT, stick)</dd><dt>Drift</dt><dd>hold Shift (RB) while steering: steer in to tighten, out to widen; let go for the mini-turbo</dd><dt>Boost</dt><dd>Space (A): fills from drifts, air and takedowns</dd><dt>Ram</dt><dd>hit a pace car hard, or shove it into a wall, for a takedown</dd><dt>Felt wrong?</dt><dd>F8 (Select+Start) saves the last 30 s with a note</dd></dl>
-        <button id="pResume">Resume</button><button id="pRestart">Restart</button></div></div>`,
+      `<div id="pause"><div class="card"><h1>Paused</h1>
+        <dl><dt>Drive</dt><dd>WASD / arrows, or a gamepad (RT, LT, stick)</dd><dt>Drift</dt><dd>hold Shift (RB) while steering: steer in to tighten, out to widen; let go for the mini-turbo</dd><dt>Boost</dt><dd>Space (A): fills from drifts, air, near misses, oncoming lanes and takedowns</dd><dt>Takedowns</dt><dd>ram a rival hard, boost into them, or shove them into a wall, a pillar or traffic</dd><dt>Traffic</dt><dd>boost into the back of a small car to check it out of the way; don't hit anything head on</dd><dt>Start</dt><dd>hit the throttle just before GO for a perfect start; too early and you stall</dd><dt>Felt wrong?</dt><dd>F8 (Select+Start) saves the last 30 s with a note</dd></dl>
+        <button id="pResume">Resume</button><button id="pRestart">Restart</button><button id="pSetup" class="ghost">Setup</button></div></div>`,
     );
     el = document.getElementById('pause')!;
     document.getElementById('pResume')!.onclick = () => setPaused(false);
-    document.getElementById('pRestart')!.onclick = () => {
-      const q = new URLSearchParams(location.search);
-      q.set('car', (document.getElementById('pCar') as HTMLSelectElement).value);
-      q.set('paint', (document.getElementById('pPaint') as HTMLSelectElement).value);
-      location.search = q.toString();
-    };
+    document.getElementById('pRestart')!.onclick = () => raceAgain(run);
+    document.getElementById('pSetup')!.onclick = () => backToSetup(run);
   }
   el.classList.toggle('on', on);
   if (on) (document.getElementById('pResume') as HTMLButtonElement).focus();
@@ -208,6 +251,7 @@ function applyLayout(next: TrackLayout): void {
   layout = next;
   sim.setTrack(bakeTrack(layout, SURFACES));
   renderer.setTrack();
+  raceUi.buildMap();
 }
 
 // Layout files edited elsewhere (or saved by the editor) hot-reload without losing the car.
@@ -235,6 +279,7 @@ if (import.meta.env.DEV) {
       renderer.snapCamera();
       for (let k = 0; k < 30; k++) renderer.frame(1, 1 / 60, steer, braking);
       hud.update();
+      raceUi.update();
       telemetry.frame(16, renderer.fps, renderer.drawCalls, me);
       telemetry.flush();
       const i = me;

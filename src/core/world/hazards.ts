@@ -128,24 +128,27 @@ export class Hazards {
   crossTriggers(car: number, prevS: number, s: number, t: number, events: EventQueue, tick: number): boolean {
     const L = this.track.main.length;
     let fired = false;
-    this.defs.forEach((def, d) => {
+    const step = wrap(s - prevS, L);
+    if (step > L / 2 || step === 0) return false;
+    for (let d = 0; d < this.defs.length; d++) {
+      const def = this.defs[d];
       const kind = this.kinds[d];
-      if (!kind || kind.schedule !== 'trigger' || typeof def.s !== 'number') return;
-      const step = wrap(s - prevS, L);
-      if (step > L / 2 || step === 0) return;
-      if (wrap(def.s - prevS, L) > step) return;
+      if (!kind || kind.schedule !== 'trigger' || typeof def.s !== 'number') continue;
+      if (wrap(def.s - prevS, L) > step) continue;
       // Armed: the last occurrence of this trigger is over and re-armed.
+      let armed = true;
       for (let k = this.occurrences.length - 1; k >= this.scheduled; k--) {
         const o = this.occurrences[k];
-        if (o.def === d && t < o.t0 + kind.every(def)) return;
+        if (o.def === d && t < o.t0 + kind.every(def)) armed = false;
       }
+      if (!armed) continue;
       const t0 = t + TRIGGER_LEAD + kind.telegraph;
       const seed = hashString(`${this.seed}:${d}:${this.triggered.length}`);
       this.triggered.push([d, t0, car, seed]);
       this.occurrences.push({ id: this.occurrences.length, def: d, t0, by: car, seed, a: -1 });
       events.push(tick, Ev.Hazard, car, 0, 0, 0, this.occurrences.length - 1, d);
       fired = true;
-    });
+    }
     return fired;
   }
 
@@ -160,7 +163,8 @@ export class Hazards {
   update(t: number, events: EventQueue, tick: number): void {
     this.pieces = 0;
     this.markers = 0;
-    for (const o of this.occurrences) {
+    for (let k = 0; k < this.occurrences.length; k++) {
+      const o = this.occurrences[k];
       const kind = this.kinds[o.def];
       if (!kind) continue;
       const start = o.t0 - kind.telegraph;
@@ -205,12 +209,10 @@ export class Hazards {
   }
 }
 
-/** Main-distance range of a def (a point becomes a zero-length range). */
-function range(def: HazardDef): [number, number] {
-  return typeof def.s === 'number' ? [def.s, def.s] : def.s;
-}
-
-function inRange(s: number, [a, b]: [number, number], L: number): boolean {
+/** Whether s is in a def's range (a point is a zero-length range). */
+function inRange(s: number, def: HazardDef): boolean {
+  const a = typeof def.s === 'number' ? def.s : def.s[0];
+  const b = typeof def.s === 'number' ? def.s : def.s[1];
   return a <= b ? s >= a && s <= b : s >= a || s <= b;
 }
 
@@ -225,15 +227,13 @@ const logTruck: HazardKind = {
   every: (def) => def.params?.every ?? 40,
   at(h, occ, u) {
     const traffic = h.traffic;
-    const L = h.track.main.length;
     const def = h.defs[occ.def];
     // The truck: the first truck in traffic inside the range at t0, picked by the formula alone.
     let truck = -1;
-    const r = range(def);
     for (let k = 0; k < traffic.count; k++) {
       if (traffic.kind[k] !== TRUCK) continue;
       const s = traffic.sAt(k, occ.t0);
-      if (inRange(s, r, L) && traffic.present(k, occ.t0)) {
+      if (inRange(s, def) && traffic.present(k, occ.t0)) {
         truck = k;
         break;
       }

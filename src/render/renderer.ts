@@ -9,7 +9,7 @@ import { clamp, damp, wrapAngle } from '../core/math';
 import type { Sim } from '../core/sim';
 import { Particles } from './fx';
 import { PostPass } from './post';
-import type { CarVisual, Skin, TrackVisual } from './skin';
+import type { CarVisual, Skin, TrackVisual, WorldVisual } from './skin';
 
 const STAGE_COLORS = [0xffffff, 0x35a8ff, 0xff8a1a, 0xff2e88];
 
@@ -27,6 +27,7 @@ export class GameRenderer {
   private readonly visuals: CarVisual[] = [];
   private readonly spin: number[] = [];
   private trackVisual: TrackVisual;
+  private worldVisual: WorldVisual;
   private cursor = 0;
   private time = 0;
   private shake = 0;
@@ -63,6 +64,7 @@ export class GameRenderer {
     for (const e of this.trackVisual.extras) this.scene.add(e);
     this.scene.add(this.trackVisual.debug);
     this.scene.add(this.fx.points);
+    this.worldVisual = skin.world(this.scene, sim);
     this.syncCars();
     this.resize();
     this.snapCamera();
@@ -148,7 +150,8 @@ export class GameRenderer {
     }
     this.fx.update(dt * this.sim.timeScale);
     this.updateCamera(dt);
-    this.skin.update?.(this.time, this.camera.position.x, this.camera.position.y, this.camera.position.z);
+    this.worldVisual.update(dt * this.sim.timeScale, this.camera.position);
+    this.skin.update?.(this.time, this.camera.position.x, this.camera.position.y, this.camera.position.z, this.sim.wetness);
 
     const u = this.post.uniforms;
     const fs = this.focusSpeed();

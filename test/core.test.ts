@@ -9,6 +9,7 @@ import { Rng, hash01 } from '../src/core/rng';
 import { bakeTrack, mainDistance } from '../src/core/track/bake';
 import { newHit, project, projectGlobal, sampleAt } from '../src/core/track/query';
 import { validateLayout } from '../src/core/track/validate';
+import { Sim } from '../src/core/sim';
 import { CLASSES, DOWNTOWN, SURFACES, citySim, ringSim } from './helpers';
 
 describe('rng', () => {
@@ -193,9 +194,10 @@ describe('sim', () => {
     expect(b.cars.h[1]).toBe(a.cars.h[1]);
   });
 
-  test('stepping does not allocate after warm-up', () => {
-    const sim = citySim();
-    for (let k = 0; k < 8; k++) sim.addCar({ cls: 'coupe', follow: { lane: (k % 4) * 3 - 4.5, speed: 30 + k * 3 } });
+  test('stepping does not allocate after warm-up (full world: 8 AI, traffic, chaos hazards, rain)', () => {
+    const sim = new Sim(bakeTrack(DOWNTOWN, SURFACES), CLASSES, SURFACES, { seed: 3, weather: 'rain', mayhem: 'chaos', traffic: 1 });
+    for (let k = 0; k < 8; k++) sim.addCar({ cls: CLASSES[k % 4].id, racer: { difficulty: (k % 3) as 0 | 1 | 2 } });
+    sim.startRace(3, 0.5);
     const human = sim.addCar({ cls: 'hatch', human: true });
     const c = neutralControls();
     c.throttle = 1;

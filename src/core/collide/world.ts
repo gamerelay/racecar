@@ -97,7 +97,7 @@ export function collideWorld(sim: SimState, i: number, ctx: WorldCtx): void {
     const main = sim.track.main;
     const frac = (2 * c.lateral[i]) / Math.max(1, main.width[Math.round(c.s[i] / main.step) % main.n]);
     let best = traffic.lanes[0];
-    for (const l of traffic.lanes) if (Math.abs(l.pos - frac) < Math.abs(best.pos - frac)) best = l;
+    for (let l = 1; l < traffic.lanes.length; l++) if (Math.abs(traffic.lanes[l].pos - frac) < Math.abs(best.pos - frac)) best = traffic.lanes[l];
     if (best.dir < 0 && Math.abs(best.pos - frac) < 0.5) {
       if (c.oncomingT[i] === 0) sim.events.push(tick, Ev.Oncoming, i, c.x[i], c.y[i], c.z[i]);
       c.oncomingT[i] += sim.dt;

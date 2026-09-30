@@ -22,9 +22,13 @@ import {
 } from 'three';
 import type { CarClass, PaintDef } from '../../../core/content';
 import type { Track } from '../../../core/track/bake';
-import type { CarVisual, Skin, TrackVisual } from '../../skin';
+import type { Sim } from '../../../core/sim';
+import type { CarVisual, Skin, TrackVisual, WorldVisual } from '../../skin';
+import { buildWorldVisual } from './world';
 import { PALETTES, type Palette } from './palettes';
 import { buildTrackVisual } from './track';
+
+const RAIN_FOG = new Color(0x3a4460);
 
 export class GreyboxSkin implements Skin {
   readonly id = 'greybox';
@@ -32,12 +36,14 @@ export class GreyboxSkin implements Skin {
   private sky?: Mesh;
   private skyTime?: { value: number };
   private sun?: DirectionalLight;
+  private fog?: Fog;
+  private hemi?: HemisphereLight;
 
   environment(scene: Scene, palette: string): void {
     const p = (this.palette = PALETTES[palette] ?? PALETTES.dusk);
     scene.background = new Color(p.fog);
-    scene.fog = new Fog(p.fog, p.fogNear, p.fogFar);
-    scene.add(new HemisphereLight(p.hemiSky, p.hemiGround, p.hemiIntensity));
+    scene.fog = this.fog = new Fog(p.fog, p.fogNear, p.fogFar);
+    scene.add((this.hemi = new HemisphereLight(p.hemiSky, p.hemiGround, p.hemiIntensity)));
     const sun = (this.sun = new DirectionalLight(p.dir, p.dirIntensity));
     sun.position.set(-300, 400, -800);
     scene.add(sun);
@@ -92,8 +98,20 @@ export class GreyboxSkin implements Skin {
     return buildCar(cls, paint);
   }
 
-  update(time: number, x: number, y: number, z: number): void {
+  world(scene: Scene, sim: Sim): WorldVisual {
+    return buildWorldVisual(scene, sim);
+  }
+
+  update(time: number, x: number, y: number, z: number, wetness = 0): void {
     if (this.skyTime) this.skyTime.value = time;
+    if (this.fog) {
+      const p = this.palette;
+      this.fog.near = p.fogNear * (1 - 0.5 * wetness);
+      this.fog.far = p.fogFar * (1 - 0.55 * wetness);
+      this.fog.color.setHex(p.fog).lerp(RAIN_FOG, wetness * 0.6);
+      if (this.hemi) this.hemi.intensity = p.hemiIntensity * (1 - 0.35 * wetness);
+      if (this.sun) this.sun.intensity = p.dirIntensity * (1 - 0.6 * wetness);
+    }
     this.sky?.position.set(x, y, z);
     if (this.sun) {
       this.sun.position.set(x - 300, y + 400, z - 800);

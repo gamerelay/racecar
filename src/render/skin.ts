@@ -2,8 +2,9 @@
 // plays. Greybox is the default; the neon City skin comes in milestone 3b. A skin gets baked
 // track data and car classes and returns Three.js objects; it can't change colliders or timings.
 
-import type { Object3D, Scene } from 'three';
+import type { Object3D, Scene, Vector3 } from 'three';
 import type { CarClass, PaintDef } from '../core/content';
+import type { Sim } from '../core/sim';
 import type { Track } from '../core/track/bake';
 
 export interface CarVisual {
@@ -23,12 +24,18 @@ export interface TrackVisual {
   dispose(): void;
 }
 
+/** Traffic, hazards, weather: everything the world systems put on screen. */
+export interface WorldVisual {
+  update(dt: number, camera: Vector3): void;
+}
+
 export interface Skin {
   id: string;
   /** Sky, fog, lights. Called once per scene. */
   environment(scene: Scene, palette: string): void;
   track(track: Track, seed: number): TrackVisual;
   car(cls: CarClass, paint: PaintDef): CarVisual;
+  world(scene: Scene, sim: Sim): WorldVisual;
   /** Per frame, for animated skies and the like. */
-  update?(time: number, cameraX: number, cameraY: number, cameraZ: number): void;
+  update?(time: number, cameraX: number, cameraY: number, cameraZ: number, wetness: number): void;
 }

@@ -16,7 +16,7 @@ import { bakeTrack } from '../src/core/track/bake';
 const root = join(import.meta.dir, '..', 'content');
 const args = process.argv.slice(2);
 const json = args.includes('--json');
-const field = args.includes('--field');
+const field = args.includes('--field') && import.meta.main;
 const laps = Number(args[args.indexOf('--laps') + 1]) || 3;
 const only = args.find((a) => a.includes('/') && !a.startsWith('-'));
 const surfaces = JSON.parse(readFileSync(join(root, 'surfaces.json'), 'utf8')) as SurfaceDef[];

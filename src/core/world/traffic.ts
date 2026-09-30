@@ -108,7 +108,11 @@ export class Traffic {
     if (sections) {
       const s = this.sAt(k, t);
       let inside = false;
-      for (const [a, b] of sections) if (a <= b ? s >= a && s <= b : s >= a || s <= b) inside = true;
+      for (let j = 0; j < sections.length; j++) {
+        const a = sections[j][0];
+        const b = sections[j][1];
+        if (a <= b ? s >= a && s <= b : s >= a || s <= b) inside = true;
+      }
       if (!inside) return false;
     }
     if (t < GRID_CLEAR.seconds) {

@@ -6,6 +6,7 @@ import {
   BoxGeometry,
   BufferGeometry,
   Color,
+  ConeGeometry,
   DoubleSide,
   Float32BufferAttribute,
   Group,
@@ -106,7 +107,22 @@ export function buildTrackVisual(track: Track, palette: Palette, seed: number): 
   ground.matrixAutoUpdate = false;
 
   const extras: Object3D[] = [ground];
+  // Solid props on the road (the pillars): tall striped boxes.
+  const solid = track.props.filter((p) => p.solid);
+  if (solid.length) {
+    const mesh = new InstancedMesh(new BoxGeometry(1, 1, 1), new MeshLambertMaterial({ color: 0xbfb3d6, flatShading: true }), solid.length);
+    const mat = new Matrix4();
+    const q = new Quaternion();
+    const up = new Vector3(0, 1, 0);
+    solid.forEach((p, k) => {
+      mat.compose(new Vector3(p.x, p.y + p.hy, p.z), q.setFromAxisAngle(up, p.heading), new Vector3(p.hx * 2, p.hy * 2, p.hz * 2));
+      mesh.setMatrixAt(k, mat);
+    });
+    mesh.computeBoundingSphere();
+    extras.push(mesh);
+  }
   if (track.layout.scenery === 'city') extras.push(cityBlocks(track, palette, seed, groundY));
+  if (track.layout.scenery === 'countryside') extras.push(...countryside(track, palette, seed, groundY));
 
   return {
     chunks,
@@ -269,6 +285,65 @@ function cityBlocks(track: Track, palette: Palette, seed: number, groundY: numbe
   });
   mesh.computeBoundingSphere();
   return mesh;
+}
+
+/** Trees in clumps along the road, and flat field patches: enough to read speed and the lie of the land. */
+function countryside(track: Track, palette: Palette, seed: number, groundY: number): Object3D[] {
+  const rng = Rng.stream(seed, 'scenery');
+  const hit = newHit();
+  const trees: { x: number; y: number; z: number; s: number; c: number }[] = [];
+  const fields: { x: number; y: number; z: number; w: number; d: number; h: number; c: number }[] = [];
+  const clear = (x: number, z: number, r: number) => {
+    for (const other of track.splines) {
+      projectGlobal(other, x, z, hit);
+      if (Math.abs(hit.lateral) < hit.width / 2 + hit.shoulder + r + 2 && hit.s > 0.5 && hit.s < other.length - 0.5) return false;
+    }
+    return true;
+  };
+  for (const sp of track.splines) {
+    for (let s = 0; s < sp.length; s += rng.range(6, 14)) {
+      const i = Math.min(sp.n - 1, Math.round(s / sp.step));
+      const edge = sp.width[i] / 2 + sp.shoulder[i] + 3;
+      for (const side of [-1, 1]) {
+        if (rng.next() < 0.45) continue;
+        const off = edge + rng.range(0, 40) * rng.next();
+        const x = sp.px[i] - sp.tz[i] * off * side;
+        const z = sp.pz[i] + sp.tx[i] * off * side;
+        if (!clear(x, z, 2)) continue;
+        trees.push({ x, y: sp.py[i], z, s: rng.range(0.7, 1.5), c: palette.blocks[Math.floor(rng.next() * 4)] });
+      }
+      if (rng.next() < 0.05) {
+        const side = rng.next() < 0.5 ? -1 : 1;
+        const off = edge + 30 + rng.range(0, 60);
+        const x = sp.px[i] - sp.tz[i] * off * side;
+        const z = sp.pz[i] + sp.tx[i] * off * side;
+        if (clear(x, z, 25)) fields.push({ x, y: groundY + 0.05, z, w: rng.range(40, 90), d: rng.range(40, 90), h: Math.atan2(sp.tx[i], sp.tz[i]), c: [0xc9a94a, 0x8fae4a, 0x6f8f3a, 0xb58a4a][Math.floor(rng.next() * 4)] });
+      }
+    }
+  }
+  const crown = new InstancedMesh(new ConeGeometry(2.4, 7, 7).translate(0, 5.5, 0), new MeshLambertMaterial({ flatShading: true }), trees.length);
+  const trunk = new InstancedMesh(new BoxGeometry(0.5, 2.2, 0.5).translate(0, 1.1, 0), new MeshLambertMaterial({ color: 0x5a3f2a, flatShading: true }), trees.length);
+  const m = new Matrix4();
+  const q = new Quaternion();
+  const c = new Color();
+  trees.forEach((t, k) => {
+    m.compose(new Vector3(t.x, Math.min(t.y, groundY + 20) - 0.5, t.z), q, new Vector3(t.s, t.s, t.s));
+    crown.setMatrixAt(k, m);
+    trunk.setMatrixAt(k, m);
+    crown.setColorAt(k, c.set(t.c));
+  });
+  crown.computeBoundingSphere();
+  trunk.computeBoundingSphere();
+  const patch = new InstancedMesh(new BoxGeometry(1, 0.1, 1), new MeshLambertMaterial({ flatShading: true }), Math.max(1, fields.length));
+  const up = new Vector3(0, 1, 0);
+  fields.forEach((f, k) => {
+    m.compose(new Vector3(f.x, f.y, f.z), q.setFromAxisAngle(up, f.h), new Vector3(f.w, 1, f.d));
+    patch.setMatrixAt(k, m);
+    patch.setColorAt(k, c.set(f.c));
+  });
+  patch.count = fields.length;
+  patch.computeBoundingSphere();
+  return [crown, trunk, patch];
 }
 
 function debugVolumes(track: Track): Object3D {

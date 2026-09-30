@@ -142,7 +142,8 @@ export function driveRacer(sim: SimState, i: number, d: RacerDriver, out: Contro
   // On a two-way road, easier drivers keep their line on their own side.
   const world = sim.world;
   if (world && sp.index === 0 && skill.ownSide > 2) {
-    for (const lane of world.traffic.lanes) {
+    for (let l = 0; l < world.traffic.lanes.length; l++) {
+      const lane = world.traffic.lanes[l];
       if (lane.dir < 0) target = lane.pos < 0 ? Math.max(target, skill.ownSide > 8 ? 1 : -0.5) : Math.min(target, skill.ownSide > 8 ? -1 : 0.5);
     }
   }
@@ -242,7 +243,7 @@ function avoid(sim: SimState, i: number, sp: BakedSpline, s: number, target: num
   let oncomingSide = 0;
   if (world && sp.index === 0) {
     const tr = world.traffic;
-    for (const lane of tr.lanes) if (lane.dir < 0) oncomingSide = Math.sign(lane.pos);
+    for (let l = 0; l < tr.lanes.length; l++) if (tr.lanes[l].dir < 0) oncomingSide = Math.sign(tr.lanes[l].pos);
     for (let p = 0; p < tr.posed; p++) {
       const ds = wrap(tr.s[p] - sMain + L / 2, L) - L / 2;
       const k = tr.idx[p];
@@ -257,7 +258,9 @@ function avoid(sim: SimState, i: number, sp: BakedSpline, s: number, target: num
       mark(lat, Math.max(hz.phw[p], hz.phl[p]), ds, 0);
     }
   }
-  for (const pr of sim.track.props) {
+  const props = sim.track.props;
+  for (let q = 0; q < props.length; q++) {
+    const pr = props[q];
     if (!pr.solid || pr.spline !== sp.index) continue;
     mark(pr.lateral, Math.max(pr.hx, pr.hz), pr.s - s, 0);
   }
