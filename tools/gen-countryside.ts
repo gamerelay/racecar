@@ -1,16 +1,20 @@
-// Generator for Countryside's Valley layout (v2, after City v2: tighter, more up and down, and
-// mostly dirt). A lap through pine forest either side of a river, in order:
+// Generator for Countryside's Valley layout (v3: v2's lap re-laid for drifting). A lap through pine
+// forest either side of a river, in order:
 //
-//   the Village         start/finish on the asphalt river road, traffic, then an S through the
-//                       village square (the Barn shortcut goes straight through the barn instead)
-//   the Covered Bridge  right over the river
-//   the Switchbacks     dirt, up the ridge's flank: four hairpins, 45 m of climb
-//   the Ridge           dirt along the top: crests and two kickers; Logger's Leap jumps off the
-//                       edge to cut the corner onto the Descent
+//   the Village         start/finish on the asphalt river road, traffic, then a flowing S through
+//                       the village square (the Barn shortcut goes straight through the barn instead)
+//   the Covered Bridge  a long left onto the bridge over the river, then two sweepers
+//   the Switchbacks     dirt, up the ridge's flank: three hairpins, each leg with a flick in it
+//   the Ridge           dirt along the top: sweepers over crests and two kickers; Logger's Leap
+//                       jumps off the edge to cut the corner onto the Descent
 //   the Descent         asphalt S-bends down the mountain, then the Trestle, a timber bridge high
-//                       over the gorge (and over the river road you started on)
+//                       over the gorge (and over the river road you started on), after a curve
 //   Pine Hollow         dirt hairpins down to the flats (the Creek Bed cuts across the stream),
-//                       then north along the river, under the Trestle, to the line
+//                       then a kink onto the river road, under the Trestle, to the line
+//
+// v3 (SPEC "Valley v3"): v2 was mostly straights and 90° corners on a narrow road. Now corners
+// are sweepers and S-bends to hold a drift through, the road is wider (more so in the corners),
+// and corners bank into the turn (smoothed, so an S rolls over rather than flips).
 //
 // After this the layout is edited in the editor; rerunning overwrites it.
 //
@@ -19,52 +23,70 @@
 import { writeFileSync } from 'node:fs';
 import type { BranchDef, TrackLayout, TrackPoint, Vec3 } from '../src/core/content';
 import { bakeTrack } from '../src/core/track/bake';
-import { newHit, projectGlobal } from '../src/core/track/query';
+import { newHit, projectGlobal, sampleAt } from '../src/core/track/query';
 import { straightenSections } from '../src/core/track/validate';
 import surfaces from '../content/surfaces.json';
 
-/** A corner of the lap: r is its radius (none: a plain point). */
+/** A corner of the lap: r is its radius (none: a plain point). Bank: unset banks into the turn. */
 type Node = { x: number; z: number; y: number; w: number; r?: number; surface: 'asphalt' | 'dirt'; shoulder: number; bank?: number };
 
-const A = (x: number, z: number, y: number, r?: number, more: Partial<Node> = {}): Node => ({ x, z, y, w: 13, r, surface: 'asphalt', shoulder: 3, ...more });
-const D = (x: number, z: number, y: number, r?: number, more: Partial<Node> = {}): Node => ({ x, z, y, w: 11, r, surface: 'dirt', shoulder: 2.5, ...more });
+const A = (x: number, z: number, y: number, r?: number, more: Partial<Node> = {}): Node => ({ x, z, y, w: 14.5, r, surface: 'asphalt', shoulder: 3, ...more });
+const D = (x: number, z: number, y: number, r?: number, more: Partial<Node> = {}): Node => ({ x, z, y, w: 13, r, surface: 'dirt', shoulder: 2.5, ...more });
+
+/** Drift corners (sweepers, not hairpins or kinks) are this much wider. */
+const DRIFT_WIDTH = 1.5;
+/** Bank into a corner (radians): hairpins a little, sweepers more. */
+const bankFor = (r: number) => (r < 35 ? 0.06 : 0.1);
 
 const nodes: Node[] = [
-  // The river road north from the line, and the village S (left, then right).
+  // The river road north from the line, and the village S (left, right, right, left).
   A(0, -40, 0),
-  A(0, 70, 0.5, 24),
-  A(-38, 120, 1.5, 22),
-  A(-38, 190, 1.5, 22),
-  A(0, 240, 1, 24),
-  // Right over the covered bridge, and on up the valley side.
-  A(0, 320, 1.5, 30),
-  // The Switchbacks: legs south and north, each a step east and up the ridge.
-  D(240, 330, 6, 20),
-  D(240, 180, 14, 17),
-  D(282, 180, 17, 17),
-  D(282, 330, 26, 17),
-  D(324, 330, 29, 17),
-  D(324, 170, 38, 17),
-  // Onto the ridge, and south along its top.
-  D(410, 150, 48, 38, { bank: 0.05 }),
-  D(430, -150, 52, 45, { bank: 0.06 }),
+  A(0, 60, 0.5, 55),
+  A(-40, 125, 1.5, 55),
+  A(-40, 185, 1.5, 55),
+  A(0, 250, 1, 55),
+  // A long right onto the covered bridge, then two sweepers on up the valley side.
+  A(0, 345, 1.5, 40),
+  A(125, 312, 3, 70),
+  A(195, 352, 5, 60),
+  // The Switchbacks: legs south and north, each a step east and up the ridge, with a flick.
+  D(255, 345, 6, 25),
+  D(273, 262, 10, 70, { bank: 0 }),
+  D(255, 180, 14, 25),
+  D(305, 180, 17, 25),
+  D(323, 255, 21, 70, { bank: 0 }),
+  D(305, 330, 26, 25),
+  D(355, 330, 29, 25),
+  D(373, 250, 33, 70, { bank: 0 }),
+  D(355, 170, 38, 30),
+  // Onto the ridge, and south along its top: sweepers over the crests.
+  D(415, 145, 48, 40),
+  D(445, 70, 50, 90),
+  D(412, -20, 52, 90),
+  D(440, -105, 52, 80),
   // The Descent: asphalt S-bends down to the Trestle.
-  A(300, -170, 42, 40, { bank: -0.05 }),
-  A(220, -280, 30, 40, { bank: 0.05 }),
-  // The Trestle runs west from here, over the gorge and the river road.
-  A(-120, -280, 18, 22),
+  A(430, -170, 50, 40),
+  A(340, -150, 43, 55),
+  A(290, -215, 36, 55),
+  A(215, -235, 30, 55),
+  // A curve onto the Trestle, which runs west, straight, over the gorge and the river road.
+  A(165, -270, 27, 110),
   // Pine Hollow: dirt hairpins down to the flats.
-  D(-120, -360, 13, 18),
-  D(-190, -360, 10, 18),
-  D(-190, -440, 5, 18),
-  D(0, -460, 0, 28),
+  D(-125, -285, 18, 35),
+  D(-135, -365, 13, 35),
+  D(-205, -375, 10, 30),
+  D(-210, -450, 5, 35),
+  D(-90, -478, 2, 70),
+  // A kink onto the river road home.
+  A(-15, -400, 0.5, 70),
+  A(0, -300, 0, 150),
 ];
 
-// Crests to fly off: a bump in the height (meters) centered near a point, over a length.
+// Crests to fly off: a bump in the height (meters) centered on the road nearest (x, z), over a length.
 const crests = [
-  { x: 420, z: 60, h: 3.2, len: 46 },
-  { x: 424, z: -50, h: 2.6, len: 40 },
-  { x: 0, z: -360, h: 1.6, len: 50 },
+  { x: 440, z: 60, h: 3.2, len: 46 },
+  { x: 420, z: -50, h: 2.6, len: 40 },
+  { x: -10, z: -360, h: 1.6, len: 50 },
 ];
 
 // ---- the path: filleted corners, sampled every few meters ----
@@ -73,6 +95,9 @@ interface Sample {
   x: number;
   z: number;
   n: Node;
+  /** Width and bank before smoothing: a corner's own on its arc, the plain road's elsewhere. */
+  w: number;
+  bank: number;
   /** On a corner's middle sample: the road is at the node's height there. */
   anchor?: number;
 }
@@ -95,7 +120,7 @@ function path(ns: Node[]): Sample[] {
   for (let i = 0; i < N; i++) {
     const c = ns[i];
     const k = corner[i];
-    if (!k.t) out.push({ x: c.x, z: c.z, n: c, anchor: c.y });
+    if (!k.t) out.push({ x: c.x, z: c.z, n: c, anchor: c.y, w: c.w, bank: c.bank ?? 0 });
     else {
       // The arc, centered off the incoming tangent toward the turn.
       const r = k.t / Math.tan(k.theta / 2);
@@ -104,9 +129,14 @@ function path(ns: Node[]): Sample[] {
       const cz = k.t1[1] + k.di[0] * r * sgn;
       const a0 = Math.atan2(k.t1[1] - cz, k.t1[0] - cx);
       const steps = Math.max(2, Math.ceil((r * k.theta) / 7));
+      // The lap's right is (-z, x) of its heading, so a positive cross product is a right turn,
+      // and a positive bank lowers the right: into the turn.
+      const drift = r >= 35 && r <= 110 && k.theta > 0.35;
+      const w = c.w + (drift ? DRIFT_WIDTH : 0);
+      const bank = c.bank ?? (k.theta > 0.2 ? sgn * bankFor(r) : 0);
       for (let j = 0; j <= steps; j++) {
         const a = a0 + sgn * k.theta * (j / steps);
-        out.push({ x: cx + Math.cos(a) * r, z: cz + Math.sin(a) * r, n: c, anchor: j === Math.floor(steps / 2) ? c.y : undefined });
+        out.push({ x: cx + Math.cos(a) * r, z: cz + Math.sin(a) * r, n: c, anchor: j === Math.floor(steps / 2) ? c.y : undefined, w, bank });
       }
     }
     // The straight on to the next corner.
@@ -116,7 +146,8 @@ function path(ns: Node[]): Sample[] {
     const steps = Math.floor(Math.hypot(g[0] - f[0], g[1] - f[1]) / 22);
     for (let j = 1; j < steps; j++) {
       const u = j / steps;
-      out.push({ x: f[0] + (g[0] - f[0]) * u, z: f[1] + (g[1] - f[1]) * u, n: u < 0.5 ? c : q });
+      const n = u < 0.5 ? c : q;
+      out.push({ x: f[0] + (g[0] - f[0]) * u, z: f[1] + (g[1] - f[1]) * u, n, w: n.w, bank: 0 });
     }
   }
   return out;
@@ -139,31 +170,62 @@ const raw = samples.map((_, k) => {
   const ab = (dist[b.k] - dist[a.k] + L0) % L0 || 1;
   return a.y + (b.y - a.y) * (da / ab);
 });
-const heights = samples.map((s, k) => {
-  let sum = 0;
-  let wsum = 0;
-  for (let j = -8; j <= 8; j++) {
-    const m = (k + j + S) % S;
-    const w = Math.exp(-(gap(m, k) ** 2) / (2 * 14 * 14));
-    sum += raw[m] * w;
-    wsum += w;
+/** `v` (one value per sample) at distance d along the lap, linear between samples. */
+const valueAt = (v: number[], d: number) => {
+  d = ((d % L0) + L0) % L0;
+  let lo = 0;
+  let hi = S;
+  while (hi - lo > 1) {
+    const mid = (lo + hi) >> 1;
+    if (dist[mid] <= d) lo = mid;
+    else hi = mid;
   }
-  let y = sum / wsum;
-  for (const c of crests) {
-    const d = Math.hypot(s.x - c.x, s.z - c.z);
+  const f = (d - dist[lo]) / (dist[lo + 1] - dist[lo] || 1);
+  return v[lo] + (v[(lo + 1) % S] - v[lo]) * f;
+};
+/** A value along the lap, smoothed with a Gaussian of `sigma` meters (by distance, however sparse the samples). */
+const smoothed = (v: number[], sigma: number) =>
+  v.map((_, k) => {
+    let sum = 0;
+    let wsum = 0;
+    for (let u = -3 * sigma; u <= 3 * sigma; u += 1) {
+      const w = Math.exp(-(u * u) / (2 * sigma * sigma));
+      sum += valueAt(v, dist[k] + u) * w;
+      wsum += w;
+    }
+    return sum / wsum;
+  });
+// Crests sit on the road nearest their (x, z), measured along it.
+const crestAt = crests.map((c) => {
+  let best = 0;
+  for (let k = 1; k < S; k++) if (Math.hypot(samples[k].x - c.x, samples[k].z - c.z) < Math.hypot(samples[best].x - c.x, samples[best].z - c.z)) best = k;
+  return { ...c, k: best };
+});
+const heights = smoothed(raw, 14).map((y, k) => {
+  for (const c of crestAt) {
+    const d = gap(k, c.k);
     if (d < c.len / 2) y += c.h * 0.5 * (1 + Math.cos((Math.PI * d) / (c.len / 2)));
   }
   return y;
 });
+// Widths ease in and out of the corners; banks roll over an S instead of flipping.
+const widths = smoothed(
+  samples.map((s) => s.w),
+  10,
+);
+const banks = smoothed(
+  samples.map((s) => s.bank),
+  12,
+);
 
 const r1 = (n: number) => Math.round(n * 10) / 10;
 const pts: TrackPoint[] = samples.map((s, k) => ({
   p: [r1(s.x), r1(heights[k]), r1(s.z)] as Vec3,
-  width: s.n.w,
+  width: Math.round(widths[k] * 10) / 10,
   lanes: 2,
   shoulder: s.n.shoulder,
   ...(s.n.surface !== 'asphalt' ? { surface: s.n.surface } : {}),
-  ...(s.n.bank ? { bank: s.n.bank } : {}),
+  ...(Math.abs(banks[k]) > 0.002 ? { bank: Math.round(banks[k] * 1000) / 1000 } : {}),
 }));
 
 const layout: TrackLayout = {
@@ -186,6 +248,15 @@ const L = baked.main.length;
 const hit = newHit();
 const sAt = (x: number, z: number, y?: number) => (projectGlobal(baked.main, x, z, hit, y), Math.round(hit.s));
 const yAt = (x: number, z: number, y?: number) => (projectGlobal(baked.main, x, z, hit, y), hit.cy);
+/**
+ * A shortcut's first (or last) point: `along` m on from where it leaves the main road at `s` (or
+ * back from where it rejoins), and `lat` m out to the side (right positive). Close in and shallow,
+ * so it forks off gently.
+ */
+const fork = (s: number, along: number, lat: number, dy: number, width: number): TrackPoint => {
+  sampleAt(baked.main, s + along, hit);
+  return { p: [r1(hit.cx - hit.tz * lat), r1(hit.cy + dy), r1(hit.cz + hit.tx * lat)], width, lanes: 1, shoulder: 1.5, surface: 'dirt' };
+};
 
 // ---- shortcuts ----
 
@@ -194,7 +265,7 @@ const barn: BranchDef = {
   id: 'barn',
   kind: 'shortcut',
   from: sAt(0, 40),
-  to: sAt(0, 270),
+  to: sAt(0, 275),
   points: [
     { p: [0, 0.8, 100], width: 8, lanes: 1, shoulder: 1.5, surface: 'dirt' },
     { p: [2, 1.2, 155], width: 7, lanes: 1, shoulder: 1, surface: 'dirt' },
@@ -205,25 +276,25 @@ const barn: BranchDef = {
 const leap: BranchDef = {
   id: 'leap',
   kind: 'shortcut',
-  from: sAt(428, -40, 52),
-  to: sAt(350, -168, 45),
+  from: sAt(424, -70, 52),
+  to: sAt(355, -157, 45),
   points: [
-    { p: [407, r1(yAt(428, -60, 52) - 0.3), -70], width: 9, lanes: 1, shoulder: 1.5, surface: 'dirt' },
-    { p: [396, r1(yAt(428, -80, 52) - 1), -106], width: 9, lanes: 1, shoulder: 1.5, surface: 'dirt' },
-    { p: [384, r1(yAt(360, -168, 45) + 1.5), -145], width: 10, lanes: 1, shoulder: 2, surface: 'dirt' },
+    fork(sAt(424, -70, 52), 30, -9, -0.3, 10),
+    { p: [400, r1(yAt(424, -100, 52) - 1), -126], width: 10, lanes: 1, shoulder: 1.5, surface: 'dirt' },
+    { p: [380, r1(yAt(360, -158, 45) + 1.5), -145], width: 11, lanes: 1, shoulder: 2, surface: 'dirt' },
   ],
 };
 // The Creek Bed: off the Hollow's westbound leg, straight down across the stream inside the
-// last hairpin, onto the run home.
+// last two hairpins, onto the run east.
 const creek: BranchDef = {
   id: 'creek',
   kind: 'shortcut',
-  from: sAt(-150, -360, 11),
-  to: sAt(-45, -458, 1),
+  from: sAt(-138, -352, 14),
+  to: sAt(-118, -471, 2),
   points: [
-    { p: [-160, r1(yAt(-150, -360, 11) - 1.5), -388], width: 9, lanes: 1, shoulder: 2, surface: 'dirt' },
-    { p: [-140, r1(yAt(-150, -360, 11) - 5), -418], width: 10, lanes: 1, shoulder: 2, surface: 'dirt' },
-    { p: [-102, r1(yAt(-45, -458, 1) + 1.2), -447], width: 9, lanes: 1, shoulder: 2, surface: 'dirt' },
+    fork(sAt(-138, -352, 14), 28, 10, -0.8, 10),
+    { p: [-166, r1(yAt(-168, -370, 11) - 5), -420], width: 11, lanes: 1, shoulder: 2, surface: 'dirt' },
+    { p: [-150, r1(yAt(-118, -471, 2) + 1.2), -458], width: 10, lanes: 1, shoulder: 2, surface: 'dirt' },
   ],
 };
 layout.branches = [barn, leap, creek];
@@ -235,8 +306,8 @@ const creekSp = withBranches.splines[3];
 // Each kicker ends on its crest's top, so the road falls away under you (heading south, s grows
 // as z falls).
 layout.ramps = [
-  { s: sAt(420, 60, 52) - 12, height: 1.6, length: 12 },
-  { s: sAt(424, -50, 54) - 10, height: 1.4, length: 10 },
+  { s: sAt(crests[0].x, crests[0].z, 52) - 12, height: 1.6, length: 12 },
+  { s: sAt(crests[1].x, crests[1].z, 54) - 10, height: 1.4, length: 10 },
   { spline: 'leap', s: Math.round(leapSp.length * 0.35), height: 2.2, length: 12 },
 ];
 
@@ -244,9 +315,9 @@ layout.ramps = [
 const span = (a: number, b: number): [number, number] => [Math.min(a, b), Math.max(a, b)];
 const walled: [number, number][] = [
   span(sAt(-10, 60), sAt(-10, 250)), // the village square
-  span(sAt(30, 320), sAt(100, 322)), // the covered bridge
-  span(sAt(236, 320), sAt(324, 180, 37)), // the switchbacks
-  span(sAt(-60, -280, 20) + 10, sAt(150, -280, 27) - 10), // the trestle
+  span(sAt(35, 338), sAt(95, 322)), // the covered bridge
+  span(sAt(255, 320, 7), sAt(355, 200, 36)), // the switchbacks
+  span(sAt(-60, -284, 20), sAt(150, -262, 27)), // the trestle
 ].sort((a, b) => a[0] - b[0]);
 const gaps: { s: [number, number]; side: 'both' }[] = [];
 let cursor = 0;
@@ -259,17 +330,17 @@ layout.walls = { gaps };
 
 // ---- traffic on the asphalt, hazards, water ----
 const sections: [number, number][] = [
-  [sAt(0, -440), sAt(0, 50)],
-  [sAt(290, -190, 41), sAt(150, -280, 27)],
+  [sAt(0, -300), sAt(0, 50)],
+  [sAt(215, -236, 30), sAt(-110, -285, 19)],
 ];
 layout.traffic = { density: 5, lanes: [{ pos: 0.5, dir: 1, speed: 16, sections }, { pos: -0.5, dir: -1, speed: 14, sections }] };
 layout.hazards = [
-  { use: 'log-truck', s: [sAt(0, -420), sAt(0, 40)], params: { every: 60 } },
-  { use: 'falling-sign', s: sAt(-38, 160) },
+  { use: 'log-truck', s: [sAt(0, -300), sAt(0, 40)], params: { every: 60 } },
+  { use: 'falling-sign', s: sAt(0, -255) },
 ];
 layout.takedownSpots = [
-  { s: sAt(20, -280, 24), name: 'The Trestle' },
-  { s: sAt(60, 320), name: 'The Covered Bridge' },
+  { s: sAt(20, -283, 24), name: 'The Trestle' },
+  { s: sAt(60, 330), name: 'The Covered Bridge' },
 ];
 const puddle = (x: number, z: number, y: number, len: number, l0: number, l1: number) => {
   const s0 = sAt(x, z, y);
@@ -279,9 +350,9 @@ layout.zones = [
   // The ford in the Creek Bed is always wet.
   { spline: 'creek', s: [Math.round(creekSp.length * 0.42), Math.round(creekSp.length * 0.62)], lateral: [-5, 5], surface: 'puddle' },
   // Rain puddles: a Hollow hairpin, the village, a switchback.
-  puddle(-190, -380, 9, 26, -5, 3),
-  puddle(-30, 120, 1.5, 22, -2, 6),
-  puddle(282, 200, 17, 22, -4, 4),
+  puddle(-200, -400, 8, 26, -5, 3),
+  puddle(-38, 135, 1.5, 22, -2, 6),
+  puddle(305, 200, 17, 22, -4, 4),
 ];
 layout.terrain = {
   river: [

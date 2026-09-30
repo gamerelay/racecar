@@ -22,6 +22,9 @@ traffic that fades instead of popping (PR #7, `alpha-1.3`), and audio plus a rev
 - **Repo:** `gamerelay/racecar`, private until milestone 3, cloned at `~/dev/racecar`. The default
   branch is `main`.
 - **Milestone 1 (greybox sandbox): merged** (PR #1).
+- **Valley v3 and smooth shortcut joins: on branch `valley-v3`** (PR, not merged): the Valley
+  re-laid for drifting (more sweepers, wider road, banked corners, grass banks at the edges) and
+  shortcuts that meet the main road flush on every map. SPEC "Changed while building", Valley v3.
 - **Audio and a review pass: merged** (PR #9) and tagged `alpha-1.4`: synthesized audio
   (`src/audio/`: engines, tyres, impacts, cues, a music loop; M mutes, N music) and the fixes
   from a four-way code review (SPEC "Review pass"). 88 tests.

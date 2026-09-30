@@ -1076,3 +1076,29 @@ checked before fixing, each fix with a test that fails without it:
   (`render/camera.ts`); shader patches throw on a missing chunk (`render/shader.ts`).
 - **UI:** menus work by pad and arrows (`ui/nav.ts`); URL setups are validated; results are
   live with the fastest lap; lap pops show deltas; small screens don't overlap.
+
+Valley v3 and smooth shortcut joins (2026-09-30), from play feedback: the city's wide roads,
+gradients and tunnel work; the Valley wanted more corners to lean a drift into, a slightly wider
+road, and smoother edges; shortcuts (the city's alley most) met the main road roughly.
+
+- **Shortcut joins (every map, in the baker):** where a branch overlaps the main road it takes
+  the main road's ground (height and bank), fading to its own once clear, so there's no step (the
+  alley met the road 1.7 m below its surface, and you drove up out of it). A slip point keeps a
+  branch on the main road's heading for its first and last ~24 m when its end points leave room.
+  The kerb and verge the two decks run through are open: drawn flush and paved like the road, no
+  kerb across a mouth, no edge line over the main road (`openL`/`openR` on the baked spline). The
+  validator warns when a branch forks off at more than 35°.
+- **Valley v3 (`tools/gen-countryside.ts`):** same valley, regions and shortcuts, re-laid:
+  28 corners (v2: 18), 20 of them 35–110 m sweepers (v2: 8), 64% of the lap curved (v2: 41%),
+  the longest straight 308 m (v2: 454). The village is a flowing S; sweepers into and out of the
+  covered bridge; three hairpins up the switchbacks, each leg with a flick; the ridge sweeps over
+  its crests; S-bends down the descent; a kink onto the home straight. Roads 14.5 m (asphalt) and
+  13 m (dirt), v2's were 13 and 11, and 1.5 m more through the sweepers. Corners bank into the
+  turn (5.7° sweepers, 3.4° hairpins), smoothed by distance so an S rolls over (under 0.5°/m).
+- **Edges:** the land follows the banked road instead of its centerline, and a country road with
+  no rail runs down to the land on a grass bank (1 in 2.5) instead of a sheer drop, which read as
+  a ledge wherever a crest lifted the road.
+- **Moved to fit:** the falling sign to the home straight (in the new S it dropped where no one
+  could dodge it; just past the Barn's exit, cars leaving the barn don't see it in time);
+  the Trestle's traffic on a straight trestle after a curve (traffic sections need straights).
+  AI wrecks per race: v2 0.76, v3 0.88; the lap is 7 s quicker (77.5 to 70.6 s, AI field).

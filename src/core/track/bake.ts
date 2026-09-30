@@ -48,6 +48,14 @@ export interface BakedSpline {
   /** For branches: the main-spline distances it leaves and rejoins at. */
   mainFrom: number;
   mainTo: number;
+  /**
+   * 1 where that side's curb and verge are open because another road runs through them: a branch's
+   * mouth across the main road's verge, and a branch's own edge while it's still on the main road.
+   */
+  openL: Uint8Array;
+  openR: Uint8Array;
+  /** For branches: 1 where the branch lies on the main road (its deck is the main road's), fading to 0. */
+  merge: Float64Array;
   /** Chunk boundaries (sample indices): chunk k covers [chunks[k], chunks[k+1]]. */
   chunks: number[];
 }
@@ -88,6 +96,8 @@ export function bakeTrack(layout: TrackLayout, surfaces: SurfaceDef[]): Track {
   const main = bakeSpline(layout.id, 0, layout.main.points, true, surfaceIndex);
   const splines = [main];
   for (const b of layout.branches ?? []) splines.push(bakeBranch(b, splines.length, main, surfaceIndex));
+
+  for (const sp of splines.slice(1)) joinBranch(main, sp);
 
   const gapsAuto: { spline: BakedSpline; s0: number; s1: number; side: -1 | 0 | 1 }[] = [];
   for (const sp of splines.slice(1)) {
@@ -224,18 +234,117 @@ function bakeSpline(id: string, index: number, pts: TrackPoint[], closed: boolea
   return sp;
 }
 
+/** How far along the main road a branch runs beside it before turning off (and before rejoining). */
+const SLIP = 24;
+
 function bakeBranch(b: BranchDef, index: number, main: BakedSpline, surfaceIndex: Map<string, number>): BakedSpline {
-  // The branch starts and ends exactly on the main road, and its end tangents follow it.
+  // The branch starts and ends exactly on the main road. A slip point on each end keeps it running
+  // along the main road's heading for a stretch, so it forks off gently rather than at an angle.
   const start = mainPoint(main, b.from);
   const end = mainPoint(main, b.to);
   const before = mainPoint(main, b.from - 20).p;
   const after = mainPoint(main, b.to + 20).p;
-  const pts: TrackPoint[] = [{ ...start, width: b.points[0]?.width ?? start.width }, ...b.points, { ...end, width: b.points[b.points.length - 1]?.width ?? end.width }];
+  const first = b.points[0];
+  const last = b.points[b.points.length - 1];
+  const lead = first && slipPoint(main, b.from, first, 1);
+  const lag = last && slipPoint(main, b.to, last, -1);
+  const pts: TrackPoint[] = [
+    { ...start, width: first?.width ?? start.width },
+    ...(lead ? [lead] : []),
+    ...b.points,
+    ...(lag ? [lag] : []),
+    { ...end, width: last?.width ?? end.width },
+  ];
   const sp = bakeSpline(b.id, index, pts, false, surfaceIndex, before, after);
   sp.mainFrom = wrap(b.from, main.length);
   sp.mainTo = wrap(b.to, main.length);
   return sp;
 }
+
+/**
+ * The slip point between a branch's end on the main road (at main distance `s`) and its nearest
+ * authored point `p`, `dir` 1 leaving and -1 rejoining: on along the main road, and only part of
+ * the way out toward `p`, so the curve leaves along the main road's heading. None when `p` is too
+ * close along the road to fit one.
+ */
+function slipPoint(main: BakedSpline, s: number, p: TrackPoint, dir: 1 | -1): TrackPoint | null {
+  const i = sampleIndex(main, s);
+  const along = ((p.p[0] - main.px[i]) * main.tx[i] + (p.p[2] - main.pz[i]) * main.tz[i]) * dir;
+  if (along < 20) return null;
+  const lat = (p.p[0] - main.px[i]) * -main.tz[i] + (p.p[2] - main.pz[i]) * main.tx[i];
+  const j = Math.min(SLIP, along * 0.4);
+  const m = mainPoint(main, s + j * dir);
+  const k = sampleIndex(main, s + j * dir);
+  const l = lat * (j / along) * 0.5;
+  return {
+    ...p,
+    p: [m.p[0] - main.tz[k] * l, m.p[1] - l * Math.tan(main.bank[k]), m.p[2] + main.tx[k] * l],
+    bank: main.bank[k],
+  };
+}
+
+/**
+ * Where a branch overlaps the main road, it must be the main road: the same ground (height and
+ * bank) under its centerline, fading to its own as it pulls clear (JOIN_FADE). Also marks the curbs
+ * and verges the two roads' decks run through (openL/openR), which the renderer leaves out.
+ */
+function joinBranch(main: BakedSpline, sp: BakedSpline): void {
+  // From each end inward, until the branch has pulled clear (a branch may pass near some other
+  // part of the main road in between: that's not a join).
+  for (const [from, dir] of [[0, 1], [sp.n - 1, -1]] as const) {
+    let hint = dir > 0 ? sp.mainFrom : sp.mainTo;
+    for (let i = from; i >= 0 && i < sp.n; i += dir) {
+      const k = nearestSample(main, sp.px[i], sp.pz[i], hint);
+      hint = k * main.step;
+      const rx = -main.tz[k];
+      const rz = main.tx[k];
+      const lat = (sp.px[i] - main.px[k]) * rx + (sp.pz[i] - main.pz[k]) * rz;
+      const mh = main.width[k] / 2;
+      const verge = mh + main.shoulder[k];
+      const bh = sp.width[i] / 2;
+      const w = 1 - smoothstep(0, JOIN_FADE, Math.abs(lat) - verge - bh);
+      if (w <= 0) break;
+      const ground = main.py[k] - lat * Math.tan(main.bank[k]);
+      sp.py[i] += (ground - sp.py[i]) * w;
+      sp.bank[i] += (main.bank[k] - sp.bank[i]) * w;
+      sp.merge[i] = Math.max(sp.merge[i], w);
+      // The branch's own edges: open while they're on the main road or its verge.
+      const flip = sp.tx[i] * main.tx[k] + sp.tz[i] * main.tz[k] < 0 ? -1 : 1;
+      if (Math.abs(lat - bh * flip) < verge) sp.openL[i] = 1;
+      if (Math.abs(lat + bh * flip) < verge) sp.openR[i] = 1;
+      // The main road's verge on the branch's side, where the branch's deck crosses it.
+      if (Math.abs(lat) + bh > mh && Math.abs(lat) - bh < verge) {
+        const open = lat < 0 ? main.openL : main.openR;
+        for (let d = -2; d <= 2; d++) open[(k + d + main.n) % main.n] = 1;
+      }
+    }
+  }
+}
+
+/** How far (m) a branch's ground fades from the main road's to its own once it's clear of it. */
+const JOIN_FADE = 20;
+
+/** The main-road sample nearest (x, z), searched within 60 m of main distance `hint`. */
+function nearestSample(main: BakedSpline, x: number, z: number, hint: number): number {
+  const i0 = sampleIndex(main, hint);
+  const reach = Math.round(60 / main.step);
+  let best = i0;
+  let bestD = Infinity;
+  for (let d = -reach; d <= reach; d++) {
+    const i = (i0 + d + main.n) % main.n;
+    const dd = (main.px[i] - x) ** 2 + (main.pz[i] - z) ** 2;
+    if (dd < bestD) {
+      bestD = dd;
+      best = i;
+    }
+  }
+  return best;
+}
+
+const smoothstep = (e0: number, e1: number, x: number): number => {
+  const t = Math.max(0, Math.min(1, (x - e0) / (e1 - e0)));
+  return t * t * (3 - 2 * t);
+};
 
 function mainPoint(main: BakedSpline, s: number): TrackPoint {
   const i = sampleIndex(main, s);
@@ -292,6 +401,9 @@ function emptySpline(id: string, index: number, closed: boolean, length: number,
     zones: [],
     mainFrom: 0,
     mainTo: 0,
+    openL: u(),
+    openR: u(),
+    merge: f(),
     chunks: [],
   };
 }
