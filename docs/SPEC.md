@@ -1060,3 +1060,19 @@ Audio (2026-09-30):
   slow-mo.
 - **Starts on the first key or click** (browsers' rule), suspends when paused, hidden or in the
   editor. M mutes, N toggles music, remembered on the device.
+
+Review pass (2026-09-30), four parallel reviews (core, track and AI, render, UI), each finding
+checked before fixing, each fix with a test that fails without it:
+
+- **Rules:** lap times are world time (slow-mo inflated every lap); a wall-cancelled drift can't
+  restart next tick; finished cars rank by place; same-tick finishes by who crossed first;
+  checkpoints on the line are dropped; `startRace` clamps laps and resets slow-mo; `placeCar`
+  clears every transient.
+- **AI:** cars can reverse from rest; a pinned AI backs out before resetting; obstacles are
+  measured from its nose; it watches the road it's on, not the shortcut it picked. Valley resets:
+  11 in 12 seeds to 0. Triggers fire only from the main road (shortcut cars dropped the sign).
+- **Render:** the wet mirror no longer breaks under additive glows; old traffic meshes leave the
+  ink registry; the world stops when paused; the camera stays outside every car
+  (`render/camera.ts`); shader patches throw on a missing chunk (`render/shader.ts`).
+- **UI:** menus work by pad and arrows (`ui/nav.ts`); URL setups are validated; results are
+  live with the fastest lap; lap pops show deltas; small screens don't overlap.

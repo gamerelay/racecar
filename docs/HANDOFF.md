@@ -22,6 +22,9 @@ and traffic that fades instead of popping (PR #7).
 - **Repo:** `gamerelay/racecar`, private until milestone 3, cloned at `~/dev/racecar`. The default
   branch is `main`.
 - **Milestone 1 (greybox sandbox): merged** (PR #1).
+- **Audio and a review pass: branch `review-pass`** (PR open, not merged): synthesized audio
+  (`src/audio/`: engines, tyres, impacts, cues, a music loop; M mutes, N music) and the fixes
+  from a four-way code review (SPEC "Review pass"). 88 tests.
 - **Traffic fades instead of popping: merged** (PR #7) and tagged `alpha-1.3`: visibility is part
   of the traffic formula (45 m fades at lane sections and the grid, 1 s back after a wreck), the
   renderer draws fading cars see-through, and `test/traffic.test.ts` holds it (0 pops measured).
@@ -194,6 +197,13 @@ editor.
    - Then milestone 3b: the neon City skin, which is the launch.
 
 ### Smaller follow-ups
+
+- From the review, not done yet (organization and perf, no bugs):
+  - One road spatial index for `cityscape.ts` (Corridors), `forest.ts` and `terrain.ts`; one
+    instancing builder for `scenery.boxes()` and `forest.instanced()`; a `gantry()` helper.
+  - Tile the Valley's terrain (one 256k-triangle mesh, never culled); upload only live ambient
+    cars and particles instead of whole buffers each frame.
+  - Touch controls: phones can't drive yet.
 
 - Traffic has silhouette ink only: no window or panel ink, and no crumple on wreck.
 - City has 4 puddles, all in corners; a few on straights would add rain atmosphere.
