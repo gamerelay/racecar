@@ -6,7 +6,7 @@ building". This file is "where are we"; the spec is "what are we making".
 
 **Last updated:** 2026-09-30. `main` is tagged **`alpha-1.8`**: milestone 2 (PR #2, tagged
 `alpha-1.0`), Countryside v2 (PR #4, `alpha-1.1`), seven cars plus polish (PR #6, `alpha-1.2`),
-traffic that fades instead of popping (PR #7, `alpha-1.3`), audio plus a review pass (PR #9, `alpha-1.4`), Valley v3 with smooth shortcut joins (PR #10, `alpha-1.5`), drift chains, skid marks, new car designs and a second review pass (PR #12, `alpha-1.6`), the police car, solid Trestle legs, air boost and boost by position (PR #13, `alpha-1.7`), and the quick wins plus the title screen and local lobbies (PRs #14 and #16, `alpha-1.8`). Every release is in [CHANGELOG.md](../CHANGELOG.md): add to its "Unreleased" section as you go, and retitle that section when you tag. What's next is [PLAN.md](./PLAN.md) (phase 1, the quick wins, merged as PR #14; phase 2, the title screen and local lobbies, merged as PR #16; phase 3, license plates, merged as PR #18; next is phase 4, the car select screen), and how maps are made is [MAPS.md](./MAPS.md).
+traffic that fades instead of popping (PR #7, `alpha-1.3`), audio plus a review pass (PR #9, `alpha-1.4`), Valley v3 with smooth shortcut joins (PR #10, `alpha-1.5`), drift chains, skid marks, new car designs and a second review pass (PR #12, `alpha-1.6`), the police car, solid Trestle legs, air boost and boost by position (PR #13, `alpha-1.7`), and the quick wins plus the title screen and local lobbies (PRs #14 and #16, `alpha-1.8`). Since that tag, `main` also has license plates (PR #18), the lobby polish (PR #19), the cars doc `docs/CARS.md` (PR #15) and marketing art with link previews (PR #17), untagged. Every release is in [CHANGELOG.md](../CHANGELOG.md): add to its "Unreleased" section as you go, and retitle that section when you tag. What's next is [PLAN.md](./PLAN.md) (phase 1, the quick wins, merged as PR #14; phase 2, the title screen and local lobbies, merged as PR #16; phase 3, license plates, merged as PR #18; next is phase 4, the car select screen), and how maps are made is [MAPS.md](./MAPS.md).
 
 **Map names:** City is now **Downtown** and Countryside is **Backroads** (content in
 `content/maps/downtown` and `content/maps/backroads`; keys `downtown/downtown`, `backroads/valley`;
@@ -16,16 +16,24 @@ old keys still resolve). This file still says City and Countryside in places; th
 
 1. `cd ~/dev/racecar && bun install && bun run dev`, then open http://localhost:5178.
 2. Read this file, then SPEC §17 and the milestone 2 notes under "Changed while building".
-3. Check the open platform PR: in `~/dev/gamerelay.io`, `gh pr view 30` (the host controls
-   racecar's lobby needs).
+3. The platform side is ready: gamerelay PR #30 (host controls) is deployed and SDK
+   `0.1.0-alpha.4` has it (see "GameRelay side" below).
 4. Before changing anything: `bun test && bun run typecheck && bun tools/validate.ts`. All three
-   are green on `main`. Branch off `main` for milestone 3.
+   are green on `main` (151 tests). Branch off `main`, one PR per phase, with CI.
 
 ## Where things stand
 
 - **Repo:** `gamerelay/racecar`, private until milestone 3, cloned at `~/dev/racecar`. The default
   branch is `main`.
 - **Milestone 1 (greybox sandbox): merged** (PR #1).
+- **Marketing art and link previews: merged** (PR #17): `poster.html` (dev) stages shots on the
+  real renderer, `bun tools/poster.ts` renders them into `marketing/` through headless Chrome,
+  and `public/og.png` plus the Open Graph and Twitter tags are on `index.html`. There are also
+  favicons, a web manifest and JSON-LD.
+- **Cars doc: merged** (PR #15): `docs/CARS.md`, how the cars are designed and built, and adding
+  one.
+- **Lobby polish: merged** (PR #19): capitalised labels, a spaced subheader, 56 px seat rows, and a
+  roomier map card.
 - **License plates: merged** (PR #18, PLAN phase 3): your name is a plate (`src/lobby/plate.ts`:
   rules, blocklist, AI plates per class, storage). Every car's plates are drawn from one canvas
   atlas that maps the cars' shared lamp material (`car/plates.ts`), so they cost no draw calls.
@@ -198,40 +206,33 @@ editor.
 
 ## GameRelay side (the platform asks, SPEC §11)
 
-- **asleepace/gamerelay.io PR #30** (`room-host-controls`), open, 2 commits:
+- **Host controls are live:** asleepace/gamerelay.io PR #30 (`room-host-controls`) is merged and
+  deployed, and **SDK `0.1.0-alpha.4`** is released with them (see the gamerelay HANDOFF):
   - `room.kick`, `room.setAccess({ locked, public, maxPlayers })`, `room.setListing({ name, meta })`
-    and `room.transferHost`.
-  - `relay.listRooms(tag, { includeFull })`, whose listings gain name, meta, locked and hostName,
-    and `relay.online()`. New error code `locked`.
-- **The six review fixes have landed** (commit `5aca55c`):
-  - A refused join (locked, full or banned) leaves the player in the room they were in.
-  - A party only moves if every member can get in, and the error names the member who can't.
-  - A player kicked while offline ends with `closed('kicked', message)` when they reconnect.
-  - Docs: bans are per player id (lock the room to keep strangers out), and games should render
-    room names and meta as text.
-  - Host kicks are logged with who did it.
-- **Tests:** 914 pass, 0 fail; the end-to-end suite has 33 pass. One transfer-host test failed once
-  in three full runs under load, noted in the PR.
-- **Not done:** not merged, deployed or released. Racecar's lobby needs the server deployed and an
-  SDK alpha published (`docs/PUBLISH.md` in gamerelay.io). Deploy only when the owner asks.
+    and `room.transferHost`;
+  - the server browser: `listRooms` with listing info, including full rooms;
+  - a player kicked while offline gets `closed('kicked', message)` when they reconnect.
+- Bans are per player id (lock the room to keep strangers out), and games render room names and
+  meta as text.
+- So milestone 3's lobby isn't blocked on the platform any more: the `relay` LobbyBackend can be
+  built against the published SDK.
 
 ## Next, in order
 
-1. **Playtest milestone 2 with a controller.** Tune with F4, and press F8 on anything odd. Two
-   things to decide:
-   - Is ~1 wreck a race on City too tame now that traffic can't pop in on corners? If so, add
-     denser traffic on the straights rather than moving section ends back into corners.
-   - Drift boost is banked and paid on a clean release, and the slide carries after release,
-     with each car set differently by `driftCarry`. Does each car feel right? Tune it with the
-     `driftExit*` values and `boostFromDrift` in F4.
-2. **Finish PR #30:** merge, deploy (only when asked; see the gamerelay HANDOFF and deploy notes),
-   then release an SDK alpha with the host controls.
-3. **PLAN phases 3–6** (plates, the car select screen, Paradise, landmarks); see PLAN.md.
+1. **PLAN phase 4: the car select screen.** The menu docks left, your car sits centre-right on a
+   turntable with its paint and plate, and the selected map runs behind it (PLAN.md). It also
+   fixes the one gap left in lobbies: changing the map doesn't swap the race behind the lobby
+   until a reload. The car blurb and stat bars under the seat table move next to the car.
+2. **Tag `alpha-1.9`** when the owner asks: `main` has plates (#18), the lobby polish (#19), the
+   cars doc (#15) and the marketing art (#17) since `alpha-1.8`, all in CHANGELOG "Unreleased".
+3. **PLAN phase 5, Paradise,** can run beside phase 4 (they don't touch). Build the shared
+   `tools/lib/lap.ts` out of `gen-countryside.ts` first, and follow MAPS.md.
 4. **Milestone 3 (online), per the spec:**
    - A `relay` LobbyBackend (`src/lobby/backend.ts`): lobbies as rooms with `setListing`, the
-     list from `listRooms('race', { includeFull: true })`, actions sent to the host, who
-     applies them with `apply`. The screens don't change. Other players' seats become remote
-     cars (in a local link they're closed today).
+     list from `listRooms('race', { includeFull: true })`, and actions sent to the host, who
+     applies them with `apply` and broadcasts the lobby. The screens don't change. Other
+     players' seats become remote cars (in a local link they're closed today).
+   - Plates go in player data, and names float over cars within ~60 m (PLAN phase 3).
    - The `net/` layer:
      - car entities at 30 Hz with steer and throttle, and prediction in-game,
      - bump dedupe within ±150 ms, and the victim decides wrecks,
@@ -239,6 +240,10 @@ editor.
      - shared moments scheduled about 250 ms ahead on the server clock.
    - A vote on the next race, a net overlay, and bots. The repo goes public.
    - Then milestone 3b: the neon City skin, which is the launch.
+5. **Playtest with a controller** whenever there's a build to try: tune with F4, and press F8 on
+   anything odd. Still open: whether ~1 wreck a race on Downtown is too tame (add denser traffic
+   on the straights rather than sections in corners), and whether each car's drift carry feels
+   right (`driftExit*`, `boostFromDrift`).
 
 ### Smaller follow-ups
 
