@@ -247,9 +247,9 @@ export class Menu {
     const maps: [string, string][] = Object.keys(this.content.layouts).map((k) => [k, this.mapName(k)]);
     return `<label>Map ${this.sel('oMap', maps, o.map, disabled)}</label>
       <label>Laps ${this.sel('oLaps', Array.from({ length: MAX_LAPS }, (_, k) => [String(k + 1), String(k + 1)] as [string, string]), String(o.laps), disabled)}</label>
-      <label>Weather ${this.sel('oWeather', [['random', 'random'], ['clear', 'clear'], ['rain', 'rain']], o.weather, disabled)}</label>
-      <label>Mayhem ${this.sel('oMayhem', [['normal', 'normal'], ['chaos', 'chaos'], ['off', 'off']], o.mayhem, disabled)}</label>
-      <label>Traffic ${this.sel('oTraffic', [['1', 'on'], ['0', 'off']], o.traffic ? '1' : '0', disabled)}</label>`;
+      <label>Weather ${this.sel('oWeather', [['random', 'Random'], ['clear', 'Clear'], ['rain', 'Rain']], o.weather, disabled)}</label>
+      <label>Mayhem ${this.sel('oMayhem', [['normal', 'Normal'], ['chaos', 'Chaos'], ['off', 'Off']], o.mayhem, disabled)}</label>
+      <label>Traffic ${this.sel('oTraffic', [['1', 'On'], ['0', 'Off']], o.traffic ? '1' : '0', disabled)}</label>`;
   }
 
   private readOptions(): LobbyOptions {
@@ -271,7 +271,7 @@ export class Menu {
         <div class="grid">
           <label class="wide">Name <input id="cName" maxlength="32" autocomplete="off" data-1p-ignore data-lpignore="true" value="${esc(this.plate)}'s lobby"></label>
           ${this.optionFields(o, false)}
-          <label>Who can join ${this.sel('cVis', [['public', 'public: listed'], ['private', 'private: by link']], 'public')}</label>
+          <label>Who can join ${this.sel('cVis', [['public', 'Public: listed'], ['private', 'Private: by link']], 'public')}</label>
         </div>
         <div class="row"><button id="cGo">Create</button><button id="cBack" class="ghost">Back</button></div>
         <p class="muted">You'll host it: set each seat to an AI, open or closed. Open seats get a bot when the race starts.</p>
@@ -311,8 +311,8 @@ export class Menu {
           car = me
             ? `${this.sel('lCar', classes.map((c) => [c.id, c.name]), s.car)} ${this.sel('lPaint', paints.map((p, i) => [String(i), p.name]), String(s.paint))}`
             : `${dot(s.paint)}${esc(className(s.car))}`;
-          status = s.id === lobby.host ? '' : s.ready ? '<span class="ready">ready</span>' : 'not ready';
-          return `<tr class="${me ? 'me' : ''}"><td>${k + 1}</td><td>${who}</td><td class="car">${car}</td><td>${status}</td><td class="ping">—</td></tr>`;
+          status = s.id === lobby.host ? '' : s.ready ? '<span class="ready">Ready</span>' : 'Not ready';
+          return `<tr class="${me ? 'me' : ''}"><td>${k + 1}</td><td>${who}</td><td><div class="car">${car}</div></td><td>${status}</td><td class="ping">—</td></tr>`;
         }
         const choice: SeatChoice = s.kind === 'ai' ? (['ai-easy', 'ai-normal', 'ai-hard'] as const)[s.difficulty] : s.kind;
         who = host ? this.sel(`seat-${k}`, seatOpts, choice) : `<span>${seatOpts.find(([v]) => v === choice)![1]}</span>`;
@@ -320,10 +320,10 @@ export class Menu {
         const cls = classes[k % classes.length];
         const paint = (yours.paint + k) % paints.length;
         if (s.kind === 'ai') car = `${dot(paint)}${plateChip(aiPlate(cls.id))} ${esc(cls.name)}`;
-        else if (s.kind === 'open') car = `<span class="muted">a ${DIFFICULTY_NAMES[FILL_DIFFICULTY]} bot joins at the start</span>`;
+        else if (s.kind === 'open') car = `<span class="muted">A ${DIFFICULTY_NAMES[FILL_DIFFICULTY]} bot joins at the start</span>`;
         else car = '';
-        status = s.kind === 'ai' ? 'bot' : '';
-        return `<tr class="${s.kind}"><td>${k + 1}</td><td>${who}</td><td class="car">${car}</td><td>${status}</td><td class="ping"></td></tr>`;
+        status = s.kind === 'ai' ? 'Bot' : '';
+        return `<tr class="${s.kind}"><td>${k + 1}</td><td>${who}</td><td><div class="car">${car}</div></td><td>${status}</td><td class="ping"></td></tr>`;
       })
       .join('');
     const o = lobby.options;
@@ -333,7 +333,7 @@ export class Menu {
     this.paint(
       `<div class="card lobby">
         <h1>${esc(lobby.name)}</h1>
-        <p class="sub">${lobby.visibility} · ${SEATS - lobby.seats.filter((x) => x.kind === 'closed').length} cars on the grid · this browser</p>
+        <p class="sub"><span>${lobby.visibility === 'public' ? 'Public' : 'Private'}</span><span>${SEATS - lobby.seats.filter((x) => x.kind === 'closed').length} cars on the grid</span><span>This browser</span></p>
         <div class="lobbyGrid">
           <div><table class="seats"><thead><tr><th>#</th><th>Seat</th><th>Car</th><th></th><th>Ping</th></tr></thead><tbody>${rows}</tbody></table>
           ${mine >= 0 ? `<p class="muted" id="sBlurb">${this.carBlurb(yours.car)}</p>` : ''}</div>
