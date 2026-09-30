@@ -621,9 +621,99 @@
      "shoulder": 1.5
     }
    ]
+  },
+  {
+   "id": "yard",
+   "kind": "shortcut",
+   "from": 3144,
+   "to": 3858,
+   "points": [
+    {
+     "p": [
+      470,
+      -0.5,
+      -306
+     ],
+     "width": 10,
+     "lanes": 1,
+     "shoulder": 2,
+     "surface": "dirt"
+    },
+    {
+     "p": [
+      370,
+      -0.5,
+      -312
+     ],
+     "width": 9,
+     "lanes": 1,
+     "shoulder": 2,
+     "surface": "dirt"
+    },
+    {
+     "p": [
+      270,
+      -0.5,
+      -318
+     ],
+     "width": 10,
+     "lanes": 1,
+     "shoulder": 2,
+     "surface": "dirt"
+    }
+   ]
   }
  ],
- "zones": [],
+ "zones": [
+  {
+   "s": [
+    1338,
+    1368
+   ],
+   "lateral": [
+    -7,
+    1
+   ],
+   "surface": "puddle",
+   "when": "wet"
+  },
+  {
+   "s": [
+    2224,
+    2249
+   ],
+   "lateral": [
+    -2,
+    8
+   ],
+   "surface": "puddle",
+   "when": "wet"
+  },
+  {
+   "s": [
+    2959,
+    2989
+   ],
+   "lateral": [
+    -8,
+    -1
+   ],
+   "surface": "puddle",
+   "when": "wet"
+  },
+  {
+   "s": [
+    4012,
+    4037
+   ],
+   "lateral": [
+    2,
+    10
+   ],
+   "surface": "puddle",
+   "when": "wet"
+  }
+ ],
  "walls": {
   "gaps": []
  },
@@ -632,19 +722,148 @@
    "s": 2676,
    "height": 1.6,
    "length": 16
+  },
+  {
+   "spline": "yard",
+   "s": 200,
+   "height": 1.8,
+   "length": 12
   }
  ],
  "checkpoints": "auto",
  "traffic": {
-  "lanes": [],
-  "density": 0
+  "density": 8,
+  "lanes": [
+   {
+    "pos": 0.5,
+    "dir": 1,
+    "speed": 19,
+    "sections": [
+     [
+      3993,
+      620
+     ],
+     [
+      1759,
+      1986
+     ],
+     [
+      2526,
+      2835
+     ]
+    ]
+   },
+   {
+    "pos": -0.5,
+    "dir": -1,
+    "speed": 17,
+    "sections": [
+     [
+      3993,
+      620
+     ],
+     [
+      1759,
+      1986
+     ],
+     [
+      2526,
+      2835
+     ]
+    ]
+   }
+  ]
  },
- "props": [],
- "takedownSpots": [
+ "props": [
   {
-   "s": 400,
-   "name": "Boulevard"
+   "kind": "pillar",
+   "s": 220,
+   "lateral": 0,
+   "size": [
+    1.8,
+    9,
+    1.8
+   ]
+  },
+  {
+   "kind": "pillar",
+   "s": 252,
+   "lateral": 0,
+   "size": [
+    1.8,
+    9,
+    1.8
+   ]
+  },
+  {
+   "kind": "pillar",
+   "s": 284,
+   "lateral": 0,
+   "size": [
+    1.8,
+    9,
+    1.8
+   ]
+  },
+  {
+   "kind": "pillar",
+   "s": 316,
+   "lateral": 0,
+   "size": [
+    1.8,
+    9,
+    1.8
+   ]
+  },
+  {
+   "kind": "pillar",
+   "s": 348,
+   "lateral": 0,
+   "size": [
+    1.8,
+    9,
+    1.8
+   ]
+  },
+  {
+   "kind": "pillar",
+   "s": 380,
+   "lateral": 0,
+   "size": [
+    1.8,
+    9,
+    1.8
+   ]
   }
  ],
- "scenery": "city"
+ "takedownSpots": [
+  {
+   "s": 300,
+   "name": "The pillars"
+  }
+ ],
+ "scenery": "city",
+ "hazards": [
+  {
+   "use": "falling-sign",
+   "s": 520
+  },
+  {
+   "use": "log-truck",
+   "s": [
+    2517,
+    2816
+   ]
+  },
+  {
+   "use": "log-truck",
+   "s": [
+    30,
+    600
+   ],
+   "params": {
+    "every": 70
+   }
+  }
+ ]
 }

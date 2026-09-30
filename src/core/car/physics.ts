@@ -81,7 +81,8 @@ export function stepCar(sim: SimState, i: number, c: Controls, dt: number): void
   } else if (grounded) {
     // Longitudinal.
     let a = 0;
-    if (c.throttle > 0) a += fwd < top ? cls.accel * c.throttle * Math.max(0.08, 1 - (fwd / top) ** 2) : -(fwd - top) * 0.8;
+    if (cars.stallT[i] > 0) cars.stallT[i] -= dt;
+    else if (c.throttle > 0) a += fwd < top ? cls.accel * c.throttle * Math.max(0.08, 1 - (fwd / top) ** 2) : -(fwd - top) * 0.8;
     if (boosting && fwd < top) a += T.boostAccel * (1 - fwd / (top * 1.05));
     if (mini) a += T.miniTurboAccel * (cars.miniStage[i] / 3 + 0.34);
     if (c.brake > 0) {
@@ -278,7 +279,19 @@ export function wreckCar(sim: SimState, i: number, cause: number, ix: number, iz
     cars.lastHitBy[i] = by;
     cars.lastHitT[i] = sim.tick;
   }
+  cars.wrecks[i]++;
   sim.events.push(sim.tick, Ev.Wreck, i, cars.x[i], cars.y[i], cars.z[i], Math.hypot(ix, iz), cause, by);
+  if (by >= 0 && by !== i && cause !== Cause.Reset) {
+    // A takedown: full boost for the attacker (Burnout), points, and "revenge" on whoever last got them.
+    const revenge = cars.lastTakenBy[by] === i + 1;
+    if (revenge) cars.lastTakenBy[by] = 0;
+    cars.lastTakenBy[i] = by + 1;
+    cars.takedowns[by]++;
+    cars.boost[by] = 1;
+    const pts = T.takedownPoints * (revenge ? 1.5 : 1);
+    cars.score[by] += pts;
+    sim.events.push(sim.tick, Ev.Takedown, by, cars.x[i], cars.y[i], cars.z[i], pts, revenge ? 1 : 0, i);
+  }
 }
 
 function stepWreck(sim: SimState, i: number, c: Controls, dt: number): void {
@@ -322,7 +335,16 @@ export function respawn(sim: SimState, i: number): void {
   const sp = sim.track.splines[cars.lastSpline[i]];
   const at = sampleAt(sp, cars.lastS[i], sim.hitA);
   const half = at.width / 2 - 2;
-  const lat = clamp(cars.lastLat[i], -half, half);
+  let lat = clamp(cars.lastLat[i], -half, half);
+  // Not on top of a pillar: step sideways until clear of every solid prop nearby.
+  for (let tries = 0; tries < 4; tries++) {
+    let blocked = false;
+    for (const pr of sim.track.props) {
+      if (pr.solid && pr.spline === sp.index && Math.abs(pr.s - at.s) < 20 && Math.abs(pr.lateral - lat) < Math.max(pr.hx, pr.hz) + 2.5) blocked = true;
+    }
+    if (!blocked) break;
+    lat = clamp(lat + (lat >= 0 ? 1 : -1) * 3, -half, half);
+  }
   // right = (-tz, tx)
   cars.x[i] = at.cx - at.tz * lat;
   cars.z[i] = at.cz + at.tx * lat;

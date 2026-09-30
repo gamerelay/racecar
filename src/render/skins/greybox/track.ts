@@ -123,7 +123,7 @@ function buildChunk(g: Geo, track: Track, sp: BakedSpline, i0: number, i1: numbe
   const A: Cross = { cx: 0, cy: 0, cz: 0, rx: 0, rz: 0, tb: 0 };
   const B: Cross = { cx: 0, cy: 0, cz: 0, rx: 0, rz: 0, tb: 0 };
   const at = (c: Cross, l: number, lift: number) => [c.cx + c.rx * l, c.cy - l * c.tb + lift, c.cz + c.rz * l] as const;
-  const shoulderColor = track.surfaces[track.surfaceIndex.get('sidewalk') ?? 0].color;
+  const shoulderColor = track.surfaces[track.surfaceIndex.get(track.layout.shoulderSurface ?? 'sidewalk') ?? 0].color;
   const last = sp.closed ? i1 : Math.min(i1, sp.n - 1);
   for (let i = i0; i < last; i++) {
     const j = sp.closed ? (i + 1) % sp.n : i + 1;

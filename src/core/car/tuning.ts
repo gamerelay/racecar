@@ -42,6 +42,15 @@ export const TUNING = {
   driftPoints: 400,
   chainWindow: 1.0,
 
+  boostFromNearMiss: 0.08,
+  boostFromOncoming: 0.07,
+  nearMissGap: 1.4,
+  /** Closing speed into traffic that wrecks you (unless you're checking it). */
+  trafficWreck: 16,
+  takedownPoints: 2000,
+  startBoostWindow: 0.6,
+  stallEarly: 1.6,
+
   wallRestitution: 0.2,
   wallScrape: 0.12,
   /** Impact speed into a wall (m/s along its normal) that wrecks you. */

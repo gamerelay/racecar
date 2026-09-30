@@ -103,10 +103,58 @@ const alley: BranchDef = {
     { p: [398, 2, 800], width: 9, lanes: 1, shoulder: 1.5 },
   ],
 };
-layout.branches = [alley];
-layout.ramps = [{ s: sAt(880, -120), height: 1.6, length: 16 }];
-layout.takedownSpots = [{ s: sAt(0, 400), name: 'Boulevard' }];
+// The yard: a dirt cut straight across the bottom of the chicane, with a jump over a ditch.
+const yard: BranchDef = {
+  id: 'yard',
+  kind: 'shortcut',
+  from: sAt(575, -300),
+  to: sAt(130, -320),
+  points: [
+    { p: [470, -0.5, -306], width: 10, lanes: 1, shoulder: 2, surface: 'dirt' },
+    { p: [370, -0.5, -312], width: 9, lanes: 1, shoulder: 2, surface: 'dirt' },
+    { p: [270, -0.5, -318], width: 10, lanes: 1, shoulder: 2, surface: 'dirt' },
+  ],
+};
+layout.branches = [alley, yard];
+const bakedB = bakeTrack(layout, surfaces);
+const yardSp = bakedB.splines[2];
+const on = (spline: 0 | 2, x: number, z: number) => (projectGlobal(bakedB.splines[spline], x, z, hit), Math.round(hit.s));
+layout.ramps = [
+  { s: sAt(880, -120), height: 1.6, length: 16 },
+  { spline: 'yard', s: Math.round(yardSp.length * 0.45), height: 1.8, length: 12 },
+];
+// The overpass pillars: a row down the middle of the boulevard. Shove a rival into one.
+const pillars0 = sAt(0, 220);
+layout.props = Array.from({ length: 6 }, (_, k) => ({ kind: 'pillar', s: pillars0 + k * 32, lateral: 0, size: [1.8, 9, 1.8] as Vec3 }));
+layout.takedownSpots = [{ s: pillars0 + 80, name: 'The pillars' }];
+// Traffic on the boulevard (start to the first corner, and the run back up from the bottom), the
+// east side and the long east straight: the traffic-heavy sections. None in the hairpin, the
+// S-bends or the chicane.
+const sections: [number, number][] = [
+  [sAt(0, -300), sAt(0, 620)],
+  [sAt(470, 500), sAt(700, 500)],
+  [sAt(880, 30), sAt(880, -280)],
+];
+layout.traffic = {
+  density: 8,
+  lanes: [
+    { pos: 0.5, dir: 1, speed: 19, sections },
+    { pos: -0.5, dir: -1, speed: 17, sections },
+  ],
+};
+layout.hazards = [
+  { use: 'falling-sign', s: sAt(0, 520) },
+  { use: 'log-truck', s: [sAt(880, 40), sAt(880, -260)] },
+  { use: 'log-truck', s: [sAt(0, 30), sAt(0, 600)], params: { every: 70 } },
+];
+// Puddles, when it rains: the hairpin exit, the S-bends, the bottom corners.
+const puddle = (x: number, z: number, len: number, l0: number, l1: number) => {
+  const s0 = sAt(x, z);
+  return { s: [s0, s0 + len] as [number, number], lateral: [l0, l1] as [number, number], surface: 'puddle', when: 'wet' as const };
+};
+layout.zones = [puddle(410, 880, 30, -7, 1), puddle(790, 300, 25, -2, 8), puddle(760, -300, 30, -8, -1), puddle(0, -280, 25, 2, 10)];
+void on;
 
 writeFileSync(new URL('../content/maps/city/downtown.track.json', import.meta.url), JSON.stringify(layout, null, 1) + '\n');
 const final = bakeTrack(layout, surfaces);
-console.log(`main ${final.main.length.toFixed(0)} m, ${pts.length} points; alley ${final.splines[1].length.toFixed(0)} m from ${alley.from} to ${alley.to}`);
+console.log(`main ${final.main.length.toFixed(0)} m, ${pts.length} points; alley ${final.splines[1].length.toFixed(0)} m (${alley.from}→${alley.to}); yard ${final.splines[2].length.toFixed(0)} m (${yard.from}→${yard.to})`);

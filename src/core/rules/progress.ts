@@ -17,11 +17,13 @@ export function updateProgress(sim: SimState, i: number): void {
   const prevS = wrap(prevProgress, L);
 
   if (next < cps.length) {
-    const cp = cps[next];
-    if (crossed(prevS, sMain, cp, L)) {
-      cars.nextCp[i] = next + 1;
-      sim.events.push(sim.tick, Ev.Checkpoint, i, cars.x[i], cars.y[i], cars.z[i], next, lap);
+    // A shortcut's exit can jump past more than one checkpoint in a tick.
+    let n = next;
+    while (n < cps.length && crossed(prevS, sMain, cps[n], L)) {
+      sim.events.push(sim.tick, Ev.Checkpoint, i, cars.x[i], cars.y[i], cars.z[i], n, lap);
+      n++;
     }
+    cars.nextCp[i] = n;
   } else if (crossed(prevS, sMain, 0, L)) {
     const time = (sim.tick - cars.lapStartTick[i]) * sim.dt;
     cars.lap[i] = lap + 1;

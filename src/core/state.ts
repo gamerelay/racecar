@@ -7,6 +7,16 @@ import type { EventQueue } from './events';
 import type { Rng } from './rng';
 import type { Track } from './track/bake';
 import type { TrackHit } from './track/query';
+import type { Hazards } from './world/hazards';
+import type { Traffic } from './world/traffic';
+
+export interface RaceState {
+  phase: 'free' | 'countdown' | 'racing';
+  /** World time the lights go green. */
+  goTime: number;
+  laps: number;
+  finishedCount: number;
+}
 
 export interface SimState {
   track: Track;
@@ -23,11 +33,15 @@ export interface SimState {
   slowmo: 'world' | 'wreck';
   seed: number;
   rng: Rng;
-  /** Weather (milestone 2 fills these in). */
+  /** World seconds since the sim started (slows with single-player slow-mo). D-systems read this. */
+  time: number;
   weatherGrip: number;
   wet: boolean;
+  wetness: number;
+  world?: { traffic: Traffic; hazards: Hazards };
+  race: RaceState;
   /** Surface index used beyond the road edge. */
-  shoulderSurface: number;
+  readonly shoulderSurface: number;
   /** Scratch track hits, reused every tick. */
   hitA: TrackHit;
   hitB: TrackHit;

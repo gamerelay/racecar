@@ -62,6 +62,12 @@ export interface BakedProp {
   hy: number;
   hz: number;
   heading: number;
+  /** On the road (a pillar): cars collide with it. Beyond the wall: scenery only. */
+  solid: boolean;
+  /** Where along its spline, for the AI. */
+  spline: number;
+  s: number;
+  lateral: number;
 }
 
 export interface Track {
@@ -135,6 +141,8 @@ export function bakeTrack(layout: TrackLayout, surfaces: SurfaceDef[]): Track {
       return cp;
     });
     checkpoints.sort((a, b) => a - b);
+    // Two stepped past the same shortcut land on the same spot: keep one.
+    checkpoints = checkpoints.filter((cp, k) => k === 0 || cp - checkpoints[k - 1] > 20);
   }
 
   const props: BakedProp[] = [];
@@ -144,12 +152,17 @@ export function bakeTrack(layout: TrackLayout, surfaces: SurfaceDef[]): Track {
     const i = sampleIndex(sp, p.s);
     const rx = -sp.tz[i];
     const rz = sp.tx[i];
-    const edge = sp.width[i] / 2 + sp.shoulder[i] + (p.offset ?? 2) + p.size[0] / 2;
+    const onRoad = p.lateral !== undefined;
+    const lat = onRoad ? p.lateral! : (sp.width[i] / 2 + sp.shoulder[i] + (p.offset ?? 2) + p.size[0] / 2) * (p.side ?? 1);
     props.push({
       kind: p.kind,
-      x: sp.px[i] + rx * edge * p.side,
+      solid: onRoad,
+      spline: sp.index,
+      s: p.s,
+      lateral: lat,
+      x: sp.px[i] + rx * lat,
       y: sp.py[i],
-      z: sp.pz[i] + rz * edge * p.side,
+      z: sp.pz[i] + rz * lat,
       hx: p.size[0] / 2,
       hy: p.size[1] / 2,
       hz: p.size[2] / 2,
