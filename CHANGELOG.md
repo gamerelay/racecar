@@ -6,7 +6,9 @@ and where things stand is [docs/HANDOFF.md](./docs/HANDOFF.md).
 
 ## Unreleased
 
-Phases 1 (the quick wins, PR #14) and 2 (the title screen and lobbies) of
+## alpha-1.8: title screen, lobbies, Downtown and Backroads
+
+PRs #14 and #16: phases 1 (the quick wins) and 2 (the title screen and lobbies) of
 [docs/PLAN.md](./docs/PLAN.md).
 
 ### Added

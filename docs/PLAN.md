@@ -39,7 +39,7 @@ leave a few small details behind.
   taught us (outline below). It comes before Paradise so Paradise follows it.
 - **Tests:** old ids still resolve, and every paint and map name is a single word.
 
-## Phase 2: title screen and lobbies (local first) — built, branch `lobbies`
+## Phase 2: title screen and lobbies (local first) — done, PR #16
 
 One flow for everyone: **every race is a lobby**, and bots fill the open seats. Playing alone
 is a lobby with seven bots.
