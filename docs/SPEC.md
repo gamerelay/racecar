@@ -816,6 +816,15 @@ Milestone 1 (2026-09-30):
 
 Milestone 2 (2026-09-30):
 
+- **Playtest tuning, first round.** Drift is now only a better way round a corner: no charge,
+  no mini-turbo on release, no boost from drifting (`miniTurbo: false` keeps the code for later),
+  less scrub so it keeps its speed, and harder to trigger by accident (more steer to enter, a
+  smaller hop, a slower angle settle). Less boost: every source roughly halved, a takedown gives
+  half a bar instead of a full one, and races start at 0.2. Tougher cars: a wreck takes 25 m/s
+  into a wall (was 19), 21 closing on traffic (was 16), 16 from a rival (was 13, 9 boosting).
+  Across six seeds, AI wrecks per 8-car race fell on Countryside (15.8 to 10.5) and hardly moved
+  on City (22 to 21), where nearly all of them are head-ons with traffic, which still wreck by
+  design. The chase camera sits closer and pulls back and widens much less with speed and boost.
 - **The greybox got the prototype's cel look early** (asked for in playtesting): a three-step
   toon ramp on every lit surface, ink outlines, lit windows and street lamps in City, and glow
   on head and tail lights with a headlight beam on the road. Outlines are drawn in the post pass

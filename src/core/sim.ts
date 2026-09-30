@@ -137,7 +137,7 @@ export class Sim implements SimState {
     c.nextCp[i] = 0;
     c.progress[i] = at.s - main.length;
     c.lapStartTick[i] = this.tick;
-    c.boost[i] = 0.3;
+    c.boost[i] = TUNING.startBoost;
     c.finished[i] = 0;
     c.finishTime[i] = 0;
     c.place[i] = 0;

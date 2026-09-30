@@ -1,3 +1,4 @@
+import { wrapAngle } from '../src/core/math';
 import { describe, expect, test } from 'bun:test';
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
@@ -115,35 +116,42 @@ describe('sim', () => {
     expect(sim.cars.wreck[i]).toBe(0);
   });
 
-  test('a held drift charges the mini-turbo and pays it out', () => {
+  test('a held drift turns the car and keeps its speed, with no boost after', () => {
     // A huge open ring, so a drift can circle freely without meeting a wall.
     const sim = ringSim(1, 600, 320);
     const i = sim.addCar({ cls: 'hatch', human: true });
     const c = neutralControls();
     c.throttle = 1;
     for (let t = 0; t < 60 * 2.5; t++) sim.step([c]);
+    const entry = Math.hypot(sim.cars.vx[i], sim.cars.vz[i]);
+    const h0 = sim.cars.h[i];
     c.drift = true;
     c.steer = -1;
-    const stages: number[] = [];
+    const seen: number[] = [];
     let cursor = sim.events.head;
-    for (let t = 0; t < 60 * 3.5; t++) {
+    const watch = () =>
+      (cursor = sim.events.read(cursor, (e) => {
+        if (e.type === Ev.DriftStage || e.type === Ev.MiniTurbo) seen.push(e.type);
+      }));
+    for (let t = 0; t < 60 * 2; t++) {
       sim.step([c]);
-      cursor = sim.events.read(cursor, (e) => {
-        if (e.type === Ev.DriftStage) stages.push(e.b);
-      });
+      watch();
     }
+    expect(sim.cars.drift[i]).toBe(1);
+    const turned = Math.abs(wrapAngle(sim.cars.h[i] - h0));
+    const held = Math.hypot(sim.cars.vx[i], sim.cars.vz[i]);
+    const boost = sim.cars.boost[i];
     c.drift = false;
-    let mini = 0;
-    for (let t = 0; t < 5; t++) {
+    for (let t = 0; t < 30; t++) {
       sim.step([c]);
-      cursor = sim.events.read(cursor, (e) => {
-        if (e.type === Ev.MiniTurbo) mini = e.b;
-      });
+      watch();
     }
     expect(sim.cars.wreck[i]).toBe(0);
-    expect(stages).toEqual([1, 2, 3]);
-    expect(mini).toBe(3);
-    expect(sim.cars.miniT[i]).toBeGreaterThan(1);
+    expect(turned).toBeGreaterThan(1.5);
+    expect(held).toBeGreaterThan(entry * 0.85);
+    expect(seen).toEqual([]);
+    expect(sim.cars.miniT[i]).toBe(0);
+    expect(sim.cars.boost[i]).toBeLessThanOrEqual(boost);
   });
 
   test('ramming a pace car at speed takes it down', () => {

@@ -78,7 +78,7 @@ export function collideWorld(sim: SimState, i: number, ctx: WorldCtx): void {
       c.vx[i] = vx * 0.95;
       c.vz[i] = vz * 0.95;
       traffic.wreckedAt[k] = ctx.t;
-      c.boost[i] = Math.min(1, c.boost[i] + 0.12);
+      c.boost[i] = Math.min(1, c.boost[i] + T.boostFromCheck);
       c.score[i] += 800;
       sim.events.push(tick, Ev.TrafficCheck, i, traffic.x[p], traffic.y[p] + 0.8, traffic.z[p], closing, 0, k);
       sim.events.push(tick, Ev.TrafficWreck, i, traffic.x[p], traffic.y[p], traffic.z[p], closing, 1, k);

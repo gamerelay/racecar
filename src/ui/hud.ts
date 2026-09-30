@@ -1,6 +1,7 @@
 // The race HUD (DOM, SPEC §1): position, lap and times, boost meter, speed, the drift readout
 // (points, chain, mini-turbo stage), pops for moments, and a debug panel (F2).
 
+import { TUNING } from '../core/car/tuning';
 import { Ev, type GameEvent } from '../core/events';
 import { KMH } from '../core/math';
 import { positions } from '../core/rules/progress';
@@ -68,6 +69,7 @@ export class Hud {
     if (drifting) {
       $('driftPts').textContent = Math.floor(c.score[i] - this.driftStart).toLocaleString();
       const stage = c.driftStage[i];
+      ($('driftStage') as HTMLElement).style.display = TUNING.miniTurbo ? '' : 'none';
       const bars = $('driftStage').children;
       for (let k = 0; k < 3; k++) bars[k].className = stage > k ? `s${stage}` : '';
     }

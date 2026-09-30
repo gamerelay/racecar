@@ -215,10 +215,11 @@ export class GameRenderer {
         cam.position.set(car.x + fx * 5, car.y + 2.4, car.z + fz * 5);
         this.look.set(car.x - fx * 20, car.y + 1, car.z - fz * 20);
       } else {
-        const dist = 7.2 + this.boostVis * 1.6 + speed * 0.015;
+        // Close, and only a little pull-back with speed and boost (playtest: it stretched too far).
+        const dist = 5.9 + this.boostVis * 0.6 + speed * 0.006;
         const tx = car.x - fx * dist;
         const tz = car.z - fz * dist;
-        const ty = car.y + 2.7 - this.boostVis * 0.3;
+        const ty = car.y + 2.35 - this.boostVis * 0.15;
         const k = damp(10, dt);
         this.camPos.x += (tx - this.camPos.x) * k;
         this.camPos.z += (tz - this.camPos.z) * k;
@@ -232,7 +233,7 @@ export class GameRenderer {
     cam.position.y += (Math.random() - 0.5) * this.shake * 0.6;
     this.shake *= Math.exp(-dt * 6);
     cam.lookAt(this.look);
-    const fov = 62 + clamp((speed - 20) / 50, 0, 1) * 12 + this.boostVis * 12;
+    const fov = 62 + clamp((speed - 20) / 50, 0, 1) * 6 + this.boostVis * 5;
     cam.fov += (fov - cam.fov) * damp(3, dt);
     cam.updateProjectionMatrix();
   }

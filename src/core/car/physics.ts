@@ -127,7 +127,7 @@ export function stepCar(sim: SimState, i: number, c: Controls, dt: number): void
       const angleFrac = Math.min(1, Math.abs(slip) / T.driftAngleMax);
       const pace = clamp(speed / 40, 0.5, 1);
       cars.driftT[i] += dt;
-      cars.driftCharge[i] += dt * angleFrac * pace * surf.driftCharge * cls.drift;
+      if (T.miniTurbo) cars.driftCharge[i] += dt * angleFrac * pace * surf.driftCharge * cls.drift;
       const stage = cars.driftCharge[i] >= T.driftStages[2] ? 3 : cars.driftCharge[i] >= T.driftStages[1] ? 2 : cars.driftCharge[i] >= T.driftStages[0] ? 1 : 0;
       if (stage > cars.driftStage[i]) {
         cars.driftStage[i] = stage;
@@ -287,7 +287,7 @@ export function wreckCar(sim: SimState, i: number, cause: number, ix: number, iz
     if (revenge) cars.lastTakenBy[by] = 0;
     cars.lastTakenBy[i] = by + 1;
     cars.takedowns[by]++;
-    cars.boost[by] = 1;
+    cars.boost[by] = Math.min(1, cars.boost[by] + T.takedownBoost);
     const pts = T.takedownPoints * (revenge ? 1.5 : 1);
     cars.score[by] += pts;
     sim.events.push(sim.tick, Ev.Takedown, by, cars.x[i], cars.y[i], cars.z[i], pts, revenge ? 1 : 0, i);
