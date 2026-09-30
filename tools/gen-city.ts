@@ -149,6 +149,19 @@ const puddle = (x: number, z: number, y: number, len: number, l0: number, l1: nu
 };
 layout.zones = [puddle(-120, 90, 0, 25, -6, 2), puddle(-150, -30, 1, 25, -2, 6), puddle(0, 400, 0, 30, 2, 11), puddle(-280, -120, -3, 30, -7, 1)];
 
+// Landmarks (PLAN phase 6): a clock tower you drive at down the Boulevard, telling the race time;
+// the Skyway straight's billboard showing the leader, straight ahead the whole way along; in the
+// Market, a fountain plaza inside its loop (west of the Alley) and a donut shop on your right as you
+// fly the hump; and a canal down a row
+// of blocks inside the sweeper, under the Skyway, whose drawbridge lifts for a tug.
+layout.landmarks = [
+  { kind: 'clock-tower', at: [-32, 480], rot: Math.PI, r: 13, params: { h: 44, scale: 1.5 } },
+  { kind: 'leader-board', at: [-250, 282], rot: Math.PI / 2, r: 6, params: { h: 26, w: 36, view: 80 } },
+  { kind: 'fountain', at: [-195, 50], r: 17, params: { r: 9, scale: 1.2 } },
+  { kind: 'donut-shop', at: [-160, -62], r: 10 },
+  { kind: 'canal', at: [416, 300], r: 0, params: { len: 900, w: 14, draw: 448 } },
+];
+
 // Traffic must appear and leave on straights, where drivers see it.
 straightenSections(layout, surfaces);
 writeFileSync(new URL('../content/maps/downtown/downtown.track.json', import.meta.url), JSON.stringify(layout, null, 1) + '\n');

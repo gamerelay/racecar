@@ -92,6 +92,29 @@ export interface HazardDef {
   params?: Record<string, number>;
 }
 
+/**
+ * Something you remember a lap by (PLAN phase 6): scenery only, built by the skin, the same every
+ * race. Some move, and some show the race (a clock, the leader's plate).
+ */
+export interface LandmarkDef {
+  /** Which landmark (LANDMARK_KINDS; the greybox builds each in render/skins/greybox/landmarks.ts). */
+  kind: string;
+  /** Where its middle stands, [x, z] in meters. */
+  at: [number, number];
+  /** Which way its front faces, radians about y (0: toward +z). */
+  rot?: number;
+  /**
+   * Ground kept clear round it (m): the scenery leaves it empty, and the validator keeps every road
+   * that far off. 0 for things with their own footprint check or none (a canal, the sea, the sky).
+   */
+  r: number;
+  /** Kind-specific numbers (a height, a length), and `scale` for any kind. */
+  params?: Record<string, number>;
+}
+
+/** The landmark kinds a layout can use. */
+export const LANDMARK_KINDS = ['clock-tower', 'donut-shop', 'fountain', 'leader-board', 'canal'] as const;
+
 export interface TrackLayout {
   id: string;
   name: string;
@@ -106,6 +129,7 @@ export interface TrackLayout {
   traffic?: { lanes: TrafficLaneDef[]; density: number };
   hazards?: HazardDef[];
   props?: PropDef[];
+  landmarks?: LandmarkDef[];
   takedownSpots?: { s: number; name: string }[];
   /** Scenery the skin fills in beyond the walls (not gameplay). */
   scenery?: string;

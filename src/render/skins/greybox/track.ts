@@ -30,6 +30,7 @@ import type { TrackVisual } from '../../skin';
 import { buildCityscape } from './cityscape';
 import { buildForest } from './forest';
 import { buildIsland } from './island';
+import { buildLandmarks, landmarkKeeps } from './landmarks';
 import { buildTerrain } from './terrain';
 import { boxes, type Box } from './scenery';
 import { disposeTree } from './dispose';
@@ -176,7 +177,7 @@ export function buildTrackVisual(track: Track, palette: Palette, seed: number): 
   let update: TrackVisual['update'];
   let covers: Cover[] = [];
   if (city) {
-    const scape = buildCityscape(track, palette, groundY);
+    const scape = buildCityscape(track, palette, groundY, landmarkKeeps(track.layout));
     extras.push(...scape.objects);
     update = scape.update;
   }
@@ -199,6 +200,15 @@ export function buildTrackVisual(track: Track, palette: Palette, seed: number): 
       forest.update(t, dt, cam);
     };
   }
+
+  // Landmarks, on the city's streets or the land.
+  const marks = buildLandmarks(track.layout, land ? land.height : () => groundY);
+  extras.push(...marks.objects);
+  const scenery = update;
+  update = (t, dt, cam, live) => {
+    scenery?.(t, dt, cam, live);
+    marks.update(t, live);
+  };
 
   const debug = debugVolumes(track);
   return {
