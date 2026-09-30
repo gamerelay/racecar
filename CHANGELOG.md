@@ -6,7 +6,7 @@ and where things stand is [docs/HANDOFF.md](./docs/HANDOFF.md).
 
 ## Unreleased
 
-PLAN phase 3: license plates.
+PLAN phase 3: license plates (PR #18).
 
 ### Added
 - **Your name is a license plate:** up to seven letters, numbers and spaces, set from the plate
