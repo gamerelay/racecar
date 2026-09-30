@@ -40,6 +40,7 @@ export function collideWalls(sim: SimState, i: number): void {
   const scrape = 1 - T.wallScrape * Math.min(1, vOut / 10);
   cars.vx[i] *= scrape;
   cars.vz[i] *= scrape;
+  const fresh = cars.wallT[i] <= 0;
   cars.wallT[i] = 0.3;
   if (cars.wreck[i]) {
     cars.wy[i] *= -0.6;
@@ -47,7 +48,8 @@ export function collideWalls(sim: SimState, i: number): void {
   }
   const px = cars.x[i] + ox * reach;
   const pz = cars.z[i] + oz * reach;
-  sim.events.push(sim.tick, Ev.WallHit, i, px, cars.y[i] + 0.5, pz, vOut, side);
+  // One event per knock, not one per tick of grinding along the wall.
+  if (vOut > 2 || (fresh && vOut > 0.5)) sim.events.push(sim.tick, Ev.WallHit, i, px, cars.y[i] + 0.5, pz, vOut, side);
   if (cars.drift[i] && vOut > 6) {
     cars.drift[i] = 0;
     cars.driftChain[i] = 0;

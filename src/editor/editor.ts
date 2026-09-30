@@ -8,6 +8,7 @@
 // Ctrl/Cmd+S save, ` or Esc back to the game.
 
 import type { CarClass, SurfaceDef, TrackLayout, TrackPoint } from '../core/content';
+import { reanchor } from '../core/track/anchor';
 import { bakeTrack, type BakedSpline, type Track } from '../core/track/bake';
 import { newHit, projectGlobal } from '../core/track/query';
 import { validateLayout, type Problem } from '../core/track/validate';
@@ -77,7 +78,7 @@ export class Editor {
     this.panel.id = 'edPanel';
     const help = document.createElement('div');
     help.id = 'edHelp';
-    help.innerHTML = 'drag point: move · drag empty: pan · wheel: zoom · double-click road: add point · <b>P</b> drive from cursor · <b>Del</b> remove · <b>⌘Z</b> undo · <b>⌘S</b> save · <b>`</b> back';
+    help.innerHTML = '<b>F</b> fit · drag point: move · drag empty: pan · wheel: zoom · double-click road: add point · <b>P</b> drive from cursor · <b>Del</b> remove · <b>⌘Z</b> undo · <b>⌘S</b> save · <b>`</b> back';
     this.root.append(this.canvas, this.panel, help);
     document.body.appendChild(this.root);
     this.g = this.canvas.getContext('2d')!;
@@ -98,17 +99,34 @@ export class Editor {
       const current = this.host.layout();
       if (JSON.stringify(current) !== JSON.stringify(this.layout)) {
         this.layout = structuredClone(current);
-        this.rebake();
+        this.rebake(false);
       }
-      const car = this.host.car();
-      this.camX = car.x;
-      this.camZ = car.z;
       this.resize();
+      if (!this.fitted) this.fit();
       this.renderPanel();
       this.draw();
     } else if (this.dirty) {
       this.flushApply();
     }
+  }
+
+  private fitted = false;
+
+  /** Zooms to show the whole track. */
+  private fit(): void {
+    const m = this.track.main;
+    let x0 = Infinity, x1 = -Infinity, z0 = Infinity, z1 = -Infinity;
+    for (let i = 0; i < m.n; i++) {
+      x0 = Math.min(x0, m.px[i]);
+      x1 = Math.max(x1, m.px[i]);
+      z0 = Math.min(z0, m.pz[i]);
+      z1 = Math.max(z1, m.pz[i]);
+    }
+    this.camX = (x0 + x1) / 2;
+    this.camZ = (z0 + z1) / 2;
+    // Leave room for the panel on the right.
+    this.zoom = Math.min((this.canvas.width - 340 * devicePixelRatio) / (x1 - x0 + 80), this.canvas.height / (z1 - z0 + 80));
+    this.fitted = true;
   }
 
   private get open(): boolean {
@@ -145,8 +163,10 @@ export class Editor {
     this.draw();
   }
 
-  private rebake(): void {
+  /** Rebakes after an edit. `follow`: move distance-anchored things (branch ends, ramps…) with the geometry. */
+  private rebake(follow = true): void {
     try {
+      if (follow) this.layout = reanchor(this.track, this.layout, this.host.surfaces);
       this.track = bakeTrack(this.layout, this.host.surfaces);
     } catch (err) {
       this.problems = [{ level: 'error', message: `bake failed: ${(err as Error).message}` }];
@@ -252,7 +272,7 @@ export class Editor {
         const prev = this.undo.pop();
         if (prev) {
           this.layout = JSON.parse(prev);
-          this.rebake();
+          this.rebake(false);
           this.saved = false;
           this.scheduleApply();
           this.renderPanel();
@@ -267,6 +287,9 @@ export class Editor {
           this.change(() => pts.splice(k, 1));
           this.sel = null;
         }
+      } else if (e.code === 'KeyF') {
+        this.fit();
+        this.draw();
       } else if (e.code === 'KeyP') {
         this.driveFromCursor();
       } else if (e.code === 'Escape' || e.code === 'Backquote') {

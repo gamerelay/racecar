@@ -257,3 +257,26 @@ describe('architecture', () => {
     }
   });
 });
+
+describe('editing', () => {
+  test('moving an early point keeps the shortcut, ramp and spots where they were in the world', async () => {
+    const { reanchor } = await import('../src/core/track/anchor');
+    const before = bakeTrack(DOWNTOWN, SURFACES);
+    const edited = structuredClone(DOWNTOWN);
+    edited.main.points[2].p[0] -= 90; // bulge the boulevard west, making the lap longer
+    const moved = reanchor(before, edited, SURFACES);
+    const after = bakeTrack(moved, SURFACES);
+    expect(after.main.length).toBeGreaterThan(before.main.length + 20);
+    const at = (t: typeof before, s: number) => sampleAt(t.main, s, newHit());
+    for (const [a, b] of [
+      [DOWNTOWN.branches![0].from, moved.branches![0].from],
+      [DOWNTOWN.branches![0].to, moved.branches![0].to],
+      [DOWNTOWN.ramps![0].s, moved.ramps![0].s],
+    ]) {
+      const p = at(before, a);
+      const q = at(after, b);
+      expect(Math.hypot(p.cx - q.cx, p.cz - q.cz)).toBeLessThan(1.5);
+    }
+    expect(validateLayout(moved, SURFACES, CLASSES).filter((p) => p.level === 'error' && p.message.includes('branch'))).toEqual([]);
+  });
+});

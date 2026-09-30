@@ -160,6 +160,7 @@ function openReport(): void {
   form.onsubmit = async (e) => {
     e.preventDefault();
     const report = telemetry.report(field.value, me);
+    telemetry.flush();
     close();
     try {
       const res = await fetch('/__report', { method: 'POST', body: JSON.stringify(report) });
@@ -235,6 +236,7 @@ if (import.meta.env.DEV) {
       for (let k = 0; k < 30; k++) renderer.frame(1, 1 / 60, steer, braking);
       hud.update();
       telemetry.frame(16, renderer.fps, renderer.drawCalls, me);
+      telemetry.flush();
       const i = me;
       return { tick: sim.tick, speedKmh: Math.round(Math.hypot(sim.cars.vx[i], sim.cars.vz[i]) * 3.6), s: Math.round(sim.cars.s[i]), lateral: +sim.cars.lateral[i].toFixed(2), wreck: sim.cars.wreck[i], drift: sim.cars.drift[i], stage: sim.cars.driftStage[i], draws: renderer.drawCalls };
     },

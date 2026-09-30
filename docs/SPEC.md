@@ -1,6 +1,6 @@
 # racecar: design
 
-> **Status (2026-09-29): spec only, nothing built.** A loose outline: when building teaches us
+> **Status (2026-09-30): milestone 1 (the greybox sandbox) built on branch `m1-sandbox`.** A loose outline: when building teaches us
 > something, we change it here and say so under "Changed while building". Decisions made so far
 > are in §17.
 >
@@ -788,4 +788,28 @@ Still open, and fine to leave open until they matter:
 
 ## Changed while building
 
-(nothing yet)
+Milestone 1 (2026-09-30):
+
+- **Walls are tested by lateral distance on the car's current spline**, not a list of wall
+  segments: the wall is where the shoulder ends, a car's reach is its box's lateral extent at its
+  angle to the road. Same result, far cheaper. Segments come back for props in milestone 2.
+- **Near a junction a car is on whichever road it's more inside of**, with hysteresis, and no
+  wall applies while it's inside both (`core/track/locate.ts`). Branch ends are glued to the main
+  road by the baker, and the main road's wall opens automatically on the branch's side.
+- **Auto checkpoints step past shortcuts**, so no branch can skip one (the validator caught the
+  first City layout doing exactly that).
+- **Distance-anchored things re-anchor on edit** (`core/track/anchor.ts`): moving an early point
+  changes every distance after it, so branch ends, ramps, zones, gaps and props are moved back to
+  where they were in the world. Without it, the alley jumped when the boulevard moved.
+- **Drift arc range widened** to 0.15–1.25 rad/s: with a narrower range, even full counter-steer
+  circled at ~108 m, too tight to drift a fast sweeper.
+- **Replays across JS engines are close, not exact**: an F8 report from Chrome replayed in Bun
+  ended 1.6 cm off after 30 s (trig functions differ in the last bits). Same engine is exact.
+  Good enough to debug a moment; worth knowing before trusting a replay for minutes.
+- **Milestone 1's "AI" is a pace car** (`core/ai/follow.ts`): lane-following pure pursuit with
+  corner slowdown and a stuck reset. The real AI builds on it in milestone 2.
+- **A dev hook** (`window.__rc.advance(seconds, controls)`) steps the sim and renders a frame,
+  so tests and Claude can drive the game even in a background tab where requestAnimationFrame
+  doesn't run.
+- The greybox City draws in 20–110 calls, well under the 250 budget; a tick with 9 cars is under
+  0.5 ms in Bun.
