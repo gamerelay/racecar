@@ -29,17 +29,22 @@ import type { BakedSpline, Track } from '../../../core/track/bake';
 import { houseTexture, instanced, prism, type Part } from './forest';
 import { animatedPoints, branchSide, canvas, FONT, glowPoints } from './scenery';
 import { coneHeight, type Terrain } from './terrain';
+import type { Cover } from './track';
 import { faceted, toon } from './toon';
 
 export interface Island {
   objects: Object3D[];
   update(time: number): void;
+  /** Stretches of road under a roof the scenery puts over them (the Lava Tube): no rain there. */
+  covers: Cover[];
 }
 
 const PALM_LEAVES = [0x3f8f3a, 0x4ea03c, 0x358a44, 0x5aa83a];
 const JUNGLE = [0x2f7a3a, 0x266b34, 0x3c8a3a, 0x1f5f35, 0x4a9a3f];
 const PASTELS = [0xf4a6a0, 0x9fd9c8, 0xf6d38a, 0xa7c4f2, 0xf0b6d6, 0xfff1d6, 0xbfe3a0];
 const CANOPIES = [0xff5a5f, 0xffc93c, 0x35c9e8, 0xff8fc7, 0xffffff, 0x6fdc8c];
+/** The Lava Tube's roof, above its road. */
+const TUBE_H = 6.5;
 const LAVA_ROCK = [0x2e2729, 0x3a3134, 0x453a3a];
 
 /**
@@ -172,7 +177,7 @@ export function buildIsland(track: Track, seed: number, land: Terrain): Island {
   const onCone = (x: number, z: number) => (volcano ? Math.hypot(x - volcano.x, z - volcano.z) / volcano.r : Infinity);
   /** The ground is under the lap's lowest road (the Freeway's pillars stand in the bay). */
   const dry = (x: number, z: number, margin = 2) => coast(x, z) > margin && land.height(x, z) > seaY + 0.3;
-  if (x0 === Infinity) return { objects, update() {} };
+  if (x0 === Infinity) return { objects, update() {}, covers: [] };
 
   // ---- Harbor Town: pastel houses both sides of the start, the tiki bar, the pier and boats ----
   const houses: Part[] = [];
@@ -388,7 +393,7 @@ export function buildIsland(track: Track, seed: number, land: Terrain): Island {
   if (tube) {
     const from = tube.length * 0.22;
     const to = tube.length * 0.78;
-    const H = 6.5;
+    const H = TUBE_H;
     for (let s = from; s < to; s += 3) {
       const i = at(tube, s);
       const yaw = Math.atan2(tube.tx[i], tube.tz[i]);
@@ -656,5 +661,6 @@ export function buildIsland(track: Track, seed: number, land: Terrain): Island {
       time.value = t;
       for (const u of updates) u(t);
     },
+    covers: tube ? [{ spline: tube.index, from: tube.length * 0.22, to: tube.length * 0.78, height: TUBE_H + 0.6 }] : [],
   };
 }

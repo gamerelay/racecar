@@ -1,9 +1,9 @@
-// A race as a link (SPEC §12): the map, your car and paint, the seats, laps, weather, mayhem,
+// A race as a link (SPEC §12): the map, your car and paint, the seats, laps, weather, time, mayhem,
 // traffic and seed. Starting a race writes it into the URL and reloads into it, which keeps each
 // race a clean start and a shareable link. The lobby (ui/lobby.ts) makes these; links from before
 // lobbies (`opponents` and `difficulty` instead of `seats`) still start the race they meant.
 
-import { resolveLayout } from '../core/content';
+import { resolveLayout, type TimeOption } from '../core/content';
 import { encodeSeats, legacySeats, parseSeats, seatIndex, type Difficulty, type Lobby } from '../lobby/lobby';
 
 export interface RaceSetup {
@@ -15,6 +15,7 @@ export interface RaceSetup {
   seats: string;
   laps: number;
   weather: 'clear' | 'rain' | 'random';
+  time: TimeOption;
   mayhem: 'off' | 'normal' | 'chaos';
   traffic: boolean;
   seed: number;
@@ -59,6 +60,7 @@ export function readSetup(q: URLSearchParams, defaultMap: string, known?: Known)
     seats,
     laps: int('laps', 3, 1, MAX_LAPS),
     weather: oneOf('weather', ['clear', 'rain', 'random'] as const, 'random'),
+    time: oneOf('time', ['day', 'sunset', 'random'] as const, 'random'),
     mayhem: oneOf('mayhem', ['off', 'normal', 'chaos'] as const, 'normal'),
     traffic: q.get('traffic') !== '0',
     seed: int('seed', Math.floor(Math.random() * 1e9), 0, 2 ** 31 - 1),
@@ -114,6 +116,7 @@ export function raceFromLobby(lobby: Lobby, you: string, seed: number): RaceSetu
     seats: encodeSeats(lobby, you),
     laps: o.laps,
     weather: o.weather,
+    time: o.time,
     mayhem: o.mayhem,
     traffic: o.traffic,
     seed,

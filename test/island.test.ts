@@ -88,3 +88,19 @@ describe('Paradise scenery', () => {
     for (let k = 0; k < a.length; k += 97) expect(b[k].equals(a[k])).toBe(true);
   });
 });
+
+describe('the Lava Tube', () => {
+  test('is roofed for the rain: no rain inside it, and rain on the open rim road beside it', async () => {
+    const { buildTrackVisual } = await import('../src/render/skins/greybox/track');
+    const visual = buildTrackVisual(track, PALETTES.tropic, 1);
+    const tube = track.splines.find((sp) => sp.id === 'lava-tube')!;
+    for (const f of [0.3, 0.5, 0.7]) {
+      const i = Math.round((tube.length * f) / tube.step);
+      expect(visual.roof!(tube.px[i], tube.pz[i]), `${f}`).toBeGreaterThan(tube.py[i] + 3);
+    }
+    // The rim road where the tube leaves it is open sky.
+    const i = Math.round((tube.mainFrom + 60) / track.main.step);
+    expect(visual.roof!(track.main.px[i], track.main.pz[i])).toBe(-Infinity);
+    visual.dispose();
+  });
+});

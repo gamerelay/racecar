@@ -23,15 +23,20 @@ import { PALETTES, type Palette } from './palettes';
 import { buildTrackVisual } from './track';
 
 const RAIN_FOG = new Color(0x3a4460);
+/** Rain cloud, for the sky. */
+const RAIN_SKY = 0x6d7488;
+const SUN_FROM: [number, number, number] = [-300, 400, -800];
 
 export class GreyboxSkin implements Skin {
   readonly id = 'greybox';
   private palette: Palette = PALETTES.dusk;
   private sky?: Mesh;
   private skyTime?: { value: number };
+  private skyWet?: { value: number };
   private sun?: DirectionalLight;
   private fog?: Fog;
   private hemi?: HemisphereLight;
+  private background?: Color;
   ink = PALETTES.dusk.ink;
   grade?: Grade;
 
@@ -48,14 +53,15 @@ export class GreyboxSkin implements Skin {
     const p = (this.palette = PALETTES[palette] ?? PALETTES.dusk);
     this.ink = p.ink;
     this.grade = p.grade;
-    scene.background = new Color(p.fog);
+    scene.background = this.background = new Color(p.fog);
     scene.fog = this.fog = new Fog(p.fog, p.fogNear, p.fogFar);
     scene.add((this.hemi = new HemisphereLight(p.hemiSky, p.hemiGround, p.hemiIntensity)));
     const sun = (this.sun = new DirectionalLight(p.dir, p.dirIntensity));
-    sun.position.set(-300, 400, -800);
+    sun.position.set(...(p.sunFrom ?? SUN_FROM));
     scene.add(sun);
     scene.add(sun.target);
     this.skyTime = { value: 0 };
+    this.skyWet = { value: 0 };
     const sky = (this.sky = new Mesh(
       new SphereGeometry(1600, 32, 16),
       new ShaderMaterial({
@@ -68,28 +74,36 @@ export class GreyboxSkin implements Skin {
           hor: { value: new Color(p.horizon) },
           sunC: { value: new Color(p.sun) },
           uDay: { value: p.day ? 1 : 0 },
+          uSunset: { value: p.sunset ? 1 : 0 },
+          uWet: this.skyWet,
+          cloud: { value: new Color(RAIN_SKY) },
           uTime: this.skyTime,
         },
         vertexShader: `varying vec3 vDir;void main(){vDir=normalize(position);gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);}`,
         // The prototype's synthwave sky: a gradient, a banded sun low on the horizon, stars. By day
-        // (uDay) the sun is high and whole, with a wide glare, and there are no stars.
-        fragmentShader: `uniform vec3 top,mid,hor,sunC;uniform float uTime,uDay;varying vec3 vDir;
+        // (uDay) the sun is high and whole, with a wide glare, and there are no stars; at sunset
+        // (uSunset) it's low and whole with a wider glow. Rain (uWet, already scaled by how
+        // overcast the palette gets) greys the gradient toward cloud and hides the sun behind it.
+        fragmentShader: `uniform vec3 top,mid,hor,sunC,cloud;uniform float uTime,uDay,uSunset,uWet;varying vec3 vDir;
         void main(){
           vec3 d=normalize(vDir);float h=d.y;
           vec3 col=mix(hor,mid,smoothstep(-0.02,0.16,h));
           col=mix(col,top,smoothstep(0.14,0.55,h));
+          float grey=dot(col,vec3(0.3,0.59,0.11));
+          col=mix(col,mix(cloud,vec3(grey),0.35)*(1.0-0.25*smoothstep(0.0,0.6,h)),uWet*0.8);
           vec3 sd=normalize(mix(vec3(0.35,0.07,-1.0),vec3(0.3,0.75,-1.0),uDay));
           float dist=distance(d,sd);
           float disc=1.0-smoothstep(0.17,0.175,dist);
           float yy=d.y-sd.y;
           float gap=clamp(-yy*5.5,0.0,0.85);
           float band=fract(yy*42.0-uTime*0.15);
-          disc*=max(step(gap,band),uDay);
-          vec3 sunCol=mix(sunC,vec3(1.0,0.32,0.55),(1.0-smoothstep(-0.16,0.12,yy))*(1.0-uDay));
-          col=mix(col,sunCol,disc);
-          col+=sunC*(0.28+0.3*uDay)*exp(-dist*(5.0-2.0*uDay));
+          disc*=max(step(gap,band),max(uDay,uSunset));
+          vec3 sunCol=mix(sunC,vec3(1.0,0.32,0.55),(1.0-smoothstep(-0.16,0.12,yy))*(1.0-uDay)*(1.0-0.6*uSunset));
+          float out_=1.0-uWet*0.95;
+          col=mix(col,sunCol,disc*out_);
+          col+=sunC*(0.28+0.3*uDay+0.3*uSunset)*exp(-dist*(5.0-2.0*uDay-2.5*uSunset))*out_;
           float s=fract(sin(dot(floor(d*420.0),vec3(12.9898,78.233,37.719)))*43758.5453);
-          col+=vec3(step(0.9985,s))*smoothstep(0.2,0.6,h)*0.8*(1.0-uDay);
+          col+=vec3(step(0.9985,s))*smoothstep(0.2,0.6,h)*0.8*(1.0-uDay)*(1.0-uSunset)*(1.0-uWet);
           gl_FragColor=vec4(col,1.0);
         }`,
       }),
@@ -114,17 +128,25 @@ export class GreyboxSkin implements Skin {
   update(time: number, x: number, y: number, z: number, wetness = 0): void {
     WET.value = wetness;
     if (this.skyTime) this.skyTime.value = time;
+    const p = this.palette;
+    // How overcast the rain makes it: all the way in the city, a sunny shower in the tropics.
+    const cloud = wetness * (p.overcast ?? 1);
+    if (this.skyWet) this.skyWet.value = cloud;
     if (this.fog) {
-      const p = this.palette;
-      this.fog.near = p.fogNear * (1 - 0.5 * wetness);
-      this.fog.far = p.fogFar * (1 - 0.55 * wetness);
-      this.fog.color.setHex(p.fog).lerp(RAIN_FOG, wetness * 0.6);
-      if (this.hemi) this.hemi.intensity = p.hemiIntensity * (1 - 0.35 * wetness);
-      if (this.sun) this.sun.intensity = p.dirIntensity * (1 - 0.6 * wetness);
+      // Rain still thickens the air where the sun stays out, if less.
+      const thick = wetness * (0.5 + 0.5 * (p.overcast ?? 1));
+      this.fog.near = p.fogNear * (1 - 0.5 * thick);
+      this.fog.far = p.fogFar * (1 - 0.55 * thick);
+      this.fog.color.setHex(p.fog).lerp(RAIN_FOG, wetness * 0.6 * (0.4 + 0.6 * (p.overcast ?? 1)));
+      // What shows past the sky's reach is the fog's color, in any weather.
+      if (this.background) this.background.copy(this.fog.color);
+      if (this.hemi) this.hemi.intensity = p.hemiIntensity * (1 - 0.35 * cloud);
+      if (this.sun) this.sun.intensity = p.dirIntensity * (1 - 0.6 * cloud);
     }
     this.sky?.position.set(x, y, z);
     if (this.sun) {
-      this.sun.position.set(x - 300, y + 400, z - 800);
+      const [sx, sy, sz] = p.sunFrom ?? SUN_FROM;
+      this.sun.position.set(x + sx, y + sy, z + sz);
       this.sun.target.position.set(x, y, z);
     }
   }

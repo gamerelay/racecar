@@ -107,6 +107,29 @@ describe('weather', () => {
     // A map without rain never rains.
     expect(planWeather('rain', 1, ['clear']).to).toBe(0);
   });
+
+  test('a tropical shower rolls in partway through the race and passes again', () => {
+    const allowed = ['clear', 'rain', 'shower'];
+    const state = () => ({ wetness: 0, grip: 1, wet: false, visibility: 1 });
+    let showers = 0;
+    for (let seed = 1; seed <= 40; seed++) {
+      const plan = planWeather('random', seed, allowed);
+      expect(plan).toEqual(planWeather('random', seed, allowed));
+      if (plan.to === 0) continue;
+      showers++;
+      // No rain at the start or the end of a race; puddles while it lasts.
+      expect(weatherAt(plan, 20, state()).wetness).toBe(0);
+      expect(weatherAt(plan, (plan.t1 + plan.t2!) / 2, state()).wet).toBe(true);
+      expect(weatherAt(plan, plan.t3! + 1, state()).wetness).toBe(0);
+      expect(plan.t3!).toBeLessThan(250);
+    }
+    expect(showers).toBeGreaterThan(15);
+    expect(showers).toBeLessThan(35);
+    // Rain chosen outright is rain all race, and other maps' random weather is as it was.
+    expect(weatherAt(planWeather('rain', 1, allowed), 400, state()).wet).toBe(true);
+    expect(planWeather('random', 7)).toEqual(planWeather('random', 7, ['clear', 'rain']));
+    expect(planWeather('random', 7).t2).toBeUndefined();
+  });
 });
 
 describe('hazards', () => {

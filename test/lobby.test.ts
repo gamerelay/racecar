@@ -158,6 +158,16 @@ describe('the local backend', () => {
     expect(store.data.size).toBe(0);
   });
 
+  test('a lobby kept by an older build gets the options added since', async () => {
+    const store = memory();
+    const l = await new LocalBackend(store).create(host, {});
+    const [key, raw] = [...store.data.entries()][0];
+    const old = JSON.parse(raw);
+    delete old.options.time;
+    store.setItem(key, JSON.stringify(old));
+    expect((await new LocalBackend(store).get(l.id))?.options.time).toBe('random');
+  });
+
   test('storage that throws (a private window) falls back to memory', async () => {
     const broken: KeyValue = {
       getItem: () => {
@@ -178,6 +188,9 @@ describe('the local backend', () => {
   });
 });
 
+/** Each layout's lap length, km (MAPS.md's table). */
+const LAP_KM: Record<string, number> = { 'downtown/downtown': 3.26, 'backroads/valley': 2.92, 'paradise/island': 3.44 };
+
 describe('map thumbnails', () => {
   test('every layout fits its box, with its shortcuts', () => {
     for (const key of LAYOUT_KEYS) {
@@ -188,9 +201,10 @@ describe('map thumbnails', () => {
       expect(Math.max(...nums)).toBeLessThanOrEqual(60 + 0.05);
       expect(t.main.endsWith('Z')).toBe(true);
       expect(t.branches.length).toBe(layout.branches?.length ?? 0);
-      // Within a few percent of MAPS.md's lap lengths (control points cut the corners a little).
-      expect(t.km, key).toBeGreaterThan(2.7);
-      expect(t.km, key).toBeLessThan(3.8);
+      // Within 3% of the map's lap length in MAPS.md (control points cut the corners a little).
+      const km = LAP_KM[key];
+      expect(km, `${key}: add its lap length to LAP_KM`).toBeDefined();
+      expect(Math.abs(t.km - km) / km, key).toBeLessThan(0.03);
     }
   });
 });

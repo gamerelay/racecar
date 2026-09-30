@@ -3,7 +3,7 @@
 
 import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { CLASS_ORDER, resolveLayout, type CarClass, type PaintDef, type SurfaceDef, type TrackLayout } from '../src/core/content';
+import { CLASS_ORDER, resolveLayout, type CarClass, type MapDef, type PaintDef, type SurfaceDef, type TrackLayout } from '../src/core/content';
 
 export const CONTENT = join(import.meta.dir, '..', 'content');
 
@@ -19,6 +19,9 @@ export const LAYOUT_KEYS: string[] = readdirSync(join(CONTENT, 'maps')).flatMap(
     .filter((f) => f.endsWith('.track.json'))
     .map((f) => `${map}/${f.replace('.track.json', '')}`),
 );
+
+/** Every map's map.json. */
+export const MAPS: MapDef[] = readdirSync(join(CONTENT, 'maps')).map((map) => read<MapDef>('maps', map, 'map.json'));
 
 /** A fresh copy of the layout at `key` ("backroads/valley", an old key, or a map id): safe to edit. */
 export function layout(key: string): TrackLayout {

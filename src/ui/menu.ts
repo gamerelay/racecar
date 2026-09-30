@@ -26,6 +26,7 @@ export interface MenuContent {
 export interface Preview {
   map: string;
   weather: LobbyOptions['weather'];
+  time: LobbyOptions['time'];
   /** Your car, paint and plate; none when you have no seat. */
   car?: { car: string; paint: number; plate: string };
 }
@@ -59,6 +60,7 @@ export class Menu {
       ...(choices.map ? { map: choices.map } : {}),
       ...(choices.laps ? { laps: choices.laps } : {}),
       ...(choices.weather ? { weather: choices.weather } : {}),
+      ...(choices.time ? { time: choices.time } : {}),
       ...(choices.mayhem ? { mayhem: choices.mayhem } : {}),
       ...(choices.traffic !== undefined ? { traffic: choices.traffic } : {}),
     };
@@ -114,6 +116,11 @@ export class Menu {
   private on(id: string, fn: () => void): void {
     const el = document.getElementById(id);
     if (el) el.onclick = fn;
+  }
+
+  /** Whether the layout's map has a sunset palette (the Time option). */
+  private hasSunset(key: string): boolean {
+    return !!this.content.maps.find((m) => key.startsWith(m.id + '/'))?.sunset;
   }
 
   private mapName(key: string): string {
@@ -177,6 +184,7 @@ export class Menu {
       seats: legacySeats(3, FILL_DIFFICULTY),
       laps: 3,
       weather: o.weather ?? 'random',
+      time: o.time ?? 'random',
       mayhem: o.mayhem ?? 'normal',
       traffic: o.traffic ?? true,
       seed: Math.floor(Math.random() * 1e9),
@@ -265,6 +273,7 @@ export class Menu {
     return `<label>Map ${this.sel('oMap', maps, o.map, disabled)}</label>
       <label>Laps ${this.sel('oLaps', Array.from({ length: MAX_LAPS }, (_, k) => [String(k + 1), String(k + 1)] as [string, string]), String(o.laps), disabled)}</label>
       <label>Weather ${this.sel('oWeather', [['random', 'Random'], ['clear', 'Clear'], ['rain', 'Rain']], o.weather, disabled)}</label>
+      <label>Time ${this.sel('oTime', [['random', 'Random'], ['day', 'Day'], ['sunset', 'Sunset']], o.time, disabled || !this.hasSunset(o.map))}</label>
       <label>Mayhem ${this.sel('oMayhem', [['normal', 'Normal'], ['chaos', 'Chaos'], ['off', 'Off']], o.mayhem, disabled)}</label>
       <label>Traffic ${this.sel('oTraffic', [['1', 'On'], ['0', 'Off']], o.traffic ? '1' : '0', disabled)}</label>`;
   }
@@ -275,13 +284,14 @@ export class Menu {
       map: v('oMap'),
       laps: Number(v('oLaps')),
       weather: v('oWeather') as LobbyOptions['weather'],
+      time: v('oTime') as LobbyOptions['time'],
       mayhem: v('oMayhem') as LobbyOptions['mayhem'],
       traffic: v('oTraffic') === '1',
     };
   }
 
   private renderCreate(): void {
-    const o: LobbyOptions = { map: Object.keys(this.content.layouts)[0], laps: 3, weather: 'random', mayhem: 'normal', traffic: true, ...this.defaults };
+    const o: LobbyOptions = { map: Object.keys(this.content.layouts)[0], laps: 3, weather: 'random', time: 'random', mayhem: 'normal', traffic: true, ...this.defaults };
     this.paint(
       `<div class="card setup create">
         <h1>Create lobby</h1>
@@ -296,6 +306,9 @@ export class Menu {
       'cGo',
     );
     this.on('cBack', () => this.back());
+    // Time only means something on a map with a sunset.
+    const mapSel = document.getElementById('oMap') as HTMLSelectElement | null;
+    if (mapSel) mapSel.onchange = () => ((document.getElementById('oTime') as HTMLSelectElement).disabled = !this.hasSunset(mapSel.value));
     this.on('cGo', async () => {
       const name = (document.getElementById('cName') as HTMLInputElement).value;
       const visibility = (document.getElementById('cVis') as HTMLSelectElement).value as Lobby['visibility'];
@@ -366,7 +379,7 @@ export class Menu {
       ${mine >= 0 ? this.carPanel(yours) : ''}`,
       host ? 'lStart' : 'lReady',
     );
-    this.onPreview?.({ map: o.map, weather: o.weather, car: mine >= 0 ? { ...yours, plate: this.plate } : undefined });
+    this.onPreview?.({ map: o.map, weather: o.weather, time: o.time, car: mine >= 0 ? { ...yours, plate: this.plate } : undefined });
     this.on('lStart', () => void this.start(lobby));
     this.on('lReady', () => {
       const me = lobby.seats[mine];
@@ -382,7 +395,7 @@ export class Menu {
     const car = () => this.send(lobby, { type: 'car', car: (document.getElementById('lCar') as HTMLSelectElement).value, paint: Number((document.getElementById('lPaint') as HTMLSelectElement).value) });
     change('lCar', car);
     change('lPaint', car);
-    if (host) for (const id of ['oMap', 'oLaps', 'oWeather', 'oMayhem', 'oTraffic']) change(id, () => this.send(lobby, { type: 'options', options: this.readOptions() }));
+    if (host) for (const id of ['oMap', 'oLaps', 'oWeather', 'oTime', 'oMayhem', 'oTraffic']) change(id, () => this.send(lobby, { type: 'options', options: this.readOptions() }));
   }
 
   /** Beside the turntable: your car's name and job, the car and paint pickers, and its stat bars. */

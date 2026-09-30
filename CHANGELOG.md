@@ -6,6 +6,19 @@ and where things stand is [docs/HANDOFF.md](./docs/HANDOFF.md).
 
 ## Unreleased
 
+### Added
+- **Tropical showers on Paradise:** with random weather, a shower can roll in partway through a
+  race and pass again, with the sun still out and puddles while it lasts.
+- **Sunset on Paradise:** a low sun over the sea and a pink-and-orange sky. The lobby has a new
+  Time option (Random, Day, Sunset) for maps that have one.
+
+### Changed
+- **The sky clouds over in the rain** on every map: the sun fades behind cloud and the sky goes
+  grey (only a little on Paradise).
+
+### Fixed
+- Rain no longer falls inside the Lava Tube.
+
 ## alpha-1.10: Paradise
 
 PLAN phase 5, parts 1 and 2: the Island's lap, land, sea and freeway (PR #21), and its scenery,

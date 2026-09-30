@@ -1,7 +1,7 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { LAYOUT_ALIASES, PAINT_ALIASES, resolveLayout } from '../src/core/content';
-import { CONTENT, LAYOUT_KEYS, PAINTS } from '../tools/content';
+import { LAYOUT_ALIASES, PAINT_ALIASES, paletteFor, resolveLayout } from '../src/core/content';
+import { CONTENT, LAYOUT_KEYS, MAPS, PAINTS } from '../tools/content';
 import { describe, expect, test } from 'bun:test';
 import { delta, fmt, ordinal } from '../src/ui/format';
 import { pickNext, type Box } from '../src/ui/nav';
@@ -37,8 +37,8 @@ describe('readSetup', () => {
     expect(read('car=bus')).toBeNull();
   });
   test('good values pass through', () => {
-    expect(read('mode=race&map=backroads/valley&car=bus&paint=3&seats=pnhoexxx&laps=4&weather=rain&mayhem=chaos&traffic=0&seed=42&lobby=local')).toEqual({
-      mode: 'race', map: 'backroads/valley', car: 'bus', paint: 3, seats: 'pnhoexxx', laps: 4, weather: 'rain', mayhem: 'chaos', traffic: false, seed: 42, lobby: 'local',
+    expect(read('mode=race&map=backroads/valley&car=bus&paint=3&seats=pnhoexxx&laps=4&weather=rain&time=sunset&mayhem=chaos&traffic=0&seed=42&lobby=local')).toEqual({
+      mode: 'race', map: 'backroads/valley', car: 'bus', paint: 3, seats: 'pnhoexxx', laps: 4, weather: 'rain', time: 'sunset', mayhem: 'chaos', traffic: false, seed: 42, lobby: 'local',
     });
   });
   test('links from before lobbies: opponents and difficulty become seats', () => {
@@ -115,5 +115,24 @@ describe('renamed maps and paints', () => {
       expect(p.id).toMatch(/^[a-z]+$/);
     }
     for (const to of Object.values(PAINT_ALIASES)) expect(PAINTS.map((p) => p.id)).toContain(to);
+  });
+});
+
+describe('time of day', () => {
+  const map = { id: 'paradise', name: 'Paradise', layouts: ['island'], palette: 'tropic', sunset: 'sunset', weather: [] };
+  test('a map with a sunset races by day or at sunset; random is seeded, about a third at sunset', () => {
+    expect(paletteFor(map, 'day', 1)).toBe('tropic');
+    expect(paletteFor(map, 'sunset', 1)).toBe('sunset');
+    const sunsets = Array.from({ length: 300 }, (_, seed) => paletteFor(map, 'random', seed)).filter((p) => p === 'sunset').length;
+    expect(sunsets).toBeGreaterThan(70);
+    expect(sunsets).toBeLessThan(140);
+    expect(paletteFor(map, 'random', 12)).toBe(paletteFor(map, 'random', 12));
+  });
+  test('a map without one ignores it', () => {
+    expect(paletteFor({ ...map, sunset: undefined }, 'sunset', 1)).toBe('tropic');
+  });
+  test("every map's palettes exist", async () => {
+    const { PALETTES } = await import('../src/render/skins/greybox/palettes');
+    for (const m of MAPS) for (const p of [m.palette, m.sunset]) if (p) expect(PALETTES[p], `${m.id} ${p}`).toBeDefined();
   });
 });

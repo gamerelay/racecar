@@ -4,6 +4,7 @@
 // which holds the host rules, so a backend (local now, GameRelay rooms in milestone 3) only has
 // to store lobbies and pass actions along. Pure: no DOM, no network.
 
+import type { TimeOption } from '../core/content';
 import type { CarSpec } from '../core/sim';
 import { aiPlate } from './plate';
 
@@ -31,6 +32,8 @@ export interface LobbyOptions {
   map: string;
   laps: number;
   weather: 'clear' | 'rain' | 'random';
+  /** Day or sunset, on a map that has a sunset (others ignore it). */
+  time: TimeOption;
   mayhem: 'off' | 'normal' | 'chaos';
   traffic: boolean;
 }
@@ -76,7 +79,7 @@ export type LobbyAction =
   | { type: 'start' }
   | { type: 'end' };
 
-export const DEFAULT_OPTIONS: LobbyOptions = { map: 'downtown/downtown', laps: 3, weather: 'random', mayhem: 'normal', traffic: true };
+export const DEFAULT_OPTIONS: LobbyOptions = { map: 'downtown/downtown', laps: 3, weather: 'random', time: 'random', mayhem: 'normal', traffic: true };
 const MAX_NAME = 32;
 
 /** A new lobby: the host in the first seat, the rest open. */

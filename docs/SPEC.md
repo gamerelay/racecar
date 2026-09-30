@@ -1419,3 +1419,28 @@ Paradise, part 2: the scenery (2026-09-30, PLAN phase 5):
   - The lighthouse had house windows (its stripes were drawn with the house texture).
   - The jungle crowns barely swayed: a crown is a unit ball, so it sways as if it were 3 units up its trunk.
   - Beach huts could stand on a palm: they're placed before the trees now.
+
+Paradise, part 3a: weather and time of day (2026-09-30, PLAN phase 5):
+
+- **Tropical showers:** a map whose `weather` lists `shower` (Paradise) gets passing showers
+  for random weather instead of the other maps' rain rolling in to stay. 40% of races stay
+  clear; the rest get one shower that starts 40–120 s in, takes 15 s to arrive, lasts 35–60 s
+  and clears over 20 s, so it's over before a 3-lap race is. Puddles are on while it lasts. The
+  plan gained `t2`/`t3` (drying) and stays a pure function of the seed and time. Rain chosen
+  outright is still rain all race, and the other maps' random weather is unchanged, seed for seed.
+- **The sky responds to rain on every map** (from PR #21's review: a bright sun in the rain). The
+  sky shader greys its gradient toward cloud and hides the sun and its glare, and the page
+  background follows the fog. A palette's `overcast` (default 1) scales it, and how much the
+  light dims: Downtown and Backroads cloud over, while Paradise's shower keeps the sun out
+  (`overcast` 0.3) and thickens the haze less.
+- **Sunset:** a second palette for Paradise (`sunset`), a low whole sun over the sea (no
+  synthwave bands, no stars), a pink-to-orange sky, warm light from the sun's side
+  (`sunFrom`), a warmer sea (`seaLight`), and a grade with violet shadows. A map names it as
+  `sunset` in its map.json, and the lobby's new **Time** option (Random, Day, Sunset) picks it.
+  Time is off on maps without one. Random is a third of races, seeded (`paletteFor`), so every
+  player sees the same. It's in race links (`time=`), and lobbies saved by an older build get it
+  filled in.
+- **No rain in the Lava Tube:** the scenery can roof a stretch of road (`covers`: the tube's
+  roofed middle), and the rain's roof map takes those as well as decks and the city's tunnel.
+- **Lap lengths per map** in the lobby's thumbnail test: each within 3% of MAPS.md's figure,
+  instead of one 2.7–3.8 km bound for all.

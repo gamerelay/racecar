@@ -1,6 +1,8 @@
 // Content formats (SPEC §5, principle 7): tracks, surfaces and cars are JSON; these are their types.
 // `validateLayout` in track/validate.ts checks a layout against them and the gameplay rules.
 
+import { hash01 } from './rng';
+
 export type Vec3 = [number, number, number];
 
 export interface TrackPoint {
@@ -135,7 +137,20 @@ export interface MapDef {
   name: string;
   layouts: string[];
   palette: string;
+  /** The palette for a race at sunset, if the map has one (the lobby's Time). */
+  sunset?: string;
+  /** What weather it gets: `clear`, `rain`, and `shower` for rain that passes (world/weather.ts). */
   weather: string[];
+}
+
+/** A race's time of day: a map with a sunset palette can be raced by day or at sunset. */
+export type TimeOption = 'day' | 'sunset' | 'random';
+
+/** The palette a race on `map` at `time` uses; random is seeded, so every player sees the same. */
+export function paletteFor(map: MapDef, time: TimeOption, seed: number): string {
+  if (!map.sunset || time === 'day') return map.palette;
+  if (time === 'sunset') return map.sunset;
+  return hash01(seed, 0x7143) < 0.35 ? map.sunset : map.palette;
 }
 
 export interface SurfaceDef {
