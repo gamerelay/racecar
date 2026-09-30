@@ -1,265 +1,439 @@
 # racecar: design
 
 > **Status (2026-09-29): spec only, nothing built.** A loose outline: when building teaches us
-> something, we change it here and say so under "Changed while building".
+> something, we change it here and say so under "Changed while building". Decisions made so far
+> are in §17.
 >
-> racecar (working title, see "Name") is a cel-shaded arcade street racer for the browser,
-> online through GameRelay, for up to 12 players. It grows out of the "Neon Wreck" prototype (one
-> endless straight road, near misses, boost, takedowns, aftertouch) into a real game: circuits,
-> maps, modes, a lobby you live in between races, controllers.
+> racecar is an arcade street racer for the browser, online through GameRelay, for up to 8
+> players. It grows out of the "Neon Wreck" prototype (one endless straight road, near misses,
+> boost, takedowns, aftertouch) into a real game: long circuits with shortcuts, traffic,
+> hazards and weather; several modes; a lobby you live in between races; controllers.
 
 ## The pitch
 
 **Burnout 3's crashes, Mario Kart's party, with some Need for Speed and Forza sprinkled on top.**
-You open the link, land in the lobby, jump into a party, race, the group votes on the next map,
-and you race again. No menus between you and the next race.
+You open the link, land in the lobby, jump into a party, race through mayhem, the group votes
+on the next map, and you race again. No menus between you and the next race.
 
 | From | We take | We leave |
 |---|---|---|
-| **Burnout 3** | Takedowns, aftertouch, boost earned by driving dangerously, traffic checks, slow-mo wreck cam, revenge takedowns, signature takedowns per map, Crash mode | Long single-player career |
-| **Mario Kart** | 12 racers, party-first flow, drift mini-turbo, start boost, catch-up (boost fills faster at the back), items (a lobby toggle), readable cartoon look, anyone can pick it up | Kart-only physics, character roster |
-| **Need for Speed** | Nitrous feel, night cities, cops in a Pursuit mode, visual customization (paint, underglow, rims, decals) | Story, open world |
-| **Forza** | Handling that feels good on a controller, car classes with real stat trade-offs, rewind in single player, photo mode | Simulation, tuning sheets |
+| **Burnout 3** | Takedowns, aftertouch, boost earned by driving dangerously, traffic checks, slow-mo wreck cam, revenge takedowns, signature takedown spots, Crash mode | Long single-player career |
+| **Mario Kart** | Party-first flow, drift mini-turbo, start boost, catch-up, shortcuts everywhere, hazards that are part of the track, items (a lobby toggle), anyone can pick it up | Kart physics, character roster |
+| **Need for Speed** | Nitrous feel, night cities, rain, cops in a Pursuit mode, visual customization | Story, open world |
+| **Forza** | Handling that feels good on a controller, car classes with real trade-offs, rewind in single player, photo mode | Simulation, tuning sheets |
 
 ## Goals
 
-1. **A real game first.** It has to be fun on its own, with friends or alone, or it's not a
-   good demo. Party-game energy: 30 seconds from link to racing, crashes are the fun part.
-2. **Show off GameRelay.** Every online feature uses the public SDK as any customer would:
-   rooms, room lists, entities, events, host entities, state, timers, claims, invite links,
-   chat, leaderboards. No private APIs, no game server of our own. Where the SDK falls short,
-   we add the feature to GameRelay for everyone (§6, "Platform asks"), not a hack in the game.
+1. **A real game first.** Fun on its own, with friends or alone, or it's not a good demo.
+   30 seconds from link to racing; crashes are the fun part; every lap is different because of
+   traffic, hazards and weather.
+2. **Show off GameRelay.** Every online feature uses the public SDK as any customer would. No
+   private APIs, no game server of our own. Where the SDK falls short, we add the feature to
+   GameRelay for everyone (§11, "Platform asks"), not a hack in the game.
 3. **Calibrate the network.** The game ships a net overlay and headless bots, so we can load-test
-   rooms and relays and measure what players actually feel (§10).
+   rooms and relays and measure what players actually feel (§14).
 4. **Open-source example.** `gamerelay/racecar`, MIT, readable, small. Someone should be able to
    read `src/net/` in an evening and learn how to build a multiplayer game on GameRelay.
 5. **Fast and small.** 60 fps on a mid laptop and a 2021 phone; lobby on screen in under 2 s,
-   first race in under 3 s. Budgets in §11 are enforced in CI, not hoped for.
+   first race in under 3 s. Budgets in §15 are enforced in CI, not hoped for.
 
 Not goals (v1): realistic driving sim, a career, tuning sheets, native apps, anti-cheat for
-ranked play (§5, "Trust").
+ranked play (§10, "Trust").
 
-## What we keep from the prototype
+## Principles
 
-- **Art direction:** toon ramp lighting (3 steps), ink outlines, dusk/midnight palettes, neon
-  signs, synthwave sun, fog, the post pass (radial blur, chromatic split, speed lines, slow-mo
-  grade, impact flash). HUD: skewed panels, Bungee + Chakra Petch, pops ("Takedown!").
-- **Core loop:** drive dangerously (near miss, oncoming lane, drafting, drifting, air) → fill
-  boost → spend it → ram rivals for takedowns → takedowns refill boost. Crash → slow-mo wreck
-  cam with aftertouch.
-- **Everything procedural.** No texture or model downloads: canvas textures, box-built cars,
-  generated buildings. It's why the prototype loads instantly; keep it that way (glTF allowed
-  later only inside the asset budget).
+These decide the arguments before they happen.
 
-What changes: the endless straight road becomes closed circuits built from a spline (§3), the
-lane-snapped car becomes a real arcade car with drift and stats (§4), and the single 1,000-line
-file becomes modules with hard boundaries (§2).
+1. **Greybox first, skin later.** Gameplay, level design and netcode are built and tuned on
+   flat-shaded geometry. The prototype's look (toon ramp, ink, neon, post FX) is a *skin*
+   applied afterwards through one interface (§6). No gameplay code may depend on a skin.
+2. **Every system is declared up front** (§3): what it owns, what it reads, when it runs, and
+   how it syncs. A new feature starts by adding a row to that table.
+3. **Shared world = function of (seed, race time).** Traffic, hazards, weather and item boxes
+   are computed from `room.seed` and the shared race clock on every client, so they cost zero
+   bandwidth and can never disagree (§4). Only players' own cars and the things they set off go
+   over the network.
+4. **One owner per piece of data.** A car is written by its player; the world by the clock;
+   race facts by the host. Nobody writes what they don't own (the SDK enforces this anyway).
+5. **No allocation in the hot path.** The sim uses fixed-capacity pools and typed arrays; a
+   test asserts zero allocations per tick after warm-up.
+6. **Data, not code, for content.** Tracks, surfaces, hazards and car stats are JSON files
+   validated by a schema, edited in our own editor (§6). Code defines *kinds* of things;
+   data places them.
 
 ## §1 Stack
 
 - **TypeScript, Vite, Bun** (tests, bots, scripts). Three.js current release (WebGL2), imported
-  per module so tree shaking works. WebGPU renderer is a later experiment, not a dependency.
+  per module so tree shaking works.
 - **`@gamerelay/sdk`** from npm, same as any customer.
-- UI and HUD are **DOM**, not canvas (cheap, accessible, easy to style, easy to drive with a
-  controller via a focus system, §8). No UI framework: plain TS components. Revisit only if
-  menus outgrow that.
-- Repo **`gamerelay/racecar`**, next to `sdk` and `resonance`. Private until milestone 2 is
-  playable, then public. Deployed as static files at `racecar.gamerelay.io`, itch.io later.
+- UI and HUD are **DOM**, not canvas. No UI framework: plain TS components with a controller
+  focus system (§13).
+- Schemas for content with a small validator (no runtime dependency; types generated from the
+  same source).
+- Repo **`gamerelay/racecar`**, private until the online milestone is playable, then public.
+  Deployed as static files at `racecar.gamerelay.io`, itch.io later.
 
 ## §2 Architecture
 
-One rule makes the rest work: **`core/` is pure TypeScript with no Three.js, no DOM, no
-network.** It runs in the browser, in Bun tests, and in headless bots.
+`core/` is pure TypeScript with no Three.js, no DOM, no network. It runs in the browser, in Bun
+tests, in the editor, and in headless bots.
 
 ```
 src/
-  core/        simulation: math, fixed-step loop, car physics, track, collisions, spatial index,
-               traffic, items, AI drivers, race progress. Deterministic given inputs + seed.
-  net/         GameRelay adapter: lobby, party, entity kinds, events, clock, remote-car
-               prediction, traffic sync, votes.
-  render/      Three.js: renderer, toon/outline materials, post pass, car meshes, world chunks,
-               particles, camera rigs. Reads core state; never writes it.
-  maps/        one folder per map (city/, countryside/): track data, prop kit, palette, traffic.
-  modes/       one file per mode (race.ts, takedown.ts, …) behind a Mode interface.
-  cars/        car classes: stats + the box-built model + paint slots.
-  input/       keyboard, gamepad, touch → one Controls object; menu navigation.
-  ui/          screens (lobby, party, garage, settings, HUD, results, vote) as DOM components.
-  audio/       engine synth, SFX, music.
-  settings.ts  persisted settings (localStorage, GameRelay player data when signed in).
-  main.ts      wires it together.
+  core/
+    clock.ts       race time, ticks
+    rng.ts         seeded streams, one per system (§4)
+    pools/         fixed-capacity SoA stores: cars, traffic, colliders, zones
+    track/         layout loading, baking (distance table, walls, chunks), queries by s
+    car/           physics, drift, boost, wreck body, stats
+    world/         traffic, hazards, weather, surfaces, item boxes (all deterministic)
+    collide/       OBB/segment tests, spatial grids, contact resolution
+    rules/         progress, laps, positions, scoring (near miss, takedown, air…)
+    ai/            racing line, drivers, rubber-band
+    events.ts      the per-tick event queue
+    sim.ts         the tick pipeline (§3) that runs all of the above in order
+  modes/           one file per mode, behind the Mode interface
+  net/             GameRelay adapter: lobby, party, entities, prediction, triggers, votes
+  render/
+    scene.ts       renderer, cameras, chunk culling, instancing
+    skins/
+      greybox/     flat-shaded, colored by surface, shows triggers and zones (the default)
+      neon/        the prototype's look (later)
+  editor/          the level editor (dev builds only, §6)
+  input/           keyboard, gamepad, touch → Controls; menu focus
+  ui/              screens: lobby, party, garage, settings, HUD, results, vote
+  audio/           engine synth, SFX, music
+content/
+  maps/<map>/      map.json, <layout>.track.json, hazards.json
+  cars/*.json      car classes
+  surfaces.json    the surface table
 tools/
-  bots/        headless GameRelay clients driven by core/ AI (load tests, fill rooms).
-  track-view/  a 2D debug view of a track's spline, walls, checkpoints, grid.
+  bots/            headless GameRelay clients driven by core/ai (load tests, filling rooms)
+  validate.ts      content validator (runs in CI)
 ```
 
-Dependency direction: `ui, render, net, input → core`; `maps, modes, cars → core` (+ `render`
-for a map's prop kit, loaded lazily). Enforced with an import lint rule.
+Dependency direction: `ui, render, net, input, editor → core`; `modes → core`. `core` imports
+nothing outside itself. `render/skins/*` only implement the `Skin` interface. Enforced with an
+import lint rule.
 
-**Loop:** `relay.tick(60, step)` (or a local fixed-step loop offline) runs `core` at 60 Hz;
-`requestAnimationFrame` renders, interpolating between the last two sim steps. Slow-mo scales
-sim `dt` for *your* car's wreck and the camera only; remote cars and traffic keep real time
-(slow-mo can't pause other people). In single player it slows the whole world, as Burnout does.
+### Loop
 
-### Extension points
+- `relay.tick(60, step)` (or a local fixed-step loop offline) runs `core/sim.ts` at 60 Hz.
+- `requestAnimationFrame` renders, interpolating between the last two sim states.
+- Render, audio, HUD and net read the tick's **event queue** (a typed ring buffer, not
+  callbacks), so the sim never calls into them and a slow renderer can't stall a tick.
+- Slow-mo scales `dt` for *your* car's wreck and the camera only online (others keep real
+  time); in single player it slows the whole world, as Burnout does.
+
+### Data layout
+
+Hot data lives in struct-of-arrays pools with fixed capacity, indexed by handle
+(index + generation):
+
+| Pool | Capacity | Notes |
+|---|---|---|
+| cars | 8 + 8 ghosts | players and AI; ghosts for Time Trial and spectating |
+| traffic | 128 | only the ones near someone are simulated; the rest are closed-form |
+| colliders (dynamic) | 256 | hazard pieces (logs, rocks, lava bombs), item projectiles |
+| zones (dynamic) | 64 | oil slicks, lava crust, puddles |
+| particles | render-side | one pooled buffer, never touched by core |
+
+## §3 Systems
+
+This table is the contract for how everything fits together. Order is the order within a tick.
+
+| # | System | Module | Reads | Writes | Sync (§4) |
+|---|---|---|---|---|---|
+| 1 | Input | `input/` | devices | `Controls` per local player | local |
+| 2 | Clock | `core/clock` | `relay.now()`, `state.startAt` | race time, tick number | shared clock |
+| 3 | Weather | `core/world/weather` | seed, race time, map weather profile | grip multiplier, wet flag, visibility | **D** deterministic |
+| 4 | Traffic | `core/world/traffic` | seed, race time, lanes | traffic poses (closed-form), wreck overrides | **D** + **T** for hits |
+| 5 | Hazards | `core/world/hazards` | seed, race time, hazards.json, trigger log | dynamic colliders, zones, telegraphs | **D** + **T** for triggers |
+| 6 | Item boxes | `core/world/items` | seed, race time, claims | box availability | **T** |
+| 7 | Own car | `core/car` | Controls, surfaces, weather | own car state | **O** owned entity |
+| 8 | AI cars | `core/ai` + `core/car` | track, cars, traffic | AI car state (host only) | **H** host entity |
+| 9 | Remote cars | `net/predict` | entity snapshots | predicted poses | received |
+| 10 | Broadphase | `core/collide/grid` | all poses | dynamic grid | local |
+| 11 | Collisions | `core/collide` | grids, static walls | contacts, impulses on own/AI cars | **E** bump events |
+| 12 | Rules | `core/rules` | cars, contacts, track | progress, laps, positions, scores | **E** + **S** results |
+| 13 | Mode | `modes/*` | rules output, events | mode state, end condition | **S** host state |
+| 14 | Events | `core/events` | everything above | the tick's event queue | local |
+| 15 | Net flush | `net/` | own/AI car state, queue | entity writes, emitted events | out |
+
+Render, audio and HUD run per frame after this, reading state and the queue.
+
+Rules for adding a system: it gets a row, a slot in the order, a sync category, a pool (if it
+has many things), and a test that runs it headless.
+
+## §4 Sync categories
+
+Every piece of game data is in exactly one of these:
+
+| Cat | What | How | Cost |
+|---|---|---|---|
+| **O** | Things a player owns: their car, their fired items | GameRelay entity, player-owned, 30 Hz | ~40 B × 30/s per car |
+| **H** | Things the host runs: AI rivals | GameRelay entity, `owner: 'host'` (migrates with the host) | same |
+| **D** | The deterministic world: traffic, scheduled and random hazards, weather, item box spawns | Pure function of `(seed, raceTime)`; nothing sent | 0 |
+| **T** | Triggers: someone set something off, or took something | `room.claim(key)` decides who; the winner emits the event; everyone runs it from the event's server time (`meta.at`) | one claim + one event |
+| **E** | Moments: bumps, wrecks, takedowns, laps, finishes, horns | `room.emit` | tiny, rare |
+| **S** | Race facts: phase, map, options, ready, results, votes, session points | `room.state`, host-written, timers for phases | rare |
+| **L** | Local only: particles, camera, debris after a wreck, audio | never sent | 0 |
+
+**The shared race clock.** `raceTime = relay.now() - state.startAt`, quantized to 60 Hz ticks.
+Clients agree on `relay.now()` to within a few ms, so a 20 m/s truck is within ~10 cm on every
+screen. D-systems are written as **closed-form functions of time** (where is this truck at
+t? where is this log at t?), not as integrations, so floating-point drift between browsers
+can't build up.
+
+**Seeded streams.** `rng.ts` derives one stream per system from `room.seed` (traffic, hazards,
+weather, items, …), so adding a hazard never changes where traffic spawns.
+
+**Design rule that keeps D cheap:** deterministic things don't get pushed around by cars. A log
+off a truck follows its own canned path and comes to rest; cars bounce off it or wreck on it,
+but can't shove it. The rare thing that must be pushable (a ball in a future mode) becomes a
+host entity (H).
+
+## §5 Tracks
+
+### Size and shape
+
+- **Laps of 70–100 s** at race pace (roughly 3.5–5 km), races of 3 laps (4–5 minutes). Short
+  layouts (~45 s laps) for Knockout and quick races.
+- Each track is a **closed main spline** plus **branch splines** (shortcuts, alternate routes)
+  that leave and rejoin it. Progress is always measured on the main spline: a branch maps its
+  own distance onto the main one's, so positions stay right while someone takes a shortcut.
+- **Every lap should have:** 2–3 shortcuts (at least one risky: a jump, a narrow alley, a
+  hazard in the way), a signature takedown spot, a long straight for boost and slipstreams, a
+  technical section for drifting, and a traffic-heavy section (oncoming lanes).
+- The start grid is 2-wide × 4 rows.
+
+### Layout format (`<layout>.track.json`)
+
+```jsonc
+{
+  "id": "city-downtown",
+  "main": { "points": [ { "p": [x, y, z], "width": 16, "lanes": 4, "bank": 0, "surface": "asphalt" }, … ] },
+  "branches": [ { "id": "alley", "from": 820, "to": 1150, "points": […], "kind": "shortcut" } ],
+  "zones":    [ { "s": [1200, 1400], "lateral": [-8, -2], "surface": "dirt" },
+                { "s": [2100, 2160], "lateral": [-8, 8], "surface": "puddle", "when": "wet" } ],
+  "walls":    { "default": "barrier", "gaps": [ { "s": [3000, 3080], "side": "left" } ] },
+  "ramps":    [ { "s": 2500, "height": 2.5, "length": 12 } ],
+  "checkpoints": "auto",               // every 1/8 of the main spline, or a list of s
+  "traffic":  { "lanes": [ { "offset": -6, "dir": -1, "speed": 24 }, … ], "density": 0.6 },
+  "hazards":  [ { "use": "log-truck", "s": [1800, 2600] }, { "use": "lava-bombs", "s": [0, 900] } ],
+  "itemBoxes": [ { "s": 600, "lateral": [-6, -2, 2, 6] } ],
+  "props":    [ { "kind": "building", "s": 40, "side": 1, "size": [18, 40, 20] }, … ],
+  "takedownSpots": [ { "s": 1500, "name": "Pillar" } ]
+}
+```
+
+Baked at load into: a distance table (`s` ↔ point, tangent, width, height), wall segments,
+surface lookup, and ~60 m **chunks** holding static colliders and props for culling. Props are
+gameplay boxes in the layout (they block or they don't); skins decide what they look like.
+
+### Surfaces (`surfaces.json`)
+
+One table, used by physics, AI, audio and skins:
+
+| Surface | Grip | Drag | Notes |
+|---|---|---|---|
+| asphalt | 1.0 | 0 | |
+| wet asphalt | 0.75 | 0 | whole road while raining; spray |
+| puddle | 0.45 | 0.1 | only when wet; aquaplane wobble |
+| dirt / gravel | 0.7 | 0.25 | dust, drift-friendly |
+| grass | 0.6 | 0.4 | |
+| ice | 0.3 | 0 | mountain pass |
+| oil | 0.2 | 0 | dynamic zone (item, spill) |
+| lava crust | 0.8 | 0.5 | dynamic zone; wrecks you if you stop on it |
+| boost pad | 1.0 | −0.5 | refills a little boost |
+
+Lookup is by zone first (dynamic, then authored), then the spline point's default surface.
+
+### Validation (`tools/validate.ts`, on save and in CI)
+
+Schema check, then gameplay checks: the grid fits the start straight, branches rejoin, widths
+never drop below one car's width plus margin, checkpoints are in order, every hazard's range is
+on the track, traffic lanes are inside the road, the AI can finish a lap, and the lap time is in
+the target range.
+
+## §6 Level editor and the greybox workflow
+
+The point is to design a lap, drive it, change it, and drive it again within seconds, with no
+art in the way.
+
+- **Where:** `/editor` in dev builds, served by the Vite dev server. Not shipped to players.
+- **Views:** top-down 2D (the whole track, fast to edit) and a 3D greybox preview.
+- **Editing:** drag spline points; set width, lanes, height and bank per point; add branches
+  by dragging from the main spline; paint surface zones; place ramps, walls and gaps, props,
+  item boxes, traffic lanes, hazards (with their range and schedule shown), takedown spots.
+- **Drive it:** one key drops a car at the cursor, facing along the track, with the current
+  weather and hazards running; another key returns to editing at the same spot. Scrub race
+  time to see where hazards and traffic are at any moment (they're functions of time, §4).
+- **AI lap report:** the AI drives the layout and reports lap time, average speed, time per
+  section and where it crashed, so lap length and difficulty are numbers, not guesses.
+- **Saving:** writes the JSON into `content/maps/…` through the dev server; the game hot-reloads
+  it; the validator runs and shows problems on the map.
+- **Later:** a heatmap of real players' wrecks and slow spots from telemetry (§14).
+
+### Skins
 
 ```ts
-interface MapDef {
-  id: 'city' | 'countryside' | string;
-  name: string;
-  layouts: TrackLayout[];        // forward, reverse, short: spline + widths + lanes + banking (§3)
-  palette: Palette[];            // dusk, midnight, …
-  traffic: TrafficProfile;       // density, vehicle mix, lane speeds
-  thumbnail: () => Promise<string>; // rendered once, cached: lobby cards and the vote screen
-  kit: () => Promise<PropKit>;   // lazy: builds the scenery for this map (render side)
-}
-
-interface Mode {
+interface Skin {
   id: string;
-  players: [min: number, max: number];
-  options: ModeOption[];                   // laps, time limit, items on/off, traffic density…
-  setup(ctx: ModeContext): void;           // spawn grid, rules, timers
-  onEvent(ev: GameEvent, ctx): void;       // takedown, lap, wreck, finish…
-  standings(ctx): Standing[];              // for HUD + results
-  isOver(ctx): boolean;
-  hud: HudWidget[];                        // which HUD pieces this mode shows
+  load(map: MapDef): Promise<void>;
+  buildChunk(chunk: BakedChunk): Object3D;     // road, walls, props for one chunk
+  car(stats: CarClass, paint: Paint): Object3D;
+  hazard(kind: string): HazardVisual;          // pieces + telegraph
+  traffic(kind: string): InstancedMesh;
+  sky(weather: WeatherState, t: number): void;
+  post?: PostPass;                             // optional full-screen pass
 }
 ```
 
-Adding a map = one folder + one line in the map registry. Adding a mode = one file. Nothing
-else changes.
+- **Greybox** is the default skin in every build until a map has its own: flat shading, one
+  color per surface, translucent volumes for checkpoints, triggers, hazard ranges and
+  shortcuts. Readable, and fast on any machine.
+- **Neon** (the prototype's look) becomes the City skin later; each map gets its own skin in
+  the art milestone. Skins can't change gameplay: same colliders, same timings.
 
-## §3 Tracks and maps
+## §7 Hazards, events and weather
 
-- **A track is a closed spline** (centripetal Catmull-Rom) with per-point width, lane count,
-  elevation and bank. From it we bake, at load:
-  - the road mesh, curbs, barriers (render);
-  - wall polylines along both edges (collision);
-  - a **distance table**: arc length `s` ↔ point/tangent, for progress, positions, spawning,
-    AI lines, item boxes, and the minimap;
-  - **chunks** of ~60 m along `s`, each holding its merged scenery and props (for culling).
-- **Race progress** is `lap * length + s`. Position is a sort on that. Checkpoints every ~1/8
-  of a lap stop corner-cutting from counting.
-- **Shortcuts and ramps** are optional side splines that rejoin the main one. Every map should
-  have at least one risky shortcut (Mario Kart) and one signature takedown spot (Burnout: a
-  pillar, a drop, a gas station).
-- **Grid width:** 12 cars start in a staggered 2-wide grid (6 rows); starting straights are
-  long enough for that.
-- **v1 maps:**
-  - **City** (the prototype, grown up): neon downtown, two lanes each way, oncoming traffic,
-    wide boulevard, a tunnel, a hairpin under an overpass. Palettes: dusk, midnight.
-  - **Countryside**: a winding two-lane road through fields, a village, a bridge, a forest
-    section, hills with crests (air time). Fewer walls, more ways to fly off the road.
-    Palettes: golden hour, overcast.
-- **Later maps** (same pipeline): harbor/docks (containers, cranes), desert canyon, snowy
-  mountain pass. Five total is the target.
-- Each map gets 1–2 layouts (forward, reverse, short) from the same spline, cheaply.
+Mayhem is a system, not one-off scripts. Every hazard is a **kind** in code and **instances**
+in data.
 
-## §4 Driving, cars and collisions (core/)
+```ts
+interface HazardKind {
+  id: string;                          // 'log-truck', 'lava-bombs', 'rockfall', …
+  schedule: 'periodic' | 'random' | 'trigger' | 'always';
+  telegraph: number;                   // seconds of warning before it's dangerous
+  // Pure function: what exists at time t since this occurrence started.
+  at(occ: Occurrence, t: number, out: HazardFrame): void;  // colliders, zones, visuals
+  onContact: 'wreck' | 'bump' | 'surface';
+}
+```
 
-- **Car model:** arcade, on a plane that follows the road's height. State: position, heading,
-  velocity (2D), yaw rate, boost meter, wreck state. Grip model with a drift state (drift
-  button or hard steer at speed). Speed ~0–300 km/h with boost. Tuned for feel on a controller,
-  not realism. Off-road (grass, gravel) slows and shakes.
-- **Boost** (Burnout + Mario Kart): the meter fills from near misses, oncoming, drafting, air,
-  drifting and takedowns. Drifts also charge a mini-turbo in two stages (blue, orange) released
-  when the drift ends. Tapping throttle on "GO" gives a start boost. **Catch-up:** the meter
-  fills faster the further back you are (tunable, off in Time Trial).
-- **Car classes** (v1: 4–6 cars, all box-built like the prototype): stats for top speed,
-  acceleration, handling, boost capacity and **weight**. Weight matters in collisions: a van
-  shoves a coupe around, a coupe out-turns a van. Everyone picks a car in the garage; the class
-  shows on the lobby roster.
-- **Customization** (NFS): paint, underglow color, rims, a decal, a horn. Stored in settings,
-  sent as the car's `skin` value. Cosmetic only.
-- **Wrecks** switch the car to a simple 3D rigid body (position, velocity, spin, gravity,
-  bounce) for 2–3 s, with aftertouch steering, then respawn on the track at the last `s`,
-  facing forward, with a short ghost (no collisions) period.
-- **Collision shapes:** cars are oriented boxes (OBB, SAT test); walls are segments; props are
-  circles or boxes. The prototype's axis-aligned overlap test isn't enough once cars turn.
-- **Response:** impulse along the contact normal, scaled by the weight ratio, with extra
-  lateral push for side swipes. **Takedown rule** (tunable): the victim wrecks if the relative
-  speed along the normal is above a threshold, or it's pushed into a wall/traffic while being
-  hit, or the attacker is boosting. Otherwise it's a bump (sparks, shake, small loss of speed).
-- **Revenge:** whoever took you down last is marked on your screen; taking them down is a
-  "Revenge" (extra points and boost).
-- **Items** (Mario Kart, a lobby toggle, off by default in Race so Burnout purists get a clean
-  race): item boxes at fixed `s` values; a small set that fits the crash theme: oil slick,
-  shockwave (bumps nearby cars), homing EMP, shield, instant full boost. Catch-up weighting on
-  what you roll, like Mario Kart.
-- **Near miss / oncoming / drafting / air** are scored from the same broadphase queries.
+- **Periodic**: every N s with a seeded offset (a train crossing, a drawbridge, an eruption).
+- **Random**: seeded times with a mean interval (a log truck spills, a rockslide).
+- **Trigger**: a car drives through a trigger volume → `room.claim('trig:<id>:<n>')` → the
+  winner emits `hazard {id, n}` → everyone runs it from `meta.at`. Triggers are designed to
+  hit the people *behind* you (knock down a sign, drop a crane's container), which hides the
+  round trip and is the Burnout joke.
+- **Always**: moving parts that loop (swinging crane, rotating windmill on a jump).
+- **Telegraphs** always come first: a shadow where a lava bomb will land, a rumble and dust
+  before a rockslide, the truck's straps snapping. Unfair deaths aren't fun.
+- **Points:** a rival wrecked by a hazard you triggered counts as your takedown.
+- **Lobby option "Mayhem"**: off / normal / chaos (scales frequency and which kinds run).
 
-### Spatial index: grid, not quadtree
+Hazard kinds for v1 (more with each map):
 
-We need fast "what's near this car" for collisions, near misses, items, audio, and culling.
-For this game a **uniform grid (spatial hash) rebuilt every tick** beats a quadtree:
+| Kind | Schedule | What happens |
+|---|---|---|
+| log-truck | random | a truck in traffic sheds logs that bounce and roll to a stop across lanes |
+| lava-bombs | periodic (eruption) | bombs land on shadowed spots, leave lava crust for 10 s |
+| rockfall | random / trigger | boulders roll down onto the road from a slope |
+| train | periodic | a level crossing with barriers; beat it or wait |
+| drawbridge | periodic | the bridge rises: a jump if you're fast, a wall if not |
+| falling sign | trigger | the first car past knocks it onto the road behind |
+| container drop | trigger | a crane drops a container into one lane |
+| oil spill | random | a tanker leaks an oil zone |
 
-- Everything dynamic is about the same size (cars, 2–10 m), there are ~120 of them (12 players,
-  AI, ~60 traffic cars, items), and they all move every tick. A grid rebuild is O(n) with no
-  allocation (typed arrays, cell size ~16 m); a quadtree rebalances and allocates.
-- Static colliders (walls, props) go in a **separate grid baked at load**, bucketed by chunk,
-  never rebuilt.
-- The track's `s` gives a free 1D index too: "cars within 50 m of me along the road" is a
-  window on a sorted array, which is what near-miss, AI and positions actually want.
+**Weather** is a deterministic timeline per race (a D-system): clear / rain / fog / snow per
+map, and optionally changing mid-race (rain starts on lap 2). It sets the global grip
+multiplier, switches `when: "wet"` zones on, lowers visibility (and AI speed), and tells the
+skin what to draw. Lobby option: clear / rain / random.
 
-A quadtree stays on the table for maps with very uneven density (a sparse countryside with a
-dense village) if the grid measures worse there. `core/spatial.ts` hides the choice behind one
-interface so swapping is cheap.
+## §8 Maps
 
-Network-side "interest management" (only send nearby cars) doesn't pay off at 12 players: every
-player needs every car for the minimap and positions, and 12 cars at 30 Hz is small (§5). It
-would matter for 32+ player free roam, which is a good future test for the SDK, not for v1.
+Five maps, each with 1–2 layouts plus a short layout, built greybox first. v1 ships City and
+Countryside; the rest follow through the same pipeline.
 
-## §5 Online racing (net/)
+| Map | Lap | Shortcuts | Hazards | Weather | Signature spot |
+|---|---|---|---|---|---|
+| **City** (neon downtown) | ~85 s | alley through a parking garage, rooftop jump off a ramp, subway tunnel | falling sign, oil spill, container drop at the docks edge | clear, rain | the overpass pillars |
+| **Countryside** (valley) | ~90 s | dirt track through a barn, field cut across a hairpin, jump over a creek | log-truck, train crossing, rockfall at the quarry | clear, rain, fog | the narrow stone bridge |
+| **Volcano island** | ~80 s | lava tube tunnel, a jump over a lava river | lava bombs (eruptions), rockfall, lava crust | clear, ash (fog) | the crater rim |
+| **Harbor** | ~75 s | through a warehouse, across moored barges | drawbridge, container drop, swinging cranes, oil spill | clear, rain, fog | the drawbridge |
+| **Alpine pass** | ~95 s | frozen lake crossing, avalanche tunnel | rockfall, avalanche (trigger), ice zones | snow, clear | the hairpin switchbacks |
 
-**Shape: players own their cars** (GameRelay's "players own avatars"), the **host owns the
-world** (AI rivals, race phase, votes). That's the responsive choice for a racer: your car
-never waits for the network.
+City and Countryside each get a reverse layout early: it's the cheapest way to double the
+content.
 
-- **Rooms of 12.** One GameRelay room is one party: it lives through many races (the lobby,
-  the race, the vote, the next race), so players never re-matchmake. Note: the LAN/relay
-  shortcut covers rooms of up to 8, so 9–12 player rooms go through the server only. That's a
-  real test of the server route, and a reason to consider raising the shortcut's limit.
-- **Entity kinds:**
-  - `car` (player-owned, `rate: 30`): `x, y, z` number, `h` angle, `vx, vz` number (for
-    prediction), `boost`, `drift`, `wrecked` flags, `item` text, `skin` value. ~40 bytes a
-    message after the SDK's compact envelope, so 11 other cars ≈ 13 KB/s down per player.
-  - `rival` (host-owned, `rate: 30`): AI cars filling empty grid slots when the party wants
-    them (a lobby toggle), simulated by the host with the same `core` AI. Host migration keeps
-    them driving.
-  - `item` (owned by whoever fired it): homing EMPs and dropped oil, short-lived.
-- **State** (host): `phase` (lobby / countdown / racing / results / vote), `map`, `layout`,
-  `mode`, `options`, `ready` (who's ready), `startAt` (a `relay.now()` time: everyone's lights
-  go green on the same server tick), `results`, `votes`, `session` (points across races).
-  Timers for countdown, the race time limit, the results screen and the vote.
-- **Events:** `bump {impulse, contact}` (to the car's owner), `wrecked {by, kind}`,
-  `takedown`, `lap`, `finish {t}` (server-clock time), `traffic_hit {id, impulse}`,
-  `item_use`, horn/emotes.
-- **Remote cars are predicted, not only interpolated.** The SDK draws others ~100 ms in the
-  past; for a car at 250 km/h that's 7 m, which makes close racing and rams feel wrong. `net/`
-  extrapolates each remote car from its interpolated state by its age using `vx, vz` (dead
-  reckoning), blends corrections over ~150 ms, and uses the extrapolated pose for collisions.
-  Built in the game first; once it's proven, it moves into the SDK as an opt-in `predict` for
-  fast kinds (§6).
-- **Collisions between players:** each client tests *its own* car against predicted remote
-  cars. On contact it applies its own impulse and sends `bump` to the other owner, who applies
-  theirs. **The victim decides whether it wrecks** (it owns its car) and emits `wrecked {by}`,
-  which awards the takedown. Credit per wreck is a `room.claim(wreckId)` so a pile-up can't be
-  counted twice.
-- **Traffic costs no bandwidth.** Traffic cars drive fixed lanes at fixed speeds, so a car's
-  position is a pure function of `(room.seed, carIndex, relay.now())`: every client computes
-  the same traffic with zero messages. When someone hits one, `traffic_hit` turns it into a
-  local cosmetic wreck on everyone's screen, and it respawns on schedule. The first hitter wins
-  the points via `room.claim`. Item boxes work the same way: fixed places, `room.claim` per
-  box per respawn.
-- **Mid-race joiners** spectate (cycle through cars) until the next race.
-- **Leaderboards:** best lap per map/layout, takedowns per week, Crash mode scores.
-- **Trust:** players-own-avatars means a modified client can drive fast or refuse to wreck.
-  Fine for parties. If we ever want ranked, the host-simulates-from-inputs shape is the path,
-  and it's a good second example for the repo; not v1.
+## §9 Driving, cars and collisions
 
-## §6 Menus and the party flow
+- **Car model:** arcade, on a plane that follows the road's height (with real air off crests
+  and ramps). State: position, heading, velocity (2D + vertical when airborne), yaw rate, boost,
+  drift charge, wreck state. Grip comes from surface × weather × car. Drift by button or hard
+  steer at speed. Tuned for feel on a controller.
+- **Boost:** fills from near misses, oncoming, drafting, air, drifting and takedowns. Drifts
+  charge a two-stage mini-turbo. Start boost on "GO". **Catch-up:** fills faster the further
+  back you are (off in Time Trial).
+- **Car classes** (v1: 4, JSON): top speed, acceleration, handling, boost capacity, **weight**.
+  A van shoves a coupe; a coupe out-turns a van.
+- **Customization:** paint, underglow, rims, decal, horn; sent as `skin`; cosmetic only.
+- **Wrecks:** the car becomes a simple 3D rigid body for 2–3 s with aftertouch, then respawns
+  on the track at the last `s`, facing forward, ghosted (no collisions) for 1.5 s.
+- **Collision shapes:** cars are oriented boxes (SAT test); walls are segments; props, hazard
+  pieces and traffic are boxes or circles.
+- **Response:** impulse along the contact normal scaled by weight ratio, extra lateral push for
+  side swipes. **Takedown rule** (tunable): the victim wrecks if relative normal speed is over a
+  threshold, or it's pushed into a wall/traffic/hazard while being hit, or the attacker is
+  boosting. Otherwise it's a bump.
+- **Revenge:** whoever took you down last is marked; taking them down is a "Revenge".
+- **Items** (lobby toggle, off by default): boxes at fixed places; oil slick, shockwave, homing
+  EMP, shield, full boost; weighted by position.
 
-The game opens **straight into the lobby**, like Counter-Strike's server browser, not a title
-screen. Everything is reachable by mouse, touch and controller (§8).
+### Spatial index: grids, not a quadtree
+
+- **Dynamic grid** (spatial hash, ~16 m cells, typed arrays) rebuilt every tick for cars,
+  nearby traffic, hazard pieces and projectiles: around 100 similar-sized, always-moving
+  things, where an O(n) rebuild with no allocation beats a quadtree's rebalancing.
+- **Static grid** baked at load from each chunk's walls and props, never rebuilt.
+- **The track's `s`** is a free 1D index: "cars within 50 m along the road" is a window on a
+  sorted array (near miss, AI, positions, audio).
+- Hidden behind `core/collide/spatial.ts` so a quadtree can replace a grid if a map measures
+  worse (very uneven density).
+- **Traffic LOD:** only traffic within ~300 m of *any local car* gets posed and put in the grid
+  each tick; the rest is a formula nobody evaluates.
+- No network "interest management": all 8 cars are needed everywhere (minimap, positions) and
+  cost ~8 KB/s.
+
+## §10 Online (net/)
+
+**Shape: players own their cars (O), the host runs AI and race facts (H, S), the world runs
+itself (D, T).**
+
+- **Rooms of 8.** One GameRelay room is one party and lives through many races. 8 is inside
+  the LAN/relay shortcut's limit, so every pair can use the fastest route.
+- **Entity kinds:** `car` (player, 30 Hz): `x, y, z`, `h`, `vx, vy, vz`, flags `boost`, `drift`,
+  `wrecked`, `ghost`, `item` text, `skin` value. `rival` (host, 30 Hz): AI cars. `projectile`
+  (owner, 30 Hz): homing EMPs.
+- **State:** `phase` (lobby / countdown / racing / results / vote), `map`, `layout`, `mode`,
+  `options` (laps, items, mayhem, weather, traffic, catch-up, AI fill), `ready`, `startAt`,
+  `results`, `votes`, `session`. Timers drive the countdown, the race limit, results and vote.
+- **Events:** `bump`, `wrecked {by, cause}`, `takedown`, `lap`, `finish {t}`, `traffic_hit`,
+  `hazard {id, n}`, `item_use`, `horn`.
+- **Remote cars are predicted.** Others are drawn ~100 ms in the past (7 m at 250 km/h).
+  `net/predict` extrapolates each one from its interpolated state by its age using velocity,
+  blends corrections over ~150 ms, and collisions use the predicted pose. Built here first,
+  then offered to the SDK as an opt-in `predict` per kind.
+- **Player-vs-player contact:** each client tests *its own* car against predicted remote cars,
+  applies its own impulse, and sends `bump` to the other owner, who applies theirs. **The victim
+  decides whether it wrecks** and emits `wrecked {by}`; takedown credit is a
+  `room.claim(wreckId)`.
+- **Traffic hits:** your car hits a traffic car (D) → `room.claim('traffic:<i>:<epoch>')` →
+  winner emits `traffic_hit`; everyone overrides that car with a local wreck (L) and the
+  formula respawns it later.
+- **Finishing:** each client emits `finish {t}` with its server-clock time; the host writes
+  results to state (after a sanity check against the lap count and track length).
+- **Mid-race joiners** spectate until the next race.
+- **Leaderboards:** best lap per layout, takedowns per week, Crash mode scores.
+- **Trust:** a modified client can drive fast or refuse to wreck. Fine for parties; the host's
+  finish check catches the lazy cases. Ranked play would need host-simulates-inputs; not v1.
+
+## §11 Menus and the party flow
+
+The game opens **straight into the lobby**, like Counter-Strike's server browser. Everything
+works by mouse, touch and controller.
 
 ### Main menu = the lobby
 
@@ -267,199 +441,190 @@ screen. Everything is reachable by mouse, touch and controller (§8).
 ┌ RACECAR ───────────────────────────────────────────────── [Settings] [ada ✎] ┐
 │  [ HOST A PARTY ]   [ QUICK RACE ]   [ SINGLE PLAYER ]   [ JOIN BY CODE ]   │
 │                                                                              │
-│  PARTIES                                     filter: [all modes ▾] [open ▾]  │
+│  PARTIES                                    filter: [all modes ▾] [open ▾]   │
 │  ─────────────────────────────────────────────────────────────────────────── │
-│  🔓 ada's party          City · Race · 3 laps     racing    9/12   [Spectate]│
-│  🔓 Friday wrecks        Countryside · Takedown   in lobby  4/12   [Join]    │
-│  🔒 kev + friends        City · Knockout          in lobby  6/12   locked    │
-│  ...                                                                         │
-│                                                    [Garage]   47 online      │
+│  🔓 ada's party          City · Race · 3 laps      racing L2   7/8   [Watch] │
+│  🔓 Friday wrecks        Countryside · Takedown    in lobby    4/8   [Join]  │
+│  🔒 kev + friends        Harbor · Knockout         in lobby    6/8   locked  │
+│                                                   [Garage]      31 online    │
 └──────────────────────────────────────────────────────────────────────────────┘
 ```
 
-- **The list** shows each public party's name, map, mode, phase (in lobby / racing, with lap),
-  players / 12, and locked. It refreshes every few seconds while visible. Full and locked
-  parties stay in the list, greyed out, so the lobby looks alive.
-- **Host a party**: name (defaults to "ada's party"), public or private (private = invite
-  link only), mode, map. You land in the party screen as host.
-- **Quick race**: joins the fullest open public party in its lobby phase, or hosts one.
-- **Single player** (§7) and **Join by code**.
-- **Garage**: pick your car and paint it; the preview spins on the menu.
-- Name editing inline; signed-in GameRelay players keep their name and settings across devices.
+- **The list:** name, map, mode, phase (in lobby / racing with lap), players / 8, locked.
+  Refreshes every few seconds while visible. Full and locked parties stay listed, greyed out.
+- **Host a party:** name, public or private (invite link only), mode, map.
+- **Quick race:** the fullest open public party in its lobby phase, or host one.
+- **Single player** (§12), **Join by code**, **Garage** (car, paint), inline name edit.
 
 ### Party screen (between races)
 
-- **Roster**: 12 slots, each with name, car, ready state, ping, host crown. Empty slots show
-  "AI" when AI fill is on.
-- **Host controls:** map and layout, mode and its options (laps, items, traffic, catch-up, AI
-  fill), **lock** (no new joiners; people already in stay), **public/private**, **kick** (with
-  "and ban from this party"), **pass host** to someone else, **start** (enabled when everyone
-  is ready, or force-start after 10 s).
-- **Everyone:** ready toggle, change car, **share** (`room.shareInvite()`: share sheet on
-  phones, copies the link elsewhere; also the 4–6 character code on screen), chat
-  (GameRelay chat), leave.
-- A **session scoreboard**: points across races since the party formed.
+- **Roster:** 8 slots: name, car, ready, ping, host crown; "AI" in empty slots when AI fill is on.
+- **Host:** map, layout, mode and options; **lock**; **public/private**; **kick** (optionally
+  banned from this party); **pass host**; **start** (when all ready, or force after 10 s).
+- **Everyone:** ready, change car, **share** (`room.shareInvite()` plus the code on screen),
+  chat, leave. A session scoreboard across races.
 
 ### After a race: results → vote → next race
 
-1. **Results** (10 s): finishing order, best lap, takedowns, "most wrecked", photo-finish
-   replay of the last 5 s, points added to the session.
-2. **Vote** (15 s): three cards (map + layout + mode) plus "random". The host sets the pool:
-   rotate through everything, or only the current mode. Each player gets one vote, changeable
-   until the timer ends; ties break randomly with `room.seed`. The host can skip the vote and
-   pick.
-3. **Next race** starts automatically; players who didn't ready up in time spectate one race.
+1. **Results** (10 s): order, best lap, takedowns, "most wrecked", photo-finish replay, points.
+2. **Vote** (15 s): three cards (map + layout + mode) plus "random", drawn from the host's pool
+  (everything, or this mode only). One vote each, changeable until the timer ends; ties broken
+  with `room.seed`. The host can skip and pick.
+3. **Next race** starts on its own; anyone not ready spectates one race.
 
-Votes go through `room.request('vote', …)` to the host, which keeps the tally in state (so a
-host change mid-vote keeps it).
+Votes are `room.request('vote', …)` to the host, tallied in state (survives a host change).
 
 ### Settings
 
-- **Graphics:** quality preset (auto / low / med / high), resolution scale, outlines, post FX,
-  motion blur, palette choice, FPS cap, show FPS.
+- **Graphics:** skin (greybox / map skin), quality preset (auto / low / med / high),
+  resolution scale, outlines, post FX, motion blur, FPS cap, show FPS.
 - **Controls:** remap keyboard and gamepad, steering sensitivity and dead zone, rumble,
-  auto-accelerate (touch), invert look-back.
-- **Audio:** master, music, SFX, engine volume.
-- **Gameplay:** units (km/h, mph), camera distance and FOV, HUD scale, minimap on/off.
-- **Accessibility:** reduced motion (softens shake, blur and flashes), colorblind-safe HUD
-  colors, larger text.
-- **Network:** show net overlay, region (later, when there's more than one).
+  auto-accelerate (touch).
+- **Audio:** master, music, SFX, engine.
+- **Gameplay:** units, camera distance and FOV, HUD scale, minimap.
+- **Accessibility:** reduced motion (softer shake, blur, flashes), colorblind-safe HUD, larger
+  text.
+- **Network:** net overlay.
+
+Saved in localStorage; in GameRelay player data too for signed-in players.
 
 ### Platform asks (build in GameRelay, not in the game)
 
-The party screen needs things the SDK doesn't have today. These are small, useful to every
-customer, and each one gets a proper change to the server + SDK + docs:
-
 | Need | Today | Ask |
 |---|---|---|
-| Host kicks a player | Only the game owner, with the secret key | `room.kick(playerId, { ban })`, host only, server-enforced |
-| Lock a party | `public` is set at creation only | `room.setAccess({ locked, public })`, host only; joins fail with `locked` |
-| Server browser rows | `listRooms` gives code, players, max, tag | Host-set listing info: `room.setListing({ name, meta })` (small JSON: map, mode, phase), shown in `listRooms` |
-| Show full/locked parties | `listRooms` hides full rooms | `listRooms(tag, { includeFull: true })`, with a `locked` flag |
-| Online count | none | a player count for the instance (cheap, cached) |
+| Host kicks a player | only the game owner, with the secret key | `room.kick(playerId, { ban })`, host only, server-enforced |
+| Lock a party | `public` set at creation only | `room.setAccess({ locked, public })`, host only; joins fail with `locked` |
+| Server browser rows | code, players, max, tag | `room.setListing({ name, meta })` (small JSON: map, mode, phase, lap), in `listRooms` |
+| Show full/locked parties | `listRooms` hides full rooms | `listRooms(tag, { includeFull: true })` with a `locked` flag |
+| Online count | none | players online for the instance (cached) |
 | Pass host | host changes only on leave/freeze | `room.transferHost(playerId)` |
-| Close fast cars' 100 ms gap | interpolation only | opt-in `predict` per kind (after racecar proves it) |
-| 12-player shortcut | LAN/relay route up to 8 | consider raising (measure first) |
+| Fast cars' 100 ms gap | interpolation only | opt-in `predict` per kind, once racecar proves it |
 
-Until each lands, the game shows the control disabled rather than faking it (a client-side
-"kick" anyone can ignore would be a bad example to open-source).
+Each is a normal GameRelay change (server, SDK, docs, tests). Until one lands, the game shows
+that control disabled rather than faking it.
 
-## §7 Modes
+## §12 Modes and single player
 
-| Mode | Players | Idea | v |
+```ts
+interface Mode {
+  id: string;
+  players: [min: number, max: number];
+  options: ModeOption[];                   // laps, time limit, items, mayhem, weather…
+  setup(ctx: ModeContext): void;           // grid, rules, timers
+  onEvent(ev: GameEvent, ctx): void;       // reads the event queue
+  standings(ctx): Standing[];
+  isOver(ctx): boolean;
+  hud: HudWidget[];
+}
+```
+
+| Mode | Players | Idea | Milestone |
 |---|---|---|---|
-| **Race** | 1–12 (+AI) | 3 laps, traffic on, takedowns refill boost, items optional | 1 |
-| **Takedown** | 2–12 | 3 min on the circuit, most takedowns wins; getting wrecked costs points | 1 |
-| **Knockout** | 3–12 | Race; last place at each lap's end is wrecked out | 1.1 |
-| **Time trial** | 1 | No traffic, best lap, ghost of your best, leaderboard | 1.1 |
-| **Pursuit** | 4–12 | Teams (`assignTeams`): racers vs. cops; cops win by wrecking every racer before the timer | later |
-| **Crash mode** | 1–12 | A junction full of traffic, one run each, biggest pile-up wins | later |
+| **Race** | 1–8 (+AI) | 3 laps, traffic, hazards, takedowns refill boost | 2 |
+| **Takedown** | 2–8 | 3 min on the circuit, most takedowns wins; being wrecked costs points | 4 |
+| **Knockout** | 3–8 | last place at each lap's end is out (short layouts) | 4 |
+| **Time trial** | 1 | no traffic or hazards, best lap, ghost, leaderboard | 4 |
+| **Pursuit** | 4–8 | teams: racers vs. cops; cops win by wrecking every racer before the timer | 6 |
+| **Crash mode** | 1–8 | one run into a junction full of traffic; biggest pile-up | 6 |
 
-Knockout and Pursuit should need no new core features: that's the test of the Mode interface.
+**Single player:** the same modes offline against AI (`net/` not loaded), plus a challenge
+ladder per map (win a race, 10 takedowns, beat a lap time) with 1–3 stars saved locally. Rewind
+and photo mode in single player only.
 
-**Single player** is the same modes offline against AI (no relay, `net/` not loaded), plus a
-short **challenge ladder**: a fixed list of events per map (win a race, 10 takedowns in
-Takedown, beat a lap time) with 1–3 stars, progress saved locally. Rewind (Forza) is on in
-single player only. Enough to learn the game; not a career.
+## §13 Input, camera, audio
 
-## §8 Input, camera, feel
-
-- **Controls object** (`steer -1..1, throttle 0..1, brake 0..1, boost, drift, item, lookBack,
-  reset, horn, pause`), fed by:
-  - **Gamepad API** (standard mapping): stick/triggers analog, dead zones, hot-plug, rumble via
-    `vibrationActuator` on bumps/wrecks/boost. Xbox, PlayStation and Switch Pro prompts.
+- **Controls** (`steer, throttle, brake, boost, drift, item, lookBack, reset, horn, pause`) from:
+  - **Gamepad API**, standard mapping: analog stick and triggers, dead zones, hot-plug, rumble
+    (`vibrationActuator`), Xbox / PlayStation / Switch prompts.
   - Keyboard (WASD/arrows, Space boost, Shift drift, E item) with steering smoothing.
-  - Touch: tilt or on-screen buttons (prototype layout), auto-accelerate option.
-- **Menus by controller:** a small focus system over the DOM (d-pad/stick moves between
-  focusable elements by position, A selects, B backs out, bumpers switch tabs). Every screen is
-  tested by controller only.
-- **Local split-screen** (2 players, two gamepads) is a later stretch; the architecture allows
-  it because `Controls` and camera are per player.
-- Camera: chase cam with speed FOV, boost pull-back, shake, look-back; wreck orbit cam;
-  photo-finish replay (core state ring buffer); photo mode in single player.
-- Audio: engine as a Web Audio synth (pitch by rpm, no samples), tire squeal, impacts, boost
-  whoosh, music with a low-pass on slow-mo.
+  - Touch: tilt or on-screen buttons, auto-accelerate option.
+- **Menus by controller:** a focus system over the DOM (stick/d-pad moves by position, A
+  selects, B backs, bumpers switch tabs). Every screen is tested controller-only.
+- **Split-screen** (2 local players) later; `Controls` and camera are already per player.
+- **Camera:** chase cam with speed FOV and boost pull-back, shake, look-back, wreck orbit cam,
+  photo-finish replay from a state ring buffer.
+- **Audio:** Web Audio engine synth (pitch by rpm), tire squeal by surface, impacts, boost,
+  hazard cues (every telegraph has a sound), music ducked in slow-mo.
 
-## §9 Name
+## §14 Network calibration
 
-"racecar" stays the repo and code name. The title on screen is open. Some candidates that fit
-Burnout-meets-Mario-Kart and a party lobby:
+- **Net overlay** (`?net=1`): RTT, route (server / LAN / relay), entity age, prediction error
+  (m), bytes in/out, dropped updates, clock offset, per remote car.
+- **Telemetry** (opt-in, aggregated): prediction error per race; wreck and slow-spot positions
+  (feeds the editor heatmap).
+- **Bots** (`tools/bots/`): headless Bun clients running `core/ai` on real layouts in real rooms:
+  load tests, relay soak tests (Resonance), SDK release regression, and a lively lobby for demos.
+- CI scenarios with `simulate: { latency, jitter, loss }`: prediction error under 1 m at 150 ms
+  RTT; D-systems agree across two clients to within 0.2 m.
 
-- **Neon Wreck**: the prototype's name; strong for the city, weaker once there's a countryside.
-- **Wreck Room**: a party you hang out in, where you wreck each other (a pun on "rec room").
-- **Full Send**: short, loud, what the game wants you to do.
-- **Pile Up**: plain, funny, says exactly what happens.
-- **Takedown Tour**: says the mechanic and the map rotation.
-
-Check trademarks and existing games before picking; the name only touches the title screen,
-the page title and the landing page, so it can land late.
-
-## §10 Network calibration
-
-The game is also our test rig.
-
-- **Net overlay** (`?net=1`, or Settings → Network): RTT, route (server / LAN / relay), entity
-  age, prediction error (m), bytes in/out, dropped updates, per remote car.
-- **Telemetry** (opt-in, aggregated): prediction error and correction size per race; it tells
-  us what latency players actually feel, by region and route.
-- **Bots** (`tools/bots/`): headless Bun clients running the core AI on a real track, joining
-  real rooms. Use: fill 12-player rooms for load tests, soak tests on relays (Resonance),
-  regression on every SDK release (same idea as `examples/cycles-bot.ts`), and a live lobby
-  for demos.
-- Standard scenarios run with `simulate: { latency, jitter, loss }` in CI to catch netcode
-  regressions (prediction error under 1 m at 150 ms RTT, say).
-
-## §11 Performance budgets
+## §15 Performance budgets
 
 | Budget | Target |
 |---|---|
-| Frame | 60 fps mid laptop (integrated GPU), 60 fps 2021 phone at medium tier, 12 cars on screen |
-| Draw calls | < 250 per frame (instancing for cars, traffic, props; merged chunks) |
-| Sim step | < 2 ms for 12 players + 60 traffic + items, zero allocation per tick |
-| JS | < 200 KB gzipped for game code, Three.js tree-shaken separate; menus load before Three.js |
+| Frame | 60 fps mid laptop (integrated GPU), 60 fps 2021 phone at medium, 8 cars + traffic on screen |
+| Draw calls | < 250 per frame |
+| Sim tick | < 2 ms for 8 cars + nearby traffic + hazards; zero allocation after warm-up |
+| JS | < 200 KB gzipped game code, Three.js separate; menus load before Three.js |
 | Load | lobby < 2 s, first race < 3 s on 20 Mbps; maps lazy-loaded |
-| Network | < 20 KB/s down, < 3 KB/s up per player in a 12-player race |
+| Network | < 12 KB/s down, < 3 KB/s up per player in a full race |
 
-How:
-- The lobby is plain DOM and shows before Three.js finishes loading; the 3D garage preview and
-  map thumbnails fill in after.
-- Instanced meshes for traffic and props; one merged mesh per chunk for static scenery;
-  distance + frustum culling per chunk.
-- **Outlines:** the prototype's inverted hull doubles draw calls. Try a screen-space edge pass
-  (depth + normal) in the post shader instead; keep hull outlines for cars only if it looks
-  better. Measure both.
-- Quality tiers (low / med / high) picked by a short benchmark, plus dynamic resolution when
-  frame time slips. Post pass has a cheap path (fewer blur taps) for low.
-- Particles: one pooled `Points` buffer (as the prototype does), capped.
-- CI runs a headless perf scene and fails on draw call and bundle size regressions.
+How: instancing for traffic, props and hazard pieces; one merged mesh per chunk; chunk culling
+by distance and frustum; quality tiers and dynamic resolution; screen-space outlines measured
+against inverted hulls when skins land; CI fails on sim-time, draw-call and bundle regressions.
 
-## §12 Milestones
+## §16 Milestones
 
-1. **Extract**: repo, the prototype split into `core/render/input/ui`, one City circuit from
-   a spline, new car model and OBB collisions, drift and boost, gamepad. Single player against
-   AI. *Playable.*
-2. **Online race**: the lobby list, host a party, party screen (roster, ready, share, chat),
-   `net/` cars with prediction, bumps and takedowns, deterministic traffic, countdown on server
-   time, results, vote, next race. Net overlay. Platform asks for kick, lock and listing info
-   land in GameRelay alongside. *The demo; repo goes public.*
-3. **Countryside + maps pipeline**: second map through `MapDef`, lazy loading, thumbnails,
-   track-view tool, palettes. Bots for load tests and filling the lobby.
-4. **Modes and cars**: Takedown, then Knockout and Time trial; car classes with weight;
-   garage and paint; leaderboards; single-player challenge ladder.
-5. **Polish**: settings screen complete, audio, controller navigation everywhere, items,
-   perf tiers, mobile touch, photo-finish replay, landing page, open-source README.
-6. **More maps** to five; Pursuit; Crash mode; split-screen.
+Greybox until milestone 5. Each milestone ends deployed and playable.
 
-Each milestone ends deployed and playable.
+1. **Sandbox**: repo, `core` skeleton (clock, pools, events, sim pipeline), track format +
+   baking + validator, greybox skin, car physics (drift, boost, air, wrecks), OBB collisions,
+   gamepad and keyboard, editor v0 (edit spline + widths, drive it). One City layout.
+2. **The world**: surfaces and weather, traffic (closed-form + LOD), hazards framework with
+   log-truck and falling sign, AI drivers and the AI lap report, laps/positions/scoring,
+   single-player Race vs AI. City fully laid out; Countryside blocked in.
+3. **Online**: lobby list, host/join/quick race, party screen, `net/` (cars, prediction, bumps,
+   takedowns, triggers, traffic hits), countdown on the race clock, results, vote, next race,
+   net overlay. The platform asks land in GameRelay alongside. **Repo goes public.**
+4. **Modes and content**: Takedown, Knockout, Time trial; car classes; Countryside finished;
+   reverse layouts; train, rockfall, oil spill; leaderboards; challenge ladder; bots.
+5. **Skins**: the neon City skin (the prototype's look), Countryside skin, post FX, audio,
+   garage and paint, settings complete, controller navigation everywhere, perf tiers.
+6. **More**: Volcano, Harbor, Alpine (greybox → skin), items, Pursuit, Crash mode, landing page.
 
-## Open questions
+## §17 Decisions
 
-- The name (§9).
-- Items: on by default in Race, or off with a toggle? Leaning off for Race, on in a separate
-  "Party Race" preset.
-- AI fill: fill every race to 12, or only when there are fewer than 4 humans?
-- Should the lobby show parties from every mode together (one busy list) or tabs per mode?
-  Leaning one list with a filter while player counts are low.
+What we've settled, so nobody re-argues it. Changing one is fine; say so here.
+
+| Question | Decision |
+|---|---|
+| Repo | `gamerelay/racecar`, private until milestone 3, then public, MIT |
+| Name and title | **racecar** |
+| Players per room | **8** (fits the LAN/relay shortcut; the grid is 2 × 4) |
+| Graphics | greybox first; skins are a separate layer and milestone (§6) |
+| Level design | our own in-browser editor over JSON tracks; no external tools (Blender etc.) needed |
+| Lap length | 70–100 s, 3 laps default; short layouts ~45 s |
+| Network shape | players own cars; host owns AI and race facts; the world is `f(seed, raceTime)` |
+| Who decides a wreck | the victim (it owns its car); takedown credit by `room.claim` |
+| Remote cars | predicted in `net/` first, then offered to the SDK |
+| Sim / send rate | sim 60 Hz; cars sent at 30 Hz |
+| Spatial index | uniform grids (dynamic + static) + `s` index; quadtree only if measured better |
+| Hazards | kinds in code, instances in JSON; periodic / random / trigger / always; always telegraphed |
+| Mayhem, weather | lobby options: Mayhem off / normal (default) / chaos; weather clear / rain / random (default random) |
+| Items | built in milestone 6, lobby toggle, **off by default** (hazards already bring the chaos) |
+| AI fill | on by default, fills the grid to 8; host can set 0–8 |
+| Lobby list | one list with a mode filter (split into tabs only if it gets crowded) |
+| Missing SDK features | built into GameRelay (§11), never faked in the game |
+| Trust | party-grade; host sanity-checks finishes; ranked is out of scope |
+| Maps | City, Countryside (v1), then Volcano, Harbor, Alpine |
+| Car classes | 4 in v1 |
+| Mobile | supported (touch, tilt); controller and keyboard are the primary targets |
+| Hosting | `racecar.gamerelay.io`, static files |
+
+Still open, and fine to leave open until they matter:
+
+- The exact takedown and boost numbers: tuned in milestones 1–2 with the AI lap report and
+  playtests, not decided on paper.
+- Whether split-screen is worth it: revisit after milestone 5.
 
 ## Changed while building
 
