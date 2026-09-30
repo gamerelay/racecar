@@ -29,6 +29,8 @@ and where things stand is [docs/HANDOFF.md](./docs/HANDOFF.md).
   shadows (a color grade maps can set; Downtown and Backroads are unchanged).
 
 ### Changed
+- The shortcut signs on Backroads stand on the side the shortcut leaves on (they were on the
+  other side).
 - The bus accelerates a little harder (13 → 14), so it keeps up on Paradise's fast lap.
 - The lap generators share `tools/lib/lap.ts` (the Valley is unchanged).
 

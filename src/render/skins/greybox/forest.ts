@@ -30,7 +30,7 @@ import {
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { Rng } from '../../../core/rng';
 import { BENT, BENT_INSET, BENT_LEGS, LEG, type BakedSpline, type Track } from '../../../core/track/bake';
-import { animatedPoints, canvas, FONT } from './scenery';
+import { animatedPoints, branchSide, canvas, FONT } from './scenery';
 import type { Terrain } from './terrain';
 import { faceted, toon } from './toon';
 import type { Palette } from './palettes';
@@ -650,10 +650,10 @@ export function buildForest(track: Track, palette: Palette, seed: number, land: 
     const names: Record<string, string> = { barn: 'THE BARN', leap: "LOGGER'S LEAP", creek: 'CREEK BED' };
     for (const sp of track.splines.slice(1)) {
       const i = at(main, (sp.mainFrom - 25 + L) % L);
-      const branchSide = Math.sign((sp.px[4] - main.px[i]) * -main.tz[i] + (sp.pz[4] - main.pz[i]) * main.tx[i]) || 1;
+      const side = branchSide(main, sp);
       const off = main.width[i] / 2 + main.shoulder[i] + 2;
-      const x = main.px[i] - main.tz[i] * off * branchSide;
-      const z = main.pz[i] + main.tx[i] * off * branchSide;
+      const x = main.px[i] - main.tz[i] * off * side;
+      const z = main.pz[i] + main.tx[i] * off * side;
       const y = Math.max(land.height(x, z), main.py[i] - 1);
       const tex = canvas(256, 96, (g) => {
         g.fillStyle = '#6b4a2e';
@@ -665,7 +665,7 @@ export function buildForest(track: Track, palette: Palette, seed: number, land: 
         g.font = `34px ${FONT}`;
         g.textAlign = 'center';
         g.textBaseline = 'middle';
-        g.fillText(`${branchSide > 0 ? '' : '◀ '}${names[sp.id] ?? sp.id.toUpperCase()}${branchSide > 0 ? ' ▶' : ''}`, 128, 50);
+        g.fillText(`${side > 0 ? '' : '◀ '}${names[sp.id] ?? sp.id.toUpperCase()}${side > 0 ? ' ▶' : ''}`, 128, 50);
       });
       const sign = new Mesh(new PlaneGeometry(4, 1.5), new MeshBasicMaterial({ map: tex, side: DoubleSide }));
       sign.position.set(x, y + 2.4, z);

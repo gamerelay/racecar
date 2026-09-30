@@ -27,7 +27,7 @@ import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js
 import { Rng } from '../../../core/rng';
 import type { BakedSpline, Track } from '../../../core/track/bake';
 import { houseTexture, instanced, prism, type Part } from './forest';
-import { animatedPoints, canvas, FONT, glowPoints } from './scenery';
+import { animatedPoints, branchSide, canvas, FONT, glowPoints } from './scenery';
 import { coneHeight, type Terrain } from './terrain';
 import { faceted, toon } from './toon';
 
@@ -42,8 +42,12 @@ const PASTELS = [0xf4a6a0, 0x9fd9c8, 0xf6d38a, 0xa7c4f2, 0xf0b6d6, 0xfff1d6, 0xb
 const CANOPIES = [0xff5a5f, 0xffc93c, 0x35c9e8, 0xff8fc7, 0xffffff, 0x6fdc8c];
 const LAVA_ROCK = [0x2e2729, 0x3a3134, 0x453a3a];
 
-/** A toon material whose instances sway in the wind, more the higher up a vertex is. */
-function swaying(time: { value: number }, amount: number): MeshToonMaterial {
+/**
+ * A toon material whose instances sway in the wind, more the higher up a vertex is: `amount` per
+ * unit of height squared, in the shape's own units, counted from `base` below its origin (a
+ * crown is a unit ball, but it sits `base` units up its tree).
+ */
+function swaying(time: { value: number }, amount: number, base = 0): MeshToonMaterial {
   const mat = toon();
   mat.onBeforeCompile = (shader) => {
     shader.uniforms.uTime = time;
@@ -56,12 +60,12 @@ function swaying(time: { value: number }, amount: number): MeshToonMaterial {
         vec2 ip = vec2(0.0);
       #endif
       float ph = ip.x * 0.13 + ip.y * 0.17;
-      float hh = max(0.0, position.y);
+      float hh = max(0.0, position.y + ${base.toFixed(2)});
       transformed.x += (sin(uTime * 1.1 + ph) * 0.6 + sin(uTime * 2.3 + ph * 1.7) * 0.25) * ${amount.toFixed(4)} * hh * hh;
       transformed.z += cos(uTime * 0.9 + ph) * ${(amount * 0.5).toFixed(4)} * hh * hh;`,
     );
   };
-  mat.customProgramCacheKey = () => `sway${amount}`;
+  mat.customProgramCacheKey = () => `sway${amount}/${base}`;
   return mat;
 }
 
@@ -303,7 +307,7 @@ export function buildIsland(track: Track, seed: number, land: Terrain): Island {
         const H = 18;
         for (let k = 0; k < 6; k++) {
           const r = 2.4 - k * 0.18;
-          houses.push({ x, y: y + (k + 0.5) * (H / 6), z, yaw: 0, sx: r * 2, sy: H / 6, sz: r * 2, color: k % 2 ? 0xe0413a : 0xf8f4ea });
+          plain.push({ x, y: y + (k + 0.5) * (H / 6), z, yaw: 0, sx: r * 2, sy: H / 6, sz: r * 2, color: k % 2 ? 0xe0413a : 0xf8f4ea });
         }
         plain.push({ x, y: y + H + 0.3, z, yaw: 0, sx: 3.4, sy: 0.6, sz: 3.4, color: 0x2e3a44 });
         roofs.push({ x, y: y + H + 2.6, z, yaw: Math.PI / 4, sx: 2.6, sy: 1.8, sz: 2.6, color: 0xe0413a });
@@ -520,6 +524,20 @@ export function buildIsland(track: Track, seed: number, land: Terrain): Island {
   const bz0 = z0 - 120;
   const bx1 = x1 + 120;
   const bz1 = z1 + 120;
+  // Huts on the beach, thatched, now and then along the coast (before the trees, so none grows
+  // through one).
+  for (let k = 0; k < 400; k++) {
+    const x = rng.range(bx0, bx1);
+    const z = rng.range(bz0, bz1);
+    const sd = coast(x, z);
+    if (sd < 6 || sd > 20 || roadGap(x, z) < 8 || kept(x, z) || !dry(x, z)) continue;
+    const y = land.height(x, z);
+    const yaw = rng.range(0, Math.PI);
+    plain.push({ x, y: y + 1.1, z, yaw, sx: 3.2, sy: 2.2, sz: 3.6, color: 0xc9a46a });
+    thatch.push({ x, y: y + 2.2, z, yaw, sx: 4.4, sy: 2.2, sz: 4.8, color: 0xd9b870 });
+    keep.push({ x, z, r: 4 });
+  }
+
   for (let z = bz0; z < bz1; z += 7) {
     for (let x = bx0; x < bx1; x += 7) {
       const px = x + rng.range(-3, 3);
@@ -565,19 +583,6 @@ export function buildIsland(track: Track, seed: number, land: Terrain): Island {
       }
     }
   }
-  // Huts on the beach, thatched, now and then along the coast.
-  for (let k = 0; k < 400; k++) {
-    const x = rng.range(bx0, bx1);
-    const z = rng.range(bz0, bz1);
-    const sd = coast(x, z);
-    if (sd < 6 || sd > 20 || roadGap(x, z) < 8 || kept(x, z) || !dry(x, z)) continue;
-    const y = land.height(x, z);
-    const yaw = rng.range(0, Math.PI);
-    plain.push({ x, y: y + 1.1, z, yaw, sx: 3.2, sy: 2.2, sz: 3.6, color: 0xc9a46a });
-    thatch.push({ x, y: y + 2.2, z, yaw, sx: 4.4, sy: 2.2, sz: 4.8, color: 0xd9b870 });
-    keep.push({ x, z, r: 4 });
-  }
-
   // ---- gulls over the harbour and the beaches ----
   {
     const pos: number[] = [];
@@ -597,10 +602,10 @@ export function buildIsland(track: Track, seed: number, land: Terrain): Island {
     const names: Record<string, string> = { sandbar: 'SANDBAR', 'lava-tube': 'LAVA TUBE' };
     for (const sp of track.splines.slice(1)) {
       const i = at(main, (sp.mainFrom - 25 + L) % L);
-      const branchSide = Math.sign((sp.px[4] - main.px[i]) * -main.tz[i] + (sp.pz[4] - main.pz[i]) * main.tx[i]) || 1;
+      const side = branchSide(main, sp);
       const off = main.width[i] / 2 + main.shoulder[i] + 2;
-      const x = main.px[i] - main.tz[i] * off * branchSide;
-      const z = main.pz[i] + main.tx[i] * off * branchSide;
+      const x = main.px[i] - main.tz[i] * off * side;
+      const z = main.pz[i] + main.tx[i] * off * side;
       const y = Math.max(land.height(x, z), main.py[i] - 1);
       const tex = canvas(256, 96, (g) => {
         g.fillStyle = '#1f8a8a';
@@ -612,7 +617,7 @@ export function buildIsland(track: Track, seed: number, land: Terrain): Island {
         g.font = `34px ${FONT}`;
         g.textAlign = 'center';
         g.textBaseline = 'middle';
-        g.fillText(`${branchSide > 0 ? '' : '◀ '}${names[sp.id] ?? sp.id.toUpperCase()}${branchSide > 0 ? ' ▶' : ''}`, 128, 50);
+        g.fillText(`${side > 0 ? '' : '◀ '}${names[sp.id] ?? sp.id.toUpperCase()}${side > 0 ? ' ▶' : ''}`, 128, 50);
       });
       const sign = new Mesh(new PlaneGeometry(4, 1.5), new MeshBasicMaterial({ map: tex, side: DoubleSide }));
       sign.position.set(x, y + 2.4, z);
@@ -631,7 +636,8 @@ export function buildIsland(track: Track, seed: number, land: Terrain): Island {
   // The trunks keep their own brown (the instance colors are the fronds').
   objects.push(instanced(palmGeo.trunk, trunkMat, palms.map((p) => ({ ...p, color: 0xffffff }))), instanced(palmGeo.fronds, swaying(time, 0.006), palms));
   objects.push(instanced(new CylinderGeometry(0.22, 0.3, 1, 6).translate(0, 0.5, 0), tint, trunks));
-  objects.push(instanced(faceted(new IcosahedronGeometry(1, 0)), swaying(time, 0.004), crowns));
+  // A crown (a unit ball scaled 2–3×) sways as if it were ~3 units up its trunk: 20–40 cm at its top.
+  objects.push(instanced(faceted(new IcosahedronGeometry(1, 0)), swaying(time, 0.01, 3), crowns));
   objects.push(instanced(faceted(new IcosahedronGeometry(0.9, 0).translate(0, 0.5, 0)), tint, bushes));
   objects.push(instanced(faceted(new IcosahedronGeometry(1, 0)), tint, lavaRocks));
   objects.push(instanced(unit, toon({ map: houseTexture() }), houses), instanced(unit, tint, plain), instanced(prism(), toon({ side: DoubleSide }), roofs));

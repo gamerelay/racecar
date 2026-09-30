@@ -35,6 +35,25 @@ function instances(objects: Object3D[]): Vector3[] {
   return out;
 }
 
+describe('shortcut signs', () => {
+  test('stand on the side each shortcut leaves on: where the main road opens for it', async () => {
+    const { branchSide } = await import('../src/render/skins/greybox/scenery');
+    for (const key of ['backroads/valley', 'paradise/island']) {
+      const t = bakeTrack(layout(key), SURFACES);
+      for (const sp of t.splines.slice(1)) {
+        // The first open stretch of verge from the fork on.
+        let open = 0;
+        for (let d = 0; d < 80 && !open; d++) {
+          const i = Math.round((sp.mainFrom + d) / t.main.step) % t.main.n;
+          open = t.main.openL[i] ? -1 : t.main.openR[i] ? 1 : 0;
+        }
+        expect(open, `${key} ${sp.id}`).not.toBe(0);
+        expect(branchSide(t.main, sp), `${key} ${sp.id}`).toBe(open);
+      }
+    }
+  });
+});
+
 describe('Paradise scenery', () => {
   test('nothing stands on a road: trees, houses and rocks keep off every road surface', async () => {
     const island = await build(1);

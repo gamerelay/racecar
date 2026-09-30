@@ -3,6 +3,8 @@
 // embers, birds), so scenery that moves costs no CPU per frame.
 
 import { AdditiveBlending, BoxGeometry, NormalBlending, BufferGeometry, CanvasTexture, Color, Float32BufferAttribute, InstancedMesh, Matrix4, Points, Quaternion, ShaderMaterial, Vector3, type Material } from 'three';
+import type { BakedSpline } from '../../../core/track/bake';
+import { newHit, projectGlobal } from '../../../core/track/query';
 import { glow } from './toon';
 
 const up = new Vector3(0, 1, 0);
@@ -126,3 +128,14 @@ export function glowPoints(pos: number[], color: number, size: number): Points {
   return new Points(geo, glowMaterial(size, false, color));
 }
 
+/**
+ * Which side of the main road a branch leaves on (1 right, -1 left), measured like the baker's
+ * `sideOf`: 30 m into the branch, against the main road nearest it. (A few metres in, the branch
+ * is still on the main road, and the road's own curve decides the answer.)
+ */
+export function branchSide(main: BakedSpline, branch: BakedSpline): -1 | 1 {
+  const j = Math.min(branch.n - 1, Math.round(30 / branch.step));
+  const hit = newHit();
+  projectGlobal(main, branch.px[j], branch.pz[j], hit, branch.py[j]);
+  return hit.lateral < 0 ? -1 : 1;
+}

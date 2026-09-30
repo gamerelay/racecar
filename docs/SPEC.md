@@ -1411,3 +1411,11 @@ Paradise, part 2: the scenery (2026-09-30, PLAN phase 5):
   blue with a clearer, bluer haze (fog out to 2.3 km), a lighter fill, a brighter sun, whiter sand
   and greener grass. The grey was the pale haze and the flat fill washing the colors out, with
   grey toon shadows and a heavy vignette on top.
+- **Review fixes (PR #22):**
+  - Shortcut signs stood on the wrong side, on the Valley too (the Barn, Logger's Leap and the
+    Creek Bed as well as the Sandbar). The side was read 4 m into the branch, where it's still
+    on the main road and the road's own curve decided it. `branchSide` (`scenery.ts`) reads it
+    30 m in, like the baker's `sideOf`, and a test holds it to where the main road's verge opens.
+  - The lighthouse had house windows (its stripes were drawn with the house texture).
+  - The jungle crowns barely swayed: a crown is a unit ball, so it sways as if it were 3 units up its trunk.
+  - Beach huts could stand on a palm: they're placed before the trees now.
