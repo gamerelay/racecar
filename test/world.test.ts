@@ -3,10 +3,10 @@ import { neutralControls } from '../src/core/controls';
 import { Ev } from '../src/core/events';
 import { Sim } from '../src/core/sim';
 import { bakeTrack } from '../src/core/track/bake';
-import { Hazards } from '../src/core/world/hazards';
+import { Hazards, Piece, Solid } from '../src/core/world/hazards';
 import { newTrafficPose, Traffic } from '../src/core/world/traffic';
 import { planWeather, weatherAt } from '../src/core/world/weather';
-import { CLASSES, DOWNTOWN, SURFACES } from './helpers';
+import { CLASSES, DOWNTOWN, SURFACES, layout } from './helpers';
 
 const track = bakeTrack(DOWNTOWN, SURFACES);
 
@@ -198,6 +198,95 @@ describe('hazards', () => {
     expect(Array.from(hz.pSolid.subarray(0, hz.pieces))).toContain(1);
     // Re-armed only after its cool-down.
     expect(hz.crossTriggers(i, (sign.s as number) - 1, (sign.s as number) + 1, sim.time, sim.events, sim.tick)).toBe(false);
+  });
+
+  const island = bakeTrack(layout('paradise/island'), SURFACES);
+  const quiet = { push() {} } as never;
+  /** The pieces of one type right now, as [x, y, z, solid, s]. */
+  const piecesOf = (hz: Hazards, type: number) =>
+    Array.from({ length: hz.pieces }, (_, p) => p)
+      .filter((p) => hz.pType[p] === type)
+      .map((p) => [hz.px[p], hz.py[p], hz.pz[p], hz.pSolid[p], hz.pS[p]]);
+
+  test('volcano bombs: scheduled from the seed, telegraphed in flight, then solid rocks on the rim road', () => {
+    const a = new Hazards(island, new Traffic(island, 5), 5);
+    const b = new Hazards(island, new Traffic(island, 5), 5);
+    const def = a.defs.findIndex((d) => d.use === 'volcano-bombs');
+    expect(def).toBeGreaterThanOrEqual(0);
+    const [s0, s1] = a.defs[def].s as [number, number];
+    const showers = a.occurrences.filter((o) => o.def === def);
+    // Every screen has the same showers at the same moments (online, nothing to send).
+    expect(showers.map((o) => [o.t0, o.seed])).toEqual(b.occurrences.filter((o) => o.def === def).map((o) => [o.t0, o.seed]));
+    const o = showers.find((x) => x.t0 > 30 && x.t0 < 300)!;
+    // In the air: rings on the road where each will land, and not solid yet.
+    a.update(o.t0 - 1, quiet, 0);
+    expect(a.markers).toBeGreaterThanOrEqual(3);
+    const flying = piecesOf(a, Piece.Bomb);
+    expect(flying.length).toBe(3);
+    for (const [, , , solid] of flying) expect(solid).toBe(Solid.None);
+    // Down: solid, on the road inside the range, and gone when they've cooled.
+    a.update(o.t0 + 2, quiet, 0);
+    const down = piecesOf(a, Piece.Bomb);
+    expect(down.length).toBe(3);
+    const hit = { s: 0 } as { s: number };
+    for (const [x, y, z, solid, s] of down) {
+      expect(solid).toBe(Solid.Hard);
+      expect(s).toBeGreaterThanOrEqual(s0);
+      expect(s).toBeLessThanOrEqual(s1);
+      const i = Math.round(s / island.main.step);
+      const lat = (x - island.main.px[i]) * -island.main.tz[i] + (z - island.main.pz[i]) * island.main.tx[i];
+      expect(Math.abs(lat)).toBeLessThan(island.main.width[i] / 2);
+      expect(Math.abs(y - island.main.py[i])).toBeLessThan(2);
+      hit.s = s;
+    }
+    a.update(o.t0 + 11, quiet, 0);
+    expect(piecesOf(a, Piece.Bomb).filter((p) => p[4] === hit.s).length).toBe(0);
+  });
+
+  test('coconuts: the first car past shakes them loose; they land behind it, and running one over is a hop, not a wreck', () => {
+    const sim = new Sim(island, CLASSES, SURFACES, { seed: 2, traffic: 0 });
+    const i = sim.addCar({ cls: 'coupe', human: true });
+    const def = island.layout.hazards!.find((h) => h.use === 'coconuts')!;
+    sim.placeCar(i, 0, (def.s as number) - 30, 0, 30);
+    const c = neutralControls();
+    c.throttle = 1;
+    let fired = false;
+    let cursor = 0;
+    for (let t = 0; t < 90; t++) {
+      sim.step([c]);
+      cursor = sim.events.read(cursor, (e) => {
+        if (e.type === Ev.Hazard && e.car === i) fired = true;
+      });
+    }
+    expect(fired).toBe(true);
+    // Rings on the road under them before they fall (the telegraph), then nuts in the air.
+    const occ = sim.world.hazards.occurrences.at(-1)!;
+    sim.world.hazards.update(occ.t0 - 1.1, quiet, 0);
+    expect(sim.world.hazards.markers).toBeGreaterThanOrEqual(2);
+    sim.world.hazards.update(occ.t0 - 0.3, quiet, 0);
+    expect(piecesOf(sim.world.hazards, Piece.Coconut).length).toBeGreaterThanOrEqual(2);
+    // Down (lead and telegraph are about 1.5 s), on the road, behind the car that shook them.
+    for (let t = 0; t < 80; t++) sim.step([c]);
+    const hz = sim.world.hazards;
+    const nuts = piecesOf(hz, Piece.Coconut);
+    expect(nuts.length).toBeGreaterThanOrEqual(2);
+    for (const [, , , solid, s] of nuts) {
+      expect(solid).toBe(Solid.Bump);
+      expect(s).toBeLessThan(sim.cars.s[i]);
+    }
+    // A second car straight over one: it hops and slows a little, and doesn't wreck.
+    const [x, , z, , s] = nuts[0];
+    const j = sim.addCar({ cls: 'coupe', human: true });
+    const at = Math.round(s / island.main.step);
+    const lat = (x - island.main.px[at]) * -island.main.tz[at] + (z - island.main.pz[at]) * island.main.tx[at];
+    sim.placeCar(j, 0, s - 12, lat, 35);
+    let hopped = false;
+    for (let t = 0; t < 40; t++) {
+      sim.step([c, c]);
+      if (!sim.cars.grounded[j] && sim.cars.vy[j] > 1) hopped = true;
+    }
+    expect(hopped).toBe(true);
+    expect(sim.cars.wreck[j]).toBe(0);
   });
 });
 

@@ -119,7 +119,9 @@ body.boosting #gFill { stroke: var(--sun); }
 #lights .lamps i { width: 46px; height: 46px; border-radius: 50%; border: 3px solid var(--ink); background: rgba(10, 4, 20, 0.8); box-shadow: 4px 4px 0 var(--outline); }
 #lights .lamps i.lit { background: var(--pink); box-shadow: 0 0 24px var(--pink), 4px 4px 0 var(--outline); }
 #lights .lamps i.go { background: #7cff6b; box-shadow: 0 0 28px #7cff6b, 4px 4px 0 var(--outline); }
-#lights b { font-family: var(--display); font-size: 64px; font-weight: 400; color: var(--sun); -webkit-text-stroke: 3px var(--outline); paint-order: stroke fill; text-shadow: 5px 5px 0 var(--pink); }
+/* The count's outline: a stroke drawn under the fill only shows its outer half, which was lost on
+   the night sky, so it's thick, and ringed in shadows too (browsers without paint-order on text). */
+#lights b { font-family: var(--display); font-size: 64px; font-weight: 400; color: var(--sun); -webkit-text-stroke: 7px var(--outline); paint-order: stroke fill; text-shadow: 3px 0 0 var(--outline), -3px 0 0 var(--outline), 0 3px 0 var(--outline), 0 -3px 0 var(--outline), 2px 2px 0 var(--outline), -2px 2px 0 var(--outline), 2px -2px 0 var(--outline), -2px -2px 0 var(--outline), 7px 7px 0 var(--pink); }
 
 #minimap { right: calc(env(safe-area-inset-right, 0px) + 16px); top: calc(env(safe-area-inset-top, 0px) + 14px); width: 180px; height: 180px; background: rgba(18, 8, 38, 0.45); border: 2px solid var(--ink); box-shadow: 4px 4px 0 var(--outline); }
 

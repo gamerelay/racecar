@@ -147,4 +147,29 @@ describe('Paradise (Island)', () => {
     expect(r.lapFloor!).toBeGreaterThan(64);
     expect(r.lapFloor!).toBeLessThan(80);
   });
+
+  test('an 8-car field with traffic and the hazards wrecks at most 1.5 times a race (MAPS.md)', () => {
+    let wrecks = 0;
+    const seeds = [1, 2, 3, 4, 5, 6, 7, 8];
+    for (const seed of seeds) {
+      const r = lapReport('paradise/island', island, 'coupe', { field: true, seed });
+      expect(r.finished, `seed ${seed}`).toBe(true);
+      wrecks += r.wrecks.length;
+    }
+    expect(wrecks / seeds.length).toBeLessThanOrEqual(1.5);
+    // Eight field races: a few seconds, past bun's 5 s default on CI's slower machines.
+  }, 30_000);
+
+  test('the hazards: volcano bombs on the rim where the Lava Tube skips them, coconuts on the beach road', () => {
+    const bombs = island.hazards!.find((h) => h.use === 'volcano-bombs')!;
+    const tube = track.splines.find((sp) => sp.id === 'lava-tube')!;
+    const [a, b] = bombs.s as [number, number];
+    expect(a).toBeGreaterThan(tube.mainFrom);
+    expect(b).toBeLessThan(tube.mainTo);
+    const nuts = island.hazards!.find((h) => h.use === 'coconuts')!;
+    const i = Math.round((nuts.s as number) / main.step);
+    expect(main.width[i]).toBeGreaterThanOrEqual(18);
+    // Before the Sandbar, so every car meets them.
+    expect(nuts.s as number).toBeLessThan(track.splines.find((sp) => sp.id === 'sandbar')!.mainFrom);
+  });
 });

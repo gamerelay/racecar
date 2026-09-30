@@ -1444,3 +1444,51 @@ Paradise, part 3a: weather and time of day (2026-09-30, PLAN phase 5):
   roofed middle), and the rain's roof map takes those as well as decks and the city's tunnel.
 - **Lap lengths per map** in the lobby's thumbnail test: each within 3% of MAPS.md's figure,
   instead of one 2.7–3.8 km bound for all.
+
+Paradise, part 3b: hazards and tuning (2026-09-30, PLAN phase 5):
+
+- **Volcano bombs** (`volcano-bombs`, a scheduled kind): every ~45 s the volcano throws three
+  glowing rocks onto the rim road. For 2 s they arc in from the crater while rings grow on the
+  road where each will land (the telegraph), then they lie there, solid, cooling from yellow to
+  dark rock, for 10 s. Each lands in its own third of the range, clear of the road's edges. They
+  come from the seed like every scheduled hazard, so online they land at the same moment on
+  every screen with nothing to send. They sit on the rim's last stretch before the jump, inside
+  the Lava Tube's span, so the tube skips them. The AI steers round a bomb from the moment it's
+  in the air: pieces in flight carry where they'll land.
+- **Coconuts** (`coconuts`, a trigger): the first car past s 560 on the beach road shakes 2–3
+  loose from the palms. They drop behind it onto the half of the road under the palms, bounce
+  and roll a little way in. Running one over is a new kind of contact, a bump (`Solid.Bump`): a
+  hop, 10% of your speed and a small nudge off line, never a wreck, and traffic ignores them.
+  They're green, which reads on asphalt where brown didn't. About 1.7 are run over a race.
+- **Hazards sit on the banked road:** a banked corner's edge is well off the centre's height, so
+  the rings and rocks take the road's bank into account (the rings sank under the rim road at
+  first). The rings sit a little higher off every road now.
+- **The Sandbar, re-laid** (found by the sweep): the field's baseline was **1.63 wrecks a race**
+  (seeds 1–8, no hazards; the ~0.75 in the notes was other seeds). Nearly all were on lap 1 at
+  the Sandbar's mouth. The old Sandbar zigzagged, riding the road inland round the headland then
+  swinging back out to the water, so the AIs that took it braked to 120 km/h in the fast line
+  and the pack ran into them at 185. It forks earlier now, where the coast road still runs
+  straight, and follows the waterline to where the road comes back to the water (355 m against
+  411 m of road). It profiles at 165 km/h or faster all the way, the baseline is 0.5 a race, and
+  the hard lap floor went from 68.2 to 66.8 s.
+- **Placed by sweeps** (field report, 8 then 16 seeds). Bombs higher up the rim cost 0.5–1.25
+  hazard wrecks a race; the rim's last stretch cost 0.13. Coconuts wreck no one anywhere, so they
+  went where every car meets them, before the Sandbar. With both, the field wrecks **1.25 times a
+  race** (0.44 from hazards; 16 seeds), with 0.9 m rocks that wreck above 18 m/s closing. Classes
+  hold within ±5% on all three maps (van +4.8%, bus +4.9% on Paradise).
+- **Review fixes (PRs #23 and #24):**
+  - The coconuts never showed their rings: the fall (0.9 s) was longer than the telegraph (0.7 s),
+    so the warning never drew. The telegraph is 1.3 s now: 0.4 s of rings, then the fall.
+  - Coconuts spun forever after they stopped rolling; their spin follows the roll now.
+  - With Time on Random, the lobby showed the background race's pick, which could differ from the
+    race's own (a new seed at the start). The lobby shows the day for Random.
+
+HUD tweaks (owner, 2026-09-30):
+
+- **"Drift boost" is now "Powerglide":** the pop when a clean drift release pays the meter.
+- **A Superman:** boosting through the air (at least 0.25 s of a flight, `supermanMin`) pays that
+  flight's air boost and points 1.5× (`supermanPay`) on a clean landing, with a "Superman!" pop
+  and a longer chime. The AI boosts over jumps now and then too; lap floors didn't move.
+- **The countdown's number shows its outline:** a stroke under the fill only shows its outer
+  half (1.5 px), which was lost on the night sky, so it's 7 px, ringed in outline shadows as well.
+

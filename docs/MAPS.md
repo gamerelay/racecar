@@ -102,6 +102,12 @@ editor edits are for trying things and get overwritten.
 - **Solid props** (pillars, trestle legs) split a road into lanes. The AI's racing line threads
   the gaps and its avoidance steers round them. Leave at least one gap a car wide plus 2 m.
 - **Watch what's near what:** a hazard just past a colonnade pinned AI cars between the two.
+- **A shortcut's mouth is a speed step:** the AIs that take a shortcut slow to its speed before
+  they reach it. If its first stretch is slow (a kink, a zigzag), they brake in the fast line and
+  the pack runs into them. Paradise's old Sandbar did that (1.6 wrecks a race, nearly all at its
+  mouth on lap 1). Fork where the main road runs straight, and check the branch's speed profile.
+- **Measure over enough seeds:** 8 field races swing by ±0.3 wrecks a race. Confirm a
+  placement on 16.
 
 ## Scenery and landmarks
 
@@ -132,8 +138,8 @@ Good numbers today:
 | | Target | Downtown | Backroads | Paradise |
 |---|---|---|---|---|
 | Lap length | 2.9–3.8 km | 3.26 km | 2.92 km | 3.44 km |
-| Hard-AI lap floor | 70–100 s (SPEC) | 58.6 s | 63.4 s | 68.2 s |
-| AI wrecks per 8-car race | ≤ 1.5 | ~1.6 | ~1 | ~0.75 |
+| Hard-AI lap floor | 70–100 s (SPEC) | 58.6 s | 63.4 s | 66.8 s |
+| AI wrecks per 8-car race | ≤ 1.5 | ~1.6 | ~1 (2 on seeds 1–8) | ~1.2 with its hazards (0.5 without) |
 | AI resets | ~0 | rare | ≤ 1 in 6 races | none in 8 |
 
 Tests hold what matters for each map: land below every road, bridges detected, a hard lap that

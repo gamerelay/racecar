@@ -12,6 +12,7 @@ import {
   DoubleSide,
   Group,
   InstancedBufferAttribute,
+  IcosahedronGeometry,
   InstancedMesh,
   LineBasicMaterial,
   LineSegments,
@@ -174,6 +175,29 @@ export function buildWorldVisual(scene: Scene, sim: Sim, roof?: (x: number, z: n
     return r;
   });
   root.add(logs, signs);
+  // Volcano bombs: glowing rocks that cool from yellow-hot to dark lava rock once they land, each
+  // with a glow while it's hot; they fly in from the crater (hazards.ts gives the height and how
+  // far through the flight). Coconuts: green ones, which read on the asphalt (brown ones didn't).
+  const bombs = new InstancedMesh(new IcosahedronGeometry(1, 0), new MeshBasicMaterial({ color: 0xffffff }), 32);
+  bombs.frustumCulled = false;
+  bombs.count = 0;
+  bombs.setColorAt(0, col.setHex(0));
+  const nuts = new InstancedMesh(new IcosahedronGeometry(1, 0), toon({ color: 0x9cc23e }), 32);
+  nuts.frustumCulled = false;
+  nuts.count = 0;
+  const heatPos = new Float32Array(32 * 3);
+  const heatCol = new Float32Array(32 * 3);
+  const heatGeo = new BufferGeometry();
+  heatGeo.setAttribute('position', new BufferAttribute(heatPos, 3));
+  heatGeo.setAttribute('color', new BufferAttribute(heatCol, 3));
+  heatGeo.setDrawRange(0, 0);
+  const heatPoints = new Points(heatGeo, new PointsMaterial({ map: glow(), size: 7, vertexColors: true, transparent: true, blending: AdditiveBlending, depthWrite: false }));
+  heatPoints.frustumCulled = false;
+  root.add(bombs, nuts, heatPoints);
+  const crater = sim.track.layout.terrain?.volcano;
+  const HOT = new Color(0xffd24a);
+  const WARM = new Color(0xff5a14);
+  const COLD = new Color(0x3a3134);
 
   // Gantries for the signs: two posts and a beam over the road.
   const hit = newHit();
@@ -322,6 +346,55 @@ export function buildWorldVisual(scene: Scene, sim: Sim, roof?: (x: number, z: n
           e.scale.set(1, 1, 1);
         }
       }
+      bombs.count = 0;
+      nuts.count = 0;
+      let hot = 0;
+      for (let p = 0; p < hz.pieces; p++) {
+        if (hz.pType[p] === Piece.Bomb && bombs.count < 32) {
+          const f = hz.pTilt[p];
+          let x = hz.px[p];
+          let z = hz.pz[p];
+          if (f < 1 && crater) {
+            x = crater.x + (x - crater.x) * f;
+            z = crater.z + (z - crater.z) * f;
+          }
+          // Hot in the air; once down it cools over about 6 s.
+          const age = Math.max(0, f - 1);
+          const c = age <= 0 ? col.copy(HOT) : age < 1.5 ? col.copy(HOT).lerp(WARM, age / 1.5) : col.copy(WARM).lerp(COLD, Math.min(1, (age - 1.5) / 4.5));
+          e.position.set(x, hz.py[p], z);
+          e.rotation.set(age <= 0 ? f * 9 : 0.4, hz.ph[p], age <= 0 ? f * 5 : 0.2);
+          e.scale.set(hz.phw[p], hz.phh[p], hz.phl[p]);
+          e.updateMatrix();
+          bombs.setColorAt(bombs.count, c);
+          bombs.setMatrixAt(bombs.count++, e.matrix);
+          e.scale.set(1, 1, 1);
+          if (age < 4 && hot < 32) {
+            heatPos.set([x, hz.py[p], z], hot * 3);
+            const k = 1 - age / 4;
+            heatCol.set([c.r * k, c.g * 0.7 * k, c.b * 0.4 * k], hot * 3);
+            hot++;
+          }
+        } else if (hz.pType[p] === Piece.Coconut && nuts.count < 32) {
+          e.position.set(hz.px[p], hz.py[p], hz.pz[p]);
+          e.rotation.set(hz.ph[p], hz.ph[p] * 0.7, 0);
+          e.scale.set(0.3, 0.28, 0.32);
+          e.updateMatrix();
+          nuts.setMatrixAt(nuts.count++, e.matrix);
+          e.scale.set(1, 1, 1);
+        }
+      }
+      heatGeo.setDrawRange(0, hot);
+      if (hot) {
+        (heatGeo.attributes.position as BufferAttribute).needsUpdate = true;
+        (heatGeo.attributes.color as BufferAttribute).needsUpdate = true;
+      }
+      bombs.visible = bombs.count > 0;
+      if (bombs.visible) {
+        bombs.instanceMatrix.needsUpdate = true;
+        bombs.instanceColor!.needsUpdate = true;
+      }
+      nuts.visible = nuts.count > 0;
+      if (nuts.visible) nuts.instanceMatrix.needsUpdate = true;
       logs.instanceMatrix.needsUpdate = true;
       signs.instanceMatrix.needsUpdate = true;
       for (let k = 0; k < rings.length; k++) {
@@ -330,7 +403,7 @@ export function buildWorldVisual(scene: Scene, sim: Sim, roof?: (x: number, z: n
         if (!r.visible) continue;
         const u = hz.mu[k];
         const pulse = 1 + Math.sin(u * 30) * 0.08;
-        r.position.set(hz.mx[k], hz.my[k] + 0.08, hz.mz[k]);
+        r.position.set(hz.mx[k], hz.my[k] + 0.2, hz.mz[k]);
         r.scale.setScalar(hz.mr[k] * pulse);
         (r.material as MeshBasicMaterial).opacity = 0.3 + 0.5 * u;
       }

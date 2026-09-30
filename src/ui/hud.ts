@@ -183,7 +183,7 @@ export class Hud {
     if (e.type === Ev.Respawn && e.car === i && e.a >= 0.01) this.pop(`Catch-up boost +${Math.round(e.a * 100)}%`, 'hot');
     if (e.type === Ev.DriftChain && e.car === i) this.pop(`Drift chain ×${e.b} · ${Math.floor(e.a).toLocaleString()}`, e.b >= 4 ? 's3' : 's2');
     if (e.type === Ev.ChainLost && e.car === i) this.pop(`Chain lost ×${e.b}`, 'bad');
-    if (e.type === Ev.DriftBoost && e.car === i) this.pop(`Drift boost +${Math.round(e.a * 100)}%`, e.a > 0.25 ? 's2' : 's1');
+    if (e.type === Ev.DriftBoost && e.car === i) this.pop(`Powerglide +${Math.round(e.a * 100)}%`, e.a > 0.25 ? 's2' : 's1');
     if (e.type === Ev.MiniTurbo && e.car === i) this.pop(['', 'Mini-turbo', 'Super turbo', 'Ultra turbo'][e.b] + '!', `s${e.b}`);
     if (e.type === Ev.Wreck && e.car === i && e.other < 0) this.pop(e.b === 4 ? 'Reset' : 'Wrecked', 'bad');
     if (e.type === Ev.Takedown && e.car === i) this.pop(e.b ? 'Revenge!' : 'Takedown!', 'big');
@@ -198,7 +198,11 @@ export class Hud {
     if (e.type === Ev.Finish && e.car === i) this.pop(`Finished ${ordinal(e.b)}`, 'big');
     if (e.type === Ev.Wreck && e.car === i && e.other >= 0 && e.other !== i) this.pop('Taken down', 'bad');
     if (e.type === Ev.SpinOut && e.car === i) this.pop('Spin out', 'bad');
-    if (e.type === Ev.AirBoost && e.car === i) this.pop(`${e.b > 0.9 ? 'Big air' : 'Air'} ${e.b.toFixed(1)}s${e.a >= 0.01 ? ` +${Math.round(e.a * 100)}%` : ''}`, e.b > 0.9 ? 'hot' : 's1');
+    if (e.type === Ev.AirBoost && e.car === i) {
+      const gain = e.a >= 0.01 ? ` +${Math.round(e.a * 100)}%` : '';
+      if (e.other === 1) this.pop(`Superman! ${e.b.toFixed(1)}s${gain}`, 'big');
+      else this.pop(`${e.b > 0.9 ? 'Big air' : 'Air'} ${e.b.toFixed(1)}s${gain}`, e.b > 0.9 ? 'hot' : 's1');
+    }
     if (e.type === Ev.Lap && e.car === i) this.lap(e.a, e.b);
   };
 }
