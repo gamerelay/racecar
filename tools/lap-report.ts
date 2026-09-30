@@ -10,7 +10,7 @@
 
 import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import type { CarClass, SurfaceDef, TrackLayout } from '../src/core/content';
+import { CLASS_ORDER, type CarClass, type SurfaceDef, type TrackLayout } from '../src/core/content';
 import { neutralControls } from '../src/core/controls';
 import { Cause, Ev } from '../src/core/events';
 import { Sim } from '../src/core/sim';
@@ -24,8 +24,7 @@ const laps = Number(args[args.indexOf('--laps') + 1]) || 3;
 const seed = args.includes('--seed') ? Number(args[args.indexOf('--seed') + 1]) : 7;
 const only = args.find((a) => a.includes('/') && !a.startsWith('-'));
 const surfaces = JSON.parse(readFileSync(join(root, 'surfaces.json'), 'utf8')) as SurfaceDef[];
-// The game's order (src/content.ts): the field is built from it.
-const classes = ['coupe', 'muscle', 'hatch', 'van', 'sedan', 'rally', 'bus'].map((id) => JSON.parse(readFileSync(join(root, 'cars', `${id}.json`), 'utf8')) as CarClass);
+const classes = CLASS_ORDER.map((id) => JSON.parse(readFileSync(join(root, 'cars', `${id}.json`), 'utf8')) as CarClass);
 const soloCar = args.includes('--car') ? args[args.indexOf('--car') + 1] : 'coupe';
 const CAUSE: Record<number, string> = Object.fromEntries(Object.entries(Cause).map(([k, v]) => [v, k.toLowerCase()]));
 

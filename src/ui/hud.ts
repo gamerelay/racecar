@@ -9,8 +9,8 @@ import type { Sim } from '../core/sim';
 
 // Elements are looked up once, and text and transforms are written only when they change: the HUD
 // updates every frame, and most of it is the same as last frame.
-const els = new Map<string, HTMLElement>();
-const $ = (id: string): HTMLElement => {
+const els = new Map<string, HTMLElement | SVGElement>();
+const $ = (id: string): HTMLElement | SVGElement => {
   let e = els.get(id);
   if (!e || !e.isConnected) els.set(id, (e = document.getElementById(id)!));
   return e;
@@ -21,12 +21,13 @@ function text(id: string, v: string): void {
   last.set(id, v);
   $(id).textContent = v;
 }
-function transform(id: string, v: string): void {
-  const key = `${id}.t`;
+function style(id: string, prop: 'transform' | 'strokeDasharray', v: string): void {
+  const key = `${id}.${prop}`;
   if (last.get(key) === v) return;
   last.set(key, v);
-  $(id).style.transform = v;
+  $(id).style[prop] = v;
 }
+const transform = (id: string, v: string) => style(id, 'transform', v);
 
 // The speedometer: a 270° arc from bottom left, clockwise, round to bottom right.
 const R = 64;
@@ -75,12 +76,11 @@ export class Hud {
       const r0 = R + 6;
       const r1 = R + (major ? 14 : 10);
       const f = (r: number) => `${(80 + Math.cos(a) * r).toFixed(1)} ${(80 + Math.sin(a) * r).toFixed(1)}`;
-      ticks += `<path d="M${f(r0)}L${f(r1)}"${major ? ' class="major"' : ''}${v > top ? ' class="hot"' : ''}/>`;
+      ticks += `<path d="M${f(r0)}L${f(r1)}" class="${major ? 'major' : ''} ${v > top ? 'hot' : ''}"/>`;
     }
     $('gTicks').innerHTML = ticks;
     const from = ARC * (top / this.gaugeMax);
-    const boost = $('gBoost') as unknown as SVGElement;
-    boost.style.strokeDasharray = `0 ${from.toFixed(2)} ${(ARC - from).toFixed(2)} 100`;
+    style('gBoost', 'strokeDasharray', `0 ${from.toFixed(2)} ${(ARC - from).toFixed(2)} 100`);
   }
 
   pop(text: string, cls = ''): void {
@@ -110,7 +110,7 @@ export class Hud {
     const mph = Math.hypot(c.vx[i], c.vz[i]) * MPH;
     text('spd', String(Math.round(mph)));
     if (c.cls[i] !== this.gaugeCls) this.drawGauge(c.cls[i]);
-    ($('gFill') as unknown as SVGElement).style.strokeDasharray = `${(ARC * Math.min(1, mph / this.gaugeMax)).toFixed(2)} 100`;
+    style('gFill', 'strokeDasharray', `${(ARC * Math.min(1, mph / this.gaugeMax)).toFixed(1)} 100`);
     transform('meterFill', `scaleX(${c.boost[i].toFixed(3)})`);
     // What the current drift will pay in, as a pale segment past the fill.
     const bank = c.drift[i] === 1 && c.driftBank[i] >= TUNING.driftBankMin ? c.driftBank[i] : 0;

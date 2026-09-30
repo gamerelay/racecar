@@ -49,6 +49,8 @@ const signMat = new MeshBasicMaterial({ color: 0xffb13b });
 const glassMat = carPaint({ id: 'glass', name: 'glass', color: '#27366a', finish: 'gloss' }, 'none');
 const headGlow = new SpriteMaterial({ map: glow(), color: 0xfff0c0, transparent: true, blending: AdditiveBlending, depthWrite: false });
 const flameMat = new MeshBasicMaterial({ map: glow(), color: 0xff7a1a, transparent: true, blending: AdditiveBlending, depthWrite: false });
+/** Materials every car shares (module-level): never freed with one car or one world. */
+export const CAR_MATERIALS: readonly Material[] = [trim, metal, lens, headMat, plateMat, signMat, glassMat, headGlow, flameMat];
 let beamShared: MeshBasicMaterial | undefined;
 
 function beamMat(): MeshBasicMaterial {

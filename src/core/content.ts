@@ -139,6 +139,9 @@ export interface SurfaceDef {
   color: string;
 }
 
+/** Every car class, in picker order (content/cars/<id>.json). AI fields cycle through it. */
+export const CLASS_ORDER = ['coupe', 'muscle', 'hatch', 'van', 'sedan', 'rally', 'bus'] as const;
+
 export interface CarClass {
   id: string;
   name: string;

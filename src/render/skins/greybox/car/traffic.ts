@@ -304,7 +304,8 @@ export interface TrafficPart {
 /** A design's static meshes in the car frame, or undefined if the kind has no design (it stays a box). */
 export function trafficModel(design: string, size: [number, number, number]): TrafficPart[] | undefined {
   if (!CAR_DESIGNS[design]) return undefined;
-  const v = buildCar({ id: design, size }, PAINT);
+  // Only a band (the van's, the bus's) keeps its second color; racing liveries stay on racers.
+  const v = buildCar({ id: design, size }, CAR_DESIGNS[design].livery === 'band' ? PAINT : { ...PAINT, secondary: undefined });
   const paint = v.root.userData.paint as Material;
   v.root.updateMatrixWorld(true);
   const groups = new Map<string, { list: BufferGeometry[]; part: Omit<TrafficPart, 'geometry'> }>();
