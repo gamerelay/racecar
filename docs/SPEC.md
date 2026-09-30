@@ -1372,3 +1372,34 @@ Paradise, part 1: the lap and the land (2026-09-30, PLAN phase 5):
 - **Still to come** (the next PRs of the phase): the scenery (palms, huts, jungle, the lava tube's
   tunnel and glow, the lighthouse), waves on the beach, the hazards (volcano bombs, coconuts),
   the passing shower and the sunset palette.
+
+Paradise, part 2: the scenery (2026-09-30, PLAN phase 5):
+
+- **`island.ts` dresses the island** from the track and its land, like the forest dresses the
+  Valley: seeded, the same every race, one draw per kind of thing (about 50–150 draw calls for
+  the world; the rest are the cars).
+  - **Palms** on the beaches lean out to sea; right by the road they lean over it. Inland there
+    are some palms in the jungle, with broadleaf crowns and bushes, thickest in clumps.
+  - **Everything that grows sways** in the vertex shader (`swaying`: a toon material whose
+    instances bend more the higher the vertex), so the wind costs no CPU.
+  - **Harbor Town:** pastel houses (some with a second storey) both sides of the start, the tiki
+    bar on the sand with four torches, a pier out from the harbour front with five fishing boats
+    moored along it, umbrellas and towels on the beach, thatched huts, and gulls circling.
+  - **The volcano:** black boulders over the upper cone, a churning lava pool in the crater, a
+    glow round the lip, and a plume of smoke (a new `plume` point mode, 140 m tall, leaning
+    downwind).
+  - **The Lava Tube** is roofed over: rock walls and a roof along its middle, rubble heaped on top,
+    a seam of lava low on each wall, and glowing lights. The land over it is still cut open (the
+    road caps the land), so it reads as a tunnel in a cutting.
+  - **The jungle:** a rope bridge high over the first leg of the switchbacks between two rock
+    stacks, and a waterfall down a cliff outside a hairpin, into a pool, with mist.
+  - **The lighthouse** stands on the point: the lap's last third furthest from the island's middle.
+    Red and white, with a lamp and a slow sweeping beam.
+  - **Signs** at the Sandbar's and the Lava Tube's mouths, in teal and sand.
+- **Waves:** the sea's vertex shader lifts a swell over the shallows. It's gone in the deep, and
+  at the waterline, so the sea never lifts off the beach.
+- **The day sun is its own colour:** the synthwave sky's pink sunset tint is off by day.
+- **A test builds the scenery without a DOM** (a stand-in canvas): nothing stands on a road
+  surface (the rope bridge and the tube's roof are over it), and the same seed builds the same
+  island. The distance is to the nearest road sample: `projectGlobal`'s lateral is small for a
+  point far along a hairpin's tangent, which flagged trees 40 m away.

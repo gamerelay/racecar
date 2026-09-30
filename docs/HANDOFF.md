@@ -235,9 +235,11 @@ editor.
 ## Next, in order
 
 1. **PLAN phase 5, Paradise,** parts 2 and 3, after part 1 merges:
-   - Part 2, scenery (`island.ts`): instanced palms that sway, beach umbrellas, huts and the
-     harbour town, jungle clumps, lava rocks, the smoke plume and rim glow, the Lava Tube as a
-     glowing tunnel (today the land is cut open over it), the lighthouse; waves on the beach.
+   - Part 2, scenery (`island.ts`, branch `paradise-scenery`, stacked on part 1): palms that
+     sway, jungle, Harbor Town with the tiki bar, pier and boats, umbrellas and huts, gulls, the
+     volcano's lava, glow and plume, the Lava Tube roofed and lit, a rope bridge and waterfall,
+     the lighthouse, shortcut signs, waves. Open: rain still falls inside the Lava Tube (the
+     rain's roof map only knows decks and the city's tunnel).
    - Part 3: volcano bombs (a scheduled moment on the rim), falling coconuts on the coast, a
      tropical shower that rolls in and out mid-race, the sunset palette, and hazard sweeps with
      the field report.

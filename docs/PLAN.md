@@ -140,7 +140,7 @@ roads and elevation changes.
   still out, puddles while it lasts), and a sunset variant of the palette.
 - **Traffic:** town and freeway only, with sections on straights as MAPS.md says.
 
-**Parts:** 1. the lap, land, sea, palette and freeway (this branch); 2. scenery and waves;
+**Parts:** 1. the lap, land, sea, palette and freeway (PR #21); 2. scenery and waves (stacked on 1);
 3. hazards, the shower and sunset, and tuning sweeps.
 
 **How to build it:**

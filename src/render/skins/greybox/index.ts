@@ -83,7 +83,7 @@ export class GreyboxSkin implements Skin {
           float gap=clamp(-yy*5.5,0.0,0.85);
           float band=fract(yy*42.0-uTime*0.15);
           disc*=max(step(gap,band),uDay);
-          vec3 sunCol=mix(sunC,vec3(1.0,0.32,0.55),1.0-smoothstep(-0.16,0.12,yy));
+          vec3 sunCol=mix(sunC,vec3(1.0,0.32,0.55),(1.0-smoothstep(-0.16,0.12,yy))*(1.0-uDay));
           col=mix(col,sunCol,disc);
           col+=sunC*(0.28+0.3*uDay)*exp(-dist*(5.0-2.0*uDay));
           float s=fract(sin(dot(floor(d*420.0),vec3(12.9898,78.233,37.719)))*43758.5453);

@@ -29,6 +29,7 @@ import { newHit, sampleAt } from '../../../core/track/query';
 import type { TrackVisual } from '../../skin';
 import { buildCityscape } from './cityscape';
 import { buildForest } from './forest';
+import { buildIsland } from './island';
 import { buildTerrain } from './terrain';
 import { boxes, type Box } from './scenery';
 import { disposeTree } from './dispose';
@@ -182,8 +183,11 @@ export function buildTrackVisual(track: Track, palette: Palette, seed: number): 
     // The Freeway's pillars, down into the bay.
     const under = track.splines.map((sp) => deckPillars(sp, land.deck[sp.index], (x, z) => land.height(x, z) - 0.5, () => false, 0xd9d0bd, 0xbdb3a0));
     extras.push(boxes(under.flatMap((u) => u.pillars), toon()), boxes(under.flatMap((u) => u.caps), toon()));
+    const dressing = buildIsland(track, seed, land);
+    extras.push(...dressing.objects);
     update = (t) => {
       land.time.value = t;
+      dressing.update(t);
     };
   } else if (land) {
     const forest = buildForest(track, palette, seed, land);

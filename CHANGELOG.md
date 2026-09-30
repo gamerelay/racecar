@@ -16,6 +16,15 @@ and where things stand is [docs/HANDOFF.md](./docs/HANDOFF.md).
 - The island's land: a sea out to the horizon with surf on the beaches, a volcano with a crater,
   a concrete freeway on pillars over the bay, and a daytime sky.
 - Paradise plates: white and teal with a coral PARADISE tag.
+- **Paradise's scenery** (part 2):
+  - swaying palms along the beaches and over the coast road, and jungle inland;
+  - Harbor Town's pastel houses, the tiki bar with torches, and a pier with fishing boats;
+  - umbrellas, beach huts and gulls;
+  - the volcano's lava pool, glow and smoke plume;
+  - the Lava Tube roofed over and lit by lava;
+  - a rope bridge and a waterfall in the jungle;
+  - the lighthouse with a sweeping beam;
+  - signs at the shortcuts, and waves rolling over the shallows.
 
 ### Changed
 - The bus accelerates a little harder (13 → 14), so it keeps up on Paradise's fast lap.

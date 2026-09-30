@@ -365,8 +365,8 @@ export function buildTerrain(track: Track, palette: Palette, seed: number): Terr
   const mud = new Color(0x8f7a55);
   const sand = new Color(0xecdcaa);
   const sand2 = new Color(0xe2cf98);
-  const lava = new Color(0x3d3437);
-  const lava2 = new Color(0x4b3f3e);
+  const lava = new Color(0x2b2629);
+  const lava2 = new Color(0x363031);
   const c = new Color();
   const pos = new Float32Array((nx - 1) * (nz - 1) * 6 * 3);
   const col = new Float32Array(pos.length);
@@ -494,9 +494,13 @@ function sea(y: number, gx0: number, gz0: number, nx: number, nz: number, h: Flo
     fog: true,
     side: DoubleSide,
     blending: NoBlending,
-    vertexShader: `attribute float depth;varying float vDepth;varying vec2 vXz;
+    // Waves: a swell rolling in over the shallows, gone in the deep (and at the waterline, so the
+    // sea never lifts off the beach).
+    vertexShader: `attribute float depth;uniform float uTime;varying float vDepth;varying vec2 vXz;
       #include <fog_pars_vertex>
-      void main(){vDepth=depth;vXz=position.xz;vec4 mvPosition=modelViewMatrix*vec4(position,1.0);gl_Position=projectionMatrix*mvPosition;
+      void main(){vDepth=depth;vXz=position.xz;vec3 p=position;
+      p.y+=0.22*sin(depth*1.6-uTime*1.6+sin(position.x*0.03)*2.0)*smoothstep(0.3,1.2,depth)*(1.0-smoothstep(3.0,7.0,depth));
+      vec4 mvPosition=modelViewMatrix*vec4(p,1.0);gl_Position=projectionMatrix*mvPosition;
       #include <fog_vertex>
       }`,
     fragmentShader: `uniform float uTime;varying float vDepth;varying vec2 vXz;
