@@ -42,13 +42,13 @@ describe('shortcut signs', () => {
       const t = bakeTrack(layout(key), SURFACES);
       for (const sp of t.splines.slice(1)) {
         // The first open stretch of verge from the fork on.
-        let open = 0;
+        let open: number = 0;
         for (let d = 0; d < 80 && !open; d++) {
           const i = Math.round((sp.mainFrom + d) / t.main.step) % t.main.n;
           open = t.main.openL[i] ? -1 : t.main.openR[i] ? 1 : 0;
         }
         expect(open, `${key} ${sp.id}`).not.toBe(0);
-        expect(branchSide(t.main, sp), `${key} ${sp.id}`).toBe(open);
+        expect(branchSide(t.main, sp) as number, `${key} ${sp.id}`).toBe(open);
       }
     }
   });
