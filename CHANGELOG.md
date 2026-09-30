@@ -6,6 +6,11 @@ and where things stand is [docs/HANDOFF.md](./docs/HANDOFF.md).
 
 ## Unreleased
 
+## alpha-1.12: Landmarks and smashables
+
+PLAN phase 6: landmarks on every map (PRs #26, #28, #29), smashables (#30), and the Valley's
+field wrecks (#27). Also the lobby layout and 2 laps by default (#25).
+
 ### Fixed
 - **Fewer pile-ups on the Valley's home stretch:** traffic no longer appears among the Trestle's
   legs, and the falling sign is gone from the Valley. The AI field wrecks about half as often.

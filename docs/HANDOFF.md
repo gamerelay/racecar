@@ -6,7 +6,7 @@ building". This file is "where are we"; the spec is "what are we making".
 
 **Last updated:** 2026-09-30. `main` is tagged **`alpha-1.11`**: milestone 2 (PR #2, tagged
 `alpha-1.0`), Countryside v2 (PR #4, `alpha-1.1`), seven cars plus polish (PR #6, `alpha-1.2`),
-traffic that fades instead of popping (PR #7, `alpha-1.3`), audio plus a review pass (PR #9, `alpha-1.4`), Valley v3 with smooth shortcut joins (PR #10, `alpha-1.5`), drift chains, skid marks, new car designs and a second review pass (PR #12, `alpha-1.6`), the police car, solid Trestle legs, air boost and boost by position (PR #13, `alpha-1.7`), the quick wins plus the title screen and local lobbies (PRs #14 and #16, `alpha-1.8`), license plates, the lobby polish, the cars doc `docs/CARS.md`, marketing art with link previews and the car select (PRs #18, #19, #15, #17 and #20, `alpha-1.9`), Paradise's lap, land and scenery (PRs #21 and #22, `alpha-1.10`), and Paradise's weather, sunset, hazards and tuning plus the Powerglide and Superman HUD tweaks (PRs #23 and #24, `alpha-1.11`). Every release is in [CHANGELOG.md](../CHANGELOG.md): add to its "Unreleased" section as you go, and retitle that section when you tag. What's next is [PLAN.md](./PLAN.md) (phase 1, the quick wins, merged as PR #14; phase 2, the title screen and local lobbies, merged as PR #16; phase 3, license plates, merged as PR #18; phase 4, the car select, merged as PR #20; phase 5, Paradise: parts 1 and 2, the lap, land and scenery, merged as PRs #21 and #22; part 3, weather, sunset, hazards and tuning, merged as PRs #23 and #24; phase 6, landmarks, is next), and how maps are made is [MAPS.md](./MAPS.md).
+traffic that fades instead of popping (PR #7, `alpha-1.3`), audio plus a review pass (PR #9, `alpha-1.4`), Valley v3 with smooth shortcut joins (PR #10, `alpha-1.5`), drift chains, skid marks, new car designs and a second review pass (PR #12, `alpha-1.6`), the police car, solid Trestle legs, air boost and boost by position (PR #13, `alpha-1.7`), the quick wins plus the title screen and local lobbies (PRs #14 and #16, `alpha-1.8`), license plates, the lobby polish, the cars doc `docs/CARS.md`, marketing art with link previews and the car select (PRs #18, #19, #15, #17 and #20, `alpha-1.9`), Paradise's lap, land and scenery (PRs #21 and #22, `alpha-1.10`), and Paradise's weather, sunset, hazards and tuning plus the Powerglide and Superman HUD tweaks (PRs #23 and #24, `alpha-1.11`), the lobby layout (PR #25), and landmarks on every map, smashables and the Valley's wrecks (PRs #26–#30, `alpha-1.12`). Every release is in [CHANGELOG.md](../CHANGELOG.md): add to its "Unreleased" section as you go, and retitle that section when you tag. What's next is [PLAN.md](./PLAN.md) (phase 1, the quick wins, merged as PR #14; phase 2, the title screen and local lobbies, merged as PR #16; phase 3, license plates, merged as PR #18; phase 4, the car select, merged as PR #20; phase 5, Paradise: parts 1 and 2, the lap, land and scenery, merged as PRs #21 and #22; part 3, weather, sunset, hazards and tuning, merged as PRs #23 and #24; phase 6, landmarks, is next), and how maps are made is [MAPS.md](./MAPS.md).
 
 **Map names:** City is now **Downtown** and Countryside is **Backroads** (content in
 `content/maps/downtown` and `content/maps/backroads`; keys `downtown/downtown`, `backroads/valley`;
@@ -53,28 +53,26 @@ The third map is **Paradise** (`content/maps/paradise`, key `paradise/island`).
   Also in #24, the HUD tweaks: "Powerglide" (was "Drift boost"), a **Superman** for boosting
   through the air (`superT`, 1.5× air pay, `supermanMin`/`supermanPay`), and a bold outline
   on the countdown's numbers. SPEC "HUD tweaks".
-- **Smashables: in review** (branch `smashables`, stacked on `landmarks-paradise`). These close PLAN
+- **Smashables: merged** (PR #30, `alpha-1.12`). These close PLAN
   phase 6. Sim pieces (`core/world/smash.ts`), placed from the layout's `smashables` rows, carried
   in snapshots, back 30 s after a hit. A hit pays a pinch of boost and costs a little speed.
   Greybox models in `render/skins/greybox/smash.ts`. SPEC "Smashables".
-- **Landmarks, part 3 (Paradise): in review** (branch `landmarks-paradise`, stacked on
-  `landmarks-backroads`). A shipwreck, a breaching whale, a surf shack, a tiki head and seaplanes,
+- **Landmarks, part 3 (Paradise): merged** (PR #29, `alpha-1.12`). A shipwreck, a breaching whale, a surf shack, a tiki head and seaplanes,
   plus the lighthouse beam in the rain. Builders get `ctx.sea`. SPEC "Landmarks, part 3".
-- **Landmarks, part 2 (Backroads): in review** (branch `landmarks-backroads`, stacked on
-  `valley-wrecks`). A cow, a water tower (`label`), a scarecrow, a windpump, a drive-in and a
+- **Landmarks, part 2 (Backroads): merged** (PR #28, `alpha-1.12`). A cow, a water tower (`label`), a scarecrow, a windpump, a drive-in and a
   balloon. The forest keeps their ground (`marks`), and builders get `ctx.ground`. SPEC
   "Landmarks, part 2".
-- **Valley field wrecks: in review** (branch `valley-wrecks`, stacked on `landmarks-downtown`).
+- **Valley field wrecks: merged** (PR #27, `alpha-1.12`).
   The Valley wrecked the field 2.5 times a race over 16 seeds. Traffic now starts past the
   Trestle's legs and the falling sign is gone: 1.13 a race, held by a test. SPEC "The Valley's
   field wrecks". Downtown is still ~1.6, over MAPS.md's 1.5, and hasn't had a sweep yet.
-- **Landmarks, part 1 (Downtown): in review** (branch `landmarks-downtown`, PLAN phase 6). Layouts
+- **Landmarks, part 1 (Downtown): merged** (PR #26, `alpha-1.12`). Layouts
   carry `landmarks` (kind, at, rot, r, params), built by `render/skins/greybox/landmarks.ts`. The
   validator keeps roads `r` off them, the city leaves their ground empty (`Keep`), and the track
   visual's update gets `SceneLive` (race time, leader plate, wetness). Downtown has a clock tower,
   a leader billboard, a fountain, a donut shop and a canal with a drawbridge. SPEC "Landmarks,
   part 1". Next: Backroads, Paradise, then smashables.
-- **Lobby layout: merged** (PR #25, untagged). The seats alone dock left and fit the
+- **Lobby layout: merged** (PR #25, `alpha-1.12`). The seats alone dock left and fit the
   window, the car sits between them and the options (top right, the host's to set; guests see
   chips), arrows and A/D cycle the car, W/S and swatches the paint (`pick-*` menu actions,
   `Menu.pick`), and races default to 2 laps. SPEC "The lobby's layout".
@@ -295,13 +293,12 @@ Clockwise round a tropical island, the volcano in the middle and the sea all rou
 
 ## Next, in order
 
-1. **Merge PLAN phase 6** (PRs #26–#30, stacked, CI green, reviewed and fixed): Downtown's
-   landmarks (#26), the Valley's wrecks (#27), Backroads' landmarks (#28), Paradise's (#29) and
-   the smashables (#30). Merge in order without `--delete-branch` on all but the last, then tag
-   (`alpha-1.12`: retitle CHANGELOG's "Unreleased"). The last of the PLAN's phases.
-   - Worth a sweep next: Downtown's field wrecks, ~1.6 a race, the one map over MAPS.md's 1.5.
-   - gamerelay.io's four audit follow-ups are its PR #35 (platform, not racecar): not deployed.
-     Production and both relays need it.
+1. **PLAN phase 6 is done** (PRs #26–#30, merged and tagged `alpha-1.12`): the last of PLAN's
+   phases. Worth doing next:
+   - A sweep of Downtown's field wrecks: ~1.6 a race, the one map over MAPS.md's 1.5.
+   - gamerelay.io's four audit follow-ups are its PR #35 (platform, not racecar): not merged or
+     deployed. Production and both relays need it.
+   - PLAN's "Other ideas" (stunt air, rivals, map vote cards...).
 2. **Milestone 3 (online), per the spec:**
    - A `relay` LobbyBackend (`src/lobby/backend.ts`): lobbies as rooms with `setListing`, the
      list from `listRooms('race', { includeFull: true })`, and actions sent to the host, who
