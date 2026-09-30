@@ -25,6 +25,8 @@ and where things stand is [docs/HANDOFF.md](./docs/HANDOFF.md).
   - a rope bridge and a waterfall in the jungle;
   - the lighthouse with a sweeping beam;
   - signs at the shortcuts, and waves rolling over the shallows.
+- **Paradise's look:** a deep blue sky, white sand and a turquoise sea, graded vivid with blue-green
+  shadows (a color grade maps can set; Downtown and Backroads are unchanged).
 
 ### Changed
 - The bus accelerates a little harder (13 → 14), so it keeps up on Paradise's fast lap.

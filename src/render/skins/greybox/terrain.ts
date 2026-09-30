@@ -363,10 +363,10 @@ export function buildTerrain(track: Track, palette: Palette, seed: number): Terr
   const rock = new Color(0x7d7264);
   const rock2 = new Color(0x6a6155);
   const mud = new Color(0x8f7a55);
-  const sand = new Color(0xecdcaa);
-  const sand2 = new Color(0xe2cf98);
-  const lava = new Color(0x2b2629);
-  const lava2 = new Color(0x363031);
+  const sand = new Color(0xf3e8c8);
+  const sand2 = new Color(0xeadcb4);
+  const lava = new Color(0x3a3336);
+  const lava2 = new Color(0x463c3d);
   const c = new Color();
   const pos = new Float32Array((nx - 1) * (nz - 1) * 6 * 3);
   const col = new Float32Array(pos.length);

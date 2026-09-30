@@ -1403,3 +1403,11 @@ Paradise, part 2: the scenery (2026-09-30, PLAN phase 5):
   surface (the rope bridge and the tube's roof are over it), and the same seed builds the same
   island. The distance is to the nearest road sample: `projectGlobal`'s lateral is small for a
   point far along a hairpin's tangent, which flagged trees 40 m away.
+- **A grade per map** (owner, 2026-09-30: Paradise looked "a little grayscale", and the aim is a
+  2000s sunny-beach, blue-sky look). The post pass has a grade a palette can set: saturation,
+  contrast about mid-grey, a tint multiplied into the shadows, and the vignette's strength. With
+  none, the image is as rendered, so Downtown and Backroads don't change. `tropic` has 1.3×
+  saturation, 1.08 contrast, blue-green shadows and a light vignette (0.22). Its sky went deeper
+  blue with a clearer, bluer haze (fog out to 2.3 km), a lighter fill, a brighter sun, whiter sand
+  and greener grass. The grey was the pale haze and the flat fill washing the colors out, with
+  grey toon shadows and a heavy vignette on top.

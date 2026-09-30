@@ -15,7 +15,7 @@ import {
 import type { CarClass, PaintDef } from '../../../core/content';
 import type { Track } from '../../../core/track/bake';
 import type { Sim } from '../../../core/sim';
-import type { CarPlate, CarVisual, Skin, TrackVisual, WorldVisual } from '../../skin';
+import type { CarPlate, CarVisual, Grade, Skin, TrackVisual, WorldVisual } from '../../skin';
 import { buildCar } from './car/build';
 import { WET } from './toon';
 import { buildWorldVisual } from './world';
@@ -33,6 +33,7 @@ export class GreyboxSkin implements Skin {
   private fog?: Fog;
   private hemi?: HemisphereLight;
   ink = PALETTES.dusk.ink;
+  grade?: Grade;
 
   environment(scene: Scene, palette: string): void {
     // Again for another map (behind the menu): the last sky and lights go first.
@@ -46,6 +47,7 @@ export class GreyboxSkin implements Skin {
     }
     const p = (this.palette = PALETTES[palette] ?? PALETTES.dusk);
     this.ink = p.ink;
+    this.grade = p.grade;
     scene.background = new Color(p.fog);
     scene.fog = this.fog = new Fog(p.fog, p.fogNear, p.fogFar);
     scene.add((this.hemi = new HemisphereLight(p.hemiSky, p.hemiGround, p.hemiIntensity)));
