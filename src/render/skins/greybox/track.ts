@@ -30,7 +30,8 @@ import type { BakedSpline, Track } from '../../../core/track/bake';
 import { newHit, projectGlobal, sampleAt } from '../../../core/track/query';
 import type { TrackVisual } from '../../skin';
 import { buildCityscape } from './cityscape';
-import { faceted, toon, WET } from './toon';
+import { trafficModels } from './car/traffic';
+import { faceted, glow, toon, WET } from './toon';
 import type { Palette } from './palettes';
 
 const WALL_HEIGHT = 1.1;
@@ -162,14 +163,32 @@ export function buildTrackVisual(track: Track, palette: Palette, seed: number): 
   }
   if (track.layout.scenery === 'countryside') extras.push(...countryside(track, palette, seed, groundY));
 
+  const debug = debugVolumes(track);
   return {
     chunks,
     extras,
-    debug: debugVolumes(track),
+    debug,
     update,
     dispose() {
       for (const c of chunks) (c as Mesh).geometry.dispose();
       road.dispose();
+      // Everything else this build made (the city: hundreds of instanced meshes, sign textures),
+      // but not what's shared across builds (traffic models, the glow sprite).
+      const models = trafficModels();
+      const shared = new Set<unknown>([...Object.values(models.geos), models.material, glow()]);
+      for (const e of [...extras, debug]) {
+        e.traverse((o) => {
+          const m = o as Mesh;
+          if (m.geometry && !shared.has(m.geometry)) m.geometry.dispose();
+          const mats = Array.isArray(m.material) ? m.material : m.material ? [m.material] : [];
+          for (const mat of mats) {
+            if (shared.has(mat)) continue;
+            const map = (mat as MeshBasicMaterial).map;
+            if (map && !shared.has(map)) map.dispose();
+            mat.dispose();
+          }
+        });
+      }
     },
   };
 }
