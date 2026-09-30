@@ -1,0 +1,322 @@
+// The front door (PLAN phase 2): the title screen with the lobby list, Create lobby, and the lobby
+// itself, Civilization-style, with eight seats the host sets to a player, open, an AI or closed.
+// Every race starts from a lobby; playing alone is your lobby with bots in the open seats. The
+// screens only see a LobbyBackend, so online lobbies plug in behind them in milestone 3.
+
+import type { CarClass, MapDef, PaintDef, TrackLayout } from '../core/content';
+import type { LobbyBackend } from '../lobby/backend';
+import { LOCAL_ID } from '../lobby/backend';
+import { AI_NAMES, DIFFICULTY_NAMES, FILL_DIFFICULTY, SEATS, legacySeats, seatIndex, summarize, type Lobby, type LobbyAction, type LobbyOptions, type LobbySummary, type SeatChoice } from '../lobby/lobby';
+import { MAX_LAPS, raceFromLobby, toQuery, type RaceSetup } from './setup';
+import { thumb, thumbSvg } from './thumb';
+
+export interface MenuContent {
+  maps: MapDef[];
+  layouts: Record<string, TrackLayout>;
+  classes: CarClass[];
+  paints: PaintDef[];
+}
+
+type Screen = { kind: 'title' } | { kind: 'create' } | { kind: 'lobby'; id: string };
+
+const esc = (s: string) => s.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
+
+export class Menu {
+  private root: HTMLElement;
+  private screen: Screen = { kind: 'title' };
+  private unsubscribe: (() => void) | null = null;
+  /** Your car and paint for a new lobby (the last race's, when you come back from one). */
+  private yours: { car: string; paint: number };
+  private defaults: Partial<LobbyOptions>;
+
+  constructor(
+    private backend: LobbyBackend,
+    private content: MenuContent,
+    choices: Partial<RaceSetup>,
+  ) {
+    this.yours = { car: choices.car ?? 'coupe', paint: choices.paint ?? 0 };
+    this.defaults = {
+      ...(choices.map ? { map: choices.map } : {}),
+      ...(choices.laps ? { laps: choices.laps } : {}),
+      ...(choices.weather ? { weather: choices.weather } : {}),
+      ...(choices.mayhem ? { mayhem: choices.mayhem } : {}),
+      ...(choices.traffic !== undefined ? { traffic: choices.traffic } : {}),
+    };
+    this.root = document.createElement('div');
+    this.root.id = 'menu';
+    document.body.appendChild(this.root);
+  }
+
+  /** Opens on the title, or straight into a lobby (back from its race, or a reload in it). */
+  async open(lobbyId?: string | null): Promise<void> {
+    // The menu is up, so your lobby's race is over, however you left it (Back to lobby, a closed
+    // tab, the title's URL): it's waiting again, or Start and the seats would refuse.
+    const own = await this.backend.get(LOCAL_ID);
+    if (own?.phase === 'racing') await this.backend.send(own.id, { type: 'end' });
+    const lobby = lobbyId ? await this.backend.get(lobbyId) : null;
+    return this.show(lobby ? { kind: 'lobby', id: lobby.id } : { kind: 'title' });
+  }
+
+  /** Back (Esc, the pad's B): lobby and create go to the title. */
+  back(): void {
+    if (this.screen.kind !== 'title') void this.show({ kind: 'title' });
+  }
+
+  private async show(screen: Screen): Promise<void> {
+    this.unsubscribe?.();
+    this.unsubscribe = null;
+    this.screen = screen;
+    history.replaceState(null, '', screen.kind === 'lobby' ? `?lobby=${encodeURIComponent(screen.id)}` : location.pathname);
+    if (screen.kind === 'title') this.renderTitle(await this.backend.list());
+    else if (screen.kind === 'create') this.renderCreate();
+    else {
+      const lobby = await this.backend.get(screen.id);
+      if (!lobby) return this.show({ kind: 'title' });
+      this.unsubscribe = this.backend.subscribe(screen.id, (l) => (l ? this.renderLobby(l) : void this.show({ kind: 'title' })));
+      this.renderLobby(lobby);
+    }
+  }
+
+  /** Swaps the card, keeping focus on the same control when it's still there (for the pad). */
+  private paint(html: string, focus?: string): void {
+    const was = document.activeElement?.id;
+    this.root.innerHTML = html;
+    const el = (was && document.getElementById(was)) || (focus && document.getElementById(focus));
+    (el as HTMLElement | null)?.focus();
+  }
+
+  private on(id: string, fn: () => void): void {
+    const el = document.getElementById(id);
+    if (el) el.onclick = fn;
+  }
+
+  private mapName(key: string): string {
+    const map = this.content.maps.find((m) => key.startsWith(m.id + '/'));
+    return map ? (map.layouts.length > 1 ? `${map.name} · ${key.split('/')[1]}` : map.name) : key;
+  }
+
+  // ---- the title ----
+
+  private renderTitle(lobbies: LobbySummary[]): void {
+    const rows = lobbies.map((l) => this.lobbyRow(l)).join('');
+    this.paint(
+      `<div class="card title">
+        <div class="wordmark" aria-label="Racecar">RACECAR</div>
+        <h2>Lobbies</h2>
+        <div class="lobbies">${rows}
+          <div class="lrow soon"><span class="thumb"></span><span class="lname">Online lobbies arrive soon</span><span class="lmeta">Race friends and strangers here, with bots in the empty seats.</span></div>
+        </div>
+        <button id="mCreate" class="big">Create lobby</button>
+        <div class="row"><button id="mQuick" class="ghost">Quick race</button><button id="mFree" class="ghost">Free drive</button></div>
+        <p class="muted">Every race is a lobby, and bots fill the open seats. Quick race starts yours as it's set (you and seven bots, to begin with). Drift (Shift / RB) to take corners tighter; air, near misses and the oncoming lane fill boost.</p>
+      </div>`,
+      lobbies.length ? `lobby-${lobbies[0].id}` : 'mCreate',
+    );
+    for (const l of lobbies) this.on(`lobby-${l.id}`, () => void this.show({ kind: 'lobby', id: l.id }));
+    this.on('mCreate', () => void this.show({ kind: 'create' }));
+    this.on('mQuick', () => void this.quickRace());
+    this.on('mFree', () => void this.freeDrive());
+  }
+
+  private lobbyRow(l: LobbySummary): string {
+    const pips = [...l.pips].map((c) => `<i class="pip ${c === 'p' ? 'player' : c === 'o' ? 'open' : c === 'x' ? 'closed' : 'ai'}"></i>`).join('');
+    const phase = l.phase === 'racing' ? 'racing' : 'in lobby';
+    return `<button class="lrow" id="lobby-${esc(l.id)}">${thumbSvg(this.content.layouts[l.map], 44)}
+      <span class="lname">${esc(l.name)}${l.visibility === 'private' ? ' <small>private</small>' : ''}</span>
+      <span class="lmeta">${esc(this.mapName(l.map))} · ${l.laps} lap${l.laps === 1 ? '' : 's'} · ${phase}</span>
+      <span class="pips">${pips}</span><span class="lcount">${l.filled}/${SEATS}</span></button>`;
+  }
+
+  /** Your lobby, made with the defaults if there isn't one. */
+  private async ownLobby(): Promise<Lobby> {
+    return (await this.backend.get(LOCAL_ID)) ?? this.backend.create({ id: this.backend.you, name: 'You', ...this.yours }, { name: 'My lobby', options: this.defaults });
+  }
+
+  /** Straight into a race from your lobby, as it's set up. */
+  private async quickRace(): Promise<void> {
+    const lobby = await this.ownLobby();
+    await this.start(lobby);
+  }
+
+  private async freeDrive(): Promise<void> {
+    const lobby = await this.backend.get(LOCAL_ID);
+    // Your lobby's settings, or the last race's when there's no lobby.
+    const o = { ...this.defaults, ...(lobby?.options ?? {}) };
+    const setup: RaceSetup = {
+      mode: 'free',
+      map: o.map ?? Object.keys(this.content.layouts)[0],
+      ...this.yourCar(lobby),
+      seats: legacySeats(3, FILL_DIFFICULTY),
+      laps: 3,
+      weather: o.weather ?? 'random',
+      mayhem: o.mayhem ?? 'normal',
+      traffic: o.traffic ?? true,
+      seed: Math.floor(Math.random() * 1e9),
+    };
+    location.search = toQuery(setup);
+  }
+
+  private yourCar(lobby: Lobby | null): { car: string; paint: number } {
+    const s = lobby?.seats[seatIndex(lobby, this.backend.you)];
+    return s && s.kind === 'player' ? { car: s.car, paint: s.paint } : this.yours;
+  }
+
+  // ---- create lobby ----
+
+  private sel(id: string, opts: [string, string][], value: string, disabled = false): string {
+    return `<select id="${id}"${disabled ? ' disabled' : ''}>${opts.map(([v, l]) => `<option value="${esc(v)}"${v === value ? ' selected' : ''}>${esc(l)}</option>`).join('')}</select>`;
+  }
+
+  private optionFields(o: LobbyOptions, disabled: boolean): string {
+    const maps: [string, string][] = Object.keys(this.content.layouts).map((k) => [k, this.mapName(k)]);
+    return `<label>Map ${this.sel('oMap', maps, o.map, disabled)}</label>
+      <label>Laps ${this.sel('oLaps', Array.from({ length: MAX_LAPS }, (_, k) => [String(k + 1), String(k + 1)] as [string, string]), String(o.laps), disabled)}</label>
+      <label>Weather ${this.sel('oWeather', [['random', 'random'], ['clear', 'clear'], ['rain', 'rain']], o.weather, disabled)}</label>
+      <label>Mayhem ${this.sel('oMayhem', [['normal', 'normal'], ['chaos', 'chaos'], ['off', 'off']], o.mayhem, disabled)}</label>
+      <label>Traffic ${this.sel('oTraffic', [['1', 'on'], ['0', 'off']], o.traffic ? '1' : '0', disabled)}</label>`;
+  }
+
+  private readOptions(): LobbyOptions {
+    const v = (id: string) => (document.getElementById(id) as HTMLSelectElement).value;
+    return {
+      map: v('oMap'),
+      laps: Number(v('oLaps')),
+      weather: v('oWeather') as LobbyOptions['weather'],
+      mayhem: v('oMayhem') as LobbyOptions['mayhem'],
+      traffic: v('oTraffic') === '1',
+    };
+  }
+
+  private renderCreate(): void {
+    const o: LobbyOptions = { map: Object.keys(this.content.layouts)[0], laps: 3, weather: 'random', mayhem: 'normal', traffic: true, ...this.defaults };
+    this.paint(
+      `<div class="card setup create">
+        <h1>Create lobby</h1>
+        <div class="grid">
+          <label class="wide">Name <input id="cName" maxlength="32" autocomplete="off" data-1p-ignore data-lpignore="true" value="My lobby"></label>
+          ${this.optionFields(o, false)}
+          <label>Who can join ${this.sel('cVis', [['public', 'public: listed'], ['private', 'private: by link']], 'public')}</label>
+        </div>
+        <div class="row"><button id="cGo">Create</button><button id="cBack" class="ghost">Back</button></div>
+        <p class="muted">You'll host it: set each seat to an AI, open or closed. Open seats get a bot when the race starts.</p>
+      </div>`,
+      'cGo',
+    );
+    this.on('cBack', () => this.back());
+    this.on('cGo', async () => {
+      const name = (document.getElementById('cName') as HTMLInputElement).value;
+      const visibility = (document.getElementById('cVis') as HTMLSelectElement).value as Lobby['visibility'];
+      const lobby = await this.backend.create({ id: this.backend.you, name: 'You', ...this.yours }, { name, visibility, options: this.readOptions() });
+      void this.show({ kind: 'lobby', id: lobby.id });
+    });
+  }
+
+  // ---- the lobby ----
+
+  private send(lobby: Lobby, action: LobbyAction): void {
+    void this.backend.send(lobby.id, action);
+  }
+
+  private renderLobby(lobby: Lobby): void {
+    const { classes, paints } = this.content;
+    const you = this.backend.you;
+    const host = lobby.host === you;
+    const mine = seatIndex(lobby, you);
+    const yours = this.yourCar(lobby);
+    const className = (id: string) => classes.find((c) => c.id === id)?.name ?? id;
+    const dot = (paint: number) => `<i class="dot" style="background:${paints[paint % paints.length].color}"></i>`;
+    const seatOpts: [SeatChoice, string][] = [['open', 'Open'], ['ai-easy', 'AI · easy'], ['ai-normal', 'AI · normal'], ['ai-hard', 'AI · hard'], ['closed', 'Closed']];
+    const rows = lobby.seats
+      .map((s, k) => {
+        let who: string, car: string, status: string;
+        if (s.kind === 'player') {
+          const me = s.id === you;
+          who = `<b>${esc(s.name)}</b>${s.id === lobby.host ? ' <small class="tag">host</small>' : ''}`;
+          car = me
+            ? `${this.sel('lCar', classes.map((c) => [c.id, c.name]), s.car)} ${this.sel('lPaint', paints.map((p, i) => [String(i), p.name]), String(s.paint))}`
+            : `${dot(s.paint)}${esc(className(s.car))}`;
+          status = s.id === lobby.host ? '' : s.ready ? '<span class="ready">ready</span>' : 'not ready';
+          return `<tr class="${me ? 'me' : ''}"><td>${k + 1}</td><td>${who}</td><td class="car">${car}</td><td>${status}</td><td class="ping">—</td></tr>`;
+        }
+        const choice: SeatChoice = s.kind === 'ai' ? (['ai-easy', 'ai-normal', 'ai-hard'] as const)[s.difficulty] : s.kind;
+        who = host ? this.sel(`seat-${k}`, seatOpts, choice) : `<span>${seatOpts.find(([v]) => v === choice)![1]}</span>`;
+        // The rival a seat brings (the same one every race: see roster in lobby.ts).
+        const cls = classes[k % classes.length];
+        const paint = (yours.paint + k) % paints.length;
+        if (s.kind === 'ai') car = `${dot(paint)}${esc(AI_NAMES[(k + SEATS - 1) % SEATS])} · ${esc(cls.name)}`;
+        else if (s.kind === 'open') car = `<span class="muted">a ${DIFFICULTY_NAMES[FILL_DIFFICULTY]} bot joins at the start</span>`;
+        else car = '';
+        status = s.kind === 'ai' ? 'bot' : '';
+        return `<tr class="${s.kind}"><td>${k + 1}</td><td>${who}</td><td class="car">${car}</td><td>${status}</td><td class="ping"></td></tr>`;
+      })
+      .join('');
+    const o = lobby.options;
+    const layout = this.content.layouts[o.map];
+    const km = layout ? `${thumb(layout).km.toFixed(1)} km` : '';
+    const s = summarize(lobby);
+    this.paint(
+      `<div class="card lobby">
+        <h1>${esc(lobby.name)}</h1>
+        <p class="sub">${lobby.visibility} · ${SEATS - lobby.seats.filter((x) => x.kind === 'closed').length} cars on the grid · this browser</p>
+        <div class="lobbyGrid">
+          <div><table class="seats"><thead><tr><th>#</th><th>Seat</th><th>Car</th><th></th><th>Ping</th></tr></thead><tbody>${rows}</tbody></table>
+          ${mine >= 0 ? `<p class="muted" id="sBlurb">${this.carBlurb(yours.car)}</p>` : ''}</div>
+          <aside class="mapCard">
+            ${thumbSvg(layout, 150)}
+            <b>${esc(this.mapName(o.map))}</b><small>${km}</small>
+            <div class="opts">${this.optionFields(o, !host)}</div>
+          </aside>
+        </div>
+        <div class="row">${host ? '<button id="lStart">Start race</button>' : `<button id="lReady">${mine >= 0 && lobby.seats[mine].kind === 'player' && lobby.seats[mine].ready ? 'Not ready' : 'Ready'}</button>`}
+          <button id="lBack" class="ghost">Title</button><button id="lLeave" class="ghost danger">${host && s.players === 1 ? 'Close lobby' : 'Leave'}</button></div>
+        <p class="muted">${host ? 'You host: set each seat from its row. ' : ''}Online lobbies arrive with milestone 3; for now it's you and the bots.</p>
+      </div>`,
+      host ? 'lStart' : 'lReady',
+    );
+    this.on('lStart', () => void this.start(lobby));
+    this.on('lReady', () => {
+      const me = lobby.seats[mine];
+      this.send(lobby, { type: 'ready', ready: !(me?.kind === 'player' && me.ready) });
+    });
+    this.on('lBack', () => this.back());
+    this.on('lLeave', () => this.send(lobby, { type: 'leave' }));
+    const change = (id: string, fn: (v: string) => void) => {
+      const el = document.getElementById(id) as HTMLSelectElement | null;
+      if (el) el.onchange = () => fn(el.value);
+    };
+    for (let k = 0; k < SEATS; k++) change(`seat-${k}`, (v) => this.send(lobby, { type: 'seat', index: k, to: v as SeatChoice }));
+    const car = () => this.send(lobby, { type: 'car', car: (document.getElementById('lCar') as HTMLSelectElement).value, paint: Number((document.getElementById('lPaint') as HTMLSelectElement).value) });
+    change('lCar', car);
+    change('lPaint', car);
+    if (host) for (const id of ['oMap', 'oLaps', 'oWeather', 'oMayhem', 'oTraffic']) change(id, () => this.send(lobby, { type: 'options', options: this.readOptions() }));
+  }
+
+  /** Your car's job and how it compares: a bar per stat against the range across the classes. */
+  private carBlurb(id: string): string {
+    const classes = this.content.classes;
+    const c = classes.find((k) => k.id === id);
+    if (!c) return '';
+    const stats: [string, (c: CarClass) => number][] = [
+      ['Top speed', (c) => c.topSpeed],
+      ['Accel', (c) => c.accel],
+      ['Handling', (c) => c.turn * c.grip],
+      ['Weight', (c) => c.mass],
+    ];
+    const bars = stats
+      .map(([name, f]) => {
+        const vals = classes.map(f);
+        const lo = Math.min(...vals) * 0.8;
+        const t = (f(c) - lo) / (Math.max(...vals) - lo);
+        return `<span class="bar"><small>${name}</small><i style="--t:${t.toFixed(2)}"></i></span>`;
+      })
+      .join('');
+    return `<b>${esc(c.name)}</b>: ${esc(c.blurb ?? '')}<span class="bars">${bars}</span>`;
+  }
+
+  /** The host starts: the lobby's seats become the race's cars, and the page loads into it. */
+  private async start(lobby: Lobby): Promise<void> {
+    const started = await this.backend.send(lobby.id, { type: 'start' });
+    if (!started) return;
+    location.search = toQuery(raceFromLobby(started, this.backend.you, Math.floor(Math.random() * 1e9)));
+  }
+}

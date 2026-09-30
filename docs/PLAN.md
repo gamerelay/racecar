@@ -25,7 +25,7 @@ leave a few small details behind.
 7. **Paradise is dynamic:** sunny day, a tropical shower that can roll in and out, and a sunset
    variant.
 
-## Phase 1: quick polish (one small PR)
+## Phase 1: quick polish (one small PR) — done, PR #14
 
 - **Map names:** "City" becomes **Downtown**, "Countryside" becomes **Backroads**. One name per
   map; the layout name moves into its blurb. Ids change too, with aliases for old ones.
@@ -39,7 +39,7 @@ leave a few small details behind.
   taught us (outline below). It comes before Paradise so Paradise follows it.
 - **Tests:** old ids still resolve, and every paint and map name is a single word.
 
-## Phase 2: title screen and lobbies (local first)
+## Phase 2: title screen and lobbies (local first) — built, branch `lobbies`
 
 One flow for everyone: **every race is a lobby**, and bots fill the open seats. Playing alone
 is a lobby with seven bots.

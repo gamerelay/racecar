@@ -37,24 +37,33 @@ describe('readSetup', () => {
     expect(read('car=bus')).toBeNull();
   });
   test('good values pass through', () => {
-    expect(read('mode=race&map=backroads/valley&car=bus&paint=3&opponents=5&difficulty=2&laps=4&weather=rain&mayhem=chaos&traffic=0&seed=42')).toEqual({
-      mode: 'race', map: 'backroads/valley', car: 'bus', paint: 3, opponents: 5, difficulty: 2, laps: 4, weather: 'rain', mayhem: 'chaos', traffic: false, seed: 42,
+    expect(read('mode=race&map=backroads/valley&car=bus&paint=3&seats=pnhoexxx&laps=4&weather=rain&mayhem=chaos&traffic=0&seed=42&lobby=local')).toEqual({
+      mode: 'race', map: 'backroads/valley', car: 'bus', paint: 3, seats: 'pnhoexxx', laps: 4, weather: 'rain', mayhem: 'chaos', traffic: false, seed: 42, lobby: 'local',
     });
+  });
+  test('links from before lobbies: opponents and difficulty become seats', () => {
+    expect(read('mode=race&opponents=5&difficulty=2')!.seats).toBe('phhhhhxx');
+    expect(read('mode=race&opponents=0')!.seats).toBe('pxxxxxxx');
+    expect(read('mode=race')!.seats).toBe('pnnnnnnn');
+    // Free drive always had three rivals.
+    expect(read('mode=free&difficulty=0')!.seats).toBe('peeexxxx');
+    // Bad seats (no you, two of you, junk, too many) fall back the same way.
+    for (const bad of ['nnnnnnnn', 'ppnnnnnn', 'pq', 'pnnnnnnnn']) expect(read(`mode=race&opponents=2&seats=${bad}`)!.seats).toBe('pnnxxxxx');
   });
   test('junk falls back instead of crashing or never finishing', () => {
     const s = read('mode=race&car=lambo&paint=abc&opponents=x&difficulty=1.6&laps=x&weather=snow&mayhem=&seed=')!;
     expect(s.car).toBe('coupe');
     expect(s.paint).toBe(0);
-    expect(s.opponents).toBe(7);
-    expect(s.difficulty).toBe(2);
+    // opponents=x is the default 7; difficulty 1.6 rounds to hard.
+    expect(s.seats).toBe('phhhhhhh');
     expect(s.laps).toBe(3);
     expect(s.weather).toBe('random');
     expect(s.mayhem).toBe('normal');
     expect(Number.isInteger(s.seed)).toBe(true);
   });
   test('out of range clamps', () => {
-    const s = read('mode=free&paint=-1&opponents=99&difficulty=-3&laps=0')!;
-    expect([s.paint, s.opponents, s.difficulty, s.laps]).toEqual([0, 7, 0, 1]);
+    const s = read('mode=race&paint=-1&opponents=99&difficulty=-3&laps=0')!;
+    expect([s.paint, s.seats, s.laps]).toEqual([0, 'peeeeeee', 1]);
     expect(read('mode=race&paint=40')!.paint).toBe(8);
   });
   test("the menu's defaults are the last race's choices", () => {
