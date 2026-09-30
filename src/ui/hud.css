@@ -205,26 +205,34 @@ svg.thumb .cut { stroke: var(--sun); stroke-width: 1.5; stroke-dasharray: 3 2; }
 .card.setup .grid label.wide { grid-column: 1 / -1; }
 
 .card.lobby { max-width: 980px; }
-.card.lobby h1 { font-size: clamp(32px, 6vw, 48px); margin-bottom: 4px; overflow-wrap: anywhere; }
-.card .sub { color: var(--muted); font-size: 13px; margin: 0 0 14px; }
+.card.lobby h1 { font-size: clamp(32px, 6vw, 48px); margin-bottom: 12px; overflow-wrap: anywhere; }
+.card .sub { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 0; color: var(--muted); font-size: 13px; margin: 0 0 22px; }
+/* Items with room between them, split by a dim dot. */
+.card .sub span + span::before { content: '·'; margin: 0 14px; opacity: 0.5; }
 .lobbyGrid { display: grid; grid-template-columns: 1fr 230px; gap: 18px; margin: 0 0 16px; align-items: start; }
 .seats { width: 100%; border-collapse: collapse; font-size: 14px; }
-.seats th { text-align: left; color: var(--muted); font-weight: 700; padding: 4px 6px; border-bottom: 2px solid var(--muted); }
-.seats td { padding: 5px 6px; border-bottom: 1px solid rgba(216, 198, 242, 0.2); height: 40px; }
-.seats td:first-child { color: var(--muted); width: 18px; font-variant-numeric: tabular-nums; }
+.seats th { text-align: left; color: var(--muted); font-weight: 700; padding: 6px 10px 8px; border-bottom: 2px solid var(--muted); }
+.seats td { padding: 0 10px; border-bottom: 1px solid rgba(216, 198, 242, 0.2); height: 56px; vertical-align: middle; }
+/* Every row the same: seat controls one width, all controls one height. */
+.seats td:nth-child(2) { width: 170px; white-space: nowrap; }
+.seats td:nth-child(2) select { width: 150px; }
+.seats td:nth-child(2) .plate { min-width: 96px; text-align: center; }
+.card .seats select { height: 36px; box-sizing: border-box; }
+.seats .plate { padding: 0 8px; height: 26px; line-height: 22px; box-sizing: border-box; }
+.seats td:first-child { color: var(--muted); width: 18px; padding-right: 4px; font-variant-numeric: tabular-nums; }
 .seats tr.me td { color: var(--sun); }
 .seats tr.closed td { color: rgba(216, 198, 242, 0.45); }
-.seats .car { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.seats .car { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
 .seats .car .muted { margin: 0; font-size: 12px; }
 .seats select { padding: 5px 28px 5px 8px; font-size: 13px; }
-.seats .tag { font-size: 10px; color: var(--outline); background: var(--sun); padding: 1px 5px; vertical-align: 2px; }
+.seats .tag { font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; line-height: 1; color: var(--outline); background: var(--sun); padding: 3px 5px; margin-left: 6px; vertical-align: middle; }
 .seats .ready { color: #7cff6b; }
 .seats .ping { color: var(--muted); }
-.mapCard { display: grid; gap: 6px; justify-items: start; background: rgba(10, 4, 20, 0.6); border: 2px solid var(--ink); padding: 12px; }
+.mapCard { display: grid; gap: 8px; justify-items: start; background: rgba(10, 4, 20, 0.6); border: 2px solid var(--ink); padding: 16px; }
 .mapCard b { font-family: var(--display); font-weight: 400; font-size: 20px; }
-.mapCard small { color: var(--muted); margin-top: -4px; }
-.mapCard .opts { display: grid; gap: 8px; width: 100%; }
-.mapCard label { display: grid; gap: 3px; font-weight: 700; font-size: 12px; color: var(--muted); }
+.mapCard small { color: var(--muted); margin: -4px 0 6px; }
+.mapCard .opts { display: grid; gap: 14px; width: 100%; }
+.mapCard label { display: grid; gap: 6px; font-weight: 700; font-size: 12px; color: var(--muted); }
 .mapCard select { width: 100%; }
 .card select:disabled { opacity: 0.7; cursor: default; border-color: rgba(216, 198, 242, 0.4); background-image: none; }
 @media (max-width: 760px) {
@@ -240,6 +248,10 @@ svg.thumb .cut { stroke: var(--sun); stroke-width: 1.5; stroke-dasharray: 3 2; }
   .lrow .lcount { grid-column: 3; }
   .card.lobby { padding: 16px; }
   .seats td:nth-child(4), .seats th:nth-child(4) { display: none; }
+  .seats td { padding: 0 6px; }
+  .seats td:nth-child(2) { width: auto; }
+  .seats td:nth-child(2) select { width: 116px; }
+  .card .sub span + span::before { margin: 0 8px; }
 }
 
 /* ---- license plates (PLAN phase 3): your name, and every driver's, as a little plate ---- */
@@ -256,3 +268,6 @@ svg.thumb .cut { stroke: var(--sun); stroke-width: 1.5; stroke-dasharray: 3 2; }
 .platePreview .plate { font-size: clamp(34px, 9vw, 48px); padding: 8px 18px 6px; border-width: 4px; border-radius: 6px; box-shadow: 5px 5px 0 var(--outline); min-width: 5ch; text-align: center; }
 .card.plateEdit input { font-size: 22px; letter-spacing: 0.12em; text-transform: uppercase; text-align: center; }
 .card .err { color: #ff8fb8; font-size: 13px; min-height: 1.4em; margin: 8px 0 10px; }
+
+/* The car's job and stats under the seats, with room to breathe. */
+.lobbyGrid #sBlurb { margin-top: 18px; }
