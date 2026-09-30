@@ -6,6 +6,11 @@ and where things stand is [docs/HANDOFF.md](./docs/HANDOFF.md).
 
 ## Unreleased
 
+## alpha-1.11: Paradise's weather and hazards
+
+PLAN phase 5, part 3: showers, sunset and the sky in the rain (PR #23), and volcano bombs,
+coconuts, the re-laid Sandbar, and the Powerglide and Superman HUD tweaks (PR #24).
+
 ### Added
 - **Tropical showers on Paradise:** with random weather, a shower can roll in partway through a
   race and pass again, with the sun still out and puddles while it lasts.

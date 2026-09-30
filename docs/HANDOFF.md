@@ -4,9 +4,9 @@ Where racecar stands and what's next, for whoever picks it up (a person or a fre
 The design is [SPEC.md](./SPEC.md): decisions in §17, and what building changed in "Changed while
 building". This file is "where are we"; the spec is "what are we making".
 
-**Last updated:** 2026-09-30. `main` is tagged **`alpha-1.10`**: milestone 2 (PR #2, tagged
+**Last updated:** 2026-09-30. `main` is tagged **`alpha-1.11`**: milestone 2 (PR #2, tagged
 `alpha-1.0`), Countryside v2 (PR #4, `alpha-1.1`), seven cars plus polish (PR #6, `alpha-1.2`),
-traffic that fades instead of popping (PR #7, `alpha-1.3`), audio plus a review pass (PR #9, `alpha-1.4`), Valley v3 with smooth shortcut joins (PR #10, `alpha-1.5`), drift chains, skid marks, new car designs and a second review pass (PR #12, `alpha-1.6`), the police car, solid Trestle legs, air boost and boost by position (PR #13, `alpha-1.7`), the quick wins plus the title screen and local lobbies (PRs #14 and #16, `alpha-1.8`), license plates, the lobby polish, the cars doc `docs/CARS.md`, marketing art with link previews and the car select (PRs #18, #19, #15, #17 and #20, `alpha-1.9`), and Paradise's lap, land and scenery (PRs #21 and #22, `alpha-1.10`). Every release is in [CHANGELOG.md](../CHANGELOG.md): add to its "Unreleased" section as you go, and retitle that section when you tag. What's next is [PLAN.md](./PLAN.md) (phase 1, the quick wins, merged as PR #14; phase 2, the title screen and local lobbies, merged as PR #16; phase 3, license plates, merged as PR #18; phase 4, the car select, merged as PR #20; phase 5, Paradise: parts 1 and 2, the lap, land and scenery, merged as PRs #21 and #22; part 3 is next), and how maps are made is [MAPS.md](./MAPS.md).
+traffic that fades instead of popping (PR #7, `alpha-1.3`), audio plus a review pass (PR #9, `alpha-1.4`), Valley v3 with smooth shortcut joins (PR #10, `alpha-1.5`), drift chains, skid marks, new car designs and a second review pass (PR #12, `alpha-1.6`), the police car, solid Trestle legs, air boost and boost by position (PR #13, `alpha-1.7`), the quick wins plus the title screen and local lobbies (PRs #14 and #16, `alpha-1.8`), license plates, the lobby polish, the cars doc `docs/CARS.md`, marketing art with link previews and the car select (PRs #18, #19, #15, #17 and #20, `alpha-1.9`), Paradise's lap, land and scenery (PRs #21 and #22, `alpha-1.10`), and Paradise's weather, sunset, hazards and tuning plus the Powerglide and Superman HUD tweaks (PRs #23 and #24, `alpha-1.11`). Every release is in [CHANGELOG.md](../CHANGELOG.md): add to its "Unreleased" section as you go, and retitle that section when you tag. What's next is [PLAN.md](./PLAN.md) (phase 1, the quick wins, merged as PR #14; phase 2, the title screen and local lobbies, merged as PR #16; phase 3, license plates, merged as PR #18; phase 4, the car select, merged as PR #20; phase 5, Paradise: parts 1 and 2, the lap, land and scenery, merged as PRs #21 and #22; part 3, weather, sunset, hazards and tuning, merged as PRs #23 and #24; phase 6, landmarks, is next), and how maps are made is [MAPS.md](./MAPS.md).
 
 **Map names:** City is now **Downtown** and Countryside is **Backroads** (content in
 `content/maps/downtown` and `content/maps/backroads`; keys `downtown/downtown`, `backroads/valley`;
@@ -20,7 +20,7 @@ The third map is **Paradise** (`content/maps/paradise`, key `paradise/island`).
 3. The platform side is ready: gamerelay PR #30 (host controls) is deployed and SDK
    `0.1.0-alpha.4` has it (see "GameRelay side" below).
 4. Before changing anything: `bun test && bun run typecheck && bun tools/validate.ts`. All three
-   are green on `main` (176 tests). Branch off `main`, one PR per phase, with CI.
+   are green on `main` (187 tests). Branch off `main`, one PR per phase, with CI.
 
 ## Where things stand
 
@@ -33,7 +33,7 @@ The third map is **Paradise** (`content/maps/paradise`, key `paradise/island`).
   favicons, a web manifest and JSON-LD.
 - **Cars doc: merged** (PR #15): `docs/CARS.md`, how the cars are designed and built, and adding
   one.
-- **Paradise, parts 1 and 2: merged** (PRs #21 and #22, PLAN phase 5, `alpha-1.10`). Part 1, the
+- **Paradise, parts 1–3: merged** (PRs #21–#24, PLAN phase 5, `alpha-1.10` and `alpha-1.11`). Part 1, the
   Island (`tools/gen-paradise.ts`, `content/maps/paradise`): 3.44 km clockwise, a 68.2 s hard-AI
   floor (66.8 s after part 3's Sandbar), the Sandbar and the Lava Tube. The shared lap-laying is
   `tools/lib/lap.ts` (the Valley regenerates byte-for-byte). The land is `buildTerrain` with
@@ -42,14 +42,17 @@ The third map is **Paradise** (`content/maps/paradise`, key `paradise/island`).
   `lava-rock`, `shore`; the `tropic` palette with a daytime sky (`day`). The bus's accel went 13
   → 14 for balance. SPEC "Paradise, part 1". Part 2 (PR #22) is the scenery (`island.ts`),
   waves, and a color grade palettes can set in the post pass (Paradise's vivid 2000s-beach look;
-  the other maps have none). SPEC "Paradise, part 2". Part 3 is in two PRs. The first,
-  weather and time (branch `paradise-weather`), adds passing tropical showers (`shower` in a
+  the other maps have none). SPEC "Paradise, part 2". Part 3 (`alpha-1.11`) came in two PRs. The first,
+  weather and time (PR #23), adds passing tropical showers (`shower` in a
   map's weather), a sky that clouds over in the rain on every map (`overcast` per palette), the
   `sunset` palette with a lobby Time option (`paletteFor`), and no rain in the Lava Tube
-  (`covers`). SPEC "Paradise, part 3a". The second, stacked on it (branch `paradise-hazards`),
-  is the hazards and tuning: volcano bombs on the rim (a scheduled kind), coconuts on the beach
+  (`covers`). SPEC "Paradise, part 3a". The second (PR #24) is the hazards and tuning: volcano bombs on the rim (a scheduled kind), coconuts on the beach
   road (a trigger, and a new bump contact, `Solid.Bump`), and the Sandbar re-laid straight along
-  the waterline. The old one was most of the field's wrecks. SPEC "Paradise, part 3b".
+  the waterline. The old one was most of the field's wrecks. SPEC "Paradise, part 3b". Paradise
+  now wrecks the AI field ~1.25 times a race with its hazards (16 seeds), and classes hold ±5%.
+  Also in #24, the HUD tweaks: "Powerglide" (was "Drift boost"), a **Superman** for boosting
+  through the air (`superT`, 1.5× air pay, `supermanMin`/`supermanPay`), and a bold outline
+  on the countdown's numbers. SPEC "HUD tweaks".
 - **Car select: merged** (PR #20, PLAN phase 4, `alpha-1.9`). The lobby docks left and your car turns on a table
   beside it (`src/render/showroom.ts`), a 1:50 model held in front of the world camera, so the
   post pass and weather treat it like the world, framed into the lobby's `.stage` box so CSS places it (beside the menu, or above it
@@ -267,10 +270,13 @@ Clockwise round a tropical island, the volcano in the middle and the sea all rou
 
 ## Next, in order
 
-1. **PLAN phase 5, Paradise, part 3** (parts 1 and 2 are merged):
-   - Part 3a (weather and time) is PR #23; part 3b (hazards, the Sandbar, sweeps) is stacked
-     on it. Merge #23 first, without `--delete-branch`, then retarget the second to main.
-   - Then phase 6 (landmarks) or milestone 3 (online), per PLAN.
+1. **PLAN phase 6, landmarks (every map)** (phase 5, Paradise, is done and tagged `alpha-1.11`).
+   See PLAN.md. Worth doing alongside:
+   - Sweep the Valley's field wrecks: 2.0 a race on seeds 1–8, over MAPS.md's 1.5 (see the
+     Smaller follow-ups).
+   - The four issues the misdirected review found in gamerelay.io's merged PR #24 (platform, not
+     racecar). The worst: the room-code throttle runs before the room lookup, so a throttled
+     reconnect (`join_room` with `resume`) drops players from their room on a shared address.
 2. **Milestone 3 (online), per the spec:**
    - A `relay` LobbyBackend (`src/lobby/backend.ts`): lobbies as rooms with `setListing`, the
      list from `listRooms('race', { includeFull: true })`, and actions sent to the host, who

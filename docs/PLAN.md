@@ -105,7 +105,7 @@ is a lobby with seven bots.
 - Stat bars next to the car (speed, accel, handling, weight, boost), from the class numbers.
 - On a phone the preview stacks above the menu.
 
-## Phase 5: Paradise — parts 1 and 2 done, PRs #21 and #22; part 3 in review, PRs #23 and (hazards) next
+## Phase 5: Paradise — done, PRs #21–#24 (`alpha-1.10`, `alpha-1.11`)
 
 A tropical island in daytime. Sunny, with palm trees, beaches and sand, a volcano in the
 middle, and an elevated freeway along part of the coast. Curvy all the way round, with wide
@@ -141,7 +141,7 @@ roads and elevation changes.
 - **Traffic:** town and freeway only, with sections on straights as MAPS.md says.
 
 **Parts:** 1. the lap, land, sea, palette and freeway (PR #21); 2. scenery, waves and the grade (PR #22);
-3. the shower and sunset (PR #23), then the hazards and tuning sweeps (the PR stacked on it).
+3. the shower and sunset (PR #23), then the hazards and tuning sweeps (PR #24).
 
 **How to build it:**
 - **Generator:** `tools/gen-paradise.ts`, the Valley's generator made general: filleted arcs,
@@ -164,7 +164,7 @@ roads and elevation changes.
   flies the jumps and takes the shortcuts clean, corners bank into the turn, the road is wide
   enough, the lap floor and wrecks are in range, and the sea is below the road everywhere.
 
-## Phase 6: landmarks (every map)
+## Phase 6: landmarks (every map) — next
 
 Small, distinct things you remember a lap by. They're built from the track and the same every
 race; some move, and a few you can hit.
