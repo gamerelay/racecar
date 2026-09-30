@@ -1137,3 +1137,26 @@ Drift chains and skid marks (2026-09-30), the next of the "lean into the loop" i
 - **Compact, truck and police designs** came in from branch `car-polish` (with its polish pass:
   clean ink, one detail language, reflective glass). Traffic draws the compact and the truck as
   their own designs now; the police car is garage-only.
+
+Second review pass (2026-09-30), four parallel reviews again (core, render, UI and audio, project
+shape), each finding checked before fixing; the notable ones, with tests where they can have one:
+
+- **Core:** the main road's wall opened on the wrong side at a shortcut's mouth on a curve (the
+  Barn); replays drifted from the live run because the sim stepped on unrounded input (human input
+  is quantized on the way in now, to what reports record); a reset no longer slows the world; an
+  empty checkpoint list falls back to automatic; a respawn clears the AI's stuck timers; a wall
+  knock between drifts loses the chain.
+- **Render:** scenery, rain and flames run on world time (they carried on while paused); skid
+  marks fade into the fog; particle rates hold below 60 fps; far traffic skips the ink pass; the
+  blur takes one tap where there's none.
+- **UI and audio:** the F8 form owns the controls while up (the pad could unpause the game behind
+  it); dropdowns in menus don't trap the arrows, and Space presses buttons; a hidden tab or mute
+  suspends audio (the engine droned on in background tabs); one-shots end on the audio clock
+  (music cut out after every unpause).
+- **Project:** one content loader for tools and tests (`tools/content.ts`), the lap report split
+  from its CLI (`tools/lap.ts`), replay loads all seven classes (it loaded four), validate and a
+  test check `content/cars` against `CLASS_ORDER`, three.js in its own chunk, the dev save endpoint
+  checks its path and origin.
+
+The larger refactors it suggested (splitting `buildCar` and `buildCityscape`, one road index for
+the scenery) are in HANDOFF's follow-ups.
