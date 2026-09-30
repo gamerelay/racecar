@@ -42,8 +42,12 @@ The third map is **Paradise** (`content/maps/paradise`, key `paradise/island`).
   `lava-rock`, `shore`; the `tropic` palette with a daytime sky (`day`). The bus's accel went 13
   → 14 for balance. SPEC "Paradise, part 1". Part 2 (PR #22) is the scenery (`island.ts`),
   waves, and a color grade palettes can set in the post pass (Paradise's vivid 2000s-beach look;
-  the other maps have none). SPEC "Paradise, part 2". Part 3 (hazards, the shower and sunset,
-  tuning) is next.
+  the other maps have none). SPEC "Paradise, part 2". Part 3 is in two PRs. The first,
+  weather and time (branch `paradise-weather`), adds passing tropical showers (`shower` in a
+  map's weather), a sky that clouds over in the rain on every map (`overcast` per palette), the
+  `sunset` palette with a lobby Time option (`paletteFor`), and no rain in the Lava Tube
+  (`covers`). SPEC "Paradise, part 3a". The second is the hazards (volcano bombs, coconuts)
+  and tuning sweeps.
 - **Car select: merged** (PR #20, PLAN phase 4, `alpha-1.9`). The lobby docks left and your car turns on a table
   beside it (`src/render/showroom.ts`), a 1:50 model held in front of the world camera, so the
   post pass and weather treat it like the world, framed into the lobby's `.stage` box so CSS places it (beside the menu, or above it
@@ -260,13 +264,10 @@ Clockwise round a tropical island, the volcano in the middle and the sea all rou
 ## Next, in order
 
 1. **PLAN phase 5, Paradise, part 3** (parts 1 and 2 are merged):
-   - Left from part 2: rain still falls inside the Lava Tube (the rain's roof map only knows
-     decks and the city's tunnel).
-   - Part 3: volcano bombs (a scheduled moment on the rim), falling coconuts on the coast, a
-     tropical shower that rolls in and out mid-race, the sunset palette, and hazard sweeps with
-     the field report.
-     Also from PR #21's review: the sky ignores wetness (a bright sun in the rain, on every map),
-     and the lobby test's lap-length bound went to 3.8 km for all maps; give each map its own.
+   - Part 3a (weather and time) is the `paradise-weather` PR: showers, the sky in the rain,
+     sunset, the Lava Tube's rain, per-map lap lengths in the lobby test.
+   - Part 3b: volcano bombs (a scheduled moment on the rim), falling coconuts on the coast, and
+     hazard sweeps with the field report (AI wrecks ≤ 1.5 a race, classes within ±5%).
 2. **Milestone 3 (online), per the spec:**
    - A `relay` LobbyBackend (`src/lobby/backend.ts`): lobbies as rooms with `setListing`, the
      list from `listRooms('race', { includeFull: true })`, and actions sent to the host, who

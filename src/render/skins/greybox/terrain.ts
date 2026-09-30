@@ -425,7 +425,7 @@ export function buildTerrain(track: Track, palette: Palette, seed: number): Terr
 
   const time = { value: 0 };
   if (river) objects.push(water(river, riverHalf + 2, riverY, time));
-  if (coastLoop) objects.push(sea(seaY, gx0, gz0, nx, nz, h, time));
+  if (coastLoop) objects.push(sea(seaY, gx0, gz0, nx, nz, h, time, palette.seaLight ?? 0xffffff));
   const riverAt = (x: number, z: number) => {
     const i = Math.round((x - gx0) / CELL);
     const j = Math.round((z - gz0) / CELL);
@@ -445,7 +445,7 @@ const SEA_CELL = 12;
  * the sand, deep blue further out, foam on the waterline), inside one big plane out to the horizon.
  * Its alpha is cleared like the river's, so the post pass mirrors the sky and the island in it.
  */
-function sea(y: number, gx0: number, gz0: number, nx: number, nz: number, h: Float32Array, time: { value: number }): Mesh {
+function sea(y: number, gx0: number, gz0: number, nx: number, nz: number, h: Float32Array, time: { value: number }, light: number): Mesh {
   const pos: number[] = [];
   const depth: number[] = [];
   const idx: number[] = [];
@@ -490,7 +490,7 @@ function sea(y: number, gx0: number, gz0: number, nx: number, nz: number, h: Flo
   g.setIndex(idx);
   g.computeBoundingSphere();
   const mat = new ShaderMaterial({
-    uniforms: { ...UniformsUtils.clone(UniformsLib.fog), uTime: time },
+    uniforms: { ...UniformsUtils.clone(UniformsLib.fog), uTime: time, uLight: { value: new Color(light) } },
     fog: true,
     side: DoubleSide,
     blending: NoBlending,
@@ -503,17 +503,17 @@ function sea(y: number, gx0: number, gz0: number, nx: number, nz: number, h: Flo
       vec4 mvPosition=modelViewMatrix*vec4(p,1.0);gl_Position=projectionMatrix*mvPosition;
       #include <fog_vertex>
       }`,
-    fragmentShader: `uniform float uTime;varying float vDepth;varying vec2 vXz;
+    fragmentShader: `uniform float uTime;uniform vec3 uLight;varying float vDepth;varying vec2 vXz;
       #include <fog_pars_fragment>
       void main(){
-        // Turquoise over the sand, deep blue out past the reef.
+        // Turquoise over the sand, deep blue out past the reef (in the palette's light).
         vec3 col=mix(vec3(0.33,0.86,0.82),vec3(0.07,0.42,0.62),smoothstep(0.4,4.5,vDepth));
         col=mix(col,vec3(0.04,0.2,0.42),smoothstep(5.0,9.0,vDepth));
         // Foam on the waterline, pulsing up the beach, and a line of it breaking further out.
         float foam=1.0-smoothstep(0.0,0.35+0.2*sin(uTime*1.3+vXz.x*0.05+vXz.y*0.04),vDepth);
         float swell=sin(vDepth*5.0-uTime*1.6+sin(vXz.x*0.03)*2.0);
         foam=max(foam,step(0.93,swell)*(1.0-smoothstep(0.8,2.2,vDepth))*0.8);
-        col=mix(col,vec3(0.95,0.98,0.96),foam);
+        col=mix(col,vec3(0.95,0.98,0.96),foam)*uLight;
         // Alpha out where it's deep enough to mirror (the post pass's mask), none in the foam.
         float mirror=smoothstep(0.6,3.0,vDepth)*(1.0-foam);
         gl_FragColor=vec4(col,1.0-mirror*0.75);

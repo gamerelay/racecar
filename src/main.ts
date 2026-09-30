@@ -29,7 +29,7 @@ import { LocalBackend } from './lobby/backend';
 import { roster } from './lobby/lobby';
 import { loadPlate } from './lobby/plate';
 import { CLASSES, LAYOUTS, MAPS, PAINTS, SURFACES } from './content';
-import { resolveLayout } from './core/content';
+import { paletteFor, resolveLayout } from './core/content';
 
 const params = new URLSearchParams(location.search);
 /** Where the local lobby is kept: localStorage, or nothing when it's blocked. */
@@ -55,7 +55,7 @@ const lobbies = new LocalBackend(storage());
 const plate = loadPlate(storage());
 // Behind a lobby, its map runs.
 const lobbyMap = params.get('lobby') ? lobbies.peek(params.get('lobby')!)?.options.map : undefined;
-const run: RaceSetup = setup ?? { mode: 'race', map: resolveLayout(params.get('map') ?? lobbyMap, LAYOUT_KEYS) ?? DEFAULT_LAYOUT, car: 'coupe', paint: 0, seats: 'hnehnehn', laps: 3, weather: 'random', mayhem: 'normal', traffic: true, seed: Math.floor(Math.random() * 1e9) };
+const run: RaceSetup = setup ?? { mode: 'race', map: resolveLayout(params.get('map') ?? lobbyMap, LAYOUT_KEYS) ?? DEFAULT_LAYOUT, car: 'coupe', paint: 0, seats: 'hnehnehn', laps: 3, weather: 'random', time: 'day', mayhem: 'normal', traffic: true, seed: Math.floor(Math.random() * 1e9) };
 let layoutKey = resolveLayout(run.map, LAYOUT_KEYS) ?? DEFAULT_LAYOUT;
 
 let layout: TrackLayout = structuredClone(LAYOUTS[layoutKey] ?? Object.values(LAYOUTS)[0]);
@@ -78,7 +78,7 @@ const me = Math.max(0, you);
 if (run.mode === 'race') sim.startRace(run.laps, attract ? 1 : 4);
 
 const input = new Input();
-const renderer = new GameRenderer(document.getElementById('stage')!, new GreyboxSkin(), sim, PAINTS, map.palette, {
+const renderer = new GameRenderer(document.getElementById('stage')!, new GreyboxSkin(), sim, PAINTS, paletteFor(map, run.time, run.seed), {
   post: params.get('post') !== '0',
   outline: params.get('ink') !== '0',
   // Every car's plate says its driver's name, over the map's region.
@@ -103,6 +103,8 @@ document.body.insertAdjacentHTML('beforeend', '<button id="quit" tabindex="-1" t
 document.getElementById('quit')!.onclick = () => backToSetup(run);
 /** The weather the race behind the menu was last given (a lobby's own, once one is up). */
 let weatherShown = run.weather;
+/** And its time of day. */
+let timeShown = run.time;
 if (attract) {
   document.body.classList.add('attract');
   // Back from a race (Main menu, Change setup): its choices are the defaults.
@@ -115,24 +117,36 @@ if (attract) {
 function preview(p: Preview | null): void {
   if (p) {
     const key = resolveLayout(p.map, LAYOUT_KEYS);
-    if (key && key !== layoutKey) swapMap(key, p.weather);
-    else if (p.weather !== weatherShown) sim.setWeather(p.weather, map.weather);
+    if (key && key !== layoutKey) swapMap(key, p.weather, previewTime(p.time));
+    else {
+      if (p.weather !== weatherShown) sim.setWeather(p.weather, map.weather);
+      if (previewTime(p.time) !== timeShown) renderer.setMap(paletteFor(map, previewTime(p.time), run.seed));
+    }
     weatherShown = p.weather;
+    timeShown = previewTime(p.time);
   }
   const car = p?.car && CLASSES.find((c) => c.id === p.car!.car);
   if (!p?.car || !car) return renderer.showroom.hide();
   renderer.showroom.show(car, PAINTS[p.car.paint % PAINTS.length], { text: p.car.plate, region: map.name, map: map.id });
 }
 
+/**
+ * The time the lobby shows behind it: Random shows the day, since the race's own seed (which
+ * picks it) isn't known until the race starts; showing this race's pick would be a guess.
+ */
+function previewTime(time: RaceSetup['time']): RaceSetup['time'] {
+  return time === 'random' ? 'day' : time;
+}
+
 /** Another map behind the menu, in place (no reload): its track, weather and sky, and the race on it from the grid. */
-function swapMap(key: string, weather: RaceSetup['weather']): void {
+function swapMap(key: string, weather: RaceSetup['weather'], time: RaceSetup['time']): void {
   layoutKey = key;
   map = mapOf(key);
   layout = structuredClone(LAYOUTS[key]);
   sim.setTrack(bakeTrack(layout, SURFACES));
   sim.setWeather(weather, map.weather);
   sim.startRace(run.laps, 1);
-  renderer.setMap(map.palette);
+  renderer.setMap(paletteFor(map, time, run.seed));
   // The plates say the new map's region.
   renderer.setPlates(names.map((text) => ({ text, region: map.name, map: map.id })));
   renderer.snapCamera();

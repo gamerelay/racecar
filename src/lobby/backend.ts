@@ -2,7 +2,7 @@
 // the only one until milestone 3) and the relay one (GameRelay rooms, with setListing and
 // listRooms from gamerelay PR #30) are interchangeable. Async throughout, as the relay's will be.
 
-import { apply, createLobby, summarize, type Lobby, type LobbyAction, type LobbyOptions, type LobbySummary, type Player } from './lobby';
+import { apply, createLobby, DEFAULT_OPTIONS, summarize, type Lobby, type LobbyAction, type LobbyOptions, type LobbySummary, type Player } from './lobby';
 
 export interface LobbyBackend {
   /** Your player id. */
@@ -41,7 +41,11 @@ export class LocalBackend implements LobbyBackend {
   private load(): Lobby | null {
     try {
       const raw = this.store?.getItem(KEY);
-      if (raw) return JSON.parse(raw) as Lobby;
+      if (raw) {
+        // Lobbies kept from an older build may be missing options added since.
+        const lobby = JSON.parse(raw) as Lobby;
+        return { ...lobby, options: { ...DEFAULT_OPTIONS, ...lobby.options } };
+      }
     } catch {
       // Unreadable: use what's in memory.
     }

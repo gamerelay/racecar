@@ -3,6 +3,7 @@ import type { Grade } from '../../skin';
 // Palettes from the prototype. Dusk is City's signature look; midnight its rain/night variant.
 // Tropic is Paradise's high noon, a 2000s-postcard beach: a deep blue sky, a hard sun, a clear
 // turquoise sea and saturated greens, graded rich with blue-green shadows and a light vignette.
+// Sunset is its evening: a low whole sun over the sea, a pink-to-orange sky and violet shadows.
 
 export interface Palette {
   top: number;
@@ -26,6 +27,17 @@ export interface Palette {
   windows: number;
   /** A daytime sky: the sun high and whole, no stars. */
   day?: boolean;
+  /** A sunset sky: the sun low but whole (no synthwave bands), a wide glow, no stars. */
+  sunset?: boolean;
+  /** Where the sun light comes from, relative to the camera (default high behind: -300, 400, -800). */
+  sunFrom?: [number, number, number];
+  /**
+   * How far rain clouds the sky over and dims the light, 0–1 (default 1). A tropical shower is
+   * low: the sun stays out.
+   */
+  overcast?: number;
+  /** Multiplies the sea's color (a warm, dimmer sea at sunset). */
+  seaLight?: number;
   /** The post pass's grade (none: as rendered). */
   grade?: Grade;
 }
@@ -85,7 +97,32 @@ export const PALETTES: Record<string, Palette> = {
     ink: 0x14282a,
     windows: 0.2,
     day: true,
+    overcast: 0.3,
     grade: { saturation: 1.3, contrast: 1.08, shadow: 0x7fc8e6, vignette: 0.22 },
+  },
+  sunset: {
+    top: 0x23307e,
+    mid: 0xd9608c,
+    horizon: 0xffa048,
+    sun: 0xffe0a0,
+    fog: 0xf2a27a,
+    fogNear: 280,
+    fogFar: 2100,
+    hemiSky: 0xffc2a8,
+    hemiGround: 0x3a3a6a,
+    hemiIntensity: 1.2,
+    dir: 0xffb27a,
+    dirIntensity: 2.5,
+    blocks: [0xf2a7a0, 0x9fd9c8, 0xf6d38a, 0xa7c4f2, 0xf0b6d6, 0xbfe3a0],
+    ground: 0x5a9a3a,
+    ink: 0x2a1426,
+    windows: 0.6,
+    sunset: true,
+    // Low, from the sun on the horizon.
+    sunFrom: [300, 200, -800],
+    overcast: 0.35,
+    seaLight: 0xffc8b0,
+    grade: { saturation: 1.22, contrast: 1.07, shadow: 0x7a5cc0, vignette: 0.3 },
   },
   midnight: {
     top: 0x02030f,

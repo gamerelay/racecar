@@ -174,6 +174,7 @@ export function buildTrackVisual(track: Track, palette: Palette, seed: number): 
     extras.push(mesh);
   }
   let update: TrackVisual['update'];
+  let covers: Cover[] = [];
   if (city) {
     const scape = buildCityscape(track, palette, groundY);
     extras.push(...scape.objects);
@@ -185,6 +186,7 @@ export function buildTrackVisual(track: Track, palette: Palette, seed: number): 
     extras.push(boxes(under.flatMap((u) => u.pillars), toon()), boxes(under.flatMap((u) => u.caps), toon()));
     const dressing = buildIsland(track, seed, land);
     extras.push(...dressing.objects);
+    covers = dressing.covers;
     update = (t) => {
       land.time.value = t;
       dressing.update(t);
@@ -204,7 +206,7 @@ export function buildTrackVisual(track: Track, palette: Palette, seed: number): 
     extras,
     debug,
     update,
-    roof: roofMap(track, groundY, city, land ? (sp) => land.deck[sp.index] : (sp) => deckMask(sp, groundY)),
+    roof: roofMap(track, groundY, city, land ? (sp) => land.deck[sp.index] : (sp) => deckMask(sp, groundY), covers),
     water: !!land?.objects.length && (!!track.layout.terrain?.river || !!land.sea),
     dispose() {
       for (const c of chunks) (c as Mesh).geometry.dispose();
@@ -270,17 +272,28 @@ function railing(g: Geo, A: Cross, B: Cross, la: number, lb: number, s: number, 
 const ROOF_CELL = 4;
 const roofKey = (x: number, z: number) => (Math.floor(x / ROOF_CELL) + 32768) * 65536 + (Math.floor(z / ROOF_CELL) + 32768);
 
+/** A stretch of road the scenery roofs over (spline index, distances), `height` m above the road. */
+export interface Cover {
+  spline: number;
+  from: number;
+  to: number;
+  height: number;
+}
+
 /**
- * Where the sky is covered, and how high the cover is: the tunnel roof at street level, and every
- * bridge deck over whatever runs beneath it. Rain stops under it.
+ * Where the sky is covered, and how high the cover is: the tunnel roof at street level, every
+ * bridge deck over whatever runs beneath it, and the scenery's covers (the Lava Tube). Rain stops
+ * under it.
  */
-function roofMap(track: Track, groundY: number, levels: boolean, deckOf: (sp: BakedSpline) => Uint8Array): (x: number, z: number) => number {
+function roofMap(track: Track, groundY: number, levels: boolean, deckOf: (sp: BakedSpline) => Uint8Array, covers: Cover[] = []): (x: number, z: number) => number {
   const cells = new Map<number, number>();
   for (const sp of track.splines) {
     const deck = deckOf(sp);
+    const mine = covers.filter((c) => c.spline === sp.index);
     for (let i = 0; i < sp.n; i++) {
       const y = sp.py[i] + sp.ramp[i];
-      const top = levels && y - groundY < -TUNNEL_H ? groundY : deck[i] === 1 ? y : -Infinity;
+      const cover = mine.find((c) => i * sp.step >= c.from && i * sp.step <= c.to);
+      const top = cover ? y + cover.height : levels && y - groundY < -TUNNEL_H ? groundY : deck[i] === 1 ? y : -Infinity;
       if (top === -Infinity) continue;
       const reach = sp.width[i] / 2 + sp.shoulder[i] + WALL_THICK + 1;
       for (let l = -reach; l <= reach; l += ROOF_CELL / 2) {
