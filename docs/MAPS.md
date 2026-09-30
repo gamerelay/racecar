@@ -25,7 +25,8 @@ a sequence of those chances, with a rhythm.
   so every map wants a few honest jumps: take-off on a crest, and a flat, straight landing.
 - **Shortcuts:** each one a gamble. It's faster if you hit it right (a jump, loose ground, a tight
   gap) and it costs you if you don't. Two or three a lap.
-- **Something to dodge:** traffic on the straights, solid props (pillars, trestle legs) that
+- **Something to dodge:** traffic on the straights (never through a fast bend: Paradise's
+  Freeway wrecked the field five times a race until its bend was left clear), solid props (pillars, trestle legs) that
   split the road into lanes, and a hazard or two at readable spots.
 - **One signature moment per section:** the Skyway's crossing, the Trestle over the start road,
   Logger's Leap. Players name sections after these.
@@ -68,6 +69,11 @@ editor edits are for trying things and get overwritten.
   - With `trestles: true`, the baker stands the bridge on bents every 7 m, and the legs on the
     lower road are solid props (`supports()` in `bake.ts`). The renderer draws its bents on the
     same grid, so what you see is what you hit.
+
+- **Islands:** `terrain.island` is the coastline, `sea` its level and `volcano` a cone. Past
+  the coast the land drops under the sea; inland it never goes below it. A road out over the
+  water is a deck, so an elevated road over a bay is just a road over the sea (Paradise's
+  Freeway), with its ramps on embankments.
 
 ## Shortcuts
 
@@ -123,22 +129,23 @@ Nothing ships on feel alone. The checks CI runs, plus the lap report:
 
 Good numbers today:
 
-| | Target | Downtown | Backroads |
-|---|---|---|---|
-| Lap length | 2.9–3.8 km | 3.26 km | 2.92 km |
-| Hard-AI lap floor | 70–100 s (SPEC) | 58.6 s | 63.4 s |
-| AI wrecks per 8-car race | ≤ 1.5 | ~1.6 | ~1 |
-| AI resets | ~0 | rare | ≤ 1 in 6 races |
+| | Target | Downtown | Backroads | Paradise |
+|---|---|---|---|---|
+| Lap length | 2.9–3.8 km | 3.26 km | 2.92 km | 3.44 km |
+| Hard-AI lap floor | 70–100 s (SPEC) | 58.6 s | 63.4 s | 68.2 s |
+| AI wrecks per 8-car race | ≤ 1.5 | ~1.6 | ~1 | ~0.75 |
+| AI resets | ~0 | rare | ≤ 1 in 6 races | none in 8 |
 
 Tests hold what matters for each map: land below every road, bridges detected, a hard lap that
 flies the jumps and takes the shortcuts clean, corners banked the right way, and shortcuts that
-meet the road flush (`test/track.test.ts`, `test/countryside.test.ts`).
+meet the road flush (`test/track.test.ts`, `test/countryside.test.ts`, `test/paradise.test.ts`).
 
 ## A new map, step by step
 
 1. Sketch the lap: sections, each with its signature moment, a landmark and a mood.
-2. Write `tools/gen-<map>.ts` from the Valley's generator: nodes with radii, surfaces, widths,
-   crests, branches, traffic sections and hazards.
+2. Write `tools/gen-<map>.ts` on `tools/lib/lap.ts` (the Valley's and Paradise's generators
+   are examples): nodes with radii, surfaces, widths, crests, branches, traffic sections and
+   hazards.
 3. Add `content/maps/<map>/map.json` with a palette and weather. A new look means a scenery
    module in `src/render/skins/greybox/`.
 4. Generate, then run `validate --ai` and `lap-report` until the lap floor and field wrecks are

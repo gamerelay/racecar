@@ -65,27 +65,29 @@ export class GreyboxSkin implements Skin {
           mid: { value: new Color(p.mid) },
           hor: { value: new Color(p.horizon) },
           sunC: { value: new Color(p.sun) },
+          uDay: { value: p.day ? 1 : 0 },
           uTime: this.skyTime,
         },
         vertexShader: `varying vec3 vDir;void main(){vDir=normalize(position);gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);}`,
-        // The prototype's synthwave sky: a gradient, a banded sun low on the horizon, stars.
-        fragmentShader: `uniform vec3 top,mid,hor,sunC;uniform float uTime;varying vec3 vDir;
+        // The prototype's synthwave sky: a gradient, a banded sun low on the horizon, stars. By day
+        // (uDay) the sun is high and whole, with a wide glare, and there are no stars.
+        fragmentShader: `uniform vec3 top,mid,hor,sunC;uniform float uTime,uDay;varying vec3 vDir;
         void main(){
           vec3 d=normalize(vDir);float h=d.y;
           vec3 col=mix(hor,mid,smoothstep(-0.02,0.16,h));
           col=mix(col,top,smoothstep(0.14,0.55,h));
-          vec3 sd=normalize(vec3(0.35,0.07,-1.0));
+          vec3 sd=normalize(mix(vec3(0.35,0.07,-1.0),vec3(0.3,0.75,-1.0),uDay));
           float dist=distance(d,sd);
           float disc=1.0-smoothstep(0.17,0.175,dist);
           float yy=d.y-sd.y;
           float gap=clamp(-yy*5.5,0.0,0.85);
           float band=fract(yy*42.0-uTime*0.15);
-          disc*=step(gap,band);
+          disc*=max(step(gap,band),uDay);
           vec3 sunCol=mix(sunC,vec3(1.0,0.32,0.55),1.0-smoothstep(-0.16,0.12,yy));
           col=mix(col,sunCol,disc);
-          col+=sunC*0.28*exp(-dist*5.0);
+          col+=sunC*(0.28+0.3*uDay)*exp(-dist*(5.0-2.0*uDay));
           float s=fract(sin(dot(floor(d*420.0),vec3(12.9898,78.233,37.719)))*43758.5453);
-          col+=vec3(step(0.9985,s))*smoothstep(0.2,0.6,h)*0.8;
+          col+=vec3(step(0.9985,s))*smoothstep(0.2,0.6,h)*0.8*(1.0-uDay);
           gl_FragColor=vec4(col,1.0);
         }`,
       }),

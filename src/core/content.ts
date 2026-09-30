@@ -111,9 +111,18 @@ export interface TrackLayout {
   shoulderSurface?: string;
   /**
    * Shape of the land around the lap, for scenery only (the sim drives on the road): a river's
-   * course as [x, z] points, how wide it is and where its water sits.
+   * course as [x, z] points, how wide it is and where its water sits. An island has a sea level,
+   * its coastline (a closed [x, z] loop; the sea is outside it), and maybe a volcano: a cone to
+   * `h` m at its lip, `r` m out to its foot, with a crater `crater` m in radius.
    */
-  terrain?: { river?: [number, number][]; riverWidth?: number; riverY?: number };
+  terrain?: {
+    river?: [number, number][];
+    riverWidth?: number;
+    riverY?: number;
+    sea?: number;
+    island?: [number, number][];
+    volcano?: { x: number; z: number; r: number; h: number; crater: number };
+  };
   /**
    * High bridges stand on timber bents, and the legs of one over another road stand on that road:
    * solid, like pillars (the Valley's trestle). Off, a flyover spans the road beneath (the city's).

@@ -3,6 +3,11 @@
 // toward the edge of the map; the river from the layout carved through it. Roads that run over
 // the river or over another part of the lap are left out of the land's shape, so they come out as
 // bridges: `deck` marks those samples for the track builder.
+//
+// An island (Paradise) has a coastline instead of valley walls: past it the land falls away under
+// the sea, a beach band runs round it, and a volcano's cone rises where the layout puts it. Roads
+// out over the water are decks too (the Freeway over the bay), and the sea is a plane out to the
+// horizon, shallow and turquoise over the sand, deep blue further out.
 
 import { BufferAttribute, BufferGeometry, Color, DoubleSide, Float32BufferAttribute, Mesh, NoBlending, ShaderMaterial, UniformsLib, UniformsUtils, type Object3D } from 'three';
 import type { Track } from '../../../core/track/bake';
@@ -23,10 +28,17 @@ export interface Terrain {
   riverHalf: number;
   /** For animated water. */
   time: { value: number };
+  /** On an island: the sea's level, and the signed distance to the coast (positive inland). */
+  sea?: { y: number; coast(x: number, z: number): number };
 }
 
 const CELL = 6;
 const MARGIN = 720;
+const ISLAND_MARGIN = 160;
+/** An island's beach: the land's height at the waterline above the sea, how steep the land rises inland of it (1:x), and the sea bed's depth. */
+const SHORE = 1.2;
+const SHORE_RISE = 0.6;
+const SEA_BED = 9;
 /** How far a road shapes the land around it. */
 const REACH = 120;
 
@@ -69,6 +81,33 @@ function polyDist(poly: [number, number][], x: number, z: number): number {
   return best;
 }
 
+/** Signed distance from (x, z) to a closed loop: positive inside it. */
+export function loopDist(loop: [number, number][], x: number, z: number): number {
+  let best = Infinity;
+  let inside = false;
+  for (let k = 0, j = loop.length - 1; k < loop.length; j = k++) {
+    const [ax, az] = loop[j];
+    const [bx, bz] = loop[k];
+    const dx = bx - ax;
+    const dz = bz - az;
+    const t = Math.max(0, Math.min(1, ((x - ax) * dx + (z - az) * dz) / (dx * dx + dz * dz || 1)));
+    best = Math.min(best, Math.hypot(x - ax - dx * t, z - az - dz * t));
+    if (az > z !== bz > z && x < ax + ((z - az) * dx) / dz) inside = !inside;
+  }
+  return inside ? best : -best;
+}
+
+type Volcano = NonNullable<NonNullable<Track['layout']['terrain']>['volcano']>;
+
+/** A volcano's cone above the sea at (x, z): steepening to the lip, a bowl in the crater. */
+export function coneHeight(v: Volcano, x: number, z: number): number {
+  const rr = Math.hypot(x - v.x, z - v.z);
+  if (rr >= v.r) return 0;
+  const u = Math.min(1, (v.r - rr) / (v.r - v.crater));
+  const lip = 4 * Math.exp(-(((rr - v.crater) / 9) ** 2));
+  return v.h * u ** 1.6 + lip - (rr < v.crater ? 26 * smooth(v.crater, v.crater * 0.35, rr) : 0);
+}
+
 /** A polyline smoothed into a curve (Catmull-Rom), every few meters. */
 function curve(poly: [number, number][], step = 6): [number, number][] {
   const out: [number, number][] = [];
@@ -97,6 +136,11 @@ export function buildTerrain(track: Track, palette: Palette, seed: number): Terr
   const riverY = spec.riverY ?? -4;
   // Exact distance for the few road samples; the grid below answers it everywhere else.
   const riverExact = (x: number, z: number) => (river ? polyDist(river, x, z) : Infinity);
+  // An island: the sea round a coastline, and maybe a volcano.
+  const coastLoop = spec.island && spec.island.length > 2 ? curve([...spec.island, spec.island[0]], 12) : null;
+  const seaY = spec.sea ?? 0;
+  const coast = (x: number, z: number) => (coastLoop ? loopDist(coastLoop, x, z) : Infinity);
+  const volcano = spec.volcano;
 
   // ---- road samples, and which are bridges ----
   interface S {
@@ -139,6 +183,7 @@ export function buildTerrain(track: Track, palette: Palette, seed: number): Terr
   }
   const bridgeAt = (s: S) => {
     if (riverExact(s.x, s.z) < riverHalf + s.half + 4) return true;
+    if (coastLoop && coast(s.x, s.z) < s.half + 6) return true;
     const cx = Math.floor(s.x / HC);
     const cz = Math.floor(s.z / HC);
     for (let a = -1; a <= 1; a++) {
@@ -173,10 +218,20 @@ export function buildTerrain(track: Track, palette: Palette, seed: number): Terr
   }
 
   // ---- the heightfield ----
-  const gx0 = Math.floor((x0 - MARGIN) / CELL) * CELL;
-  const gz0 = Math.floor((z0 - MARGIN) / CELL) * CELL;
-  const nx = Math.ceil((x1 + MARGIN - gx0) / CELL) + 1;
-  const nz = Math.ceil((z1 + MARGIN - gz0) / CELL) + 1;
+  // An island's land stops a little way out under the sea (the sea plane goes on to the horizon).
+  const margin = coastLoop ? ISLAND_MARGIN : MARGIN;
+  if (coastLoop) {
+    for (const [x, z] of coastLoop) {
+      x0 = Math.min(x0, x);
+      x1 = Math.max(x1, x);
+      z0 = Math.min(z0, z);
+      z1 = Math.max(z1, z);
+    }
+  }
+  const gx0 = Math.floor((x0 - margin) / CELL) * CELL;
+  const gz0 = Math.floor((z0 - margin) / CELL) * CELL;
+  const nx = Math.ceil((x1 + margin - gx0) / CELL) + 1;
+  const nz = Math.ceil((z1 + margin - gz0) / CELL) + 1;
   const wsum = new Float32Array(nx * nz);
   const wy = new Float32Array(nx * nz);
   const dmin = new Float32Array(nx * nz).fill(Infinity);
@@ -218,6 +273,8 @@ export function buildTerrain(track: Track, palette: Palette, seed: number): Terr
     }
   }
   const h = new Float32Array(nx * nz);
+  // On an island, each grid point's signed distance to the coast (for the land's colors).
+  const cd = new Float32Array(nx * nz).fill(Infinity);
   // Distance to the river, splatted from points along it (only near it matters: past RIVER_REACH
   // it's Infinity).
   const RIVER_REACH = 60;
@@ -258,9 +315,19 @@ export function buildTerrain(track: Track, palette: Palette, seed: number): Terr
       const away = d === Infinity ? 1 : smooth(fl, fl + 40, d);
       // Only a little rise away from each road (so a ridge road still has land falling off it), and
       // mountains toward the map's edge.
-      const rise = 0.035 * Math.max(0, (d === Infinity ? REACH : d) - 30) + 0.1 * Math.min(600, distOutside(x, z));
-      const land = far + hills(x, z, seed) * smooth(fl, fl + 110, d === Infinity ? 999 : d) + rise;
+      // (An island has no valley walls: the sea is at its edge.)
+      const rise = 0.035 * Math.max(0, (d === Infinity ? REACH : d) - 30) + (coastLoop ? 0 : 0.1 * Math.min(600, distOutside(x, z)));
+      let land = far + hills(x, z, seed) * smooth(fl, fl + 110, d === Infinity ? 999 : d) + rise;
+      if (volcano) land = Math.max(land, seaY + coneHeight(volcano, x, z));
       let y = d === Infinity ? land : near - 0.6 + (land - (near - 0.6)) * away;
+      if (coastLoop) {
+        // The coast: inland, never under the sea; toward the water, down to the beach and under it.
+        const sd = coast(x, z);
+        if (sd > 20) y = Math.max(y, seaY + SHORE);
+        const shore = seaY - SEA_BED + (SEA_BED + SHORE) * smooth(-90, 2, sd) + Math.max(0, sd - 2) * SHORE_RISE;
+        y = Math.min(y, shore);
+        cd[k] = sd;
+      }
       // The river's channel.
       const r = rd[k];
       if (r < riverHalf + 24) {
@@ -296,6 +363,10 @@ export function buildTerrain(track: Track, palette: Palette, seed: number): Terr
   const rock = new Color(0x7d7264);
   const rock2 = new Color(0x6a6155);
   const mud = new Color(0x8f7a55);
+  const sand = new Color(0xecdcaa);
+  const sand2 = new Color(0xe2cf98);
+  const lava = new Color(0x3d3437);
+  const lava2 = new Color(0x4b3f3e);
   const c = new Color();
   const pos = new Float32Array((nx - 1) * (nz - 1) * 6 * 3);
   const col = new Float32Array(pos.length);
@@ -320,7 +391,10 @@ export function buildTerrain(track: Track, palette: Palette, seed: number): Terr
     const nzv = ux * vy - uy * vx;
     const steep = 1 - Math.abs(nyv) / Math.hypot(nxv, nyv, nzv);
     const n = noise(ax / 17, az / 17, seed + 5);
+    const cone = volcano ? Math.hypot(ax - volcano.x, az - volcano.z) / volcano.r : 9;
     if (rd[k] < riverHalf + 5) c.copy(mud);
+    else if (cd[k] < 14 + 6 * n && ay < seaY + 4) c.copy(n > 0 ? sand : sand2);
+    else if (cone < 0.62 + 0.08 * n) c.copy(n > 0 ? lava : lava2);
     else if (steep > 0.45) c.copy(n > 0 ? rock : rock2);
     else if (dmin[k] > 30 && dmin[k] !== Infinity) c.copy(forest).lerp(grass, 0.3 + 0.3 * n);
     else c.copy(n > 0.2 ? grass2 : grass);
@@ -351,13 +425,101 @@ export function buildTerrain(track: Track, palette: Palette, seed: number): Terr
 
   const time = { value: 0 };
   if (river) objects.push(water(river, riverHalf + 2, riverY, time));
+  if (coastLoop) objects.push(sea(seaY, gx0, gz0, nx, nz, h, time));
   const riverAt = (x: number, z: number) => {
     const i = Math.round((x - gx0) / CELL);
     const j = Math.round((z - gz0) / CELL);
     if (i < 0 || j < 0 || i >= nx || j >= nz) return Infinity;
     return rd[j * nx + i];
   };
-  return { height, river: riverAt, deck, objects, riverY, riverHalf, time };
+  return { height, river: riverAt, deck, objects, riverY, riverHalf, time, ...(coastLoop ? { sea: { y: seaY, coast } } : {}) };
+}
+
+/** How far the sea plane reaches past the land's grid: to the fog, and the horizon. */
+const SEA_REACH = 2600;
+/** The sea's grid, over the land: coarser than the land's (its depth only sets a tint). */
+const SEA_CELL = 12;
+
+/**
+ * The sea: a grid over the land's extent, tinted by the depth of the land under it (turquoise over
+ * the sand, deep blue further out, foam on the waterline), inside one big plane out to the horizon.
+ * Its alpha is cleared like the river's, so the post pass mirrors the sky and the island in it.
+ */
+function sea(y: number, gx0: number, gz0: number, nx: number, nz: number, h: Float32Array, time: { value: number }): Mesh {
+  const pos: number[] = [];
+  const depth: number[] = [];
+  const idx: number[] = [];
+  const step = Math.round(SEA_CELL / CELL);
+  const cols = Math.floor((nx - 1) / step) + 1;
+  const rows = Math.floor((nz - 1) / step) + 1;
+  for (let j = 0; j < rows; j++) {
+    for (let i = 0; i < cols; i++) {
+      pos.push(gx0 + i * step * CELL, y, gz0 + j * step * CELL);
+      // The edge of the grid is deep, so it meets the plane round it seamlessly.
+      const edge = i === 0 || j === 0 || i === cols - 1 || j === rows - 1;
+      depth.push(edge ? SEA_BED : y - h[j * step * nx + i * step]);
+    }
+  }
+  for (let j = 0; j + 1 < rows; j++) {
+    for (let i = 0; i + 1 < cols; i++) {
+      const a = j * cols + i;
+      // Skip cells that are dry land all round (it hides them anyway), to save fill.
+      if (Math.max(depth[a], depth[a + 1], depth[a + cols], depth[a + cols + 1]) < -1) continue;
+      idx.push(a, a + cols, a + 1, a + 1, a + cols, a + cols + 1);
+    }
+  }
+  // The open sea round the grid: a ring of four quads out to SEA_REACH.
+  const x0 = gx0;
+  const z0 = gz0;
+  const x1 = gx0 + (cols - 1) * step * CELL;
+  const z1 = gz0 + (rows - 1) * step * CELL;
+  const R = SEA_REACH;
+  const ring = (ax: number, az: number, bx: number, bz: number) => {
+    const base = pos.length / 3;
+    pos.push(ax, y, az, bx, y, az, bx, y, bz, ax, y, bz);
+    depth.push(SEA_BED, SEA_BED, SEA_BED, SEA_BED);
+    idx.push(base, base + 3, base + 1, base + 1, base + 3, base + 2);
+  };
+  ring(x0 - R, z0 - R, x1 + R, z0);
+  ring(x0 - R, z1, x1 + R, z1 + R);
+  ring(x0 - R, z0, x0, z1);
+  ring(x1, z0, x1 + R, z1);
+  const g = new BufferGeometry();
+  g.setAttribute('position', new Float32BufferAttribute(pos, 3));
+  g.setAttribute('depth', new Float32BufferAttribute(depth, 1));
+  g.setIndex(idx);
+  g.computeBoundingSphere();
+  const mat = new ShaderMaterial({
+    uniforms: { ...UniformsUtils.clone(UniformsLib.fog), uTime: time },
+    fog: true,
+    side: DoubleSide,
+    blending: NoBlending,
+    vertexShader: `attribute float depth;varying float vDepth;varying vec2 vXz;
+      #include <fog_pars_vertex>
+      void main(){vDepth=depth;vXz=position.xz;vec4 mvPosition=modelViewMatrix*vec4(position,1.0);gl_Position=projectionMatrix*mvPosition;
+      #include <fog_vertex>
+      }`,
+    fragmentShader: `uniform float uTime;varying float vDepth;varying vec2 vXz;
+      #include <fog_pars_fragment>
+      void main(){
+        // Turquoise over the sand, deep blue out past the reef.
+        vec3 col=mix(vec3(0.33,0.86,0.82),vec3(0.07,0.42,0.62),smoothstep(0.4,4.5,vDepth));
+        col=mix(col,vec3(0.04,0.2,0.42),smoothstep(5.0,9.0,vDepth));
+        // Foam on the waterline, pulsing up the beach, and a line of it breaking further out.
+        float foam=1.0-smoothstep(0.0,0.35+0.2*sin(uTime*1.3+vXz.x*0.05+vXz.y*0.04),vDepth);
+        float swell=sin(vDepth*5.0-uTime*1.6+sin(vXz.x*0.03)*2.0);
+        foam=max(foam,step(0.93,swell)*(1.0-smoothstep(0.8,2.2,vDepth))*0.8);
+        col=mix(col,vec3(0.95,0.98,0.96),foam);
+        // Alpha out where it's deep enough to mirror (the post pass's mask), none in the foam.
+        float mirror=smoothstep(0.6,3.0,vDepth)*(1.0-foam);
+        gl_FragColor=vec4(col,1.0-mirror*0.75);
+        #include <fog_fragment>
+      }`,
+  });
+  const mesh = new Mesh(g, mat);
+  mesh.renderOrder = 1;
+  mesh.frustumCulled = false;
+  return mesh;
 }
 
 /**

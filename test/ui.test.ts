@@ -109,7 +109,7 @@ describe('renamed maps and paints', () => {
   test('map and paint names are one word, and paint ids have no hyphens', () => {
     for (const key of LAYOUT_KEYS) expect(existsSync(join(CONTENT, 'maps', key.split('/')[0], 'map.json'))).toBe(true);
     const maps = LAYOUT_KEYS.map((k) => JSON.parse(readFileSync(join(CONTENT, 'maps', k.split('/')[0], 'map.json'), 'utf8')));
-    expect(maps.map((m) => m.name).sort()).toEqual(['Backroads', 'Downtown']);
+    expect(maps.map((m) => m.name).sort()).toEqual(['Backroads', 'Downtown', 'Paradise']);
     for (const p of PAINTS) {
       expect(p.name).toMatch(/^[A-Z][a-z]+$/);
       expect(p.id).toMatch(/^[a-z]+$/);

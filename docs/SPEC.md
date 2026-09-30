@@ -1332,3 +1332,43 @@ Car select (2026-09-30, PLAN phase 4):
   above the other, and up and down move between them. Right from the lobby's buttons reaches
   them, and up from them goes back into the lobby.
 
+
+Paradise, part 1: the lap and the land (2026-09-30, PLAN phase 5):
+
+- **One lap-laying library for every map** (`tools/lib/lap.ts`): filleted arcs, drift-corner
+  widths, banks into the turn, height between anchors, smoothing by distance, crests on the road,
+  and then `onLap` (`sAt`, `yAt`, `fork`) and `wallGaps` for shortcuts and walls. It came out of
+  the Valley's generator unchanged: the Valley regenerates byte-for-byte.
+- **The Island** (`tools/gen-paradise.ts`, `content/maps/paradise`): 3.44 km, clockwise, a hard-AI
+  floor of 68.2 s (the first map near SPEC's 70–100 s). Harbor Town, Coconut Coast (the Sandbar
+  runs straight on along the waterline while the road swings inland round a headland), the
+  Freeway, the Jungle Switchbacks (two wide hairpins on red earth), the Volcano Rim (lava rock
+  round the cone; the Lava Tube is a chord inside it), and Lighthouse Point (a jump off the rim,
+  the point, and the cliff road home).
+- **New surfaces:** `sand` (loose, like dirt; the verges and the Sandbar), `red-earth` (between
+  dirt and asphalt), `lava-rock` (a touch grippier than asphalt, for the climb), and `shore`
+  (the wet sand at the Sandbar's waterline, always slippery, a zone like the Creek Bed's ford).
+- **An island is terrain with a coastline** (`terrain.sea`, `island`, `volcano`): past the coast
+  the land drops under the sea, a beach band runs round it, and it never dips under the sea
+  inland. The volcano is a cone steepening to its lip, with a bowl in the crater, and black rock
+  on its upper slopes. The Valley's land is unchanged (all of it is behind the island fields).
+- **Bridges come from height and water:** a road over the sea is a deck, like one over the river.
+  That's what makes the Freeway a deck over the bay, with ramps up on embankments either side.
+  Its pillars come from `deckPillars` (`track.ts`), which the city's pillars now use too.
+- **The island's roads are concrete where the country's are timber:** white barriers, a
+  concrete deck and verge on bridges, and sandy verges.
+- **The sea** is a grid over the land tinted by the depth beneath (turquoise over the sand, deep
+  blue past the reef, foam at the waterline and a line of surf further out) inside a plane out
+  to the horizon. Its alpha is the post pass's mirror mask, like the river's.
+- **`tropic`, and a daytime sky:** a palette can set `day`, which puts the sun high and whole
+  with a wide glare, and turns off the stars. Paradise's plates are white and teal with a coral
+  tag.
+- **Traffic in fast corners wrecks the field:** the Freeway's traffic first ran through its bend
+  over the bay, and the field wrecked about five times a race there (traffic hit at the apex at
+  200 km/h). Two sections on the straights either side, and a one-way freeway (both lanes run
+  with the race), took it to 0.75 a race over eight seeds.
+- **The bus got a little quicker** (accel 13 → 14): the Island is a fast lap and the bus sat at
+  +5.8% of the mean; it was already +4.5% on the other two. Now +4.8%, +4.1% and +3.0%.
+- **Still to come** (the next PRs of the phase): the scenery (palms, huts, jungle, the lava tube's
+  tunnel and glow, the lighthouse), waves on the beach, the hazards (volcano bombs, coconuts),
+  the passing shower and the sunset palette.

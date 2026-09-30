@@ -9,7 +9,7 @@ import { CLASSES, layout } from './helpers';
 // Balance (SPEC "Changed while building"): every class's hard solo lap stays within a band of the
 // field's mean on every layout, so a car is a style, not a win button. The rally car's dirt edge
 // on the Valley is the one allowed outlier, and it's still bounded.
-const layouts = ['downtown/downtown', 'backroads/valley'].map((key) => [key, layout(key)] as const);
+const layouts = ['downtown/downtown', 'backroads/valley', 'paradise/island'].map((key) => [key, layout(key)] as const);
 
 describe('car content', () => {
   test('every car file is a class the game loads (CLASS_ORDER), and every class has a file', () => {

@@ -6,6 +6,21 @@ and where things stand is [docs/HANDOFF.md](./docs/HANDOFF.md).
 
 ## Unreleased
 
+### Added
+- **Paradise, the third map** (PLAN phase 5, part 1): a tropical island lap, clockwise, 3.44 km.
+  Start on the harbour front, then run up Coconut Coast (take the Sandbar along the waterline),
+  over the bay on the Freeway, down the Jungle Switchbacks, round the Volcano Rim (or through
+  the Lava Tube), and past Lighthouse Point home. It's in the lobby's map picker and swaps in
+  behind the car select.
+- New surfaces: sand, red earth, lava rock, and wet shoreline.
+- The island's land: a sea out to the horizon with surf on the beaches, a volcano with a crater,
+  a concrete freeway on pillars over the bay, and a daytime sky.
+- Paradise plates: white and teal with a coral PARADISE tag.
+
+### Changed
+- The bus accelerates a little harder (13 → 14), so it keeps up on Paradise's fast lap.
+- The lap generators share `tools/lib/lap.ts` (the Valley is unchanged).
+
 ## alpha-1.9: license plates and the car select
 
 PLAN phase 3: license plates (PR #18), the lobby polish (PR #19), the cars doc (PR #15), the
