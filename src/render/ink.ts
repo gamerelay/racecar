@@ -25,7 +25,7 @@ import {
 
 export const INK_LAYER = 2;
 /** Part ids, 1–254; 0 is "nothing here". Anything with a different id from its neighbour gets a line. */
-export const INK = { paint: 1, trim: 2, metal: 3, glass: 4, lens: 5, head: 6, tail: 7, plate: 8, hood: 9, trunk: 10, lip: 11, mirror: 12, wheel: 13, rim: 14, debris: 15, sign: 16 } as const;
+export const INK = { paint: 1, trim: 2, metal: 3, glass: 4, lens: 5, head: 6, tail: 7, plate: 8, hood: 9, trunk: 10, lip: 11, mirror: 12, wheel: 13, rim: 14, debris: 15, sign: 16, beacon: 17 } as const;
 export const SEAM = 255;
 /** This frame's near marked meshes: what the pass actually draws. */
 const PASS_LAYER = 3;

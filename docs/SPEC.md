@@ -1104,3 +1104,14 @@ road, and smoother edges; shortcuts (the city's alley most) met the main road ro
   AI wrecks per race: v2 0.76, v3 0.88; the lap is 7 s quicker (77.5 to 70.6 s, AI field).
 - **HUD:** the key hints left the bottom-left corner for the pause menu (Esc or ✕ Menu), for the
   device in use; the lap moved there instead, as a bigger badge, gold on the final lap.
+
+Compact, truck and police designs (from branch `car-fleet`, 2026-09-30):
+
+- **Every traffic kind now has its own design**, so none borrow another's: the compact is a short
+  tall city car with big round lamps (it used to be drawn as the hatch); the truck is a cab plus a
+  separate cargo box (`cargo` in the design, a second extrusion) with twin rear tyres and a
+  slatted grille (it used to be a one-draw box). Both are drawn at their traffic kind's sim size.
+- **The police car** is the sedan's shell with a black-and-white livery, a push bar and a roof
+  light bar whose red and blue lenses double-blink in `update(dt)`; the bar and push bar come off
+  in a wreck. Garage-only (key `-`) for now: no sim class, no traffic kind (a pursuit mode could
+  use it).

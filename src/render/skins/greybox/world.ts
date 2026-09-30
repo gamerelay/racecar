@@ -46,8 +46,8 @@ const DEBRIS = 24;
 /** Traffic is drawn within this of the camera (fog has it well before). */
 const DRAW = 500;
 const UP = new Vector3(0, 1, 0);
-/** Traffic kinds drawn as a racer design (the compact borrows the hatch); the rest use car/traffic.ts's simple models. */
-const TRAFFIC_DESIGN: Record<string, string> = { sedan: 'sedan', compact: 'hatch', van: 'van', bus: 'bus' };
+/** Traffic kinds drawn as a car design (every kind has one); car/traffic.ts's simple models are the fallback. */
+const TRAFFIC_DESIGN: Record<string, string> = { sedan: 'sedan', compact: 'compact', van: 'van', bus: 'bus', truck: 'truck' };
 
 interface Debris {
   kind: number;
