@@ -1,6 +1,9 @@
+import bus from '../content/cars/bus.json';
 import coupe from '../content/cars/coupe.json';
 import hatch from '../content/cars/hatch.json';
 import muscle from '../content/cars/muscle.json';
+import rally from '../content/cars/rally.json';
+import sedan from '../content/cars/sedan.json';
 import van from '../content/cars/van.json';
 import downtown from '../content/maps/city/downtown.track.json';
 import surfaces from '../content/surfaces.json';
@@ -8,7 +11,8 @@ import type { CarClass, SurfaceDef, TrackLayout } from '../src/core/content';
 import { Sim } from '../src/core/sim';
 import { bakeTrack } from '../src/core/track/bake';
 
-export const CLASSES = [coupe, muscle, hatch, van] as CarClass[];
+// The game's order (src/content.ts).
+export const CLASSES = [coupe, muscle, hatch, van, sedan, rally, bus] as CarClass[];
 export const SURFACES = surfaces as SurfaceDef[];
 export const DOWNTOWN = downtown as unknown as TrackLayout;
 

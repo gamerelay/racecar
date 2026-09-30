@@ -1,2 +1,3 @@
-{ "id": "hatch", "name": "Zip", "topSpeed": 60, "accel": 20, "brake": 32, "turn": 2.8, "grip": 1.0, "mass": 1000,
+{ "id": "hatch", "name": "Zip", "blurb": "Nimble: best off the line and through tight corners, easy drifts that snap straight.",
+  "topSpeed": 60, "accel": 20, "brake": 32, "turn": 2.8, "grip": 1.0, "mass": 1000,
   "boostCapacity": 3.0, "drift": 1.3, "driftRotation": 1.3, "driftCarry": 0.6, "size": [0.9, 1.95, 0.7] }

@@ -1,0 +1,3 @@
+{ "id": "rally", "name": "Mudlark", "blurb": "Dirt specialist: keeps its grip off the asphalt; long, loose slides.",
+  "topSpeed": 61, "accel": 19, "brake": 31, "turn": 2.7, "grip": 0.92, "mass": 1200,
+  "boostCapacity": 3.2, "drift": 1.15, "driftRotation": 1.4, "driftCarry": 1.3, "offroad": 0.25, "size": [0.95, 1.97, 0.78] }

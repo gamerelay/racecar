@@ -65,11 +65,15 @@ export function showSetup(maps: MapDef[], layouts: string[], classes: CarClass[]
       <label>Mayhem ${sel('sMayhem', [['normal', 'normal'], ['chaos', 'chaos'], ['off', 'off']], current.mayhem ?? 'normal')}</label>
       <label>Traffic ${sel('sTraffic', [['1', 'on'], ['0', 'off']], current.traffic === false ? '0' : '1')}</label>
     </div>
+    <p class="muted" id="sBlurb"></p>
     <div class="row"><button id="sRace">Race</button><button id="sFree" class="ghost">Free drive</button></div>
     <p class="muted">Drift (Shift / RB) to take corners tighter. Near misses, the oncoming lane and big air fill boost; boost into rivals for takedowns. Rain makes puddles: shiny means slippery. Online parties come next.</p>
   </div>`;
   document.body.appendChild(el);
   const v = (id: string) => (document.getElementById(id) as HTMLSelectElement).value;
+  const blurb = () => (document.getElementById('sBlurb')!.textContent = classes.find((c) => c.id === v('sCar'))?.blurb ?? '');
+  (document.getElementById('sCar') as HTMLSelectElement).onchange = blurb;
+  blurb();
   const go = (mode: 'race' | 'free') => {
     const s: RaceSetup = {
       mode,

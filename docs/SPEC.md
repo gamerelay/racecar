@@ -1005,3 +1005,22 @@ Polish (2026-09-30):
   by how far behind the leader you are (full at 400 m), for AI and people alike. A manual reset
   pays nothing, so resetting isn't a way to farm boost. The Respawn event carries the amount; the
   HUD pops it.
+
+Seven cars (2026-09-30):
+
+- **Sedan, rally and bus are player and AI classes** (Cruiser, Mudlark, Route 88), from the
+  `car-variety` designs. Race traffic draws a kind with a racer design as that car (sedan, van,
+  bus, and the compact as the hatch), flattened to one instanced mesh per material and ink id;
+  the box truck and the city's ambient cars keep the cheap one-draw models from `car/traffic.ts`.
+- **Cars are balanced by the lap report**, not by feel alone: `bun tools/lap-report.ts --cars`
+  runs a hard AI lap in every class on every layout and prints each against the mean, plus
+  0–100 km/h. Every class is within ±5% on both layouts (`test/cars.test.ts` holds it); the
+  rally car's dirt edge on the Valley (about −5%) is the one allowed outlier, bounded at ±7%.
+  The AI laps on grip, so drift stats don't show in these numbers: they're tuned by hand.
+- **Each car has a job**, said in one line on the picker (`blurb`): coupe all-rounder, muscle top
+  speed, hatch nimble and quick off the line, van heavy hauler, sedan boost car (biggest light
+  meter, fastest drift bank), rally dirt specialist, bus wrecking ball (6 t, 5.5 s of boost).
+- **`offroad` (0–1) is a new class stat**: how much of dirt and grass's lost grip and extra drag a
+  car shrugs off. Rally 0.25, van and bus 0.3 (the van's is why it keeps up on the Valley).
+- **Very long cars lift the chase camera** and look further ahead, so the bus's roof doesn't
+  hide the road.

@@ -46,7 +46,9 @@ export function stepCar(sim: SimState, i: number, c: Controls, dt: number): void
   else cars.stuckT[i] = 0;
   locateCar(sim, i);
   const surf = sim.surfaces[cars.surface[i]];
-  const grip = surf.grip * sim.weatherGrip * cls.grip;
+  // Offroad tyres (cls.offroad) win back part of what dirt and grass take.
+  const rough = surf.offroad ? (cls.offroad ?? 0) : 0;
+  const grip = lerp(surf.grip, 1, rough) * sim.weatherGrip * cls.grip;
 
   let vx = cars.vx[i];
   let vz = cars.vz[i];
@@ -89,7 +91,7 @@ export function stepCar(sim: SimState, i: number, c: Controls, dt: number): void
       if (fwd > 0.5) a -= cls.brake * c.brake;
       else if (fwd > -T.reverseSpeed) a -= cls.accel * 0.5 * c.brake;
     }
-    a -= T.airDrag * fwd * Math.abs(fwd) + T.rolling * sign(fwd) * Math.min(1, Math.abs(fwd)) + surf.drag * fwd;
+    a -= T.airDrag * fwd * Math.abs(fwd) + T.rolling * sign(fwd) * Math.min(1, Math.abs(fwd)) + surf.drag * (1 - rough) * fwd;
 
     // Drift entry.
     const drifting = cars.drift[i] === 1;
