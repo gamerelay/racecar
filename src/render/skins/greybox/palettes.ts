@@ -1,4 +1,5 @@
 // Palettes from the prototype. Dusk is City's signature look; midnight its rain/night variant.
+// Tropic is Paradise's high noon: a hard sun, a pale sky over a turquoise sea, deep greens.
 
 export interface Palette {
   top: number;
@@ -20,6 +21,8 @@ export interface Palette {
   ink: number;
   /** Lit-window brightness on city blocks (0: none). */
   windows: number;
+  /** A daytime sky: the sun high and whole, no stars. */
+  day?: boolean;
 }
 
 export const PALETTES: Record<string, Palette> = {
@@ -58,6 +61,25 @@ export const PALETTES: Record<string, Palette> = {
     ground: 0x5f7d3c,
     ink: 0x2a1c14,
     windows: 0.4,
+  },
+  tropic: {
+    top: 0x1f6fd1,
+    mid: 0x62b8f0,
+    horizon: 0xc9f1ff,
+    sun: 0xfff6d0,
+    fog: 0xa9e2f2,
+    fogNear: 220,
+    fogFar: 1500,
+    hemiSky: 0xd6f4ff,
+    hemiGround: 0x3c6b3a,
+    hemiIntensity: 1.55,
+    dir: 0xfff1d0,
+    dirIntensity: 2.5,
+    blocks: [0xf2a7a0, 0x9fd9c8, 0xf6d38a, 0xa7c4f2, 0xf0b6d6, 0xbfe3a0],
+    ground: 0x4f9a3a,
+    ink: 0x14282a,
+    windows: 0.2,
+    day: true,
   },
   midnight: {
     top: 0x02030f,

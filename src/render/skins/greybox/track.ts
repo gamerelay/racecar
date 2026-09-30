@@ -30,6 +30,7 @@ import type { TrackVisual } from '../../skin';
 import { buildCityscape } from './cityscape';
 import { buildForest } from './forest';
 import { buildTerrain } from './terrain';
+import { boxes, type Box } from './scenery';
 import { disposeTree } from './dispose';
 import { toon, WET } from './toon';
 import type { Palette } from './palettes';
@@ -52,6 +53,8 @@ const LIP = 5;
 /** A bridge's barrier height; the railing on it reaches the full wall height and a bit. */
 const BARRIER = 0.55;
 const RAIL_TOP = 1.25;
+/** The island's concrete barrier, above the curb. */
+const ISLAND_BARRIER = 0.85;
 
 class Geo {
   pos: number[] = [];
@@ -127,8 +130,9 @@ export function buildTrackVisual(track: Track, palette: Palette, seed: number): 
   const city = track.layout.scenery === 'city';
   const groundY = city ? CITY_GROUND : minY - 0.4;
   // Open country gets real land: roads meet it at their edges, and bridges come from its mask.
-  const land = track.layout.scenery === 'countryside' ? buildTerrain(track, palette, seed) : null;
-  const style: Style = land ? { country: true, floor: land.height } : { country: false };
+  const island = track.layout.scenery === 'island';
+  const land = track.layout.scenery === 'countryside' || island ? buildTerrain(track, palette, seed) : null;
+  const style: Style = land ? { country: true, floor: land.height, island } : { country: false };
 
   for (const sp of track.splines) {
     const deck = land ? land.deck[sp.index] : deckMask(sp, groundY);
@@ -174,7 +178,14 @@ export function buildTrackVisual(track: Track, palette: Palette, seed: number): 
     extras.push(...scape.objects);
     update = scape.update;
   }
-  if (land) {
+  if (land && island) {
+    // The Freeway's pillars, down into the bay.
+    const under = track.splines.map((sp) => deckPillars(sp, land.deck[sp.index], (x, z) => land.height(x, z) - 0.5, () => false, 0xd9d0bd, 0xbdb3a0));
+    extras.push(boxes(under.flatMap((u) => u.pillars), toon()), boxes(under.flatMap((u) => u.caps), toon()));
+    update = (t) => {
+      land.time.value = t;
+    };
+  } else if (land) {
     const forest = buildForest(track, palette, seed, land);
     extras.push(...forest.objects);
     update = (t, dt, cam) => {
@@ -190,7 +201,7 @@ export function buildTrackVisual(track: Track, palette: Palette, seed: number): 
     debug,
     update,
     roof: roofMap(track, groundY, city, land ? (sp) => land.deck[sp.index] : (sp) => deckMask(sp, groundY)),
-    water: !!land?.objects.length && !!track.layout.terrain?.river,
+    water: !!land?.objects.length && (!!track.layout.terrain?.river || !!land.sea),
     dispose() {
       for (const c of chunks) (c as Mesh).geometry.dispose();
       road.dispose();
@@ -283,6 +294,37 @@ function embankment(stone: boolean, s: number): string {
   return Math.floor(s / 3) % 2 === 0 ? '#5d4f7c' : '#544672';
 }
 
+/**
+ * Pillars under a deck every 24 m, from its underside down to `floor` (two across a wide deck), and
+ * a cap across the deck over them. `blocked` keeps a pillar off a road below it.
+ */
+export function deckPillars(sp: BakedSpline, deck: Uint8Array, floor: (x: number, z: number) => number, blocked: (x: number, z: number, y: number) => boolean, color: number, capColor: number): { pillars: Box[]; caps: Box[] } {
+  const pillars: Box[] = [];
+  const caps: Box[] = [];
+  for (let i = 0; i < sp.n; i++) {
+    const s = i * sp.step;
+    if (!deck[i] || Math.round(s) % 24 !== 0) continue;
+    const y = sp.py[i] + sp.ramp[i];
+    const rx = -sp.tz[i];
+    const rz = sp.tx[i];
+    const rot = Math.atan2(sp.tx[i], sp.tz[i]);
+    const bottom = y - 1.2;
+    const off = sp.width[i] >= 18 ? [-(sp.width[i] / 2 - 3), sp.width[i] / 2 - 3] : [0];
+    let placed = false;
+    for (const l of off) {
+      const x = sp.px[i] + rx * l;
+      const z = sp.pz[i] + rz * l;
+      // Not on a road below (the colonnade on the Boulevard is gameplay, already there).
+      if (blocked(x, z, y)) continue;
+      const ground = floor(x, z);
+      pillars.push({ x, y: (ground + bottom) / 2, z, w: 2.2, h: bottom - ground, d: 2.2, rot, color });
+      placed = true;
+    }
+    if (placed) caps.push({ x: sp.px[i], y: bottom - 0.5, z: sp.pz[i], w: sp.width[i] * 0.8, h: 1, d: 2.6, rot, color: capColor });
+  }
+  return { pillars, caps };
+}
+
 export function deckMask(sp: BakedSpline, groundY: number): Uint8Array {
   const out = new Uint8Array(sp.n);
   const high = (i: number) => sp.py[i] + sp.ramp[i] - groundY > BRIDGE_H;
@@ -301,7 +343,7 @@ export function deckMask(sp: BakedSpline, groundY: number): Uint8Array {
 }
 
 /** How roads look off the city grid: timber and earth, land under them rather than a flat ground. */
-type Style = { country: false } | { country: true; floor: (x: number, z: number) => number };
+type Style = { country: false } | { country: true; floor: (x: number, z: number) => number; island: boolean };
 
 function buildChunk(g: Geo, track: Track, sp: BakedSpline, i0: number, i1: number, groundY: number, levels: boolean, deck: Uint8Array, style: Style): void {
   const A: Cross = { cx: 0, cy: 0, cz: 0, rx: 0, rz: 0, tb: 0 };
@@ -327,6 +369,8 @@ function buildChunk(g: Geo, track: Track, sp: BakedSpline, i0: number, i1: numbe
     const covered = levels && Math.max(hA, hB) < -TUNNEL_H;
     g.shade = covered ? 0.5 : 1;
     const outer = [0, 0];
+    // The island's roads are concrete where the country's are timber.
+    const concrete = style.country && style.island;
 
     // Road deck (right edge to left edge, winding up).
     let p = at(A, -wa, 0);
@@ -348,11 +392,11 @@ function buildChunk(g: Geo, track: Track, sp: BakedSpline, i0: number, i1: numbe
       const curbA = at(A, side * wa, 0);
       const curbB = at(B, side * wb, 0);
       // A bridge's verge in the country is its timber deck.
-      const color = open[i] ? surf.color : style.country && bridge ? (Math.floor(s / 1.5) % 2 === 0 ? '#7a5c3c' : '#6e5236') : shoulderColor;
+      const color = open[i] ? surf.color : concrete && bridge ? '#cfc7b5' : style.country && bridge ? (Math.floor(s / 1.5) % 2 === 0 ? '#7a5c3c' : '#6e5236') : shoulderColor;
       if (side < 0) g.quad(inA[0], inA[1], inA[2], outA[0], outA[1], outA[2], outB[0], outB[1], outB[2], inB[0], inB[1], inB[2], color);
       else g.quad(outA[0], outA[1], outA[2], inA[0], inA[1], inA[2], inB[0], inB[1], inB[2], outB[0], outB[1], outB[2], color);
       // Curb face, striped red and white on corners of the lap for speed (a grass verge in the country).
-      const stripe = style.country ? (bridge ? '#5e4630' : '#4d5f32') : Math.floor(s / 4) % 2 === 0 ? '#e0d6f0' : '#c43a5a';
+      const stripe = concrete ? (bridge ? '#a39a88' : '#c9b27e') : style.country ? (bridge ? '#5e4630' : '#4d5f32') : Math.floor(s / 4) % 2 === 0 ? '#e0d6f0' : '#c43a5a';
       if (side < 0) g.quad(curbA[0], curbA[1], curbA[2], inA[0], inA[1], inA[2], inB[0], inB[1], inB[2], curbB[0], curbB[1], curbB[2], stripe);
       else g.quad(inA[0], inA[1], inA[2], curbA[0], curbA[1], curbA[2], curbB[0], curbB[1], curbB[2], inB[0], inB[1], inB[2], stripe);
 
@@ -362,7 +406,17 @@ function buildChunk(g: Geo, track: Track, sp: BakedSpline, i0: number, i1: numbe
       // Where the outside drops to: the deck's underside on a bridge, else the ground (the land).
       const lowA = bridge ? A.cy - DECK : style.country ? Math.min(baseA[1] - 0.3, style.floor(baseA[0], baseA[2]) - 0.3) : groundY;
       const lowB = bridge ? B.cy - DECK : style.country ? Math.min(baseB[1] - 0.3, style.floor(baseB[0], baseB[2]) - 0.3) : groundY;
-      if (wall && style.country) {
+      if (wall && concrete) {
+        // A white concrete barrier; the edge under it drops to the land (or the deck's underside).
+        const topA = at(A, side * sa, liftA + ISLAND_BARRIER);
+        const topB = at(B, side * sb, liftB + ISLAND_BARRIER);
+        const backA = at(A, side * (sa + WALL_THICK), liftA + ISLAND_BARRIER);
+        const backB = at(B, side * (sb + WALL_THICK), liftB + ISLAND_BARRIER);
+        g.face(baseA, baseB, topB, topA, Math.floor(s / 12) % 2 === 0 ? '#f1ebdc' : '#e4dcc9');
+        g.face(topA, topB, backB, backA, '#cfc7b5');
+        g.face(backA, backB, [backB[0], lowB, backB[2]], [backA[0], lowA, backA[2]], bridge ? '#a39a88' : '#b8ae99');
+        outer[side < 0 ? 0 : 1] = WALL_THICK;
+      } else if (wall && style.country) {
         // Timber: a guardrail on posts, or a bridge's railing; the edge drops to the land below.
         g.face(baseA, baseB, [baseB[0], lowB, baseB[2]], [baseA[0], lowA, baseA[2]], bridge ? '#4a3626' : '#6b553b');
         railing(g, A, B, side * (sa - 0.15), side * (sb - 0.15), s, sp.step, TIMBER);
@@ -400,7 +454,7 @@ function buildChunk(g: Geo, track: Track, sp: BakedSpline, i0: number, i1: numbe
         g.face(baseA, baseB, foot(B, sb, baseB), foot(A, sa, baseA), shoulderColor);
       } else if (baseA[1] > lowA + 0.2) {
         // No wall: the shoulder's edge drops to the ground (or the deck's underside).
-        g.face(baseA, baseB, [baseB[0], lowB, baseB[2]], [baseA[0], lowA, baseA[2]], style.country ? (bridge ? '#4a3626' : '#6b553b') : embankment(levels && !bridge && hA > 1.2, s));
+        g.face(baseA, baseB, [baseB[0], lowB, baseB[2]], [baseA[0], lowA, baseA[2]], concrete ? '#a39a88' : style.country ? (bridge ? '#4a3626' : '#6b553b') : embankment(levels && !bridge && hA > 1.2, s));
       }
     }
     if (bridge) {
@@ -411,7 +465,7 @@ function buildChunk(g: Geo, track: Track, sp: BakedSpline, i0: number, i1: numbe
       const ra = at(A, r, 0);
       const lb = at(B, -(sb + outer[0]), 0);
       const rb = at(B, sb + outer[1], 0);
-      g.face([la[0], A.cy - DECK, la[2]], [lb[0], B.cy - DECK, lb[2]], [rb[0], B.cy - DECK, rb[2]], [ra[0], A.cy - DECK, ra[2]], style.country ? '#3a2a1e' : '#2c2440');
+      g.face([la[0], A.cy - DECK, la[2]], [lb[0], B.cy - DECK, lb[2]], [rb[0], B.cy - DECK, rb[2]], [ra[0], A.cy - DECK, ra[2]], concrete ? '#7d7566' : style.country ? '#3a2a1e' : '#2c2440');
     }
     if (covered) {
       // The tunnel roof: a concrete slab at street level, the plaza on top.

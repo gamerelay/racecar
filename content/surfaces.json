@@ -8,5 +8,9 @@
   { "id": "oil", "grip": 0.2, "drag": 0, "driftCharge": 0.3, "looseness": 3.0, "color": "#1d1a24" },
   { "id": "lava-crust", "grip": 0.8, "drag": 0.5, "driftCharge": 0.6, "looseness": 1.2, "color": "#7a2a1a" },
   { "id": "boost-pad", "grip": 1.0, "drag": -0.5, "driftCharge": 1.0, "looseness": 1.0, "color": "#ffb23f" },
-  { "id": "sidewalk", "grip": 0.9, "drag": 0.15, "driftCharge": 0.9, "looseness": 1.1, "offroad": true, "color": "#6d5f86" }
+  { "id": "sidewalk", "grip": 0.9, "drag": 0.15, "driftCharge": 0.9, "looseness": 1.1, "offroad": true, "color": "#6d5f86" },
+  { "id": "sand", "grip": 0.64, "drag": 0.3, "driftCharge": 0.8, "looseness": 1.8, "offroad": true, "color": "#e6d3a0" },
+  { "id": "red-earth", "grip": 0.74, "drag": 0.2, "driftCharge": 0.85, "looseness": 1.5, "offroad": true, "color": "#a9532f" },
+  { "id": "lava-rock", "grip": 1.05, "drag": 0.02, "driftCharge": 0.95, "looseness": 0.9, "color": "#3a3438" },
+  { "id": "shore", "grip": 0.55, "drag": 0.2, "driftCharge": 0.7, "looseness": 2.0, "offroad": true, "color": "#b8a57a" }
 ]

@@ -37,7 +37,7 @@ import { LampPoints, lampSpots, trafficModels } from './car/traffic';
 
 /** Ambient city cars farther than this from the camera aren't posed (they're specks by then). */
 const AMBIENT_RANGE = 420;
-import { deckMask } from './track';
+import { deckMask, deckPillars } from './track';
 import { animatedPoints, boxes, canvas, FONT, glowMaterial, glowPoints, type Box } from './scenery';
 
 import { faceted, glow, toon } from './toon';
@@ -842,26 +842,14 @@ export function buildCityscape(track: Track, palette: Palette, ground: number): 
     const strips: Box[] = [];
     for (const sp of track.splines) {
       const deck = deckMask(sp, ground);
+      const under = deckPillars(sp, deck, () => ground, (x, z, y) => roads.clear(x, z, 4, (ry) => ry < y - 3) < 1.5, 0x8f84a8, 0x6d5f86);
+      pillars.push(...under.pillars);
+      caps.push(...under.caps);
       for (let i = 0; i < sp.n; i += 1) {
         const y = sp.py[i] + sp.ramp[i];
-        const s = i * sp.step;
         const rx = -sp.tz[i];
         const rz = sp.tx[i];
         const rot = Math.atan2(sp.tx[i], sp.tz[i]);
-        if (deck[i] && Math.round(s) % 24 === 0) {
-          const bottom = y - 1.2;
-          const off = sp.width[i] >= 18 ? [-(sp.width[i] / 2 - 3), sp.width[i] / 2 - 3] : [0];
-          let placed = false;
-          for (const l of off) {
-            const x = sp.px[i] + rx * l;
-            const z = sp.pz[i] + rz * l;
-            // Not on a road below (the colonnade on the Boulevard is gameplay, already there).
-            if (roads.clear(x, z, 4, (ry) => ry < y - 3) < 1.5) continue;
-            pillars.push({ x, y: (ground + bottom) / 2, z, w: 2.2, h: bottom - ground, d: 2.2, rot, color: 0x8f84a8 });
-            placed = true;
-          }
-          if (placed) caps.push({ x: sp.px[i], y: bottom - 0.5, z: sp.pz[i], w: sp.width[i] * 0.8, h: 1, d: 2.6, rot, color: 0x6d5f86 });
-        }
         if (y < ground - 4.5 && i % 10 === 0) {
           tunnelLamps.push(sp.px[i], ground - 1.05, sp.pz[i]);
           fixtures.push({ x: sp.px[i], y: ground - 0.8, z: sp.pz[i], w: 3, h: 0.25, d: 0.8, rot, color: 0xffe0b0 });

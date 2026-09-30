@@ -190,7 +190,7 @@ describe('map thumbnails', () => {
       expect(t.branches.length).toBe(layout.branches?.length ?? 0);
       // Within a few percent of MAPS.md's lap lengths (control points cut the corners a little).
       expect(t.km, key).toBeGreaterThan(2.7);
-      expect(t.km, key).toBeLessThan(3.4);
+      expect(t.km, key).toBeLessThan(3.8);
     }
   });
 });

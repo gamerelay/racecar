@@ -1,0 +1,234 @@
+// Generator for Paradise's Island layout (PLAN phase 5). A clockwise lap of a tropical island,
+// with the volcano in the middle and the sea all round, in order:
+//
+//   Harbor Town        the start on the harbour front, two-way traffic, then a flowing S out of town
+//   Coconut Coast      a wide beach road up the west shore: long banked sweepers round a headland
+//                      (the Sandbar shortcut runs straight on along the waterline, on loose sand)
+//   the Freeway        a ramp up to a deck 10–14 m over the bay, one long banked sweep round the
+//                      north shore with traffic, the whole island in view
+//   Jungle Switchbacks down off the deck into the jungle: wide hairpins on red earth
+//   Volcano Rim        the climb round the cone's flank on black lava rock, over crests (the Lava
+//                      Tube shortcut cuts through the shoulder), and a jump off the rim
+//   Lighthouse Point   the descent past the lighthouse onto the cliff road, and a flowing S home
+//
+// The lap-laying (arcs, banks, smoothing, crests) is shared with the other maps, in tools/lib/lap.ts.
+// The land comes from `terrain`: the coastline, the sea's level and the volcano.
+//
+// After this the layout is edited in the editor; rerunning overwrites it.
+//
+//   bun tools/gen-paradise.ts
+
+import { writeFileSync } from 'node:fs';
+import type { BranchDef, TrackLayout } from '../src/core/content';
+import { bakeTrack } from '../src/core/track/bake';
+import { straightenSections } from '../src/core/track/validate';
+import surfaces from '../content/surfaces.json';
+import { type Crest, type Node, lapPoints, onLap, r1, span, wallGaps } from './lib/lap';
+
+const node = (w: number, surface: string, shoulder: number) => (x: number, z: number, y: number, r?: number, more: Partial<Node> = {}): Node => ({ x, z, y, w, r, surface, shoulder, ...more });
+/** Harbor Town and Lighthouse Point: asphalt. */
+const T = node(15, 'asphalt', 3);
+/** Coconut Coast: the wide beach road. */
+const C = node(18.5, 'asphalt', 3);
+/** The Freeway: a deck, with a narrow verge inside its barriers. */
+const F = node(18, 'asphalt', 1.5);
+/** Jungle Switchbacks: red earth, wide for hairpins. */
+const J = node(15, 'red-earth', 2.5);
+/** Volcano Rim: lava rock. */
+const V = node(15, 'lava-rock', 2.5);
+
+/** The volcano: its middle, the crater's radius, and the lip's height. */
+const VOLCANO = { x: 150, z: 60, crater: 55, h: 95, r: 330 };
+/** A point on a circle round the volcano's middle (degrees clockwise from east, as seen from above). */
+const rim = (deg: number, radius: number): [number, number] => {
+  const a = (deg * Math.PI) / 180;
+  return [r1(VOLCANO.x + Math.cos(a) * radius), r1(VOLCANO.z + Math.sin(a) * radius)];
+};
+
+const nodes: Node[] = [
+  // Harbor Town: the line on the harbour front heading west, then a flowing S out of town.
+  T(160, 430, 2),
+  T(-30, 430, 2, 80),
+  T(-150, 392, 2.5, 75),
+  T(-280, 420, 2.5, 60),
+  // Coconut Coast: north up the west shore, long sweepers round the headland.
+  C(-420, 300, 3, 110),
+  C(-410, 170, 3.5, 90),
+  C(-300, 45, 5, 80),
+  C(-420, -90, 4, 90),
+  // The Freeway: up the ramp and round the bay on the deck.
+  F(-440, -235, 9, 130),
+  F(-260, -410, 12.5, 150),
+  F(0, -440, 13, 170),
+  F(215, -385, 11, 120),
+  // Jungle Switchbacks: off the deck, then two wide hairpins.
+  J(395, -330, 7, 28),
+  J(250, -300, 9, 70, { bank: 0 }),
+  J(75, -262, 11, 28),
+  J(215, -205, 13, 70, { bank: 0 }),
+  // Volcano Rim: round the cone's flank, clockwise, climbing.
+  V(...rim(-72, 215), 17, 70),
+  V(...rim(-45, 190), 24, 120),
+  V(...rim(-12, 212), 32, 110),
+  V(...rim(28, 210), 38, 110),
+  V(...rim(62, 190), 40, 110),
+  // Lighthouse Point: down off the rim (a jump), round the point and along the cliff, and the S into town.
+  T(335, 330, 24, 70),
+  T(445, 405, 15, 55),
+  T(330, 468, 8, 70),
+  T(240, 432, 3, 80),
+];
+
+const crests: Crest[] = [
+  // A rise on the coast road over the headland.
+  { x: -350, z: 60, h: 1.8, len: 44 },
+  // Over the rim's shoulder, and the jump off the rim onto the descent.
+  { ...xz(rim(5, 182)), h: 2.4, len: 40 },
+  { x: 305, z: 300, h: 3, len: 46 },
+];
+function xz([x, z]: [number, number]) {
+  return { x, z };
+}
+
+const pts = lapPoints(nodes, crests);
+
+const layout: TrackLayout = {
+  id: 'paradise-island',
+  name: 'Island',
+  main: { points: pts },
+  branches: [],
+  zones: [],
+  walls: { gaps: [] },
+  ramps: [],
+  checkpoints: 'auto',
+  props: [],
+  takedownSpots: [],
+  scenery: 'island',
+  shoulderSurface: 'sand',
+};
+
+const baked = bakeTrack(layout, surfaces);
+const L = baked.main.length;
+const { sAt, yAt, fork } = onLap(baked);
+
+// ---- shortcuts ----
+
+// The Sandbar: straight on along the waterline instead of round the headland, on loose sand.
+const sandFrom = sAt(-412, 140);
+const sandTo = sAt(-418, -60);
+const sandbar: BranchDef = {
+  id: 'sandbar',
+  kind: 'shortcut',
+  from: sandFrom,
+  to: sandTo,
+  points: [
+    fork(sandFrom, 26, -7, -0.4, 11, 'sand'),
+    { p: [-432, r1(yAt(-410, 40) - 1.4), 40], width: 11, lanes: 1, shoulder: 2, surface: 'sand' },
+    fork(sandTo, -26, -7, -0.4, 11, 'sand'),
+  ],
+};
+// The Lava Tube: through the cone's shoulder, inside the rim road, a chord across two corners.
+const [tx0, tz0] = rim(-50, 190);
+const [tx1, tz1] = rim(40, 182);
+const tubeFrom = sAt(tx0, tz0, 24);
+const tubeTo = sAt(tx1, tz1, 38);
+const [mx, mz] = rim(-5, 150);
+const tube: BranchDef = {
+  id: 'lava-tube',
+  kind: 'shortcut',
+  from: tubeFrom,
+  to: tubeTo,
+  points: [
+    fork(tubeFrom, 26, 7, 0.2, 11, 'lava-rock'),
+    { p: [mx, r1((yAt(tx0, tz0, 24) + yAt(tx1, tz1, 38)) / 2), mz], width: 10, lanes: 1, shoulder: 1, surface: 'lava-rock' },
+    fork(tubeTo, -26, 7, 0.2, 11, 'lava-rock'),
+  ],
+};
+layout.branches = [sandbar, tube];
+const withBranches = bakeTrack(layout, surfaces);
+const sandSp = withBranches.splines[1];
+
+// ---- jumps: a dune on the Sandbar, and the kicker off the rim ----
+layout.ramps = [
+  { spline: 'sandbar', s: Math.round(sandSp.length * 0.45), height: 1.6, length: 11 },
+  { s: sAt(305, 300, 30) - 12, height: 1.6, length: 12 },
+];
+
+// ---- walls: the harbour front, the freeway deck, the rim's drop; open beach and jungle elsewhere ----
+const walled: [number, number][] = [
+  span(sAt(150, 430), sAt(-110, 400)), // the harbour front
+  span(sAt(-420, -200, 8), sAt(240, -370, 11)), // the freeway
+  span(sAt(...rim(-40, 186), 28), sAt(...rim(50, 186), 40)), // the rim
+];
+layout.walls = { gaps: wallGaps(walled, L) };
+
+// ---- traffic: two-way in town; the freeway is one-way, both lanes running with the race ----
+const town: [number, number][] = [[sAt(240, 432), sAt(-60, 430)]];
+// (The freeway's bend at the middle of the bay is left clear: traffic in a fast corner at the
+// apex was most of the field's wrecks.)
+const freeway: [number, number][] = [
+  [sAt(-230, -412, 12), sAt(-60, -433, 12)],
+  [sAt(50, -428, 12), sAt(180, -394, 12)],
+];
+layout.traffic = {
+  density: 5,
+  lanes: [
+    { pos: 0.5, dir: 1, speed: 16, sections: town },
+    { pos: -0.5, dir: -1, speed: 14, sections: town },
+    { pos: 0.5, dir: 1, speed: 20, sections: freeway },
+    { pos: -0.5, dir: 1, speed: 24, sections: freeway },
+  ],
+};
+layout.hazards = [];
+layout.takedownSpots = [
+  { s: sAt(0, -440, 13), name: 'The Freeway' },
+  { s: sAt(60, 430), name: 'The Harbour' },
+];
+// The waterline on the Sandbar is always wet; rain puddles in town, a hairpin and the cliff road.
+const puddle = (x: number, z: number, y: number, len: number, l0: number, l1: number) => {
+  const s0 = sAt(x, z, y);
+  return { s: [s0, s0 + len] as [number, number], lateral: [l0, l1] as [number, number], surface: 'puddle', when: 'wet' as const };
+};
+layout.zones = [
+  { spline: 'sandbar', s: [Math.round(sandSp.length * 0.62), Math.round(sandSp.length * 0.86)], lateral: [-5.5, -1], surface: 'shore' },
+  puddle(-150, 392, 2.5, 22, -4, 3),
+  puddle(110, -245, 11, 20, -4, 4),
+  puddle(390, 450, 12, 22, -3, 5),
+];
+layout.terrain = {
+  sea: 0,
+  // The coastline, clockwise from the harbour: the bay the freeway crosses, the point at the lighthouse.
+  island: [
+    [120, 482],
+    [-120, 490],
+    [-330, 486],
+    [-470, 400],
+    [-468, 220],
+    [-462, 60],
+    [-470, -120],
+    [-490, -250],
+    [-420, -345],
+    [-250, -345],
+    [-40, -365],
+    [150, -345],
+    [270, -440],
+    [470, -420],
+    [520, -120],
+    [510, 180],
+    [540, 400],
+    [470, 500],
+    [300, 520],
+  ],
+  volcano: VOLCANO,
+};
+
+straightenSections(layout, surfaces);
+writeFileSync(new URL('../content/maps/paradise/island.track.json', import.meta.url), JSON.stringify(layout, null, 1) + '\n');
+const final = bakeTrack(layout, surfaces);
+console.log(
+  `main ${final.main.length.toFixed(0)} m, ${pts.length} points; ` +
+    final.splines
+      .slice(1)
+      .map((sp) => `${sp.id} ${sp.length.toFixed(0)} m`)
+      .join(', '),
+);

@@ -16,27 +16,21 @@
 // are sweepers and S-bends to hold a drift through, the road is wider (more so in the corners),
 // and corners bank into the turn (smoothed, so an S rolls over rather than flips).
 //
+// The lap-laying (arcs, banks, smoothing, crests) is shared with the other maps, in tools/lib/lap.ts.
+//
 // After this the layout is edited in the editor; rerunning overwrites it.
 //
 //   bun tools/gen-countryside.ts
 
 import { writeFileSync } from 'node:fs';
-import type { BranchDef, TrackLayout, TrackPoint, Vec3 } from '../src/core/content';
+import type { BranchDef, TrackLayout } from '../src/core/content';
 import { bakeTrack } from '../src/core/track/bake';
-import { newHit, projectGlobal, sampleAt } from '../src/core/track/query';
 import { straightenSections } from '../src/core/track/validate';
 import surfaces from '../content/surfaces.json';
-
-/** A corner of the lap: r is its radius (none: a plain point). Bank: unset banks into the turn. */
-type Node = { x: number; z: number; y: number; w: number; r?: number; surface: 'asphalt' | 'dirt'; shoulder: number; bank?: number };
+import { type Node, lapPoints, onLap, r1, span, wallGaps } from './lib/lap';
 
 const A = (x: number, z: number, y: number, r?: number, more: Partial<Node> = {}): Node => ({ x, z, y, w: 14.5, r, surface: 'asphalt', shoulder: 3, ...more });
 const D = (x: number, z: number, y: number, r?: number, more: Partial<Node> = {}): Node => ({ x, z, y, w: 13, r, surface: 'dirt', shoulder: 2.5, ...more });
-
-/** Drift corners (sweepers, not hairpins or kinks) are this much wider. */
-const DRIFT_WIDTH = 1.5;
-/** Bank into a corner (radians): hairpins a little, sweepers more. */
-const bankFor = (r: number) => (r < 35 ? 0.06 : 0.1);
 
 const nodes: Node[] = [
   // The river road north from the line, and the village S (left, right, right, left).
@@ -89,144 +83,7 @@ const crests = [
   { x: -10, z: -360, h: 1.6, len: 50 },
 ];
 
-// ---- the path: filleted corners, sampled every few meters ----
-
-interface Sample {
-  x: number;
-  z: number;
-  n: Node;
-  /** Width and bank before smoothing: a corner's own on its arc, the plain road's elsewhere. */
-  w: number;
-  bank: number;
-  /** On a corner's middle sample: the road is at the node's height there. */
-  anchor?: number;
-}
-
-function path(ns: Node[]): Sample[] {
-  const N = ns.length;
-  const corner = ns.map((c, i) => {
-    const p = ns[(i - 1 + N) % N];
-    const q = ns[(i + 1) % N];
-    const inLen = Math.hypot(c.x - p.x, c.z - p.z);
-    const outLen = Math.hypot(q.x - c.x, q.z - c.z);
-    const di = [(c.x - p.x) / inLen, (c.z - p.z) / inLen];
-    const dO = [(q.x - c.x) / outLen, (q.z - c.z) / outLen];
-    const cr = di[0] * dO[1] - di[1] * dO[0];
-    const theta = Math.acos(Math.max(-1, Math.min(1, di[0] * dO[0] + di[1] * dO[1])));
-    const t = c.r && theta > 0.02 ? Math.min(c.r * Math.tan(theta / 2), inLen * 0.48, outLen * 0.48) : 0;
-    return { di, dO, cr, theta, t, t1: [c.x - di[0] * t, c.z - di[1] * t], t2: [c.x + dO[0] * t, c.z + dO[1] * t] };
-  });
-  const out: Sample[] = [];
-  for (let i = 0; i < N; i++) {
-    const c = ns[i];
-    const k = corner[i];
-    if (!k.t) out.push({ x: c.x, z: c.z, n: c, anchor: c.y, w: c.w, bank: c.bank ?? 0 });
-    else {
-      // The arc, centered off the incoming tangent toward the turn.
-      const r = k.t / Math.tan(k.theta / 2);
-      const sgn = k.cr > 0 ? 1 : -1;
-      const cx = k.t1[0] - k.di[1] * r * sgn;
-      const cz = k.t1[1] + k.di[0] * r * sgn;
-      const a0 = Math.atan2(k.t1[1] - cz, k.t1[0] - cx);
-      const steps = Math.max(2, Math.ceil((r * k.theta) / 7));
-      // The lap's right is (-z, x) of its heading, so a positive cross product is a right turn,
-      // and a positive bank lowers the right: into the turn.
-      const drift = r >= 35 && r <= 110 && k.theta > 0.35;
-      const w = c.w + (drift ? DRIFT_WIDTH : 0);
-      const bank = c.bank ?? (k.theta > 0.2 ? sgn * bankFor(r) : 0);
-      for (let j = 0; j <= steps; j++) {
-        const a = a0 + sgn * k.theta * (j / steps);
-        out.push({ x: cx + Math.cos(a) * r, z: cz + Math.sin(a) * r, n: c, anchor: j === Math.floor(steps / 2) ? c.y : undefined, w, bank });
-      }
-    }
-    // The straight on to the next corner.
-    const q = ns[(i + 1) % N];
-    const f = k.t2;
-    const g = corner[(i + 1) % N].t1;
-    const steps = Math.floor(Math.hypot(g[0] - f[0], g[1] - f[1]) / 22);
-    for (let j = 1; j < steps; j++) {
-      const u = j / steps;
-      const n = u < 0.5 ? c : q;
-      out.push({ x: f[0] + (g[0] - f[0]) * u, z: f[1] + (g[1] - f[1]) * u, n, w: n.w, bank: 0 });
-    }
-  }
-  return out;
-}
-
-const samples = path(nodes);
-const S = samples.length;
-const dist: number[] = [0];
-for (let k = 1; k <= S; k++) dist.push(dist[k - 1] + Math.hypot(samples[k % S].x - samples[k - 1].x, samples[k % S].z - samples[k - 1].z));
-const L0 = dist[S];
-const gap = (a: number, b: number) => Math.abs(((dist[a] - dist[b] + L0 * 1.5) % L0) - L0 / 2);
-// Height: linear in distance between the corners' anchors, smoothed (~30 m), plus the crests.
-const anchors = samples.flatMap((s, k) => (s.anchor === undefined ? [] : [{ k, y: s.anchor }]));
-const raw = samples.map((_, k) => {
-  let j = anchors.findIndex((a) => a.k > k);
-  if (j < 0) j = 0;
-  const b = anchors[j];
-  const a = anchors[(j - 1 + anchors.length) % anchors.length];
-  const da = (dist[k] - dist[a.k] + L0) % L0;
-  const ab = (dist[b.k] - dist[a.k] + L0) % L0 || 1;
-  return a.y + (b.y - a.y) * (da / ab);
-});
-/** `v` (one value per sample) at distance d along the lap, linear between samples. */
-const valueAt = (v: number[], d: number) => {
-  d = ((d % L0) + L0) % L0;
-  let lo = 0;
-  let hi = S;
-  while (hi - lo > 1) {
-    const mid = (lo + hi) >> 1;
-    if (dist[mid] <= d) lo = mid;
-    else hi = mid;
-  }
-  const f = (d - dist[lo]) / (dist[lo + 1] - dist[lo] || 1);
-  return v[lo] + (v[(lo + 1) % S] - v[lo]) * f;
-};
-/** A value along the lap, smoothed with a Gaussian of `sigma` meters (by distance, however sparse the samples). */
-const smoothed = (v: number[], sigma: number) =>
-  v.map((_, k) => {
-    let sum = 0;
-    let wsum = 0;
-    for (let u = -3 * sigma; u <= 3 * sigma; u += 1) {
-      const w = Math.exp(-(u * u) / (2 * sigma * sigma));
-      sum += valueAt(v, dist[k] + u) * w;
-      wsum += w;
-    }
-    return sum / wsum;
-  });
-// Crests sit on the road nearest their (x, z), measured along it.
-const crestAt = crests.map((c) => {
-  let best = 0;
-  for (let k = 1; k < S; k++) if (Math.hypot(samples[k].x - c.x, samples[k].z - c.z) < Math.hypot(samples[best].x - c.x, samples[best].z - c.z)) best = k;
-  return { ...c, k: best };
-});
-const heights = smoothed(raw, 14).map((y, k) => {
-  for (const c of crestAt) {
-    const d = gap(k, c.k);
-    if (d < c.len / 2) y += c.h * 0.5 * (1 + Math.cos((Math.PI * d) / (c.len / 2)));
-  }
-  return y;
-});
-// Widths ease in and out of the corners; banks roll over an S instead of flipping.
-const widths = smoothed(
-  samples.map((s) => s.w),
-  10,
-);
-const banks = smoothed(
-  samples.map((s) => s.bank),
-  12,
-);
-
-const r1 = (n: number) => Math.round(n * 10) / 10;
-const pts: TrackPoint[] = samples.map((s, k) => ({
-  p: [r1(s.x), r1(heights[k]), r1(s.z)] as Vec3,
-  width: Math.round(widths[k] * 10) / 10,
-  lanes: 2,
-  shoulder: s.n.shoulder,
-  ...(s.n.surface !== 'asphalt' ? { surface: s.n.surface } : {}),
-  ...(Math.abs(banks[k]) > 0.002 ? { bank: Math.round(banks[k] * 1000) / 1000 } : {}),
-}));
+const pts = lapPoints(nodes, crests);
 
 const layout: TrackLayout = {
   id: 'countryside-valley',
@@ -245,18 +102,7 @@ const layout: TrackLayout = {
 
 const baked = bakeTrack(layout, surfaces);
 const L = baked.main.length;
-const hit = newHit();
-const sAt = (x: number, z: number, y?: number) => (projectGlobal(baked.main, x, z, hit, y), Math.round(hit.s));
-const yAt = (x: number, z: number, y?: number) => (projectGlobal(baked.main, x, z, hit, y), hit.cy);
-/**
- * A shortcut's first (or last) point: `along` m on from where it leaves the main road at `s` (or
- * back from where it rejoins), and `lat` m out to the side (right positive). Close in and shallow,
- * so it forks off gently.
- */
-const fork = (s: number, along: number, lat: number, dy: number, width: number): TrackPoint => {
-  sampleAt(baked.main, s + along, hit);
-  return { p: [r1(hit.cx - hit.tz * lat), r1(hit.cy + dy), r1(hit.cz + hit.tx * lat)], width, lanes: 1, shoulder: 1.5, surface: 'dirt' };
-};
+const { sAt, yAt, fork } = onLap(baked);
 
 // ---- shortcuts ----
 
@@ -312,21 +158,13 @@ layout.ramps = [
 ];
 
 // ---- walls: the village, the bridges and the switchbacks' drops; open country elsewhere ----
-const span = (a: number, b: number): [number, number] => [Math.min(a, b), Math.max(a, b)];
 const walled: [number, number][] = [
   span(sAt(-10, 60), sAt(-10, 250)), // the village square
   span(sAt(35, 338), sAt(95, 322)), // the covered bridge
   span(sAt(255, 320, 7), sAt(355, 200, 36)), // the switchbacks
   span(sAt(-60, -284, 20), sAt(150, -262, 27)), // the trestle
-].sort((a, b) => a[0] - b[0]);
-const gaps: { s: [number, number]; side: 'both' }[] = [];
-let cursor = 0;
-for (const [a, b] of walled) {
-  if (a > cursor) gaps.push({ s: [cursor, a], side: 'both' });
-  cursor = Math.max(cursor, b);
-}
-if (cursor < L) gaps.push({ s: [cursor, L], side: 'both' });
-layout.walls = { gaps };
+];
+layout.walls = { gaps: wallGaps(walled, L) };
 
 // ---- traffic on the asphalt, hazards, water ----
 const sections: [number, number][] = [

@@ -31,6 +31,7 @@ export interface PlateStyle {
 const STYLES: Record<string, PlateStyle> = {
   downtown: { bg: '#eceefb', light: '#ffffff', shade: '#c3c6de', ink: '#1b1f5e', tag: '#e0226f' },
   backroads: { bg: '#fbefc6', light: '#fffbe8', shade: '#dcc98a', ink: '#1f4d2b', tag: '#b3471d' },
+  paradise: { bg: '#e9fbf6', light: '#ffffff', shade: '#b4dfd6', ink: '#0b5c6b', tag: '#f0663c' },
 };
 const STOCK: PlateStyle = { bg: '#e6e2ee', light: '#ffffff', shade: '#bdb7cc', ink: '#231d33', tag: '#5b5470' };
 

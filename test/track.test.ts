@@ -12,7 +12,7 @@ import { CLASSES, SURFACES, layout } from './helpers';
 // Shortcut junctions (they used to meet the main road up to 1.7 m off its surface, with a curb
 // across the mouth) and the Valley's v3 shape (sweepers to drift, a wider road, banked corners).
 
-const MAPS = ['downtown/downtown', 'backroads/valley'];
+const MAPS = ['downtown/downtown', 'backroads/valley', 'paradise/island'];
 
 /** Heading change (radians) over ±`half` samples at i: positive turns left. */
 const turnAt = (sp: BakedSpline, i: number, half: number) => {
