@@ -105,8 +105,8 @@ describe('race rules', () => {
   test("a wall that ends a drift stops it: a held drift button doesn't restart it next tick", () => {
     const sim = new Sim(bakeTrack({ ...ringLayout(), main: { points: ringLayout().main.points.map((p) => ({ ...p, width: 20 })) } }, SURFACES), CLASSES, SURFACES, { seed: 1 });
     const i = sim.addCar({ cls: 'coupe', human: true });
-    // Near the outside wall, fast, drifting and steering out into it.
-    sim.placeCar(i, 0, 50, -8, 35);
+    // Near the wall, fast, drifting into it: a glancing knock (19 m/s out), not a wreck.
+    sim.placeCar(i, 0, 50, 8, 35);
     const ctl = { ...neutralControls(), throttle: 1, drift: true, steer: 1 };
     const log: [number, number][] = [];
     let cursor = sim.events.head;
