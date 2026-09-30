@@ -47,17 +47,23 @@ These decide the arguments before they happen.
 1. **Greybox first, skin later.** Gameplay, level design and netcode are built and tuned on
    flat-shaded geometry. The prototype's look (toon ramp, ink, neon, post FX) is a *skin*
    applied afterwards through one interface (§6). No gameplay code may depend on a skin.
+   **Feel is not a skin:** speed lines, FOV kick, camera shake, sparks, boost flames, hit-stop
+   and sound are how the game tells you what's happening, so they're in the greybox from day
+   one. Only the look (materials, lighting, scenery art, palettes) waits.
 2. **Every system is declared up front** (§3): what it owns, what it reads, when it runs, and
    how it syncs. A new feature starts by adding a row to that table.
 3. **Shared world = function of (seed, race time).** Traffic, hazards, weather and item boxes
    are computed from `room.seed` and the shared race clock on every client, so they cost zero
    bandwidth and can never disagree (§4). Only players' own cars and the things they set off go
    over the network.
-4. **One owner per piece of data.** A car is written by its player; the world by the clock;
+4. **Shared moments are scheduled, not reported.** Anything everyone must see at the same
+   instant (the start lights, a triggered hazard, the next race) is announced with a server-clock
+   time slightly in the *future*, so every screen, the sender's included, starts it together.
+5. **One owner per piece of data.** A car is written by its player; the world by the clock;
    race facts by the host. Nobody writes what they don't own (the SDK enforces this anyway).
-5. **No allocation in the hot path.** The sim uses fixed-capacity pools and typed arrays; a
+6. **No allocation in the hot path.** The sim uses fixed-capacity pools and typed arrays; a
    test asserts zero allocations per tick after warm-up.
-6. **Data, not code, for content.** Tracks, surfaces, hazards and car stats are JSON files
+7. **Data, not code, for content.** Tracks, surfaces, hazards and car stats are JSON files
    validated by a schema, edited in our own editor (§6). Code defines *kinds* of things;
    data places them.
 
@@ -122,8 +128,12 @@ import lint rule.
 - `requestAnimationFrame` renders, interpolating between the last two sim states.
 - Render, audio, HUD and net read the tick's **event queue** (a typed ring buffer, not
   callbacks), so the sim never calls into them and a slow renderer can't stall a tick.
-- Slow-mo scales `dt` for *your* car's wreck and the camera only online (others keep real
-  time); in single player it slows the whole world, as Burnout does.
+- **Slow-mo is a property of the wreck, not of your screen.** Online, a wrecked car's body
+  runs at ~0.35× for its first ~1.3 s *for everyone*: others see your car tumble in slow motion
+  while they race past at full speed, and your aftertouch steers the same wreck they see. (A
+  slow-mo that only your screen showed would put your wreck behind where everyone else sees
+  it.) Your camera frames it; the world doesn't slow down. In single player the whole world
+  slows, as Burnout does.
 
 ### Data layout
 
@@ -133,7 +143,7 @@ Hot data lives in struct-of-arrays pools with fixed capacity, indexed by handle
 | Pool | Capacity | Notes |
 |---|---|---|
 | cars | 8 + 8 ghosts | players and AI; ghosts for Time Trial and spectating |
-| traffic | 128 | only the ones near someone are simulated; the rest are closed-form |
+| traffic | 128 posed | the whole track's traffic is a formula; only cars within ~300 m of a local car are posed into the pool each tick |
 | colliders (dynamic) | 256 | hazard pieces (logs, rocks, lava bombs), item projectiles |
 | zones (dynamic) | 64 | oil slicks, lava crust, puddles |
 | particles | render-side | one pooled buffer, never touched by core |
@@ -147,7 +157,7 @@ This table is the contract for how everything fits together. Order is the order 
 | 1 | Input | `input/` | devices | `Controls` per local player | local |
 | 2 | Clock | `core/clock` | `relay.now()`, `state.startAt` | race time, tick number | shared clock |
 | 3 | Weather | `core/world/weather` | seed, race time, map weather profile | grip multiplier, wet flag, visibility | **D** deterministic |
-| 4 | Traffic | `core/world/traffic` | seed, race time, lanes | traffic poses (closed-form), wreck overrides | **D** + **T** for hits |
+| 4 | Traffic | `core/world/traffic` | seed, race time, lanes, the hazard *schedule* | traffic poses (closed-form), wreck overrides | **D** + **T** for hits |
 | 5 | Hazards | `core/world/hazards` | seed, race time, hazards.json, trigger log | dynamic colliders, zones, telegraphs | **D** + **T** for triggers |
 | 6 | Item boxes | `core/world/items` | seed, race time, claims | box availability | **T** |
 | 7 | Own car | `core/car` | Controls, surfaces, weather | own car state | **O** owned entity |
@@ -162,6 +172,10 @@ This table is the contract for how everything fits together. Order is the order 
 
 Render, audio and HUD run per frame after this, reading state and the queue.
 
+D-systems may read each other as long as there's no cycle: traffic reads the hazard
+*schedule* (a function of the seed alone) so a car in a rockslide's path is wrecked by it on
+every screen, and hazards read traffic *poses* so the log truck is a real car in traffic.
+
 Rules for adding a system: it gets a row, a slot in the order, a sync category, a pool (if it
 has many things), and a test that runs it headless.
 
@@ -174,14 +188,16 @@ Every piece of game data is in exactly one of these:
 | **O** | Things a player owns: their car, their fired items | GameRelay entity, player-owned, 30 Hz | ~40 B × 30/s per car |
 | **H** | Things the host runs: AI rivals | GameRelay entity, `owner: 'host'` (migrates with the host) | same |
 | **D** | The deterministic world: traffic, scheduled and random hazards, weather, item box spawns | Pure function of `(seed, raceTime)`; nothing sent | 0 |
-| **T** | Triggers: someone set something off, or took something | `room.claim(key)` decides who; the winner emits the event; everyone runs it from the event's server time (`meta.at`) | one claim + one event |
+| **T** | Triggers: someone set something off, or hit a traffic car | `room.claim(key)` decides who; the winner emits the event with a start time ~250 ms in the future on the server clock; everyone, the winner included, runs it from then | one claim + one event |
 | **E** | Moments: bumps, wrecks, takedowns, laps, finishes, horns | `room.emit` | tiny, rare |
 | **S** | Race facts: phase, map, options, ready, results, votes, session points | `room.state`, host-written, timers for phases | rare |
 | **L** | Local only: particles, camera, debris after a wreck, audio | never sent | 0 |
 
 **The shared race clock.** `raceTime = relay.now() - state.startAt`, quantized to 60 Hz ticks.
 Clients agree on `relay.now()` to within a few ms, so a 20 m/s truck is within ~10 cm on every
-screen. D-systems are written as **closed-form functions of time** (where is this truck at
+screen. When the SDK re-measures the clock (every 20 s, and after a reconnect) the offset can
+move; `core/clock` slews toward the new value over ~1 s and never runs backwards, so traffic
+doesn't jump. D-systems are written as **closed-form functions of time** (where is this truck at
 t? where is this log at t?), not as integrations, so floating-point drift between browsers
 can't build up.
 
@@ -206,6 +222,12 @@ host entity (H).
   hazard in the way), a signature takedown spot, a long straight for boost and slipstreams, a
   technical section for drifting, and a traffic-heavy section (oncoming lanes).
 - The start grid is 2-wide × 4 rows.
+- **Traffic** drives the main spline only, in its lanes, and may change lanes at seeded times
+  (still closed-form). It never reacts to players: it can't brake for you. That's what keeps it
+  free over the network, and it's also Burnout's traffic.
+- **Out of bounds:** kill volumes (water, lava, off a cliff) and a "too far from any spline"
+  check wreck you; the respawn goes to the last valid point on whichever spline you were on,
+  branches included. A reset button does the same, with a 3 s cooldown.
 
 ### Layout format (`<layout>.track.json`)
 
@@ -252,9 +274,11 @@ Lookup is by zone first (dynamic, then authored), then the spline point's defaul
 ### Validation (`tools/validate.ts`, on save and in CI)
 
 Schema check, then gameplay checks: the grid fits the start straight, branches rejoin, widths
-never drop below one car's width plus margin, checkpoints are in order, every hazard's range is
+never drop below one car's width plus margin, checkpoints are in order and every branch
+passes the checkpoints it skips on the main spline (or none sit inside its span), every hazard's range is
 on the track, traffic lanes are inside the road, the AI can finish a lap, and the lap time is in
-the target range.
+the target range. The fastest AI lap (hard, every shortcut, clear weather) is recorded per
+layout as its **lap floor**, used to reject impossible leaderboard times (§10).
 
 ## §6 Level editor and the greybox workflow
 
@@ -380,7 +404,7 @@ content.
 - **Collision shapes:** cars are oriented boxes (SAT test); walls are segments; props, hazard
   pieces and traffic are boxes or circles.
 - **Response:** impulse along the contact normal scaled by weight ratio, extra lateral push for
-  side swipes. **Takedown rule** (tunable): the victim wrecks if relative normal speed is over a
+  side swipes. Online, each side resolves the contact for its own car from its own view (§10). **Takedown rule** (tunable): the victim wrecks if relative normal speed is over a
   threshold, or it's pushed into a wall/traffic/hazard while being hit, or the attacker is
   boosting. Otherwise it's a bump.
 - **Revenge:** whoever took you down last is marked; taking them down is a "Revenge".
@@ -409,8 +433,9 @@ itself (D, T).**
 
 - **Rooms of 8.** One GameRelay room is one party and lives through many races. 8 is inside
   the LAN/relay shortcut's limit, so every pair can use the fastest route.
-- **Entity kinds:** `car` (player, 30 Hz): `x, y, z`, `h`, `vx, vy, vz`, flags `boost`, `drift`,
-  `wrecked`, `ghost`, `item` text, `skin` value. `rival` (host, 30 Hz): AI cars. `projectile`
+- **Entity kinds:** `car` (player, 30 Hz): `x, y, z`, `h`, `vx, vy, vz`, `steer`, `throttle`,
+  flags `boost`, `drift`, `wrecked`, `ghost`, `skin` value. Sending steering lets prediction
+  follow a curve instead of a straight line, which is most of its accuracy in corners. `rival` (host, 30 Hz): AI cars. `projectile`
   (owner, 30 Hz): homing EMPs.
 - **State:** `phase` (lobby / countdown / racing / results / vote), `map`, `layout`, `mode`,
   `options` (laps, mayhem, weather, traffic, catch-up, AI fill), `seats` (open / AI + difficulty /
@@ -419,21 +444,39 @@ itself (D, T).**
 - **Events:** `bump`, `wrecked {by, cause}`, `takedown`, `lap`, `finish {t}`, `traffic_hit`,
   `hazard {id, n}`, `item_use`, `horn`.
 - **Remote cars are predicted.** Others are drawn ~100 ms in the past (7 m at 250 km/h).
-  `net/predict` extrapolates each one from its interpolated state by its age using velocity,
-  blends corrections over ~150 ms, and collisions use the predicted pose. It stays in the game:
+  `net/predict` takes each car's smoothed state at `room.renderTime` and runs it forward to now
+  with a cut-down car model (velocity, steering, the track's surface), blends corrections over
+  ~150 ms, and collisions use the predicted pose. The horizon is the SDK's ~100 ms delay
+  whatever the ping, so accuracy doesn't fall off on slow connections. It stays in the game:
   how to extrapolate is specific to cars (it knows about steering, drift and the track), so it's
   not an SDK feature.
-- **Player-vs-player contact:** each client tests *its own* car against predicted remote cars,
-  applies its own impulse, and sends `bump` to the other owner, who applies theirs. **The victim
-  decides whether it wrecks** and emits `wrecked {by}`; takedown credit is a
-  `room.claim(wreckId)`.
+- **Player-vs-player contact:** each client tests *its own* cars (its player car, plus AI cars
+  on the host) against the predicted others and applies the impulse to its own car only. It
+  also sends `bump {pair, t, impulse}` to the other owner. The receiver applies a bump only if
+  it hasn't seen that contact itself within ±150 ms; otherwise the two views would push twice.
+  So a contact both sides see is resolved once on each side, and one only one side saw still
+  reaches both cars.
+- **Wrecks and credit:** **the victim decides whether it wrecks** (it owns its car) and emits
+  `wrecked {by, cause}`, crediting its last contact within 1 s (a car, a hazard someone
+  triggered, traffic, a wall). Only the victim emits it, so no claim is needed.
 - **Traffic hits:** your car hits a traffic car (D) → `room.claim('traffic:<i>:<epoch>')` →
-  winner emits `traffic_hit`; everyone overrides that car with a local wreck (L) and the
-  formula respawns it later.
+  the winner emits `traffic_hit {i, epoch, at, impulse}`; everyone overrides that car with a
+  local wreck (L) from `at`, and the formula respawns it later. Until the event lands, others
+  still see that car driving for a moment; it's cosmetic, and the claim makes sure only one
+  wreck happens.
+- **AI after a host change:** AI cars are host entities, so the next host carries on writing
+  them, but the AI's own memory (its line, its target, its rubber-band) isn't in the entity.
+  The AI is written to rebuild that from the car's pose and the track in one tick, so it has
+  no hidden state worth losing.
+- **Seats are game state, not SDK slots.** The host assigns each joining player a seat in
+  `state.seats` (the first open one); the SDK's `slot` isn't used for seats because it doesn't
+  know which seats are closed or AI.
 - **Finishing:** each client emits `finish {t}` with its server-clock time; the host writes
   results to state (after a sanity check against the lap count and track length).
 - **Mid-race joiners** spectate until the next race.
-- **Leaderboards:** best lap per layout, takedowns per week, Crash mode scores.
+- **Leaderboards:** best lap per layout **from Time Trial only** (clear weather, no traffic or
+  hazards, so laps are comparable), rejected below the layout's lap floor (§5); takedowns per
+  week; Crash mode scores. GameRelay's leaderboard rules hold the floor server-side.
 - **Trust:** a modified client can drive fast or refuse to wreck. Fine for parties; the host's
   finish check catches the lazy cases. Ranked play would need host-simulates-inputs; not v1.
 
@@ -505,16 +548,23 @@ Saved in localStorage; in GameRelay player data too for signed-in players.
 
 | Need | Today | Ask |
 |---|---|---|
+| **Must have for milestone 3:** | | |
 | Host kicks a player | only the game owner, with the secret key | `room.kick(playerId, { ban })`, host only, server-enforced |
 | Lock a party | `public` set at creation only | `room.setAccess({ locked, public })`, host only; joins fail with `locked` |
 | Server browser rows | code, players, max, tag | `room.setListing({ name, meta })` (small JSON: map, mode, phase, lap), in `listRooms` |
 | Show full/locked parties | `listRooms` hides full rooms | `listRooms(tag, { includeFull: true })` with a `locked` flag |
+| Close seats | `maxPlayers` set at creation only | `room.setAccess({ maxPlayers })`, host only, not below the players in the room; listings show open seats |
+| **Nice to have:** | | |
 | Online count | none | players online for the instance (cached) |
 | Pass host | host changes only on leave/freeze | `room.transferHost(playerId)` |
-| Close seats | `maxPlayers` set at creation only | `room.setAccess({ maxPlayers })`, host only, not below the players in the room; listings show open seats |
+| **Later:** | | |
+| Spectators | a watcher takes one of the 8 seats | a spectator role: joins without a seat, can't own entities, doesn't count toward `maxPlayers` |
 
-Each is a normal GameRelay change (server, SDK, docs, tests). Until one lands, the game shows
-that control disabled rather than faking it.
+Each is a normal GameRelay change (server, SDK, docs, tests), built in the gamerelay repo during
+milestone 2 so they're released before milestone 3 needs them; `setAccess` covers lock,
+public and seats in one call. Until one lands, the game shows that control disabled rather than
+faking it. Until spectators exist, "Watch" only works on a party with a free seat, and a
+watcher gives the seat back when the next race starts if a player wants it.
 
 ## §12 Modes and single player
 
@@ -538,7 +588,12 @@ interface Mode {
 | **Knockout** | 3–8 | last place at each lap's end is out (short layouts) | 4 |
 | **Time trial** | 1 | no traffic or hazards, best lap, ghost, leaderboard | 4 |
 | **Pursuit** | 4–8 | teams: racers vs. cops; cops win by wrecking every racer before the timer | 6 |
-| **Crash mode** | 1–8 | one run into a junction full of traffic; biggest pile-up | 6 |
+| **Crash mode** | 1–8 | one run each into a junction full of traffic; biggest pile-up | 6 |
+
+Crash mode is the one place traffic must react (a pile-up is traffic crashing into
+traffic), which closed-form traffic can't do. Each run is simulated locally by the player
+making it, like a turn, and everyone else watches a replay of it; only the score and the
+replay's inputs go over the network. No new sync category needed.
 
 **Single player:** the same modes offline against AI (`net/` not loaded), plus a challenge
 ladder per map (win a race, 10 takedowns, beat a lap time) with 1–3 stars saved locally. Rewind
@@ -592,21 +647,25 @@ against inverted hulls when skins land; CI fails on sim-time, draw-call and bund
 
 ## §16 Milestones
 
-Greybox until milestone 5. Each milestone ends deployed and playable.
+Greybox until 3b (City) and 5 (the rest). Each milestone ends deployed and playable.
 
 1. **Sandbox**: repo, `core` skeleton (clock, pools, events, sim pipeline), track format +
    baking + validator, greybox skin, car physics (drift, boost, air, wrecks), OBB collisions,
    gamepad and keyboard, editor v0 (edit spline + widths, drive it). One City layout.
 2. **The world**: surfaces and weather, traffic (closed-form + LOD), hazards framework with
    log-truck and falling sign, AI drivers and the AI lap report, laps/positions/scoring,
-   single-player Race vs AI. City fully laid out; Countryside blocked in.
+   single-player Race vs AI. City fully laid out; Countryside blocked in. Alongside, in the
+   gamerelay repo: the must-have platform asks, released in an SDK alpha.
 3. **Online**: lobby list, host/join/quick race, party screen, `net/` (cars, prediction, bumps,
    takedowns, triggers, traffic hits), countdown on the race clock, results, vote, next race,
-   net overlay. The platform asks land in GameRelay alongside. **Repo goes public.**
+   net overlay, bots. **Repo goes public** (open source), but we don't promote it yet.
+   **3b. City gets the neon skin**: the prototype's look already exists, so porting it onto the
+   City layout is cheap, and it's what people see first. **This is the launch**: the first build
+   we show off.
 4. **Modes and content**: Takedown, Knockout, Time trial; car classes; Countryside finished;
-   reverse layouts; train, rockfall, oil spill; leaderboards; challenge ladder; bots.
-5. **Skins**: the neon City skin (the prototype's look), Countryside skin, post FX, audio,
-   garage and paint, settings complete, controller navigation everywhere, perf tiers.
+   reverse layouts; train, rockfall, oil spill; leaderboards; challenge ladder.
+5. **Skins and polish**: Countryside skin, audio, garage and paint screens, settings complete,
+   controller navigation everywhere, perf tiers.
 6. **More**: Volcano, Harbor, Alpine (greybox → skin), Pursuit, Crash mode, landing page. Items only if we decide we want them.
 
 ## §17 Decisions
@@ -638,6 +697,11 @@ What we've settled, so nobody re-argues it. Changing one is fine; say so here.
 | Laps | 3 by default |
 | Mobile | supported as long as it takes nothing from desktop (§13) |
 | Hosting | `racecar.gamerelay.io`, static files |
+| GameRelay account | racecar is a normal instance on a paid plan (dogfooding billing and limits); bots run on a separate instance so load tests don't eat players' capacity |
+| Launch | after 3b: online City race with the neon skin. The repo is public from 3, but promoted at 3b |
+| Wreck slow-mo online | the wreck itself runs slow for everyone; the world doesn't slow |
+| Contacts | each owner resolves its own car; bumps deduped within ±150 ms |
+| Leaderboard laps | Time Trial only, above the layout's AI lap floor |
 
 Still open, and fine to leave open until they matter:
 
