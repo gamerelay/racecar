@@ -46,8 +46,8 @@ describe('triggers', () => {
   const valley = layout('backroads/valley');
   const barnDef = valley.branches!.find((b) => b.id === 'barn')!;
   const at = barnDef.from + 130;
-  const sign = valley.hazards!.findIndex((h) => h.use === 'falling-sign');
-  valley.hazards![sign] = { ...valley.hazards![sign], s: at };
+  // (The Valley itself has no sign any more: this one's the test's own.)
+  const sign = valley.hazards!.push({ use: 'falling-sign', s: at }) - 1;
   const signs = (spline: number, s: number) => {
     const sim = new Sim(bakeTrack(valley, SURFACES), CLASSES, SURFACES, { seed: 1, traffic: 0 });
     const i = sim.addCar({ cls: 'coupe', human: true });
