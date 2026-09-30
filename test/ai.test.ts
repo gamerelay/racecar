@@ -37,7 +37,8 @@ describe('getting unstuck', () => {
       resets += r.wrecks.filter((w) => w.cause === 'reset').length;
     }
     expect(resets).toBeLessThanOrEqual(1);
-  });
+    // Six field races: ~4 s here, over bun's 5 s default on CI's slower machines.
+  }, 30_000);
 });
 
 describe('triggers', () => {
