@@ -44,6 +44,11 @@ export function glow(): CanvasTexture {
 
 /** Flat facets for a smooth primitive (cones, cylinders), so the ramp bands per face. */
 export function faceted<T extends BufferGeometry>(geo: T): BufferGeometry {
+  // Already one vertex per corner (a merged or hand-built mesh): just the normals.
+  if (!geo.index) {
+    geo.computeVertexNormals();
+    return geo;
+  }
   const g = geo.toNonIndexed();
   g.computeVertexNormals();
   geo.dispose();
