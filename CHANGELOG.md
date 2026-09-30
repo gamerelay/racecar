@@ -6,7 +6,22 @@ and where things stand is [docs/HANDOFF.md](./docs/HANDOFF.md).
 
 ## Unreleased
 
-Phase 1 of [docs/PLAN.md](./docs/PLAN.md), the quick wins.
+Phases 1 (the quick wins, PR #14) and 2 (the title screen and lobbies) of
+[docs/PLAN.md](./docs/PLAN.md).
+
+### Added
+- **Title screen:** a big RACECAR wordmark over the attract race, the lobby list (each row has a
+  map thumbnail, laps, phase, seat pips and cars out of 8), a big **Create lobby** button, and
+  Quick race and Free drive.
+- **Lobbies:** every race is one now, and bots fill the open seats, so playing alone is your
+  lobby with seven of them. Create one with a name, map, laps, weather, mayhem, traffic and
+  public or private. The lobby screen is Civilization-style: eight seats, each Player, Open, AI
+  (easy, normal or hard) or Closed, set by the host from its row. It has your car and paint with
+  their stats, and a map card with the settings. The host has Start, and the others have Ready.
+  Lobbies live in this browser for now (online ones come with milestone 3), and after a race you
+  land back in yours.
+- **Race links carry seats** (`seats=pnnhoxxx`), so a link is still the whole race.
+- Esc goes back a screen in the menus.
 
 ### Changed
 - **Map names:** City is now **Downtown** and Countryside is **Backroads**, in the menu and in
@@ -20,8 +35,10 @@ Phase 1 of [docs/PLAN.md](./docs/PLAN.md), the quick wins.
   menu, the results, the F8 form and the in-race menu button share the menu's look. Selects
   draw their own arrow, fields light up cyan when focused, and buttons press in.
 - The game is called **Racecar** on the title and the tab.
+- The race setup card is gone; its choices are split between Create lobby and the lobby. Old
+  links (`opponents`, `difficulty`) still start the race they meant.
 
-### Added
+### Docs
 - **docs/MAPS.md:** how maps are made and what makes a good lap (rhythm, drift corners, width,
   banking, height, shortcuts, traffic, hazards, scenery, measuring, and a new-map checklist).
 - **docs/PLAN.md:** the plan for lobbies, plates, the car select screen, Paradise and landmarks.

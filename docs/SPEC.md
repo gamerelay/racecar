@@ -1214,3 +1214,37 @@ Quick wins (2026-09-30, PLAN phase 1):
   ghost buttons, and fields (dark panels with an ink border, cyan when focused; selects draw
   their own arrow). The in-race menu button is a small menu button.
 - **MAPS.md** holds map design and technique; PLAN.md the next phases.
+
+Title screen and local lobbies (2026-09-30, PLAN phase 2):
+
+- **Every race is a lobby.** The setup card is gone. The title screen (`ui/menu.ts`) shows the
+  RACECAR wordmark over the attract race, the lobby list, a big Create lobby button, and Quick
+  race and Free drive. Quick race starts your lobby as it's set (making one with seven open
+  seats if there isn't one); Free drive is outside lobbies, as before.
+- **The model is `src/lobby/lobby.ts`, pure:** a `Lobby` (name, host, visibility, phase, options,
+  eight seats) changed only by `apply(lobby, actor, action)`, which holds the host rules. Only
+  the host sets seats and options, starts, kicks and ends. A player's seat can't be turned into
+  an AI, only kicked. Start waits for every other player to be ready, and a new car un-readies
+  you. The host leaving passes the lobby on. A backend just stores lobbies and passes actions,
+  so the relay one in milestone 3 sends the same actions to the room.
+- **`LocalBackend`** (`src/lobby/backend.ts`) keeps one lobby in localStorage, so it's still
+  there after a race (a race is a page load). Storage that throws falls back to memory. The
+  lobby screen's URL is `?lobby=local`, so a reload lands back in it, with its map behind.
+- **Seats in the race link:** `seats` replaces `opponents` and `difficulty`. It has one letter
+  a seat: `p` you, `e`/`n`/`h` an AI, `o` open (a normal bot) and `x` closed. `roster()` turns
+  them into the grid in seat order, so you can be in any seat. Seat `s` drives class `s` in your
+  paint plus `s`, named `AI_NAMES[s − 1]`: exactly the rival an old link had in that place, so a
+  seat keeps its rival from race to race.
+- **Old links still work:** `opponents`/`difficulty` become `legacySeats` (free drive keeps its
+  three rivals), and a bad `seats` value falls back the same way.
+- **After a race** the pause menu's Main menu, the ✕ Menu button and the results' Back to lobby
+  go to `?lobby=<id>`, and the lobby leaves its racing phase. A race without a lobby goes back
+  to the title, as before.
+- **Other players' seats are closed in a local race link** until online races land: a local
+  race can't drive them.
+- **Esc (and Start) go back a screen** in the menus; the pad's B already did.
+- **Map thumbnails** (`ui/thumb.ts`) are SVG drawn from the layout's control points, with no
+  baking. They appear in the list rows and on the lobby's map card, with the lap length.
+- **Not yet:** changing the map in the lobby doesn't swap the race behind it until a reload
+  (phase 4's live preview does that). Lobby-list filters wait until there's more than your own
+  lobby to filter.

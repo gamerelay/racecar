@@ -1,16 +1,16 @@
-// The single-player game (milestone 2): a setup menu over a live AI race (attract mode), then a
-// race against AI with traffic, hazards and weather, or free drive. The editor (` key, dev
-// builds), local telemetry and the F8 report as in milestone 1.
+// The game: the title screen and lobbies (ui/menu.ts) over a live AI race (attract mode), then a
+// race from a lobby's seats with traffic, hazards and weather, or free drive. The editor (` key,
+// dev builds), local telemetry and the F8 report as in milestone 1.
 //
-// URL: the setup (see ui/setup.ts: mode, map, car, paint, opponents, difficulty, laps, weather,
-// mayhem, traffic, seed) plus &post=0 &ink=0 &trace=1.
+// URL: a race (see ui/setup.ts: mode, map, car, paint, seats, laps, weather, mayhem, traffic,
+// seed, lobby), or ?lobby=<id> for a lobby, plus &post=0 &ink=0 &trace=1.
 
 import './ui/hud.css';
 import { TUNING } from './core/car/tuning';
 import type { TrackLayout } from './core/content';
 import { neutralControls, type Controls } from './core/controls';
 import { Ev } from './core/events';
-import { Sim, TICK_RATE, type CarSpec } from './core/sim';
+import { Sim, TICK_RATE } from './core/sim';
 import { bakeTrack } from './core/track/bake';
 import { Input } from './input/input';
 import { GameRenderer } from './render/renderer';
@@ -21,11 +21,23 @@ import { GameAudio } from './audio/audio';
 import { Hud } from './ui/hud';
 import { RaceUi } from './ui/race';
 import { accept, navigate } from './ui/nav';
-import { backToSetup, raceAgain, readChoices, readSetup, restart, showSetup, type RaceSetup } from './ui/setup';
+import { backToSetup, raceAgain, readChoices, readSetup, restart, type RaceSetup } from './ui/setup';
+import { Menu } from './ui/menu';
+import { LocalBackend } from './lobby/backend';
+import { roster } from './lobby/lobby';
 import { CLASSES, LAYOUTS, MAPS, PAINTS, SURFACES } from './content';
 import { resolveLayout } from './core/content';
 
 const params = new URLSearchParams(location.search);
+/** Where the local lobby is kept: localStorage, or nothing when it's blocked. */
+function storage(): Storage | null {
+  try {
+    return window.localStorage;
+  } catch {
+    return null;
+  }
+}
+let screens: Menu | undefined;
 const BUILD = `${import.meta.env.MODE}-${__BUILD_TIME__}`;
 // Only cars and paints that exist: a stale or hand-edited link falls back instead of crashing.
 const LAYOUT_KEYS = Object.keys(LAYOUTS);
@@ -34,7 +46,11 @@ const known = { cars: CLASSES.map((c) => c.id), paints: PAINTS.length, layouts: 
 const setup: RaceSetup | null = readSetup(params, DEFAULT_LAYOUT, known);
 // No setup yet: attract mode, a hard AI race on Downtown behind the menu.
 const attract = !setup;
-const run: RaceSetup = setup ?? { mode: 'race', map: resolveLayout(params.get('map'), LAYOUT_KEYS) ?? DEFAULT_LAYOUT, car: 'coupe', paint: 0, opponents: 7, difficulty: 2, laps: 3, weather: 'random', mayhem: 'normal', traffic: true, seed: Math.floor(Math.random() * 1e9) };
+/** Lobbies in this browser (online ones come with milestone 3). */
+const lobbies = new LocalBackend(storage());
+// Behind a lobby, its map runs.
+const lobbyMap = params.get('lobby') ? lobbies.peek(params.get('lobby')!)?.options.map : undefined;
+const run: RaceSetup = setup ?? { mode: 'race', map: resolveLayout(params.get('map') ?? lobbyMap, LAYOUT_KEYS) ?? DEFAULT_LAYOUT, car: 'coupe', paint: 0, seats: 'hnehnehn', laps: 3, weather: 'random', mayhem: 'normal', traffic: true, seed: Math.floor(Math.random() * 1e9) };
 const layoutKey = resolveLayout(run.map, LAYOUT_KEYS) ?? DEFAULT_LAYOUT;
 
 let layout: TrackLayout = structuredClone(LAYOUTS[layoutKey] ?? Object.values(LAYOUTS)[0]);
@@ -48,20 +64,11 @@ const sim = new Sim(bakeTrack(layout, SURFACES), CLASSES, SURFACES, {
   mayhem: run.mayhem,
   traffic: run.traffic ? 1 : 0,
 });
-const AI_NAMES = ['Nova', 'Rook', 'Vex', 'Juno', 'Blitz', 'Kai', 'Mako', 'Ziggy'];
-const specs: CarSpec[] = [];
-const names: string[] = [];
-if (!attract) {
-  specs.push({ cls: run.car, paint: run.paint, human: true });
-  names.push('You');
-}
-const rivals = attract ? 8 : run.mode === 'free' ? 3 : run.opponents;
-for (let k = 0; k < rivals; k++) {
-  specs.push({ cls: CLASSES[(k + 1) % CLASSES.length].id, paint: (run.paint + k + 1) % PAINTS.length, racer: { difficulty: attract ? ((k % 3) as 0 | 1 | 2) : run.difficulty } });
-  names.push(AI_NAMES[k]);
-}
+// The seats become the cars, in grid order; behind the menu, eight AIs of every skill.
+const { specs, names, me: you } = roster(run.seats, CLASSES.map((c) => c.id), PAINTS.length, run);
 for (const s of specs) sim.addCar(s);
-const me = 0;
+/** The car the HUD, telemetry and the debug readout follow: yours, or the attract race's first. */
+const me = Math.max(0, you);
 if (run.mode === 'race') sim.startRace(run.laps, attract ? 1 : 4);
 
 const input = new Input();
@@ -71,6 +78,7 @@ const audio = new GameAudio(sim);
 const raceUi = new RaceUi(sim, CLASSES, names, specs.map((x) => PAINTS[(x.paint ?? 0) % PAINTS.length].color));
 raceUi.onAgain = () => raceAgain(run);
 raceUi.onSetup = () => backToSetup(run);
+if (run.lobby) raceUi.setupLabel = 'Back to lobby';
 // Behind the menu there are no results; with the pause menu up they wait.
 raceUi.resultsOn = !attract;
 raceUi.canShow = () => !paused;
@@ -80,7 +88,8 @@ document.getElementById('quit')!.onclick = () => backToSetup(run);
 if (attract) {
   document.body.classList.add('attract');
   // Back from a race (Main menu, Change setup): its choices are the defaults.
-  showSetup(MAPS, Object.keys(LAYOUTS), CLASSES, PAINTS, readChoices(params, layoutKey, known));
+  screens = new Menu(lobbies, { maps: MAPS, layouts: LAYOUTS, classes: CLASSES, paints: PAINTS }, readChoices(params, layoutKey, known));
+  void screens.open(params.get('lobby'));
 }
 const telemetry = new Telemetry(sim, specs, () => layout, BUILD, { enabled: import.meta.env.DEV, trace: params.get('trace') === '1' });
 // Dev builds write local files; playtest builds with a PostHog key send there (unless opted out).
@@ -96,7 +105,8 @@ window.addEventListener('unhandledrejection', (e) => telemetry.error(e.reason));
 window.addEventListener('resize', () => renderer.resize());
 
 const controls: Controls = neutralControls();
-const inputs: (Controls | undefined)[] = attract ? [] : [controls];
+const inputs: (Controls | undefined)[] = [];
+if (!attract) inputs[me] = controls;
 const steer: number[] = [];
 const braking: boolean[] = [];
 let paused = false;
@@ -174,9 +184,9 @@ function frame(now: number): void {
 }
 requestAnimationFrame(frame);
 
-/** The menu on screen, if any: the F8 form, the pause menu, results, or setup. */
+/** The menu on screen, if any: the F8 form, the pause menu, results, or the title and lobbies. */
 function openMenu(): HTMLElement | null {
-  return document.querySelector<HTMLElement>('#reportForm, #pause.on, #results.on, #setup');
+  return document.querySelector<HTMLElement>('#reportForm, #pause.on, #results.on, #menu');
 }
 
 // Switching away mid-race pauses it (not behind the menu, not once you're in the results).
@@ -196,8 +206,10 @@ input.on((a) => {
   if (a === 'accept') return void (menu && accept(menu));
   // The F8 form owns the controls while it's up: back closes it, nothing else gets through.
   if (closeReport) return void (a === 'back' && closeReport());
-  if (a === 'back') return void (paused && setPaused(false));
-  if (a === 'pause' && !editorOpen) setPaused(!paused);
+  if (a === 'back') return void (paused ? setPaused(false) : screens?.back());
+  // Behind the menu there's nothing to pause: Esc and Start go back a screen.
+  if (a === 'pause' && attract) screens?.back();
+  else if (a === 'pause' && !editorOpen) setPaused(!paused);
   else if (a === 'report') openReport();
   else if (a === 'debug') {
     renderer.debug = hud.toggleDebug();

@@ -25,6 +25,8 @@ export class RaceUi {
   focus = 0;
   onAgain: () => void = () => {};
   onSetup: () => void = () => {};
+  /** The results screen's way back to the menu. */
+  setupLabel = 'Change setup';
 
   constructor(
     private readonly sim: Sim,
@@ -145,7 +147,7 @@ export class RaceUi {
   showResults(): void {
     this.results.innerHTML = `<div class="card results"><h1>${ordinal(this.sim.cars.place[this.focus])}</h1>
       <table><thead><tr><th></th><th>Driver</th><th>Car</th><th>Time</th><th>Best lap</th><th>Takedowns</th><th>Wrecks</th><th>Score</th></tr></thead><tbody id="rRows"></tbody></table>
-      <div class="row"><button id="rAgain">Race again</button><button id="rSetup" class="ghost">Change setup</button></div></div>`;
+      <div class="row"><button id="rAgain">Race again</button><button id="rSetup" class="ghost">${this.setupLabel}</button></div></div>`;
     this.rows();
     this.results.classList.add('on');
     (document.getElementById('rAgain') as HTMLButtonElement).onclick = () => this.onAgain();

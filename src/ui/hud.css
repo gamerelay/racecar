@@ -123,8 +123,8 @@ body.boosting #gFill { stroke: var(--sun); }
 
 #minimap { right: calc(env(safe-area-inset-right, 0px) + 16px); top: calc(env(safe-area-inset-top, 0px) + 14px); width: 180px; height: 180px; background: rgba(18, 8, 38, 0.45); border: 2px solid var(--ink); box-shadow: 4px 4px 0 var(--outline); }
 
-#results, #setup { position: fixed; inset: 0; z-index: 12; display: none; place-items: center; background: rgba(13, 6, 32, 0.55); overflow: auto; padding: 16px; }
-#results.on, #setup { display: grid; }
+#results, #menu { position: fixed; inset: 0; z-index: 12; display: none; place-items: center; background: rgba(13, 6, 32, 0.55); overflow: auto; padding: 16px; }
+#results.on, #menu { display: grid; }
 .card.results table { width: 100%; border-collapse: collapse; font-size: 14px; margin: 0 0 16px; }
 .card.results th { text-align: left; color: var(--muted); font-weight: 700; padding: 4px 8px; border-bottom: 2px solid var(--muted); }
 .card.results td { padding: 5px 8px; border-bottom: 1px solid rgba(216, 198, 242, 0.2); font-variant-numeric: tabular-nums; }
@@ -174,3 +174,70 @@ body.countdown #pops { top: 46%; }
 #sBlurb .bars { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin: 8px 0 6px; }
 #sBlurb .bar small { display: block; font-size: 11px; font-weight: 700; color: var(--muted); }
 #sBlurb .bar i { display: block; height: 7px; margin-top: 3px; background: linear-gradient(90deg, var(--cyan) calc(var(--t) * 100%), rgba(216, 198, 242, 0.18) 0); transform: skewX(-20deg); }
+
+/* ---- the front door: title, lobby list, create lobby, the lobby (ui/menu.ts) ---- */
+.card.title { max-width: 760px; }
+.wordmark { font-family: var(--display); font-size: clamp(56px, 13vw, 118px); line-height: 0.9; letter-spacing: 0.02em; color: var(--sun); -webkit-text-stroke: 4px var(--outline); paint-order: stroke fill; text-shadow: 6px 6px 0 var(--pink), 12px 12px 0 var(--outline); transform: skewX(-8deg); margin: 0 0 18px; }
+.card h2 { font-family: var(--display); font-weight: 400; font-size: 20px; letter-spacing: 0.04em; color: var(--cyan); margin: 0 0 8px; }
+.lobbies { display: grid; gap: 8px; margin: 0 0 18px; }
+/* A lobby row is one big button, so the pad lands on it and A opens it. */
+.card button.lrow, .lrow { display: grid; grid-template-columns: 44px 1fr auto auto; grid-template-rows: auto auto; column-gap: 14px; align-items: center; width: 100%; margin: 0; padding: 8px 12px; text-align: left; font: 700 15px var(--ui); color: var(--ink); background: rgba(10, 4, 20, 0.85); border: 2px solid var(--ink); box-shadow: 3px 3px 0 var(--outline); }
+.card button.lrow:hover, .card button.lrow:focus-visible { border-color: var(--cyan); box-shadow: 0 0 0 3px var(--cyan); transform: none; outline: none; }
+.lrow .thumb { grid-row: 1 / 3; }
+.lrow .lname { font-size: 17px; }
+.lrow .lname small { font-size: 11px; color: var(--muted); border: 1px solid var(--muted); padding: 0 4px; margin-left: 6px; vertical-align: 2px; }
+.lrow .lmeta { grid-column: 2; font-size: 13px; font-weight: 400; color: var(--muted); }
+.lrow .pips { grid-column: 3; grid-row: 1 / 3; display: flex; gap: 3px; }
+.lrow .lcount { grid-column: 4; grid-row: 1 / 3; font-variant-numeric: tabular-nums; min-width: 34px; text-align: right; }
+.lrow.soon { opacity: 0.6; border-style: dashed; box-shadow: none; }
+.pip { width: 10px; height: 10px; border-radius: 50%; border: 2px solid var(--ink); }
+.pip.player { background: var(--sun); border-color: var(--sun); }
+.pip.ai { background: var(--cyan); border-color: var(--cyan); }
+.pip.open { background: transparent; }
+.pip.closed { border-color: rgba(216, 198, 242, 0.25); background: transparent; }
+svg.thumb { display: block; }
+svg.thumb path { fill: none; stroke-linejoin: round; stroke-linecap: round; }
+svg.thumb .lap { stroke: var(--ink); stroke-width: 2.5; }
+svg.thumb .cut { stroke: var(--sun); stroke-width: 1.5; stroke-dasharray: 3 2; }
+.card button.big { display: block; width: 100%; font-size: clamp(22px, 4vw, 30px); padding: 14px 20px; margin: 0 0 14px; box-shadow: 7px 7px 0 var(--pink); }
+.card button.danger { color: #ff8fb8; border-color: #ff8fb8; }
+.card button.danger:hover { color: var(--pink); border-color: var(--pink); }
+.card.setup .grid label.wide { grid-column: 1 / -1; }
+
+.card.lobby { max-width: 980px; }
+.card.lobby h1 { font-size: clamp(32px, 6vw, 48px); margin-bottom: 4px; overflow-wrap: anywhere; }
+.card .sub { color: var(--muted); font-size: 13px; margin: 0 0 14px; }
+.lobbyGrid { display: grid; grid-template-columns: 1fr 230px; gap: 18px; margin: 0 0 16px; align-items: start; }
+.seats { width: 100%; border-collapse: collapse; font-size: 14px; }
+.seats th { text-align: left; color: var(--muted); font-weight: 700; padding: 4px 6px; border-bottom: 2px solid var(--muted); }
+.seats td { padding: 5px 6px; border-bottom: 1px solid rgba(216, 198, 242, 0.2); height: 40px; }
+.seats td:first-child { color: var(--muted); width: 18px; font-variant-numeric: tabular-nums; }
+.seats tr.me td { color: var(--sun); }
+.seats tr.closed td { color: rgba(216, 198, 242, 0.45); }
+.seats .car { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.seats .car .muted { margin: 0; font-size: 12px; }
+.seats select { padding: 5px 28px 5px 8px; font-size: 13px; }
+.seats .tag { font-size: 10px; color: var(--outline); background: var(--sun); padding: 1px 5px; vertical-align: 2px; }
+.seats .ready { color: #7cff6b; }
+.seats .ping { color: var(--muted); }
+.mapCard { display: grid; gap: 6px; justify-items: start; background: rgba(10, 4, 20, 0.6); border: 2px solid var(--ink); padding: 12px; }
+.mapCard b { font-family: var(--display); font-weight: 400; font-size: 20px; }
+.mapCard small { color: var(--muted); margin-top: -4px; }
+.mapCard .opts { display: grid; gap: 8px; width: 100%; }
+.mapCard label { display: grid; gap: 3px; font-weight: 700; font-size: 12px; color: var(--muted); }
+.mapCard select { width: 100%; }
+.card select:disabled { opacity: 0.7; cursor: default; border-color: rgba(216, 198, 242, 0.4); background-image: none; }
+@media (max-width: 760px) {
+  .lobbyGrid { grid-template-columns: 1fr; }
+  .mapCard { grid-template-columns: auto 1fr; }
+  .mapCard svg { grid-row: 1 / 3; width: 80px; height: 80px; }
+  .mapCard .opts { grid-column: 1 / -1; grid-template-columns: 1fr 1fr; }
+  .seats th:last-child, .seats td:last-child { display: none; }
+}
+@media (max-width: 560px) {
+  .card button.lrow { grid-template-columns: 44px 1fr auto; }
+  .lrow .pips { display: none; }
+  .lrow .lcount { grid-column: 3; }
+  .card.lobby { padding: 16px; }
+  .seats td:nth-child(4), .seats th:nth-child(4) { display: none; }
+}
