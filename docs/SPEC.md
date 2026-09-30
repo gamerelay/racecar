@@ -109,6 +109,7 @@ src/
   input/           keyboard, gamepad, touch → Controls; menu focus
   ui/              screens: lobby, party, garage, settings, HUD, results, vote
   audio/           engine synth, SFX, music
+  telemetry/       events → local files (dev) / PostHog (playtests); reports (§14)
 content/
   maps/<map>/      map.json, <layout>.track.json, hazards.json
   cars/*.json      car classes
@@ -116,6 +117,8 @@ content/
 tools/
   bots/            headless GameRelay clients driven by core/ai (load tests, filling rooms)
   validate.ts      content validator (runs in CI)
+  telemetry.ts     summarizes local telemetry files
+  replay.ts        re-runs a saved report headless
 ```
 
 Dependency direction: `ui, render, net, input, editor → core`; `modes → core`. `core` imports
@@ -319,6 +322,10 @@ interface Skin {
   shortcuts. Readable, and fast on any machine.
 - **Neon** (the prototype's look) becomes the City skin later; each map gets its own skin in
   the art milestone. Skins can't change gameplay: same colliders, same timings.
+- **Dusk is City's signature look**: the prototype's dusk palette (purple-to-orange sky, the
+  banded synthwave sun, pink fog, warm lamps, lit windows) is City's default; midnight is its
+  rain/night variant. The greybox borrows the dusk sky, fog and lighting from day one (they're
+  cheap), so even flat-shaded City feels like City while we build it.
 
 ## §7 Hazards, events and weather
 
@@ -373,7 +380,7 @@ Countryside; the rest follow through the same pipeline.
 
 | Map | Lap | Shortcuts | Hazards | Weather | Signature spot |
 |---|---|---|---|---|---|
-| **City** (neon downtown) | ~85 s | alley through a parking garage, rooftop jump off a ramp, subway tunnel | falling sign, oil spill, container drop at the docks edge | clear, rain | the overpass pillars |
+| **City** (neon downtown at dusk) | ~85 s | alley through a parking garage, rooftop jump off a ramp, subway tunnel | falling sign, oil spill, container drop at the docks edge | clear, rain | the overpass pillars |
 | **Countryside** (valley) | ~90 s | dirt track through a barn, field cut across a hairpin, jump over a creek | log-truck, train crossing, rockfall at the quarry | clear, rain, fog | the narrow stone bridge |
 | **Volcano island** | ~80 s | lava tube tunnel, a jump over a lava river | lava bombs (eruptions), rockfall, lava crust | clear, ash (fog) | the crater rim |
 | **Harbor** | ~75 s | through a warehouse, across moored barges | drawbridge, container drop, swinging cranes, oil spill | clear, rain, fog | the drawbridge |
@@ -391,6 +398,7 @@ content.
 - **Boost:** fills from near misses, oncoming, drafting, air, drifting and takedowns. Drifts
   charge a two-stage mini-turbo. Start boost on "GO". **Catch-up:** fills faster the further
   back you are (off in Time Trial).
+- **Drift** is a core mechanic, detailed below.
 - **Four cars in v1** (JSON), each a clear pick rather than a small stat difference: top speed,
   acceleration, handling, boost capacity, **weight**. A van shoves a coupe; a coupe out-turns a
   van. Working set: a light coupe (handling), a muscle car (top speed), a hot hatch
@@ -410,6 +418,41 @@ content.
 - **Revenge:** whoever took you down last is marked; taking them down is a "Revenge".
 - **Items** (not in the current plan; kept here so they can come later as a lobby toggle): boxes at fixed places; oil slick, shockwave, homing
   EMP, shield, full boost; weighted by position.
+
+### Drift
+
+Drifting should be easy to start, satisfying to hold, and worth the risk: the Mario Kart
+mini-turbo, Burnout's boost for driving on the edge, and Need for Speed's drift chains.
+
+- **Entry:** hold **Drift** (RB / Shift / a touch button) while steering above ~60 km/h. The
+  car does a small hop and kicks its tail out toward the turn. Alternatives in settings:
+  brake-tap + steer (NFS style), or drift on handbrake only. Loose surfaces (dirt, wet, ice)
+  also break traction on their own.
+- **Holding it:** while drifting, the stick sets the **drift angle** inside a band (~15°–50°):
+  steer into the turn to tighten, counter-steer to widen. Throttle holds speed; lifting
+  tightens the line. A drift assist (settings: full / light / off) keeps the car from spinning
+  inside the band; with it off, past ~70° you spin out.
+- **Exit:** release Drift to straighten. A hard wall hit or over-rotation ends it in a spin.
+- **Payoff:**
+  - **Mini-turbo** charges with time × angle × speed in three stages (blue ~0.8 s, orange
+    ~1.8 s, pink ~3 s), released as a 0.5 / 1 / 1.5 s boost when the drift ends. The sparks
+    under the car show the stage.
+  - **Boost meter** fills the whole time you drift (Burnout).
+  - **Drift chains** (NFS): drift points multiply when you chain drifts without straightening
+    for more than ~1 s, and with near misses mid-drift. A crash loses the chain.
+  - **Drift takedown:** side-swiping a rival mid-drift counts as extra weight for the takedown
+    rule, so a good drift through a pack is an attack.
+- **Per car:** the hatch drifts easiest and charges fastest; the van is heavy and slow to
+  rotate; the muscle car drifts wide and fast; the coupe is precise.
+- **Surfaces:** dirt and wet are easier to enter and slower to charge; ice is very easy to
+  enter and hard to hold; asphalt is the reference.
+- **Tracks:** the baker marks corners by radius as drift corners; the AI drifts those (more at
+  higher difficulty), and the AI lap report shows time spent drifting per corner, so we can
+  see which corners work.
+- **Online:** the `drift` flag and `steer` in the car entity are enough for others to predict
+  the arc and draw smoke and skid marks locally (skid marks are L).
+- **Later:** a **Drift Attack** mode (score run, leaderboard) and drift challenges in the
+  single-player ladder.
 
 ### Spatial index: grids, not a quadtree
 
@@ -589,6 +632,7 @@ interface Mode {
 | **Time trial** | 1 | no traffic or hazards, best lap, ghost, leaderboard | 4 |
 | **Pursuit** | 4–8 | teams: racers vs. cops; cops win by wrecking every racer before the timer | 6 |
 | **Crash mode** | 1–8 | one run each into a junction full of traffic; biggest pile-up | 6 |
+| **Drift attack** | 1–8 | a timed run, drift points only; leaderboard per layout | 6 |
 
 Crash mode is the one place traffic must react (a pile-up is traffic crashing into
 traffic), which closed-form traffic can't do. Each run is simulated locally by the player
@@ -623,12 +667,40 @@ and photo mode in single player only.
 
 - **Net overlay** (`?net=1`): RTT, route (server / LAN / relay), entity age, prediction error
   (m), bytes in/out, dropped updates, clock offset, per remote car.
-- **Telemetry** (opt-in, aggregated): prediction error per race; wreck and slow-spot positions
-  (feeds the editor heatmap).
+- **Telemetry**: see "Telemetry pipe" below.
 - **Bots** (`tools/bots/`): headless Bun clients running `core/ai` on real layouts in real rooms:
   load tests, relay soak tests (Resonance), SDK release regression, and a lively lobby for demos.
 - CI scenarios with `simulate: { latency, jitter, loss }`: prediction error under 1 m at 150 ms
   RTT; D-systems agree across two clients to within 0.2 m.
+
+### Telemetry pipe
+
+We need to know how the game actually plays while we build it, in a form Claude can read
+directly and the team can query. One module, `src/telemetry/`, three destinations:
+
+| Where | When | Sink | How we read it |
+|---|---|---|---|
+| **Local files** | every dev build, from milestone 1 | the Vite dev server takes `POST /__telemetry` and appends to `telemetry/<date>/<session>.jsonl` (gitignored) | Claude reads the files straight from the repo; `bun tools/telemetry.ts` summarizes them (lap times, wrecks by spot, drift stats, frame times) |
+| **PostHog** | playtest and production builds, from milestone 2 | batched events to a racecar PostHog project (anonymous id, opt-out in settings) | SQL over the events (Claude has PostHog access), dashboards for the team |
+| **GameRelay** | later, if it earns it | a "game events" feature for every customer (a platform ask) | the account MCP, like logs today |
+
+- **Events** (small, typed, versioned): `session` (build, device, GPU tier, input device),
+  `perf` every 5 s (fps, frame ms p50/p95, sim ms, draw calls), `race` (map, layout, mode,
+  options, players, AI, result), `lap` (time, sections, shortcuts taken), `wreck` (where by
+  `s`, cause, speed), `drift` (entry, duration, angle, stage, spin-out), `contact`,
+  `net` every 5 s (RTT, route, prediction error, corrections, bytes), `error` (uncaught
+  exceptions with stack).
+- **Local files get more**: full per-tick traces of your own car on demand (`?trace=1`) for
+  tuning handling, too big to send anywhere else.
+- **"Something felt wrong" key** (F8 / Select+Start): saves the last 30 s: telemetry, the
+  state ring buffer, your inputs, the seed and the layout version. In dev it lands in
+  `telemetry/reports/` with a one-line note you type; in playtests it uploads to PostHog as a
+  report. Since the sim runs from inputs and the seed, `bun tools/replay.ts <report>`
+  re-runs the moment headless (same JS engine: exact; across engines: close), so a bug or a
+  handling complaint can be reproduced and stepped through instead of guessed at.
+- **Budget**: telemetry never runs in the tick; it reads the event queue after the frame and
+  batches (PostHog: at most one request every 10 s, plus on page hide).
+- The editor heatmap (§6) reads the same `wreck`/`lap` events.
 
 ## §15 Performance budgets
 
@@ -651,10 +723,12 @@ Greybox until 3b (City) and 5 (the rest). Each milestone ends deployed and playa
 
 1. **Sandbox**: repo, `core` skeleton (clock, pools, events, sim pipeline), track format +
    baking + validator, greybox skin, car physics (drift, boost, air, wrecks), OBB collisions,
-   gamepad and keyboard, editor v0 (edit spline + widths, drive it). One City layout.
+   gamepad and keyboard, editor v0 (edit spline + widths, drive it), the drift model with
+   mini-turbo, local telemetry files and the F8 report. One City layout under the dusk sky.
 2. **The world**: surfaces and weather, traffic (closed-form + LOD), hazards framework with
    log-truck and falling sign, AI drivers and the AI lap report, laps/positions/scoring,
-   single-player Race vs AI. City fully laid out; Countryside blocked in. Alongside, in the
+   single-player Race vs AI. City fully laid out; Countryside blocked in. PostHog telemetry
+   for playtest builds; replaying reports headless. Alongside, in the
    gamerelay repo: the must-have platform asks, released in an SDK alpha.
 3. **Online**: lobby list, host/join/quick race, party screen, `net/` (cars, prediction, bumps,
    takedowns, triggers, traffic hits), countdown on the race clock, results, vote, next race,
@@ -702,6 +776,9 @@ What we've settled, so nobody re-argues it. Changing one is fine; say so here.
 | Wreck slow-mo online | the wreck itself runs slow for everyone; the world doesn't slow |
 | Contacts | each owner resolves its own car; bumps deduped within ±150 ms |
 | Leaderboard laps | Time Trial only, above the layout's AI lap floor |
+| City look | dusk (the prototype's palette) by default, midnight for rain/night; greybox uses the dusk sky from day one |
+| Drift | hold-to-drift with a small hop, angle band set by the stick, 3-stage mini-turbo, drift chains, assist setting (§9) |
+| Telemetry | local JSONL files in dev (Claude reads them directly), PostHog for playtests, F8 reports replayable headless (§14) |
 
 Still open, and fine to leave open until they matter:
 
