@@ -530,7 +530,7 @@ function sea(y: number, gx0: number, gz0: number, nx: number, nz: number, h: Flo
  * The river's water: a strip along its course with flowing streaks, foam at the banks, and a
  * cleared alpha, which the post pass reads as a mirror (reflections in any weather).
  */
-function water(path: [number, number][], half: number, y: number, time: { value: number }): Mesh {
+export function water(path: [number, number][], half: number, y: number, time: { value: number }): Mesh {
   const pos: number[] = [];
   const uv: number[] = [];
   const idx: number[] = [];

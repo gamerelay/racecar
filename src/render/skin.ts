@@ -25,13 +25,23 @@ export interface TrackVisual {
   extras: Object3D[];
   /** Debug volumes (checkpoints, gaps, branch starts); toggled from the HUD. */
   debug: Object3D;
-  /** Per frame, for animated scenery (seconds since start, seconds since last frame). */
-  update?(time: number, dt: number, camera: Vector3): void;
+  /** Per frame, for animated scenery (seconds since start, seconds since last frame), and what of the race it shows. */
+  update?(time: number, dt: number, camera: Vector3, live?: SceneLive): void;
   /** The scene has standing water (a river) that mirrors in any weather. */
   water?: boolean;
   /** How high the cover over this ground is (a tunnel roof, a bridge deck), or -Infinity under open sky. */
   roof?(x: number, z: number): number;
   dispose(): void;
+}
+
+/** What of the race the scenery shows (the landmarks: a clock, a billboard, a lighthouse). */
+export interface SceneLive {
+  /** Seconds since the lights went green; 0 before them, and in free drive. */
+  raceTime: number;
+  /** The leading car's plate, if it has one. */
+  leader: string | null;
+  /** How wet it is, 0–1. */
+  wetness: number;
 }
 
 /** Traffic, hazards, weather: everything the world systems put on screen. */

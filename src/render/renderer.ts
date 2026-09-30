@@ -13,7 +13,8 @@ import { chaseOffset, lookBackOffset, type ChaseOffset } from './camera';
 import { InkPass } from './ink';
 import { PostPass } from './post';
 import { Showroom } from './showroom';
-import type { CarPlate, CarVisual, Skin, TrackVisual, WorldVisual } from './skin';
+import type { CarPlate, CarVisual, SceneLive, Skin, TrackVisual, WorldVisual } from './skin';
+import { positions } from '../core/rules/progress';
 import { Skids } from './skids';
 
 const STAGE_COLORS = [0xffffff, 0x35a8ff, 0xff8a1a, 0xff2e88];
@@ -60,6 +61,9 @@ export class GameRenderer {
   /** Real seconds (post effects, blinking), and world seconds (scenery): slowed in slow-mo, stopped when paused. */
   private time = 0;
   private worldTime = 0;
+  /** What of the race the scenery shows, refreshed each frame. */
+  private readonly live: SceneLive = { raceTime: 0, leader: null, wetness: 0 };
+  private readonly order: number[] = [];
   private shake = 0;
   private impact = 0;
   private boostVis = 0;
@@ -254,7 +258,11 @@ export class GameRenderer {
     // Scenery (the city's cars, searchlights, birds, smoke) runs on world time: it stops when
     // paused and slows in slow-mo, like everything else in the world.
     this.worldTime += sdt;
-    this.trackVisual.update?.(this.worldTime, sdt, this.camera.position);
+    const race = this.sim.race;
+    this.live.raceTime = race.phase === 'racing' ? Math.max(0, this.sim.time - race.goTime) : 0;
+    this.live.leader = this.opts.plates?.[positions(this.sim, this.order)[0]]?.text ?? null;
+    this.live.wetness = this.sim.wetness;
+    this.trackVisual.update?.(this.worldTime, sdt, this.camera.position, this.live);
     this.skin.update?.(this.worldTime, this.camera.position.x, this.camera.position.y, this.camera.position.z, this.sim.wetness);
 
     const stage = this.showroom.visible ? this.showroom : null;

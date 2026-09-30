@@ -1,7 +1,7 @@
 // Layout checks (SPEC §5, "Validation"): shape first, then gameplay. The editor shows these on
 // the map as you edit, and CI runs them over every layout. Milestone 2 adds the AI lap checks.
 
-import type { CarClass, SurfaceDef, TrackLayout } from '../content';
+import { LANDMARK_KINDS, type CarClass, type SurfaceDef, type TrackLayout } from '../content';
 import { KINDS } from '../world/hazards';
 import { bakeTrack, sampleIndex, wrap } from './bake';
 
@@ -135,6 +135,26 @@ export function validateLayout(layout: TrackLayout, surfaces: SurfaceDef[], clas
   if (track.checkpoints.length < 5) warn(`only ${track.checkpoints.length} checkpoints after moving them off shortcuts; list them in "checkpoints"`);
   for (const r of layout.ramps ?? []) if (r.s < 0 || r.s > L) err(`ramp at ${r.s} is off the main spline (0–${L.toFixed(0)})`);
   for (const z of layout.zones ?? []) if (z.s[0] < 0 || z.s[1] > L) warn(`zone ${z.surface} runs past the spline's length`);
+  // Landmarks stand clear of every road (to the back of its wall), by their footprint.
+  for (const m of layout.landmarks ?? []) {
+    if (!(LANDMARK_KINDS as readonly string[]).includes(m.kind)) {
+      err(`landmark: unknown kind "${m.kind}"`);
+      continue;
+    }
+    if (!(m.r > 0)) continue;
+    let worst = Infinity;
+    let at = { sp: '', s: 0 };
+    for (const sp of track.splines) {
+      for (let i = 0; i < sp.n; i += 2) {
+        const gap = Math.hypot(sp.px[i] - m.at[0], sp.pz[i] - m.at[1]) - (sp.width[i] / 2 + sp.shoulder[i] + 0.5);
+        if (gap < worst) {
+          worst = gap;
+          at = { sp: sp.id, s: i * sp.step };
+        }
+      }
+    }
+    if (worst < m.r) err(`landmark ${m.kind} at [${m.at.join(', ')}] needs ${m.r} m clear of the road, and ${at.sp} ${at.s.toFixed(0)} m is ${Math.max(0, worst).toFixed(1)} m off`, at.sp, at.s);
+  }
   if (L < 2000) warn(`lap is ${L.toFixed(0)} m; full layouts aim for 3,500–5,000 m (70–100 s)`);
   // Traffic appears where its section starts and vanishes where it ends (oncoming traffic the other
   // way round). Popping in mid-corner, round a blind bend, is a wreck nobody could see coming.

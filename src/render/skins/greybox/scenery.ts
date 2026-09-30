@@ -74,6 +74,8 @@ const POINT_MODES = {
   plume: 'float u=fract(uTime*0.03+phase);p.y+=u*140.0;p.x+=u*u*70.0+sin(phase*40.0+u*3.0)*u*8.0;p.z+=cos(phase*23.0+u*2.0)*u*8.0;s*=0.4+u*3.2;a=(1.0-u)*smoothstep(0.0,0.05,u)*0.75;',
   // Gulls: wide, lazy circles over the water.
   gull: 'float w=uTime*(0.12+fract(phase*7.0)*0.1)+phase*6.283;float r=25.0+fract(phase*13.0)*45.0;p.x+=cos(w)*r;p.z+=sin(w)*r;p.y+=fract(phase*3.0)*18.0+sin(w*2.0)*2.0;s*=0.6+0.4*abs(sin(uTime*5.0+phase*20.0));',
+  // A fountain's spray: thrown out and up from its spout, falling back into the basin.
+  spray: 'float u=fract(uTime*0.8+phase);float w=phase*83.0;float r=1.2+fract(phase*17.0)*2.6;p.x+=cos(w)*r*u;p.z+=sin(w)*r*u;p.y+=7.0*u-12.3*u*u;a=(1.0-u*u)*0.8;s*=0.6+u*0.8;',
   // Mist: big soft puffs drifting slowly over water, fading in and out.
   mist: 'p.x+=sin(uTime*0.05+phase*20.0)*14.0;p.z+=cos(uTime*0.04+phase*13.0)*14.0;p.y+=sin(uTime*0.1+phase*9.0)*0.6;a=0.1+0.08*sin(uTime*0.2+phase*30.0);',
 } as const;

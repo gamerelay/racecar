@@ -1509,3 +1509,28 @@ The lobby's layout (owner, 2026-09-30):
   none are lost while the lobby echoes the change back.
 - **Races default to 2 laps** (`DEFAULT_OPTIONS`, and a link without `laps`). A lobby already
   saved keeps its laps.
+
+Landmarks, part 1: Downtown (PLAN phase 6):
+
+- **Landmarks are layout data** (`landmarks: [{ kind, at, rot, r, params }]`), placed by the
+  generators, the same every race, and scenery only. The greybox builds each kind in
+  `render/skins/greybox/landmarks.ts`. `r` is the ground each keeps clear: the validator keeps
+  every road that far off, and the city leaves it empty (`Keep`: no buildings, sidewalk slabs,
+  parked cars, trees or lamps). `params.view` also keeps a sight line clear in front of a
+  landmark, so the road sees it. `params.scale` scales any kind.
+- **The scenery sees the race:** the track visual's update gets a `SceneLive` from the renderer
+  each frame, with the race time, the leader's plate and the wetness.
+- **Downtown's five:**
+  - A **clock tower** at the end of the Boulevard. Its long hand is the race's seconds, its short
+    hand the minutes, and a lit readout under each dial shows m:ss.
+  - The **leader billboard** past the Skyway straight's west end. It shows LEADER and the leading
+    car's plate, and is straight ahead the whole way along the straight.
+  - In the Market: a **fountain plaza** inside the loop, west of the Alley, and the **donut shop**,
+    a giant iced donut on its roof, on your right as you fly the hump.
+  - A **canal with a drawbridge.** The PLAN put it by the Underpass, but the Underpass is a
+    trench, and its walls hide anything beside it. So the canal runs down a row of blocks inside
+    the Skyway's sweeper, under the Skyway twice, where you look down on it from 12 m up. Its
+    drawbridge lifts for a tug that runs up it every few minutes. It cuts the streets' ground for
+    its water, and a flat bridge crosses it at each side street.
+- **Cost:** each landmark's still boxes are one instanced mesh, and the clock's four dials, four
+  readouts and eight hands are three draws. All five together are ~11 draw calls.

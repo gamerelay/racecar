@@ -53,6 +53,12 @@ The third map is **Paradise** (`content/maps/paradise`, key `paradise/island`).
   Also in #24, the HUD tweaks: "Powerglide" (was "Drift boost"), a **Superman** for boosting
   through the air (`superT`, 1.5× air pay, `supermanMin`/`supermanPay`), and a bold outline
   on the countdown's numbers. SPEC "HUD tweaks".
+- **Landmarks, part 1 (Downtown): in review** (branch `landmarks-downtown`, PLAN phase 6). Layouts
+  carry `landmarks` (kind, at, rot, r, params), built by `render/skins/greybox/landmarks.ts`. The
+  validator keeps roads `r` off them, the city leaves their ground empty (`Keep`), and the track
+  visual's update gets `SceneLive` (race time, leader plate, wetness). Downtown has a clock tower,
+  a leader billboard, a fountain, a donut shop and a canal with a drawbridge. SPEC "Landmarks,
+  part 1". Next: Backroads, Paradise, then smashables.
 - **Lobby layout: merged** (PR #25, untagged). The seats alone dock left and fit the
   window, the car sits between them and the options (top right, the host's to set; guests see
   chips), arrows and A/D cycle the car, W/S and swatches the paint (`pick-*` menu actions,

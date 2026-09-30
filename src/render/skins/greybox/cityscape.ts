@@ -54,6 +54,18 @@ const WALL_THICK = 0.5;
 const STREET_KINDS = ['sedan', 'compact', 'van'];
 const pickKind = (r: number) => (r < 0.5 ? 0 : r < 0.85 ? 1 : 2);
 
+/**
+ * Ground a landmark keeps (render/skins/greybox/landmarks.ts): no buildings, parked cars, trees or
+ * lamps in it. A canal also cuts the streets' ground (`cut`), for its water below.
+ */
+export interface Keep {
+  x0: number;
+  x1: number;
+  z0: number;
+  z1: number;
+  cut?: boolean;
+}
+
 export interface CityScape {
   objects: Object3D[];
   update(time: number, dt: number, camera: Vector3): void;
@@ -252,7 +264,7 @@ function signTexture(lines: [string, string]): CanvasTexture {
 
 // ---- the city ----
 
-export function buildCityscape(track: Track, palette: Palette, ground: number): CityScape {
+export function buildCityscape(track: Track, palette: Palette, ground: number, keep: Keep[] = []): CityScape {
   const rng = Rng.stream(hashString(track.layout.id), 'cityscape');
   const roads = new Corridors(track);
   const objects: Object3D[] = [];
@@ -285,6 +297,8 @@ export function buildCityscape(track: Track, palette: Palette, ground: number): 
   const gz1 = Math.ceil((z1 + MARGIN) / BLOCK) * BLOCK;
   // Roads in a trench or tunnel cut the ground; anything else sits on it (or passes over it).
   const sunk = (y: number) => y < ground - 0.5;
+  /** Whether a box `hw` × `hd` (half extents) about (x, z) overlaps a landmark's ground (only the cut kind: `cut`). */
+  const kept = (x: number, z: number, hw = 0, hd = hw, cut = false) => keep.some((k) => (!cut || k.cut) && x + hw > k.x0 && x - hw < k.x1 && z + hd > k.z0 && z - hd < k.z1);
 
   // ---- ground: asphalt everywhere, with holes where a trench runs ----
   {
@@ -299,10 +313,10 @@ export function buildCityscape(track: Track, palette: Palette, ground: number): 
       idx.push(b, b + 2, b + 1, b, b + 3, b + 2);
     };
     const C = 16;
-    const inTrench = (x: number, z: number) => roads.clear(x, z, 2, sunk) < 0;
+    const inTrench = (x: number, z: number) => roads.clear(x, z, 2, sunk) < 0 || kept(x, z, 0, 0, true);
     for (let x = gx0; x < gx1; x += C) {
       for (let z = gz0; z < gz1; z += C) {
-        const hits = [inTrench(x, z), inTrench(x + C, z), inTrench(x, z + C), inTrench(x + C, z + C), inTrench(x + C / 2, z + C / 2)];
+        const hits = [inTrench(x, z), inTrench(x + C, z), inTrench(x, z + C), inTrench(x + C, z + C), inTrench(x + C / 2, z + C / 2), kept(x + C / 2, z + C / 2, C / 2, C / 2, true)];
         if (!hits.some(Boolean)) quad(x, z, x + C, z + C);
         else {
           // Near a trench: 4 m cells, keeping those whose middle is off it.
@@ -434,6 +448,21 @@ export function buildCityscape(track: Track, palette: Palette, ground: number): 
     }
   };
 
+  /** A sidewalk slab, less any strip a canal cuts across it (a cut that runs right through it one way). */
+  const trimmed = (b: Box): Box[] => {
+    for (const k of keep) {
+      if (!k.cut || b.x + b.w / 2 <= k.x0 || b.x - b.w / 2 >= k.x1 || b.z + b.d / 2 <= k.z0 || b.z - b.d / 2 >= k.z1) continue;
+      const alongZ = k.z0 <= b.z - b.d / 2 && k.z1 >= b.z + b.d / 2;
+      const [lo, hi, c, len] = alongZ ? [k.x0, k.x1, b.x, b.w] : [k.z0, k.z1, b.z, b.d];
+      const out: Box[] = [];
+      for (const [a, e] of [[c - len / 2, lo], [hi, c + len / 2]]) {
+        if (e - a < 1) continue;
+        out.push(alongZ ? { ...b, x: (a + e) / 2, w: e - a } : { ...b, z: (a + e) / 2, d: e - a });
+      }
+      return out;
+    }
+    return [b];
+  };
   for (let bx = gx0; bx < gx1; bx += BLOCK) {
     for (let bz = gz0; bz < gz1; bz += BLOCK) {
       const size = BLOCK - STREET;
@@ -452,7 +481,9 @@ export function buildCityscape(track: Track, palette: Palette, ground: number): 
         }
       }
       for (const [qx, qz, qs] of quarters) {
-        slabs.push({ x: qx, y: ground + 0.07, z: qz, w: qs, h: 0.14, d: qs, rot: 0, color: 0x6d5f86 });
+        // Under a landmark's plaza, street; a canal cuts its strip out of the slab.
+        if (keep.some((k) => !k.cut && qx + qs / 2 > k.x0 && qx - qs / 2 < k.x1 && qz + qs / 2 > k.z0 && qz - qs / 2 < k.z1)) continue;
+        slabs.push(...trimmed({ x: qx, y: ground + 0.07, z: qz, w: qs, h: 0.14, d: qs, rot: 0, color: 0x6d5f86 }));
         const lot = qs - SIDEWALK * 2;
         // Split a lot into one to four buildings.
         const split = heightAt(qx, qz).kind === 'shop' || qs < size ? 2 : rng.next() < 0.5 ? 1 : 2;
@@ -464,7 +495,7 @@ export function buildCityscape(track: Track, palette: Palette, ground: number): 
             const d = cell - rng.range(1, 3);
             const x = qx - lot / 2 + cell * (a + 0.5);
             const z = qz - lot / 2 + cell * (b + 0.5);
-            if (!lotClear(x, z, w, d, 3)) continue;
+            if (!lotClear(x, z, w, d, 3) || kept(x, z, w / 2 + 2, d / 2 + 2)) continue;
             addBuilding(x, z, w, d, Math.max(0, dist));
           }
         }
@@ -491,7 +522,7 @@ export function buildCityscape(track: Track, palette: Palette, ground: number): 
         const x = sp.px[i] + rx * side * off;
         const z = sp.pz[i] + rz * side * off;
         // Clear of every other road (this one's walls are right there by design).
-        if (roads.clear(x, z, depth + 6, undefined, sp.index) < depth / 2 + 1.5) {
+        if (roads.clear(x, z, depth + 6, undefined, sp.index) < depth / 2 + 1.5 || kept(x, z, depth / 2)) {
           tops.push(0);
           continue;
         }
@@ -690,6 +721,7 @@ export function buildCityscape(track: Track, palette: Palette, ground: number): 
     for (let u = 10, side = 1; u < sg.len - 10; u += 26, side = -side) {
       const x = sg.x + sg.dx * u + rx * side * (STREET / 2 + 1);
       const z = sg.z + sg.dz * u + rz * side * (STREET / 2 + 1);
+      if (kept(x, z)) continue;
       poles.push({ x, y: ground + 3.5, z, w: 0.22, h: 7, d: 0.22, rot: 0, color: 0x2a2140 });
       lampPos.push(x - rx * side * 1.6, ground + 6.8, z - rz * side * 1.6);
     }
@@ -698,7 +730,7 @@ export function buildCityscape(track: Track, palette: Palette, ground: number): 
         if (rng.next() < 0.5) continue;
         const x = sg.x + sg.dx * u + rx * side * (STREET / 2 + SIDEWALK - 1);
         const z = sg.z + sg.dz * u + rz * side * (STREET / 2 + SIDEWALK - 1);
-        if (roads.clear(x, z, 8) < 3) continue;
+        if (roads.clear(x, z, 8) < 3 || kept(x, z, 2)) continue;
         trees.push({ x, z, s: 0.8 + rng.next() * 0.5, c: [0x3f6b3a, 0x2f5a32, 0x4f7d3a, 0x5a3f6b][Math.floor(rng.next() * 4)] });
       }
     }
@@ -706,7 +738,7 @@ export function buildCityscape(track: Track, palette: Palette, ground: number): 
   {
     const models = trafficModels();
     STREET_KINDS.forEach((id, i) => {
-      const list = parked.filter((p) => p.kind === i);
+      const list = parked.filter((p) => p.kind === i && !kept(p.x, p.z, 2.5));
       if (!list.length) return;
       const mesh = new InstancedMesh(models.geos[id], models.material, list.length);
       list.forEach((p, k) => {

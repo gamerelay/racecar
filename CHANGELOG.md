@@ -6,6 +6,11 @@ and where things stand is [docs/HANDOFF.md](./docs/HANDOFF.md).
 
 ## Unreleased
 
+### Added
+- **Downtown's landmarks:** a clock tower that tells the race time, a billboard showing the
+  leader's plate, a fountain plaza and a donut shop in the Market, and a canal under the Skyway
+  whose drawbridge lifts for a passing tug.
+
 ### Changed
 - **The lobby fits the window:** the seats dock left with nothing to scroll, your car turns in
   the middle, and the race's options float top right. Guests see the options as a summary.
