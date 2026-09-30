@@ -59,7 +59,7 @@ export class Hud {
       <div class="hud" id="drift"><div id="driftPts">0</div><div id="driftStage"><i></i><i></i><i></i></div><div id="driftChain"></div></div>
       <div class="hud" id="meterWrap"><label>Boost</label><div id="meter"><div id="meterBank"></div><div id="meterFill"></div></div></div>
       <div class="hud" id="speedo"><svg viewBox="0 0 160 160" aria-hidden="true"><g id="gTicks"></g><circle class="track" cx="80" cy="80" r="${R}" pathLength="100"/><circle id="gBoost" cx="80" cy="80" r="${R}" pathLength="100"/><circle id="gFill" cx="80" cy="80" r="${R}" pathLength="100"/></svg><span id="spd">0</span><small>mph</small></div>
-      <div class="hud" id="hint"><kbd>WASD</kbd>/<kbd>←↑→↓</kbd> drive · <kbd>Shift</kbd> drift · <kbd>Space</kbd> boost · <kbd>R</kbd> reset · <kbd>C</kbd> look back · <kbd>\`</kbd> editor · <kbd>F2</kbd> debug · <kbd>F6</kbd> ink · <kbd>F8</kbd> felt wrong?</div>
+      <div class="hud" id="hint"><kbd>WASD</kbd>/<kbd>←↑→↓</kbd> drive · <kbd>Shift</kbd> drift · <kbd>Space</kbd> boost · <kbd>R</kbd> reset · <kbd>C</kbd> look back · <kbd>\`</kbd> editor · <kbd>F2</kbd> debug · <kbd>F6</kbd> ink · <kbd>F8</kbd> felt wrong? · <kbd>M</kbd> sound · <kbd>N</kbd> music</div>
       <div class="hud" id="debug"></div>`,
     );
   }

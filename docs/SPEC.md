@@ -1041,3 +1041,22 @@ Traffic that doesn't pop (2026-09-30):
   ink every dithered pixel, so a fading car went solid black.
 - **The sim's pool also takes cars within 250 m in a straight line** of a racer, for laps that
   fold back or cross.
+
+Audio (2026-09-30):
+
+- **All synthesized on Web Audio, no samples** (`src/audio/`): `model.ts` is the pure part
+  (tested: a fake gearbox from speed to revs with a drop at each shift, pitch per class, pan and
+  distance falloff, Doppler), `synth.ts` the voices and one-shots, `music.ts` a small sequencer,
+  `audio.ts` the mix.
+- **What plays:** the focus car's engine (three oscillators through a low-pass that opens with
+  throttle; the revs climb free in the air), asphalt squeal by slip, gravel on dirt and grass,
+  wind with speed, a boost roar, the horn (H); the three nearest rivals' engines, panned and
+  Doppler-shifted; one-shots from events (hits by impact speed, wrecks with glass, landings,
+  boost, drift-boost and mini-turbo chimes, near-miss whoosh and horn, traffic checks, takedown
+  stinger, spin-outs, a two-tone alert for every hazard telegraph, countdown beeps and GO, lap and
+  final-lap chimes, a finish fanfare, the catch-up chime).
+- **Music:** Am–F–C–G synthwave at 112 bpm, scheduled on the audio clock. Pad and bass behind the
+  menu (muffled), drums and arp in a race, the arp up an octave on the final lap, muffled in
+  slow-mo.
+- **Starts on the first key or click** (browsers' rule), suspends when paused, hidden or in the
+  editor. M mutes, N toggles music, remembered on the device.

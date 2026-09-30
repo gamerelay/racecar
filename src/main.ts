@@ -17,6 +17,7 @@ import { GameRenderer } from './render/renderer';
 import { GreyboxSkin } from './render/skins/greybox';
 import { posthogEnabled, posthogSink } from './telemetry/posthog';
 import { Telemetry } from './telemetry/telemetry';
+import { GameAudio } from './audio/audio';
 import { Hud } from './ui/hud';
 import { RaceUi } from './ui/race';
 import { backToSetup, raceAgain, readSetup, showSetup, type RaceSetup } from './ui/setup';
@@ -60,6 +61,7 @@ if (run.mode === 'race') sim.startRace(run.laps, attract ? 1 : 4);
 const input = new Input();
 const renderer = new GameRenderer(document.getElementById('stage')!, new GreyboxSkin(), sim, PAINTS, map.palette, { post: params.get('post') !== '0', outline: params.get('ink') !== '0' });
 const hud = new Hud(sim);
+const audio = new GameAudio(sim);
 const raceUi = new RaceUi(sim, CLASSES, names, specs.map((x) => PAINTS[(x.paint ?? 0) % PAINTS.length].color));
 raceUi.onAgain = () => raceAgain(run);
 raceUi.onSetup = () => backToSetup(run);
@@ -134,6 +136,8 @@ function frame(now: number): void {
     steer[i] = i === human ? controls.steer : sim.controls[i].steer;
     braking[i] = i === human ? controls.brake > 0 : sim.controls[i].brake > 0;
   }
+  // Silent while paused or in the editor.
+  audio.update(dt, { focus: renderer.focus, camera: renderer.camera, paused: paused || editorOpen, menu: attract });
   if (!editorOpen) {
     renderer.frame(acc * TICK_RATE, dt, steer, braking);
     if (attract) {
@@ -164,6 +168,8 @@ input.on((a) => {
   } else if (a === 'editor' && import.meta.env.DEV) toggleEditor();
   else if (a === 'tuning' && import.meta.env.DEV) import('./editor/tuning').then((m) => m.toggleTuning(TUNING));
   else if (a === 'ink') renderer.opts.outline = !renderer.opts.outline;
+  else if (a === 'mute') toast(audio.toggleMute() ? 'Sound off (M)' : 'Sound on (M)');
+  else if (a === 'music') toast(audio.toggleMusic() ? 'Music on (N)' : 'Music off (N)');
 });
 
 function setPaused(on: boolean): void {
@@ -174,7 +180,7 @@ function setPaused(on: boolean): void {
     document.body.insertAdjacentHTML(
       'beforeend',
       `<div id="pause"><div class="card"><h1>Paused</h1>
-        <dl><dt>Drive</dt><dd>WASD / arrows, or a gamepad (RT, LT, stick)</dd><dt>Drift</dt><dd>hold Shift (RB) while steering: steer in to tighten, out to widen: a quicker way round a corner</dd><dt>Boost</dt><dd>Space (A): fills from air, near misses, the oncoming lane in traffic, checking traffic and takedowns</dd><dt>Takedowns</dt><dd>ram a rival hard, boost into them, or shove them into a wall, a pillar or traffic</dd><dt>Traffic</dt><dd>boost into the back of a small car to check it out of the way; don't hit anything head on</dd><dt>Start</dt><dd>hit the throttle just before GO for a perfect start; too early and you stall</dd><dt>Felt wrong?</dt><dd>F8 (Select+Start) saves the last 30 s with a note</dd></dl>
+        <dl><dt>Drive</dt><dd>WASD / arrows, or a gamepad (RT, LT, stick)</dd><dt>Drift</dt><dd>hold Shift (RB) while steering: steer in to tighten, out to widen: a quicker way round a corner</dd><dt>Boost</dt><dd>Space (A): fills from air, near misses, the oncoming lane in traffic, checking traffic and takedowns</dd><dt>Takedowns</dt><dd>ram a rival hard, boost into them, or shove them into a wall, a pillar or traffic</dd><dt>Traffic</dt><dd>boost into the back of a small car to check it out of the way; don't hit anything head on</dd><dt>Start</dt><dd>hit the throttle just before GO for a perfect start; too early and you stall</dd><dt>Sound</dt><dd>M mutes everything, N toggles the music</dd><dt>Felt wrong?</dt><dd>F8 (Select+Start) saves the last 30 s with a note</dd></dl>
         <button id="pResume">Resume</button><button id="pRestart">Restart</button><button id="pSetup" class="ghost">Main menu</button></div></div>`,
     );
     el = document.getElementById('pause')!;
@@ -278,6 +284,7 @@ if (import.meta.env.DEV) {
     sim,
     renderer,
     telemetry,
+    audio,
     advance(seconds: number, c: Partial<Controls> = {}) {
       Object.assign(controls, c);
       for (let k = 0; k < Math.round(seconds * TICK_RATE); k++) {
