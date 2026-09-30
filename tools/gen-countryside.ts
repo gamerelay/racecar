@@ -167,15 +167,18 @@ const walled: [number, number][] = [
 layout.walls = { gaps: wallGaps(walled, L) };
 
 // ---- traffic on the asphalt, hazards, water ----
+// The home stretch's traffic starts past the Trestle's legs: appearing among them, in the lane the
+// field threads them in, it was half of the Valley's wrecks.
 const sections: [number, number][] = [
-  [sAt(0, -300), sAt(0, 50)],
+  [sAt(0, -180), sAt(0, 50)],
   [sAt(215, -236, 30), sAt(-110, -285, 19)],
 ];
 layout.traffic = { density: 5, lanes: [{ pos: 0.5, dir: 1, speed: 16, sections }, { pos: -0.5, dir: -1, speed: 14, sections }] };
 layout.hazards = [
   { use: 'log-truck', s: [sAt(0, -300), sAt(0, 40)], params: { every: 60 } },
-  { use: 'falling-sign', s: sAt(0, -255) },
 ];
+// No falling sign: on the home straight at 200 km/h (or anywhere else on this lap) it wrecked the
+// field 1–2 more times a race, and a city's sign never belonged in the country.
 // The Trestle crosses the home stretch: drivers going under it thread its legs.
 layout.trestles = true;
 layout.takedownSpots = [

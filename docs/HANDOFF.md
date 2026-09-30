@@ -53,6 +53,10 @@ The third map is **Paradise** (`content/maps/paradise`, key `paradise/island`).
   Also in #24, the HUD tweaks: "Powerglide" (was "Drift boost"), a **Superman** for boosting
   through the air (`superT`, 1.5× air pay, `supermanMin`/`supermanPay`), and a bold outline
   on the countdown's numbers. SPEC "HUD tweaks".
+- **Valley field wrecks: in review** (branch `valley-wrecks`, stacked on `landmarks-downtown`).
+  The Valley wrecked the field 2.5 times a race over 16 seeds. Traffic now starts past the
+  Trestle's legs and the falling sign is gone: 1.13 a race, held by a test. SPEC "The Valley's
+  field wrecks". Downtown is still ~1.6, over MAPS.md's 1.5, and hasn't had a sweep yet.
 - **Landmarks, part 1 (Downtown): in review** (branch `landmarks-downtown`, PLAN phase 6). Layouts
   carry `landmarks` (kind, at, rot, r, params), built by `render/skins/greybox/landmarks.ts`. The
   validator keeps roads `r` off them, the city leaves their ground empty (`Keep`), and the track
@@ -200,7 +204,7 @@ The third map is **Paradise** (`content/maps/paradise`, key `paradise/island`).
 |---|---|---|---|
 | Lap length | 3.26 km | 2.92 km | 3.44 km |
 | AI lap floor (hard, empty track) | 58.6 s | 63.4 s | 66.8 s |
-| Wrecks per 8-AI race (8 seeds; `lap-report --field --seed N`) | ~1.6 (1.0 on seeds 1–8) | ~1 (2.0 on seeds 1–8) | ~1.2 with the hazards, 16 seeds (0.5 without) |
+| Wrecks per 8-AI race (8 seeds; `lap-report --field --seed N`) | ~1.6 (1.0 on seeds 1–8) | 1.13, 16 seeds (0.88 on seeds 1–8) | ~1.2 with the hazards, 16 seeds (0.5 without) |
 | Draw calls | ~90–415 | ~65–330 | ~35–150 for the world; ~350 in the chase view with the field on screen (mostly cars) |
 | Scenery build (per editor edit) | ~200 ms | ~150 ms | ~600 ms (land and scenery, measured in bun) |
 
@@ -282,8 +286,8 @@ Clockwise round a tropical island, the volcano in the middle and the sea all rou
 
 1. **PLAN phase 6, landmarks (every map)** (phase 5, Paradise, is done and tagged `alpha-1.11`).
    See PLAN.md. Worth doing alongside:
-   - Sweep the Valley's field wrecks: 2.0 a race on seeds 1–8, over MAPS.md's 1.5 (see the
-     Smaller follow-ups).
+   - (The Valley's field-wreck sweep is done: `valley-wrecks`, 1.13 a race.) Downtown's ~1.6 is
+     the one map left over MAPS.md's 1.5.
    - The four issues the misdirected review found in gamerelay.io's merged PR #24 (platform, not
      racecar). The worst: the room-code throttle runs before the room lookup, so a throttled
      reconnect (`join_room` with `resume`) drops players from their room on a shared address.
@@ -342,9 +346,8 @@ Clockwise round a tropical island, the volcano in the middle and the sea all rou
 - From Paradise part 2: the land over the Lava Tube is still cut open (every road caps the land
   below it), so the tube reads as a roofed cutting, not a tunnel under the cone. A branch that's
   a tunnel would need to leave the land alone over its middle and draw portals.
-- From Paradise part 3: the Valley's field wrecked 2.0 times a race on seeds 1–8 (16 in 8),
-  above MAPS.md's 1.5. The earlier ~1 was other seeds; worth a sweep like the Sandbar's.
-  Downtown was 1.0 on the same seeds.
+- Downtown's field wrecks ~1.6 a race (1.0 on seeds 1–8), a little over MAPS.md's 1.5. Worth a
+  16-seed sweep like the Valley's (SPEC "The Valley's field wrecks").
 - The falling sign's and log truck's markers use the road's centre height, like the bombs did
   before; on a banked stretch their rings would sink. Neither sits on a steep bank today.
 - Loading a layout builds the whole City in about 200 ms. That's fine per editor edit (edits
