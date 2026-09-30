@@ -1282,4 +1282,8 @@ License plates (2026-09-30, PLAN phase 3):
   squeezed to fit seven characters. They're redrawn once Chakra Petch has loaded.
 - **Wrecks:** the rear plate was already a part that breaks away. Its lettering is in that part,
   so it flies off and lands with it.
+- **From the review:** your lobby follows your plate. A new plate renames your seat, and
+  renames the lobby while it's still called `‹old plate›'s lobby`. Lobbies saved before plates
+  (a seat called "You") take your plate when the menu opens. The plate field keeps the cursor
+  where you were typing when it drops a character (`typedPlate`).
 - **Not yet:** names over cars online (milestone 3). The garage viewer's cars have blank plates.

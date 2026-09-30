@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test';
 import type { KeyValue } from '../src/lobby/backend';
-import { AI_PLATES, PLATE_MAX, aiPlate, cleanPlate, loadPlate, plateProblem, savePlate } from '../src/lobby/plate';
+import { AI_PLATES, PLATE_MAX, aiPlate, cleanPlate, loadPlate, plateProblem, savePlate, typedPlate } from '../src/lobby/plate';
 import { apply, createLobby } from '../src/lobby/lobby';
 import { ATLAS, CELL, CELLS, CellTable, WHITE_UV, cellUv } from '../src/render/skins/greybox/car/plates';
 import { CLASS_ORDER } from '../src/core/content';
@@ -113,5 +113,19 @@ describe('the plate atlas', () => {
     expect(wv).toBeLessThan(0.5);
     expect(wu).toBeGreaterThan(0);
     expect(PLATE_MAX).toBe(7);
+  });
+});
+
+describe('the plate field as you type', () => {
+  test('dropped characters before the cursor move it back, so it stays where you were typing', () => {
+    // "A!|B" (cursor after the !) becomes "A|B".
+    expect(typedPlate('A!B', 2)).toEqual({ value: 'AB', cursor: 1 });
+    // A second space collapses: "A  |B" becomes "A |B".
+    expect(typedPlate('A  B', 3)).toEqual({ value: 'A B', cursor: 2 });
+    // A paste with junk in the middle.
+    expect(typedPlate('a-c-e-7', 7)).toEqual({ value: 'ACE7', cursor: 4 });
+    // A trailing space stays for the next word; past seven is cut, and the cursor with it.
+    expect(typedPlate('ace ', 4)).toEqual({ value: 'ACE ', cursor: 4 });
+    expect(typedPlate('abcdefgh', 8)).toEqual({ value: 'ABCDEFG', cursor: 7 });
   });
 });

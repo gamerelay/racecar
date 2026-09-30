@@ -7,7 +7,7 @@
 import type { CarClass, MapDef, PaintDef, TrackLayout } from '../core/content';
 import type { KeyValue, LobbyBackend } from '../lobby/backend';
 import { LOCAL_ID } from '../lobby/backend';
-import { aiPlate, cleanPlate, plateProblem, PLATE_MAX, savePlate } from '../lobby/plate';
+import { aiPlate, cleanPlate, plateProblem, PLATE_MAX, savePlate, typedPlate } from '../lobby/plate';
 import { DIFFICULTY_NAMES, FILL_DIFFICULTY, SEATS, legacySeats, seatIndex, summarize, type Lobby, type LobbyAction, type LobbyOptions, type LobbySummary, type SeatChoice } from '../lobby/lobby';
 import { MAX_LAPS, raceFromLobby, toQuery, type RaceSetup } from './setup';
 import { thumb, thumbSvg } from './thumb';
@@ -60,6 +60,7 @@ export class Menu {
     // tab, the title's URL): it's waiting again, or Start and the seats would refuse.
     const own = await this.backend.get(LOCAL_ID);
     if (own?.phase === 'racing') await this.backend.send(own.id, { type: 'end' });
+    await this.syncName();
     const lobby = lobbyId ? await this.backend.get(lobbyId) : null;
     return this.show(lobby ? { kind: 'lobby', id: lobby.id } : { kind: 'title' });
   }
@@ -189,11 +190,10 @@ export class Menu {
     const err = document.getElementById('pErr')!;
     const preview = document.getElementById('pPreview')!;
     // Typed straight into plate form: uppercase, only what a plate can show.
-    // (A space at the end stays while you type, for the next word; Save trims it.)
     field.oninput = () => {
-      const at = field.selectionStart ?? field.value.length;
-      field.value = field.value.toUpperCase().replace(/[^A-Z0-9 ]/g, '').replace(/ +/g, ' ').slice(0, PLATE_MAX);
-      field.setSelectionRange(at, at);
+      const t = typedPlate(field.value, field.selectionStart ?? field.value.length);
+      field.value = t.value;
+      field.setSelectionRange(t.cursor, t.cursor);
       const clean = cleanPlate(field.value);
       preview.innerHTML = plateChip(clean || ' ');
       err.textContent = clean ? (plateProblem(clean) ?? '') : '';
@@ -202,10 +202,9 @@ export class Menu {
       const plate = cleanPlate(field.value);
       const problem = savePlate(this.store, plate);
       if (problem) return void (err.textContent = problem);
+      const old = this.plate;
       this.plate = plate;
-      // Your seat in your lobby goes by the new plate too.
-      const own = await this.backend.get(LOCAL_ID);
-      if (own) await this.backend.send(own.id, { type: 'name', name: plate });
+      await this.syncName(old);
       void this.show({ kind: 'title' });
     };
     field.onkeydown = (e) => {
@@ -217,6 +216,20 @@ export class Menu {
     this.on('pSave', () => void save());
     this.on('pBack', () => this.back());
     field.select();
+  }
+
+  /**
+   * Your lobby goes by your plate: your seat's name, and the lobby's own name while it's still
+   * the one it was given (`‹old›'s lobby`). Also mends lobbies saved before plates (a seat named
+   * "You"), when the menu opens.
+   */
+  private async syncName(old?: string): Promise<void> {
+    const own = await this.backend.get(LOCAL_ID);
+    const seat = own?.seats[seatIndex(own, this.backend.you)];
+    if (!own || seat?.kind !== 'player') return;
+    if (seat.name !== this.plate) await this.backend.send(own.id, { type: 'name', name: this.plate });
+    const was = old ?? seat.name;
+    if (own.host === this.backend.you && own.name === `${was}'s lobby` && was !== this.plate) await this.backend.send(own.id, { type: 'options', name: `${this.plate}'s lobby` });
   }
 
   private yourCar(lobby: Lobby | null): { car: string; paint: number } {

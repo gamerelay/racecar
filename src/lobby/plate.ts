@@ -41,6 +41,17 @@ export function cleanPlate(s: string): string {
     .trimEnd();
 }
 
+/**
+ * A plate field as you type (the plate editor): uppercase, only what a plate can show, one space
+ * at a time, at most seven; a space at the end stays, for the next word. The cursor moves back by
+ * whatever was dropped before it, so it stays where you were typing.
+ */
+export function typedPlate(value: string, cursor: number): { value: string; cursor: number } {
+  const form = (s: string) => s.toUpperCase().replace(/[^A-Z0-9 ]/g, '').replace(/ +/g, ' ');
+  const out = form(value).slice(0, PLATE_MAX);
+  return { value: out, cursor: Math.min(form(value.slice(0, cursor)).length, out.length) };
+}
+
 /** Why `plate` can't be used, or null if it can. Expects a cleaned plate. */
 export function plateProblem(plate: string): string | null {
   if (!plate) return 'Type a plate: letters and numbers, up to seven.';
