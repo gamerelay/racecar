@@ -1482,3 +1482,13 @@ Paradise, part 3b: hazards and tuning (2026-09-30, PLAN phase 5):
   - Coconuts spun forever after they stopped rolling; their spin follows the roll now.
   - With Time on Random, the lobby showed the background race's pick, which could differ from the
     race's own (a new seed at the start). The lobby shows the day for Random.
+
+HUD tweaks (owner, 2026-09-30):
+
+- **"Drift boost" is now "Powerglide":** the pop when a clean drift release pays the meter.
+- **A Superman:** boosting through the air (at least 0.25 s of a flight, `supermanMin`) pays that
+  flight's air boost and points 1.5× (`supermanPay`) on a clean landing, with a "Superman!" pop
+  and a longer chime. The AI boosts over jumps now and then too; lap floors didn't move.
+- **The countdown's number shows its outline:** a stroke under the fill only shows its outer
+  half (1.5 px), which was lost on the night sky, so it's 7 px, ringed in outline shadows as well.
+

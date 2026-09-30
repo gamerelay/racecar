@@ -334,7 +334,7 @@ export class GameAudio {
         if (mine) this.play(0.35, 0, (s) => noiseShot(s, 'bandpass', 300, 1800, 0.08, 0.4, 1.5));
         break;
       case Ev.AirBoost:
-        if (e.car === focus) this.chime(e.b > 0.9 ? [5, 12, 17] : [5, 12], 0.16);
+        if (e.car === focus) this.chime(e.other === 1 ? [5, 12, 17, 24] : e.b > 0.9 ? [5, 12, 17] : [5, 12], 0.16);
         break;
       case Ev.MiniTurbo:
       case Ev.DriftBoost:

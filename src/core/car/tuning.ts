@@ -65,6 +65,12 @@ export const TUNING = {
   airMin: 0.45,
   /** Points per second of air, on the landing. */
   airPoints: 500,
+  /**
+   * A Superman: boosting through the air (at least supermanMin s of the flight) pays the air
+   * time's boost this many times over, and the HUD says so.
+   */
+  supermanMin: 0.25,
+  supermanPay: 1.5,
   /** Drift points per second at full angle and 40 m/s (the pace a drift's rewards are measured at). */
   driftPoints: 400,
   /**

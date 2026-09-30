@@ -190,6 +190,7 @@ export function stepCar(sim: SimState, i: number, c: Controls, dt: number): void
     cars.yaw[i] = approach(cars.yaw[i], -c.steer * 0.8, 3 * dt);
     h += cars.yaw[i] * dt;
     cars.airT[i] += dt;
+    if (cars.boosting[i]) cars.superT[i] += dt;
     if (cars.drift[i] === 1) {
       // The hop at the start of a drift: keep the drift going through it.
       cars.driftT[i] += dt;
@@ -215,6 +216,7 @@ function followGround(sim: SimState, i: number, dt: number): void {
   if (yBall > ground + 0.02) {
     if (wasGrounded) {
       cars.airT[i] = 0;
+      cars.superT[i] = 0;
       sim.events.push(sim.tick, Ev.Takeoff, i, cars.x[i], cars.y[i], cars.z[i], Math.hypot(cars.vx[i], cars.vz[i]));
     }
     cars.grounded[i] = 0;
@@ -226,11 +228,14 @@ function followGround(sim: SimState, i: number, dt: number): void {
       sim.events.push(sim.tick, Ev.Land, i, cars.x[i], ground, cars.z[i], air, -vyBall);
       // A clean landing after real air time pays.
       if (air >= T.airMin && !cars.wreck[i]) {
-        const paid = earnBoost(sim, i, T.boostFromAir * air);
-        cars.score[i] += Math.round(T.airPoints * air);
-        sim.events.push(sim.tick, Ev.AirBoost, i, cars.x[i], ground, cars.z[i], paid, air);
+        // Boosted through the air: a Superman, paid extra (`other` 1 on the event says so).
+        const superman = cars.superT[i] >= T.supermanMin;
+        const paid = earnBoost(sim, i, T.boostFromAir * air * (superman ? T.supermanPay : 1));
+        cars.score[i] += Math.round(T.airPoints * air * (superman ? T.supermanPay : 1));
+        sim.events.push(sim.tick, Ev.AirBoost, i, cars.x[i], ground, cars.z[i], paid, air, superman ? 1 : 0);
       }
       cars.airT[i] = 0;
+      cars.superT[i] = 0;
     }
     cars.grounded[i] = 1;
     cars.vy[i] = (ground - cars.y[i]) / dt;

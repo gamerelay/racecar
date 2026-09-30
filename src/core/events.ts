@@ -43,7 +43,7 @@ export const Ev = {
   DriftChain: 26,
   /** A chain was broken (a spin-out, a wreck, a wall) before it paid. b = drifts it had. */
   ChainLost: 27,
-  /** A clean landing paid for the air time. a = boost paid (0..1 of a bar), b = seconds in the air. */
+  /** A clean landing paid for the air time. a = boost paid (0..1 of a bar), b = seconds in the air, other = 1 for a Superman (boosted through it). */
   AirBoost: 28,
 } as const;
 export type Ev = (typeof Ev)[keyof typeof Ev];

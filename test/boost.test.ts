@@ -9,12 +9,12 @@ import { ringSim } from './helpers';
 // less for the leader, a little more for whoever is last.
 
 /** A car on a big flat ring, dropped from `height` m (at speed), and the events it saw. */
-function drop(height: number) {
+function drop(height: number, boost = false) {
   const sim = ringSim(1, 600, 60);
   const i = sim.addCar({ cls: 'coupe', human: true });
   sim.placeCar(i, 0, 100, 0, 30);
-  sim.cars.boost[i] = 0;
-  const c = { ...neutralControls(), throttle: 1 };
+  sim.cars.boost[i] = boost ? 0.5 : 0;
+  const c = { ...neutralControls(), throttle: 1, boost };
   sim.step([c]);
   sim.cars.y[i] += height;
   sim.cars.grounded[i] = 0;
@@ -38,6 +38,16 @@ describe('air boost', () => {
     expect(air[0].a).toBeCloseTo(TUNING.boostFromAir * air[0].b, 3);
     expect(sim.cars.boost[i]).toBeCloseTo(air[0].a, 3);
     expect(sim.cars.score[i]).toBeGreaterThanOrEqual(Math.round(TUNING.airPoints * air[0].b));
+  });
+
+  test('boosting through the air is a Superman: it pays the air time supermanPay times over', () => {
+    const plain = drop(4).seen.find((e) => e.type === Ev.AirBoost)!;
+    expect(plain.other).toBe(0);
+    const { seen } = drop(4, true);
+    const air = seen.filter((e) => e.type === Ev.AirBoost);
+    expect(air.length).toBe(1);
+    expect(air[0].other).toBe(1);
+    expect(air[0].a).toBeCloseTo(TUNING.boostFromAir * air[0].b * TUNING.supermanPay, 3);
   });
 
   test("a hop shorter than airMin doesn't pay", () => {
