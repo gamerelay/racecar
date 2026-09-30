@@ -22,6 +22,11 @@ traffic that fades instead of popping (PR #7, `alpha-1.3`), audio plus a review 
 - **Repo:** `gamerelay/racecar`, private until milestone 3, cloned at `~/dev/racecar`. The default
   branch is `main`.
 - **Milestone 1 (greybox sandbox): merged** (PR #1).
+- **Police car, Trestle legs, air boost, boost by position: in review** (branch
+  `cop-car-and-catchup`): the Interceptor is the eighth class, the Trestle's legs on the home
+  stretch are solid (crash if you clip one), air time pays on a clean landing, boost from moves
+  is scaled ×0.9 (leading) to ×1.35 (last), and the contact shadow fades when a car flips. SPEC
+  "Police car, Trestle legs, air boost and boost by position". 119 tests.
 - **Drift chains, skid marks, the new car designs and a second review pass: merged** (PR #12)
   and tagged `alpha-1.6`: chains that link S-bends and pay boost and a pop, rubber
   on the road, the compact, truck and police designs plus the car polish pass from `car-polish`,
@@ -37,7 +42,9 @@ traffic that fades instead of popping (PR #7, `alpha-1.3`), audio plus a review 
 - **Traffic fades instead of popping: merged** (PR #7) and tagged `alpha-1.3`: visibility is part
   of the traffic formula (45 m fades at lane sections and the grid, 1 s back after a wreck), the
   renderer draws fading cars see-through, and `test/traffic.test.ts` holds it (0 pops measured).
-  Follow-up: AI resets near the Valley's finish (lap-report seeds 2 and 4), same on `alpha-1.2`.
+  Follow-up: AI resets near the Valley's finish (lap-report seeds 2 and 4), same on `alpha-1.2`
+  (now a rate test: at most one reset in six field races; the one left is a car shoved off the
+  road the wrong way by the log spill).
 - **Seven cars and polish: merged** (PR #6) and tagged `alpha-1.2`:
   - sedan (Cruiser), rally (Mudlark) and bus (Route 88) join as player and AI classes; race
     traffic is drawn from the racer designs (sedan, van, bus, the compact as the hatch);

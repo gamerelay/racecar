@@ -2,6 +2,9 @@ import { describe, expect, test } from 'bun:test';
 import type { TrackLayout } from '../src/core/content';
 import { bakeTrack, wrap, type BakedSpline } from '../src/core/track/bake';
 import { newHit, projectGlobal } from '../src/core/track/query';
+import { Cause, Ev } from '../src/core/events';
+import { neutralControls } from '../src/core/controls';
+import { Sim } from '../src/core/sim';
 import { validateLayout } from '../src/core/track/validate';
 import { CLASSES, SURFACES, layout } from './helpers';
 
@@ -143,5 +146,44 @@ describe('Valley v3', () => {
     expect(banked).toBeGreaterThan(300);
     // Under 0.5° per meter.
     expect(steepest).toBeLessThan((0.5 * Math.PI) / 180);
+  });
+});
+
+describe('the Trestle stands on the road under it', () => {
+  const track = bakeTrack(layout('countryside/valley'), SURFACES);
+  const legs = track.props.filter((p) => p.kind === 'trestle-leg');
+
+  test('its legs on the home stretch are solid, and rows of them leave gaps to drive through', () => {
+    expect(legs.length).toBeGreaterThanOrEqual(8);
+    for (const p of legs) {
+      expect(p.solid).toBe(true);
+      // On the road (or its shoulder) under the deck, reaching up to it.
+      const sp = track.splines[p.spline];
+      const i = Math.round(p.s / sp.step);
+      expect(Math.abs(p.lateral)).toBeLessThan(sp.width[i] / 2 + sp.shoulder[i] + 1);
+      expect(p.y + p.hy * 2).toBeGreaterThan(sp.py[i] + 15);
+    }
+    // A gap wide enough for a car between neighbouring rows.
+    const lats = [...new Set(legs.map((p) => Math.round(p.lateral)))].sort((a, b) => a - b);
+    expect(Math.max(...lats.slice(1).map((l, k) => l - lats[k]))).toBeGreaterThan(5);
+    // The city's flyovers span the roads beneath them: no legs there.
+    expect(bakeTrack(layout('city/downtown'), SURFACES).props.some((p) => p.kind === 'trestle-leg')).toBe(false);
+  });
+
+  test('driving into a leg at speed wrecks you', () => {
+    const sim = new Sim(track, CLASSES, SURFACES, { seed: 1 });
+    const i = sim.addCar({ cls: 'coupe', human: true });
+    const leg = legs[0];
+    sim.placeCar(i, leg.spline, leg.s - 40, leg.lateral, 40);
+    const c = { ...neutralControls(), throttle: 1 };
+    let cause = -1;
+    let cursor = sim.events.head;
+    for (let t = 0; t < 120 && cause < 0; t++) {
+      sim.step([c]);
+      cursor = sim.events.read(cursor, (e) => {
+        if (e.type === Ev.Wreck && e.car === i) cause = e.b;
+      });
+    }
+    expect(cause).toBe(Cause.Prop);
   });
 });

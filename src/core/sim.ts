@@ -16,7 +16,7 @@ import { neutralControls, quantizeControls, type Controls } from './controls';
 import { Cause, Ev, EventQueue } from './events';
 import { damp } from './math';
 import { Rng, hash01 } from './rng';
-import { updateProgress } from './rules/progress';
+import { positions, updateProgress } from './rules/progress';
 import type { RaceState, SimState } from './state';
 import { mainDistance, type Track } from './track/bake';
 import { newHit, projectGlobal, sampleAt } from './track/query';
@@ -81,6 +81,8 @@ export class Sim implements SimState {
   /** This tick's finishers, before they're placed. */
   private readonly finishers = new Int32Array(MAX_CARS);
   private readonly crossedAgo = new Float64Array(MAX_CARS);
+  /** Race order, leader first (each tick's ranks; reused, so the tick doesn't allocate). */
+  private readonly order: number[] = [];
   private readonly nearX = new Float64Array(MAX_CARS);
   private readonly nearZ = new Float64Array(MAX_CARS);
   private readonly ctx: WorldCtx;
@@ -311,6 +313,8 @@ export class Sim implements SimState {
       if (this.race.phase === 'racing' && !cars.finished[i] && cars.lap[i] >= this.race.laps) this.finishers[nf++] = i;
     }
     this.finish(nf);
+    positions(this, this.order);
+    for (let k = 0; k < this.order.length; k++) cars.rank[this.order[k]] = k;
     // Single-player slow-mo: a human's fresh wreck slows the world.
     if (this.slowmo === 'world') {
       let slow = false;

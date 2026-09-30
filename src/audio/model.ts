@@ -19,6 +19,7 @@ export const ENGINE_SOUNDS: Record<string, EngineSound> = {
   hatch: { pitch: 1.3, growl: 0.3, gears: 5 },
   van: { pitch: 0.85, growl: 0.6, gears: 5 },
   sedan: { pitch: 1, growl: 0.45, gears: 5 },
+  police: { pitch: 0.92, growl: 0.75, gears: 6 },
   rally: { pitch: 1.2, growl: 0.7, gears: 6 },
   bus: { pitch: 0.55, growl: 0.9, gears: 4 },
 };

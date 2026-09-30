@@ -17,6 +17,8 @@ export const CAR_FIELDS = [
   // race
   'lap', 'nextCp', 'progress', 'lapStartTime', 'bestLap', 'lastLap', 'score', 'driftChain', 'chainT', 'chainPts', 'lastHitBy', 'lastHitT',
   'finished', 'finishTime', 'place', 'takedowns', 'wrecks', 'lastTakenBy',
+  // race position right now, 0 = leading (updated at the end of each tick)
+  'rank',
   // AI: the lateral line it has committed to round something, and for how long (s); backing out
   // when pinned (s left, or negative: s until it may try again).
   'aiLat', 'aiHold', 'aiBack',

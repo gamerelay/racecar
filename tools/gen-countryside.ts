@@ -338,6 +338,8 @@ layout.hazards = [
   { use: 'log-truck', s: [sAt(0, -300), sAt(0, 40)], params: { every: 60 } },
   { use: 'falling-sign', s: sAt(0, -255) },
 ];
+// The Trestle crosses the home stretch: drivers going under it thread its legs.
+layout.trestles = true;
 layout.takedownSpots = [
   { s: sAt(20, -283, 24), name: 'The Trestle' },
   { s: sAt(60, 330), name: 'The Covered Bridge' },

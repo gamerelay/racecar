@@ -1,7 +1,7 @@
 // The garage: every car on a stretch of road under the greybox sky, with the game's post pass, so
 // car art can be worked on without driving. Dev tool; state lives in the URL so a view can be shared.
 //
-//   1–7 class · 8, 9, - compact, truck, police (designs with no player class) · 0 lineup · T traffic lineup · P paint · V view · M palette
+//   1–8 class · 9, - compact, truck (traffic designs with no player class) · 0 lineup · T traffic lineup · P paint · V view · M palette
 //   O ink · K car ink · F post · W wreck (R repairs) · hold B brake · hold Space boost · ←/→ steer
 //   S stop the road
 
@@ -20,14 +20,13 @@ import { TRAFFIC_KINDS } from '../core/world/traffic';
 const VIEWS = ['chase', 'orbit', 'rear34', 'side', 'front34', 'top'] as const;
 type View = (typeof VIEWS)[number];
 const PALETTE_NAMES = ['dusk', 'midnight', 'golden'];
-/** Designs with no player class, at their traffic kind's size (the police car at the sedan's). */
+/** Designs with no player class, at their traffic kind's size. */
 const kind = (id: string) => TRAFFIC_KINDS.find((k) => k.id === id)!;
 const sized = (id: string, name: string, size: [number, number, number]): CarClass => ({ ...CLASSES[2], id, name, size });
 const SHOWN: CarClass[] = [
   ...CLASSES,
   sized('compact', 'Compact (traffic)', [kind('compact').hw, kind('compact').hl, kind('compact').hh]),
   sized('truck', 'Truck (traffic)', [kind('truck').hw, kind('truck').hl, kind('truck').hh]),
-  sized('police', 'Police', [kind('sedan').hw, kind('sedan').hl, kind('sedan').hh]),
 ];
 /** Class keys, in SHOWN order: the tenth is `-`, next to 0 on the keyboard. */
 const CLASS_KEYS = '123456789-';

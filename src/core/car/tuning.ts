@@ -57,7 +57,14 @@ export const TUNING = {
   boostFromDrift: 0.18,
   /** Smallest bank that pays out (a tap-drift earns nothing). */
   driftBankMin: 0.02,
-  boostFromAir: 0.08,
+  /**
+   * Air time pays on a clean landing: this much meter per second in the air, for flights of at
+   * least airMin s (a drift's hop and a kerb's bump don't count). Wreck on the way down and it's gone.
+   */
+  boostFromAir: 0.15,
+  airMin: 0.45,
+  /** Points per second of air, on the landing. */
+  airPoints: 500,
   /** Drift points per second at full angle and 40 m/s (the pace a drift's rewards are measured at). */
   driftPoints: 400,
   /**
@@ -74,6 +81,12 @@ export const TUNING = {
   boostFromNearMiss: 0.05,
   boostFromOncoming: 0.04,
   boostFromCheck: 0.06,
+  /**
+   * Boost earned from moves (drifts, air, near misses, oncoming, checks) is scaled by race
+   * position, from this for the leader to boostPlaceLast for last place: a little help to catch up.
+   */
+  boostPlaceLead: 0.9,
+  boostPlaceLast: 1.35,
   nearMissGap: 1.4,
   /** Closing speed into traffic that wrecks you (unless you're checking it). */
   trafficWreck: 21,
