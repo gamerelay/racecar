@@ -20,12 +20,15 @@ import { Telemetry } from './telemetry/telemetry';
 import { GameAudio } from './audio/audio';
 import { Hud } from './ui/hud';
 import { RaceUi } from './ui/race';
-import { backToSetup, raceAgain, readSetup, showSetup, type RaceSetup } from './ui/setup';
+import { accept, navigate } from './ui/nav';
+import { backToSetup, raceAgain, readChoices, readSetup, restart, showSetup, type RaceSetup } from './ui/setup';
 import { CLASSES, LAYOUTS, MAPS, PAINTS, SURFACES } from './content';
 
 const params = new URLSearchParams(location.search);
 const BUILD = `${import.meta.env.MODE}-${__BUILD_TIME__}`;
-const setup: RaceSetup | null = readSetup(params, 'city/downtown');
+// Only cars and paints that exist: a stale or hand-edited link falls back instead of crashing.
+const known = { cars: CLASSES.map((c) => c.id), paints: PAINTS.length };
+const setup: RaceSetup | null = readSetup(params, 'city/downtown', known);
 // No setup yet: attract mode, a hard AI race on City behind the menu.
 const attract = !setup;
 const run: RaceSetup = setup ?? { mode: 'race', map: params.get('map') ?? 'city/downtown', car: 'coupe', paint: 0, opponents: 7, difficulty: 2, laps: 3, weather: 'random', mayhem: 'normal', traffic: true, seed: Math.floor(Math.random() * 1e9) };
@@ -65,12 +68,16 @@ const audio = new GameAudio(sim);
 const raceUi = new RaceUi(sim, CLASSES, names, specs.map((x) => PAINTS[(x.paint ?? 0) % PAINTS.length].color));
 raceUi.onAgain = () => raceAgain(run);
 raceUi.onSetup = () => backToSetup(run);
+// Behind the menu there are no results; with the pause menu up they wait.
+raceUi.resultsOn = !attract;
+raceUi.canShow = () => !paused;
 // Quit to the main menu from anywhere in a race. Not focusable, so Space (boost) can't press it.
 document.body.insertAdjacentHTML('beforeend', '<button id="quit" tabindex="-1" title="Quit to the main menu">✕ Menu</button>');
 document.getElementById('quit')!.onclick = () => backToSetup(run);
 if (attract) {
   document.body.classList.add('attract');
-  showSetup(MAPS, Object.keys(LAYOUTS), CLASSES, PAINTS, { map: layoutKey });
+  // Back from a race (Main menu, Change setup): its choices are the defaults.
+  showSetup(MAPS, Object.keys(LAYOUTS), CLASSES, PAINTS, readChoices(params, layoutKey, known));
 }
 const telemetry = new Telemetry(sim, specs, () => layout, BUILD, { enabled: import.meta.env.DEV, trace: params.get('trace') === '1' });
 // Dev builds write local files; playtest builds with a PostHog key send there (unless opted out).
@@ -117,6 +124,10 @@ function frame(now: number): void {
   requestAnimationFrame(frame);
   const dt = Math.min((now - last) / 1000, 0.1);
   last = now;
+  // A menu up: arrows and the pad move focus there (and Start still works while paused).
+  input.menuOpen = !!openMenu();
+  if (paused) input.pollMenu();
+  hud.setDevice(input.lastDevice);
   if (!paused && !editorOpen) {
     input.poll(controls, dt);
     renderer.lookBack = human >= 0 && controls.lookBack;
@@ -160,8 +171,27 @@ function frame(now: number): void {
 }
 requestAnimationFrame(frame);
 
+/** The menu on screen, if any: the F8 form, the pause menu, results, or setup. */
+function openMenu(): HTMLElement | null {
+  return document.querySelector<HTMLElement>('#reportForm, #pause.on, #results.on, #setup');
+}
+
+// Switching away mid-race pauses it (not behind the menu, not once you're in the results).
+const awayPause = () => {
+  if (!attract && !editorOpen && !paused && !raceUi.shown) setPaused(true);
+};
+window.addEventListener('blur', awayPause);
+document.addEventListener('visibilitychange', () => document.hidden && awayPause());
+
 // ---- system keys ----
 input.on((a) => {
+  const menu = openMenu();
+  if (a.startsWith('nav-')) {
+    if (menu) navigate(menu, a.slice(4) as 'up' | 'down' | 'left' | 'right');
+    return;
+  }
+  if (a === 'accept') return void (menu && accept(menu));
+  if (a === 'back') return void (paused && !document.getElementById('reportForm') && setPaused(false));
   if (a === 'pause' && !editorOpen) setPaused(!paused);
   else if (a === 'report') openReport();
   else if (a === 'debug') {
@@ -174,7 +204,8 @@ input.on((a) => {
 });
 
 function setPaused(on: boolean): void {
-  if (attract) return;
+  // Nothing to pause behind the menu, and the results screen has its own buttons.
+  if (attract || (on && raceUi.shown)) return;
   paused = on;
   let el = document.getElementById('pause');
   if (!el) {
@@ -186,7 +217,7 @@ function setPaused(on: boolean): void {
     );
     el = document.getElementById('pause')!;
     document.getElementById('pResume')!.onclick = () => setPaused(false);
-    document.getElementById('pRestart')!.onclick = () => raceAgain(run);
+    document.getElementById('pRestart')!.onclick = () => restart(run);
     document.getElementById('pSetup')!.onclick = () => backToSetup(run);
   }
   el.classList.toggle('on', on);
@@ -286,6 +317,7 @@ if (import.meta.env.DEV) {
     renderer,
     telemetry,
     audio,
+    input,
     advance(seconds: number, c: Partial<Controls> = {}) {
       Object.assign(controls, c);
       for (let k = 0; k < Math.round(seconds * TICK_RATE); k++) {

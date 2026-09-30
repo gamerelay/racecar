@@ -18,23 +18,47 @@ export interface RaceSetup {
   seed: number;
 }
 
-export function readSetup(q: URLSearchParams, defaultMap: string): RaceSetup | null {
+/** What a setup may name: car ids, and how many paints there are. */
+export interface Known {
+  cars: string[];
+  paints: number;
+}
+
+/**
+ * The race the URL asks for, or null for the menu (no mode). Anything missing or out of range
+ * falls back to a default, so a hand-edited or stale link still starts a race.
+ */
+export function readSetup(q: URLSearchParams, defaultMap: string, known?: Known): RaceSetup | null {
   const mode = q.get('mode');
   if (mode !== 'race' && mode !== 'free') return null;
-  const num = (k: string, d: number) => (q.has(k) ? Number(q.get(k)) : d);
+  /** A whole number in [lo, hi], or `d` if it's missing or not a number. */
+  const int = (k: string, d: number, lo: number, hi: number) => {
+    const v = Number(q.get(k));
+    return q.has(k) && q.get(k) !== '' && Number.isFinite(v) ? Math.max(lo, Math.min(hi, Math.round(v))) : d;
+  };
+  const oneOf = <T extends string>(k: string, options: readonly T[], d: T): T => (options.includes(q.get(k) as T) ? (q.get(k) as T) : d);
+  const car = q.get('car') ?? 'coupe';
   return {
     mode,
     map: q.get('map') ?? defaultMap,
-    car: q.get('car') ?? 'coupe',
-    paint: num('paint', 0),
-    opponents: Math.max(0, Math.min(7, num('opponents', 7))),
-    difficulty: Math.max(0, Math.min(2, num('difficulty', 1))) as 0 | 1 | 2,
-    laps: Math.max(1, Math.min(9, num('laps', 3))),
-    weather: (q.get('weather') as RaceSetup['weather']) ?? 'random',
-    mayhem: (q.get('mayhem') as RaceSetup['mayhem']) ?? 'normal',
+    car: known && !known.cars.includes(car) ? 'coupe' : car,
+    paint: int('paint', 0, 0, Math.max(0, (known?.paints ?? 1e9) - 1)),
+    opponents: int('opponents', 7, 0, 7),
+    difficulty: int('difficulty', 1, 0, 2) as 0 | 1 | 2,
+    laps: int('laps', 3, 1, 9),
+    weather: oneOf('weather', ['clear', 'rain', 'random'] as const, 'random'),
+    mayhem: oneOf('mayhem', ['off', 'normal', 'chaos'] as const, 'normal'),
     traffic: q.get('traffic') !== '0',
-    seed: num('seed', Math.floor(Math.random() * 1e9)),
+    seed: int('seed', Math.floor(Math.random() * 1e9), 0, 2 ** 31 - 1),
   };
+}
+
+/** The setup screen's choices from the URL (the last race's, after "Main menu"), for defaults. */
+export function readChoices(q: URLSearchParams, defaultMap: string, known?: Known): Partial<RaceSetup> {
+  if (!q.has('car') && !q.has('map')) return { map: defaultMap };
+  const withMode = new URLSearchParams(q);
+  withMode.set('mode', 'race');
+  return readSetup(withMode, defaultMap, known) ?? {};
 }
 
 function toQuery(s: RaceSetup): string {
@@ -71,7 +95,27 @@ export function showSetup(maps: MapDef[], layouts: string[], classes: CarClass[]
   </div>`;
   document.body.appendChild(el);
   const v = (id: string) => (document.getElementById(id) as HTMLSelectElement).value;
-  const blurb = () => (document.getElementById('sBlurb')!.textContent = classes.find((c) => c.id === v('sCar'))?.blurb ?? '');
+  // The picked car's job and how it compares: bars against the best in each.
+  const stats: [string, (c: CarClass) => number][] = [
+    ['Top speed', (c) => c.topSpeed],
+    ['Accel', (c) => c.accel],
+    ['Handling', (c) => c.turn * c.grip],
+    ['Weight', (c) => c.mass],
+  ];
+  const blurb = () => {
+    const c = classes.find((k) => k.id === v('sCar'));
+    const el = document.getElementById('sBlurb')!;
+    if (!c) return void (el.textContent = '');
+    const bars = stats
+      .map(([name, f]) => {
+        const vals = classes.map(f);
+        const lo = Math.min(...vals) * 0.8;
+        const t = (f(c) - lo) / (Math.max(...vals) - lo);
+        return `<span class="bar"><small>${name}</small><i style="--t:${t.toFixed(2)}"></i></span>`;
+      })
+      .join('');
+    el.innerHTML = `${c.blurb ?? ''}<span class="bars">${bars}</span>`;
+  };
   (document.getElementById('sCar') as HTMLSelectElement).onchange = blurb;
   blurb();
   const go = (mode: 'race' | 'free') => {
@@ -95,6 +139,12 @@ export function showSetup(maps: MapDef[], layouts: string[], classes: CarClass[]
   (document.getElementById('sRace') as HTMLButtonElement).focus();
 }
 
+/** The same race again: same seed, so the same weather and traffic (the pause menu's Restart). */
+export function restart(s: RaceSetup): void {
+  location.search = toQuery(s);
+}
+
+/** Another race with the same setup and a fresh seed (the results screen's Race again). */
 export function raceAgain(s: RaceSetup): void {
   location.search = toQuery({ ...s, seed: Math.floor(Math.random() * 1e9) });
 }

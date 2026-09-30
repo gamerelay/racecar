@@ -6,6 +6,7 @@ import { Ev, type GameEvent } from '../core/events';
 import { MPH } from '../core/math';
 import { positions } from '../core/rules/progress';
 import type { Sim } from '../core/sim';
+import { delta, fmt, ordinal } from './format';
 
 // Elements are looked up once, and text and transforms are written only when they change: the HUD
 // updates every frame, and most of it is the same as last frame.
@@ -44,12 +45,15 @@ export class Hud {
   focus = 0;
   laps = 3;
   debugText = '';
+  /** The focus car's best lap before the one just finished (for the lap pop's delta). */
+  private bestBefore = 0;
+  private device: 'keyboard' | 'gamepad' | 'touch' | '' = '';
 
   constructor(private readonly sim: Sim) {
     document.body.insertAdjacentHTML(
       'beforeend',
       `<div class="hud" id="race">
-        <div class="stat"><small>Pos</small><b id="pos">1/1</b></div>
+        <div class="stat" id="statPos"><small>Pos</small><b id="pos">1/1</b></div>
         <div class="stat"><small>Lap</small><b id="lap">1/3</b></div>
         <div class="stat"><small>Time</small><b id="time">0:00.0</b></div>
         <div class="stat"><small>Best</small><b id="best">–</b></div>
@@ -59,7 +63,7 @@ export class Hud {
       <div class="hud" id="drift"><div id="driftPts">0</div><div id="driftStage"><i></i><i></i><i></i></div><div id="driftChain"></div></div>
       <div class="hud" id="meterWrap"><label>Boost</label><div id="meter"><div id="meterBank"></div><div id="meterFill"></div></div></div>
       <div class="hud" id="speedo"><svg viewBox="0 0 160 160" aria-hidden="true"><g id="gTicks"></g><circle class="track" cx="80" cy="80" r="${R}" pathLength="100"/><circle id="gBoost" cx="80" cy="80" r="${R}" pathLength="100"/><circle id="gFill" cx="80" cy="80" r="${R}" pathLength="100"/></svg><span id="spd">0</span><small>mph</small></div>
-      <div class="hud" id="hint"><kbd>WASD</kbd>/<kbd>←↑→↓</kbd> drive · <kbd>Shift</kbd> drift · <kbd>Space</kbd> boost · <kbd>R</kbd> reset · <kbd>C</kbd> look back · <kbd>\`</kbd> editor · <kbd>F2</kbd> debug · <kbd>F6</kbd> ink · <kbd>F8</kbd> felt wrong? · <kbd>M</kbd> sound · <kbd>N</kbd> music</div>
+      <div class="hud" id="hint"></div>
       <div class="hud" id="debug"></div>`,
     );
   }
@@ -83,6 +87,17 @@ export class Hud {
     style('gBoost', 'strokeDasharray', `0 ${from.toFixed(2)} ${(ARC - from).toFixed(2)} 100`);
   }
 
+  /** A lap done: its time against the best before it, and the final lap called out. */
+  private lap(time: number, lapsDone: number): void {
+    const best = this.bestBefore;
+    if (!best) this.pop(`Lap ${fmt(time)}`);
+    else if (time < best) this.pop(`Best lap! ${fmt(time)} ${delta(time, best)}`, 'hot');
+    else this.pop(`Lap ${fmt(time)} ${delta(time, best)}`, 'slow');
+    this.bestBefore = best ? Math.min(best, time) : time;
+    const laps = this.sim.race.laps;
+    if (this.sim.race.phase === 'racing' && laps > 1 && lapsDone === laps - 1) this.pop('Final lap!', 'big');
+  }
+
   pop(text: string, cls = ''): void {
     const d = document.createElement('div');
     d.className = `pop ${cls}`;
@@ -95,15 +110,30 @@ export class Hud {
     return $('debug').classList.toggle('on');
   }
 
+  /** The controls hint for the device in use (pad glyphs once a pad is used); dev keys in dev builds. */
+  setDevice(device: 'keyboard' | 'gamepad' | 'touch'): void {
+    if (device === this.device) return;
+    this.device = device;
+    const k = (s: string) => `<kbd>${s}</kbd>`;
+    const dev = import.meta.env.DEV ? ` · ${k('`')} editor · ${k('F2')} debug · ${k('F6')} ink` : '';
+    $('hint').innerHTML =
+      device === 'gamepad'
+        ? `${k('RT')}/${k('LT')} drive · ${k('RB')} drift · ${k('A')} boost · ${k('Y')} reset · ${k('B')} look back · ${k('Start')} pause`
+        : `${k('WASD')}/${k('←↑→↓')} drive · ${k('Shift')} drift · ${k('Space')} boost · ${k('R')} reset · ${k('C')} look back · ${k('Esc')} pause · ${k('M')} sound · ${k('N')} music${dev} · ${k('F8')} felt wrong?`;
+  }
+
   update(): void {
     this.cursor = this.sim.events.read(this.cursor, this.onEvent);
     const c = this.sim.cars;
     const i = this.focus;
+    const racing = this.sim.race.phase !== 'free';
+    document.body.classList.toggle('free', !racing);
+    document.body.classList.toggle('countdown', this.sim.race.phase === 'countdown');
     positions(this.sim, this.order);
     text('pos', `${this.order.indexOf(i) + 1}/${this.order.length}`);
     const laps = this.sim.race.laps;
-    text('lap', `${Math.min(laps, c.lap[i] + 1)}/${laps}`);
-    const racing = this.sim.race.phase !== 'free';
+    // Free drive has no race length: just the lap you're on.
+    text('lap', racing ? `${Math.min(laps, c.lap[i] + 1)}/${laps}` : String(c.lap[i] + 1));
     text('time', c.finished[i] ? fmt(c.finishTime[i]) : racing ? fmt(Math.max(0, this.sim.time - this.sim.race.goTime)) : fmt(this.sim.time - c.lapStartTime[i]));
     text('best', c.bestLap[i] ? fmt(c.bestLap[i]) : '–');
     text('score', Math.floor(c.score[i]).toLocaleString());
@@ -148,16 +178,11 @@ export class Hud {
     }
     if (e.type === Ev.TrafficCheck && e.car === i) this.pop('Traffic check', 'hot');
     if (e.type === Ev.StartBoost && e.car === i) this.pop(e.b ? 'Perfect start!' : 'Stalled', e.b ? 's2' : 'bad');
-    if (e.type === Ev.Finish && e.car === i) this.pop(`Finished ${e.b}${['th', 'st', 'nd', 'rd'][e.b] ?? 'th'}`, 'big');
+    if (e.type === Ev.Finish && e.car === i) this.pop(`Finished ${ordinal(e.b)}`, 'big');
     if (e.type === Ev.Wreck && e.car === i && e.other >= 0 && e.other !== i) this.pop('Taken down', 'bad');
     if (e.type === Ev.SpinOut && e.car === i) this.pop('Spin out', 'bad');
     if (e.type === Ev.Land && e.car === i && e.a > 0.9) this.pop(`Big air ${e.a.toFixed(1)}s`, 'hot');
-    if (e.type === Ev.Lap && e.car === i) this.pop(`Lap ${fmt(e.a)}`, e.a === this.sim.cars.bestLap[i] ? 'hot' : '');
+    if (e.type === Ev.Lap && e.car === i) this.lap(e.a, e.b);
   };
 }
 
-export function fmt(t: number): string {
-  const m = Math.floor(t / 60);
-  const s = t - m * 60;
-  return `${m}:${s.toFixed(1).padStart(4, '0')}`;
-}
