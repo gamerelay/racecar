@@ -9,7 +9,7 @@ import { CLASSES, layout } from './helpers';
 // Balance (SPEC "Changed while building"): every class's hard solo lap stays within a band of the
 // field's mean on every layout, so a car is a style, not a win button. The rally car's dirt edge
 // on the Valley is the one allowed outlier, and it's still bounded.
-const layouts = ['city/downtown', 'countryside/valley'].map((key) => [key, layout(key)] as const);
+const layouts = ['downtown/downtown', 'backroads/valley'].map((key) => [key, layout(key)] as const);
 
 describe('car content', () => {
   test('every car file is a class the game loads (CLASS_ORDER), and every class has a file', () => {
@@ -42,7 +42,7 @@ describe('car balance', () => {
       });
       const mean = floors.reduce((a, b) => a + b, 0) / floors.length;
       CLASSES.forEach((c, k) => {
-        const band = c.id === 'rally' && key.startsWith('countryside') ? 0.07 : 0.05;
+        const band = c.id === 'rally' && key.startsWith('backroads') ? 0.07 : 0.05;
         expect(Math.abs(floors[k] / mean - 1)).toBeLessThan(band);
       });
     });

@@ -15,7 +15,7 @@ const layoutFiles = import.meta.glob<TrackLayout>('../content/maps/*/*.track.jso
 
 export const MAPS: MapDef[] = Object.values(mapFiles);
 
-/** Layouts by "map/layout", e.g. "city/downtown". */
+/** Layouts by "map/layout", e.g. "downtown/downtown". */
 export const LAYOUTS: Record<string, TrackLayout> = Object.fromEntries(
   Object.entries(layoutFiles).map(([path, layout]) => {
     const m = path.match(/maps\/([^/]+)\/([^/]+)\.track\.json$/)!;

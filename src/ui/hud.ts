@@ -58,7 +58,7 @@ export class Hud {
     document.body.insertAdjacentHTML(
       'beforeend',
       `<div class="hud" id="race">
-        <div class="stat" id="statPos"><small>Pos</small><b id="pos">1/1</b></div>
+        <div class="stat" id="statLap"><small>Lap</small><b id="lap">1/3</b></div>
         <div class="stat"><small>Time</small><b id="time">0:00.0</b></div>
         <div class="stat"><small>Best</small><b id="best">–</b></div>
         <div class="stat"><small>Score</small><b id="score">0</b></div>
@@ -67,7 +67,7 @@ export class Hud {
       <div class="hud" id="drift"><div id="driftPts">0</div><div id="driftStage"><i></i><i></i><i></i></div><div id="driftChain"></div><div id="chainBar"><i id="chainFill"></i></div></div>
       <div class="hud" id="meterWrap"><label>Boost</label><div id="meter"><div id="meterBank"></div><div id="meterFill"></div></div></div>
       <div class="hud" id="speedo"><svg viewBox="0 0 160 160" aria-hidden="true"><g id="gTicks"></g><circle class="track" cx="80" cy="80" r="${R}" pathLength="100"/><circle id="gBoost" cx="80" cy="80" r="${R}" pathLength="100"/><circle id="gFill" cx="80" cy="80" r="${R}" pathLength="100"/></svg><span id="spd">0</span><small>mph</small></div>
-      <div class="hud stat" id="lapBadge"><small>Lap</small><b id="lap">1/3</b></div>
+      <div class="hud stat" id="posBadge"><small>Pos</small><b id="pos">1/1</b></div>
       <div class="hud" id="debug"></div>`,
     );
   }
@@ -142,7 +142,7 @@ export class Hud {
     const laps = this.sim.race.laps;
     // Free drive has no race length: just the lap you're on.
     text('lap', racing ? `${Math.min(laps, c.lap[i] + 1)}/${laps}` : String(c.lap[i] + 1));
-    $('lapBadge').classList.toggle('final', racing && laps > 1 && c.lap[i] + 1 >= laps && !c.finished[i]);
+    $('statLap').classList.toggle('final', racing && laps > 1 && c.lap[i] + 1 >= laps && !c.finished[i]);
     text('time', c.finished[i] ? fmt(c.finishTime[i]) : racing ? fmt(Math.max(0, this.sim.time - this.sim.race.goTime)) : fmt(this.sim.time - c.lapStartTime[i]));
     text('best', c.bestLap[i] ? fmt(c.bestLap[i]) : '–');
     const score = Math.floor(c.score[i]);

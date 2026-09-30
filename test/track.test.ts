@@ -12,7 +12,7 @@ import { CLASSES, SURFACES, layout } from './helpers';
 // Shortcut junctions (they used to meet the main road up to 1.7 m off its surface, with a curb
 // across the mouth) and the Valley's v3 shape (sweepers to drift, a wider road, banked corners).
 
-const MAPS = ['city/downtown', 'countryside/valley'];
+const MAPS = ['downtown/downtown', 'backroads/valley'];
 
 /** Heading change (radians) over ±`half` samples at i: positive turns left. */
 const turnAt = (sp: BakedSpline, i: number, half: number) => {
@@ -78,7 +78,7 @@ describe('shortcut junctions', () => {
   });
 
   test('the validator warns about a shortcut that forks off sharply', () => {
-    const bad = layout('countryside/valley');
+    const bad = layout('backroads/valley');
     const creek = bad.branches!.find((b) => b.id === 'creek')!;
     // Its first point swung out to the side of the fork: 10 m along, 25 m out.
     const main = bakeTrack(bad, SURFACES).main;
@@ -91,7 +91,7 @@ describe('shortcut junctions', () => {
 });
 
 describe('Valley v3', () => {
-  const track = bakeTrack(layout('countryside/valley'), SURFACES);
+  const track = bakeTrack(layout('backroads/valley'), SURFACES);
   const main = track.main;
 
   test('a lap of corners to drift: more of them, sweepers among them, and shorter straights', () => {
@@ -151,7 +151,7 @@ describe('Valley v3', () => {
 });
 
 describe('the Trestle stands on the road under it', () => {
-  const track = bakeTrack(layout('countryside/valley'), SURFACES);
+  const track = bakeTrack(layout('backroads/valley'), SURFACES);
   const legs = track.props.filter((p) => p.kind === 'trestle-leg');
 
   test('its legs on the home stretch are solid, and rows of them leave gaps to drive through', () => {
@@ -168,7 +168,7 @@ describe('the Trestle stands on the road under it', () => {
     const lats = [...new Set(legs.map((p) => Math.round(p.lateral)))].sort((a, b) => a - b);
     expect(Math.max(...lats.slice(1).map((l, k) => l - lats[k]))).toBeGreaterThan(5);
     // The city's flyovers span the roads beneath them: no legs there.
-    expect(bakeTrack(layout('city/downtown'), SURFACES).props.some((p) => p.kind === 'trestle-leg')).toBe(false);
+    expect(bakeTrack(layout('downtown/downtown'), SURFACES).props.some((p) => p.kind === 'trestle-leg')).toBe(false);
   });
 
   test('driving into a leg at speed wrecks you', () => {
@@ -190,7 +190,7 @@ describe('the Trestle stands on the road under it', () => {
 });
 
 describe('the AI under the Trestle', () => {
-  const track = bakeTrack(layout('countryside/valley'), SURFACES);
+  const track = bakeTrack(layout('backroads/valley'), SURFACES);
   const legs = track.props.filter((p) => p.kind === 'trestle-leg');
 
   test('the racing line threads a gap between the legs, with room for a car either side', () => {

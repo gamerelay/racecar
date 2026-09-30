@@ -1,3 +1,7 @@
+import { existsSync, readFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { LAYOUT_ALIASES, PAINT_ALIASES, resolveLayout } from '../src/core/content';
+import { CONTENT, LAYOUT_KEYS, PAINTS } from '../tools/content';
 import { describe, expect, test } from 'bun:test';
 import { delta, fmt, ordinal } from '../src/ui/format';
 import { pickNext, type Box } from '../src/ui/nav';
@@ -28,13 +32,13 @@ describe('format', () => {
 
 describe('readSetup', () => {
   const known = { cars: ['coupe', 'bus'], paints: 9 };
-  const read = (q: string) => readSetup(new URLSearchParams(q), 'city/downtown', known);
+  const read = (q: string) => readSetup(new URLSearchParams(q), 'downtown/downtown', known);
   test('no mode is the menu', () => {
     expect(read('car=bus')).toBeNull();
   });
   test('good values pass through', () => {
-    expect(read('mode=race&map=countryside/valley&car=bus&paint=3&opponents=5&difficulty=2&laps=4&weather=rain&mayhem=chaos&traffic=0&seed=42')).toEqual({
-      mode: 'race', map: 'countryside/valley', car: 'bus', paint: 3, opponents: 5, difficulty: 2, laps: 4, weather: 'rain', mayhem: 'chaos', traffic: false, seed: 42,
+    expect(read('mode=race&map=backroads/valley&car=bus&paint=3&opponents=5&difficulty=2&laps=4&weather=rain&mayhem=chaos&traffic=0&seed=42')).toEqual({
+      mode: 'race', map: 'backroads/valley', car: 'bus', paint: 3, opponents: 5, difficulty: 2, laps: 4, weather: 'rain', mayhem: 'chaos', traffic: false, seed: 42,
     });
   });
   test('junk falls back instead of crashing or never finishing', () => {
@@ -54,9 +58,9 @@ describe('readSetup', () => {
     expect(read('mode=race&paint=40')!.paint).toBe(8);
   });
   test("the menu's defaults are the last race's choices", () => {
-    const c = readChoices(new URLSearchParams('map=countryside/valley&car=bus&laps=5&weather=rain'), 'city/downtown', known);
-    expect([c.map, c.car, c.laps, c.weather]).toEqual(['countryside/valley', 'bus', 5, 'rain']);
-    expect(readChoices(new URLSearchParams(''), 'city/downtown', known)).toEqual({ map: 'city/downtown' });
+    const c = readChoices(new URLSearchParams('map=backroads/valley&car=bus&laps=5&weather=rain'), 'downtown/downtown', known);
+    expect([c.map, c.car, c.laps, c.weather]).toEqual(['backroads/valley', 'bus', 5, 'rain']);
+    expect(readChoices(new URLSearchParams(''), 'downtown/downtown', known)).toEqual({ map: 'downtown/downtown' });
   });
 });
 
@@ -74,5 +78,33 @@ describe('menu navigation', () => {
     expect(pickNext(boxes, 3, 'down')).toBe(4);
     expect(pickNext(boxes, 0, 'up')).toBe(-1);
     expect(pickNext(boxes, 1, 'right')).toBe(-1);
+  });
+});
+
+describe('renamed maps and paints', () => {
+  const keys = ['downtown/downtown', 'backroads/valley'];
+  const known = { cars: ['coupe'], paints: 9, layouts: keys };
+
+  test('old links still start the same race: City is Downtown, Countryside is Backroads', () => {
+    expect(resolveLayout('city/downtown', keys)).toBe('downtown/downtown');
+    expect(resolveLayout('countryside/valley', keys)).toBe('backroads/valley');
+    expect(readSetup(new URLSearchParams('mode=race&map=countryside/valley'), 'downtown/downtown', known)?.map).toBe('backroads/valley');
+    // A bare map id, old or new, is its first layout; nonsense falls back to the default.
+    expect(resolveLayout('backroads', keys)).toBe('backroads/valley');
+    expect(resolveLayout('city', keys)).toBe('downtown/downtown');
+    expect(readSetup(new URLSearchParams('mode=race&map=nowhere'), 'downtown/downtown', known)?.map).toBe('downtown/downtown');
+    // Every key the aliases point to exists.
+    for (const to of Object.values(LAYOUT_ALIASES)) expect(LAYOUT_KEYS).toContain(to);
+  });
+
+  test('map and paint names are one word, and paint ids have no hyphens', () => {
+    for (const key of LAYOUT_KEYS) expect(existsSync(join(CONTENT, 'maps', key.split('/')[0], 'map.json'))).toBe(true);
+    const maps = LAYOUT_KEYS.map((k) => JSON.parse(readFileSync(join(CONTENT, 'maps', k.split('/')[0], 'map.json'), 'utf8')));
+    expect(maps.map((m) => m.name).sort()).toEqual(['Backroads', 'Downtown']);
+    for (const p of PAINTS) {
+      expect(p.name).toMatch(/^[A-Z][a-z]+$/);
+      expect(p.id).toMatch(/^[a-z]+$/);
+    }
+    for (const to of Object.values(PAINT_ALIASES)) expect(PAINTS.map((p) => p.id)).toContain(to);
   });
 });

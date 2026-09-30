@@ -6,7 +6,25 @@ and where things stand is [docs/HANDOFF.md](./docs/HANDOFF.md).
 
 ## Unreleased
 
-Nothing yet.
+Phase 1 of [docs/PLAN.md](./docs/PLAN.md), the quick wins.
+
+### Changed
+- **Map names:** City is now **Downtown** and Countryside is **Backroads**, in the menu and in
+  links (`?map=downtown`, `?map=backroads`, or a full `map/layout` key). Old links, saved choices
+  and F8 reports still load.
+- **Paint names are one word:** Pink, Cyan, Sunburst, Lime, Violet, Ember, Chrome, Midnight and
+  Snow (`hot-pink` is `pink`).
+- **HUD:** the race position is now the big badge bottom left, and the lap sits top left (gold
+  on the final lap).
+- **One style for every control:** buttons, selects and text fields in the menu, the pause
+  menu, the results, the F8 form and the in-race menu button share the menu's look. Selects
+  draw their own arrow, fields light up cyan when focused, and buttons press in.
+- The game is called **Racecar** on the title and the tab.
+
+### Added
+- **docs/MAPS.md:** how maps are made and what makes a good lap (rhythm, drift corners, width,
+  banking, height, shortcuts, traffic, hazards, scenery, measuring, and a new-map checklist).
+- **docs/PLAN.md:** the plan for lobbies, plates, the car select screen, Paradise and landmarks.
 
 ## alpha-1.7: police car, Trestle legs, air and position boost
 

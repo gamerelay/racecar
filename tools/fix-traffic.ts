@@ -1,6 +1,6 @@
 // Moves a layout's traffic section ends onto straights (see straightenSections), in place.
 //
-//   bun tools/fix-traffic.ts content/maps/countryside/valley.track.json
+//   bun tools/fix-traffic.ts content/maps/backroads/valley.track.json
 
 import { readFileSync, writeFileSync } from 'node:fs';
 import { straightenSections } from '../src/core/track/validate';

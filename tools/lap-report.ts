@@ -3,11 +3,12 @@
 // fastest clean hard lap alone on an empty track is the layout's lap floor (for leaderboards).
 //
 //   bun tools/lap-report.ts                       every layout
-//   bun tools/lap-report.ts city/downtown         one
+//   bun tools/lap-report.ts downtown              one (a map id or a map/layout key)
 //   --laps 3  --field (8 AI with traffic and hazards, as a race)  --seed 7  --json
 //   --cars                                        every class's hard lap floor per layout (balance)
 //   --car rally                                   the solo lap in that class
 
+import { resolveLayout } from '../src/core/content';
 import { CLASSES as classes, LAYOUT_KEYS, layout } from './content';
 import { lapReport, zeroTo100, type LapReport } from './lap';
 
@@ -22,7 +23,8 @@ if (args.includes('--help') || args.includes('-h')) {
   process.exit(0);
 }
 const opts = { field: args.includes('--field'), seed: Number(value('--seed') ?? 7), laps: Number(value('--laps') ?? 3) };
-const only = args.find((a) => a.includes('/') && !a.startsWith('-'));
+const named = args.find((a, k) => !a.startsWith('-') && !(k > 0 && ['--laps', '--seed', '--car'].includes(args[k - 1])));
+const only = named && (resolveLayout(named, LAYOUT_KEYS) ?? named);
 const car = value('--car') ?? 'coupe';
 const keys = LAYOUT_KEYS.filter((key) => !only || key === only);
 if (!keys.length) {

@@ -23,16 +23,19 @@ import { RaceUi } from './ui/race';
 import { accept, navigate } from './ui/nav';
 import { backToSetup, raceAgain, readChoices, readSetup, restart, showSetup, type RaceSetup } from './ui/setup';
 import { CLASSES, LAYOUTS, MAPS, PAINTS, SURFACES } from './content';
+import { resolveLayout } from './core/content';
 
 const params = new URLSearchParams(location.search);
 const BUILD = `${import.meta.env.MODE}-${__BUILD_TIME__}`;
 // Only cars and paints that exist: a stale or hand-edited link falls back instead of crashing.
-const known = { cars: CLASSES.map((c) => c.id), paints: PAINTS.length };
-const setup: RaceSetup | null = readSetup(params, 'city/downtown', known);
-// No setup yet: attract mode, a hard AI race on City behind the menu.
+const LAYOUT_KEYS = Object.keys(LAYOUTS);
+const DEFAULT_LAYOUT = 'downtown/downtown';
+const known = { cars: CLASSES.map((c) => c.id), paints: PAINTS.length, layouts: LAYOUT_KEYS };
+const setup: RaceSetup | null = readSetup(params, DEFAULT_LAYOUT, known);
+// No setup yet: attract mode, a hard AI race on Downtown behind the menu.
 const attract = !setup;
-const run: RaceSetup = setup ?? { mode: 'race', map: params.get('map') ?? 'city/downtown', car: 'coupe', paint: 0, opponents: 7, difficulty: 2, laps: 3, weather: 'random', mayhem: 'normal', traffic: true, seed: Math.floor(Math.random() * 1e9) };
-const layoutKey = LAYOUTS[run.map] ? run.map : 'city/downtown';
+const run: RaceSetup = setup ?? { mode: 'race', map: resolveLayout(params.get('map'), LAYOUT_KEYS) ?? DEFAULT_LAYOUT, car: 'coupe', paint: 0, opponents: 7, difficulty: 2, laps: 3, weather: 'random', mayhem: 'normal', traffic: true, seed: Math.floor(Math.random() * 1e9) };
+const layoutKey = resolveLayout(run.map, LAYOUT_KEYS) ?? DEFAULT_LAYOUT;
 
 let layout: TrackLayout = structuredClone(LAYOUTS[layoutKey] ?? Object.values(LAYOUTS)[0]);
 const map = MAPS.find((m) => layoutKey.startsWith(m.id + '/')) ?? MAPS[0];
@@ -240,8 +243,8 @@ function openReport(): void {
   wrap.id = 'reportForm';
   wrap.style.cssText = 'position:fixed;inset:0;z-index:30;display:grid;place-items:center;background:rgba(13,6,32,.6)';
   wrap.innerHTML = `<form class="card"><h1 style="font-size:32px">Felt wrong?</h1><p style="color:var(--muted);margin:0 0 10px">Saves the last 30 seconds (your inputs, the state, events) so it can be replayed exactly.</p>
-    <input name="note" autocomplete="off" placeholder="what happened? e.g. drift snapped out on the hairpin" style="width:100%;font:16px var(--ui);padding:8px;margin:0 0 12px">
-    <button type="submit">Save</button><button type="button" id="rCancel">Cancel</button></form>`;
+    <input name="note" autocomplete="off" data-1p-ignore data-lpignore="true" placeholder="what happened? e.g. drift snapped out on the hairpin" style="margin:0 0 16px">
+    <button type="submit">Save</button><button type="button" id="rCancel" class="ghost">Cancel</button></form>`;
   document.body.appendChild(wrap);
   const form = wrap.querySelector('form')!;
   const field = form.querySelector('input')!;

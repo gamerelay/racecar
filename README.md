@@ -9,7 +9,8 @@ drivers, with traffic, hazards (log trucks, falling signs), rain, shortcuts, tak
 and drifting; the level editor, local telemetry and replayable reports. Online play is
 milestone 3. The design is in
 [docs/SPEC.md](./docs/SPEC.md); what changed in each release is in [CHANGELOG.md](./CHANGELOG.md),
-and where things stand is [docs/HANDOFF.md](./docs/HANDOFF.md).
+where things stand is [docs/HANDOFF.md](./docs/HANDOFF.md), what's next is
+[docs/PLAN.md](./docs/PLAN.md), and how maps are made is [docs/MAPS.md](./docs/MAPS.md).
 
 ## Run it
 
@@ -29,7 +30,7 @@ bun run dev        # http://localhost:5178
 | Felt wrong? (saves the last 30 s) | F8 | Select + Start |
 | Editor (dev) · debug · tuning | \` · F2 · F4 | |
 
-The setup screen writes the race into the URL (`?mode=race&map=city/downtown&car=hatch&opponents=7&difficulty=1&laps=3&weather=random&mayhem=normal&traffic=1`);
+The setup screen writes the race into the URL (`?mode=race&map=downtown&car=hatch&opponents=7&difficulty=1&laps=3&weather=random&mayhem=normal&traffic=1`);
 add `&post=0` (no post pass) or `&trace=1` (per-tick trace of your car into telemetry).
 
 ## Editing tracks

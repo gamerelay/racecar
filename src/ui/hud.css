@@ -57,20 +57,23 @@ body.boosting #meterFill { filter: brightness(1.35); animation: flick 0.09s infi
 body.boosting #spd { color: var(--sun); }
 body.boosting #gFill { stroke: var(--sun); }
 
-#quit { position: fixed; z-index: 3; right: calc(env(safe-area-inset-right, 0px) + 16px); top: calc(env(safe-area-inset-top, 0px) + 208px); font-family: var(--display); font-size: 13px; color: var(--ink); background: var(--panel); border: 2px solid var(--ink); box-shadow: 3px 3px 0 var(--outline); padding: 5px 12px 4px; cursor: pointer; transform: skewX(-10deg); }
-#quit:hover { background: var(--pink); }
+/* The in-race menu button: a menu button, smaller. */
+#quit { position: fixed; z-index: 3; right: calc(env(safe-area-inset-right, 0px) + 16px); top: calc(env(safe-area-inset-top, 0px) + 208px); font-size: 13px; padding: 5px 12px 4px; border-width: 2px; box-shadow: 3px 3px 0 var(--pink); margin: 0; }
+#quit:hover { box-shadow: 4px 4px 0 var(--pink); }
+#quit:active { box-shadow: 1px 1px 0 var(--pink); }
 @media (max-width: 640px) { #quit { top: calc(env(safe-area-inset-top, 0px) + 146px); } }
 
-/* The lap, big, bottom left; gold on the final lap. */
-#lapBadge { left: calc(env(safe-area-inset-left, 0px) + 22px); bottom: calc(env(safe-area-inset-bottom, 0px) + 20px); padding: 8px 18px 6px; min-width: 120px; }
-#lapBadge small { font-size: 14px; }
-#lapBadge b { font-size: 44px; line-height: 1; }
-#lapBadge.final b { color: var(--sun); }
+/* The race position, big, bottom left (it changes more than the lap, which sits top left). */
+#posBadge { left: calc(env(safe-area-inset-left, 0px) + 22px); bottom: calc(env(safe-area-inset-bottom, 0px) + 20px); padding: 8px 18px 6px; min-width: 120px; }
+#posBadge small { font-size: 14px; }
+#posBadge b { font-size: 44px; line-height: 1; }
+/* The lap turns gold on the final lap. */
+#statLap.final b { color: var(--sun); }
 /* Where the boost meter would reach it, it sits above the meter, smaller. */
 @media (max-width: 760px) {
-  #lapBadge { left: 16px; bottom: calc(env(safe-area-inset-bottom, 0px) + 76px); padding: 5px 12px 4px; min-width: 0; }
-  #lapBadge b { font-size: 28px; }
-  #lapBadge small { font-size: 11px; }
+  #posBadge { left: 16px; bottom: calc(env(safe-area-inset-bottom, 0px) + 76px); padding: 5px 12px 4px; min-width: 0; }
+  #posBadge b { font-size: 28px; }
+  #posBadge small { font-size: 11px; }
 }
 
 #pops { left: 0; right: 0; top: 28%; display: flex; flex-direction: column; align-items: center; gap: 4px; }
@@ -94,8 +97,19 @@ body.boosting #gFill { stroke: var(--sun); }
 .card dt { font-weight: 700; } .card dd { margin: 0; color: var(--muted); }
 .card .keys { font-size: 13px; line-height: 1.9; color: var(--muted); margin: 0 0 16px; }
 .card .keys kbd { font: 700 11px var(--ui); border: 1px solid var(--muted); padding: 0 4px; border-radius: 3px; color: var(--ink); }
-.card button { font-family: var(--display); font-size: 18px; color: var(--outline); background: var(--sun); border: 3px solid var(--outline); padding: 8px 20px; cursor: pointer; box-shadow: 5px 5px 0 var(--pink); margin-right: 10px; }
-.card select { font: 700 14px var(--ui); padding: 4px 6px; }
+/* One style for every control (menus, pause, results, the F8 form and the in-race menu button):
+   sun-yellow buttons with a pink drop, ghost buttons in outline, and fields as dark panels with an
+   ink border that light up cyan when focused. */
+.card button, #quit { font-family: var(--display); font-size: 18px; color: var(--outline); background: var(--sun); border: 3px solid var(--outline); padding: 8px 20px; cursor: pointer; box-shadow: 5px 5px 0 var(--pink); margin-right: 10px; transition: transform 0.06s, box-shadow 0.06s; }
+.card button:hover, #quit:hover { transform: translate(-1px, -1px); box-shadow: 6px 6px 0 var(--pink); }
+.card button:active, #quit:active { transform: translate(3px, 3px); box-shadow: 2px 2px 0 var(--pink); }
+.card select, .card input, .card textarea { font: 700 15px var(--ui); color: var(--ink); background: rgba(10, 4, 20, 0.85); border: 2px solid var(--ink); border-radius: 0; box-shadow: 3px 3px 0 var(--outline); padding: 7px 10px; outline: none; }
+.card input, .card textarea { width: 100%; user-select: text; -webkit-user-select: text; }
+.card input::placeholder, .card textarea::placeholder { color: var(--muted); opacity: 0.7; font-weight: 400; }
+/* Selects draw their own arrow, so they match on every browser. */
+.card select { appearance: none; -webkit-appearance: none; padding-right: 30px; cursor: pointer; background-image: linear-gradient(45deg, transparent 50%, var(--cyan) 50%), linear-gradient(135deg, var(--cyan) 50%, transparent 50%); background-position: calc(100% - 16px) 50%, calc(100% - 11px) 50%; background-size: 5px 5px; background-repeat: no-repeat; }
+.card select option { background: var(--bg); color: var(--ink); }
+.card select:hover, .card input:hover, .card textarea:hover { border-color: var(--cyan); }
 .row { display: flex; gap: 10px; align-items: center; margin: 0 0 12px; flex-wrap: wrap; }
 @media (prefers-reduced-motion: reduce) { .pop { animation-duration: 1.8s; } body.boosting #meterFill { animation: none; } }
 
@@ -122,17 +136,19 @@ body.boosting #gFill { stroke: var(--sun); }
 .card.setup select { width: 100%; }
 .card .muted { color: var(--muted); font-size: 13px; line-height: 1.5; margin: 12px 0 0; }
 .card button.ghost { background: transparent; color: var(--ink); border-color: var(--ink); box-shadow: 5px 5px 0 var(--outline); }
+.card button.ghost:hover { border-color: var(--cyan); color: var(--cyan); box-shadow: 6px 6px 0 var(--outline); }
+.card button.ghost:active { box-shadow: 2px 2px 0 var(--outline); }
 @media (max-width: 640px) { #minimap { width: 120px; height: 120px; } }
-body.attract #race, body.attract #meterWrap, body.attract #speedo, body.attract #lapBadge, body.attract #drift, body.attract #lights, body.attract #pops, body.attract #quit, body.attract #minimap { display: none; }
+body.attract #race, body.attract #meterWrap, body.attract #speedo, body.attract #posBadge, body.attract #drift, body.attract #lights, body.attract #pops, body.attract #quit, body.attract #minimap { display: none; }
 
 /* A slower lap than your best, a free drive (no position), the countdown (pops clear of the lamps). */
 .pop.slow { color: var(--muted); font-size: clamp(18px, 3vw, 26px); }
-body.free #statPos { display: none; }
+body.free #posBadge { display: none; }
 body.countdown #pops { top: 46%; }
 
 /* Keyboard and pad focus in menus: plain to see from the sofa. */
-.card button:focus-visible, .card select:focus-visible { outline: 3px solid var(--cyan); outline-offset: 3px; }
-.card select:focus { box-shadow: 0 0 0 3px var(--cyan); }
+.card button:focus-visible, #quit:focus-visible { outline: 3px solid var(--cyan); outline-offset: 3px; }
+.card select:focus, .card input:focus, .card textarea:focus { border-color: var(--cyan); box-shadow: 0 0 0 3px var(--cyan); }
 
 /* Small screens: nothing overlaps (portrait phones, short landscape windows, mid-size laptops). */
 /* Narrow screens scroll the table sideways inside the card rather than overflowing it. */

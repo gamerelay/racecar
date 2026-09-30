@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import valley from '../content/maps/countryside/valley.track.json';
+import valley from '../content/maps/backroads/valley.track.json';
 import type { TrackLayout } from '../src/core/content';
 import { Ev } from '../src/core/events';
 import { Sim } from '../src/core/sim';
