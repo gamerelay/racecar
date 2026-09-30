@@ -122,9 +122,9 @@ export class InkPass {
     camera.layers.mask = layers;
     scene.background = bg;
     scene.fog = fog;
-    list.forEach((m, i) => {
-      m.material = this.saved[i];
-      m.layers.disable(PASS_LAYER);
-    });
+    for (let i = 0; i < list.length; i++) {
+      list[i].material = this.saved[i];
+      list[i].layers.disable(PASS_LAYER);
+    }
   }
 }

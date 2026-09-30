@@ -6,7 +6,13 @@
 import type { Controls } from '../core/controls';
 import { approach, clamp } from '../core/math';
 
-export type SystemAction = 'pause' | 'report' | 'editor' | 'debug' | 'tuning' | 'camera' | 'ink';
+export type SystemAction = 'pause' | 'report' | 'editor' | 'debug' | 'tuning' | 'camera' | 'ink' | 'mute' | 'music' | MenuAction;
+/** In a menu (menuOpen): move focus, press the focused control, or back out. */
+export type MenuAction = 'nav-up' | 'nav-down' | 'nav-left' | 'nav-right' | 'accept' | 'back';
+
+const MENU_KEYS: Record<string, MenuAction> = { ArrowUp: 'nav-up', ArrowDown: 'nav-down', ArrowLeft: 'nav-left', ArrowRight: 'nav-right', KeyW: 'nav-up', KeyS: 'nav-down', KeyA: 'nav-left', KeyD: 'nav-right' };
+/** Standard-mapping d-pad buttons. */
+const PAD_NAV: [number, MenuAction][] = [[12, 'nav-up'], [13, 'nav-down'], [14, 'nav-left'], [15, 'nav-right']];
 
 const KEYS: Record<string, keyof typeof held> = {
   ArrowLeft: 'left',
@@ -35,6 +41,8 @@ const SYSTEM: Record<string, SystemAction> = {
   F4: 'tuning',
   F6: 'ink',
   KeyV: 'camera',
+  KeyM: 'mute',
+  KeyN: 'music',
 };
 
 export type InputDevice = 'keyboard' | 'gamepad' | 'touch';
@@ -48,10 +56,20 @@ export class Input {
   rumbleOn = true;
   /** Set while a text field has focus, so typing doesn't drive. */
   suspended = false;
+  /** A menu is up: arrows and the d-pad move focus, A presses, B backs out. */
+  menuOpen = false;
+  /** When the stick last moved menu focus (it repeats while held). */
+  private stickNavAt = 0;
 
   constructor() {
     window.addEventListener('keydown', (e) => {
-      if (this.suspended || isTyping(e)) return;
+      // Browser and OS shortcuts (Cmd+R, Ctrl+Tab…) are theirs, not a reset or a steer.
+      if (this.suspended || isTyping(e) || e.metaKey || e.ctrlKey || e.altKey) return;
+      if (this.menuOpen && MENU_KEYS[e.code]) {
+        e.preventDefault();
+        this.fire(MENU_KEYS[e.code]);
+        return;
+      }
       const sys = SYSTEM[e.code];
       if (sys && !e.repeat) {
         e.preventDefault();
@@ -65,13 +83,17 @@ export class Input {
         e.preventDefault();
       }
     });
+    const release = () => {
+      for (const k of Object.keys(held) as (keyof typeof held)[]) held[k] = false;
+    };
     window.addEventListener('keyup', (e) => {
       const k = KEYS[e.code];
       if (k) held[k] = false;
+      // macOS sends no keyup for keys let go while Cmd was down: drop everything with it.
+      if (e.key === 'Meta') release();
     });
-    window.addEventListener('blur', () => {
-      for (const k of Object.keys(held) as (keyof typeof held)[]) held[k] = false;
-    });
+    window.addEventListener('blur', release);
+    document.addEventListener('visibilitychange', release);
   }
 
   on(fn: (a: SystemAction) => void): void {
@@ -115,11 +137,7 @@ export class Input {
       look ||= b(1);
       reset ||= b(3);
       horn ||= b(10);
-      // System buttons fire on the press.
-      const pressed = (k: number) => b(k) && !this.prevButtons[k];
-      if (b(8) && pressed(9)) this.fire('report');
-      else if (pressed(9)) this.fire('pause');
-      this.prevButtons = pad.buttons.map((x) => x.pressed);
+      this.buttons(pad);
     }
 
     out.steer = clamp(steer, -1, 1);
@@ -131,6 +149,36 @@ export class Input {
     out.lookBack = look;
     out.horn = horn;
     return out;
+  }
+
+  /**
+   * The pad's system and menu buttons only, for while the game is paused (poll doesn't run then,
+   * and Start has to be able to unpause).
+   */
+  pollMenu(): void {
+    const pad = this.pad();
+    if (pad) this.buttons(pad);
+  }
+
+  /** Fires system and menu actions on the press (not while held). */
+  private buttons(pad: Gamepad): void {
+    const b = (k: number) => pad.buttons[k]?.pressed ?? false;
+    const pressed = (k: number) => b(k) && !this.prevButtons[k];
+    if (b(8) && pressed(9)) this.fire('report');
+    else if (pressed(9)) this.fire('pause');
+    if (this.menuOpen) {
+      for (const [k, a] of PAD_NAV) if (pressed(k)) this.fire(a);
+      if (pressed(0)) this.fire('accept');
+      if (pressed(1)) this.fire('back');
+      // The stick moves focus too, repeating every quarter second while held over.
+      const [ax, ay] = [pad.axes[0] ?? 0, pad.axes[1] ?? 0];
+      const now = performance.now();
+      if (Math.max(Math.abs(ax), Math.abs(ay)) > 0.6 && now - this.stickNavAt > 250) {
+        this.stickNavAt = now;
+        this.fire(Math.abs(ax) > Math.abs(ay) ? (ax > 0 ? 'nav-right' : 'nav-left') : ay > 0 ? 'nav-down' : 'nav-up');
+      } else if (Math.max(Math.abs(ax), Math.abs(ay)) < 0.3) this.stickNavAt = 0;
+    }
+    this.prevButtons = pad.buttons.map((x) => x.pressed);
   }
 
   private pad(): Gamepad | null {

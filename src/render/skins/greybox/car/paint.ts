@@ -7,6 +7,7 @@
 import { Color, type MeshToonMaterial, Vector2 } from 'three';
 import type { PaintDef } from '../../../../core/content';
 import { toon } from '../toon';
+import { chunks } from '../../../shader';
 
 export type Livery = 'none' | 'stripes' | 'flash' | 'band' | 'rally';
 const LIVERIES: Livery[] = ['none', 'stripes', 'flash', 'band', 'rally'];
@@ -27,10 +28,10 @@ export function carPaint(paint: PaintDef, livery: Livery, band: [number, number]
   };
   mat.onBeforeCompile = (shader) => {
     Object.assign(shader.uniforms, uniforms);
-    shader.vertexShader = shader.vertexShader
+    shader.vertexShader = chunks(shader.vertexShader, 'car paint')
       .replace('#include <common>', '#include <common>\nvarying vec3 vObjPos;varying vec3 vObjN;')
-      .replace('#include <begin_vertex>', '#include <begin_vertex>\nvObjPos=position;vObjN=normal;');
-    shader.fragmentShader = shader.fragmentShader
+      .replace('#include <begin_vertex>', '#include <begin_vertex>\nvObjPos=position;vObjN=normal;').text;
+    shader.fragmentShader = chunks(shader.fragmentShader, 'car paint')
       .replace(
         '#include <common>',
         `#include <common>
@@ -124,7 +125,7 @@ export function carPaint(paint: PaintDef, livery: Livery, band: [number, number]
           }
         }
         #include <opaque_fragment>`,
-      );
+      ).text;
   };
   mat.customProgramCacheKey = () => 'car-paint';
   return mat;

@@ -305,7 +305,8 @@ const fallingSign: HazardKind = {
   },
 };
 
-const KINDS: Record<string, HazardKind> = {
+/** Every hazard kind a layout can `use`, by id. */
+export const KINDS: Record<string, HazardKind> = {
   'log-truck': logTruck,
   'falling-sign': fallingSign,
 };

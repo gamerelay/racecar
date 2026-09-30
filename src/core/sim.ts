@@ -78,6 +78,9 @@ export class Sim implements SimState {
   private readonly grid = new SpatialGrid(16, 1024, MAX_CARS);
   private readonly isActive = (i: number) => this.cars.active[i] === 1;
   private readonly nearS = new Float64Array(MAX_CARS);
+  /** This tick's finishers, before they're placed. */
+  private readonly finishers = new Int32Array(MAX_CARS);
+  private readonly crossedAgo = new Float64Array(MAX_CARS);
   private readonly nearX = new Float64Array(MAX_CARS);
   private readonly nearZ = new Float64Array(MAX_CARS);
   private readonly ctx: WorldCtx;
@@ -127,6 +130,39 @@ export class Sim implements SimState {
     return i;
   }
 
+  /**
+   * Places the `n` cars that finished this tick, in the order they crossed the line: whoever is
+   * furthest past it for their speed crossed first (a photo finish isn't decided by car index).
+   */
+  private finish(n: number): void {
+    const cars = this.cars;
+    const line = this.race.laps * this.track.main.length;
+    for (let k = 0; k < n; k++) {
+      const i = this.finishers[k];
+      this.crossedAgo[k] = (cars.progress[i] - line) / Math.max(1, Math.hypot(cars.vx[i], cars.vz[i]));
+    }
+    // Insertion sort, longest ago first (a handful at most, and no allocation).
+    for (let a = 1; a < n; a++) {
+      const i = this.finishers[a];
+      const ago = this.crossedAgo[a];
+      let b = a - 1;
+      while (b >= 0 && this.crossedAgo[b] < ago) {
+        this.finishers[b + 1] = this.finishers[b];
+        this.crossedAgo[b + 1] = this.crossedAgo[b];
+        b--;
+      }
+      this.finishers[b + 1] = i;
+      this.crossedAgo[b + 1] = ago;
+    }
+    for (let k = 0; k < n; k++) {
+      const i = this.finishers[k];
+      cars.finished[i] = 1;
+      cars.finishTime[i] = this.time - this.race.goTime;
+      cars.place[i] = ++this.race.finishedCount;
+      this.events.push(this.tick, Ev.Finish, i, cars.x[i], cars.y[i], cars.z[i], cars.finishTime[i], cars.place[i]);
+    }
+  }
+
   /** Puts car i in its grid slot, lap 0. */
   private gridCar(i: number): void {
     const c = this.cars;
@@ -138,7 +174,7 @@ export class Sim implements SimState {
     c.lap[i] = 0;
     c.nextCp[i] = 0;
     c.progress[i] = at.s - main.length;
-    c.lapStartTick[i] = this.tick;
+    c.lapStartTime[i] = this.time;
     c.boost[i] = TUNING.startBoost;
     c.finished[i] = 0;
     c.finishTime[i] = 0;
@@ -154,7 +190,9 @@ export class Sim implements SimState {
   /** Puts everyone back on the grid and starts a countdown: the lights go green in `seconds`. */
   startRace(laps: number, seconds = 3): void {
     for (let i = 0; i < this.cars.count; i++) if (this.cars.active[i]) this.gridCar(i);
-    this.race = { phase: 'countdown', goTime: this.time + seconds, laps, finishedCount: 0 };
+    // At least a lap (0 would finish everyone on the first tick), and no slow-mo left running.
+    this.race = { phase: 'countdown', goTime: this.time + seconds, laps: Math.max(1, Math.floor(laps) || 1), finishedCount: 0 };
+    this.timeScale = 1;
   }
 
   /** Swaps in a rebaked track (the editor) and finds every car on it again. */
@@ -193,8 +231,13 @@ export class Sim implements SimState {
     // Nothing transient carries over a teleport: drift recovery, mini-turbo, stall, streaks.
     c.driftExit[i] = c.driftBank[i] = c.driftChain[i] = c.chainT[i] = 0;
     c.miniT[i] = c.stallT[i] = c.boosting[i] = c.oncomingT[i] = c.wreckT[i] = 0;
-    c.aiHold[i] = 0;
+    c.aiHold[i] = c.aiBack[i] = 0;
     c.lastTakenBy[i] = 0;
+    // Nor timers, the air, the body's tilt or who hit it last.
+    c.ghostT[i] = c.resetCooldown[i] = c.stuckT[i] = c.wallT[i] = c.driftCooldown[i] = c.airT[i] = 0;
+    c.pitch[i] = c.roll[i] = c.ppitch[i] = c.proll[i] = 0;
+    c.miniStage[i] = 0;
+    c.lastHitBy[i] = c.lastHitT[i] = 0;
     c.rx[i] = c.rz[i] = 0;
     c.spline[i] = spline;
     c.s[i] = at.s;
@@ -257,18 +300,17 @@ export class Sim implements SimState {
     collideCars(this, this.grid);
     for (let i = 0; i < cars.count; i++) collideWorld(this, i, ctx);
     // System 12: rules.
+    let nf = 0;
     for (let i = 0; i < cars.count; i++) {
       if (!cars.active[i]) continue;
       updateProgress(this, i);
       const sMain = mainDistance(this.track, cars.spline[i], cars.s[i]);
-      if (!cars.wreck[i]) hazards.crossTriggers(i, ctx.prevMain[i], sMain, this.time, this.events, this.tick);
-      if (this.race.phase === 'racing' && !cars.finished[i] && cars.lap[i] >= this.race.laps) {
-        cars.finished[i] = 1;
-        cars.finishTime[i] = this.time - this.race.goTime;
-        cars.place[i] = ++this.race.finishedCount;
-        this.events.push(this.tick, Ev.Finish, i, cars.x[i], cars.y[i], cars.z[i], cars.finishTime[i], cars.place[i]);
-      }
+      // Triggers sit on the main road: a car on a shortcut passing the same mapped distance is
+      // somewhere else (it used to drop the Valley's sign on the cars still on the main road).
+      if (!cars.wreck[i] && cars.spline[i] === 0) hazards.crossTriggers(i, ctx.prevMain[i], sMain, this.time, this.events, this.tick);
+      if (this.race.phase === 'racing' && !cars.finished[i] && cars.lap[i] >= this.race.laps) this.finishers[nf++] = i;
     }
+    this.finish(nf);
     // Single-player slow-mo: a human's fresh wreck slows the world.
     if (this.slowmo === 'world') {
       let slow = false;
@@ -302,7 +344,7 @@ export class Sim implements SimState {
     this.events.push(this.tick, Ev.RaceStart, -1);
     for (let i = 0; i < cars.count; i++) {
       if (!cars.active[i]) continue;
-      cars.lapStartTick[i] = this.tick;
+      cars.lapStartTime[i] = this.time;
       const press = cars.startPress[i];
       if (press < 0) continue;
       const lead = this.race.goTime - press;

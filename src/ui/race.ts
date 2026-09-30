@@ -3,7 +3,7 @@
 import type { CarClass } from '../core/content';
 import { Ev, type GameEvent } from '../core/events';
 import type { Sim } from '../core/sim';
-import { fmt } from './hud';
+import { fmt, ordinal } from './format';
 
 export class RaceUi {
   private readonly lights: HTMLDivElement;
@@ -11,7 +11,13 @@ export class RaceUi {
   private readonly map: HTMLCanvasElement;
   private readonly g: CanvasRenderingContext2D;
   private cursor = 0;
-  private shown = false;
+  /** The results are up (or on their way): the pause menu stays out of it. */
+  shown = false;
+  /** Behind the menu (attract mode) there are no results to show. */
+  resultsOn = true;
+  /** Whether the results may appear now (not over the pause menu); checked again until they can. */
+  canShow: () => boolean = () => true;
+  private refreshAt = 0;
   private bounds = { x0: 0, x1: 1, z0: 0, z1: 1 };
   /** The roads, drawn once per track into an offscreen canvas; each frame only adds the cars. */
   private roads = document.createElement('canvas');
@@ -85,6 +91,11 @@ export class RaceUi {
   update(): void {
     const sim = this.sim;
     this.cursor = sim.events.read(this.cursor, this.onEvent);
+    // Results stay live (once a second) until the last car is in.
+    if (this.open && sim.race.finishedCount < sim.cars.count && performance.now() > this.refreshAt) {
+      this.refreshAt = performance.now() + 1000;
+      this.rows();
+    }
     // Start lights (hidden a moment after green, whether or not we saw the event).
     if (sim.race.phase !== 'countdown' && this.lights.classList.contains('on') && sim.time - sim.race.goTime > 1) this.lights.className = 'hud';
     if (sim.race.phase === 'countdown') {
@@ -119,31 +130,53 @@ export class RaceUi {
       this.lights.innerHTML = `<div class="lamps"><i class="go"></i><i class="go"></i><i class="go"></i></div><b>GO</b>`;
       setTimeout(() => (this.lights.className = 'hud'), 900);
     }
-    if (e.type === Ev.Finish && e.car === this.focus && !this.shown) {
+    if (e.type === Ev.Finish && e.car === this.focus && !this.shown && this.resultsOn) {
       this.shown = true;
-      setTimeout(() => this.showResults(), 2500);
+      const show = () => (this.canShow() ? this.showResults() : setTimeout(show, 250));
+      setTimeout(show, 2500);
     }
   };
 
+  /** Whether the results screen is on screen. */
+  get open(): boolean {
+    return this.results.classList.contains('on');
+  }
+
   showResults(): void {
-    const c = this.sim.cars;
-    const rows = Array.from({ length: c.count }, (_, i) => i)
-      .filter((i) => c.active[i])
-      .sort((a, b) => (c.place[a] || 99) - (c.place[b] || 99) || c.progress[b] - c.progress[a]);
-    this.results.innerHTML = `<div class="card results"><h1>${ordinal(c.place[this.focus])}</h1>
-      <table><thead><tr><th></th><th>Driver</th><th>Car</th><th>Time</th><th>Best lap</th><th>Takedowns</th><th>Wrecks</th><th>Score</th></tr></thead><tbody>
-      ${rows
-        .map(
-          (i) => `<tr class="${i === this.focus ? 'me' : ''}"><td>${c.place[i] || '–'}</td><td><i class="dot" style="background:${this.colors[i]}"></i>${this.names[i]}</td><td>${this.classes[c.cls[i]].name}</td><td>${c.finished[i] ? fmt(c.finishTime[i]) : 'racing'}</td><td>${c.bestLap[i] ? fmt(c.bestLap[i]) : '–'}</td><td>${c.takedowns[i]}</td><td>${c.wrecks[i]}</td><td>${Math.floor(c.score[i]).toLocaleString()}</td></tr>`,
-        )
-        .join('')}
-      </tbody></table>
+    this.results.innerHTML = `<div class="card results"><h1>${ordinal(this.sim.cars.place[this.focus])}</h1>
+      <table><thead><tr><th></th><th>Driver</th><th>Car</th><th>Time</th><th>Best lap</th><th>Takedowns</th><th>Wrecks</th><th>Score</th></tr></thead><tbody id="rRows"></tbody></table>
       <div class="row"><button id="rAgain">Race again</button><button id="rSetup" class="ghost">Change setup</button></div></div>`;
+    this.rows();
     this.results.classList.add('on');
     (document.getElementById('rAgain') as HTMLButtonElement).onclick = () => this.onAgain();
     (document.getElementById('rSetup') as HTMLButtonElement).onclick = () => this.onSetup();
     (document.getElementById('rAgain') as HTMLButtonElement).focus();
   }
+
+  /**
+   * The table body, live until everyone's in: finishers by place with their time, the rest by
+   * position with how far back they are, and the race's fastest lap marked.
+   */
+  private rows(): void {
+    const c = this.sim.cars;
+    const L = this.sim.track.main.length;
+    const rows = Array.from({ length: c.count }, (_, i) => i)
+      .filter((i) => c.active[i])
+      .sort((a, b) => (c.place[a] || 99) - (c.place[b] || 99) || c.progress[b] - c.progress[a]);
+    let fastest = -1;
+    for (const i of rows) if (c.bestLap[i] && (fastest < 0 || c.bestLap[i] < c.bestLap[fastest])) fastest = i;
+    const lead = Math.max(...rows.map((i) => c.progress[i]));
+    const time = (i: number) => {
+      if (c.finished[i]) return fmt(c.finishTime[i]);
+      const back = lead - c.progress[i];
+      return `<span class="muted">${back > L ? `+${Math.floor(back / L)} lap${back >= 2 * L ? 's' : ''}` : `+${Math.round(back)} m`}</span>`;
+    };
+    document.getElementById('rRows')!.innerHTML = rows
+      .map(
+        (i) =>
+          `<tr class="${i === this.focus ? 'me' : ''}"><td>${c.place[i] || '–'}</td><td><i class="dot" style="background:${this.colors[i]}"></i>${this.names[i]}</td><td>${this.classes[c.cls[i]].name}</td><td>${time(i)}</td><td>${c.bestLap[i] ? fmt(c.bestLap[i]) : '–'}${i === fastest ? ' <b class="fast" title="Fastest lap">★</b>' : ''}</td><td>${c.takedowns[i]}</td><td>${c.wrecks[i]}</td><td>${Math.floor(c.score[i]).toLocaleString()}</td></tr>`,
+      )
+      .join('');
+  }
 }
 
-const ordinal = (n: number) => (n ? `${n}${['th', 'st', 'nd', 'rd'][n % 100 > 10 && n % 100 < 14 ? 0 : Math.min(n % 10, 4) % 4] ?? 'th'}` : 'Finished');

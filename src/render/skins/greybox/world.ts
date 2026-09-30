@@ -11,6 +11,7 @@ import {
   CylinderGeometry,
   DoubleSide,
   Group,
+  InstancedBufferAttribute,
   InstancedMesh,
   LineBasicMaterial,
   LineSegments,
@@ -34,7 +35,7 @@ import { Piece } from '../../../core/world/hazards';
 import { TRAFFIC_KINDS, type TrafficPose } from '../../../core/world/traffic';
 import type { WorldVisual } from '../../skin';
 import { FADE_ATTR, fadeAttribute, fadeMaterial } from '../../fade';
-import { markInk } from '../../ink';
+import { markInk, unmarkInk } from '../../ink';
 import { LampPoints, lampSpots, trafficModel, trafficModels } from './car/traffic';
 import { disposeTree } from './dispose';
 import { glow, toon } from './toon';
@@ -89,7 +90,10 @@ export function buildWorldVisual(scene: Scene, sim: Sim, roof?: (x: number, z: n
     const solid = new InstancedMesh(geometry, material, CAP);
     if (ink !== undefined) markInk(solid as unknown as Mesh, ink, inkOnly);
     // Ink-only seams have nothing to fade.
-    const fade = fadeAttribute(CAP);
+    // The simple models' geometry is shared across builds: reuse its fade attribute rather than
+    // leaking a new buffer on it every rebuild.
+    const had = geometry.getAttribute(FADE_ATTR) as InstancedBufferAttribute | undefined;
+    const fade = had && had.count >= CAP ? had : fadeAttribute(CAP);
     geometry.setAttribute(FADE_ATTR, fade);
     const ghost = inkOnly ? undefined : new InstancedMesh(geometry, fadeMaterial(material, fading), CAP);
     for (const m of [solid, ghost]) {
@@ -106,6 +110,13 @@ export function buildWorldVisual(scene: Scene, sim: Sim, roof?: (x: number, z: n
     const parts = detailed ? detailed.map((p) => instanced(p.geometry, p.material, p.tint, p.ink, p.inkOnly)) : [instanced(simple.geos[k.id], simple.material, true)];
     return { parts, lamps: lampSpots(k.id) };
   });
+  /** Uploads what an instanced mesh got this frame, or hides it if nothing. */
+  const commit = (m: InstancedMesh) => {
+    m.visible = m.count > 0;
+    if (!m.visible) return;
+    m.instanceMatrix.needsUpdate = true;
+    if (m.instanceColor) m.instanceColor.needsUpdate = true;
+  };
   /** Adds one instance of kind `kind` at `mat`, `fade` of it visible. */
   const put = (kind: number, mat: Matrix4, color: number, fade = 1) => {
     col.setHex(color);
@@ -272,13 +283,8 @@ export function buildWorldVisual(scene: Scene, sim: Sim, roof?: (x: number, z: n
       }
       for (const b of bodies) {
         for (const p of b.parts) {
-          for (const m of [p.solid, p.ghost]) {
-            if (!m) continue;
-            m.visible = m.count > 0;
-            if (!m.visible) continue;
-            m.instanceMatrix.needsUpdate = true;
-            if (m.instanceColor) m.instanceColor.needsUpdate = true;
-          }
+          commit(p.solid);
+          if (p.ghost) commit(p.ghost);
           if (p.ghost?.visible) p.fade.needsUpdate = true;
         }
       }
@@ -341,6 +347,8 @@ export function buildWorldVisual(scene: Scene, sim: Sim, roof?: (x: number, z: n
     },
     dispose() {
       scene.remove(root);
+      // Out of the ink registry too, or the old traffic meshes stay in its pass forever.
+      unmarkInk(root);
       disposeTree([root]);
     },
   };

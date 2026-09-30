@@ -25,12 +25,13 @@ export function updateProgress(sim: SimState, i: number): void {
     }
     cars.nextCp[i] = n;
   } else if (crossed(prevS, sMain, 0, L)) {
-    const time = (sim.tick - cars.lapStartTick[i]) * sim.dt;
+    // World time, like the race clock: slow-mo stretches it for everyone alike.
+    const time = sim.time - cars.lapStartTime[i];
     cars.lap[i] = lap + 1;
     cars.nextCp[i] = 0;
     cars.lastLap[i] = time;
     if (cars.bestLap[i] === 0 || time < cars.bestLap[i]) cars.bestLap[i] = time;
-    cars.lapStartTick[i] = sim.tick;
+    cars.lapStartTime[i] = sim.time;
     sim.events.push(sim.tick, Ev.Lap, i, cars.x[i], cars.y[i], cars.z[i], time, lap + 1);
   }
   // Progress keeps counting forward through the finish line so positions sort across it.
@@ -49,10 +50,18 @@ function crossed(a: number, b: number, c: number, L: number): boolean {
   return toC > 0 && toC <= step;
 }
 
-/** Car indices sorted by progress, leader first. Writes into `out`. */
+let ranking: SimState['cars'] | undefined;
+/** Finished cars first, by place (they keep driving after the line); the rest by progress. */
+const byPosition = (a: number, b: number): number => {
+  const c = ranking!;
+  return c.finished[b] - c.finished[a] || (c.finished[a] ? c.place[a] - c.place[b] : c.progress[b] - c.progress[a]);
+};
+
+/** Car indices in race order, leader first. Writes into `out`. */
 export function positions(sim: SimState, out: number[]): number[] {
   out.length = 0;
   for (let i = 0; i < sim.cars.count; i++) if (sim.cars.active[i]) out.push(i);
-  out.sort((a, b) => sim.cars.progress[b] - sim.cars.progress[a]);
+  ranking = sim.cars;
+  out.sort(byPosition);
   return out;
 }

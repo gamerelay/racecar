@@ -134,14 +134,17 @@ export function buildTrackVisual(track: Track, palette: Palette, seed: number): 
     }
   }
 
-  const ground = new Mesh(new PlaneGeometry(maxX - minX + 3000, maxZ - minZ + 3000), toon({ color: palette.ground }));
-  ground.rotation.x = -Math.PI / 2;
-  ground.position.set((minX + maxX) / 2, groundY, (minZ + maxZ) / 2);
-  ground.updateMatrix();
-  ground.matrixAutoUpdate = false;
-
   // The city lays its own ground (streets, with holes where a trench runs); the country has its land.
-  const extras: Object3D[] = city ? [] : land ? [...land.objects] : [ground];
+  // Anything else gets a plain plane.
+  const plainGround = () => {
+    const ground = new Mesh(new PlaneGeometry(maxX - minX + 3000, maxZ - minZ + 3000), toon({ color: palette.ground }));
+    ground.rotation.x = -Math.PI / 2;
+    ground.position.set((minX + maxX) / 2, groundY, (minZ + maxZ) / 2);
+    ground.updateMatrix();
+    ground.matrixAutoUpdate = false;
+    return ground;
+  };
+  const extras: Object3D[] = city ? [] : land ? [...land.objects] : [plainGround()];
   const wet = puddles(track);
   if (wet) extras.push(wet);
   // Solid props on the road (the pillars): tall striped boxes.

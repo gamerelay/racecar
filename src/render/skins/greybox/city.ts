@@ -20,6 +20,7 @@ import {
 } from 'three';
 import type { Track } from '../../../core/track/bake';
 import { glow, toon } from './toon';
+import { chunks } from '../../shader';
 
 /**
  * A toon material that draws a grid of lit and dark windows on the walls of whatever it's on,
@@ -29,7 +30,7 @@ export function windowMaterial(intensity: number): MeshToonMaterial {
   const mat = toon();
   mat.onBeforeCompile = (shader) => {
     shader.uniforms.uWin = { value: intensity };
-    shader.vertexShader = shader.vertexShader
+    shader.vertexShader = chunks(shader.vertexShader, 'windows')
       .replace('#include <common>', '#include <common>\nvarying vec3 vWinPos;\nvarying vec3 vWinN;')
       .replace(
         '#include <worldpos_vertex>',
@@ -42,8 +43,8 @@ export function windowMaterial(intensity: number): MeshToonMaterial {
         #endif
         vWinPos=(modelMatrix*winP).xyz;
         vWinN=normalize(mat3(modelMatrix)*winN);`,
-      );
-    shader.fragmentShader = shader.fragmentShader
+      ).text;
+    shader.fragmentShader = chunks(shader.fragmentShader, 'windows')
       .replace('#include <common>', '#include <common>\nvarying vec3 vWinPos;\nvarying vec3 vWinN;\nuniform float uWin;')
       .replace(
         '#include <emissivemap_fragment>',
@@ -58,7 +59,7 @@ export function windowMaterial(intensity: number): MeshToonMaterial {
           vec3 lit=h<0.12?vec3(0.62,0.95,1.0):h<0.2?vec3(1.0,0.6,0.84):vec3(1.0,0.82,0.5);
           totalEmissiveRadiance+=pane*step(h,0.38)*lit*uWin;
         }`,
-      );
+      ).text;
   };
   mat.customProgramCacheKey = () => 'greybox-windows';
   return mat;

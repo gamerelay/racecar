@@ -129,7 +129,9 @@ export function bakeTrack(layout: TrackLayout, surfaces: SurfaceDef[]): Track {
 
   const L = main.length;
   let checkpoints: number[];
-  if (Array.isArray(layout.checkpoints)) checkpoints = [...layout.checkpoints].sort((a, b) => a - b);
+  // A checkpoint on the line itself would be taken just after the lap counts, halving the laps:
+  // the line is the lap, so drop any within 20 m of it.
+  if (Array.isArray(layout.checkpoints)) checkpoints = layout.checkpoints.map((c) => (c >= 0 && c < L ? c : wrap(c, L))).filter((c) => c > 20 && c < L - 20).sort((a, b) => a - b);
   else {
     // Every 1/8 of the lap, stepped past any shortcut's span so no branch can skip one.
     checkpoints = Array.from({ length: 7 }, (_, k) => {
@@ -305,9 +307,13 @@ export function sampleIndex(sp: BakedSpline, s: number): number {
   return Math.max(0, Math.min(sp.n - 1, Math.round(s / sp.step)));
 }
 
-/** Calls `fn` for each sample index in the distance range [s0, s1] (wrapping on closed splines). */
+/**
+ * Calls `fn` for each sample index in the distance range [s0, s1]. On a closed spline a range that
+ * ends before it starts runs through the line ([L - 20, 20] is 40 m), like zones and sections.
+ */
 export function forRange(sp: BakedSpline, s0: number, s1: number, fn: (i: number, s: number) => void): void {
-  const count = Math.max(0, Math.round((s1 - s0) / sp.step));
+  const span = sp.closed && s1 < s0 ? wrap(s1 - s0, sp.length) : s1 - s0;
+  const count = Math.max(0, Math.round(span / sp.step));
   for (let k = 0; k <= count; k++) {
     const s = s0 + k * sp.step;
     if (!sp.closed && (s < 0 || s > sp.length)) continue;

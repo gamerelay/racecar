@@ -19,9 +19,9 @@ import { bakeTrack } from '../src/core/track/bake';
 const root = join(import.meta.dir, '..', 'content');
 const args = process.argv.slice(2);
 const json = args.includes('--json');
-const field = args.includes('--field') && import.meta.main;
+const fieldArg = args.includes('--field') && import.meta.main;
 const laps = Number(args[args.indexOf('--laps') + 1]) || 3;
-const seed = args.includes('--seed') ? Number(args[args.indexOf('--seed') + 1]) : 7;
+const seedArg = args.includes('--seed') ? Number(args[args.indexOf('--seed') + 1]) : 7;
 const only = args.find((a) => a.includes('/') && !a.startsWith('-'));
 const surfaces = JSON.parse(readFileSync(join(root, 'surfaces.json'), 'utf8')) as SurfaceDef[];
 const classes = CLASS_ORDER.map((id) => JSON.parse(readFileSync(join(root, 'cars', `${id}.json`), 'utf8')) as CarClass);
@@ -40,7 +40,10 @@ export interface LapReport {
   field?: { place: number; car: string; difficulty: number; time: number; wrecks: number; takedowns: number }[];
 }
 
-export function lapReport(key: string, layout: TrackLayout, car = soloCar): LapReport {
+/** `field` races 8 AI with traffic and hazards (else one hard AI alone); `seed` picks the room. */
+export function lapReport(key: string, layout: TrackLayout, car = soloCar, opts: { field?: boolean; seed?: number } = {}): LapReport {
+  const field = opts.field ?? fieldArg;
+  const seed = opts.seed ?? seedArg;
   const track = bakeTrack(layout, surfaces);
   const sim = new Sim(track, classes, surfaces, { seed, slowmo: 'wreck', traffic: field ? 1 : 0, mayhem: field ? 'normal' : 'off' });
   const cars = field ? 8 : 1;

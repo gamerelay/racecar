@@ -164,7 +164,9 @@ export function stepCar(sim: SimState, i: number, c: Controls, dt: number): void
       // the slide was taking it instead of whipping round to where it pointed.
       if (exit > 0 && speed > 3) h = vdir + approach(wrapAngle(h - vdir), 0, (T.driftExitStraighten / carry) * exit * dt);
       const slip = wrapAngle(h - vdir);
-      const reversing = fwd < -0.5;
+      // Reversing, or about to: brake held from a standstill backs the car up (else the grip snap
+      // below keeps it pointing forward and it never moves).
+      const reversing = fwd < -0.5 || (fwd <= 0.5 && c.brake > 0 && c.throttle === 0);
       const target = reversing ? wrapAngle(h + Math.PI) : h;
       const off = wrapAngle(target - vdir);
       const align = T.gripAlign * grip * lerp(1, T.driftExitGrip / carry, exit) * dt;
@@ -276,11 +278,26 @@ export function endDrift(sim: SimState, i: number, stage: number): void {
   }
 }
 
-function spinOut(sim: SimState, i: number): void {
+/**
+ * Ends a drift with nothing paid: the bank and the chain are lost (a spin-out, a wreck, a wall).
+ * The cooldown stops a held drift button from starting another one on the next tick.
+ */
+export function cancelDrift(sim: SimState, i: number): void {
   const cars = sim.cars;
   cars.driftBank[i] = 0;
   endDrift(sim, i, 0);
   cars.driftChain[i] = 0;
+}
+
+/** Who hit car i within the last `ticks` ticks, or -1: the credit for a takedown. */
+export function recentAttacker(sim: SimState, i: number, ticks: number): number {
+  const cars = sim.cars;
+  return cars.lastHitT[i] > 0 && sim.tick - cars.lastHitT[i] < ticks ? cars.lastHitBy[i] : -1;
+}
+
+function spinOut(sim: SimState, i: number): void {
+  const cars = sim.cars;
+  cancelDrift(sim, i);
   cars.spinT[i] = T.spinTime;
   cars.driftExit[i] = 0;
   cars.yaw[i] = sign(cars.slip[i]) * 5;
@@ -291,9 +308,7 @@ function spinOut(sim: SimState, i: number): void {
 export function wreckCar(sim: SimState, i: number, cause: number, ix: number, iz: number, by: number): void {
   const cars = sim.cars;
   if (cars.wreck[i]) return;
-  cars.driftBank[i] = 0;
-  endDrift(sim, i, 0);
-  cars.driftChain[i] = 0;
+  cancelDrift(sim, i);
   cars.boosting[i] = 0;
   cars.miniT[i] = 0;
   cars.wreck[i] = 1;

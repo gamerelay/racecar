@@ -4,6 +4,7 @@
 // dither would ink every pixel edge). Used by greybox world.ts for core/world/traffic.ts's visibility.
 
 import { FrontSide, InstancedBufferAttribute, type Material } from 'three';
+import { chunks } from './shader';
 
 export const FADE_ATTR = 'aFade';
 
@@ -16,10 +17,7 @@ const HOOKS: [stage: 'vertexShader' | 'fragmentShader', chunk: string, add: stri
 ];
 
 export function injectFade(shader: { vertexShader: string; fragmentShader: string }): void {
-  for (const [stage, chunk, add] of HOOKS) {
-    if (!shader[stage].includes(chunk)) throw new Error(`fade: ${stage} has no ${chunk}`);
-    shader[stage] = shader[stage].replace(chunk, `${chunk}\n${add}`);
-  }
+  for (const [stage, chunk, add] of HOOKS) shader[stage] = chunks(shader[stage], 'fade').after(chunk, add).text;
 }
 
 /**

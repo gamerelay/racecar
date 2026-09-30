@@ -17,14 +17,18 @@ import { GameRenderer } from './render/renderer';
 import { GreyboxSkin } from './render/skins/greybox';
 import { posthogEnabled, posthogSink } from './telemetry/posthog';
 import { Telemetry } from './telemetry/telemetry';
+import { GameAudio } from './audio/audio';
 import { Hud } from './ui/hud';
 import { RaceUi } from './ui/race';
-import { backToSetup, raceAgain, readSetup, showSetup, type RaceSetup } from './ui/setup';
+import { accept, navigate } from './ui/nav';
+import { backToSetup, raceAgain, readChoices, readSetup, restart, showSetup, type RaceSetup } from './ui/setup';
 import { CLASSES, LAYOUTS, MAPS, PAINTS, SURFACES } from './content';
 
 const params = new URLSearchParams(location.search);
 const BUILD = `${import.meta.env.MODE}-${__BUILD_TIME__}`;
-const setup: RaceSetup | null = readSetup(params, 'city/downtown');
+// Only cars and paints that exist: a stale or hand-edited link falls back instead of crashing.
+const known = { cars: CLASSES.map((c) => c.id), paints: PAINTS.length };
+const setup: RaceSetup | null = readSetup(params, 'city/downtown', known);
 // No setup yet: attract mode, a hard AI race on City behind the menu.
 const attract = !setup;
 const run: RaceSetup = setup ?? { mode: 'race', map: params.get('map') ?? 'city/downtown', car: 'coupe', paint: 0, opponents: 7, difficulty: 2, laps: 3, weather: 'random', mayhem: 'normal', traffic: true, seed: Math.floor(Math.random() * 1e9) };
@@ -60,15 +64,20 @@ if (run.mode === 'race') sim.startRace(run.laps, attract ? 1 : 4);
 const input = new Input();
 const renderer = new GameRenderer(document.getElementById('stage')!, new GreyboxSkin(), sim, PAINTS, map.palette, { post: params.get('post') !== '0', outline: params.get('ink') !== '0' });
 const hud = new Hud(sim);
+const audio = new GameAudio(sim);
 const raceUi = new RaceUi(sim, CLASSES, names, specs.map((x) => PAINTS[(x.paint ?? 0) % PAINTS.length].color));
 raceUi.onAgain = () => raceAgain(run);
 raceUi.onSetup = () => backToSetup(run);
+// Behind the menu there are no results; with the pause menu up they wait.
+raceUi.resultsOn = !attract;
+raceUi.canShow = () => !paused;
 // Quit to the main menu from anywhere in a race. Not focusable, so Space (boost) can't press it.
 document.body.insertAdjacentHTML('beforeend', '<button id="quit" tabindex="-1" title="Quit to the main menu">✕ Menu</button>');
 document.getElementById('quit')!.onclick = () => backToSetup(run);
 if (attract) {
   document.body.classList.add('attract');
-  showSetup(MAPS, Object.keys(LAYOUTS), CLASSES, PAINTS, { map: layoutKey });
+  // Back from a race (Main menu, Change setup): its choices are the defaults.
+  showSetup(MAPS, Object.keys(LAYOUTS), CLASSES, PAINTS, readChoices(params, layoutKey, known));
 }
 const telemetry = new Telemetry(sim, specs, () => layout, BUILD, { enabled: import.meta.env.DEV, trace: params.get('trace') === '1' });
 // Dev builds write local files; playtest builds with a PostHog key send there (unless opted out).
@@ -115,6 +124,10 @@ function frame(now: number): void {
   requestAnimationFrame(frame);
   const dt = Math.min((now - last) / 1000, 0.1);
   last = now;
+  // A menu up: arrows and the pad move focus there (and Start still works while paused).
+  input.menuOpen = !!openMenu();
+  if (paused) input.pollMenu();
+  hud.setDevice(input.lastDevice);
   if (!paused && !editorOpen) {
     input.poll(controls, dt);
     renderer.lookBack = human >= 0 && controls.lookBack;
@@ -134,7 +147,10 @@ function frame(now: number): void {
     steer[i] = i === human ? controls.steer : sim.controls[i].steer;
     braking[i] = i === human ? controls.brake > 0 : sim.controls[i].brake > 0;
   }
+  // Silent while paused or in the editor.
+  audio.update(dt, { focus: renderer.focus, camera: renderer.camera, paused: paused || editorOpen, menu: attract });
   if (!editorOpen) {
+    renderer.paused = paused;
     renderer.frame(acc * TICK_RATE, dt, steer, braking);
     if (attract) {
       // Follow whoever leads.
@@ -155,8 +171,27 @@ function frame(now: number): void {
 }
 requestAnimationFrame(frame);
 
+/** The menu on screen, if any: the F8 form, the pause menu, results, or setup. */
+function openMenu(): HTMLElement | null {
+  return document.querySelector<HTMLElement>('#reportForm, #pause.on, #results.on, #setup');
+}
+
+// Switching away mid-race pauses it (not behind the menu, not once you're in the results).
+const awayPause = () => {
+  if (!attract && !editorOpen && !paused && !raceUi.shown) setPaused(true);
+};
+window.addEventListener('blur', awayPause);
+document.addEventListener('visibilitychange', () => document.hidden && awayPause());
+
 // ---- system keys ----
 input.on((a) => {
+  const menu = openMenu();
+  if (a.startsWith('nav-')) {
+    if (menu) navigate(menu, a.slice(4) as 'up' | 'down' | 'left' | 'right');
+    return;
+  }
+  if (a === 'accept') return void (menu && accept(menu));
+  if (a === 'back') return void (paused && !document.getElementById('reportForm') && setPaused(false));
   if (a === 'pause' && !editorOpen) setPaused(!paused);
   else if (a === 'report') openReport();
   else if (a === 'debug') {
@@ -164,22 +199,25 @@ input.on((a) => {
   } else if (a === 'editor' && import.meta.env.DEV) toggleEditor();
   else if (a === 'tuning' && import.meta.env.DEV) import('./editor/tuning').then((m) => m.toggleTuning(TUNING));
   else if (a === 'ink') renderer.opts.outline = !renderer.opts.outline;
+  else if (a === 'mute') toast(audio.toggleMute() ? 'Sound off (M)' : 'Sound on (M)');
+  else if (a === 'music') toast(audio.toggleMusic() ? 'Music on (N)' : 'Music off (N)');
 });
 
 function setPaused(on: boolean): void {
-  if (attract) return;
+  // Nothing to pause behind the menu, and the results screen has its own buttons.
+  if (attract || (on && raceUi.shown)) return;
   paused = on;
   let el = document.getElementById('pause');
   if (!el) {
     document.body.insertAdjacentHTML(
       'beforeend',
       `<div id="pause"><div class="card"><h1>Paused</h1>
-        <dl><dt>Drive</dt><dd>WASD / arrows, or a gamepad (RT, LT, stick)</dd><dt>Drift</dt><dd>hold Shift (RB) while steering: steer in to tighten, out to widen: a quicker way round a corner</dd><dt>Boost</dt><dd>Space (A): fills from air, near misses, the oncoming lane in traffic, checking traffic and takedowns</dd><dt>Takedowns</dt><dd>ram a rival hard, boost into them, or shove them into a wall, a pillar or traffic</dd><dt>Traffic</dt><dd>boost into the back of a small car to check it out of the way; don't hit anything head on</dd><dt>Start</dt><dd>hit the throttle just before GO for a perfect start; too early and you stall</dd><dt>Felt wrong?</dt><dd>F8 (Select+Start) saves the last 30 s with a note</dd></dl>
+        <dl><dt>Drive</dt><dd>WASD / arrows, or a gamepad (RT, LT, stick)</dd><dt>Drift</dt><dd>hold Shift (RB) while steering: steer in to tighten, out to widen: a quicker way round a corner</dd><dt>Boost</dt><dd>Space (A): fills from air, near misses, the oncoming lane in traffic, checking traffic and takedowns</dd><dt>Takedowns</dt><dd>ram a rival hard, boost into them, or shove them into a wall, a pillar or traffic</dd><dt>Traffic</dt><dd>boost into the back of a small car to check it out of the way; don't hit anything head on</dd><dt>Start</dt><dd>hit the throttle just before GO for a perfect start; too early and you stall</dd><dt>Sound</dt><dd>M mutes everything, N toggles the music</dd><dt>Felt wrong?</dt><dd>F8 (Select+Start) saves the last 30 s with a note</dd></dl>
         <button id="pResume">Resume</button><button id="pRestart">Restart</button><button id="pSetup" class="ghost">Main menu</button></div></div>`,
     );
     el = document.getElementById('pause')!;
     document.getElementById('pResume')!.onclick = () => setPaused(false);
-    document.getElementById('pRestart')!.onclick = () => raceAgain(run);
+    document.getElementById('pRestart')!.onclick = () => restart(run);
     document.getElementById('pSetup')!.onclick = () => backToSetup(run);
   }
   el.classList.toggle('on', on);
@@ -278,6 +316,8 @@ if (import.meta.env.DEV) {
     sim,
     renderer,
     telemetry,
+    audio,
+    input,
     advance(seconds: number, c: Partial<Controls> = {}) {
       Object.assign(controls, c);
       for (let k = 0; k < Math.round(seconds * TICK_RATE); k++) {

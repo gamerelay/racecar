@@ -113,7 +113,9 @@ export class PostPass {
       // Returns the reflected color in rgb and the amount in a.
       vec4 reflection(vec2 uv){
         // Standing water (rivers) clears alpha too, and mirrors even when it's dry.
-        float puddle=1.0-texture2D(tDiffuse,uv).a;
+        // Additive draws (beams, glows) push alpha past 1 in the float target: clamp, or the mask
+        // goes negative there and brightens instead of mirroring.
+        float puddle=clamp(1.0-texture2D(tDiffuse,uv).a,0.0,1.0);
         if(uWet<=0.001&&puddle<0.02)return vec4(0.0);
         vec3 p0=viewPos(uv);
         if(-p0.z>uFar*0.5)return vec4(0.0);

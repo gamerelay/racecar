@@ -254,8 +254,9 @@ export class Traffic {
     const out: { x: number; z: number; h: number; kind: number }[] = [];
     for (let k = 0; k < this.count; k++) {
       if (!this.present(k, t)) continue;
-      this.pose(k, t, 0);
-      out.push({ x: this.x[0], z: this.z[0], h: this.h[0], kind: this.kind[k] });
+      // Its own scratch: slot 0 of the pool is live (the AI and collisions read it).
+      const o = this.poseAt(k, t, this.scratch, this.renderHit);
+      out.push({ x: o.x, z: o.z, h: o.h, kind: this.kind[k] });
     }
     return out;
   }

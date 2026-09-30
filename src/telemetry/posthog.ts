@@ -27,7 +27,9 @@ export function setTelemetryOptOut(off: boolean): void {
 }
 
 export function posthogSink(session: string, build: string): (lines: Record[], beacon: boolean) => void {
-  const id = store('racecar.id') ?? store('racecar.id', crypto.randomUUID()) ?? session;
+  // randomUUID only exists in secure contexts (not a LAN playtest over plain http).
+  const fresh = typeof crypto.randomUUID === 'function' ? crypto.randomUUID() : `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
+  const id = store('racecar.id') ?? store('racecar.id', fresh) ?? session;
   let pending: Record[] = [];
   let last = 0;
   const send = (beacon: boolean) => {
