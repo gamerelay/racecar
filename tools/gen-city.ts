@@ -19,6 +19,7 @@ import { writeFileSync } from 'node:fs';
 import type { BranchDef, TrackLayout, TrackPoint, Vec3 } from '../src/core/content';
 import { bakeTrack } from '../src/core/track/bake';
 import { projectGlobal, newHit } from '../src/core/track/query';
+import { straightenSections } from '../src/core/track/validate';
 import surfaces from '../content/surfaces.json';
 
 type V = { x: number; z: number; y: number; w: number; lanes: number; r?: number; bank?: number };
@@ -148,6 +149,8 @@ const puddle = (x: number, z: number, y: number, len: number, l0: number, l1: nu
 };
 layout.zones = [puddle(-120, 90, 0, 25, -6, 2), puddle(-150, -30, 1, 25, -2, 6), puddle(0, 400, 0, 30, 2, 11), puddle(-280, -120, -3, 30, -7, 1)];
 
+// Traffic must appear and leave on straights, where drivers see it.
+straightenSections(layout, surfaces);
 writeFileSync(new URL('../content/maps/city/downtown.track.json', import.meta.url), JSON.stringify(layout, null, 1) + '\n');
 const final = bakeTrack(layout, surfaces);
 console.log(`main ${final.main.length.toFixed(0)} m, ${pts.length} points; alley ${final.splines[1].length.toFixed(0)} m (${alley.from}→${alley.to})`);

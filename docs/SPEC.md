@@ -816,6 +816,13 @@ Milestone 1 (2026-09-30):
 
 Milestone 2 (2026-09-30):
 
+- **Traffic sections start and end on straights.** Traffic pops in where its section starts
+  and out where it ends; oncoming traffic pops in at the end, driving at you. Every section on
+  both maps ended in a corner, which made blind pop-in head-ons the biggest cause of wrecks. The
+  validator now warns about a section ending in a corner, and `straightenSections` (in the City
+  generator, and `bun tools/fix-traffic.ts <layout>`) slides the ends onto straights. AI wrecks
+  per 8-car race over 8 seeds: City 7 to 0.5, Countryside 13 to 4.8. The tunnel's section was too
+  short to keep.
 - **Traffic in the car style.** Each traffic kind (sedan, compact, van, box truck, bus) is one
   merged mesh, built from a side profile like the racers (arches, glass, bumpers, wheels, lamps).
   A kind is one instanced draw however many are posed. A vertex mask picks which parts take the
