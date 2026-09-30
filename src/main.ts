@@ -117,10 +117,10 @@ if (attract) {
 function preview(p: Preview | null): void {
   if (p) {
     const key = resolveLayout(p.map, LAYOUT_KEYS);
-    if (key && key !== layoutKey) swapMap(key, p.weather, p.time);
+    if (key && key !== layoutKey) swapMap(key, p.weather, previewTime(p.time));
     else {
       if (p.weather !== weatherShown) sim.setWeather(p.weather, map.weather);
-      if (p.time !== timeShown) renderer.setMap(paletteFor(map, p.time, run.seed));
+      if (p.time !== timeShown) renderer.setMap(paletteFor(map, previewTime(p.time), run.seed));
     }
     weatherShown = p.weather;
     timeShown = p.time;
@@ -128,6 +128,14 @@ function preview(p: Preview | null): void {
   const car = p?.car && CLASSES.find((c) => c.id === p.car!.car);
   if (!p?.car || !car) return renderer.showroom.hide();
   renderer.showroom.show(car, PAINTS[p.car.paint % PAINTS.length], { text: p.car.plate, region: map.name, map: map.id });
+}
+
+/**
+ * The time the lobby shows behind it: Random shows the day, since the race's own seed (which
+ * picks it) isn't known until the race starts; showing this race's pick would be a guess.
+ */
+function previewTime(time: RaceSetup['time']): RaceSetup['time'] {
+  return time === 'random' ? 'day' : time;
 }
 
 /** Another map behind the menu, in place (no reload): its track, weather and sky, and the race on it from the grid. */
