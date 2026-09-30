@@ -179,6 +179,19 @@ layout.hazards = [
 ];
 // No falling sign: on the home straight at 200 km/h (or anywhere else on this lap) it wrecked the
 // field 1–2 more times a race, and a city's sign never belonged in the country.
+// Landmarks (PLAN phase 6): in the village, a giant fibreglass cow by the start (in front of the
+// houses, which line the road: behind them it was hidden) and a water tower
+// with the town's name; a scarecrow in a patch of corn off the home straight, and a windpump across
+// the river from it; a drive-in on the flats below Pine Hollow, facing the road down onto them; and
+// a hot-air balloon drifting over the Ridge.
+layout.landmarks = [
+  { kind: 'cow', at: [-25, 30], rot: Math.PI / 2, r: 10, params: { scale: 1.3 } },
+  { kind: 'water-tower', at: [-90, 200], r: 8, label: 'MILLBROOK' },
+  { kind: 'scarecrow', at: [-26, -125], rot: Math.PI / 2, r: 13 },
+  { kind: 'windmill', at: [95, -150], rot: -Math.PI / 2, r: 12, params: { scale: 1.4 } },
+  { kind: 'drive-in', at: [-30, -525], r: 54 },
+  { kind: 'balloon', at: [380, 0], r: 0, params: { alt: 70, radius: 50 } },
+];
 // The Trestle crosses the home stretch: drivers going under it thread its legs.
 layout.trestles = true;
 layout.takedownSpots = [

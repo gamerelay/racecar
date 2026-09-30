@@ -1550,3 +1550,22 @@ The Valley's field wrecks (sweep, 2026-09-30):
   "Valley v3", ran before the home stretch changed.)
 - **Now 1.13 a race over 16 seeds** (0.88 on seeds 1–8), and a test holds the 8-seed field to 1.5.
   The lap and its floor (63.4 s) are unchanged.
+
+Landmarks, part 2: Backroads (PLAN phase 6):
+
+- **In the village:** a giant fibreglass **cow** (Big Bessie) on a plinth, and a **water tower**
+  with the town's name, Millbrook (`label`, a landmark's words). The cow started behind the
+  houses that line the road and couldn't be seen. It's in front of them now, and its ground
+  keeps the houses out.
+- **Off the home straight:** a **scarecrow** in a patch of corn, swaying in the wind with crows
+  circling. Across the river stands a farm **windpump** whose wheel spins faster in the rain,
+  since rain is the wind we have. It gusts, and its head hunts.
+- **On the flats below Pine Hollow:** a **drive-in** with a flickering film (Attack of the 50 ft
+  Combine), a projection booth and its beam, and rows of cars facing the screen.
+- **Over the Ridge:** a striped **hot-air balloon** drifting in a slow loop, its burner flaring
+  now and then.
+- **The country keeps landmark ground clear** (`buildForest`'s `marks`): no trees, houses or
+  pastures in it. Builders get the ground under their own points (`ctx.ground`), so the
+  drive-in's cars and the corn stand on the slope.
+- **No imports from the car models:** the drive-in's cars are boxes of their own. Importing the
+  traffic models pulled the car builder into every scenery test.

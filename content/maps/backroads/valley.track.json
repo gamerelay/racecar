@@ -3358,6 +3358,70 @@
    }
   }
  ],
+ "landmarks": [
+  {
+   "kind": "cow",
+   "at": [
+    -25,
+    30
+   ],
+   "rot": 1.5707963267948966,
+   "r": 10,
+   "params": {
+    "scale": 1.3
+   }
+  },
+  {
+   "kind": "water-tower",
+   "at": [
+    -90,
+    200
+   ],
+   "r": 8,
+   "label": "MILLBROOK"
+  },
+  {
+   "kind": "scarecrow",
+   "at": [
+    -26,
+    -125
+   ],
+   "rot": 1.5707963267948966,
+   "r": 13
+  },
+  {
+   "kind": "windmill",
+   "at": [
+    95,
+    -150
+   ],
+   "rot": -1.5707963267948966,
+   "r": 12,
+   "params": {
+    "scale": 1.4
+   }
+  },
+  {
+   "kind": "drive-in",
+   "at": [
+    -30,
+    -525
+   ],
+   "r": 54
+  },
+  {
+   "kind": "balloon",
+   "at": [
+    380,
+    0
+   ],
+   "r": 0,
+   "params": {
+    "alt": 70,
+    "radius": 50
+   }
+  }
+ ],
  "trestles": true,
  "terrain": {
   "river": [
