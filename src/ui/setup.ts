@@ -66,7 +66,7 @@ export function showSetup(maps: MapDef[], layouts: string[], classes: CarClass[]
       <label>Traffic ${sel('sTraffic', [['1', 'on'], ['0', 'off']], current.traffic === false ? '0' : '1')}</label>
     </div>
     <div class="row"><button id="sRace">Race</button><button id="sFree" class="ghost">Free drive</button></div>
-    <p class="muted">Drift (Shift / RB) through corners for a mini-turbo. Near misses, oncoming lanes and air fill boost; boost into rivals for takedowns. Online parties come next.</p>
+    <p class="muted">Drift (Shift / RB) to take corners tighter. Near misses, the oncoming lane and big air fill boost; boost into rivals for takedowns. Rain makes puddles: shiny means slippery. Online parties come next.</p>
   </div>`;
   document.body.appendChild(el);
   const v = (id: string) => (document.getElementById(id) as HTMLSelectElement).value;

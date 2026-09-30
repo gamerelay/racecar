@@ -1,5 +1,5 @@
 // The race HUD (DOM, SPEC §1): position, lap and times, boost meter, speed, the drift readout
-// (points, chain, mini-turbo stage), pops for moments, and a debug panel (F2).
+// (points, chain, and the mini-turbo stage when that's on), pops for moments, and a debug panel (F2).
 
 import { TUNING } from '../core/car/tuning';
 import { Ev, type GameEvent } from '../core/events';
@@ -77,6 +77,8 @@ export class Hud {
     if ($('debug').classList.contains('on')) $('debug').textContent = this.debugText;
   }
 
+  private lastOncoming = -Infinity;
+
   private readonly onEvent = (e: GameEvent): void => {
     const i = this.focus;
     if (e.type === Ev.DriftStart && e.car === i) this.driftStart = this.sim.cars.score[i];
@@ -84,7 +86,11 @@ export class Hud {
     if (e.type === Ev.Wreck && e.car === i && e.other < 0) this.pop(e.b === 4 ? 'Reset' : 'Wrecked', 'bad');
     if (e.type === Ev.Takedown && e.car === i) this.pop(e.b ? 'Revenge!' : 'Takedown!', 'big');
     if (e.type === Ev.NearMiss && e.car === i) this.pop(e.b ? 'Oncoming near miss' : 'Near miss', e.b ? 'hot' : '');
-    if (e.type === Ev.Oncoming && e.car === i) this.pop('Oncoming', 'hot');
+    // Weaving in and out of the oncoming lane restarts the streak; one pop per few seconds is enough.
+    if (e.type === Ev.Oncoming && e.car === i && this.sim.time - this.lastOncoming > 3) {
+      this.lastOncoming = this.sim.time;
+      this.pop('Oncoming', 'hot');
+    }
     if (e.type === Ev.TrafficCheck && e.car === i) this.pop('Traffic check', 'hot');
     if (e.type === Ev.StartBoost && e.car === i) this.pop(e.b ? 'Perfect start!' : 'Stalled', e.b ? 's2' : 'bad');
     if (e.type === Ev.Finish && e.car === i) this.pop(`Finished ${e.b}${['th', 'st', 'nd', 'rd'][e.b] ?? 'th'}`, 'big');

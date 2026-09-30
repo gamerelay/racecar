@@ -19,6 +19,8 @@ import {
   Group,
   IcosahedronGeometry,
   InstancedMesh,
+  LineBasicMaterial,
+  LineSegments,
   Matrix4,
   Mesh,
   MeshBasicMaterial,
@@ -35,6 +37,7 @@ import type { Track } from '../../../core/track/bake';
 import { streetLamps, windowMaterial } from './city';
 import type { Palette } from './palettes';
 import { lampSpots, trafficModels } from './car/traffic';
+import { deckMask } from './track';
 import { faceted, glow, toon } from './toon';
 
 /** The street grid: blocks this big (street to street), streets this wide, sidewalks inside that. */
@@ -68,6 +71,7 @@ class Corridors {
   readonly half: number[] = [];
   readonly tx: number[] = [];
   readonly tz: number[] = [];
+  readonly spline: number[] = [];
   private maxHalf = 0;
 
   constructor(track: Track) {
@@ -79,6 +83,7 @@ class Corridors {
         this.z.push(sp.pz[i]);
         this.tx.push(sp.tx[i]);
         this.tz.push(sp.tz[i]);
+        this.spline.push(sp.index);
         const h = sp.width[i] / 2 + sp.shoulder[i] + WALL_THICK;
         this.half.push(h);
         this.maxHalf = Math.max(this.maxHalf, h);
@@ -98,7 +103,7 @@ class Corridors {
    * Distance from (x, z) to the nearest road's outer edge (negative: on it), looking `reach` meters
    * out; roads whose height fails `level` are ignored. Returns `reach` when nothing is that close.
    */
-  clear(x: number, z: number, reach: number, level?: (y: number) => boolean): number {
+  clear(x: number, z: number, reach: number, level?: (y: number) => boolean, skip = -1): number {
     let best = reach;
     const r = Math.ceil((reach + this.maxHalf) / this.cell);
     const cx = Math.floor(x / this.cell);
@@ -109,6 +114,7 @@ class Corridors {
         if (!list) continue;
         for (const k of list) {
           if (level && !level(this.y[k])) continue;
+          if (this.spline[k] === skip) continue;
           const d = Math.hypot(this.x[k] - x, this.z[k] - z) - this.half[k];
           if (d < best) best = d;
         }
@@ -533,6 +539,102 @@ export function buildCityscape(track: Track, palette: Palette, ground: number): 
     }
   }
 
+  // ---- the shortcuts (the Alley): shopfronts right up against the walls, lights strung across ----
+  const strung: number[] = [];
+  const strungCol: number[] = [];
+  const wires: number[] = [];
+  for (const sp of track.splines) {
+    if (sp.index === 0) continue;
+    for (let i = 20; i < sp.n - 20; i += 9) {
+      const half = sp.width[i] / 2 + sp.shoulder[i] + WALL_THICK;
+      const rx = -sp.tz[i];
+      const rz = sp.tx[i];
+      const y = ground;
+      const heading = Math.atan2(sp.tx[i], sp.tz[i]);
+      const tops: number[] = [];
+      for (const side of [-1, 1]) {
+        const depth = 5 + rng.next() * 3;
+        const off = half + 0.3 + depth / 2;
+        const x = sp.px[i] + rx * side * off;
+        const z = sp.pz[i] + rz * side * off;
+        // Clear of every other road (this one's walls are right there by design).
+        if (roads.clear(x, z, depth + 6, undefined, sp.index) < depth / 2 + 1.5) {
+          tops.push(0);
+          continue;
+        }
+        const h = 6 + rng.next() * 7;
+        tops.push(h);
+        buildings.push({ x, y: y + h / 2, z, w: depth, h, d: 8.6, rot: heading, color: palette.blocks[Math.floor(rng.next() * palette.blocks.length)] });
+        roofs.push({ x, y: y + h + 0.3, z, w: depth + 0.5, h: 0.6, d: 9, rot: heading, color: 0x221a36 });
+        const face = x - rx * side * (depth / 2 + 0.9);
+        const facez = z - rz * side * (depth / 2 + 0.9);
+        awnings.push({ x: face, y: y + 3, z: facez, w: 1.6, h: 0.3, d: 7, rot: heading, color: [0xff2e88, 0x35a8ff, 0xffbe0b, 0x7cff6b, 0xb26bff][Math.floor(rng.next() * 5)] });
+        if (rng.next() < 0.6 && h > 7) {
+          const outward = Math.atan2(-rx * side, -rz * side);
+          blades.push({ x: face, y: y + 6, z: facez, rot: outward, word: Math.floor(rng.next() * WORDS.length), s: 1.3 });
+        }
+      }
+      // A string of bulbs across, sagging, where there are walls both sides to hang it from.
+      if (tops[0] > 7 && tops[1] > 7 && i % 18 < 9) {
+        const lo = Math.min(tops[0], tops[1]) - 1.5;
+        const span = half + 0.3;
+        let px = 0, py = 0, pz = 0;
+        for (let k = 0; k <= 10; k++) {
+          const u = k / 10;
+          const l = -span + 2 * span * u;
+          const sag = 1.4 * 4 * u * (1 - u);
+          const bx = sp.px[i] + rx * l;
+          const by = ground + lo - sag;
+          const bz = sp.pz[i] + rz * l;
+          if (k > 0) wires.push(px, py, pz, bx, by, bz);
+          px = bx;
+          py = by;
+          pz = bz;
+          if (k % 2 === 1) {
+            strung.push(bx, by - 0.15, bz);
+            const c = new Color(NEON[(k + i) % NEON.length]);
+            strungCol.push(c.r, c.g, c.b);
+          }
+        }
+      }
+    }
+  }
+  if (strung.length) {
+    const geo = new BufferGeometry();
+    geo.setAttribute('position', new Float32BufferAttribute(strung, 3));
+    geo.setAttribute('color', new Float32BufferAttribute(strungCol, 3));
+    geo.computeBoundingSphere();
+    objects.push(new Points(geo, glowMaterial(1.9, true)));
+    const wgeo = new BufferGeometry();
+    wgeo.setAttribute('position', new Float32BufferAttribute(wires, 3));
+    wgeo.computeBoundingSphere();
+    objects.push(new LineSegments(wgeo, new LineBasicMaterial({ color: 0x120a20 })));
+  }
+
+  // ---- tunnel portals: a headwall with a neon strip wherever the road goes under cover ----
+  const portals: Box[] = [];
+  const portalLights: Box[] = [];
+  for (const sp of track.splines) {
+    const covered = (i: number) => sp.py[i] + sp.ramp[i] < ground - 4.5;
+    for (let i = 0; i + 1 < sp.n; i++) {
+      if (covered(i) === covered(i + 1)) continue;
+      // Outward: along the road if the cover starts here, back along it if it ends.
+      const out = covered(i + 1) ? -1 : 1;
+      const k = covered(i + 1) ? i + 1 : i;
+      const span = sp.width[k] + 2 * (sp.shoulder[k] + WALL_THICK) + 1;
+      const rot = Math.atan2(sp.tx[k], sp.tz[k]);
+      const fx = sp.tx[k] * out;
+      const fz = sp.tz[k] * out;
+      portals.push({ x: sp.px[k] - fx * 0.2, y: ground + 0.1, z: sp.pz[k] - fz * 0.2, w: span, h: 2, d: 0.9, rot, color: 0x8f84a8 });
+      portalLights.push({ x: sp.px[k] + fx * 0.3, y: ground - 0.35, z: sp.pz[k] + fz * 0.3, w: span * 0.86, h: 0.28, d: 0.1, rot, color: 0x35f0ff });
+      portalLights.push({ x: sp.px[k] + fx * 0.3, y: ground + 0.55, z: sp.pz[k] + fz * 0.3, w: span * 0.86, h: 0.14, d: 0.1, rot, color: 0xff2e88 });
+    }
+  }
+  if (portals.length) {
+    objects.push(boxes(portals, toon()));
+    objects.push(boxes(portalLights, new MeshBasicMaterial({ color: 0xffffff })));
+  }
+
   const blockMat = toon();
   objects.push(boxes(slabs, blockMat));
   objects.push(boxes(buildings, windowMaterial(palette.windows)));
@@ -565,6 +667,11 @@ export function buildCityscape(track: Track, palette: Palette, ground: number): 
       const list = blades.filter((b) => b.word === wi);
       if (!list.length) return;
       const mat = new MeshBasicMaterial({ map: bladeTexture(word, NEON[wi % NEON.length]), transparent: true, side: DoubleSide, fog: false });
+      // A blade sign reads the right way round from both sides: flip the texture on the back face.
+      mat.onBeforeCompile = (shader) => {
+        shader.fragmentShader = shader.fragmentShader.replace('#include <map_fragment>', 'vec4 sampledDiffuseColor=texture2D(map,gl_FrontFacing?vMapUv:vec2(1.0-vMapUv.x,vMapUv.y));diffuseColor*=sampledDiffuseColor;');
+      };
+      mat.customProgramCacheKey = () => 'greybox-blade';
       const mesh = new InstancedMesh(geo, mat, list.length);
       list.forEach((b, k) => {
         // The blade stands out from the wall: its face is perpendicular to the wall.
@@ -804,13 +911,14 @@ export function buildCityscape(track: Track, palette: Palette, ground: number): 
     const fixtures: Box[] = [];
     const strips: Box[] = [];
     for (const sp of track.splines) {
+      const deck = deckMask(sp, ground);
       for (let i = 0; i < sp.n; i += 1) {
         const y = sp.py[i] + sp.ramp[i];
         const s = i * sp.step;
         const rx = -sp.tz[i];
         const rz = sp.tx[i];
         const rot = Math.atan2(sp.tx[i], sp.tz[i]);
-        if (y - ground > 3.5 && Math.round(s) % 24 === 0) {
+        if (deck[i] && Math.round(s) % 24 === 0) {
           const bottom = y - 1.2;
           const off = sp.width[i] >= 18 ? [-(sp.width[i] / 2 - 3), sp.width[i] / 2 - 3] : [0];
           let placed = false;

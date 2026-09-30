@@ -99,4 +99,4 @@ body.boosting #spd { color: var(--sun); }
 .card .muted { color: var(--muted); font-size: 13px; line-height: 1.5; margin: 12px 0 0; }
 .card button.ghost { background: transparent; color: var(--ink); border-color: var(--ink); box-shadow: 5px 5px 0 var(--outline); }
 @media (max-width: 640px) { #minimap { width: 120px; height: 120px; } }
-body.attract #race, body.attract #meterWrap, body.attract #speedo, body.attract #hint, body.attract #drift { display: none; }
+body.attract #race, body.attract #meterWrap, body.attract #speedo, body.attract #hint, body.attract #drift, body.attract #lights, body.attract #pops { display: none; }

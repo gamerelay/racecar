@@ -6,7 +6,7 @@ hazards and weather.
 
 **Status: milestone 2 (the world).** Single-player races on City and Countryside against up to 7 AI
 drivers, with traffic, hazards (log trucks, falling signs), rain, shortcuts, takedowns, near misses
-and drift mini-turbos; the level editor, local telemetry and replayable reports. Online play is
+and drifting; the level editor, local telemetry and replayable reports. Online play is
 milestone 3. The design is in
 [docs/SPEC.md](./docs/SPEC.md).
 

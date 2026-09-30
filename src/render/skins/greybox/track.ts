@@ -38,8 +38,9 @@ const WALL_THICK = 0.5;
 const CURB = 0.14;
 /** Street level for city scenery; roads well above it are bridges, below it trenches. */
 export const CITY_GROUND = -0.25;
-/** A road this far above the ground is a deck on pillars, not an embankment. */
+/** A road this far above the ground, for at least DECK_RUN meters, is a deck on pillars; shorter humps are solid. */
 const BRIDGE_H = 3.5;
+const DECK_RUN = 60;
 /** Deck thickness under a bridge. */
 const DECK = 1.2;
 /** A road this far below the ground is covered: a tunnel. */
@@ -119,9 +120,10 @@ export function buildTrackVisual(track: Track, palette: Palette, seed: number): 
   const groundY = city ? CITY_GROUND : minY - 0.4;
 
   for (const sp of track.splines) {
+    const deck = deckMask(sp, groundY);
     for (let k = 0; k < sp.chunks.length - 1; k++) {
       const g = new Geo();
-      buildChunk(g, track, sp, sp.chunks[k], sp.chunks[k + 1], groundY, city);
+      buildChunk(g, track, sp, sp.chunks[k], sp.chunks[k + 1], groundY, city, deck);
       const mesh = new Mesh(g.build(), road);
       mesh.matrixAutoUpdate = false;
       chunks.push(mesh);
@@ -205,7 +207,34 @@ function railing(g: Geo, A: Cross, B: Cross, la: number, lb: number, s: number, 
   }
 }
 
-function buildChunk(g: Geo, track: Track, sp: BakedSpline, i0: number, i1: number, groundY: number, levels: boolean): void {
+/**
+ * Which samples are bridge deck: high above the ground for a long enough run. A short hump (the
+ * Market's bridge) is an embankment: solid to the ground, no pillars.
+ */
+/** The outside face of a raised road: dressed stone in the city (a hump bridge, a ramp), else shadow. */
+function embankment(stone: boolean, s: number): string {
+  if (!stone) return '#3a2f52';
+  return Math.floor(s / 3) % 2 === 0 ? '#5d4f7c' : '#544672';
+}
+
+export function deckMask(sp: BakedSpline, groundY: number): Uint8Array {
+  const out = new Uint8Array(sp.n);
+  const high = (i: number) => sp.py[i] + sp.ramp[i] - groundY > BRIDGE_H;
+  let i = 0;
+  while (i < sp.n) {
+    if (!high(i)) {
+      i++;
+      continue;
+    }
+    let j = i;
+    while (j < sp.n && high(j)) j++;
+    if ((j - i) * sp.step >= DECK_RUN) out.fill(1, i, j);
+    i = j;
+  }
+  return out;
+}
+
+function buildChunk(g: Geo, track: Track, sp: BakedSpline, i0: number, i1: number, groundY: number, levels: boolean, deck: Uint8Array): void {
   const A: Cross = { cx: 0, cy: 0, cz: 0, rx: 0, rz: 0, tb: 0 };
   const B: Cross = { cx: 0, cy: 0, cz: 0, rx: 0, rz: 0, tb: 0 };
   const at = (c: Cross, l: number, lift: number) => [c.cx + c.rx * l, c.cy - l * c.tb + lift, c.cz + c.rz * l] as const;
@@ -224,7 +253,7 @@ function buildChunk(g: Geo, track: Track, sp: BakedSpline, i0: number, i1: numbe
     // Levels (city): high roads are decks on pillars, low ones trenches, very low ones tunnels.
     const hA = A.cy - groundY;
     const hB = B.cy - groundY;
-    const bridge = levels && Math.min(hA, hB) > BRIDGE_H;
+    const bridge = levels && deck[i] === 1 && deck[j] === 1;
     const sunk = levels && Math.max(hA, hB) < -0.5;
     const covered = levels && Math.max(hA, hB) < -TUNNEL_H;
     g.shade = covered ? 0.5 : 1;
@@ -272,7 +301,7 @@ function buildChunk(g: Geo, track: Track, sp: BakedSpline, i0: number, i1: numbe
         const face = sunk ? (Math.floor(s / 6) % 2 === 0 ? '#9a8fb0' : '#8a7fa2') : Math.floor(s / 12) % 2 === 0 ? '#d8cfe8' : '#bfb3d6';
         g.face(baseA, baseB, topB, topA, face);
         g.face(topA, topB, backB, backA, '#8f84a8');
-        g.face(backA, backB, [backB[0], lowB, backB[2]], [backA[0], lowA, backA[2]], '#3a2f52');
+        g.face(backA, backB, [backB[0], lowB, backB[2]], [backA[0], lowA, backA[2]], embankment(levels && !bridge && hA > 1.2, s));
         if (sunk) {
           // A lip of pavement round the top, so the ground meets the trench with no gap.
           const lipA = at(A, side * (sa + WALL_THICK + LIP), 0);
@@ -284,7 +313,7 @@ function buildChunk(g: Geo, track: Track, sp: BakedSpline, i0: number, i1: numbe
         if (bridge) railing(g, A, B, side * (sa + WALL_THICK / 2), side * (sb + WALL_THICK / 2), s, sp.step);
       } else if (baseA[1] > lowA + 0.2) {
         // No wall: the shoulder's edge drops to the ground (or the deck's underside).
-        g.face(baseA, baseB, [baseB[0], lowB, baseB[2]], [baseA[0], lowA, baseA[2]], '#3a2f52');
+        g.face(baseA, baseB, [baseB[0], lowB, baseB[2]], [baseA[0], lowA, baseA[2]], embankment(levels && !bridge && hA > 1.2, s));
       }
     }
     if (bridge) {
