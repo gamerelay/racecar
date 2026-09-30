@@ -38,7 +38,10 @@ body.boosting #meterFill { filter: brightness(1.35); animation: flick 0.09s infi
 #driftStage { display: flex; gap: 6px; justify-content: center; margin-top: 4px; }
 #driftStage i { width: 34px; height: 8px; border: 2px solid var(--ink); transform: skewX(-20deg); background: rgba(10, 4, 20, 0.7); }
 #driftStage i.s1 { background: #35a8ff; } #driftStage i.s2 { background: #ff8a1a; } #driftStage i.s3 { background: var(--pink); }
-#driftChain { font-family: var(--display); font-size: 14px; color: var(--cyan); text-shadow: 2px 2px 0 var(--outline); }
+#driftChain { font-family: var(--display); font-size: 20px; color: var(--cyan); text-shadow: 2px 2px 0 var(--outline); }
+/* The time left to link the next drift: full while drifting, draining between. */
+#chainBar { width: 120px; height: 6px; margin: 4px auto 0; border: 2px solid var(--outline); background: rgba(10, 4, 20, 0.7); transform: skewX(-20deg); }
+#chainBar i { display: block; height: 100%; background: var(--cyan); transform-origin: left center; }
 
 #speedo { --g: clamp(130px, 18vw, 180px); right: calc(env(safe-area-inset-right, 0px) + 16px); bottom: calc(env(safe-area-inset-bottom, 0px) + 14px); width: var(--g); height: var(--g); display: flex; flex-direction: column; align-items: center; justify-content: center; line-height: 0.9; }
 #speedo svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; filter: drop-shadow(3px 3px 0 var(--outline)); }

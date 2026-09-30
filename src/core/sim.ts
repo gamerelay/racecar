@@ -229,7 +229,7 @@ export class Sim implements SimState {
     c.drift[i] = 0;
     c.spinT[i] = 0;
     // Nothing transient carries over a teleport: drift recovery, mini-turbo, stall, streaks.
-    c.driftExit[i] = c.driftBank[i] = c.driftChain[i] = c.chainT[i] = 0;
+    c.driftExit[i] = c.driftBank[i] = c.driftChain[i] = c.chainT[i] = c.chainPts[i] = 0;
     c.miniT[i] = c.stallT[i] = c.boosting[i] = c.oncomingT[i] = c.wreckT[i] = 0;
     c.aiHold[i] = c.aiBack[i] = 0;
     c.lastTakenBy[i] = 0;

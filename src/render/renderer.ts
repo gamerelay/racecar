@@ -7,13 +7,21 @@ import type { PaintDef } from '../core/content';
 import { Cause, Ev, type GameEvent } from '../core/events';
 import { clamp, damp, wrapAngle } from '../core/math';
 import type { Sim } from '../core/sim';
+import { newHit, project } from '../core/track/query';
 import { Particles } from './fx';
 import { chaseOffset, lookBackOffset, type ChaseOffset } from './camera';
 import { InkPass } from './ink';
 import { PostPass } from './post';
 import type { CarVisual, Skin, TrackVisual, WorldVisual } from './skin';
+import { Skids } from './skids';
 
 const STAGE_COLORS = [0xffffff, 0x35a8ff, 0xff8a1a, 0xff2e88];
+/** Skid marks: how far from the camera cars lay them (m), how wide, and the tint each multiplies the ground by. */
+const SKID_RANGE = 220;
+const SKID_WIDTH = 0.4;
+const SKID_ROAD = [0.3, 0.28, 0.34] as const;
+const SKID_DIRT = [0.55, 0.42, 0.3] as const;
+const SKID_GRASS = [0.5, 0.62, 0.36] as const;
 
 export interface RenderOptions {
   post: boolean;
@@ -29,6 +37,8 @@ export class GameRenderer {
   private readonly post: PostPass;
   private readonly ink = new InkPass(1, 1);
   private readonly fx = new Particles();
+  private readonly skids = new Skids();
+  private readonly skidHit = newHit();
   private readonly visuals: CarVisual[] = [];
   private readonly spin: number[] = [];
   private trackVisual: TrackVisual;
@@ -79,6 +89,7 @@ export class GameRenderer {
     for (const e of this.trackVisual.extras) this.scene.add(e);
     this.scene.add(this.trackVisual.debug);
     this.scene.add(this.fx.points);
+    this.scene.add(this.skids.mesh);
     this.worldVisual = skin.world(this.scene, sim, this.trackVisual);
     this.syncCars();
     this.resize();
@@ -97,6 +108,8 @@ export class GameRenderer {
     for (const e of this.trackVisual.extras) this.scene.add(e);
     this.trackVisual.debug.visible = debug;
     this.scene.add(this.trackVisual.debug);
+    // Marks lie on the old road.
+    this.skids.clear();
     // Gantries and the like are placed from the track, so the world visual is rebuilt too.
     this.worldVisual.dispose();
     this.worldVisual = this.skin.world(this.scene, this.sim, this.trackVisual);
@@ -173,9 +186,13 @@ export class GameRenderer {
       v.update(this.spin[i], steer[i] ?? 0, braking[i] ?? false, cars.boosting[i] === 1 || cars.miniT[i] > 0, cars.grounded[i] === 1 && !cars.wreck[i], sdt);
       // Ghosted after a respawn: blink.
       if (cars.ghostT[i] > 0) v.root.visible = Math.floor(this.time * 12) % 2 === 0;
-      if (!this.paused) this.carParticles(i, x, y, z, h, speed, dt);
+      if (!this.paused) {
+        this.carParticles(i, x, y, z, h, speed, dt);
+        this.skidMarks(i, x, z, h, speed, fwd, braking[i] ?? false);
+      }
     }
     this.fx.update(sdt);
+    this.skids.update(sdt);
     this.updateCamera(dt);
     // The world is drawn at the same moment as the cars: between the last two ticks.
     this.worldVisual.update(sdt, this.camera.position, this.sim.time - (1 - alpha) * this.sim.dt * this.sim.timeScale);
@@ -322,6 +339,40 @@ export class GameRenderer {
         const s = k ? -0.4 : 0.4;
         this.fx.emit(x - fx * (back + 0.5) + rx * s, y + 0.55, z - fz * (back + 0.5) + rz * s, -fx * speed * 0.3 + (Math.random() - 0.5), Math.random(), -fz * speed * 0.3 + (Math.random() - 0.5), 0.15 + Math.random() * 0.1, color, 0, 0);
       }
+    }
+  }
+
+  /**
+   * Rubber under the rear wheels while the car slides (a drift, the slide out of one, a spin) or
+   * brakes hard: dark on asphalt, churned on dirt and grass, none in water or the air. Cars near
+   * the camera only, so the ring holds the marks that can be seen.
+   */
+  private skidMarks(i: number, x: number, z: number, h: number, speed: number, fwd: number, braking: boolean): void {
+    const c = this.sim.cars;
+    const slip = Math.abs(c.slip[i]);
+    const sliding = c.drift[i] === 1 || c.spinT[i] > 0 || (c.driftExit[i] > 0 && slip > 0.12) || slip > 0.3;
+    const stopping = braking && fwd > 18;
+    const surf = this.sim.surfaces[c.surface[i]];
+    const near = Math.hypot(x - this.camera.position.x, z - this.camera.position.z) < SKID_RANGE;
+    const on = near && c.grounded[i] === 1 && !c.wreck[i] && speed > 4 && (sliding || stopping) && surf?.id !== 'puddle';
+    const cls = this.sim.classes[c.cls[i]];
+    const fx = Math.sin(h);
+    const fz = Math.cos(h);
+    const back = cls.size[1] - 0.6;
+    const [r, g, b] = surf?.id === 'grass' ? SKID_GRASS : surf?.offroad ? SKID_DIRT : SKID_ROAD;
+    const alpha = sliding ? clamp(0.35 + slip * 0.8, 0.4, 0.8) : 0.35;
+    for (const side of [-1, 1]) {
+      const key = i * 2 + (side > 0 ? 1 : 0);
+      if (!on) {
+        this.skids.lift(key);
+        continue;
+      }
+      const lat = side * (cls.size[0] - 0.2);
+      const wx = x - fx * back - fz * lat;
+      const wz = z - fz * back + fx * lat;
+      // On the road's surface under the wheel (banked, ramped), not the car's middle.
+      project(this.sim.track.splines[c.spline[i]], wx, wz, c.s[i], this.skidHit);
+      this.skids.mark(key, wx, this.skidHit.ground, wz, SKID_WIDTH, r, g, b, alpha);
     }
   }
 

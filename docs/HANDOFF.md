@@ -22,6 +22,9 @@ traffic that fades instead of popping (PR #7, `alpha-1.3`), audio plus a review 
 - **Repo:** `gamerelay/racecar`, private until milestone 3, cloned at `~/dev/racecar`. The default
   branch is `main`.
 - **Milestone 1 (greybox sandbox): merged** (PR #1).
+- **Drift chains, skid marks and the new car designs: on branch `drift-chains`** (PR, not merged):
+  chains that link S-bends and pay boost and a pop, rubber on the road, and the compact, truck
+  and police designs plus the car polish pass from `car-polish`. SPEC "Drift chains and skid marks".
 - **Valley v3 and smooth shortcut joins: merged** (PR #10) and tagged `alpha-1.5`: the Valley
   re-laid for drifting (more sweepers, wider road, banked corners, grass banks at the edges),
   shortcuts that meet the main road flush on every map, and the HUD's key hints moved to the

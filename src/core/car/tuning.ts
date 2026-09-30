@@ -60,7 +60,16 @@ export const TUNING = {
   boostFromAir: 0.08,
   /** Drift points per second at full angle and 30 m/s. */
   driftPoints: 400,
-  chainWindow: 1.0,
+  /**
+   * Drift chains: start the next drift within this many seconds of the last one's end and it links
+   * (an S-bend is one chain). The clock only runs between drifts.
+   */
+  chainWindow: 1.6,
+  /** Each link multiplies a drift's points by 1 + this per link so far. */
+  chainPoints: 0.25,
+  /** …and its banked boost, up to chainBoostMax times. */
+  chainBoost: 0.2,
+  chainBoostMax: 2,
 
   boostFromNearMiss: 0.05,
   boostFromOncoming: 0.04,

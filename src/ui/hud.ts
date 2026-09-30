@@ -41,7 +41,6 @@ export class Hud {
   private gaugeMax = 300;
   private gaugeCls = -1;
   private readonly order: number[] = [];
-  private driftStart = 0;
   focus = 0;
   laps = 3;
   debugText = '';
@@ -59,7 +58,7 @@ export class Hud {
         <div class="stat"><small>Score</small><b id="score">0</b></div>
       </div>
       <div class="hud" id="pops" aria-live="polite"></div>
-      <div class="hud" id="drift"><div id="driftPts">0</div><div id="driftStage"><i></i><i></i><i></i></div><div id="driftChain"></div></div>
+      <div class="hud" id="drift"><div id="driftPts">0</div><div id="driftStage"><i></i><i></i><i></i></div><div id="driftChain"></div><div id="chainBar"><i id="chainFill"></i></div></div>
       <div class="hud" id="meterWrap"><label>Boost</label><div id="meter"><div id="meterBank"></div><div id="meterFill"></div></div></div>
       <div class="hud" id="speedo"><svg viewBox="0 0 160 160" aria-hidden="true"><g id="gTicks"></g><circle class="track" cx="80" cy="80" r="${R}" pathLength="100"/><circle id="gBoost" cx="80" cy="80" r="${R}" pathLength="100"/><circle id="gFill" cx="80" cy="80" r="${R}" pathLength="100"/></svg><span id="spd">0</span><small>mph</small></div>
       <div class="hud stat" id="lapBadge"><small>Lap</small><b id="lap">1/3</b></div>
@@ -152,15 +151,18 @@ export class Hud {
     document.body.classList.toggle('boosting', c.boosting[i] === 1 || c.miniT[i] > 0);
     document.body.classList.toggle('full', c.boost[i] > 0.98);
     const drifting = c.drift[i] === 1;
-    $('drift').classList.toggle('on', drifting || c.driftChain[i] > 0);
+    // The chain's points so far (a lone drift's own), the drifts in it, and the time left to link the next.
+    const drifts = c.driftChain[i] + (drifting ? 1 : 0);
+    $('drift').classList.toggle('on', drifting || c.chainT[i] > 0);
+    if (drifting || c.chainT[i] > 0) text('driftPts', Math.floor(c.chainPts[i]).toLocaleString());
     if (drifting) {
-      text('driftPts', Math.floor(c.score[i] - this.driftStart).toLocaleString());
       const stage = c.driftStage[i];
       ($('driftStage') as HTMLElement).style.display = TUNING.miniTurbo ? '' : 'none';
       const bars = $('driftStage').children;
       for (let k = 0; k < 3; k++) bars[k].className = stage > k ? `s${stage}` : '';
     }
-    text('driftChain', c.driftChain[i] > 0 ? `chain ×${c.driftChain[i] + 1}` : '');
+    text('driftChain', drifts >= 2 ? `chain ×${drifts}` : '');
+    transform('chainFill', `scaleX(${drifting ? 1 : Math.max(0, c.chainT[i] / TUNING.chainWindow).toFixed(3)})`);
     if ($('debug').classList.contains('on')) text('debug', this.debugText);
   }
 
@@ -168,8 +170,9 @@ export class Hud {
 
   private readonly onEvent = (e: GameEvent): void => {
     const i = this.focus;
-    if (e.type === Ev.DriftStart && e.car === i) this.driftStart = this.sim.cars.score[i];
     if (e.type === Ev.Respawn && e.car === i && e.a >= 0.01) this.pop(`Catch-up boost +${Math.round(e.a * 100)}%`, 'hot');
+    if (e.type === Ev.DriftChain && e.car === i) this.pop(`Drift chain ×${e.b} · ${Math.floor(e.a).toLocaleString()}`, e.b >= 4 ? 's3' : 's2');
+    if (e.type === Ev.ChainLost && e.car === i) this.pop(`Chain lost ×${e.b}`, 'bad');
     if (e.type === Ev.DriftBoost && e.car === i) this.pop(`Drift boost +${Math.round(e.a * 100)}%`, e.a > 0.25 ? 's2' : 's1');
     if (e.type === Ev.MiniTurbo && e.car === i) this.pop(['', 'Mini-turbo', 'Super turbo', 'Ultra turbo'][e.b] + '!', `s${e.b}`);
     if (e.type === Ev.Wreck && e.car === i && e.other < 0) this.pop(e.b === 4 ? 'Reset' : 'Wrecked', 'bad');

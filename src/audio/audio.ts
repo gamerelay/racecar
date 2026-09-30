@@ -333,6 +333,13 @@ export class GameAudio {
       case Ev.DriftBoost:
         if (e.car === focus) this.chime([7, 12, 19].slice(0, e.type === Ev.MiniTurbo ? 1 + e.b : e.a > 0.25 ? 3 : 2), 0.18);
         break;
+      case Ev.DriftChain:
+        // A rising run, a note per drift in the chain (up to five).
+        if (e.car === focus) this.chime([0, 4, 7, 12, 16, 19].slice(0, Math.min(6, e.b + 1)), 0.2);
+        break;
+      case Ev.ChainLost:
+        if (e.car === focus) this.play(0.25, 0, (s) => toneShot(s, 'triangle', 330, 150, 0.005, 0.35));
+        break;
       case Ev.NearMiss:
         if (e.car === focus) {
           this.play(0.3, 0, (s) => noiseShot(s, 'bandpass', 2400, 500, 0.02, 0.3, 2));

@@ -26,9 +26,10 @@ export function stepCar(sim: SimState, i: number, c: Controls, dt: number): void
   if (cars.resetCooldown[i] > 0) cars.resetCooldown[i] -= dt;
   if (cars.driftCooldown[i] > 0) cars.driftCooldown[i] -= dt;
   if (cars.wallT[i] > 0) cars.wallT[i] -= dt;
-  if (cars.chainT[i] > 0) {
+  // The chain's window runs between drifts: out, and the chain pays its pop (two or more).
+  if (cars.chainT[i] > 0 && cars.drift[i] !== 1) {
     cars.chainT[i] -= dt;
-    if (cars.chainT[i] <= 0) cars.driftChain[i] = 0;
+    if (cars.chainT[i] <= 0) endChain(sim, i);
   }
 
   if (cars.wreck[i]) {
@@ -105,6 +106,8 @@ export function stepCar(sim: SimState, i: number, c: Controls, dt: number): void
       cars.driftTight[i] = clamp((c.steer * cars.driftDir[i] + 1) / 2, 0, 1);
       cars.driftExit[i] = 0;
       cars.driftBank[i] = 0;
+      // Outside a chain's window, this drift starts a new one.
+      if (cars.driftChain[i] === 0) cars.chainPts[i] = 0;
       cars.vy[i] = T.driftHop;
       cars.grounded[i] = 0;
       sim.events.push(tick, Ev.DriftStart, i, cars.x[i], cars.y[i], cars.z[i], speed, cars.driftDir[i]);
@@ -144,8 +147,10 @@ export function stepCar(sim: SimState, i: number, c: Controls, dt: number): void
         cars.driftStage[i] = stage;
         sim.events.push(tick, Ev.DriftStage, i, cars.x[i], cars.y[i], cars.z[i], cars.driftT[i], stage);
       }
-      cars.driftBank[i] += T.boostFromDrift * angleFrac * pace * surf.driftCharge * cls.drift * dt;
-      cars.score[i] += T.driftPoints * angleFrac * pace * dt * (1 + cars.driftChain[i] * 0.25);
+      cars.driftBank[i] += T.boostFromDrift * angleFrac * pace * surf.driftCharge * cls.drift * dt * chainBoost(cars.driftChain[i]);
+      const pts = T.driftPoints * angleFrac * pace * dt * (1 + cars.driftChain[i] * T.chainPoints);
+      cars.score[i] += pts;
+      cars.chainPts[i] += pts;
       if (Math.abs(slip) > T.spinAngle) spinOut(sim, i);
       else if (!c.drift || speed < 10) endDrift(sim, i, c.drift ? 0 : cars.driftStage[i]);
     } else {
@@ -284,9 +289,25 @@ export function endDrift(sim: SimState, i: number, stage: number): void {
  */
 export function cancelDrift(sim: SimState, i: number): void {
   const cars = sim.cars;
+  // Mid-chain (a second drift on, or in the window after one), the chain is lost with it.
+  const drifts = cars.driftChain[i] + (cars.drift[i] === 1 ? 1 : 0);
+  if (drifts >= 2 && (cars.drift[i] === 1 || cars.chainT[i] > 0)) sim.events.push(sim.tick, Ev.ChainLost, i, cars.x[i], cars.y[i], cars.z[i], cars.chainPts[i], drifts);
   cars.driftBank[i] = 0;
   endDrift(sim, i, 0);
   cars.driftChain[i] = 0;
+  cars.chainT[i] = 0;
+  cars.chainPts[i] = 0;
+}
+
+/** A drift's banked boost multiplier with `links` drifts before it in the chain. */
+export const chainBoost = (links: number): number => Math.min(T.chainBoostMax, 1 + links * T.chainBoost);
+
+/** A chain's time between drifts ran out: two drifts or more pay their pop; either way it's over. */
+function endChain(sim: SimState, i: number): void {
+  const cars = sim.cars;
+  if (cars.driftChain[i] >= 2) sim.events.push(sim.tick, Ev.DriftChain, i, cars.x[i], cars.y[i], cars.z[i], cars.chainPts[i], cars.driftChain[i]);
+  cars.driftChain[i] = 0;
+  cars.chainT[i] = 0;
 }
 
 /** Who hit car i within the last `ticks` ticks, or -1: the credit for a takedown. */

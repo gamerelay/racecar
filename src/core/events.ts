@@ -39,6 +39,10 @@ export const Ev = {
   TrafficWreck: 24,
   /** A clean drift paid its banked boost into the meter. a = amount (0..1 of a bar). */
   DriftBoost: 25,
+  /** A drift chain (two drifts or more, each started within chainWindow of the last) ran out cleanly. a = its points, b = drifts in it. */
+  DriftChain: 26,
+  /** A chain was broken (a spin-out, a wreck, a wall) before it paid. b = drifts it had. */
+  ChainLost: 27,
 } as const;
 export type Ev = (typeof Ev)[keyof typeof Ev];
 
@@ -68,6 +72,8 @@ export const EV_NAMES: Record<number, string> = {
   23: 'start_boost',
   24: 'traffic_wreck',
   25: 'drift_boost',
+  26: 'drift_chain',
+  27: 'chain_lost',
 };
 
 /** Wreck causes, in `GameEvent.b` of a Wreck. */

@@ -2,6 +2,7 @@ import { describe, expect, test } from 'bun:test';
 import { ShaderLib } from 'three';
 import { chaseOffset, lookBackOffset } from '../src/render/camera';
 import { chunks } from '../src/render/shader';
+import { Skids } from '../src/render/skids';
 import { carPaint } from '../src/render/skins/greybox/car/paint';
 import { windowMaterial } from '../src/render/skins/greybox/city';
 import { CLASSES } from './helpers';
@@ -58,5 +59,46 @@ describe('shader patches', () => {
   test('a patch whose chunk is missing throws, naming it', () => {
     expect(() => chunks('void main(){}', 'test').replace('#include <nope>', '')).toThrow('test');
     expect(chunks('a #include <x> b').after('#include <x>', 'y;').text).toBe('a #include <x>\ny; b');
+  });
+});
+
+describe('skid marks', () => {
+  const alphaAt = (sk: Skids, seg: number, vert: number) => (sk as unknown as { info: Float32Array }).info[seg * 12 + vert * 3 + 1];
+  const drive = (sk: Skids, key: number, x0: number, x1: number) => {
+    for (let x = x0; x <= x1; x += 0.25) sk.mark(key, x, 0, 0, 0.4, 0.3, 0.3, 0.3, 0.8);
+  };
+
+  test('a wheel lays a joined strip that fades in from nothing, and lifting it ends the strip', () => {
+    const sk = new Skids();
+    drive(sk, 0, 0, 10);
+    // ~0.5 m a segment over 10 m.
+    expect(sk.laid).toBeGreaterThanOrEqual(18);
+    expect(sk.laid).toBeLessThanOrEqual(21);
+    // The first segment starts at alpha 0; the next picks up where it ended.
+    expect(alphaAt(sk, 0, 0)).toBe(0);
+    expect(alphaAt(sk, 0, 2)).toBeCloseTo(0.8, 5);
+    expect(alphaAt(sk, 1, 0)).toBeCloseTo(0.8, 5);
+    const before = sk.laid;
+    sk.lift(0);
+    // After a lift the next mark only starts a strip; one more step lays a fresh fade-in.
+    drive(sk, 0, 20, 20.6);
+    expect(sk.laid).toBe(before + 1);
+    expect(alphaAt(sk, before, 0)).toBe(0);
+  });
+
+  test('a teleport (a respawn) starts over instead of drawing a mark across the map', () => {
+    const sk = new Skids();
+    drive(sk, 3, 0, 5);
+    const before = sk.laid;
+    sk.mark(3, 200, 0, 0, 0.4, 0.3, 0.3, 0.3, 0.8);
+    expect(sk.laid).toBe(before);
+  });
+
+  test('the ring wraps: old marks are overwritten, never more than it holds', () => {
+    const sk = new Skids();
+    drive(sk, 1, 0, 4000);
+    expect(sk.laid).toBe(6000);
+    sk.clear();
+    expect(sk.laid).toBe(0);
   });
 });

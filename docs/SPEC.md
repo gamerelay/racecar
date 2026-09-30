@@ -1115,3 +1115,25 @@ Compact, truck and police designs (from branch `car-fleet`, 2026-09-30):
   light bar whose red and blue lenses double-blink in `update(dt)`; the bar and push bar come off
   in a wreck. Garage-only (key `-`) for now: no sim class, no traffic kind (a pursuit mode could
   use it).
+
+Drift chains and skid marks (2026-09-30), the next of the "lean into the loop" ideas:
+
+- **Drift chains pay now.** Start the next drift within 1.6 s of the last one's end (was 1 s)
+  and it links; an S-bend is one chain. Each link multiplies a drift's points by 1 + 0.25 a link
+  (as before) and now its banked boost by 1 + 0.2 a link, up to double (`chainBoost`,
+  `chainBoostMax`). When a chain of two drifts or more runs out cleanly it pops "Drift chain ×N"
+  with its points (`Ev.DriftChain`) and a rising chime, a note a drift; a spin-out, wreck or wall
+  in the middle of one loses it ("Chain lost", `Ev.ChainLost`). The HUD's drift readout shows the
+  chain's running points, ×N, and a bar draining the time left to link the next.
+- **Fixed:** the chain's clock ran during the next drift too, so any drift longer than the window
+  dropped the chain it was part of: in practice chains of long drifts never held. It runs only
+  between drifts now (`test/drift.test.ts` fails on the old clock).
+- **Skid marks** (`render/skids.ts`): the rear wheels lay rubber in a drift, the slide out of one,
+  a spin, or a hard stop, for cars within 220 m of the camera. One ring of 6000 quads, one draw;
+  each wheel joins its own strip, a strip fades in from nothing, a teleport starts a new one, and
+  marks fade out over their last 10 of 30 s. They multiply the ground they're on (dark on asphalt,
+  churned brown on dirt, green-dark on grass, none in water), so they read in shadow, lit or wet,
+  and they leave the post pass's mirror mask alone. Presentation only; the sim never sees them.
+- **Compact, truck and police designs** came in from branch `car-polish` (with its polish pass:
+  clean ink, one detail language, reflective glass). Traffic draws the compact and the truck as
+  their own designs now; the police car is garage-only.
