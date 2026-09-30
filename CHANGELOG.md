@@ -11,6 +11,9 @@ and where things stand is [docs/HANDOFF.md](./docs/HANDOFF.md).
   legs, and the falling sign is gone from the Valley. The AI field wrecks about half as often.
 
 ### Added
+- **Paradise's landmarks:** a shipwreck in the shallows and a whale breaching beyond it, a surf
+  shack, a tiki head at the Lava Tube's mouth, and seaplanes on the lagoon. The lighthouse's beam
+  now cuts through a shower's gloom.
 - **Backroads' landmarks:** a giant fibreglass cow and a water tower in the village, a
   scarecrow in the corn, a windpump that spins faster in the rain, a drive-in on the flats, and a
   hot-air balloon over the Ridge.

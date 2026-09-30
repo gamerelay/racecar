@@ -53,6 +53,10 @@ The third map is **Paradise** (`content/maps/paradise`, key `paradise/island`).
   Also in #24, the HUD tweaks: "Powerglide" (was "Drift boost"), a **Superman** for boosting
   through the air (`superT`, 1.5× air pay, `supermanMin`/`supermanPay`), and a bold outline
   on the countdown's numbers. SPEC "HUD tweaks".
+- **Landmarks, part 3 (Paradise): in review** (branch `landmarks-paradise`, stacked on
+  `landmarks-backroads`). A shipwreck, a breaching whale, a surf shack, a tiki head and seaplanes,
+  plus the lighthouse beam in the rain. Builders get `ctx.sea`. SPEC "Landmarks, part 3". Left in
+  phase 6: the smashables.
 - **Landmarks, part 2 (Backroads): in review** (branch `landmarks-backroads`, stacked on
   `valley-wrecks`). A cow, a water tower (`label`), a scarecrow, a windpump, a drive-in and a
   balloon. The forest keeps their ground (`marks`), and builders get `ctx.ground`. SPEC

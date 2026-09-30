@@ -1569,3 +1569,19 @@ Landmarks, part 2: Backroads (PLAN phase 6):
   drive-in's cars and the corn stand on the slope.
 - **No imports from the car models:** the drive-in's cars are boxes of their own. Importing the
   traffic models pulled the car builder into every scenery test.
+
+Landmarks, part 3: Paradise (PLAN phase 6):
+
+- **The lighthouse** was already the island's scenery. Its beam is now two cones back to back,
+  and in a shower's gloom it's brighter (opacity 0.1 → 0.32) and a quarter longer.
+  `buildIsland`'s update gets the wetness.
+- **Off Coconut Coast:** a **shipwreck** heeled over in the shallows, its sail stirring. Out beyond
+  it, a **whale** breaches every 80 s: up nose first, over, and back in on its back, in a splash
+  (a one-shot `splash` point mode on its own clock). It blows at the surface halfway between.
+- **On the coast road's beach:** a **surf shack** on stilts, with its boards stuck in the sand.
+- **At the Lava Tube's mouth:** a **tiki head**, placed from the fork (20 m right of the road, 4 m
+  before it) and facing the cars coming at it. Its eyes glow and its torches flicker.
+- **On the lagoon under the Freeway:** two **seaplanes** moored at a jetty, bobbing, and a third
+  flying circuits over the bay.
+- Builders get the sea's level (`ctx.sea`), so things that float float. The island keeps landmark
+  ground clear of palms, huts and houses (`marks`, like the forest).

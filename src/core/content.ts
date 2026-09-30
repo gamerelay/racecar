@@ -119,6 +119,8 @@ export const LANDMARK_KINDS = [
   'clock-tower', 'donut-shop', 'fountain', 'leader-board', 'canal',
   // Backroads
   'windmill', 'cow', 'water-tower', 'drive-in', 'scarecrow', 'balloon',
+  // Paradise (its lighthouse is the island's own scenery)
+  'shipwreck', 'tiki-head', 'surf-shack', 'whale', 'seaplanes',
 ] as const;
 
 export interface TrackLayout {
