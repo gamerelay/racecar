@@ -15,7 +15,7 @@ export function reanchor(prev: Track, next: TrackLayout, surfaces: SurfaceDef[])
   const hit = newHit();
   const mapS = (s: number, from: BakedSpline = prev.main, to: BakedSpline = fresh.main): number => {
     const i = sampleIndex(from, s);
-    projectGlobal(to, from.px[i], from.pz[i], hit);
+    projectGlobal(to, from.px[i], from.pz[i], hit, from.py[i]);
     return Math.round(hit.s * 10) / 10;
   };
   const oldSpline = (id?: string) => (id ? prev.splines.find((s) => s.id === id) : prev.main);

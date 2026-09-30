@@ -140,7 +140,7 @@ describe('race', () => {
     }
     expect(finishes).toHaveLength(3);
     expect(finishes.map((i) => sim.cars.place[i])).toEqual([1, 2, 3]);
-    expect(sim.cars.finishTime[finishes[0]]).toBeGreaterThan(60);
+    expect(sim.cars.finishTime[finishes[0]]).toBeGreaterThan(50);
   });
 });
 

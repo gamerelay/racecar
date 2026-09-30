@@ -101,13 +101,17 @@ export function project(sp: BakedSpline, x: number, z: number, hint: number, out
   return Math.abs(out.lateral);
 }
 
-/** Projects with a coarse search over the whole spline first. For spawns and teleports, not every tick. */
-export function projectGlobal(sp: BakedSpline, x: number, z: number, out: TrackHit): number {
+/**
+ * Projects with a coarse search over the whole spline first. For spawns and teleports, not every
+ * tick. Give `y` where a lap crosses over itself, so the search picks the level you're on.
+ */
+export function projectGlobal(sp: BakedSpline, x: number, z: number, out: TrackHit, y?: number): number {
   let best = 0;
   let bestD = Infinity;
   const stride = Math.max(1, Math.round(8 / sp.step));
   for (let i = 0; i < sp.n; i += stride) {
-    const d = (sp.px[i] - x) ** 2 + (sp.pz[i] - z) ** 2;
+    let d = (sp.px[i] - x) ** 2 + (sp.pz[i] - z) ** 2;
+    if (y !== undefined) d += 16 * (sp.py[i] - y) ** 2;
     if (d < bestD) {
       bestD = d;
       best = i;

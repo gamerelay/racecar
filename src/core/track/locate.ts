@@ -17,7 +17,7 @@ export function locateCar(sim: SimState, i: number): TrackHit {
   const sp = track.splines[cars.spline[i]];
   project(sp, cars.x[i], cars.z[i], cars.s[i], cur);
   // A stale hint (a teleport, a wreck flung across a corner) projects badly: search again.
-  if (Math.abs(cur.lateral) > cur.width / 2 + cur.shoulder + 60) projectGlobal(sp, cars.x[i], cars.z[i], cur);
+  if (Math.abs(cur.lateral) > cur.width / 2 + cur.shoulder + 60) projectGlobal(sp, cars.x[i], cars.z[i], cur, cars.y[i]);
 
   let free = 0;
   const L = track.main.length;

@@ -39,6 +39,39 @@ export function validateLayout(layout: TrackLayout, surfaces: SurfaceDef[], clas
 
   const track = bakeTrack(layout, surfaces);
   const L = track.main.length;
+
+  // Roads that cross (an overpass, a lap that loops over itself) need headroom; roads that meet at
+  // one level must be a junction (a branch's ends), not two roads running through each other.
+  {
+    const CLEAR = 7;
+    const pts: { sp: number; s: number; x: number; y: number; z: number; r: number }[] = [];
+    for (const sp of track.splines) for (let i = 0; i < sp.n; i += 4) pts.push({ sp: sp.index, s: i * sp.step, x: sp.px[i], y: sp.py[i], z: sp.pz[i], r: sp.width[i] / 2 + sp.shoulder[i] });
+    const near = (a: number, b: number, len: number) => Math.abs(wrap(a - b + len / 2, len) - len / 2);
+    const reported = new Set<string>();
+    for (let a = 0; a < pts.length; a++) {
+      for (let b = a + 1; b < pts.length; b++) {
+        const A = pts[a];
+        const B = pts[b];
+        if (Math.abs(A.x - B.x) > A.r + B.r || Math.abs(A.z - B.z) > A.r + B.r) continue;
+        if (Math.hypot(A.x - B.x, A.z - B.z) > A.r + B.r || Math.abs(A.y - B.y) >= CLEAR) continue;
+        if (A.sp === B.sp) {
+          const sp = track.splines[A.sp];
+          if ((sp.closed ? near(A.s, B.s, sp.length) : Math.abs(A.s - B.s)) < 3 * (A.r + B.r) + 20) continue;
+        } else {
+          // A branch meets the main road at its ends.
+          const br = track.splines[Math.max(A.sp, B.sp)];
+          const other = A.sp === 0 ? A : B.sp === 0 ? B : null;
+          const self = A.sp === br.index ? A : B;
+          if (self.s < 90 || self.s > br.length - 90) continue;
+          if (other && (near(other.s, br.mainFrom, L) < 120 || near(other.s, br.mainTo, L) < 120)) continue;
+        }
+        const key = `${A.sp}:${Math.round(A.s / 50)}`;
+        if (reported.has(key)) continue;
+        reported.add(key);
+        err(`roads overlap with ${Math.abs(A.y - B.y).toFixed(1)} m between them (${track.splines[A.sp].id} ${A.s.toFixed(0)} m and ${track.splines[B.sp].id} ${B.s.toFixed(0)} m); cross with ${CLEAR} m of headroom or not at all`, track.splines[A.sp].id, A.s);
+      }
+    }
+  }
   const widest = Math.max(...classes.map((c) => c.size[0] * 2));
   const minWidth = widest * 2 + 1;
   for (const sp of track.splines) {

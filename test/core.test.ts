@@ -27,9 +27,9 @@ describe('rng', () => {
 
 describe('track', () => {
   const track = bakeTrack(DOWNTOWN, SURFACES);
-  test('bakes a closed main spline of about 4.3 km sampled every meter', () => {
-    expect(track.main.length).toBeGreaterThan(3500);
-    expect(track.main.length).toBeLessThan(5000);
+  test('bakes a closed main spline of about 3.3 km sampled every meter', () => {
+    expect(track.main.length).toBeGreaterThan(2800);
+    expect(track.main.length).toBeLessThan(4000);
     expect(track.main.step).toBeCloseTo(1, 1);
     expect(track.checkpoints.length).toBeGreaterThanOrEqual(5);
   });
@@ -273,7 +273,9 @@ describe('editing', () => {
     const { reanchor } = await import('../src/core/track/anchor');
     const before = bakeTrack(DOWNTOWN, SURFACES);
     const edited = structuredClone(DOWNTOWN);
-    edited.main.points[2].p[0] -= 90; // bulge the boulevard west, making the lap longer
+    // Bulge the Climb (nothing placed on it) east, making the lap longer.
+    const k = edited.main.points.findIndex((q) => Math.abs(q.p[0] - 240) < 1 && q.p[2] > 470 && q.p[2] < 590);
+    edited.main.points[k].p[0] += 60;
     const moved = reanchor(before, edited, SURFACES);
     const after = bakeTrack(moved, SURFACES);
     expect(after.main.length).toBeGreaterThan(before.main.length + 20);
@@ -281,7 +283,7 @@ describe('editing', () => {
     for (const [a, b] of [
       [DOWNTOWN.branches![0].from, moved.branches![0].from],
       [DOWNTOWN.branches![0].to, moved.branches![0].to],
-      [DOWNTOWN.ramps![0].s, moved.ramps![0].s],
+      [DOWNTOWN.props![0].s, moved.props![0].s],
     ]) {
       const p = at(before, a);
       const q = at(after, b);

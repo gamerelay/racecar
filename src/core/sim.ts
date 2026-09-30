@@ -164,7 +164,7 @@ export class Sim implements SimState {
     const c = this.cars;
     for (let i = 0; i < c.count; i++) {
       c.spline[i] = 0;
-      projectGlobal(track.main, c.x[i], c.z[i], this.hitA);
+      projectGlobal(track.main, c.x[i], c.z[i], this.hitA, c.y[i]);
       c.s[i] = this.hitA.s;
       c.lastSpline[i] = 0;
       c.lastS[i] = this.hitA.s;

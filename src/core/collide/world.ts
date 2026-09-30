@@ -132,6 +132,8 @@ export function collideWorld(sim: SimState, i: number, ctx: WorldCtx): void {
     const pr = props[p];
     if (!pr.solid) continue;
     if (Math.abs(c.x[i] - pr.x) > pr.hx + pr.hz + 4 || Math.abs(c.z[i] - pr.z) > pr.hx + pr.hz + 4) continue;
+    // Only at its own level (a pillar under a bridge doesn't touch the bridge).
+    if (c.y[i] < pr.y - 1 || c.y[i] > pr.y + pr.hy * 2) continue;
     if (!obbOverlap(c.x[i], c.z[i], c.h[i], cls.size[0], cls.size[1], pr.x, pr.z, pr.heading, pr.hx, pr.hz, contact)) continue;
     const closing = bounce(sim, i, 0, 0, 0.2);
     if (closing <= 0.5 || c.wreck[i]) continue;
