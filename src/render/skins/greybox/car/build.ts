@@ -1,0 +1,474 @@
+// Builds a car from its design (designs.ts). The body is the side profile extruded across the car
+// with chamfered edges, wheel arches cut into the sill and the nose and tail pinched in plan view;
+// the greenhouse is a second extrusion that narrows toward the roof. Details (lamps, pipes, wing,
+// diffuser, mirrors) are small boxes and cylinders placed on those surfaces. Everything static is
+// merged per material, so a car is about a dozen draw calls however much detail it carries.
+
+import {
+  AdditiveBlending,
+  BoxGeometry,
+  BufferAttribute,
+  BufferGeometry,
+  CylinderGeometry,
+  DoubleSide,
+  Euler,
+  ExtrudeGeometry,
+  Group,
+  type Material,
+  Matrix4,
+  Mesh,
+  MeshBasicMaterial,
+  PlaneGeometry,
+  Quaternion,
+  Shape,
+  Sprite,
+  SpriteMaterial,
+  Vector3,
+  CanvasTexture,
+} from 'three';
+import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
+import type { CarClass, PaintDef } from '../../../../core/content';
+import type { CarVisual } from '../../../skin';
+import { glow, toon } from '../toon';
+import { type CarDesign, DESIGNS } from './designs';
+import { carPaint } from './paint';
+
+/** Chamfer on the body's long edges: depth into the side, and outward offset of the walls. */
+const BT = 0.09;
+const BS = 0.04;
+
+const trim = toon({ color: 0x16121f });
+const metal = toon({ color: 0xb9b6cf });
+const lens = new MeshBasicMaterial({ color: 0x3a0a18 });
+const headMat = new MeshBasicMaterial({ color: 0xfff4cc });
+const plateMat = new MeshBasicMaterial({ color: 0xd6d0e4 });
+const glassMat = carPaint({ id: 'glass', name: 'glass', color: '#27366a', finish: 'gloss' }, 'none');
+const headGlow = new SpriteMaterial({ map: glow(), color: 0xfff0c0, transparent: true, blending: AdditiveBlending, depthWrite: false });
+const flameMat = new MeshBasicMaterial({ map: glow(), color: 0xff7a1a, transparent: true, blending: AdditiveBlending, depthWrite: false });
+let beamShared: MeshBasicMaterial | undefined;
+
+function beamMat(): MeshBasicMaterial {
+  if (beamShared) return beamShared;
+  const c = document.createElement('canvas');
+  c.width = 64;
+  c.height = 256;
+  const g = c.getContext('2d')!;
+  // Bright at the car (the canvas bottom), fading and widening ahead.
+  const l = g.createLinearGradient(0, 256, 0, 0);
+  l.addColorStop(0, 'rgba(255,240,200,.9)');
+  l.addColorStop(1, 'rgba(255,240,200,0)');
+  g.fillStyle = l;
+  g.beginPath();
+  g.moveTo(64 * 0.32, 256);
+  g.lineTo(64 * 0.68, 256);
+  g.lineTo(64, 0);
+  g.lineTo(0, 0);
+  g.closePath();
+  g.fill();
+  return (beamShared = new MeshBasicMaterial({ map: new CanvasTexture(c), color: 0xfff0c8, transparent: true, opacity: 0.3, blending: AdditiveBlending, depthWrite: false, side: DoubleSide }));
+}
+
+/** Non-indexed, position and normal only, flat normals: what every merged bucket holds. */
+function prep(geo: BufferGeometry): BufferGeometry {
+  const g = geo.index ? geo.toNonIndexed() : geo;
+  if (g !== geo) geo.dispose();
+  for (const name of Object.keys(g.attributes)) if (name !== 'position') g.deleteAttribute(name);
+  g.computeVertexNormals();
+  return g;
+}
+
+type Key = 'paint' | 'trim' | 'metal' | 'glass' | 'lens' | 'head' | 'tail' | 'plate';
+
+class Parts {
+  readonly buckets = new Map<Key, BufferGeometry[]>();
+  private readonly m = new Matrix4();
+  private readonly q = new Quaternion();
+  private readonly e = new Euler();
+
+  add(key: Key, geo: BufferGeometry): void {
+    const list = this.buckets.get(key) ?? [];
+    list.push(prep(geo));
+    this.buckets.set(key, list);
+  }
+
+  /** A box of size w × h × d centered at (x, y, z), tipped by rx then rz. */
+  box(key: Key, w: number, h: number, d: number, x: number, y: number, z: number, rx = 0, rz = 0): void {
+    this.put(key, new BoxGeometry(w, h, d), x, y, z, rx, rz);
+  }
+
+  /** A disc or pipe along z: radius r, length d. */
+  pipe(key: Key, r: number, d: number, x: number, y: number, z: number, segments = 10): void {
+    const g = new CylinderGeometry(r, r, d, segments);
+    g.rotateX(Math.PI / 2);
+    this.put(key, g, x, y, z);
+  }
+
+  put(key: Key, geo: BufferGeometry, x: number, y: number, z: number, rx = 0, rz = 0): void {
+    this.q.setFromEuler(this.e.set(rx, 0, rz));
+    geo.applyMatrix4(this.m.compose(new Vector3(x, y, z), this.q, new Vector3(1, 1, 1)));
+    this.add(key, geo);
+  }
+}
+
+/** Side profile → solid across the car: shape (u, v) = (z, y), extruded along x and centered. */
+function extrudeProfile(points: [number, number][], width: number): BufferGeometry {
+  const shape = new Shape();
+  shape.moveTo(points[0][0], points[0][1]);
+  for (let i = 1; i < points.length; i++) shape.lineTo(points[i][0], points[i][1]);
+  shape.closePath();
+  const depth = width - 2 * BT;
+  const g = new ExtrudeGeometry(shape, { depth, bevelEnabled: true, bevelThickness: BT, bevelSize: BS, bevelSegments: 1, curveSegments: 1, steps: 1 });
+  // (a, b, c) → (d/2 − c, b, a): swap into the car frame keeping the winding (a rotation, det +1).
+  const p = g.attributes.position;
+  for (let i = 0; i < p.count; i++) {
+    const a = p.getX(i);
+    const b = p.getY(i);
+    const c = p.getZ(i);
+    p.setXYZ(i, depth / 2 - c, b, a);
+  }
+  return g;
+}
+
+/** Body outline: the design's top line, then the sill back to the front with arches over each wheel. */
+function bodyOutline(d: CarDesign): [number, number][] {
+  const out = d.body.slice();
+  const { r } = d.wheel;
+  const R = r + 0.08;
+  const arch = (wz: number) => {
+    const e = Math.asin(Math.max(-1, Math.min(1, (d.sill - r) / R)));
+    const n = 8;
+    for (let i = 0; i <= n; i++) {
+      const phi = Math.PI - e + ((e - (Math.PI - e)) * i) / n;
+      out.push([wz + R * Math.cos(phi), r + R * Math.sin(phi)]);
+    }
+  };
+  arch(d.wheel.rear);
+  arch(d.wheel.front);
+  return out;
+}
+
+/** Where the body's top line is at z (the highest segment spanning it). */
+function topY(d: CarDesign, z: number): number {
+  let best = 0;
+  for (let i = 0; i + 1 < d.body.length; i++) {
+    const [z0, y0] = d.body[i];
+    const [z1, y1] = d.body[i + 1];
+    if (z < Math.min(z0, z1) || z > Math.max(z0, z1) || z0 === z1) continue;
+    best = Math.max(best, y0 + ((y1 - y0) * (z - z0)) / (z1 - z0));
+  }
+  return best;
+}
+
+/** The nose (end = 1) or tail (end = −1) surface at height y: its z and its tilt about x. */
+function endAt(d: CarDesign, y: number, end: 1 | -1): { z: number; tilt: number } {
+  const pts = end === 1 ? d.body : d.body.slice().reverse();
+  for (let i = 0; i + 1 < pts.length; i++) {
+    const [z0, y0] = pts[i];
+    const [z1, y1] = pts[i + 1];
+    if (y >= Math.min(y0, y1) && y <= Math.max(y0, y1) && y0 !== y1) {
+      const z = z0 + ((z1 - z0) * (y - y0)) / (y1 - y0);
+      return { z: z + end * BS, tilt: Math.atan2(z1 - z0, y1 - y0) };
+    }
+  }
+  return { z: pts[0][0] + end * BS, tilt: 0 };
+}
+
+export function buildCar(cls: CarClass, paint: PaintDef): CarVisual {
+  const d = DESIGNS[cls.id] ?? DESIGNS.coupe;
+  const [hw, hl] = cls.size;
+  const W = hw * 2;
+  const zFront = Math.max(...d.body.map((p) => p[0]));
+  const zRear = Math.min(...d.body.map((p) => p[0]));
+  /** Plan-view pinch: the fraction of half-width left at z. */
+  const taper = (z: number) => {
+    const f = Math.max(0, (z - (zFront - 0.9)) / 0.9);
+    const r = Math.max(0, (zRear + 0.6 - z) / 0.6);
+    return 1 - d.noseTaper * f * f - d.tailTaper * r * r;
+  };
+  const parts = new Parts();
+
+  // Body.
+  const body = extrudeProfile(bodyOutline(d), W);
+  const bp = body.attributes.position;
+  for (let i = 0; i < bp.count; i++) bp.setX(i, bp.getX(i) * taper(bp.getZ(i)));
+  parts.add('paint', body);
+
+  // Greenhouse: narrower toward the roof; roof painted, the rest glass (or painted, for the van).
+  const Wc = W * d.cabinBase;
+  const cabin = prep(extrudeProfile(d.cabin, Wc));
+  cabin.computeBoundingBox();
+  const cy0 = cabin.boundingBox!.min.y;
+  const cy1 = cabin.boundingBox!.max.y;
+  const k = d.cabinRoof / d.cabinBase;
+  const narrow = (y: number) => 1 + (k - 1) * Math.max(0, Math.min(1, (y - cy0) / (cy1 - cy0)));
+  const cp = cabin.attributes.position;
+  for (let i = 0; i < cp.count; i++) cp.setX(i, cp.getX(i) * narrow(cp.getY(i)));
+  cabin.computeVertexNormals();
+  const roof: number[] = [];
+  const glass: number[] = [];
+  const cn = cabin.attributes.normal;
+  for (let t = 0; t < cp.count; t += 3) {
+    const nx = cn.getX(t);
+    const ny = cn.getY(t);
+    const nz = cn.getZ(t);
+    const painted = ny > 0.85 || (d.cabinPainted && (Math.abs(nx) > 0.6 || nz < -0.6 || ny < -0.5));
+    const into = painted ? roof : glass;
+    for (let j = 0; j < 3; j++) into.push(cp.getX(t + j), cp.getY(t + j), cp.getZ(t + j));
+  }
+  const tris = (a: number[]) => new BufferGeometry().setAttribute('position', new BufferAttribute(new Float32Array(a), 3));
+  parts.add('paint', tris(roof));
+  parts.add('glass', tris(glass));
+  cabin.dispose();
+  /** Cabin side at height y: x and the lean of the side face (for glass and pillars laid on it). */
+  const side = (y: number) => ({ x: (Wc / 2) * narrow(y), lean: Math.atan2((Wc / 2) * (1 - k), cy1 - cy0) });
+  const onSide = (key: Key, z0: number, z1: number, y0: number, y1: number, out = 0.012) => {
+    const s = side((y0 + y1) / 2);
+    for (const sx of [-1, 1]) parts.box(key, 0.02, y1 - y0, z1 - z0, sx * (s.x + out), (y0 + y1) / 2, (z0 + z1) / 2, 0, sx * s.lean);
+  };
+  const base = d.cabin[0];
+  if (d.pillar !== undefined) onSide('trim', d.pillar - 0.07, d.pillar + 0.07, cy0 + 0.1, cy1 - 0.08);
+  if (d.cabinPainted) {
+    onSide('glass', 0.15, 0.95, 1.3, 1.85);
+    onSide('glass', -1.5, -0.3, 1.35, 1.85);
+    const rz = Math.min(...d.cabin.map((p) => p[0])) - BS - 0.012;
+    for (const sx of [-1, 1]) parts.box('glass', 0.72, 0.42, 0.02, sx * 0.45, 1.66, rz);
+  }
+  // Mirrors, just behind the base of the screen.
+  for (const sx of [-1, 1]) {
+    const s = side(base[1] + 0.18);
+    parts.box('paint', 0.18, 0.11, 0.14, sx * (s.x + 0.1), base[1] + 0.18, base[0] - 0.28);
+    parts.box('trim', 0.12, 0.04, 0.05, sx * (s.x + 0.02), base[1] + 0.14, base[0] - 0.3);
+  }
+
+  // Rear: lamps on the tail face, plate, diffuser, pipes.
+  const tailHW = (W / 2 - BT) * taper(zRear) - 0.04;
+  const tailAt = (y: number) => endAt(d, y, -1);
+  const { y: ty, h: th } = d.tail;
+  const tz = tailAt(ty).z - 0.012;
+  const tails: [number, number][] = [];
+  switch (d.tail.style) {
+    case 'bar':
+      parts.box('lens', tailHW * 2, th + 0.06, 0.03, 0, ty, tz);
+      parts.box('tail', tailHW * 2 - 0.3, th * 0.45, 0.04, 0, ty, tz - 0.01);
+      for (const sx of [-1, 1]) {
+        parts.box('tail', 0.42, th, 0.04, sx * (tailHW - 0.24), ty, tz - 0.01);
+        tails.push([sx * (tailHW - 0.24), ty]);
+      }
+      break;
+    case 'round':
+      parts.box('trim', tailHW * 2, th + 0.12, 0.03, 0, ty, tz);
+      for (const sx of [-1, 1]) {
+        for (const off of [0.2, 0.52]) parts.pipe('tail', th / 2, 0.05, sx * (tailHW - off), ty, tz - 0.02, 12);
+        tails.push([sx * (tailHW - 0.36), ty]);
+      }
+      break;
+    case 'vertical':
+      for (const sx of [-1, 1]) {
+        parts.box('lens', 0.24, th + 0.05, 0.03, sx * (tailHW - 0.14), ty, tz);
+        parts.box('tail', 0.12, th, 0.04, sx * (tailHW - 0.12), ty, tz - 0.01);
+        tails.push([sx * (tailHW - 0.12), ty]);
+      }
+      parts.box('trim', tailHW * 2 - 0.56, 0.1, 0.03, 0, ty + th / 2 - 0.05, tz);
+      break;
+    case 'block':
+      for (const sx of [-1, 1]) {
+        parts.box('lens', 0.26, th + 0.05, 0.03, sx * (tailHW - 0.15), ty, tz);
+        parts.box('tail', 0.18, th * 0.55, 0.04, sx * (tailHW - 0.15), ty + th * 0.18, tz - 0.01);
+        parts.box('plate', 0.18, th * 0.2, 0.04, sx * (tailHW - 0.15), ty - th * 0.3, tz - 0.01);
+        tails.push([sx * (tailHW - 0.15), ty + th * 0.18]);
+      }
+      break;
+  }
+  const plateY = d.sill + 0.2;
+  parts.box('trim', 0.6, 0.18, 0.03, 0, plateY, tailAt(plateY).z - 0.01);
+  parts.box('plate', 0.52, 0.12, 0.03, 0, plateY, tailAt(plateY).z - 0.02);
+  const diffY = d.sill + 0.02;
+  const diffZ = tailAt(d.sill + 0.05).z;
+  parts.box('trim', tailHW * 2 - 0.1, 0.12, 0.3, 0, diffY, diffZ + 0.1);
+  if (d.diffuser) for (const fx of [-0.45, -0.15, 0.15, 0.45]) parts.box('trim', 0.03, 0.16, 0.34, fx * (W / 2), diffY - 0.06, diffZ + 0.05);
+  const pipes: [number, number][] = [];
+  const py = d.sill + 0.06;
+  if (d.exhaust === 'twin') pipes.push([-0.14, py], [0.14, py]);
+  if (d.exhaust === 'quad') for (const sx of [-1, 1]) pipes.push([sx * (tailHW - 0.3), py], [sx * (tailHW - 0.5), py]);
+  if (d.exhaust === 'side') pipes.push([-(tailHW - 0.35), py]);
+  const pr = d.exhaust === 'side' ? 0.08 : 0.06;
+  for (const [x, y] of pipes) {
+    parts.pipe('metal', pr, 0.24, x, y, diffZ - 0.06);
+    parts.pipe('trim', pr * 0.65, 0.02, x, y, diffZ - 0.185);
+  }
+
+  // Front: lamps, grille, intake.
+  const noseHW = (W / 2 - BT) * taper(zFront) - 0.04;
+  const headAt = (y: number) => endAt(d, y, 1);
+  const hy = d.head.y;
+  const hf = headAt(hy);
+  const heads: [number, number, number][] = [];
+  for (const sx of [-1, 1]) {
+    const x = sx * (noseHW - 0.3);
+    if (d.head.style === 'slit') parts.box('head', 0.46, 0.06, 0.04, x, hy, hf.z, hf.tilt);
+    else if (d.head.style === 'round') {
+      parts.pipe('head', 0.11, 0.04, x, hy, hf.z);
+      parts.pipe('head', 0.08, 0.04, x - sx * 0.26, hy, hf.z);
+    } else if (d.head.style === 'square') parts.box('head', 0.34, 0.14, 0.04, x, hy, hf.z, hf.tilt);
+    else parts.box('head', 0.4, 0.2, 0.04, x, hy, hf.z, hf.tilt);
+    heads.push([x, hy, hf.z]);
+  }
+  const gy = d.sill + 0.16;
+  const gf = headAt(gy);
+  const grilleW = d.head.style === 'slit' ? noseHW * 1.3 : noseHW * 2 - 0.9;
+  parts.box('trim', grilleW, d.head.style === 'slit' ? 0.12 : 0.2, 0.04, 0, gy, gf.z, gf.tilt);
+  if (d.head.style !== 'slit') {
+    const g2 = headAt(hy);
+    parts.box('trim', noseHW * 2 - 1.2, 0.16, 0.04, 0, hy, g2.z, g2.tilt);
+  }
+
+  // Aero and extras.
+  if (d.wing) {
+    const { y, z, chord } = d.wing;
+    const span = W - 0.16;
+    parts.box('trim', span, 0.05, chord, 0, y, z, -0.08);
+    for (const sx of [-1, 1]) {
+      parts.box('trim', 0.04, 0.2, chord + 0.08, sx * span / 2, y - 0.04, z);
+      const deck = topY(d, z + 0.05);
+      parts.box('trim', 0.05, y - deck, 0.1, sx * 0.55, (y + deck) / 2, z + 0.05);
+    }
+  }
+  if (d.roofSpoiler) {
+    const back = d.cabin.reduce((a, p) => (p[1] > cy1 - 0.1 && p[0] < a[0] ? p : a), d.cabin[1]);
+    parts.box('trim', Wc * k * 0.98, 0.05, 0.36, 0, cy1 + 0.02, back[0] - 0.08, -0.12);
+  }
+  if (d.hoodScoop) {
+    const sz = 1.35;
+    const sy = topY(d, sz);
+    parts.box('paint', 0.62, 0.14, 0.8, 0, sy + 0.05, sz);
+    parts.box('trim', 0.5, 0.08, 0.02, 0, sy + 0.08, sz + 0.41);
+  }
+  if (d.roofRack) {
+    for (const sx of [-1, 1]) parts.box('trim', 0.05, 0.06, 3.2, sx * (Wc * k * 0.44), cy1 + 0.08, -0.8);
+    for (const z of [0.5, -0.6, -1.7, -2.3]) parts.box('trim', Wc * k * 0.92, 0.04, 0.06, 0, cy1 + 0.11, z);
+  }
+
+  // Merge each bucket into one mesh.
+  const paintMat = carPaint(paint, d.livery);
+  const tailMat = new MeshBasicMaterial({ color: 0xc4153a });
+  const mats: Record<Key, Material> = { paint: paintMat, trim, metal, glass: glassMat, lens, head: headMat, tail: tailMat, plate: plateMat };
+  const root = new Group();
+  const shell = new Group();
+  root.add(shell);
+  for (const [key, list] of parts.buckets) {
+    const merged = mergeGeometries(list)!;
+    for (const g of list) g.dispose();
+    shell.add(new Mesh(merged, mats[key]));
+  }
+
+  // Glows at the lamps.
+  const tailGlow = new SpriteMaterial({ map: glow(), color: 0xff2344, transparent: true, opacity: 0.5, blending: AdditiveBlending, depthWrite: false });
+  for (const [x, y, z] of heads) {
+    const s = new Sprite(headGlow);
+    s.scale.set(1.2, 1.2, 1);
+    s.position.set(x, y, z + 0.12);
+    shell.add(s);
+  }
+  for (const [x, y] of tails) {
+    const s = new Sprite(tailGlow);
+    s.scale.set(0.75, 0.75, 1);
+    s.position.set(x, y, tz - 0.1);
+    shell.add(s);
+  }
+
+  // Wheels: tyre, a rim face with five spokes and a hub, on steering pivots up front.
+  const { r, w, front: wf, rear: wr } = d.wheel;
+  const wheelX = W / 2 - w / 2 - 0.03;
+  const tyre = prep(new CylinderGeometry(r, r, w, 16).rotateZ(Math.PI / 2));
+  const rims: BufferGeometry[] = [];
+  for (const sx of [-1, 1]) {
+    const p = new Parts();
+    const face = sx * (w / 2 + 0.005);
+    p.put('metal', new CylinderGeometry(r * 0.66, r * 0.66, 0.03, 16).rotateZ(Math.PI / 2), face, 0, 0);
+    for (let i = 0; i < 5; i++) {
+      const a = (i / 5) * Math.PI * 2;
+      p.put('metal', new BoxGeometry(0.035, r * 0.56, 0.07), face + sx * 0.02, Math.cos(a) * r * 0.3, Math.sin(a) * r * 0.3, a);
+    }
+    p.put('metal', new CylinderGeometry(0.07, 0.07, 0.06, 8).rotateZ(Math.PI / 2), face + sx * 0.03, 0, 0);
+    const list = p.buckets.get('metal')!;
+    rims.push(mergeGeometries(list)!);
+    for (const g of list) g.dispose();
+  }
+  const dark = toon({ color: 0x2a2436 });
+  const rimMat = paint.finish === 'chrome' ? toon({ color: 0xffd23f }) : metal;
+  const wheels: Group[] = [];
+  const steerers: Group[] = [];
+  for (const z of [wf, wr]) {
+    for (const [i, sx] of [-1, 1].entries()) {
+      const pivot = new Group();
+      pivot.position.set(sx * wheelX, r, z);
+      const wheel = new Group();
+      wheel.add(new Mesh(tyre, trim), new Mesh(rims[i], rimMat));
+      pivot.add(wheel);
+      root.add(pivot);
+      wheels.push(wheel);
+      if (z === wf) steerers.push(pivot);
+    }
+  }
+  // A dark wall down the middle of each arch, so the cut doesn't show the road through the car.
+  const wellGeo = new BoxGeometry(0.02, r * 1.4, (r + 0.08) * 2);
+  for (const z of [wf, wr]) {
+    const m = new Mesh(wellGeo, dark);
+    m.position.set(0, r + 0.02, z);
+    root.add(m);
+  }
+
+  // Headlight beam, underglow, contact shadow, boost flames.
+  const L = hl * 2;
+  const beam = new Mesh(new PlaneGeometry(W + 1.4, 12), beamMat());
+  // Tipped so the texture's bright end (v = 0) sits at the car, which faces +z.
+  beam.rotation.x = Math.PI / 2;
+  beam.position.set(0, 0.05, L / 2 + 6.1);
+  root.add(beam);
+  if (paint.underglow) {
+    const u = new Mesh(new PlaneGeometry(W + 2.2, L + 1.6), new MeshBasicMaterial({ map: glow(), color: paint.underglow, transparent: true, opacity: 0.85, blending: AdditiveBlending, depthWrite: false }));
+    u.rotation.x = -Math.PI / 2;
+    u.position.y = 0.06;
+    root.add(u);
+  }
+  const shadow = new Mesh(new PlaneGeometry(W + 0.6, L + 0.6), new MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.4, depthWrite: false }));
+  shadow.rotation.x = -Math.PI / 2;
+  shadow.position.y = 0.04;
+  root.add(shadow);
+  const flameGeo = new PlaneGeometry(pr * 9, 1.6);
+  const flames = pipes.map(([x, y]) => {
+    const f = new Mesh(flameGeo, flameMat);
+    f.rotation.x = -Math.PI / 2;
+    f.position.set(x, y, diffZ - 0.9);
+    f.visible = false;
+    root.add(f);
+    return f;
+  });
+
+  const spinScale = 0.38 / r;
+  return {
+    root,
+    update(spin, steer, braking, boosting, onRoad) {
+      beam.visible = onRoad;
+      for (const wh of wheels) wh.rotation.x = spin * spinScale;
+      for (const s of steerers) s.rotation.y = steer * 0.45;
+      tailMat.color.setHex(braking ? 0xff4d6a : 0xc4153a);
+      tailGlow.opacity = braking ? 1 : 0.5;
+      for (const f of flames) {
+        f.visible = boosting;
+        if (boosting) f.scale.set(1, 0.7 + Math.random() * 0.6, 1);
+      }
+    },
+    dispose() {
+      root.traverse((o) => {
+        if (o instanceof Mesh && o.geometry !== flameGeo) o.geometry.dispose();
+      });
+      flameGeo.dispose();
+      paintMat.dispose();
+      tailMat.dispose();
+      tailGlow.dispose();
+      dark.dispose();
+      if (rimMat !== metal) rimMat.dispose();
+    },
+  };
+}
