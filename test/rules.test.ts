@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'bun:test';
 import type { TrackLayout } from '../src/core/content';
-import { neutralControls } from '../src/core/controls';
+import { neutralControls, packControls, unpackControls, type Controls } from '../src/core/controls';
+import { respawn } from '../src/core/car/physics';
 import { Ev, EventQueue } from '../src/core/events';
 import { positions } from '../src/core/rules/progress';
 import { Sim } from '../src/core/sim';
@@ -135,5 +136,62 @@ describe('event queue', () => {
     expect(next).toBe(q.head);
     // Nothing new: nothing read.
     expect(q.read(next, () => expect.unreachable())).toBe(next);
+  });
+});
+
+describe('second review pass', () => {
+  test("a replay steps on what the player's sim stepped on (input is quantized on the way in)", () => {
+    // Live: analog input at full precision. Replay: the same input through the report's packing.
+    const run = (through: (c: Controls) => Controls) => {
+      const sim = ringSim(3);
+      const i = sim.addCar({ cls: 'coupe', human: true });
+      for (let t = 0; t < 600; t++) {
+        const c = { ...neutralControls(), throttle: 0.9 + 0.0001234 * (t % 7), steer: Math.sin(t * 0.05) * 0.4567891 };
+        sim.step([through(c)]);
+      }
+      return [sim.cars.x[i], sim.cars.z[i], sim.cars.h[i]];
+    };
+    const live = run((c) => c);
+    const replay = run((c) => unpackControls(packControls(c), neutralControls()));
+    expect(replay).toEqual(live);
+  });
+
+  test("a manual reset doesn't slow the world (only a wreck does)", () => {
+    const sim = ringSim();
+    const i = sim.addCar({ cls: 'coupe', human: true });
+    for (let t = 0; t < 60; t++) sim.step([{ ...neutralControls(), throttle: 1 }]);
+    sim.cars.resetCooldown[i] = 0;
+    sim.step([{ ...neutralControls(), reset: true }]);
+    expect(sim.cars.wreck[i]).toBe(1);
+    for (let t = 0; t < 20; t++) sim.step([neutralControls()]);
+    expect(sim.timeScale).toBe(1);
+  });
+
+  test('an empty checkpoint list falls back to the automatic ones (progress stays in step)', () => {
+    const track = bakeTrack(ringLayout([]), SURFACES);
+    expect(track.checkpoints.length).toBeGreaterThan(3);
+  });
+
+  test("a respawn clears the AI's stuck and back-out timers", () => {
+    const sim = ringSim();
+    const i = sim.addCar({ cls: 'coupe', racer: { difficulty: 1 } });
+    sim.step([]);
+    const c = sim.cars;
+    c.stuckT[i] = 2.6;
+    c.aiBack[i] = -1.8;
+    c.aiHold[i] = 0.5;
+    respawn(sim, i);
+    expect([c.stuckT[i], c.aiBack[i], c.aiHold[i]]).toEqual([0, 0, 0]);
+  });
+
+  test('placeCar clears the tumble it would otherwise interpolate from', () => {
+    const sim = ringSim();
+    const i = sim.addCar({ cls: 'coupe' });
+    const c = sim.cars;
+    c.prx[i] = 1.2;
+    c.prz[i] = -0.8;
+    c.slip[i] = 0.4;
+    sim.placeCar(i, 0, 100, 0);
+    expect([c.prx[i], c.prz[i], c.slip[i]]).toEqual([0, 0, 0]);
   });
 });

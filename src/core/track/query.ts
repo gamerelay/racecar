@@ -132,7 +132,8 @@ function finishProjection(out: TrackHit, x: number, z: number): void {
  */
 export function surfaceAt(track: Track, hit: TrackHit, wet: boolean, shoulderSurface: number): number {
   const sp = track.splines[hit.spline];
-  for (const z of sp.zones) {
+  for (let k = 0; k < sp.zones.length; k++) {
+    const z = sp.zones[k];
     if (z.when === 1 && !wet) continue;
     if (z.when === 2 && wet) continue;
     const inS = z.s0 <= z.s1 ? hit.s >= z.s0 && hit.s <= z.s1 : hit.s >= z.s0 || hit.s <= z.s1;

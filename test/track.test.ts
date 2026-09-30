@@ -35,6 +35,15 @@ describe('shortcut junctions', () => {
       }
     });
 
+    test(`${key}: where the verge opens for a shortcut, the wall is open too (on that side)`, () => {
+      // The side came from the main road's heading where the branch forks, measured 30 m on: on a
+      // curve it picked the wrong side (the Barn's mouths had the far wall open, the near one up).
+      for (let i = 0; i < main.n; i++) {
+        if (main.openL[i]) expect(main.wallL[i]).toBe(0);
+        if (main.openR[i]) expect(main.wallR[i]).toBe(0);
+      }
+    });
+
     test(`${key}: the main road's verge opens only across the shortcuts' mouths`, () => {
       const forks = track.splines.slice(1).flatMap((sp) => [sp.mainFrom, sp.mainTo]);
       let open = 0;

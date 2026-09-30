@@ -58,7 +58,7 @@ export const TUNING = {
   /** Smallest bank that pays out (a tap-drift earns nothing). */
   driftBankMin: 0.02,
   boostFromAir: 0.08,
-  /** Drift points per second at full angle and 30 m/s. */
+  /** Drift points per second at full angle and 40 m/s (the pace a drift's rewards are measured at). */
   driftPoints: 400,
   /**
    * Drift chains: start the next drift within this many seconds of the last one's end and it links

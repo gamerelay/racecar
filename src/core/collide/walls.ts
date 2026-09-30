@@ -50,7 +50,8 @@ export function collideWalls(sim: SimState, i: number): void {
   const pz = cars.z[i] + oz * reach;
   // One event per knock, not one per tick of grinding along the wall.
   if (vOut > 2 || (fresh && vOut > 0.5)) sim.events.push(sim.tick, Ev.WallHit, i, px, cars.y[i] + 0.5, pz, vOut, side);
-  if (cars.drift[i] && vOut > 6) cancelDrift(sim, i);
+  // A real knock ends a drift, and a chain (mid-drift or between two).
+  if ((cars.drift[i] || cars.chainT[i] > 0) && vOut > 6) cancelDrift(sim, i);
   if (vOut > T.wallWreck && cars.ghostT[i] <= 0) {
     wreckCar(sim, i, Cause.Wall, -ox * vOut * 0.3, -oz * vOut * 0.3, recentAttacker(sim, i, 60));
   }

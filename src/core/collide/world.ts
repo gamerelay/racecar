@@ -56,6 +56,8 @@ export function collideWorld(sim: SimState, i: number, ctx: WorldCtx): void {
   // ---- traffic ----
   for (let p = 0; p < traffic.posed; p++) {
     const k = traffic.idx[p];
+    // Wrecked this tick (by a car before this one, or a hazard): gone already.
+    if (traffic.wreckedAt[k] === ctx.t) continue;
     const kind = TRAFFIC_KINDS[traffic.kind[k]];
     const ds = signedGap(traffic.s[p], sMain, L);
     if (Math.abs(ds) > 14) continue;

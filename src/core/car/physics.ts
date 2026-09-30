@@ -351,7 +351,7 @@ export function wreckCar(sim: SimState, i: number, cause: number, ix: number, iz
   cars.wrecks[i]++;
   sim.events.push(sim.tick, Ev.Wreck, i, cars.x[i], cars.y[i], cars.z[i], Math.hypot(ix, iz), cause, by);
   if (by >= 0 && by !== i && cause !== Cause.Reset) {
-    // A takedown: full boost for the attacker (Burnout), points, and "revenge" on whoever last got them.
+    // A takedown: boost for the attacker (TUNING.takedownBoost), points, and "revenge" on whoever last got them.
     const revenge = cars.lastTakenBy[by] === i + 1;
     if (revenge) cars.lastTakenBy[by] = 0;
     cars.lastTakenBy[i] = by + 1;
@@ -449,6 +449,8 @@ export function respawn(sim: SimState, i: number): void {
   cars.s[i] = at.s;
   cars.ghostT[i] = T.ghostTime;
   cars.resetCooldown[i] = T.resetCooldown;
+  // Not still stuck, nor backing out, nor holding a line from before the wreck.
+  cars.stuckT[i] = cars.aiBack[i] = cars.aiHold[i] = 0;
   // No interpolation across the teleport.
   cars.px[i] = cars.x[i];
   cars.py[i] = cars.y[i];
