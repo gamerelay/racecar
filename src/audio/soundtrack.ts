@@ -57,7 +57,10 @@ export class Soundtrack {
     el.preload = 'auto';
     this.current = pickTrack(list, memory.last, rand);
     el.src = trackUrl(this.current, base);
-    el.addEventListener('error', () => (this.failed = true));
+    el.addEventListener('error', () => {
+      this.failed = true;
+      console.warn(`[racecar] the soundtrack's ${this.current} track can't play (${el.error?.message || `media error ${el.error?.code}`}); the synth plays instead`);
+    });
     el.addEventListener('ended', () => {
       this.current = pickTrack(this.list, this.current, rand);
       el.src = trackUrl(this.current, this.base);
@@ -74,8 +77,9 @@ export class Soundtrack {
     try {
       this.source = ctx.createMediaElementSource(this.el);
       this.source.connect(bus);
-    } catch {
+    } catch (err) {
       this.failed = true;
+      console.warn('[racecar] the soundtrack could not join the audio graph; the synth plays instead', err);
     }
   }
 
@@ -98,7 +102,10 @@ export class Soundtrack {
       (err: unknown) => {
         this.pending = false;
         const name = (err as { name?: string })?.name;
-        if (name === 'NotSupportedError' || (gesture && name === 'NotAllowedError' && ++this.refused >= REFUSALS)) this.failed = true;
+        if (name === 'NotSupportedError' || (gesture && name === 'NotAllowedError' && ++this.refused >= REFUSALS)) {
+          this.failed = true;
+          console.warn(`[racecar] the browser won't play the soundtrack (${name}); the synth plays instead`, err);
+        } else if (gesture) console.warn(`[racecar] the soundtrack's play was refused (${name})`, err);
       },
     );
   }
