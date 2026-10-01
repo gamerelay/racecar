@@ -329,6 +329,9 @@ Clockwise round a tropical island, the volcano in the middle and the sea all rou
      nobody new sits down); the host cycles it from the header's button. Only Public lobbies are
      listed; your own (local) one isn't, and closes when you leave. Quick race skips lobbies.
      The lobby as it was signed off: `screenshots/lobby-desktop.png`.
+   - **P2P:** each online lobby is also a party (`Lobby.party`), and the client connects with
+     `lan: { direct: 'party' }`; the `racecar` instance's Direct connections setting is on. It
+     shows players each other's IP, without asking: revisit (an opt-in) before going public.
    - **Remote cars: merged** (PR #33, `alpha-1.15`; SPEC "Remote cars"). Each player's car
      is an entity at 30 Hz (`src/net/cars.ts`), a remote car in everyone else's sim, predicted to
      now. Green is on the server's clock. Next: the AIs as host entities, traffic with

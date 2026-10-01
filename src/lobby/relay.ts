@@ -24,6 +24,11 @@ export interface RelayLike {
   listRooms(tag?: string, options?: { includeFull?: boolean }): Promise<{ code: string; players: number; name: string | null; meta: unknown; locked: boolean }[]>;
   /** Your round trip to the server (ms). */
   ping?(): Promise<number>;
+  /** Your party (the SDK's), if you're in one. */
+  readonly party?: { code: string } | null;
+  createParty?(): Promise<{ code: string }>;
+  joinParty?(code: string): Promise<unknown>;
+  leaveParty?(): Promise<void>;
 }
 
 export interface RoomLike {
@@ -60,7 +65,7 @@ export function readPing(data: unknown): number | null {
 export function netRoute(routes: ('direct' | 'relay' | null)[]): NetRoute | null {
   if (!routes.length) return null;
   if (routes.includes(null)) return 'server';
-  return routes.includes('relay') ? 'relay' : 'lan';
+  return routes.includes('relay') ? 'relay' : 'p2p';
 }
 
 /** How far ahead of the Start the lights go green (ms): everyone's race page loads and connects in it. */
@@ -174,6 +179,8 @@ export class RelayBackend implements LobbyBackend {
   /** Each player's ping in the room you're in (ms), by id. */
   private pings = new Map<string, number>();
   private pingRoom: RoomLike | null = null;
+  /** Joining the lobby's party (one try at a time). */
+  private partying = false;
   private stopPings: (() => void) | null = null;
   private listeners = new Set<(lobby: Lobby | null) => void>();
   private listed = '';
@@ -235,8 +242,11 @@ export class RelayBackend implements LobbyBackend {
     const relay = await this.relayNow();
     await this.leaveRoom();
     const visibility = init.visibility ?? 'public';
+    await this.leaveParty(relay);
     const room = await relay.createRoom({ maxPlayers: SEATS, tag: TAG, public: visibility === 'public' });
-    const lobby = createLobby(room.code, { ...host, id: room.me }, { ...init, visibility });
+    // After the room: a party's leader drags its members into any room it makes.
+    const party = (await relay.createParty?.().catch(() => null))?.code;
+    const lobby: Lobby = { ...createLobby(room.code, { ...host, id: room.me }, { ...init, visibility }), ...(party ? { party } : {}) };
     this.attach(room);
     this.commit(room, lobby);
     return lobby;
@@ -304,7 +314,11 @@ export class RelayBackend implements LobbyBackend {
         // A refusal is null, not an error: the sender's screen just stays as it was.
         return next ?? null;
       }),
-      room.on('state', () => this.notify(lobbyIn(room))),
+      room.on('state', () => {
+        const lobby = lobbyIn(room);
+        if (lobby) void this.joinParty(room, lobby);
+        this.notify(lobby);
+      }),
       // Everyone's ping, as each measures it: the SDK only knows your own.
       room.on('message', (data: unknown, from: string) => {
         const ms = readPing(data);
@@ -317,11 +331,41 @@ export class RelayBackend implements LobbyBackend {
       room.on('closed', () => {
         if (this.room !== room) return;
         this.detach();
+        // Kicked, or the room closed: out of its party too.
+        void this.relayNow().then((r) => this.leaveParty(r), () => {});
         this.notify(null);
       }),
     ];
     if (room.isHost) this.tidy(room);
     this.pinging();
+    const lobby = lobbyIn(room);
+    if (lobby) void this.joinParty(room, lobby);
+  }
+
+  /**
+   * Into the lobby's party, for P2P (once at a time). Its party gone (everyone left it), the
+   * SDK's host makes a new one and puts it in the lobby; anyone else goes without for now.
+   */
+  private async joinParty(room: RoomLike, lobby: Lobby): Promise<void> {
+    if (this.partying) return;
+    const relay = await this.relayNow().catch(() => null);
+    if (!relay?.joinParty || this.room !== room || (lobby.party && relay.party?.code === lobby.party)) return;
+    this.partying = true;
+    try {
+      const joined = lobby.party ? await relay.joinParty(lobby.party).then(() => true, () => false) : false;
+      if (joined || !room.isHost || this.room !== room) return;
+      await this.leaveParty(relay);
+      const party = (await relay.createParty?.().catch(() => null))?.code;
+      const now = lobbyIn(room);
+      if (party && now && this.room === room) this.commit(room, { ...now, party });
+    } finally {
+      this.partying = false;
+    }
+  }
+
+  /** Out of any party: the lobby's goes with the lobby (a leader would drag its members into its next room). */
+  private async leaveParty(relay: RelayLike): Promise<void> {
+    if (relay.party) await relay.leaveParty?.().catch(() => {});
   }
 
   /** Pings go round while a lobby screen is watching (the race page attaches the room too, but has no use for them). */
@@ -361,6 +405,8 @@ export class RelayBackend implements LobbyBackend {
     const room = this.room;
     if (!room) return;
     this.detach();
+    const relay = await this.relayNow().catch(() => null);
+    if (relay) await this.leaveParty(relay);
     // The last one out unlists it, so nothing (quick match included) sends anyone into an empty room.
     if (room.isHost && room.isPublic && room.players.every((p) => p.id === room.me)) await room.setAccess({ public: false }).catch(() => {});
     await room.leave().catch(() => {});

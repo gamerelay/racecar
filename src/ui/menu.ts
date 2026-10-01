@@ -48,7 +48,7 @@ const ACCESS: [Lobby['visibility'], string, string][] = [
 ];
 /** What the lobby's header says about its connection. */
 const NET_ROUTES: Record<NetRoute, [string, string]> = {
-  lan: ['LAN', 'Everyone is on your network: straight across it'],
+  p2p: ['P2P', 'Straight to each other: across your network, or over the internet'],
   relay: ['Relay', 'Through a GameRelay relay near you'],
   server: ['Server', 'Through the game server (a direct way is still being found, or there isn\'t one)'],
 };

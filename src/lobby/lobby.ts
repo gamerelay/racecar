@@ -53,6 +53,11 @@ export interface Lobby {
   seed?: number;
   /** When its lights go green, on the server's clock (ms): online, everyone's at once. */
   startAt?: number;
+  /**
+   * Online: the GameRelay party everyone in it joins too, so they connect straight to each other
+   * (P2P: the SDK's `lan: { direct: 'party' }`, which only goes direct between party members).
+   */
+  party?: string;
 }
 
 /** A row in the lobby list. */

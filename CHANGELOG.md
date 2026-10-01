@@ -6,6 +6,10 @@ and where things stand is [docs/HANDOFF.md](./docs/HANDOFF.md).
 
 ## Unreleased
 
+- **P2P:** everyone in an online lobby connects straight to each other where they can (each lobby
+  is a GameRelay party, with direct connections on). The lobby header says P2P when every pair
+  is direct.
+
 ## alpha-1.17: The lobby, cleaned up
 
 PR #36.
