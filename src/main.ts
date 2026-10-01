@@ -128,6 +128,8 @@ const raceUi = new RaceUi(sim, CLASSES, names, specs.map((x) => PAINTS[(x.paint 
 raceUi.onAgain = () => raceAgain(run);
 raceUi.onSetup = () => backToSetup(run);
 if (run.lobby) raceUi.setupLabel = 'Back to lobby';
+// Nor raced again: the next race is the lobby's.
+raceUi.canAgain = !onlineRace;
 // The camera, HUD, results and audio follow your car, whichever seat it's in.
 if (you >= 0) {
   renderer.focus = hud.focus = raceUi.focus = me;
@@ -297,9 +299,10 @@ function openMenu(): HTMLElement | null {
   return document.querySelector<HTMLElement>('#reportForm, #pause.on, #results.on, #menu');
 }
 
-// Switching away mid-race pauses it (not behind the menu, not once you're in the results).
+// Switching away mid-race pauses it (not behind the menu, not once you're in the results). Not
+// online: the race goes on without you, and the menu would only be in the way when you're back.
 const awayPause = () => {
-  if (!attract && !editorOpen && !paused && !raceUi.shown) setPaused(true);
+  if (!attract && !onlineRace && !editorOpen && !paused && !raceUi.shown) setPaused(true);
 };
 window.addEventListener('blur', awayPause);
 document.addEventListener('visibilitychange', () => document.hidden && awayPause());
@@ -338,14 +341,16 @@ function setPaused(on: boolean): void {
   if (!el) {
     document.body.insertAdjacentHTML(
       'beforeend',
-      `<div id="pause"><div class="card"><h1>Paused</h1>
+      `<div id="pause"><div class="card"><h1>${onlineRace ? 'Menu' : 'Paused'}</h1>${onlineRace ? '<p class="muted">The race goes on without you: your car coasts until you resume.</p>' : ''}
         <dl><dt>Drive</dt><dd>WASD / arrows, or a gamepad (RT, LT, stick)</dd><dt>Drift</dt><dd>hold Shift (RB) while steering: steer in to tighten, out to widen: a quicker way round a corner</dd><dt>Boost</dt><dd>Space (A): fills from air, near misses, the oncoming lane in traffic, checking traffic and takedowns</dd><dt>Takedowns</dt><dd>ram a rival hard, boost into them, or shove them into a wall, a pillar or traffic</dd><dt>Traffic</dt><dd>boost into the back of a small car to check it out of the way; don't hit anything head on</dd><dt>Start</dt><dd>hit the throttle just before GO for a perfect start; too early and you stall</dd><dt>Sound</dt><dd>M mutes everything, N toggles the music</dd><dt>Felt wrong?</dt><dd>F8 (Select+Start) saves the last 30 s with a note</dd></dl>
         <p class="keys" id="keys">${hud.keys}</p>
-        <button id="pResume">Resume</button><button id="pRestart">Restart</button><button id="pSetup" class="ghost">Main menu</button></div></div>`,
+        <button id="pResume">Resume</button>${onlineRace ? '' : '<button id="pRestart">Restart</button>'}<button id="pSetup" class="ghost">${run.lobby ? 'Back to lobby' : 'Main menu'}</button></div></div>`,
     );
     el = document.getElementById('pause')!;
     document.getElementById('pResume')!.onclick = () => setPaused(false);
-    document.getElementById('pRestart')!.onclick = () => restart(run);
+    // A race everyone's in can't be restarted for one of them.
+    const again = document.getElementById('pRestart');
+    if (again) again.onclick = () => restart(run);
     document.getElementById('pSetup')!.onclick = () => backToSetup(run);
   }
   el.classList.toggle('on', on);

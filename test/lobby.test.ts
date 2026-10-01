@@ -76,6 +76,23 @@ describe('a lobby', () => {
     expect(ok(empty, 'zed', { type: 'join', player: { ...guest, id: 'zed' } }).host).toBe('zed');
   });
 
+  test("the start marks everyone seated as racing; each says when they're back, for their own seat only", () => {
+    let l = ok(createLobby('local', host), 'kev', { type: 'join', player: guest });
+    l = ok(l, 'kev', { type: 'ready', ready: true });
+    l = ok(l, 'you', { type: 'start', seed: 1 });
+    expect(l.seats.filter((s) => s.kind === 'player').every((s) => s.kind === 'player' && s.racing)).toBe(true);
+    // The host is back first and reopens it: Kev is still racing, and not ready for the next one.
+    l = ok(l, 'you', { type: 'racing', racing: false });
+    l = ok(l, 'you', { type: 'end' });
+    expect(l.seats[1]).toMatchObject({ racing: true, ready: false });
+    expect(apply(l, 'you', { type: 'start' })).toBeNull();
+    // Kev's back: only Kev can say so, and saying it twice changes nothing.
+    l = ok(l, 'kev', { type: 'racing', racing: false });
+    expect(l.seats[1]).toMatchObject({ racing: false });
+    expect(apply(l, 'kev', { type: 'racing', racing: false })).toBeNull();
+    expect(apply(l, 'zed', { type: 'racing', racing: true })).toBeNull();
+  });
+
   test('the start keeps its seed, and the end un-readies everyone but the host for the next race', () => {
     let l = ok(createLobby('local', host), 'kev', { type: 'join', player: guest });
     l = ok(l, 'kev', { type: 'ready', ready: true });

@@ -24,6 +24,8 @@ export class RaceUi {
   private lightsN = NaN;
   focus = 0;
   onAgain: () => void = () => {};
+  /** Whether the results offer Race again (not online: the next race is the lobby's). */
+  canAgain = true;
   onSetup: () => void = () => {};
   /** The results screen's way back to the menu. */
   setupLabel = 'Change setup';
@@ -148,12 +150,13 @@ export class RaceUi {
   showResults(): void {
     this.results.innerHTML = `<div class="card results"><h1>${ordinal(this.sim.cars.place[this.focus])}</h1>
       <table><thead><tr><th></th><th>Driver</th><th>Car</th><th>Time</th><th>Best lap</th><th>Takedowns</th><th>Wrecks</th><th>Score</th></tr></thead><tbody id="rRows"></tbody></table>
-      <div class="row"><button id="rAgain">Race again</button><button id="rSetup" class="ghost">${this.setupLabel}</button></div></div>`;
+      <div class="row">${this.canAgain ? '<button id="rAgain">Race again</button>' : ''}<button id="rSetup" class="${this.canAgain ? 'ghost' : ''}">${this.setupLabel}</button></div></div>`;
     this.rows();
     this.results.classList.add('on');
-    (document.getElementById('rAgain') as HTMLButtonElement).onclick = () => this.onAgain();
+    const again = document.getElementById('rAgain') as HTMLButtonElement | null;
+    if (again) again.onclick = () => this.onAgain();
     (document.getElementById('rSetup') as HTMLButtonElement).onclick = () => this.onSetup();
-    (document.getElementById('rAgain') as HTMLButtonElement).focus();
+    (again ?? (document.getElementById('rSetup') as HTMLButtonElement)).focus();
   }
 
   /**

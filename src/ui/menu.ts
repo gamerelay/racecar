@@ -70,6 +70,8 @@ export class Menu {
   private going = false;
   /** A join on its way (lobby updates arrive while it is). */
   private sitting = false;
+  /** A "back from the race" on its way. */
+  private backing = false;
 
   constructor(
     private backend: LobbyBackend,
@@ -167,10 +169,27 @@ export class Menu {
         if (l.phase === 'racing' && l.host === this.backend.youIn(l.id)) void this.backend.send(l.id, { type: 'end' });
         // Watching (it was racing, or full) and a seat's free now: take it.
         if (!seated) void this.sit(l);
+        // Here, but still down as racing (the first "back" didn't land: the host role moves while
+        // everyone reloads at the end of a race): say it again.
+        else void this.back_(l);
         this.renderLobby(l);
       });
       lobby = (await this.sit(lobby)) ?? lobby;
+      // Back from its race: the others see you're here again.
+      lobby = (await this.back_(lobby)) ?? lobby;
       this.renderLobby(lobby);
+    }
+  }
+
+  /** Back from the lobby's race, on its screen: your seat stops saying "Racing" (one try at a time). */
+  private async back_(lobby: Lobby): Promise<Lobby | null> {
+    const s = lobby.seats[seatIndex(lobby, this.backend.youIn(lobby.id))];
+    if (this.backing || s?.kind !== 'player' || !s.racing) return null;
+    this.backing = true;
+    try {
+      return await this.backend.send(lobby.id, { type: 'racing', racing: false });
+    } finally {
+      this.backing = false;
     }
   }
 
@@ -437,7 +456,7 @@ export class Menu {
           who = `${plateChip(s.name)}${s.id === lobby.host ? ' <small class="tag">host</small>' : ''}`;
           // Your own car is picked beside the turntable.
           car = `${dot(s.paint)}${esc(className(s.car))}`;
-          status = s.id === lobby.host ? '' : s.ready ? '<span class="ready">Ready</span>' : 'Not ready';
+          status = s.racing && s.id !== you ? '<span class="racing">Racing</span>' : s.id === lobby.host ? '' : s.ready ? '<span class="ready">Ready</span>' : 'Not ready';
           return `<tr class="${me ? 'me' : ''}"><td>${k + 1}</td><td>${who}</td><td><div class="car">${car}</div></td><td>${status}</td><td class="ping">—</td></tr>`;
         }
         const choice: SeatChoice = s.kind === 'ai' ? (['ai-easy', 'ai-normal', 'ai-hard'] as const)[s.difficulty] : s.kind;

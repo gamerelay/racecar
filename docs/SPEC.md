@@ -1535,6 +1535,20 @@ Landmarks, part 1: Downtown (PLAN phase 6):
 - **Cost:** each landmark's still boxes are one instanced mesh, and the clock's four dials, four
   readouts and eight hands are three draws. All five together are ~11 draw calls.
 
+Online races don't pause, and the lobby says who's still racing (playtest, 2026-10-01):
+
+- **Switching away doesn't pause an online race.** It's shared, so it goes on, and the pause menu
+  would only be in the way when you came back. Esc still opens it as "Menu": the race goes on and
+  your car coasts until you resume.
+- **No Restart or Race again online.** A race everyone's in can't be restarted for one of them:
+  the host's Restart gave them a race of their own, and from there Back to lobby reopened the
+  lobby while the others were still racing. The menu and the results offer Back to lobby
+  instead, and the next race is the lobby's.
+- **The lobby says who's still racing.** The start marks every seated player `racing`, and each
+  clears it when their lobby screen opens again (`{ type: 'racing', racing }`, their own seat
+  only). Their seat shows "Racing". Since the end un-readies everyone, the host's Start waits
+  for them.
+
 Remote cars (milestone 3, part 2, 2026-10-01):
 
 - **Every player owns their car** (`src/net/cars.ts`, `NetCars`). Yours is a GameRelay entity

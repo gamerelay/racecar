@@ -22,7 +22,8 @@ export interface Player {
 }
 
 export type Seat =
-  | ({ kind: 'player'; ready: boolean } & Player)
+  /** `racing`: still in the lobby's race (online, the others may be back before them). */
+  | ({ kind: 'player'; ready: boolean; racing?: boolean } & Player)
   | { kind: 'open' }
   | { kind: 'ai'; difficulty: Difficulty }
   | { kind: 'closed' };
@@ -77,6 +78,8 @@ export type LobbyAction =
   /** Your name (your plate) changed. */
   | { type: 'name'; name: string }
   | { type: 'ready'; ready: boolean }
+  /** You're in the lobby's race, or back from it. */
+  | { type: 'racing'; racing: boolean }
   | { type: 'join'; player: Player }
   | { type: 'leave' }
   | { type: 'kick'; index: number }
@@ -165,6 +168,12 @@ export function apply(lobby: Lobby, actor: string, action: LobbyAction): Lobby |
       next.seats[mine] = { ...s, ready: action.ready };
       return next;
     }
+    case 'racing': {
+      const s = lobby.seats[mine];
+      if (mine < 0 || s.kind !== 'player' || !!s.racing === action.racing) return null;
+      next.seats[mine] = { ...s, racing: action.racing };
+      return next;
+    }
     case 'join': {
       if (mine >= 0 || seatIndex(lobby, action.player.id) >= 0 || lobby.phase !== 'lobby') return null;
       const open = lobby.seats.findIndex((s) => s.kind === 'open');
@@ -189,6 +198,8 @@ export function apply(lobby: Lobby, actor: string, action: LobbyAction): Lobby |
     case 'start': {
       if (!isHost || lobby.phase !== 'lobby' || !allReady(lobby)) return null;
       next.phase = 'racing';
+      // Everyone seated goes; each is back when their lobby screen opens again.
+      next.seats = next.seats.map((s) => (s.kind === 'player' ? { ...s, racing: true } : s));
       if (action.seed !== undefined) next.seed = action.seed;
       if (action.at !== undefined) next.startAt = action.at;
       return next;
