@@ -39,6 +39,12 @@ export interface NetRoom {
   /** The server-clock moment others' entities are shown at (ms). */
   readonly renderTime: number;
   define(kind: string, fields: Record<string, unknown>, options?: { rate?: number }): NetKind;
+  /** Take `key` if nobody holds it: true for exactly one player (the server decides). */
+  claim(key: string): Promise<boolean>;
+  release(key: string): void;
+  /** To everyone, `'host'` or one player; your own handler too unless `echo: false`. */
+  emit(type: string, data?: unknown, options?: { to?: string; echo?: boolean }): void;
+  on(type: string, handler: (data: unknown, from: string) => void): () => void;
 }
 
 /** Cars go out this often a second (SPEC §10: 30 Hz). */
@@ -153,6 +159,30 @@ export function startDelay(at: number, now: number): number {
   return Math.min(30, Math.max(0, (at - now) / 1000));
 }
 
+/** Behind the server's clock by more than this (s: steps dropped, the editor open), the race jumps to it. */
+export const CLOCK_SNAP = 0.25;
+/** Otherwise this much of the difference is made up each step (about a second to close it). */
+const CLOCK_SLEW = 0.05;
+
+/**
+ * The race's time on the server's clock (SPEC §4, the shared race clock). Traffic, weather, hazards
+ * and smashables are functions of `sim.time`, so every screen must have the same one: green is at
+ * `sim.race.goTime` and on the server's clock at `at` (ms), and `sim.time` follows the server's
+ * clock from those. In the countdown it's set outright (nothing moves yet); racing, a small
+ * difference is slewed out, never going back more than half a step, and a big lag jumped.
+ */
+export function syncClock(sim: Sim, at: number, now: number): void {
+  if (sim.race.phase === 'free') return;
+  if (sim.race.phase === 'countdown') {
+    sim.time = sim.race.goTime - startDelay(at, now);
+    return;
+  }
+  const want = sim.race.goTime + (now - at) / 1000;
+  const off = want - sim.time;
+  if (off > CLOCK_SNAP) sim.time = want;
+  else sim.time += Math.max(-sim.dt / 2, off * CLOCK_SLEW);
+}
+
 export class NetCars {
   private kind: NetKind;
   private mine: NetEntity;
@@ -181,8 +211,8 @@ export class NetCars {
 
   /** Before each step: the countdown on the server's clock, and every other player's car where they are now. */
   beforeStep(): void {
-    // Each step, not once: a tab in the background doesn't step, and its sim's clock falls behind.
-    if (this.at !== undefined && this.sim.race.phase === 'countdown') this.sim.race.goTime = this.sim.time + startDelay(this.at, this.now());
+    // Each step, not once: the server's clock is measured again now and then, and a step can be dropped.
+    if (this.at !== undefined) syncClock(this.sim, this.at, this.now());
     const lead = predictLead(this.room, this.now());
     const here = new Set<string>();
     for (const e of this.kind.all()) {

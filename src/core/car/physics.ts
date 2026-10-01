@@ -360,17 +360,24 @@ export function wreckCar(sim: SimState, i: number, cause: number, ix: number, iz
   }
   cars.wrecks[i]++;
   sim.events.push(sim.tick, Ev.Wreck, i, cars.x[i], cars.y[i], cars.z[i], Math.hypot(ix, iz), cause, by);
-  if (by >= 0 && by !== i && cause !== Cause.Reset) {
-    // A takedown: boost for the attacker (TUNING.takedownBoost), points, and "revenge" on whoever last got them.
-    const revenge = cars.lastTakenBy[by] === i + 1;
-    if (revenge) cars.lastTakenBy[by] = 0;
-    cars.lastTakenBy[i] = by + 1;
-    cars.takedowns[by]++;
-    cars.boost[by] = Math.min(1, cars.boost[by] + T.takedownBoost);
-    const pts = T.takedownPoints * (revenge ? 1.5 : 1);
-    cars.score[by] += pts;
-    sim.events.push(sim.tick, Ev.Takedown, by, cars.x[i], cars.y[i], cars.z[i], pts, revenge ? 1 : 0, i);
-  }
+  if (by >= 0 && by !== i && cause !== Cause.Reset) creditTakedown(sim, by, i);
+}
+
+/**
+ * Car `by` took car `i` out: boost for it (TUNING.takedownBoost), points, and "revenge" on whoever
+ * last got it. Online the victim's screen wrecks it, and the attacker's screen credits its own car
+ * from the victim's word (net/contact.ts).
+ */
+export function creditTakedown(sim: SimState, by: number, i: number): void {
+  const cars = sim.cars;
+  const revenge = cars.lastTakenBy[by] === i + 1;
+  if (revenge) cars.lastTakenBy[by] = 0;
+  cars.lastTakenBy[i] = by + 1;
+  cars.takedowns[by]++;
+  cars.boost[by] = Math.min(1, cars.boost[by] + T.takedownBoost);
+  const pts = T.takedownPoints * (revenge ? 1.5 : 1);
+  cars.score[by] += pts;
+  sim.events.push(sim.tick, Ev.Takedown, by, cars.x[i], cars.y[i], cars.z[i], pts, revenge ? 1 : 0, i);
 }
 
 function stepWreck(sim: SimState, i: number, c: Controls, dt: number): void {

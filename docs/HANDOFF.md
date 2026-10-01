@@ -291,10 +291,11 @@ Clockwise round a tropical island, the volcano in the middle and the sea all rou
    - **The race on `relay.tick`** (unreleased): an online race steps on the SDK's tick, a worker
      timer that keeps going in hidden tabs (`src/net/stepper.ts`), so a hidden host tab no longer
      freezes the AIs; drawing stays on `requestAnimationFrame`.
+   - **Traffic, bumps and credit** (unreleased): the race's clock is the server's (traffic was
+     15–20 m apart between screens), traffic hits are claimed (`src/net/traffic.ts`), and bumps
+     and takedown credit cross screens (`src/net/contact.ts`).
 
    Next, in order:
-   - **Traffic hits through `room.claim`**, then bump dedupe (±150 ms) and wreck credit (the
-     victim decides wrecks already): where screens disagree most in a real race.
    - **Results written by the host** (Xbox's arbitration), together with **a vote on the next
      race**: one results-to-lobby flow.
    - **Names over cars** within ~60 m, from player data (PLAN phase 3), and **a net overlay**
@@ -313,6 +314,8 @@ Clockwise round a tropical island, the volcano in the middle and the sea all rou
 ### Smaller follow-ups
 
 - **Online:**
+  - A traffic hit isn't checked against who holds its claim (`room.claimed`): a forged one only
+    wrecks a traffic car early.
   - Remote poses are capped now (speed, turn, steering; rivals' handover range-checked), but not
     their position: a modified client can still put its car anywhere, on top of yours too. A
     position near the track (and near where it last was) is the next check.

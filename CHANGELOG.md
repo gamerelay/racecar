@@ -11,6 +11,10 @@ and where things stand is [docs/HANDOFF.md](./docs/HANDOFF.md).
   frames. Your own car coasts while your tab is hidden.
 - Coming back to the tab doesn't play what happened meanwhile all at once, and if you finished
   while away, the results are there.
+- **Online, everyone sees the same traffic** (it was up to 20 m apart between screens), and a
+  traffic car you wreck is wrecked for everyone.
+- **Online, takedowns count for the attacker** (boost, points, "Takedown!"), not only on the
+  victim's screen, and a bump only one screen saw still pushes both cars.
 
 ## alpha-1.21: the music from the games CDN
 

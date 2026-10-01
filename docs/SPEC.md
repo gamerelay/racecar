@@ -1987,3 +1987,33 @@ Review fixes (PR #46):
 - **Drawn from when each step was due**, not when the worker's timer woke (late by up to a wake,
   or with a few steps at once): drawn from the wake, cars stood still a frame every half second
   or so. The tick's step number gives the due time.
+
+Traffic, bumps and credit online (after `alpha-1.21`):
+
+- **The race's clock is the server's** (`syncClock`, net/cars.ts). Traffic, weather, hazards and
+  smashables run on `sim.time`, which started at each page's load: the countdown moved green to
+  the server's moment, but two pages loaded a second apart had every traffic car 15–20 m apart.
+  Now green stays where the countdown put it and `sim.time` follows the server's clock: set
+  outright in the countdown, slewed racing (a twentieth of the gap a step, never back more than
+  half a step), jumped when it lags more than 0.25 s (steps dropped, the editor open). A race the
+  fallback started from here (no connection in 8 s) keeps its own clock. Measured on two tabs:
+  the same race time to 9 ms, and the same traffic.
+- **Traffic hits are claimed** (net/traffic.ts, SPEC §4's T): the screen whose car wrecked a
+  traffic car claims `traffic:<race>:<k>`, and the winner sends the wreck's race time; every
+  screen wrecks it from then (with its debris, if it hadn't seen it). A screen that wrecked it too
+  and lost takes the winner's time. The claim goes once the car's back (13 s). Only the time is
+  shared: your car's crash, boost and score are your sim's. A traffic hit isn't checked against
+  the claim's holder: a forged one only wrecks a traffic car.
+- **Bumps between screens** (net/contact.ts): your car touching another screen's car pushes yours
+  in your sim and sends its owner the push theirs took (`bump`). The owner holds it 150 ms and
+  applies it unless their sim saw the same pair touch within ±150 ms of it (SPEC §4's dedupe:
+  whichever arrives first). If yours was the attacker, their screen runs the takedown rule on it
+  (`takedownCheck`, split out of `collide/cars.ts`).
+- **Takedown credit crosses screens:** the victim's screen wrecks its car and sends `takedown`
+  to the attacker's owner, whose screen credits its car (`creditTakedown`, split out of
+  `wreckCar`): boost, points, revenge and "Takedown!". Before, a takedown only counted on the
+  victim's screen. Checked on two tabs: a ram from one tab wrecked the car in the other, and the
+  first got the takedown.
+- **Checked senders:** a bump only from the owner of the car that made it, a takedown only from
+  the victim's owner (the host for an AI), so nobody can push or credit cars that aren't theirs
+  to speak for.
