@@ -1880,8 +1880,12 @@ The soundtrack (owner's tracks, 2026-10-01):
   other (−14.2 to −16 LUFS), so they aren't normalised.
 - **Streamed and looped through the music bus** (`src/audio/soundtrack.ts`): an `<audio>` element
   into Web Audio, so N, M, the slow-mo duck and the music level apply as before. It sits at
-  `TRACK_LEVEL` (0.45) into the bus: the tracks are mastered far louder than the synth. Paused,
-  hidden or muted, the track pauses with the context (it would play on unheard otherwise).
+  `TRACK_LEVEL` (0.8) into the bus. Paused, hidden or muted, the track pauses with the context
+  (it would play on unheard otherwise).
+- **The music skips the compressor** (playtest: too quiet, and the engines drowned it). The
+  master compressor squeezed it down whenever the engines and crashes were loud, so the music
+  has its own way out (`musicOut`, muted with the master). In a race it's now about level with
+  the effects and above the engines (−30 dB against −29 and −34 on the buses).
 - **Which track:** the title's behind the menus and in lobbies (the attract page), looping. A race
   (and its results) plays a playlist: the map's own track and the two for any map (the owner's,
   so a map's music doesn't go stale). Never the same song twice in a row: a race starts on one the

@@ -21,8 +21,8 @@ const RIVALS = 3;
 /** Rivals are heard within this of the camera. */
 const HEAR = 90;
 const SETTINGS_KEY = 'racecar.audio';
-/** The recorded tracks' level into the music bus (they're mastered far louder than the synth). */
-const TRACK_LEVEL = 0.45;
+/** The recorded tracks' level into the music bus. */
+const TRACK_LEVEL = 0.8;
 
 export interface AudioSettings {
   muted: boolean;
@@ -55,6 +55,8 @@ interface Graph {
   engines: GainNode;
   musicLevel: GainNode;
   musicTone: BiquadFilterNode;
+  /** The music's own master (it skips the compressor): muted with `master`. */
+  musicOut: GainNode;
   engine: EngineVoice;
   tyres: NoiseVoice;
   gravel: NoiseVoice;
@@ -148,7 +150,11 @@ export class GameAudio {
     musicTone.frequency.value = 12000;
     const musicLevel = ctx.createGain();
     musicLevel.gain.value = 0;
-    musicLevel.connect(musicTone).connect(master);
+    // Its own way out, not through the compressor: loud engines and crashes pumped it down there.
+    // Muted with everything else (`musicOut` follows the master's level).
+    const musicOut = ctx.createGain();
+    musicOut.gain.value = master.gain.value;
+    musicLevel.connect(musicTone).connect(musicOut).connect(ctx.destination);
     const horn = new Out(ctx, sfx);
     for (const hz of [370, 466]) {
       const o = ctx.createOscillator();
@@ -167,6 +173,7 @@ export class GameAudio {
       engines,
       musicLevel,
       musicTone,
+      musicOut,
       engine: new EngineVoice(ctx, engines),
       tyres: new NoiseVoice(ctx, sfx, 'bandpass', 1500, 5),
       gravel: new NoiseVoice(ctx, sfx, 'lowpass', 650, 0.7),
@@ -190,7 +197,10 @@ export class GameAudio {
   toggleMute(): boolean {
     this.settings.muted = !this.settings.muted;
     this.save();
-    if (this.g) glide(this.g.master.gain, this.settings.muted ? 0 : 0.8, this.g.ctx.currentTime, 0.05);
+    if (this.g) {
+      glide(this.g.master.gain, this.settings.muted ? 0 : 0.8, this.g.ctx.currentTime, 0.05);
+      glide(this.g.musicOut.gain, this.settings.muted ? 0 : 0.8, this.g.ctx.currentTime, 0.05);
+    }
     return this.settings.muted;
   }
 
