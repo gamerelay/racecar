@@ -210,7 +210,8 @@ svg.thumb .cut { stroke: var(--sun); stroke-width: 1.5; stroke-dasharray: 3 2; }
 .card .sub span + span::before { content: '·'; margin: 0 14px; opacity: 0.5; }
 /* An online lobby's who-can-join (the host's to cycle) and invite link. */
 .card .sub .invite { margin: 0 10px 0 0; padding: 2px 10px; font-size: 0.85em; vertical-align: middle; }
-.card .sub span.invite { border: 2px solid rgba(216, 198, 242, 0.45); color: var(--ink); font-weight: 700; }
+/* Everyone else's is the same button, there to read. */
+.card .sub button.invite:disabled { cursor: default; transform: none; border-color: var(--ink); color: var(--ink); box-shadow: 5px 5px 0 var(--outline); }
 .seats { width: 100%; border-collapse: collapse; font-size: 14px; }
 .seats th { text-align: left; color: var(--muted); font-weight: 700; padding: 6px 10px 8px; border-bottom: 2px solid var(--muted); }
 .seats td { padding: 0 10px; border-bottom: 1px solid rgba(216, 198, 242, 0.2); height: 56px; vertical-align: middle; }

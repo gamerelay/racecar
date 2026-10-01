@@ -522,7 +522,7 @@ export class Menu {
   /** Who can join, which the host clicks through, and the invite link while anyone new can. */
   private access(lobby: Lobby, host: boolean): string {
     const [, name, hint] = ACCESS.find(([v]) => v === lobby.visibility) ?? ACCESS[0];
-    const who = host ? `<button id="lVis" class="ghost invite" title="${esc(hint)}. Click to change">${name}</button>` : `<span class="invite" title="${esc(hint)}">${name}</span>`;
+    const who = host ? `<button id="lVis" class="ghost invite" title="${esc(hint)}. Click to change">${name}</button>` : `<button class="ghost invite" disabled title="${esc(hint)}">${name}</button>`;
     return who + (lobby.visibility === 'private' ? '' : '<button id="lInvite" class="ghost invite">Copy invite link</button>');
   }
 

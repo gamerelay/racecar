@@ -1547,6 +1547,9 @@ The lobby's header, and who can join (playtest, 2026-10-01):
   and the room code were noise next to the seats.
 - **The turntable is in the middle of everything right of the seats**, and lower, clear of the
   options card. The car's panel is centered under it.
+- **A lobby everyone left isn't listed.** GameRelay keeps an empty room for its idle time (two
+  minutes), listed as it last was ("1/8"). The list skips rooms the server counts nobody in, and
+  the last one out unlists the room as they go (`setAccess({ public: false })`).
 
 Online races don't pause, and the lobby says who's still racing (playtest, 2026-10-01):
 

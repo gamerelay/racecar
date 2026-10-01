@@ -138,7 +138,7 @@ class FakeRelay implements RelayLike {
     return (this.room = c);
   }
   async listRooms() {
-    return [...this.hub.rooms.values()].filter((r) => r.public).map((r) => ({ code: r.code, name: r.listing.name ?? null, meta: r.listing.meta ?? null, locked: false }));
+    return [...this.hub.rooms.values()].filter((r) => r.public).map((r) => ({ code: r.code, players: r.members.length, name: r.listing.name ?? null, meta: r.listing.meta ?? null, locked: false }));
   }
 }
 
@@ -269,6 +269,23 @@ describe('online lobbies', () => {
     await ada.backend.send(lobby.id, { type: 'options', visibility: 'invite' });
     await new Promise((r) => setTimeout(r, 1100));
     expect(hub.rooms.get(lobby.id)!.public).toBe(false);
+    expect(await bo.backend.list()).toEqual([]);
+  });
+
+  test("a lobby everyone left isn't listed while its room waits out its idle time", async () => {
+    const hub = new Hub();
+    const [ada, bo] = players(hub, 'ada', 'bo');
+    const lobby = await ada.backend.create(player('ADA'), {});
+    await settle();
+    expect(await bo.backend.list()).toHaveLength(1);
+    const room = hub.rooms.get(lobby.id)!;
+    await ada.backend.send(lobby.id, { type: 'leave' });
+    // The room's still there (the server closes it later), but out of the list.
+    hub.rooms.set(lobby.id, room);
+    expect(room.public).toBe(false);
+    expect(await bo.backend.list()).toEqual([]);
+    // And one whose public flag is still up (its last player's page just closed) isn't listed either.
+    room.public = true;
     expect(await bo.backend.list()).toEqual([]);
   });
 

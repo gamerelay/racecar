@@ -13,6 +13,8 @@ and where things stand is [docs/HANDOFF.md](./docs/HANDOFF.md).
   gone.
 - **The turntable and your car's panel are centered** on the preview side, and the car sits
   lower.
+- **Lobbies everyone left are gone from the list** at once, instead of showing "1/8" until the
+  server closes them.
 
 ## alpha-1.16: Online fixes and a hosted test build
 

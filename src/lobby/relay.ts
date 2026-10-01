@@ -21,7 +21,7 @@ export interface RelayLike {
   readonly room: RoomLike | null;
   createRoom(options: { maxPlayers?: number; tag?: string; public?: boolean }): Promise<RoomLike>;
   joinRoom(code: string): Promise<RoomLike>;
-  listRooms(tag?: string, options?: { includeFull?: boolean }): Promise<{ code: string; name: string | null; meta: unknown; locked: boolean }[]>;
+  listRooms(tag?: string, options?: { includeFull?: boolean }): Promise<{ code: string; players: number; name: string | null; meta: unknown; locked: boolean }[]>;
 }
 
 export interface RoomLike {
@@ -186,7 +186,9 @@ export class RelayBackend implements LobbyBackend {
   async list(): Promise<LobbySummary[]> {
     const relay = await this.relayNow();
     const rows = await relay.listRooms(TAG, { includeFull: true });
-    return rows.flatMap((r) => readListing(r) ?? []);
+    // A room everyone left waits out its idle time (two minutes) before it closes, still listed
+    // as it last was: by the server's count, nobody's in it, so it isn't a lobby to join.
+    return rows.flatMap((r) => (r.players > 0 && readListing(r)) || []);
   }
 
   async create(host: Player, init: Parameters<LobbyBackend['create']>[1]): Promise<Lobby> {
@@ -284,6 +286,8 @@ export class RelayBackend implements LobbyBackend {
     const room = this.room;
     if (!room) return;
     this.detach();
+    // The last one out unlists it, so nothing (quick match included) sends anyone into an empty room.
+    if (room.isHost && room.isPublic && room.players.every((p) => p.id === room.me)) await room.setAccess({ public: false }).catch(() => {});
     await room.leave().catch(() => {});
     this.notify(null);
   }
