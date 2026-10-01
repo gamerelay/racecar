@@ -28,8 +28,9 @@ import { Menu, type Preview } from './ui/menu';
 import { GameRelay } from '@gamerelay/sdk';
 import { Lobbies, LocalBackend, LOCAL_ID } from './lobby/backend';
 import { RelayBackend, type RelayLike } from './lobby/relay';
-import { NetCars, type NetRoom } from './net/cars';
-import { NetRivals } from './net/rivals';
+import type { NetCars } from './net/cars';
+import { joinRace } from './net/join';
+import type { NetRivals } from './net/rivals';
 import { roster } from './lobby/lobby';
 import { loadPlate } from './lobby/plate';
 import { CLASSES, LAYOUTS, MAPS, PAINTS, SURFACES } from './content';
@@ -96,31 +97,20 @@ if (run.mode === 'race') sim.startRace(run.laps, attract ? 1 : onlineRace ? 30 :
 let net: NetCars | null = null;
 /** The AIs online: the room's host drives them (net/rivals.ts). */
 let rivals: NetRivals | null = null;
-if (onlineRace) void joinRace();
+if (onlineRace)
+  void joinRace({
+    lobby: () => online!.get(run.lobby!),
+    connection: () => online!.connection(),
+    sim,
+    me,
+    remote,
+    aiSeats,
+    seed: run.seed,
+    at: run.at,
+    onNet: (n, r) => ((net = n), (rivals = r)),
+  });
 // A race of your own from an online lobby: the page still stays in its room, so your seat is still yours after it.
 else if (run.lobby && run.lobby !== LOCAL_ID && online) void online.get(run.lobby).catch(() => null);
-
-/** The race page stays in its lobby's room (your seat is still yours after it), and your car goes out. */
-async function joinRace(): Promise<void> {
-  // Not connected in time: race the rest from here (your car doesn't go out).
-  const fallback = setTimeout(() => {
-    if (!net && sim.race.phase === 'countdown') sim.race.goTime = sim.time + 3;
-  }, 8000);
-  try {
-    // The backend's own join, not the screens' (which give up after 5 s): however long it takes,
-    // your car goes out once you're in (the fallback has started the race by then).
-    const lobby = await online!.get(run.lobby!);
-    const relay = await online!.connection();
-    if (!lobby || !relay.room) return;
-    const room = relay.room as unknown as NetRoom;
-    net = new NetCars(room, () => relay.now(), sim, me, remote, run.at);
-    if (aiSeats.size) rivals = new NetRivals(room, () => relay.now(), sim, aiSeats, `${run.seed}:${run.at ?? 0}`);
-    if (sim.race.phase === 'countdown' && !run.at) sim.race.goTime = sim.time + 3;
-    clearTimeout(fallback);
-  } catch {
-    // The fallback starts it.
-  }
-}
 
 const input = new Input();
 const renderer = new GameRenderer(document.getElementById('stage')!, new GreyboxSkin(), sim, PAINTS, paletteFor(map, run.time, run.seed), {
@@ -243,6 +233,18 @@ function rumble(): void {
 }
 
 // ---- the loop ----
+/** One fixed step: the others' cars and the AIs in place, the sim, then yours (and the host's AIs) out. */
+function stepOnce(): void {
+  telemetry.beforeStep(inputs);
+  const t0 = performance.now();
+  net?.beforeStep();
+  rivals?.beforeStep();
+  sim.step(inputs);
+  net?.afterStep();
+  rivals?.afterStep();
+  telemetry.afterStep(me, performance.now() - t0);
+}
+
 function frame(now: number): void {
   requestAnimationFrame(frame);
   const dt = Math.min((now - last) / 1000, 0.1);
@@ -259,14 +261,7 @@ function frame(now: number): void {
     acc += dt;
     let steps = 0;
     while (acc >= 1 / TICK_RATE && steps < 5) {
-      telemetry.beforeStep(inputs);
-      const t0 = performance.now();
-      net?.beforeStep();
-      rivals?.beforeStep();
-      sim.step(inputs);
-      net?.afterStep();
-      rivals?.afterStep();
-      telemetry.afterStep(me, performance.now() - t0);
+      stepOnce();
       acc -= 1 / TICK_RATE;
       steps++;
     }
@@ -481,14 +476,7 @@ if (import.meta.env.DEV) {
     input,
     advance(seconds: number, c: Partial<Controls> = {}) {
       Object.assign(controls, c);
-      for (let k = 0; k < Math.round(seconds * TICK_RATE); k++) {
-        telemetry.beforeStep(inputs);
-        net?.beforeStep();
-        rivals?.beforeStep();
-        sim.step(inputs);
-        net?.afterStep();
-        rivals?.afterStep();
-      }
+      for (let k = 0; k < Math.round(seconds * TICK_RATE); k++) stepOnce();
       renderer.snapCamera();
       for (let k = 0; k < 30; k++) renderer.frame(1, 1 / 60, steer, braking);
       hud.update();

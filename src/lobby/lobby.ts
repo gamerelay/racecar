@@ -5,12 +5,13 @@
 // to store lobbies and pass actions along. Pure: no DOM, no network.
 
 import type { TimeOption } from '../core/content';
+import type { Difficulty } from '../core/ai/racer';
 import type { CarSpec } from '../core/sim';
+
+export type { Difficulty };
 import { aiPlate } from './plate';
 
 export const SEATS = 8;
-export type Difficulty = 0 | 1 | 2;
-export const DIFFICULTY_NAMES = ['easy', 'normal', 'hard'] as const;
 /** What an open seat's bot drives at when the race starts. */
 export const FILL_DIFFICULTY: Difficulty = 1;
 

@@ -4,6 +4,7 @@ import type { Sim } from '../src/core/sim';
 import { createLobby, apply, encodeSeats, othersIn, roster, type Lobby } from '../src/lobby/lobby';
 import { NetCars, predict, remoteSteer, startDelay, type NetEntity, type NetKind, type NetRoom } from '../src/net/cars';
 import { NetRivals } from '../src/net/rivals';
+import { FALLBACK_MS, joinRace, type RaceJoin } from '../src/net/join';
 import { wreckCar } from '../src/core/car/physics';
 import { Cause } from '../src/core/events';
 import { raceFromLobby, readSetup, toQuery } from '../src/ui/setup';
@@ -433,3 +434,76 @@ describe('an online race link', () => {
     expect(r.specs).toHaveLength(7);
   });
 });
+
+describe("the race page's join", () => {
+  /** A race page's join with its timer in hand: `fire()` runs the fallback. */
+  function page(opts: { lobby?: unknown; room?: boolean; at?: number; slow?: Promise<void> } = {}) {
+    const hub = new Hub();
+    const sim = ringSim(1);
+    sim.addCar({ cls: 'coupe', human: true });
+    sim.addCar({ cls: 'coupe', racer: { difficulty: 1 } });
+    sim.startRace(1, 30);
+    let pending: (() => void) | null = null;
+    const got: { net: unknown; rivals: unknown } = { net: null, rivals: null };
+    const j: RaceJoin = {
+      lobby: async () => (await opts.slow, opts.lobby === undefined ? { id: 'K7QM' } : opts.lobby),
+      connection: async () => ({ room: opts.room === false ? null : hub.room('ada'), now: () => hub.now }),
+      sim,
+      me: 0,
+      remote: new Map(),
+      aiSeats: new Map([[1, 1]]),
+      seed: 7,
+      at: opts.at,
+      onNet: (net, rivals) => Object.assign(got, { net, rivals }),
+      timers: { set: (f) => ((pending = f), 1), clear: () => (pending = null) },
+    };
+    return { hub, sim, j, got, fire: () => pending?.(), armed: () => pending !== null };
+  }
+
+  test('in: your car and the AIs go out, the fallback is called off, and green is 3 s on (no time in the link)', async () => {
+    const p = page();
+    expect(await joinRace(p.j)).toBe(true);
+    expect(p.got.net).not.toBeNull();
+    expect(p.got.rivals).not.toBeNull();
+    expect(p.hub.entities.filter((e) => e.kind === 'car')).toHaveLength(1);
+    expect(p.armed()).toBe(false);
+    expect(p.sim.race.goTime - p.sim.time).toBeCloseTo(3);
+  });
+
+  test('the lobby gone, or no room: no net layers, and the fallback starts the race 3 s on', async () => {
+    for (const p of [page({ lobby: null }), page({ room: false })]) {
+      expect(await joinRace(p.j)).toBe(false);
+      expect(p.got.net).toBeNull();
+      expect(p.armed()).toBe(true);
+      p.fire();
+      expect(p.sim.race.goTime - p.sim.time).toBeCloseTo(3);
+    }
+  });
+
+  test("slower than the fallback: the race has started from here, and the late join doesn't move green", async () => {
+    let land!: () => void;
+    const p = page({ slow: new Promise<void>((r) => (land = r)) });
+    const joining = joinRace(p.j);
+    p.fire();
+    const go = p.sim.race.goTime;
+    for (let k = 0; k < 4 * 60; k++) p.sim.step([neutralControls()]);
+    expect(p.sim.race.phase).toBe('racing');
+    land();
+    expect(await joining).toBe(true);
+    expect(p.got.net).not.toBeNull();
+    expect(p.sim.race.goTime).toBe(go);
+  });
+
+  test("with the link's time, green is the server clock's (not 3 s on); without AIs, no rivals", async () => {
+    const p = page({ at: 5_000 });
+    p.j.aiSeats = new Map();
+    p.hub.now = 1_000;
+    await joinRace(p.j);
+    expect(p.got.rivals).toBeNull();
+    expect(p.sim.race.goTime - p.sim.time).toBeGreaterThan(20);
+    (p.got.net as NetCars).beforeStep();
+    expect(p.sim.race.goTime - p.sim.time).toBeCloseTo(4);
+    expect(FALLBACK_MS).toBe(8000);
+  });
+});
+
