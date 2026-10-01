@@ -6,11 +6,11 @@ and where things stand is [docs/HANDOFF.md](./docs/HANDOFF.md).
 
 ## Unreleased
 
+- **The title has the crossed chequered flags** (the favicon's) after RACECAR.
 - **Away:** a player whose connection drops shows Away in the lobby until they're back.
 - **Fixed:** when the room's host role moved (a page load), seats of players who had left weren't
   opened and the listing went stale. A lobby you gave up joining no longer keeps you in its room.
 - **docs/ONLINE.md:** how lobbies, hosts, parties and players work, next to Xbox Live's.
-
 - **P2P:** everyone in an online lobby connects straight to each other where they can (each lobby
   is a GameRelay party, with direct connections on). The lobby header says P2P when every pair
   is direct.
