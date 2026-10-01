@@ -6,6 +6,10 @@ and where things stand is [docs/HANDOFF.md](./docs/HANDOFF.md).
 
 ## Unreleased
 
+## alpha-1.20: the soundtrack, and a cleanup pass
+
+PRs #43 and #44.
+
 - **Music:** the game has its own soundtrack, in place of the synth loop: a track for the title
   and menus, and in a race the map's own (Downtown, Backroads, Paradise) or one of two that go on
   any map (Finish Line, Final Sprint), never the same song twice in a row. N still toggles it.

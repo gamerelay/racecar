@@ -4,7 +4,7 @@ Where racecar stands and what's next, for whoever picks it up (a person or a fre
 The design is [SPEC.md](./SPEC.md): decisions in §17, and what building changed in "Changed while
 building". This file is "where are we"; the spec is "what are we making".
 
-**Last updated:** 2026-10-01. `main` is tagged **`alpha-1.19`** (PR #42, the AIs online).
+**Last updated:** 2026-10-01. `main` is tagged **`alpha-1.20`** (PRs #43 and #44: a cleanup pass and the soundtrack).
 Every release is in [CHANGELOG.md](../CHANGELOG.md): add to its "Unreleased" section as you go,
 and retitle that section when you tag. [PLAN.md](./PLAN.md)'s six phases are all merged (it keeps
 a pool of other ideas), how online works is [ONLINE.md](./ONLINE.md), and how maps are made is
@@ -242,7 +242,7 @@ Clockwise round a tropical island, the volcano in the middle and the sea all rou
 - **The music isn't in the single file** (10 MB of tracks in a database row is too much): there
   the game plays the synth until the tracks are hosted somewhere with CORS and the build sets
   `VITE_MUSIC_URL` to it (SPEC "The soundtrack").
-- **What's there now:** `main` at PR #44 (`alpha-1.19` plus the cleanup pass and the soundtrack, which plays the synth there), updated 2026-10-01. Keep it the
+- **What's there now:** `main` at PR #44 (`alpha-1.20`; the soundtrack plays the synth there until the tracks are hosted), updated 2026-10-01. Keep it the
   one row: update Z442EE in place rather than adding a game.
 
 ## Next, in order
