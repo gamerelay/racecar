@@ -11,7 +11,7 @@ import type { CarClass, MapDef, PaintDef, TrackLayout } from '../core/content';
 import type { KeyValue, LobbyBackend } from '../lobby/backend';
 import { LOCAL_ID } from '../lobby/backend';
 import { aiPlate, cleanPlate, plateProblem, PLATE_MAX, savePlate, typedPlate } from '../lobby/plate';
-import { DEFAULT_OPTIONS, DIFFICULTY_NAMES, FILL_DIFFICULTY, SEATS, legacySeats, seatIndex, summarize, type Lobby, type LobbyAction, type LobbyOptions, type LobbySummary, type SeatChoice } from '../lobby/lobby';
+import { DEFAULT_OPTIONS, FILL_DIFFICULTY, SEATS, legacySeats, seatIndex, summarize, type Lobby, type LobbyAction, type LobbyOptions, type LobbySummary, type SeatChoice } from '../lobby/lobby';
 import { MAX_LAPS, raceFromLobby, toQuery, type RaceSetup } from './setup';
 import { carStats } from './stats';
 import { thumb, thumbSvg } from './thumb';
