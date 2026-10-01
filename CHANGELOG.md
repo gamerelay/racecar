@@ -6,6 +6,10 @@ and where things stand is [docs/HANDOFF.md](./docs/HANDOFF.md).
 
 ## Unreleased
 
+## alpha-1.13: Downtown's field wrecks
+
+PR #31.
+
 - Downtown's field wrecks, measured over 16 seeds: 1.0 a race, under MAPS.md's 1.5 (it had been
   quoted as ~1.6). No change to the map; a test holds it.
 
