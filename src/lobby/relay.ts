@@ -101,6 +101,8 @@ export function readAction(data: unknown, from: string): LobbyAction | null {
       return str(data.name, 64) ? { type: 'name', name: data.name } : null;
     case 'ready':
       return typeof data.ready === 'boolean' ? { type: 'ready', ready: data.ready } : null;
+    case 'racing':
+      return typeof data.racing === 'boolean' ? { type: 'racing', racing: data.racing } : null;
     case 'join': {
       const p = data.player;
       if (!obj(p) || !str(p.name, 64) || !str(p.car, 32) || !int(p.paint, 0, 255)) return null;

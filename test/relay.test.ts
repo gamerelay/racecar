@@ -279,6 +279,8 @@ describe('online lobbies', () => {
     expect(readAction({ type: 'options', options: { laps: 3, junk: 1 } }, 'x')).toEqual({ type: 'options', options: { laps: 3 } });
     expect(readAction({ type: 'join', player: { id: 'ada', name: 'X', car: 'coupe', paint: 1 } }, 'bo')).toEqual({ type: 'join', player: { id: 'bo', name: 'X', car: 'coupe', paint: 1 } });
     expect(readAction({ type: 'start', seed: -1 }, 'x')).toBeNull();
+    expect(readAction({ type: 'racing', racing: false }, 'x')).toEqual({ type: 'racing', racing: false });
+    expect(readAction({ type: 'racing', racing: 'no' }, 'x')).toBeNull();
     expect(readAction('start', 'x')).toBeNull();
     expect(readListing({ code: 'K7QM', name: 'ok', meta: { map: 'downtown/downtown', laps: 2, phase: 'lobby', pips: 'pooooooo', players: 1, filled: 1 } })).toMatchObject({ id: 'K7QM' });
     expect(readListing({ code: 'K7QM', name: 'ok', meta: { map: 'downtown/downtown', laps: 2, phase: 'lobby', pips: '<img>', players: 1, filled: 1 } })).toBeNull();

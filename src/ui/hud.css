@@ -227,6 +227,8 @@ svg.thumb .cut { stroke: var(--sun); stroke-width: 1.5; stroke-dasharray: 3 2; }
 .seats select { padding: 5px 28px 5px 8px; font-size: 13px; }
 .seats .tag { font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; line-height: 1; color: var(--outline); background: var(--sun); padding: 3px 5px; margin-left: 6px; vertical-align: middle; }
 .seats .ready { color: #7cff6b; }
+/* Still in the lobby's race (online): back when their lobby screen opens. */
+.seats .racing { color: var(--cyan); }
 .seats .ping { color: var(--muted); }
 @media (max-width: 760px) {
   .seats th:last-child, .seats td:last-child { display: none; }

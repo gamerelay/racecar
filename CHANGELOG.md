@@ -6,6 +6,9 @@ and where things stand is [docs/HANDOFF.md](./docs/HANDOFF.md).
 
 ## Unreleased
 
+- Online races don't pause when you switch away, and their menu and results have no Restart or
+  Race again (only Back to lobby). The lobby shows who's still racing.
+
 ## alpha-1.15: Remote cars
 
 PR #33: milestone 3, part 2.

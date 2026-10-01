@@ -170,6 +170,9 @@ export class Menu {
         this.renderLobby(l);
       });
       lobby = (await this.sit(lobby)) ?? lobby;
+      // Back from its race: the others see you're here again.
+      const back = lobby.seats[seatIndex(lobby, this.backend.youIn(lobby.id))];
+      if (back?.kind === 'player' && back.racing) lobby = (await this.backend.send(lobby.id, { type: 'racing', racing: false })) ?? lobby;
       this.renderLobby(lobby);
     }
   }
@@ -437,7 +440,7 @@ export class Menu {
           who = `${plateChip(s.name)}${s.id === lobby.host ? ' <small class="tag">host</small>' : ''}`;
           // Your own car is picked beside the turntable.
           car = `${dot(s.paint)}${esc(className(s.car))}`;
-          status = s.id === lobby.host ? '' : s.ready ? '<span class="ready">Ready</span>' : 'Not ready';
+          status = s.racing && s.id !== you ? '<span class="racing">Racing</span>' : s.id === lobby.host ? '' : s.ready ? '<span class="ready">Ready</span>' : 'Not ready';
           return `<tr class="${me ? 'me' : ''}"><td>${k + 1}</td><td>${who}</td><td><div class="car">${car}</div></td><td>${status}</td><td class="ping">—</td></tr>`;
         }
         const choice: SeatChoice = s.kind === 'ai' ? (['ai-easy', 'ai-normal', 'ai-hard'] as const)[s.difficulty] : s.kind;
