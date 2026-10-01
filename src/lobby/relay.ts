@@ -78,8 +78,10 @@ export function readAction(data: unknown, from: string): LobbyAction | null {
         out.name = data.name;
       }
       if (data.visibility !== undefined) {
-        if (!VISIBILITIES.includes(data.visibility as Lobby['visibility'])) return null;
-        out.visibility = data.visibility as Lobby['visibility'];
+        // An older build's `private` was by link.
+        const v = data.visibility === 'private' ? 'invite' : data.visibility;
+        if (!VISIBILITIES.includes(v as Lobby['visibility'])) return null;
+        out.visibility = v as Lobby['visibility'];
       }
       if (data.options !== undefined) {
         if (!obj(data.options)) return null;
@@ -122,7 +124,7 @@ export function readAction(data: unknown, from: string): LobbyAction | null {
   return null;
 }
 
-const VISIBILITIES: readonly Lobby['visibility'][] = ['public', 'invite', 'private'];
+const VISIBILITIES: readonly Lobby['visibility'][] = ['public', 'invite', 'locked'];
 
 const PIPS = /^[penhox]{8}$/;
 
@@ -141,7 +143,9 @@ function lobbyIn(room: RoomLike): Lobby | null {
   const l = room.state.lobby;
   if (!obj(l) || !Array.isArray(l.seats) || l.seats.length !== SEATS || typeof l.host !== 'string') return null;
   const lobby = l as unknown as Lobby;
-  return { ...lobby, options: { ...DEFAULT_OPTIONS, ...lobby.options } };
+  // Kept by an older build, whose `private` was by link (not locked).
+  const visibility = (lobby.visibility as string) === 'private' ? 'invite' : lobby.visibility;
+  return { ...lobby, visibility, options: { ...DEFAULT_OPTIONS, ...lobby.options } };
 }
 
 export class RelayBackend implements LobbyBackend {

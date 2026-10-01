@@ -272,6 +272,18 @@ describe('online lobbies', () => {
     expect(await bo.backend.list()).toEqual([]);
   });
 
+  test('a lobby an older build made "private" (by link) is invite only: a friend with the link still sits down', async () => {
+    const hub = new Hub();
+    const [ada, bo] = players(hub, 'ada', 'bo');
+    const lobby = await ada.backend.create(player('ADA'), {});
+    const room = hub.rooms.get(lobby.id)!;
+    room.state = { ...room.state, lobby: { ...(room.state.lobby as object), visibility: 'private' } };
+    await bo.backend.get(lobby.id);
+    const joined = await bo.backend.send(lobby.id, { type: 'join', player: player('BO') });
+    expect(joined?.visibility).toBe('invite');
+    expect(joined?.seats[1]).toMatchObject({ kind: 'player', id: 'bo' });
+  });
+
   test("a lobby everyone left isn't listed while its room waits out its idle time", async () => {
     const hub = new Hub();
     const [ada, bo] = players(hub, 'ada', 'bo');
@@ -295,6 +307,8 @@ describe('online lobbies', () => {
     expect(readAction({ type: 'options', options: { weather: 'snow' } }, 'x')).toBeNull();
     expect(readAction({ type: 'options', visibility: 'invite' }, 'x')).toEqual({ type: 'options', visibility: 'invite' });
     expect(readAction({ type: 'options', visibility: 'secret' }, 'x')).toBeNull();
+    // An older build's "private" was by link: invite only, not locked.
+    expect(readAction({ type: 'options', visibility: 'private' }, 'x')).toEqual({ type: 'options', visibility: 'invite' });
     expect(readAction({ type: 'options', options: { laps: 3, junk: 1 } }, 'x')).toEqual({ type: 'options', options: { laps: 3 } });
     expect(readAction({ type: 'join', player: { id: 'ada', name: 'X', car: 'coupe', paint: 1 } }, 'bo')).toEqual({ type: 'join', player: { id: 'bo', name: 'X', car: 'coupe', paint: 1 } });
     expect(readAction({ type: 'start', seed: -1 }, 'x')).toBeNull();

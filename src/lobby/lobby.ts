@@ -44,8 +44,8 @@ export interface Lobby {
   name: string;
   /** The host's player id: only the host changes seats and options, and starts the race. */
   host: string;
-  /** Who can join: anyone (listed online), anyone with the link, or nobody new. */
-  visibility: 'public' | 'invite' | 'private';
+  /** Who can join: anyone (listed online), anyone with the link, or nobody new ("Private"). An older build's `private` was by link: `invite`. */
+  visibility: 'public' | 'invite' | 'locked';
   phase: 'lobby' | 'racing';
   options: LobbyOptions;
   seats: Seat[];
@@ -178,7 +178,7 @@ export function apply(lobby: Lobby, actor: string, action: LobbyAction): Lobby |
     case 'join': {
       if (mine >= 0 || seatIndex(lobby, action.player.id) >= 0 || lobby.phase !== 'lobby') return null;
       // Private: nobody new sits down (unless there's nobody left to say so).
-      if (lobby.visibility === 'private' && lobby.host) return null;
+      if (lobby.visibility === 'locked' && lobby.host) return null;
       const open = lobby.seats.findIndex((s) => s.kind === 'open');
       if (open < 0) return null;
       next.seats[open] = { kind: 'player', ready: false, ...action.player };

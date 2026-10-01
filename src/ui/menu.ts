@@ -42,7 +42,7 @@ const MAYHEMS: [string, string][] = [['normal', 'Normal'], ['chaos', 'Chaos'], [
 const ACCESS: [Lobby['visibility'], string, string][] = [
   ['public', 'Public', 'Anyone: listed online'],
   ['invite', 'Invite only', 'Anyone with the link: not listed'],
-  ['private', 'Private', 'Nobody new can join'],
+  ['locked', 'Private', 'Nobody new can join'],
 ];
 const label = (opts: [string, string][], v: string) => opts.find(([k]) => k === v)?.[1] ?? v;
 
@@ -201,7 +201,7 @@ export class Menu {
 
   /** In someone else's lobby without a seat: take the first open one, if it's between races (and not private, unless nobody's left to keep it so). */
   private async sit(lobby: Lobby): Promise<Lobby | null> {
-    if (this.sitting || lobby.phase !== 'lobby' || (lobby.visibility === 'private' && lobby.host) || seatIndex(lobby, this.backend.youIn(lobby.id)) >= 0 || !lobby.seats.some((s) => s.kind === 'open')) return null;
+    if (this.sitting || lobby.phase !== 'lobby' || (lobby.visibility === 'locked' && lobby.host) || seatIndex(lobby, this.backend.youIn(lobby.id)) >= 0 || !lobby.seats.some((s) => s.kind === 'open')) return null;
     this.sitting = true;
     try {
       return await this.backend.send(lobby.id, { type: 'join', player: this.me(lobby.id) });
@@ -529,7 +529,7 @@ export class Menu {
   private access(lobby: Lobby, host: boolean): string {
     const [, name, hint] = ACCESS.find(([v]) => v === lobby.visibility) ?? ACCESS[0];
     const who = host ? `<button id="lVis" class="ghost invite" title="${esc(hint)}. Click to change">${name}</button>` : `<button class="ghost invite" disabled title="${esc(hint)}">${name}</button>`;
-    return who + (lobby.visibility === 'private' ? '' : '<button id="lInvite" class="ghost invite">Copy invite link</button>');
+    return who + (lobby.visibility === 'locked' ? '' : '<button id="lInvite" class="ghost invite">Copy invite link</button>');
   }
 
   /**
