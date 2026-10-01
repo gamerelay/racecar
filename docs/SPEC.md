@@ -1541,8 +1541,9 @@ The lobby's header, and who can join (playtest, 2026-10-01):
   link, not listed: what "private" meant before) and Private, which is the spec's **lock**:
   nobody new sits down (`apply` refuses a `join`), and those in keep their seats. Someone who
   opens a private lobby's link watches without a seat, and sits down if it opens up again. The
-  host clicks the header's button to cycle them; everyone else sees it as a label. New lobbies
-  are Public or Invite only.
+  host clicks the header's button to cycle them; everyone else sees it as a label. Create lobby
+  offers the same three words: Public, Invite only, or Private, which there is the local lobby
+  (you and bots, in this browser: nobody else can join that either). Its header says Private.
 - **The header is just that and the invite link** (gone while it's Private). The cars on the grid
   and the room code were noise next to the seats.
 - **The turntable is in the middle of everything right of the seats**, and lower, clear of the

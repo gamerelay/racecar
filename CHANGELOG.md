@@ -8,7 +8,7 @@ and where things stand is [docs/HANDOFF.md](./docs/HANDOFF.md).
 
 - **Who can join a lobby: Public, Invite only or Private.** The host clicks the lobby header's
   button to cycle them. Private lets nobody new in; Invite only is the old "private" (by link,
-  not listed).
+  not listed). Create lobby offers the same three, where Private is you and bots in this browser.
 - **A tidier lobby header:** who can join and the invite link. The car count and room code are
   gone.
 - **The turntable and your car's panel are centered** on the preview side, and the car sits

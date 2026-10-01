@@ -412,10 +412,10 @@ export class Menu {
         <div class="grid">
           <label class="wide">Name <input id="cName" maxlength="32" autocomplete="off" data-1p-ignore data-lpignore="true" value="${esc(this.plate)}'s lobby"></label>
           ${this.optionFields(o, false)}
-          <label>Who can join ${this.sel('cVis', this.online ? [['public', 'Anyone: listed online'], ['invite', 'Friends: by link'], ['local', 'Just me, with bots']] : [['local', 'Just me, with bots']], this.online ? 'public' : 'local')}</label>
+          <label>Who can join ${this.sel('cVis', this.online ? [['public', 'Public'], ['invite', 'Invite only'], ['local', 'Private']] : [['local', 'Private']], this.online ? 'public' : 'local')}</label>
         </div>
         <div class="row"><button id="cGo">Create</button><button id="cBack" class="ghost">Back</button></div>
-        <p class="muted">You'll host it: set each seat to an AI, open or closed. Open seats get a bot when the race starts.</p>
+        <p class="muted">You'll host it: set each seat to an AI, open or closed. Open seats get a bot when the race starts. Public lobbies are listed online, Invite only ones are joined by their link, and a Private one is you and bots, in this browser.</p>
       </div>`,
       'cGo',
     );
@@ -433,7 +433,7 @@ export class Menu {
       const lobby = await this.backend.create(this.me(online ? '' : LOCAL_ID), { name, visibility, online, options: this.readOptions() }).catch(() => null);
       go.disabled = false;
       if (lobby) void this.show({ kind: 'lobby', id: lobby.id });
-      else (document.querySelector('.create .muted') as HTMLElement).textContent = "Couldn't reach the lobby server. Try again, or pick Just me.";
+      else (document.querySelector('.create .muted') as HTMLElement).textContent = "Couldn't reach the lobby server. Try again, or pick Private.";
     });
   }
 
@@ -483,7 +483,7 @@ export class Menu {
     this.paint(
       `<div class="card lobby">
         <h1>${esc(lobby.name)}</h1>
-        <p class="sub">${online ? this.access(lobby, host) : '<span>This browser</span>'}</p>
+        <p class="sub">${online ? this.access(lobby, host) : '<button class="ghost invite" disabled title="Just you, with bots, in this browser">Private</button>'}</p>
         <table class="seats"><thead><tr><th>#</th><th>Seat</th><th>Car</th><th></th><th>Ping</th></tr></thead><tbody>${rows}</tbody></table>
         <div class="row">${host ? '<button id="lStart">Start race</button>' : `<button id="lReady">${mine >= 0 && lobby.seats[mine].kind === 'player' && lobby.seats[mine].ready ? 'Not ready' : 'Ready'}</button>`}
           ${online ? '' : '<button id="lBack" class="ghost">Title</button>'}<button id="lLeave" class="ghost danger">${host && s.players === 1 ? 'Close lobby' : 'Leave'}</button></div>
