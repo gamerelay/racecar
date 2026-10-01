@@ -136,16 +136,16 @@ export class Lobbies implements LobbyBackend {
     return this.of(id)?.youIn(id) ?? '';
   }
 
+  /** The online lobbies to join. Your own isn't one: it's private, and closes when you leave it. */
   async list(): Promise<LobbySummary[]> {
-    const own = await this.local.list();
-    if (!this.online) return own;
+    if (!this.online) return [];
     try {
       const rows = await inTime(this.online.list());
       this.offline = '';
-      return [...own, ...rows];
+      return rows;
     } catch {
       this.offline = "Can't reach the lobby server right now.";
-      return own;
+      return [];
     }
   }
 

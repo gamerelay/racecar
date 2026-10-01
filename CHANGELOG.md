@@ -13,6 +13,9 @@ and where things stand is [docs/HANDOFF.md](./docs/HANDOFF.md).
   gone.
 - **The turntable and your car's panel are centered** on the preview side, and the car sits
   lower.
+- **Only Public lobbies are in the list.** Your own Private lobby isn't either, and it closes
+  when you leave it.
+- **Quick race starts a race straight away:** you and seven bots on a random map, no lobby.
 - **Lobbies everyone left are gone from the list** at once, instead of showing "1/8" until the
   server closes them.
 

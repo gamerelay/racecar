@@ -131,6 +131,8 @@ export function readListing(r: { code: string; name: string | null; meta: unknow
   const m = r.meta;
   if (!obj(m) || !str(m.map, 64) || !int(m.laps, 1, 9) || (m.phase !== 'lobby' && m.phase !== 'racing') || !str(m.pips, 8) || !PIPS.test(m.pips)) return null;
   if (!int(m.players, 0, SEATS) || !int(m.filled, 0, SEATS)) return null;
+  // Invite only or private, by its host's own word (an older host's listing doesn't say: public).
+  if (m.visibility !== undefined && m.visibility !== 'public') return null;
   return { id: r.code, name: (r.name ?? '').slice(0, 48) || 'Lobby', map: m.map, laps: m.laps, phase: m.phase, visibility: 'public', pips: m.pips, players: m.players, filled: m.filled };
 }
 
@@ -333,8 +335,10 @@ export class RelayBackend implements LobbyBackend {
 
   /** What the room lists show: the lobby's summary, when it changes, at most once a second. */
   private relist(room: RoomLike, lobby: Lobby): void {
-    const { id: _, name, visibility, ...meta } = summarize(lobby);
-    const key = JSON.stringify([name, visibility, meta]);
+    // Who can join goes in the listing too: if unlisting the room didn't land, the list still leaves it out.
+    const { id: _, name, ...meta } = summarize(lobby);
+    const { visibility } = meta;
+    const key = JSON.stringify([name, meta]);
     if (key === this.listed) return;
     const send = () => {
       this.listingTimer = null;
@@ -342,7 +346,8 @@ export class RelayBackend implements LobbyBackend {
       this.listed = key;
       void room.setListing({ name, meta: meta as never }).catch(() => {});
       // Against the room itself, not what we last sent: a host before us may not have got to it.
-      if (room.isPublic !== (visibility === 'public')) void room.setAccess({ public: visibility === 'public' }).catch(() => {});
+      // One that fails is tried again with the next change.
+      if (room.isPublic !== (visibility === 'public')) void room.setAccess({ public: visibility === 'public' }).catch(() => (this.listed = ''));
     };
     if (this.listingTimer) return;
     const wait = this.listingAt + LISTING_MS - Date.now();

@@ -304,9 +304,11 @@ describe('online lobbies', () => {
     expect(readListing({ code: 'K7QM', name: 'ok', meta: { map: 'downtown/downtown', laps: 2, phase: 'lobby', pips: 'pooooooo', players: 1, filled: 1 } })).toMatchObject({ id: 'K7QM' });
     expect(readListing({ code: 'K7QM', name: 'ok', meta: { map: 'downtown/downtown', laps: 2, phase: 'lobby', pips: '<img>', players: 1, filled: 1 } })).toBeNull();
     expect(readListing({ code: 'K7QM', name: 'ok', meta: null })).toBeNull();
+    // A listing that says it's invite only or private isn't a row, even if the room is still listed.
+    expect(readListing({ code: 'K7QM', name: 'ok', meta: { map: 'downtown/downtown', laps: 2, phase: 'lobby', pips: 'pooooooo', players: 1, filled: 1, visibility: 'invite' } })).toBeNull();
   });
 
-  test('Lobbies: your own lobby stays local, the rest are online, and the list has both (or yours alone when offline)', async () => {
+  test('Lobbies: your own lobby stays local and unlisted, the rest are online (and none when offline)', async () => {
     const hub = new Hub();
     const [ada] = players(hub, 'ada');
     const local = new LocalBackend(null);
@@ -318,11 +320,11 @@ describe('online lobbies', () => {
     expect(both.youIn(LOCAL_ID)).toBe('you');
     expect(both.youIn(room.id)).toBe('ada');
     await settle();
-    expect((await both.list()).map((l) => l.id)).toEqual([LOCAL_ID, room.id]);
+    expect((await both.list()).map((l) => l.id)).toEqual([room.id]);
 
     const down = new Lobbies(new LocalBackend(null), new RelayBackend(() => Promise.reject(new Error('offline'))));
     await down.create(player('ADA'), {});
-    expect((await down.list()).map((l) => l.id)).toEqual([LOCAL_ID]);
+    expect(await down.list()).toEqual([]);
     expect(down.offline).not.toBe('');
     expect(new Lobbies(new LocalBackend(null), null).offline).toContain('VITE_GAMERELAY_KEY');
   });

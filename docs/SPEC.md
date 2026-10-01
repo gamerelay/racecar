@@ -1548,6 +1548,14 @@ The lobby's header, and who can join (playtest, 2026-10-01):
   and the room code were noise next to the seats.
 - **The turntable is in the middle of everything right of the seats**, and lower, clear of the
   options card. The car's panel is centered under it.
+- **Only Public lobbies are listed, by two checks.** The room is unlisted (`setAccess`, tried
+  again if it fails), and the listing's meta says who can join, so the list drops one that isn't
+  Public even while its room is still listed.
+- **Your own lobby isn't in the list, and closes when you leave it.** With you gone only bots are
+  left. Its Title button is gone (Leave, now Close lobby, and Esc both close it), and a stale one
+  in storage (a closed tab) isn't listed.
+- **Quick race skips lobbies:** you and seven normal bots, a random map, random weather and time,
+  the default laps. Its results go to the main menu.
 - **A lobby everyone left isn't listed.** GameRelay keeps an empty room for its idle time (two
   minutes), listed as it last was ("1/8"). The list skips rooms the server counts nobody in, and
   the last one out unlists the room as they go (`setAccess({ public: false })`).

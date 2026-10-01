@@ -114,10 +114,10 @@ export class Menu {
     return this.show(lobby ? { kind: 'lobby', id: lobby.id } : { kind: 'title' });
   }
 
-  /** Back (Esc, the pad's B): lobby, create and the plate go to the title. Out of an online lobby, that's leaving it. */
+  /** Back (Esc, the pad's B): lobby, create and the plate go to the title. Out of a lobby, that's leaving it (yours closes: only bots are left). */
   back(): void {
     const screen = this.screen;
-    if (screen.kind === 'lobby' && screen.id !== LOCAL_ID) void this.backend.send(screen.id, { type: 'leave' });
+    if (screen.kind === 'lobby') void this.backend.send(screen.id, { type: 'leave' });
     if (screen.kind !== 'title') void this.show({ kind: 'title' });
   }
 
@@ -248,14 +248,14 @@ export class Menu {
         </div>
         <button id="mCreate" class="big">Create lobby</button>
         <div class="row"><button id="mQuick" class="ghost">Quick race</button><button id="mFree" class="ghost">Free drive</button></div>
-        <p class="muted">Every race is a lobby, and bots fill the open seats. Quick race starts yours as it's set (you and seven bots, to begin with). Drift (Shift / RB) to take corners tighter; air, near misses and the oncoming lane fill boost.</p>
+        <p class="muted">Every race is a lobby, and bots fill the open seats. Quick race is you and seven bots on a random map. Drift (Shift / RB) to take corners tighter; air, near misses and the oncoming lane fill boost.</p>
       </div>`,
       lobbies.length ? `lobby-${lobbies[0].id}` : 'mCreate',
     );
     for (const l of lobbies) this.on(`lobby-${l.id}`, () => void this.show({ kind: 'lobby', id: l.id }));
     this.on('mCreate', () => void this.show({ kind: 'create' }));
     this.on('mPlate', () => void this.show({ kind: 'plate' }));
-    this.on('mQuick', () => void this.quickRace());
+    this.on('mQuick', () => this.quickRace());
     this.on('mFree', () => void this.freeDrive());
   }
 
@@ -264,7 +264,7 @@ export class Menu {
     const offline = this.offline?.() ?? '';
     const text = offline || (lobbies.some((l) => l.id !== LOCAL_ID) ? '' : 'No online lobbies right now');
     if (!text) return '';
-    return `<div class="lrow soon"><span class="thumb"></span><span class="lname">${esc(text)}</span><span class="lmeta">${offline ? 'Your own lobby still works: race the bots.' : 'Create one and send your friends the link, with bots in the empty seats.'}</span></div>`;
+    return `<div class="lrow soon"><span class="thumb"></span><span class="lname">${esc(text)}</span><span class="lmeta">${offline ? 'Quick race still works: race the bots.' : 'Create one and send your friends the link, with bots in the empty seats.'}</span></div>`;
   }
 
   private lobbyRow(l: LobbySummary): string {
@@ -276,15 +276,22 @@ export class Menu {
       <span class="pips">${pips}</span><span class="lcount">${l.filled}/${SEATS}</span></button>`;
   }
 
-  /** Your lobby, made with the defaults if there isn't one. */
-  private async ownLobby(): Promise<Lobby> {
-    return (await this.backend.get(LOCAL_ID)) ?? this.backend.create(this.me(LOCAL_ID), { options: this.defaults });
-  }
-
-  /** Straight into a race from your lobby, as it's set up. */
-  private async quickRace(): Promise<void> {
-    const lobby = await this.ownLobby();
-    await this.start(lobby);
+  /** Straight into a race, no lobby: your car and seven bots, on a map picked at random, in random weather. */
+  private quickRace(): void {
+    const maps = Object.keys(this.content.layouts);
+    const setup: RaceSetup = {
+      mode: 'race',
+      map: maps[Math.floor(Math.random() * maps.length)],
+      ...this.yours,
+      seats: legacySeats(7, FILL_DIFFICULTY),
+      laps: DEFAULT_OPTIONS.laps,
+      weather: 'random',
+      time: 'random',
+      mayhem: DEFAULT_OPTIONS.mayhem,
+      traffic: true,
+      seed: Math.floor(Math.random() * 1e9),
+    };
+    location.search = toQuery(setup);
   }
 
   private async freeDrive(): Promise<void> {
@@ -486,7 +493,7 @@ export class Menu {
         <p class="sub">${online ? this.access(lobby, host) : '<button class="ghost invite" disabled title="Just you, with bots, in this browser">Private</button>'}</p>
         <table class="seats"><thead><tr><th>#</th><th>Seat</th><th>Car</th><th></th><th>Ping</th></tr></thead><tbody>${rows}</tbody></table>
         <div class="row">${host ? '<button id="lStart">Start race</button>' : `<button id="lReady">${mine >= 0 && lobby.seats[mine].kind === 'player' && lobby.seats[mine].ready ? 'Not ready' : 'Ready'}</button>`}
-          ${online ? '' : '<button id="lBack" class="ghost">Title</button>'}<button id="lLeave" class="ghost danger">${host && s.players === 1 ? 'Close lobby' : 'Leave'}</button></div>
+<button id="lLeave" class="ghost danger">${host && s.players === 1 ? 'Close lobby' : 'Leave'}</button></div>
       </div>
       ${this.optionsPanel(o, host)}
       ${mine >= 0 ? this.carPanel(yours) : '<div class="stage" aria-hidden="true"></div>'}`,
@@ -498,7 +505,6 @@ export class Menu {
       const me = lobby.seats[mine];
       this.send(lobby, { type: 'ready', ready: !(me?.kind === 'player' && me.ready) });
     });
-    this.on('lBack', () => this.back());
     this.on('lInvite', () => {
       const link = `${location.origin}${location.pathname}?lobby=${encodeURIComponent(lobby.id)}`;
       void navigator.clipboard?.writeText(link).then(() => {

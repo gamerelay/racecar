@@ -322,7 +322,8 @@ Clockwise round a tropical island, the volcano in the middle and the sea all rou
      rooms (`src/lobby/relay.ts`), listed with `setListing`, and the SDK's host applies
      everyone's actions with `apply`. Start takes everyone into the same race, and the race page
      keeps the seat. A lobby is Public, Invite only (by link, unlisted) or Private (locked:
-     nobody new sits down); the host cycles it from the header's button.
+     nobody new sits down); the host cycles it from the header's button. Only Public lobbies are
+     listed; your own (local) one isn't, and closes when you leave. Quick race skips lobbies.
    - **Remote cars: merged** (PR #33, `alpha-1.15`; SPEC "Remote cars"). Each player's car
      is an entity at 30 Hz (`src/net/cars.ts`), a remote car in everyone else's sim, predicted to
      now. Green is on the server's clock. Next: the AIs as host entities, traffic with
