@@ -6,6 +6,10 @@ and where things stand is [docs/HANDOFF.md](./docs/HANDOFF.md).
 
 ## Unreleased
 
+## alpha-1.15: Remote cars
+
+PR #33: milestone 3, part 2.
+
 - **Remote cars** (milestone 3, part 2). In an online race you see the other players' cars,
   driven by them, predicted to now so they're where they are. You can bump into them, and only
   their own screen can wreck them. Everyone's lights go green at the same moment, on the server's
