@@ -26,6 +26,8 @@ export interface RoomLike {
   readonly me: string;
   readonly code: string;
   readonly isHost: boolean;
+  /** Listed by listRooms (`setAccess({ public })`). */
+  readonly isPublic: boolean;
   readonly players: readonly { id: string }[];
   readonly state: Record<string, unknown>;
   setState(patch: Record<string, unknown>): void;
@@ -202,7 +204,8 @@ export class RelayBackend implements LobbyBackend {
     let next: Lobby | null;
     if (room.isHost) next = this.applyHere(room, room.me, action);
     else next = (await room.request('lobby', action as never).catch(() => null)) as Lobby | null;
-    if (action.type === 'leave' && next) {
+    // Out of the room whether or not you had a seat (you may have been watching: it was full, or racing).
+    if (action.type === 'leave') {
       await this.leaveRoom();
       return null;
     }
@@ -270,6 +273,13 @@ export class RelayBackend implements LobbyBackend {
     if (action.type === 'kick') {
       const s = lobby.seats[action.index];
       // Out of the room too (not banned: a kick is for this lobby, and they may come back).
+      if (s.kind === 'player' && s.id === room.me) {
+        // You're the one kicked, and you hold the SDK's role (it moves on reloads), which can't
+        // kick itself: hand on the lobby, then go.
+        this.commit(room, next);
+        void this.leaveRoom();
+        return next;
+      }
       if (s.kind === 'player') void room.kick(s.id, { ban: false }).catch(() => {});
     }
     this.commit(room, next);
@@ -278,11 +288,12 @@ export class RelayBackend implements LobbyBackend {
 
   /** On the host: a seat whose player has left the room is open again. */
   private tidy(room: RoomLike): void {
-    let lobby = lobbyIn(room);
-    if (!lobby) return;
+    const was = lobbyIn(room);
+    if (!was) return;
     const here = new Set(room.players.map((p) => p.id));
-    for (const s of lobby.seats) if (s.kind === 'player' && !here.has(s.id)) lobby = apply(lobby, s.id, { type: 'leave' }) ?? lobby;
-    if (lobby !== lobbyIn(room)) this.commit(room, lobby);
+    let lobby = was;
+    for (const s of was.seats) if (s.kind === 'player' && !here.has(s.id)) lobby = apply(lobby, s.id, { type: 'leave' }) ?? lobby;
+    if (lobby !== was) this.commit(room, lobby);
     else this.relist(room, lobby);
   }
 
@@ -297,13 +308,13 @@ export class RelayBackend implements LobbyBackend {
     const { id: _, name, visibility, ...meta } = summarize(lobby);
     const key = JSON.stringify([name, visibility, meta]);
     if (key === this.listed) return;
-    const wasPublic = this.listed ? JSON.parse(this.listed)[1] === 'public' : null;
     const send = () => {
       this.listingTimer = null;
       this.listingAt = Date.now();
       this.listed = key;
       void room.setListing({ name, meta: meta as never }).catch(() => {});
-      if (wasPublic !== null && wasPublic !== (visibility === 'public')) void room.setAccess({ public: visibility === 'public' }).catch(() => {});
+      // Against the room itself, not what we last sent: a host before us may not have got to it.
+      if (room.isPublic !== (visibility === 'public')) void room.setAccess({ public: visibility === 'public' }).catch(() => {});
     };
     if (this.listingTimer) return;
     const wait = this.listingAt + LISTING_MS - Date.now();

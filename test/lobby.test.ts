@@ -70,7 +70,21 @@ describe('a lobby', () => {
     l = ok(l, 'you', { type: 'leave' });
     expect(l.host).toBe('kev');
     expect(l.seats[0]).toEqual({ kind: 'open' });
-    expect(ok(l, 'kev', { type: 'leave' }).host).toBe('');
+    const empty = ok(l, 'kev', { type: 'leave' });
+    expect(empty.host).toBe('');
+    // Online the room can outlive its seats: whoever sits down next hosts it.
+    expect(ok(empty, 'zed', { type: 'join', player: { ...guest, id: 'zed' } }).host).toBe('zed');
+  });
+
+  test('the start keeps its seed, and the end un-readies everyone but the host for the next race', () => {
+    let l = ok(createLobby('local', host), 'kev', { type: 'join', player: guest });
+    l = ok(l, 'kev', { type: 'ready', ready: true });
+    l = ok(l, 'you', { type: 'start', seed: 99 });
+    expect(l.seed).toBe(99);
+    l = ok(l, 'you', { type: 'end' });
+    expect(l.seats[1]).toMatchObject({ ready: false });
+    expect(allReady(l)).toBe(false);
+    expect(apply(l, 'you', { type: 'start' })).toBeNull();
   });
 
   test("joining takes the first open seat, and a full lobby can't be joined", () => {

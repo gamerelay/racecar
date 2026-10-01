@@ -168,6 +168,8 @@ export function apply(lobby: Lobby, actor: string, action: LobbyAction): Lobby |
       const open = lobby.seats.findIndex((s) => s.kind === 'open');
       if (open < 0) return null;
       next.seats[open] = { kind: 'player', ready: false, ...action.player };
+      // A lobby everyone left (an online room can outlive its seats) goes to whoever sits down.
+      if (!lobby.host) next.host = action.player.id;
       return next;
     }
     case 'leave': {
@@ -191,6 +193,8 @@ export function apply(lobby: Lobby, actor: string, action: LobbyAction): Lobby |
     case 'end': {
       if (!isHost || lobby.phase !== 'racing') return null;
       next.phase = 'lobby';
+      // Ready again for the next one: the host can't start it while the others are still racing this one.
+      next.seats = next.seats.map((s) => (s.kind === 'player' && s.id !== lobby.host ? { ...s, ready: false } : s));
       return next;
     }
   }

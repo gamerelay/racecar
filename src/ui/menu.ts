@@ -68,6 +68,8 @@ export class Menu {
   private refresh: ReturnType<typeof setInterval> | null = null;
   /** Off to a race: the page is about to load, so later lobby updates don't start another. */
   private going = false;
+  /** A join on its way (lobby updates arrive while it is). */
+  private sitting = false;
 
   constructor(
     private backend: LobbyBackend,
@@ -104,9 +106,11 @@ export class Menu {
     return this.show(lobby ? { kind: 'lobby', id: lobby.id } : { kind: 'title' });
   }
 
-  /** Back (Esc, the pad's B): lobby, create and the plate go to the title. */
+  /** Back (Esc, the pad's B): lobby, create and the plate go to the title. Out of an online lobby, that's leaving it. */
   back(): void {
-    if (this.screen.kind !== 'title') void this.show({ kind: 'title' });
+    const screen = this.screen;
+    if (screen.kind === 'lobby' && screen.id !== LOCAL_ID) void this.backend.send(screen.id, { type: 'leave' });
+    if (screen.kind !== 'title') void this.show({ kind: 'title' });
   }
 
   /**
@@ -154,14 +158,30 @@ export class Menu {
       let phase = lobby.phase;
       this.unsubscribe = this.backend.subscribe(screen.id, (l) => {
         if (!l) return void this.show({ kind: 'title' });
+        const seated = seatIndex(l, this.backend.youIn(l.id)) >= 0;
         // The host started: everyone seated goes to the race (the same one: its seed is the lobby's).
-        if (phase === 'lobby' && l.phase === 'racing' && seatIndex(l, this.backend.youIn(l.id)) >= 0) this.go(l);
+        if (phase === 'lobby' && l.phase === 'racing' && seated) this.go(l);
         phase = l.phase;
-        if (!this.going) this.renderLobby(l);
+        if (this.going) return;
+        // Its host left mid-race and it passed to you while you wait here: reopen it.
+        if (l.phase === 'racing' && l.host === this.backend.youIn(l.id)) void this.backend.send(l.id, { type: 'end' });
+        // Watching (it was racing, or full) and a seat's free now: take it.
+        if (!seated) void this.sit(l);
+        this.renderLobby(l);
       });
-      // Someone else's lobby, with a seat open: take it.
-      if (seatIndex(lobby, this.backend.youIn(lobby.id)) < 0 && lobby.phase === 'lobby') lobby = (await this.backend.send(lobby.id, { type: 'join', player: this.me(lobby.id) })) ?? lobby;
+      lobby = (await this.sit(lobby)) ?? lobby;
       this.renderLobby(lobby);
+    }
+  }
+
+  /** In someone else's lobby without a seat: take the first open one, if it's between races. */
+  private async sit(lobby: Lobby): Promise<Lobby | null> {
+    if (this.sitting || lobby.phase !== 'lobby' || seatIndex(lobby, this.backend.youIn(lobby.id)) >= 0 || !lobby.seats.some((s) => s.kind === 'open')) return null;
+    this.sitting = true;
+    try {
+      return await this.backend.send(lobby.id, { type: 'join', player: this.me(lobby.id) });
+    } finally {
+      this.sitting = false;
     }
   }
 
@@ -441,7 +461,7 @@ export class Menu {
         <p class="sub"><span>${lobby.visibility === 'public' ? 'Public' : 'Private'}</span><span>${SEATS - lobby.seats.filter((x) => x.kind === 'closed').length} cars on the grid</span><span>${online ? `Online · ${esc(lobby.id)}` : 'This browser'}</span>${online ? '<button id="lInvite" class="ghost invite">Copy invite link</button>' : ''}</p>
         <table class="seats"><thead><tr><th>#</th><th>Seat</th><th>Car</th><th></th><th>Ping</th></tr></thead><tbody>${rows}</tbody></table>
         <div class="row">${host ? '<button id="lStart">Start race</button>' : `<button id="lReady">${mine >= 0 && lobby.seats[mine].kind === 'player' && lobby.seats[mine].ready ? 'Not ready' : 'Ready'}</button>`}
-          <button id="lBack" class="ghost">Title</button><button id="lLeave" class="ghost danger">${host && s.players === 1 ? 'Close lobby' : 'Leave'}</button></div>
+          ${online ? '' : '<button id="lBack" class="ghost">Title</button>'}<button id="lLeave" class="ghost danger">${host && s.players === 1 ? 'Close lobby' : 'Leave'}</button></div>
       </div>
       ${this.optionsPanel(o, host)}
       ${mine >= 0 ? this.carPanel(yours) : '<div class="stage" aria-hidden="true"></div>'}`,

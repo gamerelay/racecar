@@ -1561,6 +1561,14 @@ Online lobbies (milestone 3, part 1, 2026-09-30):
   the lobby into the same race when it turns `racing`. Only that change moves you: opening a
   lobby that's already racing doesn't. When the lobby's host comes back to it, it's reopened.
   Players still racing come back to it when they finish.
+- **Between races** (from the review): the end un-readies everyone but the host, so the host
+  can't start the next race while others are still racing this one. If the lobby's host leaves
+  mid-race, the lobby passes to someone waiting in it, and their screen reopens it. Back (Esc)
+  from an online lobby leaves it, so a look doesn't hold a seat. Someone watching a full or
+  racing lobby takes a seat when one opens between races, and Leave puts them out of the room
+  whether or not they had a seat. A lobby whose seats all emptied goes to whoever sits down
+  next. A kick aimed at the player holding the SDK's role (which can't kick itself) is carried
+  out by that player: they hand the lobby on, then go.
 - **Not yet: other players' cars.** Each player races the same race (same map, seed, AIs and
   weather) with the others' seats empty. Remote cars are the `net/` layer, next.
 - **Someone gone for good gives up their seat.** On `player_left` (after the SDK's 30 s grace),

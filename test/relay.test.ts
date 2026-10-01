@@ -59,6 +59,9 @@ class FakeClient implements RoomLike {
   get isHost() {
     return this.room.host === this;
   }
+  get isPublic() {
+    return this.room.public;
+  }
   get players() {
     return this.room.members.map((m) => ({ id: m.id }));
   }
@@ -93,6 +96,7 @@ class FakeClient implements RoomLike {
     if (access.public !== undefined) this.room.public = access.public;
   }
   async kick(playerId: string): Promise<void> {
+    if (playerId === this.me) throw new Error("the host can't kick itself");
     const c = this.room.members.find((m) => m.id === playerId);
     if (!c) return;
     c.fire('closed', 'kicked');
@@ -299,5 +303,33 @@ describe('online lobbies', () => {
     expect((await down.list()).map((l) => l.id)).toEqual([LOCAL_ID]);
     expect(down.offline).not.toBe('');
     expect(new Lobbies(new LocalBackend(null), null).offline).toContain('VITE_GAMERELAY_KEY');
+  });
+
+  test("kicking the player who holds the SDK's role (it can't kick itself): they hand the lobby on and go", async () => {
+    const hub = new Hub();
+    const [ada, bo] = players(hub, 'ada', 'bo');
+    const lobby = await ada.backend.create(player('ADA'), {});
+    await bo.backend.get(lobby.id);
+    await bo.backend.send(lobby.id, { type: 'join', player: player('BO') });
+    // Ada reloaded once, so Bo holds the SDK's role now.
+    const room = hub.rooms.get(lobby.id)!;
+    room.members.reverse();
+    expect(bo.relay.room!.isHost).toBe(true);
+    const after = await ada.backend.send(lobby.id, { type: 'kick', index: 1 });
+    await settle();
+    expect(after?.seats[1]).toEqual({ kind: 'open' });
+    expect(room.members.map((m) => m.id)).toEqual(['ada']);
+    expect((await ada.backend.get(lobby.id))?.seats[1]).toEqual({ kind: 'open' });
+  });
+
+  test('Leave without a seat (watching a full or racing lobby) still leaves the room', async () => {
+    const hub = new Hub();
+    const [ada, bo] = players(hub, 'ada', 'bo');
+    const lobby = await ada.backend.create(player('ADA'), {});
+    await ada.backend.send(lobby.id, { type: 'start', seed: 1 });
+    await bo.backend.get(lobby.id);
+    expect(await bo.backend.send(lobby.id, { type: 'join', player: player('BO') })).toBeNull();
+    await bo.backend.send(lobby.id, { type: 'leave' });
+    expect(hub.rooms.get(lobby.id)!.members.map((m) => m.id)).toEqual(['ada']);
   });
 });
