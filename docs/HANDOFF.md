@@ -319,6 +319,9 @@ Clockwise round a tropical island, the volcano in the middle and the sea all rou
 - **Update it** (asleepace.com repo, its `publishing-games` skill): run the sanitizer on the new
   file, then `UPDATE games SET html = … WHERE id = 'Z442EE'`. It's live at once; players get it
   when they reload. Don't run its multiplayer injection: racecar brings GameRelay's SDK.
+- **The music isn't in the single file** (10 MB of tracks in a database row is too much): there
+  the game plays the synth until the tracks are hosted somewhere with CORS and the build sets
+  `VITE_MUSIC_URL` to it (SPEC "The soundtrack").
 - **What's there now:** `main` at PR #42 (`alpha-1.19`), updated 2026-10-01. Keep it the
   one row: update Z442EE in place rather than adding a game.
 

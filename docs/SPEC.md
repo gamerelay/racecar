@@ -108,7 +108,7 @@ src/
   editor/          the level editor (dev builds only, §6)
   input/           keyboard, gamepad, touch → Controls; menu focus
   ui/              screens: lobby, party, garage, settings, HUD, results, vote
-  audio/           engine synth, SFX, music
+  audio/           engine synth, SFX, music (the soundtrack, synth fallback)
   telemetry/       events → local files (dev) / PostHog (playtests); reports (§14)
 content/
   maps/<map>/      map.json, <layout>.track.json, hazards.json
@@ -1055,7 +1055,7 @@ Audio (2026-09-30):
   boost, drift-boost and mini-turbo chimes, near-miss whoosh and horn, traffic checks, takedown
   stinger, spin-outs, a two-tone alert for every hazard telegraph, countdown beeps and GO, lap and
   final-lap chimes, a finish fanfare, the catch-up chime).
-- **Music:** Am–F–C–G synthwave at 112 bpm, scheduled on the audio clock. Pad and bass behind the
+- **Music** (since 2026-10-01 the fallback: see "The soundtrack"): Am–F–C–G synthwave at 112 bpm, scheduled on the audio clock. Pad and bass behind the
   menu (muffled), drums and arp in a race, the arp up an octave on the final lap, muffled in
   slow-mo.
 - **Starts on the first key or click** (browsers' rule), suspends when paused, hidden or in the
@@ -1870,3 +1870,22 @@ Review fixes (PRs #26–#30):
 - **The canal cuts only its own footprint from a sidewalk slab.** At the canal's two ends the
   cut ran across the whole slab. It subtracts the canal's rectangle now, leaving up to four
   pieces round it.
+
+The soundtrack (owner's tracks, 2026-10-01):
+
+- **Recorded music: one track for the title and menus, and one per map** (`public/music/`:
+  `title`, `downtown`, `backroads`, `paradise`). The owner's WAVs (about 30 MB each) are AAC in
+  `.m4a` at 128 kb/s, 2–3 MB each, which every browser plays (Safari too). Their loudness is within
+  1.3 LU of each other (−14 to −15.5 LUFS), so they aren't normalised.
+- **Streamed and looped through the music bus** (`src/audio/soundtrack.ts`): an `<audio>` element
+  into Web Audio, so N, M, the slow-mo duck and the music level apply as before. It sits at
+  `TRACK_LEVEL` (0.45) into the bus: the tracks are mastered far louder than the synth. Paused,
+  hidden or muted, the track pauses with the context (it would play on unheard otherwise).
+- **Which track:** the title's behind the menus and in lobbies (the attract page), the map's in a
+  race and on its results. The title's track isn't muffled behind the menu (the synth was, under
+  the attract race). Each page plays its own from the start: a race is a new page.
+- **The synth is the fallback**, for a track that can't load or play, and with `?music=0`.
+- **Where the tracks are:** the page's own `music/` (dev and `bun run build`). A build hosted
+  without them beside it (the single-file build) sets `VITE_MUSIC_URL` to where they are; from
+  another origin they need CORS, or the synth plays.
+

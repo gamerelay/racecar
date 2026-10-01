@@ -20,6 +20,7 @@ import { GreyboxSkin } from './render/skins/greybox';
 import { posthogEnabled, posthogSink } from './telemetry/posthog';
 import { Telemetry } from './telemetry/telemetry';
 import { GameAudio } from './audio/audio';
+import { Soundtrack, trackFor, trackUrl } from './audio/soundtrack';
 import { Hud } from './ui/hud';
 import { RaceUi } from './ui/race';
 import { accept, navigate } from './ui/nav';
@@ -130,7 +131,10 @@ const renderer = new GameRenderer(document.getElementById('stage')!, new Greybox
   plates: names.map((text) => ({ text, region: map.name, map: map.id })),
 });
 const hud = new Hud(sim);
-const audio = new GameAudio(sim);
+// The page's soundtrack: the title's behind the menus, the map's in a race (`?music=0`: the synth's).
+const trackName = params.get('music') === '0' ? null : trackFor(map.id, attract);
+const track = trackName ? new Soundtrack(trackUrl(trackName, import.meta.env.VITE_MUSIC_URL ?? `${import.meta.env.BASE_URL}music/`)) : null;
+const audio = new GameAudio(sim, track, trackName === 'title');
 const raceUi = new RaceUi(sim, CLASSES, names, specs.map((x) => PAINTS[(x.paint ?? 0) % PAINTS.length].color));
 raceUi.onAgain = () => raceAgain(run);
 raceUi.onSetup = () => backToSetup(run);

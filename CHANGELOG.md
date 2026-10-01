@@ -6,6 +6,9 @@ and where things stand is [docs/HANDOFF.md](./docs/HANDOFF.md).
 
 ## Unreleased
 
+- **Music:** the game has its own soundtrack, a track for the title and menus and one for each
+  map (Downtown, Backroads, Paradise), in place of the synth loop. N still toggles it.
+
 ## alpha-1.19: the AIs online
 
 PR #42.

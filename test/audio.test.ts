@@ -2,6 +2,10 @@ import { describe, expect, test } from 'bun:test';
 import { CLASS_ORDER } from '../src/core/content';
 import { doppler, ENGINE_SOUNDS, engineHz, engineSound, gearbox, spatial } from '../src/audio/model';
 import { CLASSES } from './helpers';
+import { existsSync } from 'node:fs';
+import { join } from 'node:path';
+import { TRACKS, trackFor, trackUrl, type TrackName } from '../src/audio/soundtrack';
+import { MAPS } from '../tools/content';
 
 // The sound model is pure (the Web Audio graph isn't testable in Bun): gears, pitch, where a sound
 // sits, and Doppler.
@@ -63,5 +67,19 @@ describe('audio model', () => {
     expect(doppler(0, 50, 0, 30, 0, 30)).toBeCloseTo(1, 9);
     expect(doppler(0, 50, 0, -1e6, 0, 0)).toBeLessThanOrEqual(1.4);
     expect(doppler(0, 50, 0, 1e6, 0, 0)).toBeGreaterThanOrEqual(0.7);
+  });
+});
+
+describe('the soundtrack', () => {
+  test("the title's track behind the menus, each map's in its race, and a file for every one", () => {
+    expect(trackFor('downtown', true)).toBe('title');
+    for (const m of MAPS) expect(trackFor(m.id, false)).toBe(m.id as TrackName);
+    expect(trackFor('volcano', false)).toBeNull();
+    for (const name of TRACKS) expect(existsSync(join(import.meta.dir, '..', 'public', 'music', `${name}.m4a`))).toBe(true);
+  });
+
+  test('a track is at the base given, with or without its slash', () => {
+    expect(trackUrl('paradise', '/music/')).toBe('/music/paradise.m4a');
+    expect(trackUrl('title', 'https://cdn.example/racecar')).toBe('https://cdn.example/racecar/title.m4a');
   });
 });

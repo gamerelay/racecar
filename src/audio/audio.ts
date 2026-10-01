@@ -1,7 +1,8 @@
 // Game audio (SPEC §13): the focus car's engine, tyres, gravel, wind and boost as continuous voices;
 // the three nearest rivals' engines, panned and Doppler-shifted; one-shots from sim events (hits,
-// wrecks, landings, boost, chimes, near-miss horns, hazard alerts, the countdown); and the music.
-// All synthesized (synth.ts), all presentation: it reads the sim and never writes to it.
+// wrecks, landings, boost, chimes, near-miss horns, hazard alerts, the countdown); and the music:
+// the recorded soundtrack (soundtrack.ts), or the synth (music.ts) where there's no track. The rest
+// is synthesized (synth.ts). All presentation: it reads the sim and never writes to it.
 //
 // Browsers only start audio after a gesture, so the context is made on the first key or click.
 // Paused or hidden, it suspends. M mutes, N toggles music; both are remembered on this device.
@@ -12,12 +13,15 @@ import { Cause, Ev, type GameEvent } from '../core/events';
 import type { Sim } from '../core/sim';
 import { doppler, engineHz, engineSound, gearbox, spatial, type Gear, type Spatial } from './model';
 import { Music, type Intensity } from './music';
+import type { Soundtrack } from './soundtrack';
 import { EngineVoice, glide, NoiseVoice, noiseShot, note, Out, toneShot, type Shot } from './synth';
 
 const RIVALS = 3;
 /** Rivals are heard within this of the camera. */
 const HEAR = 90;
 const SETTINGS_KEY = 'racecar.audio';
+/** The recorded tracks' level into the music bus (they're mastered far louder than the synth). */
+const TRACK_LEVEL = 0.45;
 
 export interface AudioSettings {
   muted: boolean;
@@ -58,6 +62,8 @@ interface Graph {
   horn: Out;
   rivals: EngineVoice[];
   music: Music;
+  /** The recorded track's level (`TRACK_LEVEL`), into the music bus. */
+  trackLevel: GainNode;
 }
 
 export class GameAudio {
@@ -73,7 +79,13 @@ export class GameAudio {
   private readonly near: number[] = [];
   private readonly shot: Shot = { ctx: undefined as unknown as AudioContext, bus: undefined as unknown as AudioNode, gain: 0, pan: 0 };
 
-  constructor(private readonly sim: Sim) {
+  constructor(
+    private readonly sim: Sim,
+    /** The page's recorded track, if it has one (soundtrack.ts); the synth plays without one. */
+    private readonly track: Soundtrack | null = null,
+    /** It's the title's: heard clearly behind the menus (the synth is muffled there). */
+    private readonly titleTrack = false,
+  ) {
     this.cursor = sim.events.head;
     const unlock = () => {
       this.start();
@@ -88,7 +100,10 @@ export class GameAudio {
       this.hidden = document.hidden;
       // A hidden tab runs no frames, so update() can't do this: suspend here, and update()
       // resumes when frames come back.
-      if (this.hidden) void this.g?.ctx.suspend();
+      if (this.hidden) {
+        void this.g?.ctx.suspend();
+        this.track?.pause();
+      }
     });
   }
 
@@ -150,7 +165,11 @@ export class GameAudio {
       horn,
       rivals: Array.from({ length: RIVALS }, () => new EngineVoice(ctx, engines)),
       music: new Music(ctx, musicLevel),
+      trackLevel: ctx.createGain(),
     };
+    this.g.trackLevel.gain.value = TRACK_LEVEL;
+    this.g.trackLevel.connect(musicLevel);
+    this.track?.connect(ctx, this.g.trackLevel);
     this.shot.ctx = ctx;
     this.shot.bus = sfx;
   }
@@ -187,7 +206,11 @@ export class GameAudio {
     // Muted, or paused, or away: nothing to hear, so nothing runs.
     const quiet = f.paused || this.hidden || this.settings.muted;
     if (quiet !== (g.ctx.state === 'suspended')) void (quiet ? g.ctx.suspend() : g.ctx.resume());
-    if (quiet) return;
+    if (quiet) {
+      // A track would play on through a suspended context, unheard: it waits instead.
+      this.track?.pause();
+      return;
+    }
     const now = g.ctx.currentTime;
     const sim = this.sim;
     const c = sim.cars;
@@ -274,11 +297,18 @@ export class GameAudio {
     // ---- music ----
     const racing = sim.race.phase === 'racing' && !c.finished[i];
     const finalLap = racing && sim.race.laps > 1 && c.lap[i] === sim.race.laps - 1;
-    g.music.intensity = (f.menu || !racing ? 0 : finalLap ? 2 : 1) as Intensity;
-    if (this.settings.music) g.music.update();
+    const recorded = !!this.track && !this.track.failed;
+    if (recorded) {
+      if (this.settings.music) this.track!.play();
+      else this.track!.pause();
+    } else {
+      g.music.intensity = (f.menu || !racing ? 0 : finalLap ? 2 : 1) as Intensity;
+      if (this.settings.music) g.music.update();
+    }
     glide(g.musicLevel.gain, this.settings.music ? 0.5 : 0, now, 0.3);
-    // Muffled behind the menu and in slow-mo.
-    glide(g.musicTone.frequency, f.menu ? 1400 : sim.timeScale < 0.9 ? 550 : 12000, now, 0.15);
+    // Muffled in slow-mo, and behind the menu (unless it's the title's own track).
+    const behind = f.menu && !(recorded && this.titleTrack);
+    glide(g.musicTone.frequency, behind ? 1400 : sim.timeScale < 0.9 ? 550 : 12000, now, 0.15);
   }
 
   /** Plays a one-shot at level `gain`, panned `pan`, through `fn`. */
