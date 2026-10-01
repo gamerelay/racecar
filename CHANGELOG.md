@@ -6,6 +6,9 @@ and where things stand is [docs/HANDOFF.md](./docs/HANDOFF.md).
 
 ## Unreleased
 
+- Downtown's field wrecks, measured over 16 seeds: 1.0 a race, under MAPS.md's 1.5 (it had been
+  quoted as ~1.6). No change to the map; a test holds it.
+
 ## alpha-1.12: Landmarks and smashables
 
 PLAN phase 6: landmarks on every map (PRs #26, #28, #29), smashables (#30), and the Valley's

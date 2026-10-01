@@ -6,7 +6,7 @@ building". This file is "where are we"; the spec is "what are we making".
 
 **Last updated:** 2026-09-30. `main` is tagged **`alpha-1.11`**: milestone 2 (PR #2, tagged
 `alpha-1.0`), Countryside v2 (PR #4, `alpha-1.1`), seven cars plus polish (PR #6, `alpha-1.2`),
-traffic that fades instead of popping (PR #7, `alpha-1.3`), audio plus a review pass (PR #9, `alpha-1.4`), Valley v3 with smooth shortcut joins (PR #10, `alpha-1.5`), drift chains, skid marks, new car designs and a second review pass (PR #12, `alpha-1.6`), the police car, solid Trestle legs, air boost and boost by position (PR #13, `alpha-1.7`), the quick wins plus the title screen and local lobbies (PRs #14 and #16, `alpha-1.8`), license plates, the lobby polish, the cars doc `docs/CARS.md`, marketing art with link previews and the car select (PRs #18, #19, #15, #17 and #20, `alpha-1.9`), Paradise's lap, land and scenery (PRs #21 and #22, `alpha-1.10`), and Paradise's weather, sunset, hazards and tuning plus the Powerglide and Superman HUD tweaks (PRs #23 and #24, `alpha-1.11`), the lobby layout (PR #25), and landmarks on every map, smashables and the Valley's wrecks (PRs #26–#30, `alpha-1.12`). Every release is in [CHANGELOG.md](../CHANGELOG.md): add to its "Unreleased" section as you go, and retitle that section when you tag. What's next is [PLAN.md](./PLAN.md) (phase 1, the quick wins, merged as PR #14; phase 2, the title screen and local lobbies, merged as PR #16; phase 3, license plates, merged as PR #18; phase 4, the car select, merged as PR #20; phase 5, Paradise: parts 1 and 2, the lap, land and scenery, merged as PRs #21 and #22; part 3, weather, sunset, hazards and tuning, merged as PRs #23 and #24; phase 6, landmarks, is next), and how maps are made is [MAPS.md](./MAPS.md).
+traffic that fades instead of popping (PR #7, `alpha-1.3`), audio plus a review pass (PR #9, `alpha-1.4`), Valley v3 with smooth shortcut joins (PR #10, `alpha-1.5`), drift chains, skid marks, new car designs and a second review pass (PR #12, `alpha-1.6`), the police car, solid Trestle legs, air boost and boost by position (PR #13, `alpha-1.7`), the quick wins plus the title screen and local lobbies (PRs #14 and #16, `alpha-1.8`), license plates, the lobby polish, the cars doc `docs/CARS.md`, marketing art with link previews and the car select (PRs #18, #19, #15, #17 and #20, `alpha-1.9`), Paradise's lap, land and scenery (PRs #21 and #22, `alpha-1.10`), and Paradise's weather, sunset, hazards and tuning plus the Powerglide and Superman HUD tweaks (PRs #23 and #24, `alpha-1.11`), the lobby layout (PR #25), and landmarks on every map, smashables and the Valley's wrecks (PRs #26–#30, `alpha-1.12`). Every release is in [CHANGELOG.md](../CHANGELOG.md): add to its "Unreleased" section as you go, and retitle that section when you tag. What's next is [PLAN.md](./PLAN.md) (phase 1, the quick wins, merged as PR #14; phase 2, the title screen and local lobbies, merged as PR #16; phase 3, license plates, merged as PR #18; phase 4, the car select, merged as PR #20; phase 5, Paradise: parts 1 and 2, the lap, land and scenery, merged as PRs #21 and #22; part 3, weather, sunset, hazards and tuning, merged as PRs #23 and #24; phase 6, landmarks and smashables, merged as PRs #26–#30), and how maps are made is [MAPS.md](./MAPS.md).
 
 **Map names:** City is now **Downtown** and Countryside is **Backroads** (content in
 `content/maps/downtown` and `content/maps/backroads`; keys `downtown/downtown`, `backroads/valley`;
@@ -65,7 +65,8 @@ The third map is **Paradise** (`content/maps/paradise`, key `paradise/island`).
 - **Valley field wrecks: merged** (PR #27, `alpha-1.12`).
   The Valley wrecked the field 2.5 times a race over 16 seeds. Traffic now starts past the
   Trestle's legs and the falling sign is gone: 1.13 a race, held by a test. SPEC "The Valley's
-  field wrecks". Downtown is still ~1.6, over MAPS.md's 1.5, and hasn't had a sweep yet.
+  field wrecks". Downtown's sweep (since) found 1.0 a race, not ~1.6: SPEC "Downtown's field
+  wrecks".
 - **Landmarks, part 1 (Downtown): merged** (PR #26, `alpha-1.12`). Layouts
   carry `landmarks` (kind, at, rot, r, params), built by `render/skins/greybox/landmarks.ts`. The
   validator keeps roads `r` off them, the city leaves their ground empty (`Keep`), and the track
@@ -213,7 +214,7 @@ The third map is **Paradise** (`content/maps/paradise`, key `paradise/island`).
 |---|---|---|---|
 | Lap length | 3.26 km | 2.92 km | 3.44 km |
 | AI lap floor (hard, empty track) | 58.6 s | 63.4 s | 66.8 s |
-| Wrecks per 8-AI race (8 seeds; `lap-report --field --seed N`) | ~1.6 (1.0 on seeds 1–8) | 1.13, 16 seeds (0.88 on seeds 1–8) | ~1.2 with the hazards, 16 seeds (0.5 without) |
+| Wrecks per 8-AI race (8 seeds; `lap-report --field --seed N`) | 1.0, 16 seeds (0.88 on seeds 1–8) | 1.13, 16 seeds (0.88 on seeds 1–8) | ~1.2 with the hazards, 16 seeds (0.5 without) |
 | Draw calls | ~90–415 | ~65–330 | ~35–150 for the world; ~350 in the chase view with the field on screen (mostly cars) |
 | Scenery build (per editor edit) | ~200 ms | ~150 ms | ~600 ms (land and scenery, measured in bun) |
 
@@ -295,7 +296,8 @@ Clockwise round a tropical island, the volcano in the middle and the sea all rou
 
 1. **PLAN phase 6 is done** (PRs #26–#30, merged and tagged `alpha-1.12`): the last of PLAN's
    phases. Worth doing next:
-   - A sweep of Downtown's field wrecks: ~1.6 a race, the one map over MAPS.md's 1.5.
+   - Downtown's field wrecks were swept: 1.0 a race over 16 seeds (the ~1.6 was stale), so no
+     map is over MAPS.md's 1.5 and nothing moved. A test holds it (SPEC "Downtown's field wrecks").
    - gamerelay.io's four audit follow-ups are its PR #35 (platform, not racecar): not merged or
      deployed. Production and both relays need it.
    - PLAN's "Other ideas" (stunt air, rivals, map vote cards...).
@@ -354,8 +356,6 @@ Clockwise round a tropical island, the volcano in the middle and the sea all rou
 - From Paradise part 2: the land over the Lava Tube is still cut open (every road caps the land
   below it), so the tube reads as a roofed cutting, not a tunnel under the cone. A branch that's
   a tunnel would need to leave the land alone over its middle and draw portals.
-- Downtown's field wrecks ~1.6 a race (1.0 on seeds 1–8), a little over MAPS.md's 1.5. Worth a
-  16-seed sweep like the Valley's (SPEC "The Valley's field wrecks").
 - The falling sign's and log truck's markers use the road's centre height, like the bombs did
   before; on a banked stretch their rings would sink. Neither sits on a steep bank today.
 - Loading a layout builds the whole City in about 200 ms. That's fine per editor edit (edits

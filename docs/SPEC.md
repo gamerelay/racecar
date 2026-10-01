@@ -1535,6 +1535,17 @@ Landmarks, part 1: Downtown (PLAN phase 6):
 - **Cost:** each landmark's still boxes are one instanced mesh, and the clock's four dials, four
   readouts and eight hands are three draws. All five together are ~11 draw calls.
 
+Downtown's field wrecks (sweep, 2026-09-30):
+
+- **1.0 a race over 16 seeds** (0.88 on seeds 1–8; 1.13 at `alpha-1.11`, before the landmarks
+  and smashables). The ~1.6 that MAPS.md and HANDOFF quoted dated from the quick wins and was
+  never re-measured. Downtown is under MAPS.md's 1.5 and didn't change.
+- **The one cluster** is at 150–250 m, where the start's traffic meets the colonnade (pillars at
+  239–261 m): 7 of the 16 wrecks. Ending that traffic at 150 m gave 1.06 a race, and taking the
+  pillars out gave 0.88. Both are inside the ±0.3 that seeds swing by, and each just moved the
+  wrecks to the Market's traffic (1,550–1,950 m), so the colonnade stays.
+- A test holds the 8-seed field to 1.5, like the Valley's.
+
 The Valley's field wrecks (sweep, 2026-09-30):
 
 - **2.5 wrecks a race over 16 seeds** (2.0 on seeds 1–8). Two thirds of them were in 100 m of

@@ -154,7 +154,7 @@ Good numbers today:
 |---|---|---|---|---|
 | Lap length | 2.9–3.8 km | 3.26 km | 2.92 km | 3.44 km |
 | Hard-AI lap floor | 70–100 s (SPEC) | 58.6 s | 63.4 s | 66.8 s |
-| AI wrecks per 8-car race | ≤ 1.5 | ~1.6 | 1.1 (16 seeds) | ~1.2 with its hazards (0.5 without) |
+| AI wrecks per 8-car race | ≤ 1.5 | 1.0 (16 seeds) | 1.1 (16 seeds) | ~1.2 with its hazards (0.5 without) |
 | AI resets | ~0 | rare | ≤ 1 in 6 races | none in 8 |
 
 Tests hold what matters for each map: land below every road, bridges detected, a hard lap that

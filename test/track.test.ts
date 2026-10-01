@@ -7,6 +7,7 @@ import { neutralControls } from '../src/core/controls';
 import { Sim } from '../src/core/sim';
 import { racingLine } from '../src/core/ai/racer';
 import { validateLayout } from '../src/core/track/validate';
+import { lapReport } from '../tools/lap';
 import { CLASSES, SURFACES, layout } from './helpers';
 
 // Shortcut junctions (they used to meet the main road up to 1.7 m off its surface, with a curb
@@ -219,4 +220,20 @@ describe('the AI under the Trestle', () => {
       expect(wrecks).toBe(0);
     }
   });
+});
+
+describe("Downtown's field wrecks", () => {
+  test('an 8-car field with traffic and hazards wrecks at most 1.5 times a race (MAPS.md)', () => {
+    // It was quoted as ~1.6 since the quick wins; a 16-seed sweep found 1.0 (SPEC "Downtown's
+    // field wrecks"), so nothing moved.
+    const downtown = layout('downtown/downtown');
+    let wrecks = 0;
+    const seeds = [1, 2, 3, 4, 5, 6, 7, 8];
+    for (const seed of seeds) {
+      const r = lapReport('downtown/downtown', downtown, 'coupe', { field: true, seed });
+      expect(r.finished, `seed ${seed}`).toBe(true);
+      wrecks += r.wrecks.length;
+    }
+    expect(wrecks / seeds.length).toBeLessThanOrEqual(1.5);
+  }, 30_000);
 });
