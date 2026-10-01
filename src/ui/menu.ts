@@ -8,7 +8,7 @@
 // own lobby is in this browser, and online ones are GameRelay rooms (lobby/relay.ts).
 
 import type { CarClass, MapDef, PaintDef, TrackLayout } from '../core/content';
-import type { KeyValue, LobbyBackend } from '../lobby/backend';
+import type { KeyValue, LobbyBackend, NetRoute } from '../lobby/backend';
 import { LOCAL_ID } from '../lobby/backend';
 import { aiPlate, cleanPlate, plateProblem, PLATE_MAX, savePlate, typedPlate } from '../lobby/plate';
 import { DEFAULT_OPTIONS, FILL_DIFFICULTY, SEATS, legacySeats, seatIndex, summarize, type Lobby, type LobbyAction, type LobbyOptions, type LobbySummary, type SeatChoice } from '../lobby/lobby';
@@ -44,6 +44,12 @@ const ACCESS: [Lobby['visibility'], string, string][] = [
   ['invite', 'Invite only', 'Anyone with the link: not listed'],
   ['locked', 'Private', 'Nobody new can join'],
 ];
+/** What the lobby's header says about its connection. */
+const NET_ROUTES: Record<NetRoute, [string, string]> = {
+  lan: ['LAN', 'Everyone is on your network: straight across it'],
+  relay: ['Relay', 'Through a GameRelay relay near you'],
+  server: ['Server', 'Through the game server (a direct way is still being found, or there isn\'t one)'],
+};
 const label = (opts: [string, string][], v: string) => opts.find(([k]) => k === v)?.[1] ?? v;
 
 /** The car arrows' chevron (pointing right; the previous one is flipped in CSS). */
@@ -70,7 +76,7 @@ export class Menu {
   offline?: () => string;
   /** Whether lobbies can be online (there's a relay). */
   online = false;
-  /** The title's list refreshing (online lobbies come and go). */
+  /** The title's list refreshing (online lobbies come and go), or an online lobby's connection label. */
   private refresh: ReturnType<typeof setInterval> | null = null;
   /** Off to a race: the page is about to load, so later lobby updates don't start another. */
   private going = false;
@@ -180,6 +186,13 @@ export class Menu {
         else void this.back_(l);
         this.renderLobby(l);
       });
+      // The connection label follows the SDK as it finds (or loses) a direct way to each player.
+      if (screen.id !== LOCAL_ID)
+        this.refresh = setInterval(() => {
+          const el = document.getElementById('lNet');
+          const html = this.netLabel(screen.id);
+          if (el && el.innerHTML !== html) el.innerHTML = html;
+        }, 2000);
       lobby = (await this.sit(lobby)) ?? lobby;
       // Back from its race: the others see you're here again.
       lobby = (await this.back_(lobby)) ?? lobby;
@@ -536,7 +549,13 @@ export class Menu {
   private access(lobby: Lobby, host: boolean): string {
     const [, name, hint] = ACCESS.find(([v]) => v === lobby.visibility) ?? ACCESS[0];
     const who = host ? `<button id="lVis" class="ghost invite" title="${esc(hint)}. Click to change">${name}</button>` : `<button class="ghost invite" disabled title="${esc(hint)}">${name}</button>`;
-    return who + (lobby.visibility === 'locked' ? '' : '<button id="lInvite" class="ghost invite">Copy invite link</button>');
+    return who + (lobby.visibility === 'locked' ? '' : '<button id="lInvite" class="ghost invite">Copy invite link</button>') + `<span class="net" id="lNet">${this.netLabel(lobby.id)}</span>`;
+  }
+
+  /** How you reach the lobby's other players: the SDK finds the best way to each, so it can change. */
+  private netLabel(id: string): string {
+    const route = this.backend.route?.(id) ?? null;
+    return route ? `<span title="${NET_ROUTES[route][1]}">${NET_ROUTES[route][0]}</span>` : '';
   }
 
   /**

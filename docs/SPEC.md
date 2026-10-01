@@ -1553,6 +1553,11 @@ The lobby's header, and who can join (playtest, 2026-10-01):
   options card, and bigger: the table spans the stage's height (`frameStage`, 0.5 of it as its
   radius, up from 0.36), still never more than 0.36 of its width. The car's panel is centered
   under it.
+- **The header says how you reach the others:** LAN (every pair direct, across one network),
+  Relay (some pair through the TURN relay) or Server (some pair with no channel yet), the slowest
+  pair's way, from `room.lanRoute`. It updates every two seconds, and there's none while you're
+  alone. The SDK doesn't say a relay's region, so it doesn't show one yet (HANDOFF's GameRelay
+  side).
 - **The seats panel:** an open seat says "Random bot" by a gray dot, the last seat has no rule
   under it, and Start (or Ready) and Leave are stacked, each the panel's width.
 - **You start a lobby in a random car and paint**, creating it or sitting down in one. The

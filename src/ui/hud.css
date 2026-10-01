@@ -211,6 +211,8 @@ svg.thumb .cut { stroke: var(--sun); stroke-width: 1.5; stroke-dasharray: 3 2; }
 .card .sub span + span::before { content: '·'; margin: 0 14px; opacity: 0.5; }
 /* An online lobby's who-can-join (the host's to cycle) and invite link. */
 .card .sub .invite { margin: 0 10px 0 0; padding: 2px 10px; font-size: 0.85em; vertical-align: middle; }
+/* How you reach the others (LAN, Relay, Server), after the buttons. */
+.card .sub .net { font-family: var(--display); font-size: 0.85em; letter-spacing: 0.04em; text-transform: uppercase; color: var(--cyan); margin-left: 4px; cursor: default; }
 /* Everyone else's is the same button, there to read. */
 .card .sub button.invite:disabled { cursor: default; transform: none; border-color: var(--ink); color: var(--ink); box-shadow: 5px 5px 0 var(--outline); }
 .seats { width: 100%; border-collapse: collapse; font-size: 14px; }

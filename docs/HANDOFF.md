@@ -292,6 +292,10 @@ Clockwise round a tropical island, the volcano in the middle and the sea all rou
   meta as text.
 - So milestone 3's lobby isn't blocked on the platform any more: the `relay` LobbyBackend can be
   built against the published SDK.
+- **An ask, not blocking:** the lobby header says how players reach each other (LAN, Relay or
+  Server) from `room.lanRoute`. It can't name the relay's region, or tell a LAN from a direct
+  path over the internet (party direct): the SDK would need to say which (for example, the TURN
+  relay's region with `'relay'`, and `'lan'` vs `'p2p'` for direct).
 
 ## Hosted test build
 

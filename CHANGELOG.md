@@ -13,6 +13,7 @@ and where things stand is [docs/HANDOFF.md](./docs/HANDOFF.md).
   gone.
 - **The turntable and your car's panel are centered** on the preview side, and the car sits
   lower and bigger.
+- **The lobby says how you're connected** to the others: LAN, Relay or Server.
 - **The seats panel:** open seats say "Random bot", and Start (or Ready) sits over Leave, both
   full width.
 - **You start each lobby in a random car and paint.**

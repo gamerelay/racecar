@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test';
 import { Lobbies, LocalBackend, LOCAL_ID } from '../src/lobby/backend';
-import { readAction, readListing, RelayBackend, type RelayLike, type RoomLike } from '../src/lobby/relay';
+import { netRoute, readAction, readListing, RelayBackend, type RelayLike, type RoomLike } from '../src/lobby/relay';
 import { raceFromLobby } from '../src/ui/setup';
 
 // Online lobbies (milestone 3): a lobby is a GameRelay room, written only by the SDK's host, which
@@ -282,6 +282,13 @@ describe('online lobbies', () => {
     const joined = await bo.backend.send(lobby.id, { type: 'join', player: player('BO') });
     expect(joined?.visibility).toBe('invite');
     expect(joined?.seats[1]).toMatchObject({ kind: 'player', id: 'bo' });
+  });
+
+  test("the lobby's connection is its slowest route: LAN only if every pair is direct, Server if any pair has no channel", () => {
+    expect(netRoute([])).toBeNull();
+    expect(netRoute(['direct', 'direct'])).toBe('lan');
+    expect(netRoute(['direct', 'relay'])).toBe('relay');
+    expect(netRoute(['relay', null])).toBe('server');
   });
 
   test("a lobby everyone left isn't listed while its room waits out its idle time", async () => {

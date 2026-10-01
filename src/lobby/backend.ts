@@ -15,7 +15,15 @@ export interface LobbyBackend {
   send(id: string, action: LobbyAction): Promise<Lobby | null>;
   /** Calls `fn` whenever the lobby changes (from here or elsewhere); returns an unsubscribe. */
   subscribe(id: string, fn: (lobby: Lobby | null) => void): () => void;
+  /** Online, with others in the room: how your broadcasts reach them (see `NetRoute`). */
+  route?(id: string): NetRoute | null;
 }
+
+/**
+ * How a lobby's players reach each other, the slowest pair's way: `lan`, straight across one
+ * network; `relay`, through GameRelay's TURN relay; `server`, only through the game server.
+ */
+export type NetRoute = 'lan' | 'relay' | 'server';
 
 /** What the local backend keeps its lobby in: localStorage in the game, a Map in tests. */
 export interface KeyValue {
@@ -134,6 +142,10 @@ export class Lobbies implements LobbyBackend {
 
   youIn(id: string): string {
     return this.of(id)?.youIn(id) ?? '';
+  }
+
+  route(id: string): NetRoute | null {
+    return this.of(id)?.route?.(id) ?? null;
   }
 
   /** The online lobbies to join. Your own isn't one: it's private, and closes when you leave it. */

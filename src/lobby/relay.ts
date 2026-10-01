@@ -10,7 +10,7 @@
 // race page joins the room again (a reload resumes the same player), so the room lives through
 // many races, as SPEC §10 has it.
 
-import type { LobbyBackend } from './backend';
+import type { LobbyBackend, NetRoute } from './backend';
 import { apply, createLobby, DEFAULT_OPTIONS, SEATS, summarize, type Lobby, type LobbyAction, type LobbyOptions, type LobbySummary, type Player, type SeatChoice } from './lobby';
 
 /** What the backend uses of `@gamerelay/sdk`, so tests can stand in a hub of their own. */
@@ -40,6 +40,15 @@ export interface RoomLike {
   setAccess(access: { public?: boolean }): Promise<void>;
   kick(playerId: string, options?: { ban?: boolean }): Promise<void>;
   leave(): Promise<void>;
+  /** The SDK's channel with a player straight to them: across one network, through its TURN relay, or none. */
+  lanRoute?(playerId: string): 'direct' | 'relay' | null;
+}
+
+/** The slowest of the routes to everyone else: no channel to someone is the server; none at all, nobody else. */
+export function netRoute(routes: ('direct' | 'relay' | null)[]): NetRoute | null {
+  if (!routes.length) return null;
+  if (routes.includes(null)) return 'server';
+  return routes.includes('relay') ? 'relay' : 'lan';
 }
 
 /** How far ahead of the Start the lights go green (ms): everyone's race page loads and connects in it. */
@@ -175,6 +184,12 @@ export class RelayBackend implements LobbyBackend {
 
   youIn(): string {
     return this.you;
+  }
+
+  route(id: string): NetRoute | null {
+    const room = this.room?.code === id ? this.room : null;
+    if (!room?.lanRoute) return null;
+    return netRoute(room.players.filter((p) => p.id !== room.me).map((p) => room.lanRoute!(p.id)));
   }
 
   private async relayNow(): Promise<RelayLike> {
