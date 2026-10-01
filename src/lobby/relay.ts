@@ -179,8 +179,9 @@ export class RelayBackend implements LobbyBackend {
   /** Each player's ping in the room you're in (ms), by id. */
   private pings = new Map<string, number>();
   private pingRoom: RoomLike | null = null;
-  /** Joining the lobby's party (one try at a time). */
+  /** Joining the lobby's party (one try at a time), and whether another was asked for meanwhile. */
   private partying = false;
+  private partyAgain = false;
   private stopPings: (() => void) | null = null;
   private listeners = new Set<(lobby: Lobby | null) => void>();
   private listed = '';
@@ -347,25 +348,38 @@ export class RelayBackend implements LobbyBackend {
    * SDK's host makes a new one and puts it in the lobby; anyone else goes without for now.
    */
   private async joinParty(room: RoomLike, lobby: Lobby): Promise<void> {
-    if (this.partying) return;
-    const relay = await this.relayNow().catch(() => null);
-    if (!relay?.joinParty || this.room !== room || (lobby.party && relay.party?.code === lobby.party)) return;
+    // One at a time; one that comes in meanwhile (a new party's code, another room) runs after it.
+    if (this.partying) return void (this.partyAgain = true);
     this.partying = true;
     try {
+      const relay = await this.relayNow().catch(() => null);
+      if (!relay?.joinParty || this.room !== room || (lobby.party && relay.party?.code === lobby.party)) return;
       const joined = lobby.party ? await relay.joinParty(lobby.party).then(() => true, () => false) : false;
-      if (joined || !room.isHost || this.room !== room) return;
+      // Left (or kicked) while it was joining: out again, or it outlives the lobby.
+      if (this.room !== room) return void (joined && (await this.leaveParty(relay)));
+      if (joined || !room.isHost) return;
       await this.leaveParty(relay);
       const party = (await relay.createParty?.().catch(() => null))?.code;
+      if (this.room !== room) return void (party && (await this.leaveParty(relay)));
       const now = lobbyIn(room);
-      if (party && now && this.room === room) this.commit(room, { ...now, party });
+      if (party && now) this.commit(room, { ...now, party });
     } finally {
       this.partying = false;
+      if (this.partyAgain) {
+        this.partyAgain = false;
+        const now = this.room && lobbyIn(this.room);
+        if (this.room && now) void this.joinParty(this.room, now);
+      }
     }
   }
 
-  /** Out of any party: the lobby's goes with the lobby (a leader would drag its members into its next room). */
+  /**
+   * Out of any party: the lobby's goes with the lobby (a leader would drag its members into its
+   * next room). Asked of the server every time: after a page load the SDK doesn't know it's still
+   * in one (the server keeps you there through its reconnect grace), and leaving none is a no-op.
+   */
   private async leaveParty(relay: RelayLike): Promise<void> {
-    if (relay.party) await relay.leaveParty?.().catch(() => {});
+    await relay.leaveParty?.().catch(() => {});
   }
 
   /** Pings go round while a lobby screen is watching (the race page attaches the room too, but has no use for them). */

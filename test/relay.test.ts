@@ -19,6 +19,10 @@ class Hub {
   failAccess = 0;
   /** Parties, by code: who's in each. */
   parties = new Map<string, Set<string>>();
+  /** How long a party join takes (ms). */
+  joinMs = 0;
+  /** Each room made, with the party its maker was in then (a leader's room pulls its party in). */
+  made: { code: string; party?: string }[] = [];
   private n = 0;
   code(): string {
     return `R${++this.n}`;
@@ -131,7 +135,10 @@ class FakeRelay implements RelayLike {
   async ping(): Promise<number> {
     return this.hub.pings.get(this.playerId) ?? 20;
   }
+  /** A fresh page: the server has you in a party still, but the SDK doesn't know it until it joins one. */
+  fresh = false;
   get party(): { code: string } | null {
+    if (this.fresh) return null;
     for (const [code, members] of this.hub.parties) if (members.has(this.playerId)) return { code };
     return null;
   }
@@ -142,8 +149,10 @@ class FakeRelay implements RelayLike {
     return { code };
   }
   async joinParty(code: string): Promise<unknown> {
+    if (this.hub.joinMs) await new Promise((r) => setTimeout(r, this.hub.joinMs));
     const p = this.hub.parties.get(code);
     if (!p) throw new Error('not_found');
+    this.fresh = false;
     await this.leaveParty();
     p.add(this.playerId);
     return { code };
@@ -160,6 +169,7 @@ class FakeRelay implements RelayLike {
   ) {}
   async createRoom(o: { public?: boolean }): Promise<RoomLike> {
     const room = new FakeRoom(this.hub, this.hub.code());
+    this.hub.made.push({ code: room.code, party: [...this.hub.parties].find(([, m]) => m.has(this.playerId))?.[0] });
     room.public = o.public ?? true;
     this.hub.rooms.set(room.code, room);
     return this.enter(room);
@@ -561,5 +571,57 @@ describe('P2P: a lobby is a party too', () => {
     expect(mended).not.toBe('PGONE');
     expect(partyOf(hub, 'ada')).toBe(mended);
     expect(partyOf(hub, 'bo')).toBe(mended);
+  });
+});
+
+describe('P2P: never left in a party the lobby is done with', () => {
+  const partyOf = (hub: Hub, id: string) => [...hub.parties].find(([, m]) => m.has(id))?.[0];
+
+  test("a fresh page leaves the party too, though its SDK doesn't know it's in one", async () => {
+    const hub = new Hub();
+    const [ada] = players(hub, 'ada');
+    const lobby = await ada.backend.create(player('ADA'), {});
+    const [bo] = players(hub, 'bo');
+    await bo.backend.get(lobby.id);
+    await new Promise((r) => setTimeout(r, 10));
+    expect(partyOf(hub, 'bo')).toBe(lobby.party);
+    // Bo's page reloads: the server still has him in the party, his new SDK doesn't know.
+    const relay = new FakeRelay(hub, 'bo');
+    relay.fresh = true;
+    relay.room = hub.rooms.get(lobby.id)!.members.find((m) => m.id === 'bo')!;
+    const fresh = new RelayBackend(async () => relay);
+    const mine = await fresh.create(player('BO'), {});
+    // Making his own lobby, he's out of Ada's party before the room exists, so it can't pull anyone along.
+    expect(hub.made.find((m) => m.code === mine.id)?.party).toBeUndefined();
+    expect(hub.parties.get(lobby.party!)?.has('bo')).toBe(false);
+  });
+
+  test('a party join that lands after you left is undone', async () => {
+    const hub = new Hub();
+    const [ada, bo] = players(hub, 'ada', 'bo');
+    const lobby = await ada.backend.create(player('ADA'), {});
+    hub.joinMs = 20;
+    await bo.backend.get(lobby.id);
+    await bo.backend.send(lobby.id, { type: 'leave' });
+    await new Promise((r) => setTimeout(r, 40));
+    expect(partyOf(hub, 'bo')).toBeUndefined();
+  });
+
+  test("a new party's code that comes in while a join is still trying is tried next, not dropped", async () => {
+    const hub = new Hub();
+    const [ada, bo] = players(hub, 'ada', 'bo');
+    const lobby = await ada.backend.create(player('ADA'), {});
+    const room = hub.rooms.get(lobby.id)!;
+    await new Promise((r) => setTimeout(r, 10));
+    // The party's gone; Bo's join to it is slow, and the host makes a new one meanwhile.
+    hub.parties.clear();
+    room.state = { ...room.state, lobby: { ...(room.state.lobby as object), party: 'PGONE' } };
+    hub.joinMs = 20;
+    await bo.backend.get(lobby.id);
+    const { code } = await ada.relay.createParty();
+    const host = room.members.find((m) => m.id === 'ada')!;
+    host.setState({ lobby: { ...(room.state.lobby as object), party: code } });
+    await new Promise((r) => setTimeout(r, 80));
+    expect(partyOf(hub, 'bo')).toBe(code);
   });
 });

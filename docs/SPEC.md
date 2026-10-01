@@ -1599,6 +1599,10 @@ P2P (2026-10-01):
 - **Leaving the lobby leaves its party** (Leave, a kick, the room closing, a new lobby): a
   party's leader drags its members into any room it makes or joins, so the party must not
   outlive the lobby.
+- **Leaving the party is always asked of the server**, not only when the SDK says you're in
+  one: after a page load it doesn't know (the server keeps you in it through its reconnect
+  grace, 30 s). A join that lands after you left is undone, and a party change that comes in
+  while a join is trying is tried next (review of PR #37).
 - **The header says P2P instead of LAN** for a direct channel: it may be across one network or
   over the internet, and the SDK doesn't say which.
 
