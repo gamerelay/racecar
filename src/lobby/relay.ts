@@ -17,7 +17,7 @@ import type { LobbyBackend, NetRoute } from './backend';
 import { apply, createLobby, SEATS, summarize, type Lobby, type LobbyAction, type LobbySummary, type Player } from './lobby';
 import { LobbyParty } from './party';
 import { Presence } from './presence';
-import { obj, readAction, readListing, readLobby } from './wire';
+import { readAction, readListing, readLobby } from './wire';
 
 /** The room events racecar listens to: the SDK's names, so a misspelt one doesn't compile (it would never fire). */
 export type RoomEvent = 'state' | 'message' | 'player_left' | 'player_disconnected' | 'player_reconnected' | 'host_changed' | 'closed';
@@ -226,7 +226,8 @@ export class RelayBackend implements LobbyBackend {
     if (action.type === 'start' && action.at === undefined) action = { ...action, at: (await this.relayNow()).now() + START_LEAD_MS };
     let next: Lobby | null;
     if (room.isHost) next = this.applyHere(room, room.me, action);
-    else next = (await room.request('lobby', action as never).catch(() => null)) as Lobby | null;
+    // The host's answer is another player's word, like the room's state.
+    else next = readLobby({ lobby: await room.request('lobby', action as never).catch(() => null) });
     // Out of the room whether or not you had a seat (you may have been watching: it was full, or racing).
     if (action.type === 'leave') {
       if (this.wanted === id) this.wanted = null;
@@ -235,7 +236,7 @@ export class RelayBackend implements LobbyBackend {
       });
       return null;
     }
-    return next && obj(next) ? next : null;
+    return next;
   }
 
   subscribe(id: string, fn: (lobby: Lobby | null) => void): () => void {

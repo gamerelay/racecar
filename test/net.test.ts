@@ -2,7 +2,7 @@ import { describe, expect, test } from 'bun:test';
 import { neutralControls } from '../src/core/controls';
 import type { Sim } from '../src/core/sim';
 import { createLobby, apply, encodeSeats, othersIn, roster, type Lobby } from '../src/lobby/lobby';
-import { NetCars, predict, startDelay, type NetEntity, type NetKind, type NetRoom } from '../src/net/cars';
+import { NetCars, predict, remoteSteer, startDelay, type NetEntity, type NetKind, type NetRoom } from '../src/net/cars';
 import { NetRivals } from '../src/net/rivals';
 import { wreckCar } from '../src/core/car/physics';
 import { Cause } from '../src/core/events';
@@ -27,6 +27,9 @@ class Hub {
       get isHost() {
         return hub.host === me;
       },
+      get hostId() {
+        return hub.host;
+      },
       get renderTime() {
         return hub.renderTime;
       },
@@ -34,7 +37,7 @@ class Hub {
         const mine = (e: Hub['entities'][number]) => e.owner === me || (e.owner === 'host' && hub.host === me);
         const view = (e: Hub['entities'][number]): NetEntity =>
           new Proxy(
-            { owner: { id: e.owner }, mine: mine(e), teleport: () => e.teleports++, remove: () => (e.removed = true) },
+            { owner: { id: e.owner === 'host' ? hub.host : e.owner }, mine: mine(e), teleport: () => e.teleports++, remove: () => (e.removed = true) },
             {
               get: (t, k) => (k in t ? (t as Record<string | symbol, unknown>)[k] : e.fields[k as string]),
               set: (_t, k, v) => ((e.fields[k as string] = v), true),
@@ -327,6 +330,45 @@ describe('rivals', () => {
     hub.host = 'ada';
     stepAll(ada);
     expect(rivalsIn(hub)[0].teleports).toBe(0);
+  });
+
+  test("a rival only the host role owns is driven by it, and its handover is range-checked", () => {
+    const { hub, ada, bo } = withRival();
+    for (let k = 0; k < 120; k++) {
+      stepAll(ada);
+      stepAll(bo);
+    }
+    // A third page spawns a rival of its own for seat 2, far away: Bo's screen doesn't follow it.
+    hub.entities.unshift({ kind: 'rival', owner: 'cy', fields: { seat: 2, race: 'r1', x: 900, z: 900 }, teleports: 0, removed: false });
+    stepAll(bo);
+    stepAll(ada);
+    stepAll(bo);
+    expect(Math.abs(bo.sim.cars.x[2])).toBeLessThan(100);
+    // The host's own rival with a spline that isn't one and a cause that isn't one: not copied.
+    const real = rivalsIn(hub).find((e) => e.owner === 'host')!;
+    real.fields.lastSpline = 999;
+    real.fields.wreckCause = 42;
+    real.fields.vx = 1e6;
+    stepAll(bo);
+    expect(bo.sim.cars.lastSpline[2]).toBeLessThan(bo.sim.track.splines.length);
+    expect(bo.sim.cars.wreckCause[2]).not.toBe(42);
+    expect(Math.hypot(bo.sim.cars.vx[2], bo.sim.cars.vz[2])).toBeLessThanOrEqual(140);
+    // And taking the role then, and respawning, doesn't throw.
+    hub.host = 'bo';
+    wreckCar(bo.sim, 2, Cause.Wall, 0, 0, -1);
+    expect(() => {
+      for (let k = 0; k < 360; k++) stepAll(bo);
+    }).not.toThrow();
+  });
+
+  test("another page's car can't be flung at you: its speed, turn and steering are capped", () => {
+    const p = predict({ x: 0, z: 0, vx: 1e6, vz: 0, yaw: 1e3, steer: 9 }, 0.1);
+    expect(Math.hypot(p.vx, p.vz)).toBeCloseTo(140);
+    expect(p.x).toBeCloseTo(14);
+    expect(p.yaw).toBe(12);
+    expect(remoteSteer({ steer: 9 })).toBe(1);
+    expect(remoteSteer({ steer: 'left' })).toBe(0);
+    expect(predict({ x: NaN, vx: Infinity }, 0.1)).toMatchObject({ x: 0, vx: 0 });
   });
 
   test('two hosts at once (for a moment) leave one rival per seat', () => {

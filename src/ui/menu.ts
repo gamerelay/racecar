@@ -307,7 +307,7 @@ export class Menu {
   private lobbyRow(l: LobbySummary): string {
     const pips = [...l.pips].map((c) => `<i class="pip ${c === 'p' ? 'player' : c === 'o' ? 'open' : c === 'x' ? 'closed' : 'ai'}"></i>`).join('');
     const phase = l.phase === 'racing' ? 'racing' : 'in lobby';
-    return `<button class="lrow" id="lobby-${esc(l.id)}">${thumbSvg(this.content.layouts[l.map], 44)}
+    return `<button class="lrow" id="lobby-${esc(l.id)}">${thumbSvg(this.layout(l.map), 44)}
       <span class="lname">${esc(l.name)}${l.visibility !== 'public' ? ' <small>private</small>' : ''}</span>
       <span class="lmeta">${esc(this.mapName(l.map))} · ${l.laps} lap${l.laps === 1 ? '' : 's'} · ${phase}</span>
       <span class="pips">${pips}</span><span class="lcount">${l.filled}/${SEATS}</span></button>`;
@@ -580,12 +580,17 @@ export class Menu {
     return ms === null ? '—' : `<span class="${pingClass(ms)}">${ms} ms</span>`;
   }
 
+  /** A layout by its key, if it's one of ours (a key comes from other players: never `constructor`). */
+  private layout(key: string) {
+    return Object.hasOwn(this.content.layouts, key) ? this.content.layouts[key] : undefined;
+  }
+
   /**
    * The race's options, top right: the map and its settings. The host sets them; everyone else
    * sees them folded into a line.
    */
   private optionsPanel(o: LobbyOptions, host: boolean): string {
-    const layout = this.content.layouts[o.map];
+    const layout = this.layout(o.map);
     const km = layout ? `${thumb(layout).km.toFixed(1)} km` : '';
     const head = `${thumbSvg(layout, host ? 64 : 44)}<div class="mapHead"><b>${esc(this.mapName(o.map))}</b><small>${km}</small></div>`;
     if (host) return `<aside class="card mapCard">${head}<div class="opts">${this.optionFields(o, false)}</div></aside>`;

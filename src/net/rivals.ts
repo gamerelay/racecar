@@ -9,7 +9,8 @@
 // nobody has), every screen drives them itself, from the same grid.
 
 import type { Sim } from '../core/sim';
-import { CAR_FIELDS, CAR_RATE, carFields, predict, TELEPORT_M, type NetEntity, type NetKind, type NetRoom } from './cars';
+import { Cause } from '../core/events';
+import { CAR_FIELDS, CAR_RATE, carFields, predict, predictLead, remoteSteer, TELEPORT_M, type NetEntity, type NetKind, type NetRoom } from './cars';
 
 const int = { type: 'number', precision: 1, smooth: false } as const;
 const num = { type: 'number', precision: 0.01, smooth: false } as const;
@@ -41,8 +42,22 @@ export const RIVAL_FIELDS = {
   lastLat: num,
 } as const;
 
-/** Prediction looks this far ahead at most (s), as for players' cars. */
-const MAX_LEAD = 0.25;
+/** The handover as the host sent it, checked: each field in its range, or left as this screen has it. */
+function handover(sim: Sim, k: (typeof HANDOVER)[number], v: unknown): number | null {
+  if (typeof v !== 'number' || !Number.isFinite(v)) return null;
+  switch (k) {
+    case 'lastSpline':
+      return Number.isInteger(v) && v >= 0 && v < sim.track.splines.length ? v : null;
+    case 'wreckCause':
+      return Number.isInteger(v) && Object.values(Cause).includes(v as never) ? v : null;
+    case 'boost':
+      return Math.max(0, Math.min(1, v));
+    case 'wreckT':
+      return Math.max(0, Math.min(60, v));
+    default:
+      return Math.max(-1e4, Math.min(1e4, v));
+  }
+}
 
 export class NetRivals {
   private kind: NetKind;
@@ -82,8 +97,9 @@ export class NetRivals {
     }
     // Where they were when you last wrote them is stale by the time the role's back.
     this.last.clear();
-    const lead = Math.min(MAX_LEAD, Math.max(0, (this.now() - this.room.renderTime) / 1000));
-    const theirs = this.bySeat(this.kind.all());
+    const lead = predictLead(this.room, this.now());
+    // The host role's only: anyone can spawn a `rival`, but it's not theirs to drive.
+    const theirs = this.bySeat(this.kind.all().filter((e) => e.owner.id === this.room.hostId));
     for (const [seat, i] of this.seats) {
       const e = theirs.get(seat);
       // Not sent (yet): this screen drives it, as the host would.
@@ -94,10 +110,10 @@ export class NetRivals {
       c.remote[i] = 1;
       c.active[i] = 1;
       this.sim.setPose(i, predict(e, lead));
-      this.sim.controls[i].steer = typeof e.steer === 'number' ? e.steer : 0;
+      this.sim.controls[i].steer = remoteSteer(e);
       for (const k of HANDOVER) {
-        const v = e[k];
-        if (typeof v === 'number' && Number.isFinite(v)) c[k][i] = v;
+        const v = handover(this.sim, k, e[k]);
+        if (v !== null) c[k][i] = v;
       }
     }
   }

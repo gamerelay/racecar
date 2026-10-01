@@ -2,7 +2,8 @@ import { describe, expect, test } from 'bun:test';
 import { Lobbies, LocalBackend, LOCAL_ID } from '../src/lobby/backend';
 import { AWAY_MS, netRoute, PING_MS, Presence } from '../src/lobby/presence';
 import { RelayBackend, type RelayLike, type RoomLike } from '../src/lobby/relay';
-import { readAction, readListing, readPing } from '../src/lobby/wire';
+import { readAction, readListing, readLobby, readPing } from '../src/lobby/wire';
+import { createLobby } from '../src/lobby/lobby';
 import { raceFromLobby } from '../src/ui/setup';
 
 // Online lobbies (milestone 3): a lobby is a GameRelay room, written only by the SDK's host, which
@@ -373,6 +374,39 @@ describe('online lobbies', () => {
     // And one whose public flag is still up (its last player's page just closed) isn't listed either.
     room.public = true;
     expect(await bo.backend.list()).toEqual([]);
+  });
+
+  test("a map that isn't a layout's key (constructor, __proto__) is refused, from a listing or the host's options", () => {
+    const meta = { map: 'constructor', laps: 2, phase: 'lobby', pips: 'pooooooo', players: 1, filled: 1 };
+    expect(readListing({ code: 'K7QM', name: 'x', meta })).toBeNull();
+    expect(readListing({ code: 'K7QM', name: 'x', meta: { ...meta, map: '__proto__' } })).toBeNull();
+    expect(readAction({ type: 'options', options: { map: 'toString' } }, 'x')).toBeNull();
+    expect(readAction({ type: 'options', options: { map: 'backroads/valley' } }, 'x')).toEqual({ type: 'options', options: { map: 'backroads/valley' } });
+    expect(readAction({ type: 'options', options: { laps: 1e9 } }, 'x')).toBeNull();
+  });
+
+  test("the lobby in a room's state is checked all through: whoever holds the host role writes it", () => {
+    const good = createLobby('K7QM', { id: 'ada', name: 'ADA', car: 'coupe', paint: 1 });
+    expect(readLobby({ lobby: good })).toEqual(good);
+    const bad = (patch: (l: Record<string, unknown>) => void) => {
+      const l = structuredClone(good) as unknown as Record<string, unknown>;
+      patch(l);
+      return readLobby({ lobby: l });
+    };
+    expect(bad((l) => ((l.seats as unknown[])[3] = null))).toBeNull();
+    expect(bad((l) => ((l.seats as unknown[])[3] = { kind: 'ai', difficulty: 7 }))).toBeNull();
+    expect(bad((l) => ((l.seats as Record<string, unknown>[])[0].paint = 'red'))).toBeNull();
+    expect(bad((l) => ((l.options as Record<string, unknown>).laps = 'lots'))).toBeNull();
+    expect(bad((l) => ((l.options as Record<string, unknown>).map = 'constructor'))).toBeNull();
+    expect(bad((l) => (l.phase = 'party'))).toBeNull();
+    expect(bad((l) => (l.startAt = Infinity))).toBeNull();
+    // A seated player's name is a plate there too, and anything extra is dropped.
+    const named = bad((l) => {
+      (l.seats as Record<string, unknown>[])[0].name = '<i>ada</i>';
+      l.junk = 1;
+    });
+    expect(named?.seats[0]).toMatchObject({ name: 'IADAI' });
+    expect(named).not.toHaveProperty('junk');
   });
 
   test("a player's name from another page is a plate: no markup reaches anyone's screen", () => {
