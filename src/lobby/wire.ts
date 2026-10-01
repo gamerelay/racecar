@@ -3,7 +3,8 @@
 // lobby in a room's state, a ping. Each reader returns the value in its proper shape, or null for
 // anything malformed. Pure: no SDK, no DOM.
 
-import { DEFAULT_OPTIONS, SEATS, VISIBILITIES, type Lobby, type LobbyAction, type LobbyOptions, type LobbySummary, type SeatChoice } from './lobby';
+import { cleanPlate } from './plate';
+import { DEFAULT_OPTIONS, SEATS, VISIBILITIES, type Difficulty, type Lobby, type LobbyAction, type LobbyOptions, type LobbySummary, type Seat, type SeatChoice } from './lobby';
 
 const SEAT_CHOICES: readonly SeatChoice[] = ['open', 'closed', 'ai-easy', 'ai-normal', 'ai-hard'];
 const OPTION_KEYS: readonly (keyof LobbyOptions)[] = ['map', 'laps', 'weather', 'time', 'mayhem', 'traffic'];
@@ -15,7 +16,45 @@ const OPTION_VALUES: Partial<Record<keyof LobbyOptions, readonly unknown[]>> = {
 
 export const obj = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null && !Array.isArray(v);
 const str = (v: unknown, max: number): v is string => typeof v === 'string' && v.length <= max;
+/** A player's name is their plate: only what a plate can show (it's drawn in other players' pages). */
+const plate = (v: unknown): string | null => (str(v, 64) ? cleanPlate(v) || null : null);
 const int = (v: unknown, lo: number, hi: number): v is number => Number.isInteger(v) && (v as number) >= lo && (v as number) <= hi;
+/** A layout key's shape (`downtown/downtown`): never a name every object has, like `constructor`. */
+const MAP_KEY = /^[a-z0-9-]{1,30}\/[a-z0-9-]{1,30}$/;
+const mapKey = (v: unknown): v is string => typeof v === 'string' && MAP_KEY.test(v);
+
+/** A lobby's options as someone sent them (any of them), or null if one is malformed. Unknown keys are dropped. */
+function readOptions(v: unknown): Partial<LobbyOptions> | null {
+  if (!obj(v)) return null;
+  const o: Partial<LobbyOptions> = {};
+  for (const k of OPTION_KEYS) {
+    const x = v[k];
+    if (x === undefined) continue;
+    const ok = k === 'map' ? mapKey(x) : k === 'laps' ? int(x, 1, 9) : k === 'traffic' ? typeof x === 'boolean' : OPTION_VALUES[k]!.includes(x);
+    if (!ok) return null;
+    (o as Record<string, unknown>)[k] = x;
+  }
+  return o;
+}
+
+/** A seat in a lobby's state, checked: a player's with a plate for a name, or one of the others. */
+function readSeat(v: unknown): Seat | null {
+  if (!obj(v)) return null;
+  switch (v.kind) {
+    case 'open':
+    case 'closed':
+      return { kind: v.kind };
+    case 'ai':
+      return int(v.difficulty, 0, 2) ? { kind: 'ai', difficulty: v.difficulty as Difficulty } : null;
+    case 'player': {
+      const name = plate(v.name);
+      if (!str(v.id, 64) || !v.id || !name || !str(v.car, 32) || !int(v.paint, 0, 255) || typeof v.ready !== 'boolean') return null;
+      if (v.racing !== undefined && typeof v.racing !== 'boolean') return null;
+      return { kind: 'player', id: v.id, name, car: v.car, paint: v.paint, ready: v.ready, ...(v.racing === undefined ? {} : { racing: v.racing }) };
+    }
+  }
+  return null;
+}
 
 /**
  * An action as another player sent it, checked, with the player it comes from: `from` is the id
@@ -39,31 +78,27 @@ export function readAction(data: unknown, from: string): LobbyAction | null {
         out.visibility = v as Lobby['visibility'];
       }
       if (data.options !== undefined) {
-        if (!obj(data.options)) return null;
-        const o: Partial<LobbyOptions> = {};
-        for (const k of OPTION_KEYS) {
-          const v = data.options[k];
-          if (v === undefined) continue;
-          const ok = k === 'map' ? str(v, 64) : k === 'laps' ? typeof v === 'number' && Number.isFinite(v) : k === 'traffic' ? typeof v === 'boolean' : OPTION_VALUES[k]!.includes(v);
-          if (!ok) return null;
-          (o as Record<string, unknown>)[k] = v;
-        }
+        const o = readOptions(data.options);
+        if (!o) return null;
         out.options = o;
       }
       return out;
     }
     case 'car':
       return str(data.car, 32) && int(data.paint, 0, 255) ? { type: 'car', car: data.car, paint: data.paint } : null;
-    case 'name':
-      return str(data.name, 64) ? { type: 'name', name: data.name } : null;
+    case 'name': {
+      const name = plate(data.name);
+      return name ? { type: 'name', name } : null;
+    }
     case 'ready':
       return typeof data.ready === 'boolean' ? { type: 'ready', ready: data.ready } : null;
     case 'racing':
       return typeof data.racing === 'boolean' ? { type: 'racing', racing: data.racing } : null;
     case 'join': {
       const p = data.player;
-      if (!obj(p) || !str(p.name, 64) || !str(p.car, 32) || !int(p.paint, 0, 255)) return null;
-      return { type: 'join', player: { id: from, name: p.name, car: p.car, paint: p.paint } };
+      const name = obj(p) ? plate(p.name) : null;
+      if (!obj(p) || !name || !str(p.car, 32) || !int(p.paint, 0, 255)) return null;
+      return { type: 'join', player: { id: from, name, car: p.car, paint: p.paint } };
     }
     case 'kick':
       return int(data.index, 0, SEATS - 1) ? { type: 'kick', index: data.index } : null;
@@ -84,21 +119,44 @@ const PIPS = /^[penhox]{8}$/;
 /** A room's listing as a lobby row, or null if it isn't a racecar lobby's (a host writes it, so it's checked). */
 export function readListing(r: { code: string; name: string | null; meta: unknown }): LobbySummary | null {
   const m = r.meta;
-  if (!obj(m) || !str(m.map, 64) || !int(m.laps, 1, 9) || (m.phase !== 'lobby' && m.phase !== 'racing') || !str(m.pips, 8) || !PIPS.test(m.pips)) return null;
+  if (!obj(m) || !mapKey(m.map) || !int(m.laps, 1, 9) || (m.phase !== 'lobby' && m.phase !== 'racing') || !str(m.pips, 8) || !PIPS.test(m.pips)) return null;
   if (!int(m.players, 0, SEATS) || !int(m.filled, 0, SEATS)) return null;
   // Invite only or private, by its host's own word (an older host's listing doesn't say: public).
   if (m.visibility !== undefined && m.visibility !== 'public') return null;
   return { id: r.code, name: (r.name ?? '').slice(0, 48) || 'Lobby', map: m.map, laps: m.laps, phase: m.phase, visibility: 'public', pips: m.pips, players: m.players, filled: m.filled };
 }
 
-/** The lobby in a room's state (`state.lobby`), if it holds one: the SDK's host writes it, so it's checked. */
+/**
+ * The lobby in a room's state (`state.lobby`), if it holds one. Whoever holds the SDK's host role
+ * writes it, and that role moves to any player, so all of it is checked: one bad seat or option and
+ * it's not a lobby (the screens keep the last good one).
+ */
 export function readLobby(state: Record<string, unknown>): Lobby | null {
   const l = state.lobby;
-  if (!obj(l) || !Array.isArray(l.seats) || l.seats.length !== SEATS || typeof l.host !== 'string') return null;
-  const lobby = l as unknown as Lobby;
+  if (!obj(l) || !Array.isArray(l.seats) || l.seats.length !== SEATS || !str(l.host, 64) || !str(l.id, 16) || !str(l.name, 64)) return null;
+  const seats = l.seats.map(readSeat);
+  if (seats.some((x) => !x)) return null;
   // Kept by an older build, whose `private` was by link (not locked).
-  const visibility = (lobby.visibility as string) === 'private' ? 'invite' : lobby.visibility;
-  return { ...lobby, visibility, options: { ...DEFAULT_OPTIONS, ...lobby.options } };
+  const visibility = l.visibility === 'private' ? 'invite' : l.visibility;
+  if (!VISIBILITIES.includes(visibility as Lobby['visibility'])) return null;
+  if (l.phase !== 'lobby' && l.phase !== 'racing') return null;
+  const options = l.options === undefined ? {} : readOptions(l.options);
+  if (!options) return null;
+  if (l.seed !== undefined && !int(l.seed, 0, 2 ** 31 - 1)) return null;
+  if (l.startAt !== undefined && !(typeof l.startAt === 'number' && Number.isFinite(l.startAt) && l.startAt > 0)) return null;
+  if (l.party !== undefined && !str(l.party, 64)) return null;
+  return {
+    id: l.id,
+    name: l.name,
+    host: l.host,
+    visibility: visibility as Lobby['visibility'],
+    phase: l.phase,
+    options: { ...DEFAULT_OPTIONS, ...options },
+    seats: seats as Seat[],
+    ...(l.seed === undefined ? {} : { seed: l.seed as number }),
+    ...(l.startAt === undefined ? {} : { startAt: l.startAt as number }),
+    ...(l.party === undefined ? {} : { party: l.party as string }),
+  };
 }
 
 /** A player's ping as they sent it (`{ type: 'ping', ms }`), or null. */

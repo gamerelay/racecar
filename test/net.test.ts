@@ -2,8 +2,9 @@ import { describe, expect, test } from 'bun:test';
 import { neutralControls } from '../src/core/controls';
 import type { Sim } from '../src/core/sim';
 import { createLobby, apply, encodeSeats, othersIn, roster, type Lobby } from '../src/lobby/lobby';
-import { NetCars, predict, startDelay, type NetEntity, type NetKind, type NetRoom } from '../src/net/cars';
+import { NetCars, predict, remoteSteer, startDelay, type NetEntity, type NetKind, type NetRoom } from '../src/net/cars';
 import { NetRivals } from '../src/net/rivals';
+import { FALLBACK_MS, joinRace, type RaceJoin } from '../src/net/join';
 import { wreckCar } from '../src/core/car/physics';
 import { Cause } from '../src/core/events';
 import { raceFromLobby, readSetup, toQuery } from '../src/ui/setup';
@@ -27,6 +28,9 @@ class Hub {
       get isHost() {
         return hub.host === me;
       },
+      get hostId() {
+        return hub.host;
+      },
       get renderTime() {
         return hub.renderTime;
       },
@@ -34,7 +38,7 @@ class Hub {
         const mine = (e: Hub['entities'][number]) => e.owner === me || (e.owner === 'host' && hub.host === me);
         const view = (e: Hub['entities'][number]): NetEntity =>
           new Proxy(
-            { owner: { id: e.owner }, mine: mine(e), teleport: () => e.teleports++, remove: () => (e.removed = true) },
+            { owner: { id: e.owner === 'host' ? hub.host : e.owner }, mine: mine(e), teleport: () => e.teleports++, remove: () => (e.removed = true) },
             {
               get: (t, k) => (k in t ? (t as Record<string | symbol, unknown>)[k] : e.fields[k as string]),
               set: (_t, k, v) => ((e.fields[k as string] = v), true),
@@ -329,6 +333,45 @@ describe('rivals', () => {
     expect(rivalsIn(hub)[0].teleports).toBe(0);
   });
 
+  test("a rival only the host role owns is driven by it, and its handover is range-checked", () => {
+    const { hub, ada, bo } = withRival();
+    for (let k = 0; k < 120; k++) {
+      stepAll(ada);
+      stepAll(bo);
+    }
+    // A third page spawns a rival of its own for seat 2, far away: Bo's screen doesn't follow it.
+    hub.entities.unshift({ kind: 'rival', owner: 'cy', fields: { seat: 2, race: 'r1', x: 900, z: 900 }, teleports: 0, removed: false });
+    stepAll(bo);
+    stepAll(ada);
+    stepAll(bo);
+    expect(Math.abs(bo.sim.cars.x[2])).toBeLessThan(100);
+    // The host's own rival with a spline that isn't one and a cause that isn't one: not copied.
+    const real = rivalsIn(hub).find((e) => e.owner === 'host')!;
+    real.fields.lastSpline = 999;
+    real.fields.wreckCause = 42;
+    real.fields.vx = 1e6;
+    stepAll(bo);
+    expect(bo.sim.cars.lastSpline[2]).toBeLessThan(bo.sim.track.splines.length);
+    expect(bo.sim.cars.wreckCause[2]).not.toBe(42);
+    expect(Math.hypot(bo.sim.cars.vx[2], bo.sim.cars.vz[2])).toBeLessThanOrEqual(140 + 1e-9);
+    // And taking the role then, and respawning, doesn't throw.
+    hub.host = 'bo';
+    wreckCar(bo.sim, 2, Cause.Wall, 0, 0, -1);
+    expect(() => {
+      for (let k = 0; k < 360; k++) stepAll(bo);
+    }).not.toThrow();
+  });
+
+  test("another page's car can't be flung at you: its speed, turn and steering are capped", () => {
+    const p = predict({ x: 0, z: 0, vx: 1e6, vz: 0, yaw: 1e3, steer: 9 }, 0.1);
+    expect(Math.hypot(p.vx, p.vz)).toBeCloseTo(140);
+    expect(p.x).toBeCloseTo(14);
+    expect(p.yaw).toBe(12);
+    expect(remoteSteer({ steer: 9 })).toBe(1);
+    expect(remoteSteer({ steer: 'left' })).toBe(0);
+    expect(predict({ x: NaN, vx: Infinity }, 0.1)).toMatchObject({ x: 0, vx: 0 });
+  });
+
   test('two hosts at once (for a moment) leave one rival per seat', () => {
     const { hub, ada } = withRival();
     hub.entities.push({ kind: 'rival', owner: 'host', fields: { seat: 2, race: 'r1' }, teleports: 0, removed: false });
@@ -391,3 +434,76 @@ describe('an online race link', () => {
     expect(r.specs).toHaveLength(7);
   });
 });
+
+describe("the race page's join", () => {
+  /** A race page's join with its timer in hand: `fire()` runs the fallback. */
+  function page(opts: { lobby?: unknown; room?: boolean; at?: number; slow?: Promise<void> } = {}) {
+    const hub = new Hub();
+    const sim = ringSim(1);
+    sim.addCar({ cls: 'coupe', human: true });
+    sim.addCar({ cls: 'coupe', racer: { difficulty: 1 } });
+    sim.startRace(1, 30);
+    let pending: (() => void) | null = null;
+    const got: { net: unknown; rivals: unknown } = { net: null, rivals: null };
+    const j: RaceJoin = {
+      lobby: async () => (await opts.slow, opts.lobby === undefined ? { id: 'K7QM' } : opts.lobby),
+      connection: async () => ({ room: opts.room === false ? null : hub.room('ada'), now: () => hub.now }),
+      sim,
+      me: 0,
+      remote: new Map(),
+      aiSeats: new Map([[1, 1]]),
+      seed: 7,
+      at: opts.at,
+      onNet: (net, rivals) => Object.assign(got, { net, rivals }),
+      timers: { set: (f) => ((pending = f), 1), clear: () => (pending = null) },
+    };
+    return { hub, sim, j, got, fire: () => pending?.(), armed: () => pending !== null };
+  }
+
+  test('in: your car and the AIs go out, the fallback is called off, and green is 3 s on (no time in the link)', async () => {
+    const p = page();
+    expect(await joinRace(p.j)).toBe(true);
+    expect(p.got.net).not.toBeNull();
+    expect(p.got.rivals).not.toBeNull();
+    expect(p.hub.entities.filter((e) => e.kind === 'car')).toHaveLength(1);
+    expect(p.armed()).toBe(false);
+    expect(p.sim.race.goTime - p.sim.time).toBeCloseTo(3);
+  });
+
+  test('the lobby gone, or no room: no net layers, and the fallback starts the race 3 s on', async () => {
+    for (const p of [page({ lobby: null }), page({ room: false })]) {
+      expect(await joinRace(p.j)).toBe(false);
+      expect(p.got.net).toBeNull();
+      expect(p.armed()).toBe(true);
+      p.fire();
+      expect(p.sim.race.goTime - p.sim.time).toBeCloseTo(3);
+    }
+  });
+
+  test("slower than the fallback: the race has started from here, and the late join doesn't move green", async () => {
+    let land!: () => void;
+    const p = page({ slow: new Promise<void>((r) => (land = r)) });
+    const joining = joinRace(p.j);
+    p.fire();
+    const go = p.sim.race.goTime;
+    for (let k = 0; k < 4 * 60; k++) p.sim.step([neutralControls()]);
+    expect(p.sim.race.phase).toBe('racing');
+    land();
+    expect(await joining).toBe(true);
+    expect(p.got.net).not.toBeNull();
+    expect(p.sim.race.goTime).toBe(go);
+  });
+
+  test("with the link's time, green is the server clock's (not 3 s on); without AIs, no rivals", async () => {
+    const p = page({ at: 5_000 });
+    p.j.aiSeats = new Map();
+    p.hub.now = 1_000;
+    await joinRace(p.j);
+    expect(p.got.rivals).toBeNull();
+    expect(p.sim.race.goTime - p.sim.time).toBeGreaterThan(20);
+    (p.got.net as NetCars).beforeStep();
+    expect(p.sim.race.goTime - p.sim.time).toBeCloseTo(4);
+    expect(FALLBACK_MS).toBe(8000);
+  });
+});
+

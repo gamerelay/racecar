@@ -15,7 +15,6 @@ import { newHit, sampleAt, type TrackHit } from '../track/query';
 import { laneActive, TRAFFIC_KINDS } from '../world/traffic';
 
 export type Difficulty = 0 | 1 | 2;
-export const DIFFICULTY_NAMES = ['easy', 'normal', 'hard'] as const;
 
 export interface RacerDriver {
   difficulty: Difficulty;

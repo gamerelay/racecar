@@ -9,6 +9,13 @@ and where things stand is [docs/HANDOFF.md](./docs/HANDOFF.md).
 - **Music:** the game has its own soundtrack, in place of the synth loop: a track for the title
   and menus, and in a race the map's own (Downtown, Backroads, Paradise) or one of two that go on
   any map (Finish Line, Final Sprint), never the same song twice in a row. N still toggles it.
+- **Fixed:** a player's name with markup in it ran on everyone's results screen. Names are plates
+  now, wherever they come from, and the results escape them.
+- **Fixed:** a lobby listing or a host's lobby with a bad map or seat could break the lobby list
+  or screen for everyone. Everything other players send is checked all through.
+- **Fixed:** anyone could drive an AI on everyone's screen by sending one of their own, and other
+  players' cars can't be flung at you at any speed.
+- The docs are up to date with milestone 3 (README, HANDOFF, SPEC, PLAN, MAPS, CARS).
 
 ## alpha-1.19: the AIs online
 

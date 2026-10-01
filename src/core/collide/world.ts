@@ -64,7 +64,7 @@ export function collideWorld(sim: SimState, i: number, ctx: WorldCtx): void {
     const kind = TRAFFIC_KINDS[traffic.kind[k]];
     const ds = signedGap(traffic.s[p], sMain, L);
     if (Math.abs(ds) > 14) continue;
-    if (!c.wreck[i] && !ghost && onMain) nearMiss(sim, i, ctx, p, sMain, ds, speed);
+    if (!c.wreck[i] && !ghost && onMain) nearMiss(sim, i, ctx, p, ds, speed);
     if (ghost || Math.abs(c.y[i] - traffic.y[p]) > kind.hh * 2 + 0.8) continue;
     if (!obbOverlap(c.x[i], c.z[i], c.h[i], cls.size[0], cls.size[1], traffic.x[p], traffic.z[p], traffic.h[p], kind.hw, kind.hl, contact)) continue;
     const vx = c.vx[i];
@@ -191,7 +191,7 @@ export function collideWorld(sim: SimState, i: number, ctx: WorldCtx): void {
   }
 }
 
-function nearMiss(sim: SimState, i: number, ctx: WorldCtx, p: number, sMain: number, ds: number, speed: number): void {
+function nearMiss(sim: SimState, i: number, ctx: WorldCtx, p: number, ds: number, speed: number): void {
   const c = sim.cars;
   const { traffic } = ctx;
   if (speed < 22) return;

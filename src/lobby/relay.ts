@@ -17,7 +17,8 @@ import type { LobbyBackend, NetRoute } from './backend';
 import { apply, createLobby, SEATS, summarize, type Lobby, type LobbyAction, type LobbySummary, type Player } from './lobby';
 import { LobbyParty } from './party';
 import { Presence } from './presence';
-import { obj, readAction, readListing, readLobby } from './wire';
+import { warned } from './warn';
+import { readAction, readListing, readLobby } from './wire';
 
 /** The room events racecar listens to: the SDK's names, so a misspelt one doesn't compile (it would never fire). */
 export type RoomEvent = 'state' | 'message' | 'player_left' | 'player_disconnected' | 'player_reconnected' | 'host_changed' | 'closed';
@@ -178,10 +179,28 @@ export class RelayBackend implements LobbyBackend {
     return lobby;
   }
 
+  /** The last lobby a room's state held that passed its checks, by room code. */
+  private good: { code: string; lobby: Lobby } | null = null;
+
+  /**
+   * The lobby in a room's state. One that fails its checks (whoever holds the SDK's host role wrote
+   * it, and that's any player) isn't the lobby gone: the screens keep the last good one, and the
+   * next host to write it writes a good one again. Only a room with no lobby in its state has none.
+   */
+  private lobbyOf(room: RoomLike): Lobby | null {
+    const lobby = readLobby(room.state);
+    if (lobby) {
+      this.good = { code: room.code, lobby };
+      return lobby;
+    }
+    if (room.state.lobby !== undefined && this.good?.code === room.code) return this.good.lobby;
+    return null;
+  }
+
   async get(id: string): Promise<Lobby | null> {
     this.wanted = id;
     const room = await this.inTurn(() => this.enter(id));
-    return room && readLobby(room.state);
+    return room && this.lobbyOf(room);
   }
 
   /** The room for lobby `id`: the one you're in, or joined now (a reload resumes your seat). */
@@ -195,7 +214,7 @@ export class RelayBackend implements LobbyBackend {
       return relay.room;
     }
     await this.leaveRoom();
-    const room = await relay.joinRoom(id).catch(() => null);
+    const room = await relay.joinRoom(id).catch(warned('joining a lobby failed', null));
     if (!room) return null;
     this.attach(room);
     // Given up on while it joined (Esc, or too slow for the screen): out again, before anything
@@ -226,7 +245,8 @@ export class RelayBackend implements LobbyBackend {
     if (action.type === 'start' && action.at === undefined) action = { ...action, at: (await this.relayNow()).now() + START_LEAD_MS };
     let next: Lobby | null;
     if (room.isHost) next = this.applyHere(room, room.me, action);
-    else next = (await room.request('lobby', action as never).catch(() => null)) as Lobby | null;
+    // The host's answer is another player's word, like the room's state.
+    else next = readLobby({ lobby: await room.request('lobby', action as never).catch(warned(`the host didn't answer ${action.type}`, null)) });
     // Out of the room whether or not you had a seat (you may have been watching: it was full, or racing).
     if (action.type === 'leave') {
       if (this.wanted === id) this.wanted = null;
@@ -235,7 +255,7 @@ export class RelayBackend implements LobbyBackend {
       });
       return null;
     }
-    return next && obj(next) ? next : null;
+    return next;
   }
 
   subscribe(id: string, fn: (lobby: Lobby | null) => void): () => void {
@@ -272,7 +292,7 @@ export class RelayBackend implements LobbyBackend {
       }),
       room.on('state', () => {
         void this.party.follow();
-        this.notify(readLobby(room.state));
+        this.notify(this.lobbyOf(room));
       }),
       // The SDK host's work: someone gone for good gives up their seat, and whoever the role moves
       // to checks for anyone who left while nobody held it (and lists the room).
@@ -307,13 +327,13 @@ export class RelayBackend implements LobbyBackend {
     await this.party.leave();
     // The last one out unlists it, so nothing (quick match included) sends anyone into an empty room.
     if (room.isHost && room.isPublic && room.players.every((p) => p.id === room.me)) await room.setAccess({ public: false }).catch(() => {});
-    await room.leave().catch(() => {});
+    await room.leave().catch(warned('leaving a lobby failed', undefined));
     this.notify(null);
   }
 
   /** On the SDK's host: `actor` does `action`. The lobby after it, or null if it was refused. */
   private applyHere(room: RoomLike, actor: string, action: LobbyAction): Lobby | null {
-    const lobby = readLobby(room.state);
+    const lobby = this.lobbyOf(room);
     if (!lobby) return null;
     const next = apply(lobby, actor, action);
     if (!next) return null;
@@ -330,7 +350,7 @@ export class RelayBackend implements LobbyBackend {
         });
         return next;
       }
-      if (s.kind === 'player') void room.kick(s.id, { ban: false }).catch(() => {});
+      if (s.kind === 'player') void room.kick(s.id, { ban: false }).catch(warned('a kick failed', undefined));
     }
     this.commit(room, next);
     return next;
@@ -338,7 +358,7 @@ export class RelayBackend implements LobbyBackend {
 
   /** On the SDK's host: a seat whose player has left the room is open again. */
   private tidy(room: RoomLike): void {
-    const was = readLobby(room.state);
+    const was = this.lobbyOf(room);
     if (!was) return;
     const here = new Set(room.players.map((p) => p.id));
     let lobby = was;
@@ -364,7 +384,7 @@ export class RelayBackend implements LobbyBackend {
       this.listingTimer = null;
       this.listingAt = Date.now();
       this.listed = key;
-      void room.setListing({ name, meta: meta as never }).catch(() => {});
+      void room.setListing({ name, meta: meta as never }).catch(warned('updating the listing failed', undefined));
       // Against the room itself, not what we last sent: a host before us may not have got to it.
       // One that fails is tried again with the next change.
       if (room.isPublic !== (visibility === 'public')) void room.setAccess({ public: visibility === 'public' }).catch(() => (this.listed = ''));
@@ -376,7 +396,7 @@ export class RelayBackend implements LobbyBackend {
     else
       this.listingTimer = setTimeout(() => {
         this.listingTimer = null;
-        const now = readLobby(room.state);
+        const now = this.lobbyOf(room);
         if (now && this.room === room && room.isHost) this.relist(room, now);
       }, wait);
   }
