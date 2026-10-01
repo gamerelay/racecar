@@ -1549,8 +1549,14 @@ The lobby's header, and who can join (playtest, 2026-10-01):
   lobby that lives through a deploy doesn't shut its friends out.
 - **The header is just that and the invite link** (gone while it's Private). The cars on the grid
   and the room code were noise next to the seats.
-- **The turntable is in the middle of everything right of the seats**, and lower, clear of the
-  options card. The car's panel is centered under it.
+- **The turntable is in the middle of everything right of the seats**, lower, clear of the
+  options card, and bigger: the table spans the stage's height (`frameStage`, 0.5 of it as its
+  radius, up from 0.36), still never more than 0.36 of its width. The car's panel is centered
+  under it.
+- **The seats panel:** an open seat says "Random bot" by a gray dot, the last seat has no rule
+  under it, and Start (or Ready) and Leave are stacked, each the panel's width.
+- **You start a lobby in a random car and paint**, creating it or sitting down in one. The
+  turntable changes it.
 - **Only Public lobbies are listed, by two checks.** The room is unlisted (`setAccess`, tried
   again if it fails), and the listing's meta says who can join, so the list drops one that isn't
   Public even while its room is still listed.

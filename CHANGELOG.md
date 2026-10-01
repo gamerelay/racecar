@@ -12,7 +12,10 @@ and where things stand is [docs/HANDOFF.md](./docs/HANDOFF.md).
 - **A tidier lobby header:** who can join and the invite link. The car count and room code are
   gone.
 - **The turntable and your car's panel are centered** on the preview side, and the car sits
-  lower.
+  lower and bigger.
+- **The seats panel:** open seats say "Random bot", and Start (or Ready) sits over Leave, both
+  full width.
+- **You start each lobby in a random car and paint.**
 - **Only Public lobbies are in the list.** Your own Private lobby isn't either, and it closes
   when you leave it.
 - **Quick race starts a race straight away:** you and seven bots on a random map, no lobby.

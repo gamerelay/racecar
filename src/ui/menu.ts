@@ -204,7 +204,7 @@ export class Menu {
     if (this.sitting || lobby.phase !== 'lobby' || (lobby.visibility === 'locked' && lobby.host) || seatIndex(lobby, this.backend.youIn(lobby.id)) >= 0 || !lobby.seats.some((s) => s.kind === 'open')) return null;
     this.sitting = true;
     try {
-      return await this.backend.send(lobby.id, { type: 'join', player: this.me(lobby.id) });
+      return await this.backend.send(lobby.id, { type: 'join', player: this.newcomer(lobby.id) });
     } finally {
       this.sitting = false;
     }
@@ -311,6 +311,12 @@ export class Menu {
       seed: Math.floor(Math.random() * 1e9),
     };
     location.search = toQuery(setup);
+  }
+
+  /** You, new to lobby `id`: a car and paint picked at random (yours to change at the turntable). */
+  private newcomer(id: string): ReturnType<Menu['me']> {
+    const { classes, paints } = this.content;
+    return { ...this.me(id), car: classes[Math.floor(Math.random() * classes.length)].id, paint: Math.floor(Math.random() * paints.length) };
   }
 
   /** You, as a player in lobby `id`: your plate is your name. */
@@ -437,7 +443,7 @@ export class Menu {
       const visibility: Lobby['visibility'] = who === 'invite' ? 'invite' : 'public';
       const go = document.getElementById('cGo') as HTMLButtonElement;
       go.disabled = true;
-      const lobby = await this.backend.create(this.me(online ? '' : LOCAL_ID), { name, visibility, online, options: this.readOptions() }).catch(() => null);
+      const lobby = await this.backend.create(this.newcomer(online ? '' : LOCAL_ID), { name, visibility, online, options: this.readOptions() }).catch(() => null);
       go.disabled = false;
       if (lobby) void this.show({ kind: 'lobby', id: lobby.id });
       else (document.querySelector('.create .muted') as HTMLElement).textContent = "Couldn't reach the lobby server. Try again, or pick Private.";
@@ -478,7 +484,8 @@ export class Menu {
         const cls = classes[k % classes.length];
         const paint = (yours.paint + k) % paints.length;
         if (s.kind === 'ai') car = `${dot(paint)}${plateChip(aiPlate(cls.id))} ${esc(cls.name)}`;
-        else if (s.kind === 'open') car = `<span class="muted">${DIFFICULTY_NAMES[FILL_DIFFICULTY][0].toUpperCase() + DIFFICULTY_NAMES[FILL_DIFFICULTY].slice(1)} bot at the start</span>`;
+        // A bot takes it at the start (whichever rival the seat brings).
+        else if (s.kind === 'open') car = `<i class="dot open"></i><span class="muted">Random bot</span>`;
         else car = '';
         status = s.kind === 'ai' ? 'Bot' : '';
         return `<tr class="${s.kind}"><td>${k + 1}</td><td>${who}</td><td><div class="car">${car}</div></td><td>${status}</td><td class="ping"></td></tr>`;

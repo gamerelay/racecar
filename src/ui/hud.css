@@ -132,6 +132,7 @@ body.boosting #gFill { stroke: var(--sun); }
 .card.results td { padding: 5px 8px; border-bottom: 1px solid rgba(216, 198, 242, 0.2); font-variant-numeric: tabular-nums; }
 .card.results tr.me td { color: var(--sun); font-weight: 700; }
 .card .dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 8px; border: 1px solid var(--outline); }
+.card .dot.open { background: var(--muted); opacity: 0.6; }
 .card.setup { max-width: 640px; }
 .card.setup .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 10px 14px; margin: 0 0 16px; }
 .card.setup label { display: grid; gap: 4px; font-weight: 700; font-size: 13px; color: var(--muted); }
@@ -215,6 +216,7 @@ svg.thumb .cut { stroke: var(--sun); stroke-width: 1.5; stroke-dasharray: 3 2; }
 .seats { width: 100%; border-collapse: collapse; font-size: 14px; }
 .seats th { text-align: left; color: var(--muted); font-weight: 700; padding: 6px 10px 8px; border-bottom: 2px solid var(--muted); }
 .seats td { padding: 0 10px; border-bottom: 1px solid rgba(216, 198, 242, 0.2); height: 56px; vertical-align: middle; }
+.seats tbody tr:last-child td { border-bottom: 0; }
 /* Every row the same: seat controls one width, all controls one height. */
 .seats td:nth-child(2) { width: 170px; white-space: nowrap; }
 .seats td:nth-child(2) select { width: 150px; }
@@ -273,12 +275,11 @@ svg.thumb .cut { stroke: var(--sun); stroke-width: 1.5; stroke-dasharray: 3 2; }
 /* The rows share what height there is, down to a pad-sized minimum. */
 #menu.dock .seats td { height: clamp(40px, 6.2vh, 58px); }
 #menu.dock .seats th:last-child, #menu.dock .seats td:last-child { display: none; }
-#menu.dock .card.lobby > .row { margin: auto 0 0; padding-top: clamp(12px, 2vh, 20px); flex-wrap: nowrap; }
-#menu.dock .card.lobby > .row button { padding: 8px 16px; white-space: nowrap; }
-#menu.dock .card.lobby > .row button:last-child { margin-right: 0; }
+/* Start (or Ready) over Leave, each the panel's width. */
+#menu.dock .card.lobby > .row { margin: auto 0 0; padding-top: clamp(12px, 2vh, 20px); display: grid; gap: 14px; }
+#menu.dock .card.lobby > .row button { width: 100%; margin: 0; padding: 10px 16px; white-space: nowrap; }
 #menu.dock .seats td:nth-child(2) { width: 150px; }
 #menu.dock .seats td:nth-child(2) select { width: 132px; }
-@media (max-width: 1500px) { #menu.dock .card.lobby > .row button { font-size: 15px; padding: 7px 12px; } }
 
 /* The race's options: the host's to set, a summary for everyone else. */
 #menu.dock .mapCard { position: absolute; top: 24px; right: 24px; width: var(--opts); max-width: none; margin: 0; padding: 14px 16px 16px; display: grid; grid-template-columns: auto 1fr; gap: 12px 14px; align-items: center; background: rgba(18, 8, 38, 0.86); box-shadow: 6px 6px 0 var(--outline); }
@@ -301,8 +302,8 @@ svg.thumb .cut { stroke: var(--sun); stroke-width: 1.5; stroke-dasharray: 3 2; }
 .carArrow:active { transform: translate(3px, calc(-50% + 3px)); box-shadow: 2px 2px 0 var(--outline); }
 .carArrow svg { width: 26px; height: 26px; fill: none; stroke: currentColor; stroke-width: 4; stroke-linecap: square; }
 #lPrev svg { transform: scaleX(-1); }
-#lPrev { left: max(12px, calc(50% - min(36cqh, 36cqw) - 84px)); }
-#lNext { right: max(12px, calc(50% - min(36cqh, 36cqw) - 84px)); }
+#lPrev { left: max(12px, calc(50% - min(50cqh, 36cqw) - 84px)); }
+#lNext { right: max(12px, calc(50% - min(50cqh, 36cqw) - 84px)); }
 
 /* Under the car: the middle of what's right of the seats. */
 .card.carPanel { --pw: min(720px, calc(100vw - var(--side) - 48px)); position: absolute; bottom: 24px; left: calc(var(--side) + (100vw - var(--side)) / 2); transform: translateX(-50%); width: var(--pw); max-width: none; margin: 0; padding: 14px 20px 16px; display: grid; gap: 8px; background: rgba(18, 8, 38, 0.84); box-shadow: 6px 6px 0 var(--outline); }
