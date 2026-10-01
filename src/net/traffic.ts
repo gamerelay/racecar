@@ -11,6 +11,9 @@ import { Ev } from '../core/events';
 import type { Sim } from '../core/sim';
 import { FADE_BACK, TRAFFIC_RESPAWN } from '../core/world/traffic';
 import type { NetRoom } from './cars';
+import { readHit, type TrafficHit } from './wire';
+
+export { readHit, type TrafficHit };
 
 /** The event the claim's winner sends. */
 export const TRAFFIC_HIT = 'traffic_hit';
@@ -22,31 +25,6 @@ export const HOLD_S = TRAFFIC_RESPAWN + FADE_BACK;
  * little ahead, and the release takes a moment to land).
  */
 export const RELEASE_S = TRAFFIC_RESPAWN;
-
-/** What the winner sends: the traffic car, when (race time, s), where, how hard, and how (0 a crash, 1 a check). */
-export interface TrafficHit {
-  k: number;
-  t: number;
-  x: number;
-  y: number;
-  z: number;
-  a: number;
-  b: number;
-}
-
-/** A hit as another screen sent it, checked: a traffic car there is, a time near now, numbers that are numbers. */
-export function readHit(data: unknown, sim: Sim): TrafficHit | null {
-  if (!data || typeof data !== 'object') return null;
-  const d = data as Record<string, unknown>;
-  const n = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) ? v : null);
-  const k = n(d.k);
-  const t = n(d.t);
-  if (k === null || !Number.isInteger(k) || k < 0 || k >= sim.world.traffic.count) return null;
-  if (t === null || Math.abs(t - sim.time) > HOLD_S) return null;
-  const [x, y, z, a] = [n(d.x), n(d.y), n(d.z), n(d.a)];
-  if (x === null || y === null || z === null || a === null) return null;
-  return { k, t, x, y, z, a: Math.max(0, Math.min(100, a)), b: d.b === 1 ? 1 : 0 };
-}
 
 export class NetTraffic {
   private cursor: number;
@@ -65,7 +43,7 @@ export class NetTraffic {
     this.cursor = sim.events.head;
     this.off = room.on(TRAFFIC_HIT, (data, from) => {
       if (from === room.me) return;
-      const hit = readHit(data, sim);
+      const hit = readHit(data, sim.world.traffic.count, sim.time, HOLD_S);
       if (hit) this.apply(hit);
     });
   }

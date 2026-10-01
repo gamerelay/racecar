@@ -6,6 +6,9 @@ and where things stand is [docs/HANDOFF.md](./docs/HANDOFF.md).
 
 ## Unreleased
 
+- Internal: the race's online code tidied (one place for its message checks and its clock, and
+  the race page's online part out of main.ts: `src/net/online.ts`). No change in play.
+
 ## alpha-1.23: a vote on the next race
 
 PR #48.

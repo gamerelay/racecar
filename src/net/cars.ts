@@ -12,6 +12,8 @@
 // sim wreck it: the victim decides.
 
 import type { RemotePose, Sim } from '../core/sim';
+import { clamp, finiteOr } from './check';
+import { syncClock } from './clock';
 
 /** What the SDK's entity kinds look like here (the real ones: `room.define`), so tests can stand in their own. */
 export interface NetEntity {
@@ -83,8 +85,8 @@ export const CAR_FIELDS = {
   ghost: 'flag',
 } as const;
 
-const n = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) ? v : 0);
-const clamp = (v: number, lim: number) => Math.max(-lim, Math.min(lim, v));
+const n = (v: unknown) => finiteOr(v, 0);
+const within = (v: number, lim: number) => clamp(v, -lim, lim);
 
 /** How far ahead to predict others' entities now (s): from the SDK's render delay, capped. */
 export function predictLead(room: NetRoom, now: number): number {
@@ -92,7 +94,7 @@ export function predictLead(room: NetRoom, now: number): number {
 }
 
 /** Another page's steering, as a control (the wheels show it). */
-export const remoteSteer = (e: Record<string, unknown>) => clamp(n(e.steer), 1);
+export const remoteSteer = (e: Record<string, unknown>) => within(n(e.steer), 1);
 
 /** Car `i`'s entity fields, from the sim as it is now. */
 export function carFields(sim: Sim, i: number): Record<string, number | boolean> {
@@ -132,7 +134,7 @@ export function predict(e: Record<string, unknown>, lead: number): RemotePose {
     vy *= MAX_SPEED / v;
     vz *= MAX_SPEED / v;
   }
-  const yaw = clamp(n(e.yaw), MAX_YAW);
+  const yaw = within(n(e.yaw), MAX_YAW);
   return {
     x: n(e.x) + vx * t,
     y: n(e.y) + vy * t,
@@ -152,35 +154,6 @@ export function predict(e: Record<string, unknown>, lead: number): RemotePose {
     wreck: !!e.wreck,
     ghost: !!e.ghost,
   };
-}
-
-/** Seconds until the lights go green at `at` (the server's clock, ms), seen at `now`: none once it's passed, and nothing silly from a bad clock. */
-export function startDelay(at: number, now: number): number {
-  return Math.min(30, Math.max(0, (at - now) / 1000));
-}
-
-/** Behind the server's clock by more than this (s: steps dropped, the editor open), the race jumps to it. */
-export const CLOCK_SNAP = 0.25;
-/** Otherwise this much of the difference is made up each step (about a second to close it). */
-const CLOCK_SLEW = 0.05;
-
-/**
- * The race's time on the server's clock (SPEC §4, the shared race clock). Traffic, weather, hazards
- * and smashables are functions of `sim.time`, so every screen must have the same one: green is at
- * `sim.race.goTime` and on the server's clock at `at` (ms), and `sim.time` follows the server's
- * clock from those. In the countdown it's set outright (nothing moves yet); racing, a small
- * difference is slewed out, never going back more than half a step, and a big lag jumped.
- */
-export function syncClock(sim: Sim, at: number, now: number): void {
-  if (sim.race.phase === 'free') return;
-  if (sim.race.phase === 'countdown') {
-    sim.time = sim.race.goTime - startDelay(at, now);
-    return;
-  }
-  const want = sim.race.goTime + (now - at) / 1000;
-  const off = want - sim.time;
-  if (off > CLOCK_SNAP) sim.time = want;
-  else sim.time += Math.max(-sim.dt / 2, off * CLOCK_SLEW);
 }
 
 export class NetCars {

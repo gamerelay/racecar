@@ -19,6 +19,9 @@ are in [SPEC.md](./SPEC.md) "Changed while building"; this is the map.
 | `src/net/join.ts` | The race page's join: it stays in the lobby's room, sends your car once in, and starts the race from here if that takes over 8 s. |
 | `src/lobby/warn.ts` | `warned`: an online failure the lobby carries on through, said in the console. |
 | `src/net/rivals.ts` | In the race: the AIs, driven by the SDK's host and sent to everyone as `rival` entities. |
+| `src/net/online.ts` | The race page's online part in one place (`OnlineRace`): the join, the net layers around each step, the post-race. |
+| `src/net/clock.ts` | The race's clock on the server's (`syncClock`): traffic, weather and hazards the same on every screen. |
+| `src/net/wire.ts`, `src/net/check.ts` | Checks everything other players send during a race (traffic hits, bumps, takedowns, the rivals' handover), as `lobby/wire.ts` does for the lobby. |
 | `src/net/stepper.ts` | Who steps the race: frames until it's in its room, then the relay's tick (it goes on in a hidden tab). |
 | `src/net/traffic.ts` | Traffic hits: whoever wrecks a traffic car claims it (`room.claim`), and everyone wrecks it from the winner's time. |
 | `src/net/postrace.ts` | After the race: results to the lobby, the vote (run by `lobby/vote.ts` on the lobby host's page), and on into the next race. |
@@ -59,7 +62,7 @@ Each screen moves and wrecks only its own cars (yours, and the AIs on the SDK's 
 share:
 
 - **The race's clock.** Green is at `startAt` on the server's clock, and each screen's race time
-  follows the server's from then (`syncClock`, net/cars.ts): traffic, weather, hazards and
+  follows the server's from then (`syncClock`, net/clock.ts): traffic, weather, hazards and
   smashables are functions of it, so they're the same everywhere.
 - **Traffic hits** (net/traffic.ts). A hit happens only where the hitting car is driven, so that
   screen claims the traffic car, and the winner says when: every screen wrecks it from then.

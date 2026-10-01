@@ -1990,7 +1990,7 @@ Review fixes (PR #46):
 
 Traffic, bumps and credit online (after `alpha-1.21`):
 
-- **The race's clock is the server's** (`syncClock`, net/cars.ts). Traffic, weather, hazards and
+- **The race's clock is the server's** (`syncClock`, net/clock.ts). Traffic, weather, hazards and
   smashables run on `sim.time`, which started at each page's load: the countdown moved green to
   the server's moment, but two pages loaded a second apart had every traffic car 15–20 m apart.
   Now green stays where the countdown put it and `sim.time` follows the server's clock: set
