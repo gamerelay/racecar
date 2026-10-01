@@ -49,6 +49,8 @@ export interface Lobby {
   seats: Seat[];
   /** The race's seed, set at the start: online, everyone in the lobby races the same race. */
   seed?: number;
+  /** When its lights go green, on the server's clock (ms): online, everyone's at once. */
+  startAt?: number;
 }
 
 /** A row in the lobby list. */
@@ -78,7 +80,7 @@ export type LobbyAction =
   | { type: 'join'; player: Player }
   | { type: 'leave' }
   | { type: 'kick'; index: number }
-  | { type: 'start'; seed?: number }
+  | { type: 'start'; seed?: number; at?: number }
   | { type: 'end' };
 
 export const DEFAULT_OPTIONS: LobbyOptions = { map: 'downtown/downtown', laps: 2, weather: 'random', time: 'random', mayhem: 'normal', traffic: true };
@@ -188,6 +190,7 @@ export function apply(lobby: Lobby, actor: string, action: LobbyAction): Lobby |
       if (!isHost || lobby.phase !== 'lobby' || !allReady(lobby)) return null;
       next.phase = 'racing';
       if (action.seed !== undefined) next.seed = action.seed;
+      if (action.at !== undefined) next.startAt = action.at;
       return next;
     }
     case 'end': {
@@ -201,17 +204,35 @@ export function apply(lobby: Lobby, actor: string, action: LobbyAction): Lobby |
 }
 
 // ---- seats in a race link ----
-// A race's cars, one letter a seat: `p` you, `e` `n` `h` an AI (easy, normal, hard), `o` an open
-// seat (a bot at FILL_DIFFICULTY) and `x` closed. `pnnnnnnn` is you and seven normal AIs.
+// A race's cars, one letter a seat: `p` you, `r` another player online, `e` `n` `h` an AI (easy,
+// normal, hard), `o` an open seat (a bot at FILL_DIFFICULTY) and `x` closed. `pnnnnnnn` is you
+// and seven normal AIs.
 
 const AI_LETTERS = 'enh';
-const SEATS_RE = /^[penhox]{1,8}$/;
+const SEATS_RE = /^[penhoxr]{1,8}$/;
 
-/** The race link's seats for this lobby, as `you` see it (another player's seat is `x` until online races land). */
-export function encodeSeats(lobby: Lobby, you: string): string {
+/**
+ * The race link's seats for this lobby, as `you` see it. Another player's seat is `r` online (their
+ * car, driven by them: net/cars.ts), and `x` in a local lobby, where nobody else drives.
+ */
+export function encodeSeats(lobby: Lobby, you: string, online = false): string {
   return lobby.seats
-    .map((s) => (s.kind === 'player' ? (s.id === you ? 'p' : 'x') : s.kind === 'ai' ? AI_LETTERS[s.difficulty] : s.kind === 'open' ? 'o' : 'x'))
+    .map((s) => (s.kind === 'player' ? (s.id === you ? 'p' : online ? 'r' : 'x') : s.kind === 'ai' ? AI_LETTERS[s.difficulty] : s.kind === 'open' ? 'o' : 'x'))
     .join('');
+}
+
+/** Another player in an online race: their seat (the grid slot), id, car, paint and plate. */
+export interface Other {
+  seat: number;
+  id: string;
+  car: string;
+  paint: number;
+  name: string;
+}
+
+/** The other players in a lobby, as `you` race them. */
+export function othersIn(lobby: Lobby, you: string): Other[] {
+  return lobby.seats.flatMap((s, seat) => (s.kind === 'player' && s.id !== you ? [{ seat, id: s.id, car: s.car, paint: s.paint, name: s.name }] : []));
 }
 
 /** A `seats` value if it's a valid one with exactly one `p`, else null. */
@@ -230,6 +251,8 @@ export interface Roster {
   names: string[];
   /** Your car's index, or -1 when there's no you (attract mode). */
   me: number;
+  /** Each other player's car index, by their id (online). */
+  remote: Map<string, number>;
 }
 
 /**
@@ -238,12 +261,22 @@ export interface Roster {
  * its rival from race to race: seat `s` drives class `s` in your paint plus `s`, with that class's
  * plate. Closed seats get no car.
  */
-export function roster(seats: string, classes: readonly string[], paints: number, you: { car: string; paint: number; plate?: string }): Roster {
+export function roster(seats: string, classes: readonly string[], paints: number, you: { car: string; paint: number; plate?: string }, others: readonly Other[] = []): Roster {
   const specs: CarSpec[] = [];
   const names: string[] = [];
+  const remote = new Map<string, number>();
   let me = -1;
   [...seats].forEach((c, s) => {
     if (c === 'x') return;
+    if (c === 'r') {
+      // Their car as the lobby had it; a seat the link doesn't describe stays empty.
+      const o = others.find((x) => x.seat === s);
+      if (!o) return;
+      remote.set(o.id, specs.length);
+      specs.push({ cls: classes.includes(o.car) ? o.car : classes[0], paint: o.paint % paints, remote: true });
+      names.push(o.name);
+      return;
+    }
     if (c === 'p') {
       me = specs.length;
       specs.push({ cls: you.car, paint: you.paint, human: true });
@@ -255,7 +288,7 @@ export function roster(seats: string, classes: readonly string[], paints: number
     specs.push({ cls, paint: (you.paint + s) % paints, racer: { difficulty } });
     names.push(aiPlate(cls));
   });
-  return { specs, names, me };
+  return { specs, names, me, remote };
 }
 
 /** The lobby list's row for a lobby. */

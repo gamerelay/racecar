@@ -28,6 +28,7 @@ import { Menu, type Preview } from './ui/menu';
 import { GameRelay } from '@gamerelay/sdk';
 import { Lobbies, LocalBackend, LOCAL_ID } from './lobby/backend';
 import { RelayBackend, type RelayLike } from './lobby/relay';
+import { NetCars, type NetRoom } from './net/cars';
 import { roster } from './lobby/lobby';
 import { loadPlate } from './lobby/plate';
 import { CLASSES, LAYOUTS, MAPS, PAINTS, SURFACES } from './content';
@@ -70,20 +71,49 @@ let layout: TrackLayout = structuredClone(LAYOUTS[layoutKey] ?? Object.values(LA
 const mapOf = (key: string) => MAPS.find((m) => key.startsWith(m.id + '/')) ?? MAPS[0];
 let map = mapOf(layoutKey);
 
+/**
+ * An online race: the others drive their own cars (net/cars.ts), and the lights go green together.
+ * A race of your own from an online lobby (Race again) isn't one: it only keeps your seat.
+ */
+const onlineRace = !!(run.mode === 'race' && run.lobby && run.lobby !== LOCAL_ID && online && (run.others || run.at) && run.seats.includes('p'));
 const sim = new Sim(bakeTrack(layout, SURFACES), CLASSES, SURFACES, {
   seed: run.seed,
-  slowmo: 'world',
+  // Your wreck slows the world only when it's yours alone: online the others don't slow down.
+  slowmo: onlineRace ? 'wreck' : 'world',
   weather: run.weather,
   weatherAllowed: map.weather,
   mayhem: run.mayhem,
   traffic: run.traffic ? 1 : 0,
 });
 // The seats become the cars, in grid order; behind the menu, eight AIs of every skill.
-const { specs, names, me: you } = roster(run.seats, CLASSES.map((c) => c.id), PAINTS.length, { ...run, plate });
+const { specs, names, me: you, remote } = roster(run.seats, CLASSES.map((c) => c.id), PAINTS.length, { ...run, plate }, run.others);
 for (const s of specs) sim.addCar(s);
 /** The car the HUD, telemetry and the debug readout follow: yours, or the attract race's first. */
 const me = Math.max(0, you);
-if (run.mode === 'race') sim.startRace(run.laps, attract ? 1 : 4);
+// Online, the countdown holds until the connection says when green is (`run.at`, the server's clock).
+if (run.mode === 'race') sim.startRace(run.laps, attract ? 1 : onlineRace ? 30 : 4);
+let net: NetCars | null = null;
+if (onlineRace) void joinRace();
+// A race of your own from an online lobby: the page still stays in its room, so your seat is still yours after it.
+else if (run.lobby && run.lobby !== LOCAL_ID && online) void lobbies.get(run.lobby);
+
+/** The race page stays in its lobby's room (your seat is still yours after it), and your car goes out. */
+async function joinRace(): Promise<void> {
+  // Not connected in time: race the rest from here (your car doesn't go out).
+  const fallback = setTimeout(() => {
+    if (!net && sim.race.phase === 'countdown') sim.race.goTime = sim.time + 3;
+  }, 8000);
+  try {
+    const lobby = await lobbies.get(run.lobby!);
+    const relay = await online!.connection();
+    if (!lobby || !relay.room) return;
+    net = new NetCars(relay.room as unknown as NetRoom, () => relay.now(), sim, me, remote, run.at);
+    if (sim.race.phase === 'countdown' && !run.at) sim.race.goTime = sim.time + 3;
+    clearTimeout(fallback);
+  } catch {
+    // The fallback starts it.
+  }
+}
 
 const input = new Input();
 const renderer = new GameRenderer(document.getElementById('stage')!, new GreyboxSkin(), sim, PAINTS, paletteFor(map, run.time, run.seed), {
@@ -122,9 +152,6 @@ if (attract) {
   screens.offline = () => lobbies.offline;
   void screens.open(params.get('lobby'));
 }
-// An online lobby's race: the race page stays in its room, so your seat is still yours after it
-// (a reload resumes the same player, and a seat waits 30 s for a dropped one).
-if (setup?.lobby && setup.lobby !== LOCAL_ID) void lobbies.get(setup.lobby);
 
 /** Behind the lobby: its map and weather, and your car on the table; off the lobby, just the race. */
 function preview(p: Preview | null): void {
@@ -215,15 +242,19 @@ function frame(now: number): void {
   input.menuOpen = !!openMenu();
   if (paused) input.pollMenu();
   hud.setDevice(input.lastDevice);
-  if (!paused && !editorOpen) {
-    input.poll(controls, dt);
+  // An online race doesn't stop for your pause menu: the others are still driving (yours coasts).
+  if ((!paused || onlineRace) && !editorOpen) {
+    if (paused) Object.assign(controls, neutralControls());
+    else input.poll(controls, dt);
     renderer.lookBack = human >= 0 && controls.lookBack;
     acc += dt;
     let steps = 0;
     while (acc >= 1 / TICK_RATE && steps < 5) {
       telemetry.beforeStep(inputs);
       const t0 = performance.now();
+      net?.beforeStep();
       sim.step(inputs);
+      net?.afterStep();
       telemetry.afterStep(me, performance.now() - t0);
       acc -= 1 / TICK_RATE;
       steps++;
@@ -438,7 +469,9 @@ if (import.meta.env.DEV) {
       Object.assign(controls, c);
       for (let k = 0; k < Math.round(seconds * TICK_RATE); k++) {
         telemetry.beforeStep(inputs);
+        net?.beforeStep();
         sim.step(inputs);
+        net?.afterStep();
       }
       renderer.snapCamera();
       for (let k = 0; k < 30; k++) renderer.frame(1, 1 / 60, steer, braking);
@@ -450,5 +483,9 @@ if (import.meta.env.DEV) {
       return { tick: sim.tick, speedKmh: Math.round(Math.hypot(sim.cars.vx[i], sim.cars.vz[i]) * 3.6), s: Math.round(sim.cars.s[i]), lateral: +sim.cars.lateral[i].toFixed(2), wreck: sim.cars.wreck[i], drift: sim.cars.drift[i], stage: sim.cars.driftStage[i], draws: renderer.drawCalls };
     },
     toggleEditor,
+    /** The online race's net layer, once connected. */
+    get net() {
+      return net;
+    },
   };
 }

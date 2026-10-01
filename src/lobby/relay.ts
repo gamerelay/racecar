@@ -16,6 +16,8 @@ import { apply, createLobby, DEFAULT_OPTIONS, SEATS, summarize, type Lobby, type
 /** What the backend uses of `@gamerelay/sdk`, so tests can stand in a hub of their own. */
 export interface RelayLike {
   readonly playerId: string;
+  /** The server's clock (ms). */
+  now(): number;
   readonly room: RoomLike | null;
   createRoom(options: { maxPlayers?: number; tag?: string; public?: boolean }): Promise<RoomLike>;
   joinRoom(code: string): Promise<RoomLike>;
@@ -39,6 +41,9 @@ export interface RoomLike {
   kick(playerId: string, options?: { ban?: boolean }): Promise<void>;
   leave(): Promise<void>;
 }
+
+/** How far ahead of the Start the lights go green (ms): everyone's race page loads and connects in it. */
+export const START_LEAD_MS = 6000;
 
 /** The room tag racecar's lobbies list under. */
 export const TAG = 'race';
@@ -103,8 +108,11 @@ export function readAction(data: unknown, from: string): LobbyAction | null {
     }
     case 'kick':
       return int(data.index, 0, SEATS - 1) ? { type: 'kick', index: data.index } : null;
-    case 'start':
-      return data.seed === undefined || int(data.seed, 0, 2 ** 31 - 1) ? { type: 'start', ...(data.seed === undefined ? {} : { seed: data.seed }) } : null;
+    case 'start': {
+      if (data.seed !== undefined && !int(data.seed, 0, 2 ** 31 - 1)) return null;
+      if (data.at !== undefined && !(typeof data.at === 'number' && Number.isFinite(data.at) && data.at > 0)) return null;
+      return { type: 'start', ...(data.seed === undefined ? {} : { seed: data.seed as number }), ...(data.at === undefined ? {} : { at: data.at as number }) };
+    }
     case 'leave':
     case 'end':
       return { type: data.type };
@@ -141,6 +149,16 @@ export class RelayBackend implements LobbyBackend {
 
   /** `connect` opens the connection, once, when the backend is first used (the SDK's `GameRelay.connect`). */
   constructor(private connect: () => Promise<RelayLike>) {}
+
+  /** The connection, once there is one (the race page's net layer uses it: net/cars.ts). */
+  async connection(): Promise<RelayLike> {
+    return this.relayNow();
+  }
+
+  /** The room you're in, if any. */
+  get current(): RoomLike | null {
+    return this.room;
+  }
 
   /** Your player id in online lobbies ('' until connected). */
   you = '';
@@ -201,6 +219,8 @@ export class RelayBackend implements LobbyBackend {
   async send(id: string, action: LobbyAction): Promise<Lobby | null> {
     const room = this.room?.code === id ? this.room : null;
     if (!room) return null;
+    // The lights go green a few seconds from now on the server's clock, the same moment for everyone.
+    if (action.type === 'start' && action.at === undefined) action = { ...action, at: (await this.relayNow()).now() + START_LEAD_MS };
     let next: Lobby | null;
     if (room.isHost) next = this.applyHere(room, room.me, action);
     else next = (await room.request('lobby', action as never).catch(() => null)) as Lobby | null;

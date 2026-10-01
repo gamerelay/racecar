@@ -109,6 +109,7 @@ class FakeClient implements RoomLike {
 
 class FakeRelay implements RelayLike {
   room: FakeClient | null = null;
+  now = () => 1_000_000;
   constructor(
     readonly hub: Hub,
     readonly playerId: string,

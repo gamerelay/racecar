@@ -6,6 +6,12 @@ and where things stand is [docs/HANDOFF.md](./docs/HANDOFF.md).
 
 ## Unreleased
 
+- **Remote cars** (milestone 3, part 2). In an online race you see the other players' cars,
+  driven by them, predicted to now so they're where they are. You can bump into them, and only
+  their own screen can wreck them. Everyone's lights go green at the same moment, on the server's
+  clock, and an online race doesn't pause. The AIs, traffic and results are still each screen's
+  own.
+
 ## alpha-1.14: Online lobbies
 
 PR #32: milestone 3, part 1.

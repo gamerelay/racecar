@@ -19,6 +19,7 @@ import { Rng, hash01 } from './rng';
 import { positions, updateProgress } from './rules/progress';
 import type { RaceState, SimState } from './state';
 import { mainDistance, type Track } from './track/bake';
+import { locateCar } from './track/locate';
 import { newHit, projectGlobal, sampleAt } from './track/query';
 import { Hazards, type Mayhem } from './world/hazards';
 import { Traffic } from './world/traffic';
@@ -47,6 +48,30 @@ export interface CarSpec {
   follow?: FollowDriver;
   /** A racing driver (the AI). */
   racer?: RacerDriver;
+  /** Another player's car online: its pose comes from them (`setPose`), not from this sim's physics. */
+  remote?: boolean;
+}
+
+/** What another player's car looks like right now (net/cars.ts gives it to `setPose` before each step). */
+export interface RemotePose {
+  x: number;
+  y: number;
+  z: number;
+  h: number;
+  vx: number;
+  vy: number;
+  vz: number;
+  yaw: number;
+  pitch: number;
+  roll: number;
+  rx: number;
+  rz: number;
+  grounded: boolean;
+  drift: boolean;
+  boosting: boolean;
+  wreck: boolean;
+  /** Just respawned and passing through others (on its own screen too). */
+  ghost: boolean;
 }
 
 export class Sim implements SimState {
@@ -123,10 +148,13 @@ export class Sim implements SimState {
     const cls = this.classes.findIndex((c) => c.id === spec.cls);
     if (cls < 0) throw new Error(`unknown car class ${spec.cls}`);
     const c = this.cars;
-    c.active[i] = 1;
+    // Another player's car joins the race when it first shows up (net/cars.ts): one that never
+    // does isn't a car parked on the grid.
+    c.active[i] = spec.remote ? 0 : 1;
     c.cls[i] = cls;
     c.paint[i] = spec.paint ?? i;
     c.human[i] = spec.human ? 1 : 0;
+    c.remote[i] = spec.remote ? 1 : 0;
     this.drivers[i] = spec.follow ?? null;
     this.racers[i] = spec.racer ?? null;
     this.gridCar(i);
@@ -262,6 +290,41 @@ export class Sim implements SimState {
     c.ph[i] = c.h[i];
   }
 
+  /**
+   * Another player's car, where they say it is: last pose kept for render interpolation, then the
+   * new one. Its track position follows from it in the step (progress, laps, rank), but its physics
+   * are theirs: this sim doesn't move it, wall it or wreck it.
+   */
+  setPose(i: number, p: RemotePose): void {
+    const c = this.cars;
+    c.px[i] = c.x[i];
+    c.py[i] = c.y[i];
+    c.pz[i] = c.z[i];
+    c.ph[i] = c.h[i];
+    c.ppitch[i] = c.pitch[i];
+    c.proll[i] = c.roll[i];
+    c.prx[i] = c.rx[i];
+    c.prz[i] = c.rz[i];
+    c.x[i] = p.x;
+    c.y[i] = p.y;
+    c.z[i] = p.z;
+    c.h[i] = p.h;
+    c.vx[i] = p.vx;
+    c.vy[i] = p.vy;
+    c.vz[i] = p.vz;
+    c.yaw[i] = p.yaw;
+    c.pitch[i] = p.pitch;
+    c.roll[i] = p.roll;
+    c.rx[i] = p.rx;
+    c.rz[i] = p.rz;
+    c.grounded[i] = p.grounded ? 1 : 0;
+    c.drift[i] = p.drift ? 1 : 0;
+    c.boosting[i] = p.boosting ? 1 : 0;
+    c.wreck[i] = p.wreck ? 1 : 0;
+    // Ghosted while it's said to be (this sim doesn't count it down: it doesn't step the car).
+    c.ghostT[i] = p.ghost ? 1 : 0;
+  }
+
   /** One fixed step. `input[i]` drives car i (humans); drivers fill in the rest. */
   step(input: readonly (Controls | undefined)[]): void {
     const dt = this.dt * this.timeScale;
@@ -289,7 +352,7 @@ export class Sim implements SimState {
     // The countdown: cars wait on the grid; holding throttle into "GO" earns a start boost.
     if (this.race.phase === 'countdown') {
       for (let i = 0; i < cars.count; i++) {
-        if (!cars.active[i]) continue;
+        if (!cars.active[i] || cars.remote[i]) continue;
         const c = this.controlsFor(i, input);
         if (c.throttle > 0.5) {
           if (cars.startPress[i] < 0) cars.startPress[i] = this.time;
@@ -303,13 +366,16 @@ export class Sim implements SimState {
     // Systems 7–8: own and AI cars.
     for (let i = 0; i < cars.count; i++) {
       if (!cars.active[i]) continue;
-      stepCar(this, i, this.controlsFor(i, input), dt);
+      // Another player's car only needs finding on the track (its progress, laps and rank).
+      if (cars.remote[i]) locateCar(this, i);
+      else stepCar(this, i, this.controlsFor(i, input), dt);
     }
     // Systems 10–11: broadphase and collisions.
     this.grid.rebuild(cars.count, cars.x, cars.z, this.isActive);
-    for (let i = 0; i < cars.count; i++) if (cars.active[i]) collideWalls(this, i);
+    for (let i = 0; i < cars.count; i++) if (cars.active[i] && !cars.remote[i]) collideWalls(this, i);
+    // Against another player's car too: yours takes its share of the bump (theirs, on their screen).
     collideCars(this, this.grid);
-    for (let i = 0; i < cars.count; i++) collideWorld(this, i, ctx);
+    for (let i = 0; i < cars.count; i++) if (!cars.remote[i]) collideWorld(this, i, ctx);
     // System 12: rules.
     let nf = 0;
     for (let i = 0; i < cars.count; i++) {

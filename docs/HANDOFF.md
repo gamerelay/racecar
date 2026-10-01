@@ -307,7 +307,11 @@ Clockwise round a tropical island, the volcano in the middle and the sea all rou
    - **Online lobbies: merged** (PR #32, `alpha-1.14`; SPEC "Online lobbies"). Lobbies are
      rooms (`src/lobby/relay.ts`), listed with `setListing`, and the SDK's host applies
      everyone's actions with `apply`. Start takes everyone into the same race, and the race page
-     keeps the seat. Still to do: other players' seats as remote cars (the `net/` layer, below).
+     keeps the seat.
+   - **Remote cars: in review** (branch `net-remote-cars`; SPEC "Remote cars"). Each player's car
+     is an entity at 30 Hz (`src/net/cars.ts`), a remote car in everyone else's sim, predicted to
+     now. Green is on the server's clock. Next: the AIs as host entities, traffic with
+     `room.claim`, bump dedupe and wreck credit, and the host's results.
      The production instance is `racecar` (`ins_qnGcfcjInJCg8dTr`, 8 players, parties on); its
      public key is in `.env.production`. Its allowed origins are only `http://localhost` for
      now: add the site's origin there (dashboard, or the account MCP) when racecar is hosted.
