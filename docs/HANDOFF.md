@@ -328,6 +328,7 @@ Clockwise round a tropical island, the volcano in the middle and the sea all rou
      keeps the seat. A lobby is Public, Invite only (by link, unlisted) or Private (locked:
      nobody new sits down); the host cycles it from the header's button. Only Public lobbies are
      listed; your own (local) one isn't, and closes when you leave. Quick race skips lobbies.
+     The lobby as it was signed off: `screenshots/lobby-desktop.png`.
    - **Remote cars: merged** (PR #33, `alpha-1.15`; SPEC "Remote cars"). Each player's car
      is an entity at 30 Hz (`src/net/cars.ts`), a remote car in everyone else's sim, predicted to
      now. Green is on the server's clock. Next: the AIs as host entities, traffic with

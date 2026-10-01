@@ -29,6 +29,16 @@ describe('framing the table', () => {
     expect(900 / 2 - f.offY).toBe(335);
   });
 
+  test("the table's as tall as the stage, but never wider than most of it", () => {
+    const t = Math.tan(Math.PI / 6);
+    // Wide and short (the lobby's stage): the height sets it, the table's radius half of it on screen.
+    const wide = frameStage(1500, 900, { left: 0, top: 0, width: 1000, height: 400 }, 3, 60);
+    expect(wide.dist).toBeCloseTo((3 * 900) / (2 * 200 * t));
+    // Narrow (a phone): the width sets it.
+    const narrow = frameStage(390, 844, { left: 0, top: 0, width: 300, height: 600 }, 3, 60);
+    expect(narrow.dist).toBeCloseTo((3 * 844) / (2 * 108 * t));
+  });
+
   test('stands back for a bigger car or a smaller box', () => {
     const box = { left: 0, top: 0, width: 800, height: 600 };
     const small = frameStage(800, 600, box, 2.6).dist;

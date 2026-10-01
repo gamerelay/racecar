@@ -11,9 +11,9 @@ import type { CarClass, MapDef, PaintDef, TrackLayout } from '../core/content';
 import type { KeyValue, LobbyBackend, NetRoute } from '../lobby/backend';
 import { LOCAL_ID } from '../lobby/backend';
 import { aiPlate, cleanPlate, plateProblem, PLATE_MAX, savePlate, typedPlate } from '../lobby/plate';
-import { DEFAULT_OPTIONS, FILL_DIFFICULTY, SEATS, legacySeats, seatIndex, summarize, type Lobby, type LobbyAction, type LobbyOptions, type LobbySummary, type SeatChoice } from '../lobby/lobby';
+import { DEFAULT_OPTIONS, FILL_DIFFICULTY, SEATS, canJoin, nextVisibility, legacySeats, seatIndex, summarize, type Lobby, type LobbyAction, type LobbyOptions, type LobbySummary, type SeatChoice } from '../lobby/lobby';
 import { pingClass } from './format';
-import { MAX_LAPS, raceFromLobby, toQuery, type RaceSetup } from './setup';
+import { MAX_LAPS, quickRaceSetup, raceFromLobby, randomCar, toQuery, type RaceSetup } from './setup';
 import { carStats } from './stats';
 import { thumb, thumbSvg } from './thumb';
 
@@ -224,7 +224,8 @@ export class Menu {
 
   /** In someone else's lobby without a seat: take the first open one, if it's between races (and not private, unless nobody's left to keep it so). */
   private async sit(lobby: Lobby): Promise<Lobby | null> {
-    if (this.sitting || lobby.phase !== 'lobby' || (lobby.visibility === 'locked' && lobby.host) || seatIndex(lobby, this.backend.youIn(lobby.id)) >= 0 || !lobby.seats.some((s) => s.kind === 'open')) return null;
+    // The same rule the host's `apply` holds a join to.
+    if (this.sitting || !canJoin(lobby, this.backend.youIn(lobby.id))) return null;
     this.sitting = true;
     try {
       return await this.backend.send(lobby.id, { type: 'join', player: this.newcomer(lobby.id) });
@@ -301,20 +302,7 @@ export class Menu {
 
   /** Straight into a race, no lobby: your car and seven bots, on a map picked at random, in random weather. */
   private quickRace(): void {
-    const maps = Object.keys(this.content.layouts);
-    const setup: RaceSetup = {
-      mode: 'race',
-      map: maps[Math.floor(Math.random() * maps.length)],
-      ...this.yours,
-      seats: legacySeats(7, FILL_DIFFICULTY),
-      laps: DEFAULT_OPTIONS.laps,
-      weather: 'random',
-      time: 'random',
-      mayhem: DEFAULT_OPTIONS.mayhem,
-      traffic: true,
-      seed: Math.floor(Math.random() * 1e9),
-    };
-    location.search = toQuery(setup);
+    location.search = toQuery(quickRaceSetup(Object.keys(this.content.layouts), this.yours));
   }
 
   private async freeDrive(): Promise<void> {
@@ -339,7 +327,7 @@ export class Menu {
   /** You, new to lobby `id`: a car and paint picked at random (yours to change at the turntable). */
   private newcomer(id: string): ReturnType<Menu['me']> {
     const { classes, paints } = this.content;
-    return { ...this.me(id), car: classes[Math.floor(Math.random() * classes.length)].id, paint: Math.floor(Math.random() * paints.length) };
+    return { ...this.me(id), ...randomCar(classes.map((c) => c.id), paints.length) };
   }
 
   /** You, as a player in lobby `id`: your plate is your name. */
@@ -545,7 +533,7 @@ export class Menu {
         if (b) b.textContent = 'Copied';
       });
     });
-    this.on('lVis', () => this.send(lobby, { type: 'options', visibility: ACCESS[(ACCESS.findIndex(([v]) => v === lobby.visibility) + 1) % ACCESS.length][0] }));
+    this.on('lVis', () => this.send(lobby, { type: 'options', visibility: nextVisibility(lobby.visibility) }));
     this.on('lLeave', () => this.send(lobby, { type: 'leave' }));
     this.on('lPlate', () => void this.show({ kind: 'plate', from: lobby.id }));
     const change = (id: string, fn: (v: string) => void) => {

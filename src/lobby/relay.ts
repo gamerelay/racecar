@@ -11,7 +11,7 @@
 // many races, as SPEC §10 has it.
 
 import type { LobbyBackend, NetRoute } from './backend';
-import { apply, createLobby, DEFAULT_OPTIONS, SEATS, summarize, type Lobby, type LobbyAction, type LobbyOptions, type LobbySummary, type Player, type SeatChoice } from './lobby';
+import { apply, createLobby, DEFAULT_OPTIONS, SEATS, summarize, VISIBILITIES, type Lobby, type LobbyAction, type LobbyOptions, type LobbySummary, type Player, type SeatChoice } from './lobby';
 
 /** What the backend uses of `@gamerelay/sdk`, so tests can stand in a hub of their own. */
 export interface RelayLike {
@@ -144,8 +144,6 @@ export function readAction(data: unknown, from: string): LobbyAction | null {
   }
   return null;
 }
-
-const VISIBILITIES: readonly Lobby['visibility'][] = ['public', 'invite', 'locked'];
 
 const PIPS = /^[penhox]{8}$/;
 
