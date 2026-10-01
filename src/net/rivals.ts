@@ -11,8 +11,35 @@
 import type { Sim } from '../core/sim';
 import { CAR_FIELDS, CAR_RATE, carFields, predict, TELEPORT_M, type NetEntity, type NetKind, type NetRoom } from './cars';
 
-/** A rival's entity: its car, and the lobby seat it's in (the same on every screen). */
-export const RIVAL_FIELDS = { ...CAR_FIELDS, seat: { type: 'number', precision: 1, smooth: false } } as const;
+const int = { type: 'number', precision: 1, smooth: false } as const;
+const num = { type: 'number', precision: 0.01, smooth: false } as const;
+
+/**
+ * What the next host needs to drive a rival on from where it is, besides its pose: its wreck (how
+ * long, why, and the tumble's spin), its boost and its last good spot on the road (a respawn goes
+ * there). Every screen copies these into its sim as they come, so it has them when the role
+ * arrives. (The AI's stuck recovery starts over: it's a second or two of state at most.)
+ */
+const HANDOVER = ['wreckT', 'wreckCause', 'wx', 'wy', 'wz', 'boost', 'lastSpline', 'lastS', 'lastLat'] as const;
+
+/**
+ * A rival's entity: its car, the lobby seat it's in (the same on every screen), the race it's in
+ * (a room's host entities outlive a race: the last race's are someone else's), and the handover.
+ */
+export const RIVAL_FIELDS = {
+  ...CAR_FIELDS,
+  seat: int,
+  race: 'text',
+  wreckT: num,
+  wreckCause: int,
+  wx: num,
+  wy: num,
+  wz: num,
+  boost: num,
+  lastSpline: int,
+  lastS: num,
+  lastLat: num,
+} as const;
 
 /** Prediction looks this far ahead at most (s), as for players' cars. */
 const MAX_LEAD = 0.25;
@@ -29,16 +56,18 @@ export class NetRivals {
     private sim: Sim,
     /** The AIs' car indexes, by lobby seat. */
     private seats: ReadonlyMap<number, number>,
+    /** This race, the same on every screen (its seed and start). */
+    private race: string,
   ) {
     this.kind = room.define('rival', RIVAL_FIELDS, { rate: CAR_RATE });
   }
 
-  /** The rival entities by seat: the first of each (two hosts at once, for a moment, can both spawn one). */
+  /** This race's rival entities by seat: the first of each (two hosts at once, for a moment, can both spawn one). */
   private bySeat(list: NetEntity[]): Map<number, NetEntity> {
     const out = new Map<number, NetEntity>();
     for (const e of list) {
       const seat = e.seat;
-      if (typeof seat === 'number' && this.seats.has(seat) && !out.has(seat)) out.set(seat, e);
+      if (e.race === this.race && typeof seat === 'number' && this.seats.has(seat) && !out.has(seat)) out.set(seat, e);
     }
     return out;
   }
@@ -51,6 +80,8 @@ export class NetRivals {
       for (const i of this.seats.values()) c.remote[i] = 0;
       return;
     }
+    // Where they were when you last wrote them is stale by the time the role's back.
+    this.last.clear();
     const lead = Math.min(MAX_LEAD, Math.max(0, (this.now() - this.room.renderTime) / 1000));
     const theirs = this.bySeat(this.kind.all());
     for (const [seat, i] of this.seats) {
@@ -64,6 +95,10 @@ export class NetRivals {
       c.active[i] = 1;
       this.sim.setPose(i, predict(e, lead));
       this.sim.controls[i].steer = typeof e.steer === 'number' ? e.steer : 0;
+      for (const k of HANDOVER) {
+        const v = e[k];
+        if (typeof v === 'number' && Number.isFinite(v)) c[k][i] = v;
+      }
     }
   }
 
@@ -73,15 +108,17 @@ export class NetRivals {
     const c = this.sim.cars;
     const ours = this.kind.mine();
     const bySeat = this.bySeat(ours);
-    // A second host's rivals for the same seats (it was host too, for a moment): one each is enough.
+    // A second host's rivals for the same seats (it was host too, for a moment): one each is
+    // enough. And the last race's are done with.
     for (const e of ours) if (bySeat.get(e.seat as number) !== e) e.remove();
     for (const [seat, i] of this.seats) {
-      const f = { ...carFields(this.sim, i), seat };
+      const f: Record<string, number | boolean | string> = { ...carFields(this.sim, i), seat, race: this.race };
+      for (const k of HANDOVER) f[k] = c[k][i];
       let e = bySeat.get(seat);
       if (!e) {
         e = this.kind.spawn(f, { owner: 'host' });
       } else {
-        for (const k in f) e[k] = f[k as keyof typeof f];
+        for (const k in f) e[k] = f[k];
         const was = this.last.get(seat);
         if (was && Math.hypot(c.x[i] - was.x, c.z[i] - was.z) > TELEPORT_M) e.teleport();
       }

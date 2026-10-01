@@ -114,7 +114,7 @@ async function joinRace(): Promise<void> {
     if (!lobby || !relay.room) return;
     const room = relay.room as unknown as NetRoom;
     net = new NetCars(room, () => relay.now(), sim, me, remote, run.at);
-    if (aiSeats.size) rivals = new NetRivals(room, () => relay.now(), sim, aiSeats);
+    if (aiSeats.size) rivals = new NetRivals(room, () => relay.now(), sim, aiSeats, `${run.seed}:${run.at ?? 0}`);
     if (sim.race.phase === 'countdown' && !run.at) sim.race.goTime = sim.time + 3;
     clearTimeout(fallback);
   } catch {

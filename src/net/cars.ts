@@ -24,7 +24,7 @@ export interface NetEntity {
 
 export interface NetKind {
   /** `{ owner: 'host' }`: the host role's, not yours (only on the host; the next host carries on writing it). */
-  spawn(initial: Record<string, number | boolean>, options?: { owner?: 'host' }): NetEntity;
+  spawn(initial: Record<string, number | boolean | string>, options?: { owner?: 'host' }): NetEntity;
   all(): NetEntity[];
   /** The ones you write: yours, and the host's while you're the host. */
   mine(): NetEntity[];

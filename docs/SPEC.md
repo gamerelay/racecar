@@ -1561,6 +1561,20 @@ The AIs online (milestone 3, part 3, 2026-10-01):
 - **Contact with an AI** is the same as with a player's car. The host's sim bumps and wrecks it.
   Every other screen's sim bumps your car off it, and leaves the AI where the host says.
 
+Review fixes (PR #42):
+
+- **A rival carries what the next host needs, not only its pose:** its wreck (how long, why, the
+  tumble's spin), its boost and its last good spot on the road. Every screen copies them in as
+  they come. Before, a bot wrecked when the host left started a fresh wreck on the new host, then
+  respawned at the last spot that screen had driven it to: usually the grid. The AI's stuck
+  recovery still starts over (a second or two of state).
+- **A rival says which race it's in** (its seed and start). A room's host entities outlive a
+  race, so the next race in the same lobby found the last one's bots, at the finish, and placed
+  its own there. With a host that wasn't racing, they stayed there all race. The last race's are
+  ignored now, and the host removes them.
+- **The role coming back isn't a teleport.** A host that lost the role and got it back compared
+  each bot with where it last wrote it, and snapped them all on everyone's screen.
+
 The lobby's header, and who can join (playtest, 2026-10-01):
 
 - **Who can join is three ways, not two:** Public (listed online), Invite only (anyone with the

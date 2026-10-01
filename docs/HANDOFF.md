@@ -23,7 +23,7 @@ The third map is **Paradise** (`content/maps/paradise`, key `paradise/island`).
    listings, parties, `lanRoute`), and the `racecar` instance has parties and Direct connections
    on (see "GameRelay side" below).
 4. Before changing anything: `bun test && bun run typecheck && bun tools/validate.ts --ai`. All
-   three are green on `main` (252 tests). Branch off `main`, one PR per change, with CI, then
+   three are green on `main` (255 tests). Branch off `main`, one PR per change, with CI, then
    `/code-review` on the PR.
 
 ## Where things stand

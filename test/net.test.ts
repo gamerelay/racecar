@@ -4,6 +4,8 @@ import type { Sim } from '../src/core/sim';
 import { createLobby, apply, encodeSeats, othersIn, roster, type Lobby } from '../src/lobby/lobby';
 import { NetCars, predict, startDelay, type NetEntity, type NetKind, type NetRoom } from '../src/net/cars';
 import { NetRivals } from '../src/net/rivals';
+import { wreckCar } from '../src/core/car/physics';
+import { Cause } from '../src/core/events';
 import { raceFromLobby, readSetup, toQuery } from '../src/ui/setup';
 import { CLASSES, ringSim } from './helpers';
 
@@ -200,7 +202,7 @@ function withRival() {
     const other = 1 - meSeat;
     const room = hub.room(ids[meSeat]);
     const net = new NetCars(room, () => hub.now, sim, meSeat, new Map([[ids[other], other]]));
-    const rivals = new NetRivals(room, () => hub.now, sim, new Map([[2, 2]]));
+    const rivals = new NetRivals(room, () => hub.now, sim, new Map([[2, 2]]), 'r1');
     return { sim, net, rivals, me: meSeat };
   };
   return { hub, ada: make(0), bo: make(1) };
@@ -275,10 +277,62 @@ describe('rivals', () => {
     expect(gap(ada.sim, bo.sim, 2)).toBeLessThan(Math.hypot(bo.sim.cars.vx[2], bo.sim.cars.vz[2]) / 60 + 0.05);
   });
 
+  test("a rival wrecked when the role moves carries on its wreck, and respawns where it was, not on the grid", () => {
+    const { hub, ada, bo } = withRival();
+    for (let k = 0; k < 240; k++) {
+      stepAll(ada);
+      stepAll(bo);
+    }
+    wreckCar(ada.sim, 2, Cause.Wall, 0, 0, -1);
+    for (let k = 0; k < 30; k++) {
+      stepAll(ada);
+      stepAll(bo);
+    }
+    const spot = ada.sim.cars.lastS[2];
+    expect(spot).toBeGreaterThan(50);
+    expect(bo.sim.cars.wreckT[2]).toBeCloseTo(ada.sim.cars.wreckT[2], 1);
+    expect(bo.sim.cars.lastS[2]).toBeCloseTo(spot, 1);
+    hub.host = 'bo';
+    // On through the respawn: back on the road by its last spot, nowhere near the grid.
+    for (let k = 0; k < 360; k++) {
+      stepAll(bo);
+      stepAll(ada);
+    }
+    expect(bo.sim.cars.wreck[2]).toBe(0);
+    expect(bo.sim.cars.progress[2]).toBeGreaterThan(spot - 20);
+  });
+
+  test("the last race's rivals are left alone (each screen drives its own until this race's show up), and the host removes them", () => {
+    const { hub, ada, bo } = withRival();
+    const old = { kind: 'rival', owner: 'host', fields: { seat: 2, race: 'r0', x: 500, z: 500 }, teleports: 0, removed: false };
+    hub.entities.push(old);
+    stepAll(bo);
+    expect(bo.sim.cars.remote[2]).toBe(0);
+    stepAll(ada);
+    expect(old.removed).toBe(true);
+    expect(rivalsIn(hub)).toHaveLength(1);
+  });
+
+  test("the role coming back isn't a teleport for every rival", () => {
+    const { hub, ada, bo } = withRival();
+    for (let k = 0; k < 120; k++) {
+      stepAll(ada);
+      stepAll(bo);
+    }
+    hub.host = 'bo';
+    for (let k = 0; k < 240; k++) {
+      stepAll(bo);
+      stepAll(ada);
+    }
+    hub.host = 'ada';
+    stepAll(ada);
+    expect(rivalsIn(hub)[0].teleports).toBe(0);
+  });
+
   test('two hosts at once (for a moment) leave one rival per seat', () => {
     const { hub, ada } = withRival();
-    hub.entities.push({ kind: 'rival', owner: 'host', fields: { seat: 2 }, teleports: 0, removed: false });
-    hub.entities.push({ kind: 'rival', owner: 'host', fields: { seat: 2 }, teleports: 0, removed: false });
+    hub.entities.push({ kind: 'rival', owner: 'host', fields: { seat: 2, race: 'r1' }, teleports: 0, removed: false });
+    hub.entities.push({ kind: 'rival', owner: 'host', fields: { seat: 2, race: 'r1' }, teleports: 0, removed: false });
     stepAll(ada);
     expect(rivalsIn(hub)).toHaveLength(1);
   });
