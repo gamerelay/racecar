@@ -1577,7 +1577,9 @@ Online lobbies (milestone 3, part 1, 2026-09-30):
 - **Offline is fine.** Without `VITE_GAMERELAY_KEY` there's no relay, and the title says so. With
   one and no server, the list shows your own lobby and "Can't reach the lobby server". Online
   calls the screens wait on give up after 5 s. `.env.development` points dev at the local
-  GameRelay server (`gr_pub_dev`, `http://localhost:8787`).
+  GameRelay server (`gr_pub_dev`, `http://localhost:8787`), and `.env.production` has the
+  `racecar` instance's public key on gamerelay.io (8 players; allowed origins only
+  `http://localhost` until racecar is hosted somewhere).
 - **The SDK is a dependency now** (`@gamerelay/sdk` 0.1.0-alpha.4, 28 KB gzipped).
   `bunfig.toml` exempts it from the global 7-day `minimumReleaseAge`, since it's ours and every
   release is newer than that.

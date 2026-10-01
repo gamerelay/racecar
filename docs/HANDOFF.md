@@ -307,9 +307,10 @@ Clockwise round a tropical island, the volcano in the middle and the sea all rou
    - **Online lobbies: in review** (branch `relay-lobbies`; SPEC "Online lobbies"). Lobbies are
      rooms (`src/lobby/relay.ts`), listed with `setListing`, and the SDK's host applies
      everyone's actions with `apply`. Start takes everyone into the same race, and the race page
-     keeps the seat. Still to do: other players' seats as remote cars (the `net/` layer, below),
-     and a production instance and key (`VITE_GAMERELAY_KEY` for the build; dev uses the local
-     server's).
+     keeps the seat. Still to do: other players' seats as remote cars (the `net/` layer, below).
+     The production instance is `racecar` (`ins_qnGcfcjInJCg8dTr`, 8 players, parties on); its
+     public key is in `.env.production`. Its allowed origins are only `http://localhost` for
+     now: add the site's origin there (dashboard, or the account MCP) when racecar is hosted.
    - Plates go in player data, and names float over cars within ~60 m (PLAN phase 3).
    - The `net/` layer:
      - car entities at 30 Hz with steer and throttle, and prediction in-game,
