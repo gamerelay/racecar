@@ -6,6 +6,10 @@ and where things stand is [docs/HANDOFF.md](./docs/HANDOFF.md).
 
 ## Unreleased
 
+## alpha-1.21: the music from the games CDN
+
+PR #45.
+
 - **The music plays on the hosted build too**, from the games CDN (https://cdn.gamerelay.io, in
   front of a DigitalOcean Space's `assets/`). `tools/publish-assets.ts` uploads the tracks.
 

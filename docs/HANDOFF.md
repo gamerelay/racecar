@@ -4,7 +4,7 @@ Where racecar stands and what's next, for whoever picks it up (a person or a fre
 The design is [SPEC.md](./SPEC.md): decisions in §17, and what building changed in "Changed while
 building". This file is "where are we"; the spec is "what are we making".
 
-**Last updated:** 2026-10-01. `main` is tagged **`alpha-1.20`** (PRs #43 and #44: a cleanup pass and the soundtrack).
+**Last updated:** 2026-10-01. `main` is tagged **`alpha-1.21`** (PRs #43–#45: a cleanup pass, the soundtrack, and the music from the games CDN).
 Every release is in [CHANGELOG.md](../CHANGELOG.md): add to its "Unreleased" section as you go,
 and retitle that section when you tag. [PLAN.md](./PLAN.md)'s six phases are all merged (it keeps
 a pool of other ideas), how online works is [ONLINE.md](./ONLINE.md), and how maps are made is
@@ -254,7 +254,7 @@ Clockwise round a tropical island, the volcano in the middle and the sea all rou
     the track for an hour. The proxy always sends it.
   - **CORS on the Space** (GET and HEAD from any origin) stays: it lets a build read the Space's
     origin directly too, if the CDN is ever down.
-- **What's there now:** `main` at PR #44 (`alpha-1.20`, with the soundtrack from the asset store), updated 2026-10-01. Keep it the
+- **What's there now:** `main` at `alpha-1.21` (the music from https://cdn.gamerelay.io), updated 2026-10-01. Keep it the
   one row: update Z442EE in place rather than adding a game.
 
 ## Next, in order
@@ -280,20 +280,31 @@ Clockwise round a tropical island, the volcano in the middle and the sea all rou
      for a dropped player, and relay.ts split into wire, party, presence and relay.
    - **The AIs online** (PR #42, `alpha-1.19`): the SDK's host drives the AIs and sends them as
      `rival` host entities (`src/net/rivals.ts`), so every screen has the same bots; the next host
-     drives them on. A hidden host tab still freezes them until the role moves (follow-up: the host's
-     sim on `relay.tick`).
+     drives them on. A hidden host tab still freezes them until the role moves (next, below).
+   - **The cleanup pass** (PR #43, `alpha-1.20`): everything other players send is checked all
+     through (names are plates and escaped, the lobby in state, map keys, rivals only from the
+     host role, remote poses capped), the race page's join is `net/join.ts` with tests, and the
+     docs caught up with milestone 3.
+   - **The soundtrack** (PRs #44 and #45, `alpha-1.20`/`alpha-1.21`): the owner's tracks, a
+     playlist per race with no repeats, played from https://cdn.gamerelay.io (gamerelay.io's
+     caching proxy for the games' asset store: "Hosted test build" below).
 
    Next, in order:
+   - **The online race on `relay.tick`**, so a hidden host tab doesn't freeze the AIs for
+     everyone (the sim steps on `requestAnimationFrame`, which stops in a background tab). Keep
+     drawing in rAF. It steadies every online test after it.
    - **Traffic hits through `room.claim`**, then bump dedupe (±150 ms) and wreck credit (the
-     victim decides wrecks already).
-   - **Results written by the host** (Xbox's arbitration), so everyone's results agree.
-   - **Names over cars** within ~60 m, from player data (PLAN phase 3).
-   - **A vote on the next race**, and a net overlay.
-   - **Before the repo goes public:** a P2P opt-in (it shows IPs today), and seat reservations
-     for invite links if GameRelay adds them. Also: the git history's author email becomes
-     public with it. Rewriting the history is the only fix, and that's the owner's call.
+     victim decides wrecks already): where screens disagree most in a real race.
+   - **Results written by the host** (Xbox's arbitration), together with **a vote on the next
+     race**: one results-to-lobby flow.
+   - **Names over cars** within ~60 m, from player data (PLAN phase 3), and **a net overlay**
+     (pings, routes, entity ages) to debug the two above in playtests.
+   - **Before the repo goes public:** a P2P opt-in (it shows IPs today), a filter on Public lobby
+     names (strangers see them), and seat reservations for invite links if GameRelay adds them.
+     Also: the git history's author email becomes public with it. Rewriting the history is the
+     only fix, and that's the owner's call.
    - The repo goes public. Then milestone 3b: the neon skin on Downtown (SPEC's City), which is
-     the launch.
+     the launch. Touch controls first: phones will be much of the link's traffic.
 2. **Playtest with a controller** whenever there's a build to try: tune with F4, and press F8 on
    anything odd. Still open: whether ~1 wreck a race on Downtown is too tame (add denser traffic
    on the straights rather than sections in corners), and whether each car's drift carry feels
