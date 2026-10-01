@@ -1544,6 +1544,9 @@ The lobby's header, and who can join (playtest, 2026-10-01):
   host clicks the header's button to cycle them; everyone else sees it as a label. Create lobby
   offers the same three words: Public, Invite only, or Private, which there is the local lobby
   (you and bots, in this browser: nobody else can join that either). Its header says Private.
+- **A lobby an older build made `private` is read as `invite`**, in its room's state and in
+  actions, since that's what it meant then. The lock (Private) is its own value, `locked`, so a
+  lobby that lives through a deploy doesn't shut its friends out.
 - **The header is just that and the invite link** (gone while it's Private). The cars on the grid
   and the room code were noise next to the seats.
 - **The turntable is in the middle of everything right of the seats**, and lower, clear of the
