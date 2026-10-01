@@ -234,7 +234,16 @@ svg.thumb .cut { stroke: var(--sun); stroke-width: 1.5; stroke-dasharray: 3 2; }
 /* Still in the lobby's race (online): back when their lobby screen opens. */
 .seats .racing { color: var(--cyan); }
 .seats .ping { color: var(--muted); white-space: nowrap; font-variant-numeric: tabular-nums; }
-.seats td.ping[data-player] { color: var(--cyan); }
+/* Wide enough for "999 ms", so a changing ping doesn't move the other columns. */
+.seats th:last-child, .seats td.ping { width: 64px; text-align: right; }
+.seats .ping .good { color: var(--cyan); }
+.seats .ping .fair { color: var(--sun); }
+.seats .ping .poor { color: #ff9a3c; }
+.seats .ping .bad { color: #ff5c6c; }
+/* Your plate in your seat: a button that opens the plate editor. */
+.card button.seatPlate { margin: 0; padding: 0; background: none; border: 0; box-shadow: none; cursor: pointer; }
+.card button.seatPlate:hover, .card button.seatPlate:focus-visible { transform: translate(-1px, -1px); box-shadow: none; }
+.card button.seatPlate:hover .plate, .card button.seatPlate:focus-visible .plate { outline: 2px solid var(--cyan); outline-offset: 2px; }
 /* Your own lobby is just you: no pings to show. */
 .seats.local th:last-child, .seats.local td:last-child { display: none; }
 @media (max-width: 760px) {

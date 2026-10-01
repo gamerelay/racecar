@@ -14,7 +14,9 @@ and where things stand is [docs/HANDOFF.md](./docs/HANDOFF.md).
 - **The turntable and your car's panel are centered** on the preview side, and the car sits
   lower and bigger.
 - **The lobby says how you're connected** to the others: LAN, Relay or Server.
-- **Everyone's ping, in the seats' new Ping column**, and the ready column is headed Status.
+- **Everyone's ping, in the seats' new Ping column** (yellow from 50 ms, orange from 75, red from
+  100), and the ready column is headed Status.
+- **Edit your plate from the lobby:** click it in your seat.
 - **The seats panel:** open seats say "Random bot", and Start (or Ready) sits over Leave, both
   full width.
 - **You start each lobby in a random car and paint.**

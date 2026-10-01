@@ -1560,9 +1560,14 @@ The lobby's header, and who can join (playtest, 2026-10-01):
   side).
 - **Pings: each player measures their own and tells the room.** The SDK only knows your ping
   (`relay.ping()`), so every lobby page measures it every 3 s and sends `{ type: 'ping', ms }` to
-  everyone (`room.send`); each screen shows them in the seats' Ping column, in cyan, checked as
-  they come in. It's each player's round trip to the server, not to each other. Your own lobby
+  everyone (`room.send`); each screen shows them in the seats' Ping column, checked as they come
+  in: blue under 50 ms, yellow from 50, orange from 75, red from 100 (`pingClass`). The column
+  is a fixed width, so a changing ping doesn't move the others. It's each player's round trip to the server, not to each other. Your own lobby
   has no Ping column. The 4th column is headed Status.
+- **Your plate in your seat is a button:** it opens the plate editor, and Save or Back returns
+  to the lobby, still seated (you never left the room). Saving renames your seat, and, if you
+  host it and it still has its default name, the lobby (`syncName` for any lobby, not just
+  yours).
 - **The seats panel:** an open seat says "Random bot" by a gray dot, the last seat has no rule
   under it, and Start (or Ready) and Leave are stacked, each the panel's width.
 - **You start a lobby in a random car and paint**, creating it or sitting down in one. The

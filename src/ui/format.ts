@@ -19,3 +19,6 @@ export function delta(t: number, best: number): string {
   const d = Math.round((t - best) * 10) / 10;
   return `${d < 0 ? '−' : '+'}${Math.abs(d).toFixed(1)}`;
 }
+
+/** A ping's colour class: blue under 50 ms, yellow from 50, orange from 75, red from 100. */
+export const pingClass = (ms: number): 'good' | 'fair' | 'poor' | 'bad' => (ms >= 100 ? 'bad' : ms >= 75 ? 'poor' : ms >= 50 ? 'fair' : 'good');

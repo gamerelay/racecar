@@ -12,6 +12,7 @@ import type { KeyValue, LobbyBackend, NetRoute } from '../lobby/backend';
 import { LOCAL_ID } from '../lobby/backend';
 import { aiPlate, cleanPlate, plateProblem, PLATE_MAX, savePlate, typedPlate } from '../lobby/plate';
 import { DEFAULT_OPTIONS, FILL_DIFFICULTY, SEATS, legacySeats, seatIndex, summarize, type Lobby, type LobbyAction, type LobbyOptions, type LobbySummary, type SeatChoice } from '../lobby/lobby';
+import { pingClass } from './format';
 import { MAX_LAPS, raceFromLobby, toQuery, type RaceSetup } from './setup';
 import { carStats } from './stats';
 import { thumb, thumbSvg } from './thumb';
@@ -32,7 +33,8 @@ export interface Preview {
   car?: { car: string; paint: number; plate: string };
 }
 
-type Screen = { kind: 'title' } | { kind: 'create' } | { kind: 'plate' } | { kind: 'lobby'; id: string };
+/** `from`: the lobby the plate editor was opened from (it goes back there, still seated). */
+type Screen = { kind: 'title' } | { kind: 'create' } | { kind: 'plate'; from?: string } | { kind: 'lobby'; id: string };
 
 /** The race options' choices, as [value, label]. */
 const WEATHERS: [string, string][] = [['random', 'Random'], ['clear', 'Clear'], ['rain', 'Rain']];
@@ -123,6 +125,7 @@ export class Menu {
   /** Back (Esc, the pad's B): lobby, create and the plate go to the title. Out of a lobby, that's leaving it (yours closes: only bots are left). */
   back(): void {
     const screen = this.screen;
+    if (screen.kind === 'plate' && screen.from) return void this.show({ kind: 'lobby', id: screen.from });
     if (screen.kind === 'lobby') void this.backend.send(screen.id, { type: 'leave' });
     if (screen.kind !== 'title') void this.show({ kind: 'title' });
   }
@@ -165,7 +168,7 @@ export class Menu {
         }, 4000);
     }
     else if (screen.kind === 'create') this.renderCreate();
-    else if (screen.kind === 'plate') this.renderPlate();
+    else if (screen.kind === 'plate') this.renderPlate(screen.from);
     else {
       let lobby = await this.backend.get(screen.id);
       if (!lobby) return this.show({ kind: 'title' });
@@ -193,7 +196,10 @@ export class Menu {
           const el = document.getElementById('lNet');
           const html = this.netLabel(screen.id);
           if (el && el.innerHTML !== html) el.innerHTML = html;
-          for (const td of this.root.querySelectorAll<HTMLElement>('.seats td.ping[data-player]')) td.textContent = this.pingText(screen.id, td.dataset.player!);
+          for (const td of this.root.querySelectorAll<HTMLElement>('.seats td.ping[data-player]')) {
+            const html = this.pingText(screen.id, td.dataset.player!);
+            if (td.innerHTML !== html) td.innerHTML = html;
+          }
         }, 1000);
       lobby = (await this.sit(lobby)) ?? lobby;
       // Back from its race: the others see you're here again.
@@ -341,7 +347,7 @@ export class Menu {
 
   // ---- your plate ----
 
-  private renderPlate(): void {
+  private renderPlate(from?: string): void {
     this.paint(
       `<div class="card plateEdit">
         <h1>Your plate</h1>
@@ -372,7 +378,8 @@ export class Menu {
       const old = this.plate;
       this.plate = plate;
       await this.syncName(old);
-      void this.show({ kind: 'title' });
+      if (from && from !== LOCAL_ID) await this.syncName(old, from);
+      void this.show(from ? { kind: 'lobby', id: from } : { kind: 'title' });
     };
     field.onkeydown = (e) => {
       if (e.key === 'Enter') {
@@ -390,13 +397,13 @@ export class Menu {
    * the one it was given (`‹old›'s lobby`). Also mends lobbies saved before plates (a seat named
    * "You"), when the menu opens.
    */
-  private async syncName(old?: string): Promise<void> {
-    const own = await this.backend.get(LOCAL_ID);
-    const seat = own?.seats[seatIndex(own, this.backend.youIn(LOCAL_ID))];
+  private async syncName(old?: string, id = LOCAL_ID): Promise<void> {
+    const own = await this.backend.get(id);
+    const seat = own?.seats[seatIndex(own, this.backend.youIn(id))];
     if (!own || seat?.kind !== 'player') return;
     if (seat.name !== this.plate) await this.backend.send(own.id, { type: 'name', name: this.plate });
     const was = old ?? seat.name;
-    if (own.host === this.backend.youIn(LOCAL_ID) && own.name === `${was}'s lobby` && was !== this.plate) await this.backend.send(own.id, { type: 'options', name: `${this.plate}'s lobby` });
+    if (own.host === this.backend.youIn(id) && own.name === `${was}'s lobby` && was !== this.plate) await this.backend.send(own.id, { type: 'options', name: `${this.plate}'s lobby` });
   }
 
   private yourCar(lobby: Lobby | null): { car: string; paint: number } {
@@ -487,7 +494,9 @@ export class Menu {
         let who: string, car: string, status: string;
         if (s.kind === 'player') {
           const me = s.id === you;
-          who = `${plateChip(s.name)}${s.id === lobby.host ? ' <small class="tag">host</small>' : ''}`;
+          // Yours is a button: your plate, edited without leaving the lobby.
+          const plate = me ? `<button id="lPlate" class="seatPlate" title="Edit your plate">${plateChip(s.name)}</button>` : plateChip(s.name);
+          who = `${plate}${s.id === lobby.host ? ' <small class="tag">host</small>' : ''}`;
           // Your own car is picked beside the turntable.
           car = `${dot(s.paint)}${esc(className(s.car))}`;
           status = s.racing && s.id !== you ? '<span class="racing">Racing</span>' : s.id === lobby.host ? '' : s.ready ? '<span class="ready">Ready</span>' : 'Not ready';
@@ -536,6 +545,7 @@ export class Menu {
     });
     this.on('lVis', () => this.send(lobby, { type: 'options', visibility: ACCESS[(ACCESS.findIndex(([v]) => v === lobby.visibility) + 1) % ACCESS.length][0] }));
     this.on('lLeave', () => this.send(lobby, { type: 'leave' }));
+    this.on('lPlate', () => void this.show({ kind: 'plate', from: lobby.id }));
     const change = (id: string, fn: (v: string) => void) => {
       const el = document.getElementById(id) as HTMLSelectElement | null;
       if (el) el.onchange = () => fn(el.value);
@@ -563,7 +573,7 @@ export class Menu {
   /** A player's ping to the server, as the Ping column shows it. */
   private pingText(id: string, player: string): string {
     const ms = this.backend.ping?.(id, player) ?? null;
-    return ms === null ? '—' : `${ms} ms`;
+    return ms === null ? '—' : `<span class="${pingClass(ms)}">${ms} ms</span>`;
   }
 
   /**

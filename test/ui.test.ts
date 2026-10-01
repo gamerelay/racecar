@@ -3,13 +3,17 @@ import { join } from 'node:path';
 import { LAYOUT_ALIASES, PAINT_ALIASES, paletteFor, resolveLayout } from '../src/core/content';
 import { CONTENT, LAYOUT_KEYS, MAPS, PAINTS } from '../tools/content';
 import { describe, expect, test } from 'bun:test';
-import { delta, fmt, ordinal } from '../src/ui/format';
+import { delta, fmt, ordinal, pingClass } from '../src/ui/format';
 import { pickNext, type Box } from '../src/ui/nav';
 import { readChoices, readSetup } from '../src/ui/setup';
 
 // The HUD's formatting, the URL setup parser (hand-edited and stale links), and menu navigation.
 
 describe('format', () => {
+  test('a ping goes yellow at 50 ms, orange at 75 and red at 100', () => {
+    expect([0, 49, 50, 74, 75, 99, 100, 400].map(pingClass)).toEqual(['good', 'good', 'fair', 'fair', 'poor', 'poor', 'bad', 'bad']);
+  });
+
   test('race times never read 0:60.0', () => {
     expect(fmt(0)).toBe('0:00.0');
     expect(fmt(5.04)).toBe('0:05.0');
