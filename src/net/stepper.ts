@@ -13,8 +13,10 @@ export const MAX_STEPS = 5;
 export class Stepper {
   /** Frame time not yet stepped (s). */
   private acc = 0;
-  /** When the tick last stepped (ms, `now`'s clock), null before it has. */
+  /** When the tick's last step was due (ms, `now`'s clock), null before it has stepped. */
   private last: number | null = null;
+  /** When the tick's step 0 was due: step k is due `k` steps after it (ms). */
+  private t0 = 0;
   private stopTick: (() => void) | null = null;
 
   constructor(
@@ -32,10 +34,25 @@ export class Stepper {
   useTick(tick: Tick, canStep: () => boolean): void {
     if (this.stopTick) return;
     this.acc = 0;
-    this.stopTick = tick(this.rate, () => {
+    const h = 1000 / this.rate;
+    this.t0 = this.now();
+    this.stopTick = tick(this.rate, (_dt, k) => {
+      // The step's due time, not when the timer woke (up to a wake later, or a few steps run in one
+      // wake): drawing from the wake made cars stand still a frame every half second or so. The
+      // timer never runs a step early, so a due time after now means step 0 was due earlier; one
+      // far behind means the timer dropped time it couldn't catch up (as frames drop past MAX_STEPS).
+      const now = this.now();
+      let due = this.t0 + k * h;
+      if (due > now) {
+        this.t0 -= due - now;
+        due = now;
+      } else if (now - due > (MAX_STEPS + 1) * h) {
+        this.t0 += now - due;
+        due = now;
+      }
       if (!canStep()) return;
       this.step();
-      this.last = this.now();
+      this.last = due;
     });
   }
 
@@ -51,7 +68,7 @@ export class Stepper {
    * how far into the next step it is (0 to 1), for drawing between the last two.
    */
   frame(dt: number, canStep: boolean): number {
-    if (this.stopTick) return this.last === null ? 0 : Math.min(1, ((this.now() - this.last) * this.rate) / 1000);
+    if (this.stopTick) return this.last === null ? 0 : Math.max(0, Math.min(1, ((this.now() - this.last) * this.rate) / 1000));
     if (canStep) {
       this.acc += dt;
       const h = 1 / this.rate;

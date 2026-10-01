@@ -9,6 +9,8 @@ and where things stand is [docs/HANDOFF.md](./docs/HANDOFF.md).
 - **Online, a host in a background tab no longer freezes the AIs** for everyone: an online race
   steps on GameRelay's tick (a timer that keeps going in hidden tabs) instead of on animation
   frames. Your own car coasts while your tab is hidden.
+- Coming back to the tab doesn't play what happened meanwhile all at once, and if you finished
+  while away, the results are there.
 
 ## alpha-1.21: the music from the games CDN
 

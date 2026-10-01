@@ -96,6 +96,13 @@ export class RaceUi {
   update(): void {
     const sim = this.sim;
     this.cursor = sim.events.read(this.cursor, this.onEvent);
+    // Your car in: the results, from the car's state rather than its Finish event (which a hidden
+    // tab's race can step past unseen: EventQueue.skip).
+    if (sim.cars.finished[this.focus] && !this.shown && this.resultsOn) {
+      this.shown = true;
+      const show = () => (this.canShow() ? this.showResults() : setTimeout(show, 250));
+      setTimeout(show, 2500);
+    }
     // Results stay live (once a second) until the last car is in.
     if (this.open && sim.race.finishedCount < sim.cars.count && performance.now() > this.refreshAt) {
       this.refreshAt = performance.now() + 1000;
@@ -135,11 +142,6 @@ export class RaceUi {
     if (e.type === Ev.RaceStart) {
       // (update() hides the lights a second after green.)
       this.lights.innerHTML = `<div class="lamps"><i class="go"></i><i class="go"></i><i class="go"></i></div><b>GO</b>`;
-    }
-    if (e.type === Ev.Finish && e.car === this.focus && !this.shown && this.resultsOn) {
-      this.shown = true;
-      const show = () => (this.canShow() ? this.showResults() : setTimeout(show, 250));
-      setTimeout(show, 2500);
     }
   };
 

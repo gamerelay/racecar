@@ -547,6 +547,41 @@ describe('the race on the relay\'s tick', () => {
     expect(steps).toBe(2 + MAX_STEPS);
   });
 
+  test("on the tick: drawn from when each step was due, not when the timer woke", () => {
+    // The SDK's ticker: a timer that wakes about every 16 ms, late by up to 6 ms, and runs the
+    // steps that are due (0, 1 or 2), numbering them; frames at 120 Hz in between.
+    let clock = 1000;
+    let truth: number | null = null;
+    const s = new Stepper(60, () => {}, () => clock);
+    const h = 1000 / 60;
+    let fn: ((dt: number, tick: number) => void) | null = null;
+    s.useTick((_r, f) => ((fn = f), () => {}), () => true);
+    const start = clock;
+    let k = 0;
+    let rand = 7;
+    const jitter = () => ((rand = (rand * 16807) % 2147483647) / 2147483647) * 6;
+    let worst = 0;
+    for (let wake = 1; wake <= 600; wake++) {
+      const at = start + wake * 16 + jitter();
+      // Frames until the wake.
+      for (let f = clock + 1000 / 120; f < at; f += 1000 / 120) {
+        clock = f;
+        const alpha = s.frame(1 / 120, true);
+        if (truth !== null && wake > 30) {
+          const want = Math.min(1, (clock - truth) / h);
+          worst = Math.max(worst, Math.abs(alpha - want));
+        }
+      }
+      clock = at;
+      while (start + (k + 1) * h <= clock) {
+        k++;
+        truth = start + k * h;
+        fn!(1 / 60, k);
+      }
+    }
+    expect(worst).toBeLessThan(0.05);
+  });
+
   test("on the tick: frames only draw, the tick steps (when it may), and a hidden tab's race goes on", () => {
     let clock = 0;
     let steps = 0;

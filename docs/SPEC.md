@@ -1973,3 +1973,17 @@ The race on the relay's tick (after `alpha-1.21`):
 - **Your car coasts in a hidden tab:** nothing polls your keys there, so the controls you held
   when you switched away are let go, as behind the menu.
 - **The editor open holds the tick too**, as it held the frames.
+
+Review fixes (PR #46):
+
+- **Coming back to a hidden tab doesn't replay it:** the race went on, but the sounds, sparks,
+  pop-ups and rumble read the event queue by the frame. A gap of 250 ms or more in frames during an
+  online race skips what queued meanwhile (`EventQueue.skip`), instead of firing up to 1024 old
+  events at once; telemetry reads by the step, so its log has it all. Cars that respawned unseen
+  are mended (`renderer.catchUp`); one wrecked at that moment stays uncrumpled until its respawn.
+- **The results come from your car's state**, not only its `Finish` event, which could fall out of
+  the queue while hidden, and then the results never showed. Checked: a car finished in a hidden
+  tab, and the results were up when the tab came back.
+- **Drawn from when each step was due**, not when the worker's timer woke (late by up to a wake,
+  or with a few steps at once): drawn from the wake, cars stood still a frame every half second
+  or so. The tick's step number gives the due time.
