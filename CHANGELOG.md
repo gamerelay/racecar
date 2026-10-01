@@ -6,6 +6,9 @@ and where things stand is [docs/HANDOFF.md](./docs/HANDOFF.md).
 
 ## Unreleased
 
+- A single-file build (`bun run build:single`), for hosts that take a game as one HTML file. The
+  test build is on asleepace.com's games library: https://asleepace.com/games/Z442EE.
+
 ## alpha-1.15: Remote cars
 
 PR #33: milestone 3, part 2.
