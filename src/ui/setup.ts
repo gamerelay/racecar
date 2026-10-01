@@ -4,6 +4,7 @@
 // lobbies (`opponents` and `difficulty` instead of `seats`) still start the race they meant.
 
 import { resolveLayout, type TimeOption } from '../core/content';
+import { cleanPlate } from '../lobby/plate';
 import { DEFAULT_OPTIONS, FILL_DIFFICULTY, encodeSeats, legacySeats, othersIn, parseSeats, seatIndex, type Difficulty, type Lobby, type Other } from '../lobby/lobby';
 
 export interface RaceSetup {
@@ -35,7 +36,7 @@ function readOthers(v: string | null): Other[] | undefined {
     if (!Array.isArray(list)) return undefined;
     const out = list.flatMap((o): Other[] =>
       Array.isArray(o) && o.length === 5 && Number.isInteger(o[0]) && o[0] >= 0 && o[0] < 8 && typeof o[1] === 'string' && typeof o[2] === 'string' && Number.isInteger(o[3]) && o[3] >= 0 && typeof o[4] === 'string'
-        ? [{ seat: o[0], id: o[1].slice(0, 64), car: o[2].slice(0, 32), paint: o[3], name: o[4].slice(0, 16) }]
+        ? [{ seat: o[0], id: o[1].slice(0, 64), car: o[2].slice(0, 32), paint: o[3], name: cleanPlate(o[4]) || 'RC' }]
         : [],
     );
     return out.length ? out : undefined;

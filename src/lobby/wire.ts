@@ -3,6 +3,7 @@
 // lobby in a room's state, a ping. Each reader returns the value in its proper shape, or null for
 // anything malformed. Pure: no SDK, no DOM.
 
+import { cleanPlate } from './plate';
 import { DEFAULT_OPTIONS, SEATS, VISIBILITIES, type Lobby, type LobbyAction, type LobbyOptions, type LobbySummary, type SeatChoice } from './lobby';
 
 const SEAT_CHOICES: readonly SeatChoice[] = ['open', 'closed', 'ai-easy', 'ai-normal', 'ai-hard'];
@@ -15,6 +16,8 @@ const OPTION_VALUES: Partial<Record<keyof LobbyOptions, readonly unknown[]>> = {
 
 export const obj = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null && !Array.isArray(v);
 const str = (v: unknown, max: number): v is string => typeof v === 'string' && v.length <= max;
+/** A player's name is their plate: only what a plate can show (it's drawn in other players' pages). */
+const plate = (v: unknown): string | null => (str(v, 64) ? cleanPlate(v) || null : null);
 const int = (v: unknown, lo: number, hi: number): v is number => Number.isInteger(v) && (v as number) >= lo && (v as number) <= hi;
 
 /**
@@ -54,16 +57,19 @@ export function readAction(data: unknown, from: string): LobbyAction | null {
     }
     case 'car':
       return str(data.car, 32) && int(data.paint, 0, 255) ? { type: 'car', car: data.car, paint: data.paint } : null;
-    case 'name':
-      return str(data.name, 64) ? { type: 'name', name: data.name } : null;
+    case 'name': {
+      const name = plate(data.name);
+      return name ? { type: 'name', name } : null;
+    }
     case 'ready':
       return typeof data.ready === 'boolean' ? { type: 'ready', ready: data.ready } : null;
     case 'racing':
       return typeof data.racing === 'boolean' ? { type: 'racing', racing: data.racing } : null;
     case 'join': {
       const p = data.player;
-      if (!obj(p) || !str(p.name, 64) || !str(p.car, 32) || !int(p.paint, 0, 255)) return null;
-      return { type: 'join', player: { id: from, name: p.name, car: p.car, paint: p.paint } };
+      const name = obj(p) ? plate(p.name) : null;
+      if (!obj(p) || !name || !str(p.car, 32) || !int(p.paint, 0, 255)) return null;
+      return { type: 'join', player: { id: from, name, car: p.car, paint: p.paint } };
     }
     case 'kick':
       return int(data.index, 0, SEATS - 1) ? { type: 'kick', index: data.index } : null;

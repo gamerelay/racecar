@@ -7,6 +7,7 @@
 // (the host's to set; everyone else sees a summary). The screens only see a LobbyBackend: your
 // own lobby is in this browser, and online ones are GameRelay rooms (lobby/relay.ts).
 
+import { esc } from './html';
 import type { CarClass, MapDef, PaintDef, TrackLayout } from '../core/content';
 // The crossed chequered flags (the favicon's): after the wordmark.
 import FLAGS from './icons/flags.svg?raw';
@@ -59,7 +60,6 @@ const label = (opts: [string, string][], v: string) => opts.find(([k]) => k === 
 /** The car arrows' chevron (pointing right; the previous one is flipped in CSS). */
 const CHEVRON = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 3l10 9-10 9"/></svg>';
 
-const esc = (s: string) => s.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
 /** A name as a little license plate (the results use the same chip). */
 export const plateChip = (name: string) => `<span class="plate">${esc(name)}</span>`;
 

@@ -4,6 +4,7 @@ import { LAYOUT_ALIASES, PAINT_ALIASES, paletteFor, resolveLayout } from '../src
 import { CONTENT, LAYOUT_KEYS, MAPS, PAINTS } from '../tools/content';
 import { describe, expect, test } from 'bun:test';
 import { delta, fmt, ordinal, pingClass } from '../src/ui/format';
+import { esc } from '../src/ui/html';
 import { pickNext, type Box } from '../src/ui/nav';
 import { quickRaceSetup, randomCar, readChoices, readSetup, toQuery } from '../src/ui/setup';
 
@@ -161,5 +162,13 @@ describe('quick race and a new seat', () => {
     expect(randomCar(cars, 9, () => 0.999)).toEqual({ car: 'van', paint: 8 });
     const seen = new Set(Array.from({ length: 200 }, () => randomCar(cars, 9).car));
     expect(seen.size).toBe(3);
+  });
+});
+
+describe('names on screen', () => {
+  test('esc leaves no markup in a name, and a link\'s plates are cleaned', () => {
+    expect(esc(`<b a="1">'&`)).toBe('&#60;b a=&#34;1&#34;&#62;&#39;&#38;');
+    const q = new URLSearchParams({ mode: 'race', seats: 'rpoooooo', others: JSON.stringify([[0, 'ada', 'coupe', 1, '<script>']]) });
+    expect(readSetup(q, 'downtown/downtown')?.others?.[0].name).toBe('SCRIPT');
   });
 });

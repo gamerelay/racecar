@@ -375,6 +375,15 @@ describe('online lobbies', () => {
     expect(await bo.backend.list()).toEqual([]);
   });
 
+  test("a player's name from another page is a plate: no markup reaches anyone's screen", () => {
+    const evil = '<img src=x onerror=alert(1)>';
+    expect(readAction({ type: 'name', name: evil }, 'x')).toEqual({ type: 'name', name: 'IMG SRC' });
+    expect(readAction({ type: 'join', player: { name: 'ada <b>', car: 'coupe', paint: 1 } }, 'bo')).toMatchObject({ player: { name: 'ADA B' } });
+    // Nothing a plate can show: no name, no action.
+    expect(readAction({ type: 'name', name: '<>' }, 'x')).toBeNull();
+    expect(readAction({ type: 'join', player: { name: '!!', car: 'coupe', paint: 1 } }, 'bo')).toBeNull();
+  });
+
   test("another player's action is checked before the host applies it, and a listing before it's shown", () => {
     expect(readAction({ type: 'seat', index: 9, to: 'open' }, 'x')).toBeNull();
     expect(readAction({ type: 'seat', index: 2, to: 'piano' }, 'x')).toBeNull();
