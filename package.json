@@ -11,7 +11,8 @@
     "test": "bun test",
     "typecheck": "tsc --noEmit",
     "validate": "bun tools/validate.ts",
-    "telemetry": "bun tools/telemetry.ts"
+    "telemetry": "bun tools/telemetry.ts",
+    "build:single": "bun tools/build-single.ts"
   },
   "dependencies": {
     "@gamerelay/sdk": "0.1.0-alpha.4",

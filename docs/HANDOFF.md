@@ -293,6 +293,20 @@ Clockwise round a tropical island, the volcano in the middle and the sea all rou
 - So milestone 3's lobby isn't blocked on the platform any more: the `relay` LobbyBackend can be
   built against the published SDK.
 
+## Hosted test build
+
+- **https://asleepace.com/games/Z442EE** (since 2026-10-01): asleepace.com's games library, a
+  row in its `games` table (title Racecar, the marketing screenshot as its cover and link
+  preview, public, marked multiplayer). Online lobbies run on gamerelay.io's `racecar` instance,
+  whose allowed origins are `http://localhost` and `https://asleepace.com`.
+- **The file:** `bun run build:single` → `dist-single/racecar.html`, the production build as one
+  classic script with the CSS inline (asleepace.com takes a game as one HTML document, and its
+  sanitizer checks each inline script with `new Function`, so no modules). It leaves out the
+  page's own preview tags and icons; the host adds them from the row.
+- **Update it** (asleepace.com repo, its `publishing-games` skill): run the sanitizer on the new
+  file, then `UPDATE games SET html = … WHERE id = 'Z442EE'`. It's live at once; players get it
+  when they reload. Don't run its multiplayer injection: racecar brings GameRelay's SDK.
+
 ## Next, in order
 
 1. **PLAN phase 6 is done** (PRs #26–#30, merged and tagged `alpha-1.12`): the last of PLAN's
