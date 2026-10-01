@@ -199,9 +199,9 @@ export class Menu {
     }
   }
 
-  /** In someone else's lobby without a seat: take the first open one, if it's between races (and not private). */
+  /** In someone else's lobby without a seat: take the first open one, if it's between races (and not private, unless nobody's left to keep it so). */
   private async sit(lobby: Lobby): Promise<Lobby | null> {
-    if (this.sitting || lobby.phase !== 'lobby' || lobby.visibility === 'private' || seatIndex(lobby, this.backend.youIn(lobby.id)) >= 0 || !lobby.seats.some((s) => s.kind === 'open')) return null;
+    if (this.sitting || lobby.phase !== 'lobby' || (lobby.visibility === 'private' && lobby.host) || seatIndex(lobby, this.backend.youIn(lobby.id)) >= 0 || !lobby.seats.some((s) => s.kind === 'open')) return null;
     this.sitting = true;
     try {
       return await this.backend.send(lobby.id, { type: 'join', player: this.me(lobby.id) });
