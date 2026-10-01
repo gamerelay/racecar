@@ -76,6 +76,8 @@ export class GameAudio {
   private rpm = 0;
   private beeped = 0;
   private hidden = false;
+  /** The track should be playing (as of the last frame). */
+  private wantTrack = false;
   private readonly near: number[] = [];
   private readonly shot: Shot = { ctx: undefined as unknown as AudioContext, bus: undefined as unknown as AudioNode, gain: 0, pan: 0 };
 
@@ -96,6 +98,11 @@ export class GameAudio {
     };
     window.addEventListener('keydown', unlock);
     window.addEventListener('pointerdown', unlock);
+    // Every key or click after, too: a track paused (the pause menu, a hidden tab) may only start
+    // again from one.
+    const again = () => this.g && this.wantTrack && this.track?.play(true);
+    window.addEventListener('keydown', again);
+    window.addEventListener('pointerdown', again);
     document.addEventListener('visibilitychange', () => {
       this.hidden = document.hidden;
       // A hidden tab runs no frames, so update() can't do this: suspend here, and update()
@@ -170,6 +177,8 @@ export class GameAudio {
     this.g.trackLevel.gain.value = TRACK_LEVEL;
     this.g.trackLevel.connect(musicLevel);
     this.track?.connect(ctx, this.g.trackLevel);
+    // In the gesture itself: the only time some browsers start media.
+    if (this.settings.music && !this.settings.muted) this.track?.play(true);
     this.shot.ctx = ctx;
     this.shot.bus = sfx;
   }
@@ -208,6 +217,7 @@ export class GameAudio {
     if (quiet !== (g.ctx.state === 'suspended')) void (quiet ? g.ctx.suspend() : g.ctx.resume());
     if (quiet) {
       // A track would play on through a suspended context, unheard: it waits instead.
+      this.wantTrack = false;
       this.track?.pause();
       return;
     }
@@ -298,6 +308,7 @@ export class GameAudio {
     const racing = sim.race.phase === 'racing' && !c.finished[i];
     const finalLap = racing && sim.race.laps > 1 && c.lap[i] === sim.race.laps - 1;
     const recorded = !!this.track && !this.track.failed;
+    this.wantTrack = recorded && this.settings.music;
     if (recorded) {
       if (this.settings.music) this.track!.play();
       else this.track!.pause();

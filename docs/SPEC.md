@@ -1885,6 +1885,11 @@ The soundtrack (owner's tracks, 2026-10-01):
   race and on its results. The title's track isn't muffled behind the menu (the synth was, under
   the attract race). Each page plays its own from the start: a race is a new page.
 - **The synth is the fallback**, for a track that can't load or play, and with `?music=0`.
+- **Played from gestures too** (review of PR #44): some browsers (iOS Safari, Safari's "Never
+  Auto-Play") only start media from a key or click, and the frame loop isn't one. The first
+  gesture starts the track, and every key or click after retries it while it should be playing
+  (after the pause menu, say). From frames it's tried once a second at most. Three plays refused
+  from gestures in a row, and it's the synth's.
 - **Where the tracks are:** the page's own `music/` (dev and `bun run build`). A build hosted
   without them beside it (the single-file build) sets `VITE_MUSIC_URL` to where they are; from
   another origin they need CORS, or the synth plays.

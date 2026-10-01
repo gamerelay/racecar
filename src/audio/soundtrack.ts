@@ -18,11 +18,16 @@ export function trackUrl(name: TrackName, base: string): string {
   return `${base.endsWith('/') ? base : base + '/'}${name}.m4a`;
 }
 
+/** This many plays from gestures refused in a row, and it's the synth's. */
+const REFUSALS = 3;
+
 export class Soundtrack {
   readonly el: HTMLAudioElement;
   /** It couldn't load (or play): the synth plays instead. */
   failed = false;
   private source?: MediaElementAudioSourceNode;
+  /** Plays from gestures refused since the last one that started. */
+  private refused = 0;
 
   constructor(url: string) {
     const el = new Audio();
@@ -47,13 +52,32 @@ export class Soundtrack {
     }
   }
 
-  play(): void {
-    if (this.failed || !this.source || !this.el.paused) return;
-    this.el.play().catch((err: unknown) => {
-      // Not allowed yet (no gesture) is tried again next frame; a file it can't play isn't.
-      if ((err as { name?: string })?.name === 'NotSupportedError') this.failed = true;
-    });
+  /**
+   * Plays it. `gesture`: from a key or click, the only time some browsers (iOS Safari among them)
+   * start media; refused there a few times over, the synth takes over. From a frame it's tried at
+   * most once a second, and a refusal there is just "not yet". A file it can't play: the synth, at once.
+   */
+  play(gesture = false): void {
+    if (this.failed || !this.source || !this.el.paused || this.pending) return;
+    const now = performance.now();
+    if (!gesture && now - this.tried < 1000) return;
+    this.tried = now;
+    this.pending = true;
+    this.el.play().then(
+      () => {
+        this.pending = false;
+        this.refused = 0;
+      },
+      (err: unknown) => {
+        this.pending = false;
+        const name = (err as { name?: string })?.name;
+        if (name === 'NotSupportedError' || (gesture && name === 'NotAllowedError' && ++this.refused >= REFUSALS)) this.failed = true;
+      },
+    );
   }
+  /** A play on its way (one at a time), and when the last was tried. */
+  private pending = false;
+  private tried = -Infinity;
 
   pause(): void {
     if (!this.el.paused) this.el.pause();
