@@ -6,6 +6,9 @@ and where things stand is [docs/HANDOFF.md](./docs/HANDOFF.md).
 
 ## Unreleased
 
+- **The music plays on the hosted build too:** the tracks are in the games' asset store (a
+  DigitalOcean Space, `assets/racecar/`), and `tools/publish-assets.ts` uploads them.
+
 ## alpha-1.20: the soundtrack, and a cleanup pass
 
 PRs #43 and #44.
