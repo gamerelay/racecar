@@ -1687,10 +1687,10 @@ The soundtrack (owner's tracks, 2026-10-01):
   from gestures in a row, and it's the synth's. A tap counts on its release (`pointerup`): iOS starts no media on a
   touch's `pointerdown`, so three taps there would have handed it to the synth (second review).
 - **Where the tracks are:** the page's own `music/` in dev. Production builds (`.env.production`'s
-  `VITE_MUSIC_URL`) read them from the games' asset store, a DigitalOcean Space
-  (`assets/racecar/music/`, uploaded by `tools/publish-assets.ts`), from its origin: its CDN
-  caches without regard to Origin, so the CORS header Web Audio needs came and went (HANDOFF,
-  "Hosted test build"). From another origin a track needs CORS, or the synth plays.
+  `VITE_MUSIC_URL`) read them from https://cdn.gamerelay.io/racecar/music, gamerelay.io's caching
+  proxy in front of the games' asset store (a DigitalOcean Space's `assets/`, uploaded by
+  `tools/publish-assets.ts`). It always sends the CORS header Web Audio needs; the Space's own CDN
+  doesn't (HANDOFF, "Hosted test build"). From another origin a track needs CORS, or the synth plays.
 
 ### Milestone 3 (online)
 

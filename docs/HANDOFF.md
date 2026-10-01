@@ -239,23 +239,21 @@ Clockwise round a tropical island, the volcano in the middle and the sea all rou
 - **Update it** (asleepace.com repo, its `publishing-games` skill): run the sanitizer on the new
   file, then `UPDATE games SET html = … WHERE id = 'Z442EE'`. It's live at once; players get it
   when they reload. Don't run its multiplayer injection: racecar brings GameRelay's SDK.
-- **The music** (17 MB) isn't in the single file: it's in the games' asset store, a
-  DigitalOcean Space (`asleepace-storage-bucket`, sfo3), under `assets/racecar/music/`. Other
-  sites get their own `assets/<name>/`. Builds read it from `VITE_MUSIC_URL` (`.env.production`).
+- **The music** (17 MB) isn't in the single file: it's on the games CDN,
+  **https://cdn.gamerelay.io/racecar/music/** (`VITE_MUSIC_URL` in `.env.production`).
+  - **The CDN** is gamerelay.io's caching proxy (its `apps/server/src/cdn.ts`; setup and
+    behaviour in its `docs/INFRASTRUCTURE.md`, "Asset CDN", live since 2026-10-01). It fronts the
+    asset store, a DigitalOcean Space (`asleepace-storage-bucket`, sfo3): `cdn.gamerelay.io/<x>`
+    is the Space's `assets/<x>`. Other sites get their own `assets/<name>/`.
   - **Upload:** `bun --env-file=../asleepace.com/.env tools/publish-assets.ts` (`--dry` to see,
-    `--cors` to set the Space's CORS rule again).
-  - **CORS:** the Space allows GET and HEAD from any origin (set 2026-10-01; it had no CORS config
-    before). Web Audio needs it to play a track from another site, or the synth plays.
-  - **From the origin, not the CDN:** the Space's CDN (`….cdn.digitaloceanspaces.com`) caches one
-    copy per URL whatever the request's Origin, though the Space says `Vary: Origin`. Spaces only
-    send the CORS header to a request with an Origin, so a plain request (a link, a curl) fills
-    the cache with a copy without it, and the music breaks for an hour. The origin answers each
-    request itself.
-  - **`cdn.gamerelay.io`:** a caching proxy in the gamerelay.io server that always sends the CORS
-    header (gamerelay.io PR #38; its INFRASTRUCTURE.md, "Asset CDN", has the setup). Once it's
-    live (an `A cdn` record, the name on the certificate, `CDN_HOST`/`CDN_ORIGIN` on the host),
-    `VITE_MUSIC_URL` becomes `https://cdn.gamerelay.io/racecar/music`: the same files, as
-    `assets/racecar/…` is `cdn.gamerelay.io/racecar/…`.
+    `--cors` to set the Space's CORS rule again). To change a track, give it a new name, or wait:
+    the proxy keeps a file 10 minutes, browsers an hour.
+  - **Why not the Space's own CDN** (`….cdn.digitaloceanspaces.com`): it caches one copy per URL
+    whatever the request's Origin, and the Space only sends the CORS header to a request with an
+    Origin, so a plain request (a link, a curl) leaves a copy without it, and Web Audio can't play
+    the track for an hour. The proxy always sends it.
+  - **CORS on the Space** (GET and HEAD from any origin) stays: it lets a build read the Space's
+    origin directly too, if the CDN is ever down.
 - **What's there now:** `main` at PR #44 (`alpha-1.20`, with the soundtrack from the asset store), updated 2026-10-01. Keep it the
   one row: update Z442EE in place rather than adding a game.
 
