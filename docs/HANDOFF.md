@@ -4,11 +4,12 @@ Where racecar stands and what's next, for whoever picks it up (a person or a fre
 The design is [SPEC.md](./SPEC.md): decisions in §17, and what building changed in "Changed while
 building". This file is "where are we"; the spec is "what are we making".
 
-**Last updated:** 2026-10-01. `main` is tagged **`alpha-1.21`** (PRs #43–#45: a cleanup pass, the soundtrack, and the music from the games CDN).
+**Last updated:** 2026-10-01. `main` is tagged **`alpha-1.22`** (PRs #46 and #47: the online race on `relay.tick`; traffic, bumps and takedown credit across screens).
 Every release is in [CHANGELOG.md](../CHANGELOG.md): add to its "Unreleased" section as you go,
 and retitle that section when you tag. [PLAN.md](./PLAN.md)'s six phases are all merged (it keeps
-a pool of other ideas), how online works is [ONLINE.md](./ONLINE.md), and how maps are made is
-[MAPS.md](./MAPS.md).
+a pool of other ideas), how online works is [ONLINE.md](./ONLINE.md), how maps are made is
+[MAPS.md](./MAPS.md), and suggestions for cleaning up the code are [TECH_DEBT.md](./TECH_DEBT.md)
+(add to it as you go).
 
 **Map names:** City is now **Downtown** and Countryside is **Backroads** (content in
 `content/maps/downtown` and `content/maps/backroads`; keys `downtown/downtown`, `backroads/valley`;
@@ -35,7 +36,8 @@ old keys still resolve). The third map is **Paradise** (`content/maps/paradise`,
 - **Milestones 1 and 2 are merged** (PRs #1 and #2, `alpha-1.0`), and so are all six of
   [PLAN.md](./PLAN.md)'s phases (PRs #14–#30, `alpha-1.8` to `alpha-1.12`).
 - **Milestone 3 (online) is under way:** online lobbies, remote cars, P2P and the host's AIs are
-  in (PRs #32–#42, `alpha-1.14` to `alpha-1.19`). What's left is the milestone 3 list under "Next,
+  in (PRs #32–#42, `alpha-1.14` to `alpha-1.19`), and so are a hidden host tab that keeps
+  racing, shared traffic, bumps and takedown credit (PRs #46 and #47, `alpha-1.22`). What's left is the milestone 3 list under "Next,
   in order".
 - **What exists, by area** (details in "What's built" below and in SPEC "Changed while
   building"):
@@ -254,7 +256,7 @@ Clockwise round a tropical island, the volcano in the middle and the sea all rou
     the track for an hour. The proxy always sends it.
   - **CORS on the Space** (GET and HEAD from any origin) stays: it lets a build read the Space's
     origin directly too, if the CDN is ever down.
-- **What's there now:** `main` after `alpha-1.21` (PRs #46 and #47: the online race on `relay.tick`; traffic, bumps and takedown credit), updated 2026-10-01. Keep it the
+- **What's there now:** `main` at `alpha-1.22` (the online race on `relay.tick`; traffic, bumps and takedown credit), updated 2026-10-01. Keep it the
   one row: update Z442EE in place rather than adding a game.
 
 ## Next, in order
@@ -288,10 +290,10 @@ Clockwise round a tropical island, the volcano in the middle and the sea all rou
    - **The soundtrack** (PRs #44 and #45, `alpha-1.20`/`alpha-1.21`): the owner's tracks, a
      playlist per race with no repeats, played from https://cdn.gamerelay.io (gamerelay.io's
      caching proxy for the games' asset store: "Hosted test build" below).
-   - **The race on `relay.tick`** (unreleased): an online race steps on the SDK's tick, a worker
+   - **The race on `relay.tick`** (PR #46, `alpha-1.22`): an online race steps on the SDK's tick, a worker
      timer that keeps going in hidden tabs (`src/net/stepper.ts`), so a hidden host tab no longer
      freezes the AIs; drawing stays on `requestAnimationFrame`.
-   - **Traffic, bumps and credit** (unreleased): the race's clock is the server's (traffic was
+   - **Traffic, bumps and credit** (PR #47, `alpha-1.22`): the race's clock is the server's (traffic was
      15–20 m apart between screens), traffic hits are claimed (`src/net/traffic.ts`), and bumps
      and takedown credit cross screens (`src/net/contact.ts`).
 
@@ -313,41 +315,19 @@ Clockwise round a tropical island, the volcano in the middle and the sea all rou
 
 ### Smaller follow-ups
 
+Bugs and gameplay gaps. Refactors, duplication, performance and tooling go in
+[TECH_DEBT.md](./TECH_DEBT.md), a running list of suggestions (not decisions) to plan from later.
+
 - **Online:**
   - A traffic hit isn't checked against who holds its claim (`room.claimed`): a forged one only
     wrecks a traffic car early.
   - Remote poses are capped now (speed, turn, steering; rivals' handover range-checked), but not
     their position: a modified client can still put its car anywhere, on top of yours too. A
     position near the track (and near where it last was) is the next check.
-  - `RoomLike` (relay.ts) doesn't declare the SDK room's `define`, `renderTime` and `hostId`, so
-    net/join.ts casts the room to `NetRoom`. Declaring them means every test's fake room grows
-    them too.
   - An online Create lobby can't be cancelled: Esc to the title, and if the create lands after,
     the menu opens the new lobby.
-  - The relay tests sleep through the listing's 1 s throttle (about 4 s of the run) and use tight
-    real-time waits; an injected clock (as presence.ts has) would make them faster and steadier.
   - Lobby names aren't filtered like plates (`cleanName` in `lobby.ts` only trims and cuts to 32
     characters), and Public ones are listed to strangers.
-- **Performance:**
-  - Tile the Valley's terrain (one 256k-triangle mesh, never culled); upload only live ambient
-    cars and particles instead of whole buffers each frame.
-  - Ambient city cars could animate in the vertex shader instead of on the CPU (they're only
-    posed within 420 m of the camera). Out-of-range ones are still written as zero-scale
-    instances and the whole buffer is uploaded each frame: write the near ones compactly and set
-    `count` instead.
-  - `logTruck.at` rescans traffic every tick for its truck: remember it on the occurrence.
-  - Loading a layout builds the whole of Downtown in about 200 ms. That's fine per editor edit
-    (edits apply when you let go of a point); if it ever runs per frame, cache it.
-- **Code organisation** (from the two reviews; no bugs):
-  - One road spatial index for `cityscape.ts` (Corridors), `forest.ts`, `island.ts` and
-    `terrain.ts` (the forest and the island each hash the road the same way); one instancing
-    builder for `scenery.boxes()` and `forest.instanced()` (the island uses the latter); a
-    `gantry()` helper.
-  - Split the two biggest functions: `buildCar` (`car/build.ts`, ~680 lines: body, cabin, lamps,
-    wheels, glows) and `buildCityscape` (`cityscape.ts`, ~680: buildings, signs, streets,
-    ambience).
-  - A shared `lateralOf(sp, i, x, z)` in `query.ts` for the ~8 hand-written lateral projections.
-  - `src/content.ts` (the bundle loader) and `src/core/content.ts` (types) share a name.
 - **Content and visual:**
   - Traffic has silhouette ink only: no window or panel ink, and no crumple on wreck.
   - Downtown has 4 puddles, all in corners; a few on straights would add rain atmosphere.

@@ -14,8 +14,9 @@ party-grade: the room's host is trusted, and a modified client could cheat (SPEC
 The design is in
 [docs/SPEC.md](./docs/SPEC.md); what changed in each release is in [CHANGELOG.md](./CHANGELOG.md),
 where things stand and what's next is [docs/HANDOFF.md](./docs/HANDOFF.md), how online works is
-[docs/ONLINE.md](./docs/ONLINE.md), how maps are made is [docs/MAPS.md](./docs/MAPS.md), and how
-cars are made is [docs/CARS.md](./docs/CARS.md).
+[docs/ONLINE.md](./docs/ONLINE.md), how maps are made is [docs/MAPS.md](./docs/MAPS.md), how
+cars are made is [docs/CARS.md](./docs/CARS.md), and suggestions for cleaning up the code are in
+[docs/TECH_DEBT.md](./docs/TECH_DEBT.md).
 
 ## Run it
 
