@@ -331,6 +331,7 @@ Clockwise round a tropical island, the volcano in the middle and the sea all rou
      nobody new sits down); the host cycles it from the header's button. Only Public lobbies are
      listed; your own (local) one isn't, and closes when you leave. Quick race skips lobbies.
      The lobby as it was signed off: `screenshots/lobby-desktop.png`.
+   - **How online works, end to end, and what Xbox Live does for each part:** `docs/ONLINE.md`.
    - **P2P:** each online lobby is also a party (`Lobby.party`), and the client connects with
      `lan: { direct: 'party' }`; the `racecar` instance's Direct connections setting is on. It
      shows players each other's IP, without asking: revisit (an opt-in) before going public.
