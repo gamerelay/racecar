@@ -6,6 +6,10 @@ and where things stand is [docs/HANDOFF.md](./docs/HANDOFF.md).
 
 ## Unreleased
 
+## alpha-1.18: P2P and a sturdier online
+
+PRs #37–#40.
+
 - **The title has the crossed chequered flags** (the favicon's) after RACECAR.
 - **Away:** a player whose connection drops shows Away in the lobby until they're back.
 - **Fixed:** when the room's host role moved (a page load), seats of players who had left weren't
