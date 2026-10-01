@@ -137,6 +137,19 @@ describe('event queue', () => {
     // Nothing new: nothing read.
     expect(q.read(next, () => expect.unreachable())).toBe(next);
   });
+
+  test("skip: every reader's next read starts after what's there now (a hidden tab's stretch isn't replayed)", () => {
+    const q = new EventQueue(64);
+    for (let n = 0; n < 40; n++) q.push(n, Ev.Lap, 0);
+    // One reader kept up to 30, another saw nothing yet.
+    const a = q.read(0, () => {}) - 10;
+    q.skip();
+    q.push(40, Ev.Finish, 0);
+    const seen: number[][] = [[], []];
+    q.read(a, (e) => seen[0].push(e.seq));
+    q.read(0, (e) => seen[1].push(e.seq));
+    expect(seen).toEqual([[40], [40]]);
+  });
 });
 
 describe('second review pass', () => {

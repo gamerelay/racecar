@@ -213,6 +213,16 @@ export class GameRenderer {
     this.camera.position.copy(this.camPos);
   }
 
+  /**
+   * Back after a stretch it didn't see (an online race goes on in a hidden tab, and its events are
+   * skipped: EventQueue.skip): a car wrecked then but on its wheels now is mended (its respawn went
+   * by unseen). One wrecked now stays as it is, uncrumpled until its respawn.
+   */
+  catchUp(): void {
+    for (let i = 0; i < this.visuals.length; i++) if (!this.sim.cars.wreck[i]) this.visuals[i]?.repair?.();
+    this.snapCamera();
+  }
+
   /** Draws one frame. `alpha` is how far between the last two ticks we are; `dt` real seconds since the last frame. */
   frame(alpha: number, dt: number, steer: number[], braking: boolean[]): void {
     this.time += dt;

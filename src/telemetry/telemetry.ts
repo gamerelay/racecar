@@ -113,6 +113,9 @@ export class Telemetry {
   /** After each sim step, when tracing: the focus car's full state every tick. */
   afterStep(focus: number, simMs: number): void {
     this.simMs += (simMs - this.simMs) * 0.05;
+    // Events by the step, not the frame: an online race steps in a hidden tab with no frames, and
+    // the frame's readers skip that stretch (EventQueue.skip); the log shouldn't.
+    this.cursor = this.sim.events.read(this.cursor, (e) => this.onEvent(e, focus));
     if (!this.trace) return;
     const c = this.sim.cars;
     const i = focus;
@@ -123,10 +126,9 @@ export class Telemetry {
     });
   }
 
-  /** After each frame: events → records, perf every 5 s, flush every 2 s. */
-  frame(dtMs: number, fps: number, drawCalls: number, focus: number): void {
+  /** After each frame: perf every 5 s, flush every 2 s (events are read after each step). */
+  frame(dtMs: number, fps: number, drawCalls: number): void {
     this.frameMs.push(dtMs);
-    this.cursor = this.sim.events.read(this.cursor, (e) => this.onEvent(e, focus));
     const now = performance.now();
     if (now - this.lastPerf > 5000) {
       this.lastPerf = now;

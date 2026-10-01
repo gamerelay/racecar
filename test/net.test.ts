@@ -5,6 +5,7 @@ import { createLobby, apply, encodeSeats, othersIn, roster, type Lobby } from '.
 import { NetCars, predict, remoteSteer, startDelay, type NetEntity, type NetKind, type NetRoom } from '../src/net/cars';
 import { NetRivals } from '../src/net/rivals';
 import { FALLBACK_MS, joinRace, type RaceJoin } from '../src/net/join';
+import { MAX_STEPS, Stepper, type Tick } from '../src/net/stepper';
 import { wreckCar } from '../src/core/car/physics';
 import { Cause } from '../src/core/events';
 import { raceFromLobby, readSetup, toQuery } from '../src/ui/setup';
@@ -437,24 +438,24 @@ describe('an online race link', () => {
 
 describe("the race page's join", () => {
   /** A race page's join with its timer in hand: `fire()` runs the fallback. */
-  function page(opts: { lobby?: unknown; room?: boolean; at?: number; slow?: Promise<void> } = {}) {
+  function page(opts: { lobby?: unknown; room?: boolean; at?: number; slow?: Promise<void>; tick?: Tick } = {}) {
     const hub = new Hub();
     const sim = ringSim(1);
     sim.addCar({ cls: 'coupe', human: true });
     sim.addCar({ cls: 'coupe', racer: { difficulty: 1 } });
     sim.startRace(1, 30);
     let pending: (() => void) | null = null;
-    const got: { net: unknown; rivals: unknown } = { net: null, rivals: null };
+    const got: { net: unknown; rivals: unknown; tick: Tick | null } = { net: null, rivals: null, tick: null };
     const j: RaceJoin = {
       lobby: async () => (await opts.slow, opts.lobby === undefined ? { id: 'K7QM' } : opts.lobby),
-      connection: async () => ({ room: opts.room === false ? null : hub.room('ada'), now: () => hub.now }),
+      connection: async () => ({ room: opts.room === false ? null : hub.room('ada'), now: () => hub.now, tick: opts.tick }),
       sim,
       me: 0,
       remote: new Map(),
       aiSeats: new Map([[1, 1]]),
       seed: 7,
       at: opts.at,
-      onNet: (net, rivals) => Object.assign(got, { net, rivals }),
+      onNet: (net, rivals, tick) => Object.assign(got, { net, rivals, tick }),
       timers: { set: (f) => ((pending = f), 1), clear: () => (pending = null) },
     };
     return { hub, sim, j, got, fire: () => pending?.(), armed: () => pending !== null };
@@ -505,5 +506,112 @@ describe("the race page's join", () => {
     expect(p.sim.race.goTime - p.sim.time).toBeCloseTo(4);
     expect(FALLBACK_MS).toBe(8000);
   });
+  test("joined, the page gets the connection's tick to step the race on (null when it has none)", async () => {
+    const t = fakeTick();
+    const p = page({ tick: t.tick });
+    await joinRace(p.j);
+    expect(p.got.tick).not.toBeNull();
+    let fired = 0;
+    const stop = p.got.tick!(60, () => fired++);
+    t.run(3);
+    expect(t.rate()).toBe(60);
+    expect(fired).toBe(3);
+    stop();
+    expect(t.running()).toBe(false);
+    const q = page();
+    await joinRace(q.j);
+    expect(q.got.net).not.toBeNull();
+    expect(q.got.tick).toBeNull();
+  });
 });
 
+/** A fake `relay.tick`: `run(n)` fires its loop n times, as the worker timer would in a hidden tab. */
+function fakeTick() {
+  let loop: ((dt: number, tick: number) => void) | null = null;
+  let rate = 0;
+  const tick: Tick = (r, fn) => ((rate = r), (loop = fn), () => (loop = null));
+  return { tick, rate: () => rate, running: () => loop !== null, run: (n: number) => { for (let k = 0; k < n; k++) loop?.(1 / rate, k + 1); } };
+}
+
+describe('the race on the relay\'s tick', () => {
+  test('on frames: a frame steps the time it covers, at most MAX_STEPS, and says how far into the next step it is', () => {
+    let steps = 0;
+    const s = new Stepper(60, () => steps++);
+    expect(s.frame(2.5 / 60, true)).toBeCloseTo(0.5);
+    expect(steps).toBe(2);
+    // Not stepping (paused, the editor): no steps, and where it was.
+    expect(s.frame(1, false)).toBeCloseTo(0.5);
+    expect(steps).toBe(2);
+    // A stall: five steps, and the rest dropped.
+    expect(s.frame(1, true)).toBe(0);
+    expect(steps).toBe(2 + MAX_STEPS);
+  });
+
+  test("on the tick: drawn from when each step was due, not when the timer woke", () => {
+    // The SDK's ticker: a timer that wakes about every 16 ms, late by up to 6 ms, and runs the
+    // steps that are due (0, 1 or 2), numbering them; frames at 120 Hz in between.
+    let clock = 1000;
+    let truth: number | null = null;
+    const s = new Stepper(60, () => {}, () => clock);
+    const h = 1000 / 60;
+    let fn: ((dt: number, tick: number) => void) | null = null;
+    s.useTick((_r, f) => ((fn = f), () => {}), () => true);
+    const start = clock;
+    let k = 0;
+    let rand = 7;
+    const jitter = () => ((rand = (rand * 16807) % 2147483647) / 2147483647) * 6;
+    let worst = 0;
+    for (let wake = 1; wake <= 600; wake++) {
+      const at = start + wake * 16 + jitter();
+      // Frames until the wake.
+      for (let f = clock + 1000 / 120; f < at; f += 1000 / 120) {
+        clock = f;
+        const alpha = s.frame(1 / 120, true);
+        if (truth !== null && wake > 30) {
+          const want = Math.min(1, (clock - truth) / h);
+          worst = Math.max(worst, Math.abs(alpha - want));
+        }
+      }
+      clock = at;
+      while (start + (k + 1) * h <= clock) {
+        k++;
+        truth = start + k * h;
+        fn!(1 / 60, k);
+      }
+    }
+    expect(worst).toBeLessThan(0.05);
+  });
+
+  test("on the tick: frames only draw, the tick steps (when it may), and a hidden tab's race goes on", () => {
+    let clock = 0;
+    let steps = 0;
+    let may = true;
+    const s = new Stepper(60, () => steps++, () => clock);
+    s.frame(1 / 60, true);
+    expect(steps).toBe(1);
+    const t = fakeTick();
+    s.useTick(t.tick, () => may);
+    expect(s.ticking).toBe(true);
+    expect(t.rate()).toBe(60);
+    // No frames at all (the tab is hidden): two seconds of race.
+    t.run(120);
+    expect(steps).toBe(121);
+    // A frame steps nothing now, and draws between the tick's steps.
+    expect(s.frame(1, true)).toBe(0);
+    clock += 1000 / 120;
+    expect(s.frame(1 / 60, true)).toBeCloseTo(0.5);
+    clock += 1000;
+    expect(s.frame(1 / 60, true)).toBe(1);
+    expect(steps).toBe(121);
+    // The editor open: the tick holds.
+    may = false;
+    t.run(10);
+    expect(steps).toBe(121);
+    // A second useTick doesn't start a second loop; stop hands it back to frames.
+    s.useTick(fakeTick().tick, () => true);
+    s.stop();
+    expect(t.running()).toBe(false);
+    s.frame(1 / 60, true);
+    expect(steps).toBe(122);
+  });
+});

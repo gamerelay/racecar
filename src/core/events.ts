@@ -108,6 +108,12 @@ export class EventQueue {
   private readonly ring: GameEvent[];
   /** Sequence number of the next event pushed. Readers keep the last seq they saw. */
   head = 0;
+  /**
+   * No reader starts before this: `skip()` moves it to now, after a stretch the readers that draw
+   * (sound, sparks, the HUD) didn't see (an online race goes on in a hidden tab), so coming back
+   * doesn't play it all at once.
+   */
+  floor = 0;
 
   constructor(capacity = 1024) {
     this.capacity = capacity;
@@ -129,9 +135,14 @@ export class EventQueue {
     return e;
   }
 
-  /** Calls `fn` for every event after `cursor`, oldest first, and returns the new cursor. Events that fell out of the ring are skipped. */
+  /** Every reader's next read starts from here: what's happened so far is skipped. */
+  skip(): void {
+    this.floor = this.head;
+  }
+
+  /** Calls `fn` for every event after `cursor`, oldest first, and returns the new cursor. Events that fell out of the ring, or are before `floor`, are skipped. */
   read(cursor: number, fn: (e: GameEvent) => void): number {
-    const from = Math.max(cursor, this.head - this.capacity);
+    const from = Math.max(cursor, this.head - this.capacity, this.floor);
     for (let s = from; s < this.head; s++) fn(this.ring[s % this.capacity]);
     return this.head;
   }
