@@ -251,10 +251,11 @@ Clockwise round a tropical island, the volcano in the middle and the sea all rou
     send the CORS header to a request with an Origin, so a plain request (a link, a curl) fills
     the cache with a copy without it, and the music breaks for an hour. The origin answers each
     request itself.
-  - **`cdn.gamerelay.io`** (the plan): a front that always sends `Access-Control-Allow-Origin: *`,
-    so it can cache. Either a small caching proxy on the gamerelay.io droplet, or the Space's CDN
-    with its custom domain *if* every request carries an Origin. gamerelay.io's DNS is on
-    DigitalOcean.
+  - **`cdn.gamerelay.io`:** a caching proxy in the gamerelay.io server that always sends the CORS
+    header (gamerelay.io PR #38; its INFRASTRUCTURE.md, "Asset CDN", has the setup). Once it's
+    live (an `A cdn` record, the name on the certificate, `CDN_HOST`/`CDN_ORIGIN` on the host),
+    `VITE_MUSIC_URL` becomes `https://cdn.gamerelay.io/racecar/music`: the same files, as
+    `assets/racecar/…` is `cdn.gamerelay.io/racecar/…`.
 - **What's there now:** `main` at PR #44 (`alpha-1.20`, with the soundtrack from the asset store), updated 2026-10-01. Keep it the
   one row: update Z442EE in place rather than adding a game.
 

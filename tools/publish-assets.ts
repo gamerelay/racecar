@@ -1,6 +1,7 @@
 // Uploads racecar's hosted assets (the soundtrack) to the games' asset store: a DigitalOcean Space,
 // under `assets/racecar/` (other sites keep their own `assets/<name>/`). The game reads them from
-// the Space's origin (VITE_MUSIC_URL in .env.production), not its CDN: see docs/HANDOFF.md.
+// the Space's origin (VITE_MUSIC_URL in .env.production), not the Space's CDN, until
+// cdn.gamerelay.io (gamerelay.io's caching proxy for `assets/`) is live: see docs/HANDOFF.md.
 //
 //   bun --env-file=../asleepace.com/.env tools/publish-assets.ts [--dry] [--cors]
 //
