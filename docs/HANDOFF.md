@@ -23,7 +23,7 @@ The third map is **Paradise** (`content/maps/paradise`, key `paradise/island`).
    listings, parties, `lanRoute`), and the `racecar` instance has parties and Direct connections
    on (see "GameRelay side" below).
 4. Before changing anything: `bun test && bun run typecheck && bun tools/validate.ts --ai`. All
-   three are green on `main` (247 tests). Branch off `main`, one PR per change, with CI, then
+   three are green on `main` (252 tests). Branch off `main`, one PR per change, with CI, then
    `/code-review` on the PR.
 
 ## Where things stand
@@ -352,9 +352,12 @@ Clockwise round a tropical island, the volcano in the middle and the sea all rou
      (`host_changed`), room changes run one at a time, a join the menu gives up on leaves, Away
      for a dropped player, and relay.ts split into wire, party, presence and relay.
 
+   - **The AIs online** (branch `rivals`): the SDK's host drives the AIs and sends them as `rival`
+     host entities (`src/net/rivals.ts`), so every screen has the same bots; the next host drives
+     them on. A hidden host tab still freezes them until the role moves (follow-up: the host's
+     sim on `relay.tick`).
+
    Next, in order:
-   - **The AIs as host-owned `rival` entities**, so every screen has the same bots (today each
-     screen runs its own).
    - **Traffic hits through `room.claim`**, then bump dedupe (±150 ms) and wreck credit (the
      victim decides wrecks already).
    - **Results written by the host** (Xbox's arbitration), so everyone's results agree.

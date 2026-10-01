@@ -1535,6 +1535,32 @@ Landmarks, part 1: Downtown (PLAN phase 6):
 - **Cost:** each landmark's still boxes are one instanced mesh, and the clock's four dials, four
   readouts and eight hands are three draws. All five together are ~11 draw calls.
 
+The AIs online (milestone 3, part 3, 2026-10-01):
+
+- **The room's host drives the AIs, so every screen races the same bots** (`src/net/rivals.ts`,
+  `NetRivals`). Each AI seat is a host entity (`rival`, 30 Hz): a car's fields plus its lobby
+  seat. The SDK's host writes them from its sim after each step; every other screen has them as
+  remote cars, like players, predicted to now. Before, each screen ran its own bots, and they
+  were in different places on every screen.
+- **The SDK's host, not the lobby's.** The host role moves by itself (a reload, a dropped
+  connection), and host entities move with it. The AI keeps no memory but the car's pose
+  (ai/racer.ts), so the next host just drives them on from where they are: no new rivals and no
+  jump. Before each step, a screen that holds the role steps the AIs itself; any other screen puts
+  them where their entity says.
+- **Until the host's rivals show up, every screen drives them itself**, from the same grid: the
+  host hasn't connected yet, or nobody has. If two pages are host for a moment, both spawn
+  rivals, so the next host keeps one per seat and removes the rest.
+- **The AIs' paint is their seat's when there are other players**, not your paint plus their
+  seat: your paint is yours alone, so every screen had them in different colours. Alone (Race
+  again, or no other players), it's as before.
+- **Other players count for the AIs' catch-up** (a remote car is `human` too). It held back for
+  the host's car only.
+- **A hidden host tab freezes the bots** on everyone's screen until the role moves: its sim
+  doesn't step without animation frames. The SDK moves the role off a hidden tab that can't keep
+  up. Running the host's sim on `relay.tick` (which keeps going in hidden tabs) is a follow-up.
+- **Contact with an AI** is the same as with a player's car. The host's sim bumps and wrecks it.
+  Every other screen's sim bumps your car off it, and leaves the AI where the host says.
+
 The lobby's header, and who can join (playtest, 2026-10-01):
 
 - **Who can join is three ways, not two:** Public (listed online), Invite only (anyone with the

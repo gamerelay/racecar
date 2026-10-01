@@ -23,12 +23,17 @@ export interface NetEntity {
 }
 
 export interface NetKind {
-  spawn(initial: Record<string, number | boolean>): NetEntity;
+  /** `{ owner: 'host' }`: the host role's, not yours (only on the host; the next host carries on writing it). */
+  spawn(initial: Record<string, number | boolean>, options?: { owner?: 'host' }): NetEntity;
   all(): NetEntity[];
+  /** The ones you write: yours, and the host's while you're the host. */
+  mine(): NetEntity[];
 }
 
 export interface NetRoom {
   readonly me: string;
+  /** Whether you hold the room's host role (it moves by itself). */
+  readonly isHost: boolean;
   /** The server-clock moment others' entities are shown at (ms). */
   readonly renderTime: number;
   define(kind: string, fields: Record<string, unknown>, options?: { rate?: number }): NetKind;
@@ -39,7 +44,7 @@ export const CAR_RATE = 30;
 /** Prediction looks this far ahead at most (s): past it, a stalled connection would fling the car. */
 const MAX_LEAD = 0.25;
 /** A jump this long in one step (m) is a reset or a respawn: everyone snaps instead of sliding. */
-const TELEPORT_M = 12;
+export const TELEPORT_M = 12;
 
 const num = { type: 'number', precision: 0.01 } as const;
 /** A car's entity: its pose and motion, its steering (for the wheels) and what it's doing. */
@@ -65,6 +70,31 @@ export const CAR_FIELDS = {
 } as const;
 
 const n = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) ? v : 0);
+
+/** Car `i`'s entity fields, from the sim as it is now. */
+export function carFields(sim: Sim, i: number): Record<string, number | boolean> {
+  const c = sim.cars;
+  return {
+    x: c.x[i],
+    y: c.y[i],
+    z: c.z[i],
+    h: c.h[i],
+    vx: c.vx[i],
+    vy: c.vy[i],
+    vz: c.vz[i],
+    yaw: c.yaw[i],
+    pitch: c.pitch[i],
+    roll: c.roll[i],
+    rx: c.rx[i],
+    rz: c.rz[i],
+    steer: sim.controls[i].steer,
+    grounded: c.grounded[i] === 1,
+    drift: c.drift[i] === 1,
+    boosting: c.boosting[i] === 1,
+    wreck: c.wreck[i] === 1,
+    ghost: c.ghostT[i] > 0,
+  };
+}
 
 /** A remote car's pose `lead` seconds on from the entity's (straight on, turning at its yaw rate). */
 export function predict(e: Record<string, unknown>, lead: number): RemotePose {
@@ -117,34 +147,9 @@ export class NetCars {
     private at?: number,
   ) {
     this.kind = room.define('car', CAR_FIELDS, { rate: CAR_RATE });
-    this.mine = this.kind.spawn(this.fields());
+    this.mine = this.kind.spawn(carFields(sim, me));
     this.lastX = sim.cars.x[me];
     this.lastZ = sim.cars.z[me];
-  }
-
-  private fields(): Record<string, number | boolean> {
-    const c = this.sim.cars;
-    const i = this.me;
-    return {
-      x: c.x[i],
-      y: c.y[i],
-      z: c.z[i],
-      h: c.h[i],
-      vx: c.vx[i],
-      vy: c.vy[i],
-      vz: c.vz[i],
-      yaw: c.yaw[i],
-      pitch: c.pitch[i],
-      roll: c.roll[i],
-      rx: c.rx[i],
-      rz: c.rz[i],
-      steer: this.sim.controls[i].steer,
-      grounded: c.grounded[i] === 1,
-      drift: c.drift[i] === 1,
-      boosting: c.boosting[i] === 1,
-      wreck: c.wreck[i] === 1,
-      ghost: c.ghostT[i] > 0,
-    };
   }
 
   /** Before each step: the countdown on the server's clock, and every other player's car where they are now. */
@@ -172,7 +177,7 @@ export class NetCars {
   afterStep(): void {
     const c = this.sim.cars;
     const i = this.me;
-    const f = this.fields();
+    const f = carFields(this.sim, i);
     for (const k in f) this.mine[k] = f[k];
     // A reset or a respawn: a jump, not a drive across the map.
     if (Math.hypot(c.x[i] - this.lastX, c.z[i] - this.lastZ) > TELEPORT_M) this.mine.teleport();
