@@ -4,7 +4,7 @@ Where racecar stands and what's next, for whoever picks it up (a person or a fre
 The design is [SPEC.md](./SPEC.md): decisions in §17, and what building changed in "Changed while
 building". This file is "where are we"; the spec is "what are we making".
 
-**Last updated:** 2026-10-01. `main` is tagged **`alpha-1.22`** (PRs #46 and #47: the online race on `relay.tick`; traffic, bumps and takedown credit across screens).
+**Last updated:** 2026-10-01. `main` is tagged **`alpha-1.23`** (PR #48: one results table and a vote on the next map, then straight into the next race; `alpha-1.22` was PRs #46 and #47: the online race on `relay.tick`, and traffic, bumps and takedown credit across screens).
 Every release is in [CHANGELOG.md](../CHANGELOG.md): add to its "Unreleased" section as you go,
 and retitle that section when you tag. [PLAN.md](./PLAN.md)'s six phases are all merged (it keeps
 a pool of other ideas), how online works is [ONLINE.md](./ONLINE.md), how maps are made is
@@ -37,7 +37,8 @@ old keys still resolve). The third map is **Paradise** (`content/maps/paradise`,
   [PLAN.md](./PLAN.md)'s phases (PRs #14–#30, `alpha-1.8` to `alpha-1.12`).
 - **Milestone 3 (online) is under way:** online lobbies, remote cars, P2P and the host's AIs are
   in (PRs #32–#42, `alpha-1.14` to `alpha-1.19`), and so are a hidden host tab that keeps
-  racing, shared traffic, bumps and takedown credit (PRs #46 and #47, `alpha-1.22`). What's left is the milestone 3 list under "Next,
+  racing, shared traffic, bumps and takedown credit (PRs #46 and #47, `alpha-1.22`), and one
+  results table with a vote on the next race (PR #48, `alpha-1.23`). What's left is the milestone 3 list under "Next,
   in order".
 - **What exists, by area** (details in "What's built" below and in SPEC "Changed while
   building"):
@@ -256,7 +257,7 @@ Clockwise round a tropical island, the volcano in the middle and the sea all rou
     the track for an hour. The proxy always sends it.
   - **CORS on the Space** (GET and HEAD from any origin) stays: it lets a build read the Space's
     origin directly too, if the CDN is ever down.
-- **What's there now:** `main` at `alpha-1.22` (the online race on `relay.tick`; traffic, bumps and takedown credit), updated 2026-10-01. Keep it the
+- **What's there now:** `main` at `alpha-1.23` (the vote on the next race, on top of `alpha-1.22`'s online fixes), updated 2026-10-01. Keep it the
   one row: update Z442EE in place rather than adding a game.
 
 ## Next, in order
@@ -296,7 +297,7 @@ Clockwise round a tropical island, the volcano in the middle and the sea all rou
    - **Traffic, bumps and credit** (PR #47, `alpha-1.22`): the race's clock is the server's (traffic was
      15–20 m apart between screens), traffic hits are claimed (`src/net/traffic.ts`), and bumps
      and takedown credit cross screens (`src/net/contact.ts`).
-   - **Results and the vote** (unreleased): one results table from each car's own screen, a vote
+   - **Results and the vote** (PR #48, `alpha-1.23`): one results table from each car's own screen, a vote
      on the next map on the results screen (`src/lobby/vote.ts`, `src/net/postrace.ts`), and
      straight into the next race.
 

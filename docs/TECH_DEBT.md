@@ -14,7 +14,7 @@ How to use it:
 - **Each item says roughly what it'd take** (small, medium, large) and what it would buy, so it
   can be weighed against features later.
 
-Last updated 2026-10-01 (`alpha-1.22`).
+Last updated 2026-10-01 (`alpha-1.23`).
 
 ## Online (`src/net`, `src/lobby`)
 

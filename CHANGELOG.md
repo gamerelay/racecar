@@ -6,6 +6,10 @@ and where things stand is [docs/HANDOFF.md](./docs/HANDOFF.md).
 
 ## Unreleased
 
+## alpha-1.23: a vote on the next race
+
+PR #48.
+
 - **Online, a vote on the next map** after each race, on the results screen: 15 s once everyone's
   in, the host breaks a tie, then straight into the next race together. "Back to lobby" sits you
   out of it.
