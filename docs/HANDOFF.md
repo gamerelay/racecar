@@ -254,7 +254,7 @@ Clockwise round a tropical island, the volcano in the middle and the sea all rou
     the track for an hour. The proxy always sends it.
   - **CORS on the Space** (GET and HEAD from any origin) stays: it lets a build read the Space's
     origin directly too, if the CDN is ever down.
-- **What's there now:** `main` at `alpha-1.21` (the music from https://cdn.gamerelay.io), updated 2026-10-01. Keep it the
+- **What's there now:** `main` after `alpha-1.21` (PR #46: the online race on `relay.tick`), updated 2026-10-01. Keep it the
   one row: update Z442EE in place rather than adding a game.
 
 ## Next, in order
