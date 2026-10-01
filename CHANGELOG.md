@@ -6,8 +6,9 @@ and where things stand is [docs/HANDOFF.md](./docs/HANDOFF.md).
 
 ## Unreleased
 
-- **Music:** the game has its own soundtrack, a track for the title and menus and one for each
-  map (Downtown, Backroads, Paradise), in place of the synth loop. N still toggles it.
+- **Music:** the game has its own soundtrack, in place of the synth loop: a track for the title
+  and menus, and in a race the map's own (Downtown, Backroads, Paradise) or one of two that go on
+  any map (Finish Line, Final Sprint), never the same song twice in a row. N still toggles it.
 
 ## alpha-1.19: the AIs online
 

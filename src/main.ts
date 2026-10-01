@@ -20,7 +20,7 @@ import { GreyboxSkin } from './render/skins/greybox';
 import { posthogEnabled, posthogSink } from './telemetry/posthog';
 import { Telemetry } from './telemetry/telemetry';
 import { GameAudio } from './audio/audio';
-import { Soundtrack, trackFor, trackUrl } from './audio/soundtrack';
+import { playlistFor, Soundtrack } from './audio/soundtrack';
 import { Hud } from './ui/hud';
 import { RaceUi } from './ui/race';
 import { accept, navigate } from './ui/nav';
@@ -131,10 +131,30 @@ const renderer = new GameRenderer(document.getElementById('stage')!, new Greybox
   plates: names.map((text) => ({ text, region: map.name, map: map.id })),
 });
 const hud = new Hud(sim);
-// The page's soundtrack: the title's behind the menus, the map's in a race (`?music=0`: the synth's).
-const trackName = params.get('music') === '0' ? null : trackFor(map.id, attract);
-const track = trackName ? new Soundtrack(trackUrl(trackName, import.meta.env.VITE_MUSIC_URL ?? `${import.meta.env.BASE_URL}music/`)) : null;
-const audio = new GameAudio(sim, track, trackName === 'title');
+// The page's soundtrack: the title's behind the menus; in a race, the map's own track and the two
+// for any map, never the one the last race played first (`?music=0`: the synth's).
+const playlist = params.get('music') === '0' ? null : playlistFor(map.id, attract);
+const LAST_TRACK = 'racecar.lastTrack';
+const track = playlist
+  ? new Soundtrack(playlist, import.meta.env.VITE_MUSIC_URL ?? `${import.meta.env.BASE_URL}music/`, {
+      last: (() => {
+        try {
+          return localStorage.getItem(LAST_TRACK);
+        } catch {
+          return null;
+        }
+      })(),
+      remember: (t) => {
+        if (t === 'title') return;
+        try {
+          localStorage.setItem(LAST_TRACK, t);
+        } catch {
+          // Blocked storage: the next race may start on this one.
+        }
+      },
+    })
+  : null;
+const audio = new GameAudio(sim, track, attract);
 const raceUi = new RaceUi(sim, CLASSES, names, specs.map((x) => PAINTS[(x.paint ?? 0) % PAINTS.length].color));
 raceUi.onAgain = () => raceAgain(run);
 raceUi.onSetup = () => backToSetup(run);

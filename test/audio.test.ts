@@ -4,7 +4,7 @@ import { doppler, ENGINE_SOUNDS, engineHz, engineSound, gearbox, spatial } from 
 import { CLASSES } from './helpers';
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
-import { Soundtrack, TRACKS, trackFor, trackUrl, type TrackName } from '../src/audio/soundtrack';
+import { ANY_MAP, pickTrack, playlistFor, Soundtrack, TRACKS, trackUrl, type TrackName } from '../src/audio/soundtrack';
 import { MAPS } from '../tools/content';
 
 // The sound model is pure (the Web Audio graph isn't testable in Bun): gears, pitch, where a sound
@@ -71,11 +71,20 @@ describe('audio model', () => {
 });
 
 describe('the soundtrack', () => {
-  test("the title's track behind the menus, each map's in its race, and a file for every one", () => {
-    expect(trackFor('downtown', true)).toBe('title');
-    for (const m of MAPS) expect(trackFor(m.id, false)).toBe(m.id as TrackName);
-    expect(trackFor('volcano', false)).toBeNull();
+  test("the title's track behind the menus; in a race the map's own and the two for any map; a file for every one", () => {
+    expect(playlistFor('downtown', true)).toEqual(['title']);
+    for (const m of MAPS) expect(playlistFor(m.id, false)).toEqual([m.id as TrackName, ...ANY_MAP]);
+    expect(playlistFor('volcano', false)).toEqual([...ANY_MAP]);
     for (const name of TRACKS) expect(existsSync(join(import.meta.dir, '..', 'public', 'music', `${name}.m4a`))).toBe(true);
+  });
+
+  test('never the same song twice in a row: a pick skips the last one, whatever the dice say', () => {
+    const list = playlistFor('paradise', false);
+    for (const last of list) for (const r of [0, 0.34, 0.67, 0.999]) expect(pickTrack(list, last, () => r)).not.toBe(last);
+    // Every other track comes up.
+    expect(new Set([0, 0.5, 0.99].map((r) => pickTrack(list, 'paradise', () => r)))).toEqual(new Set(ANY_MAP));
+    // A playlist of one (the title's) is that one.
+    expect(pickTrack(['title'], 'title')).toBe('title');
   });
 
   test('a track is at the base given, with or without its slash', () => {
@@ -94,10 +103,16 @@ describe('the soundtrack player', () => {
     loop = false;
     preload = '';
     src = '';
-    addEventListener() {}
+    on: Record<string, () => void> = {};
+    addEventListener(type: string, f: () => void) {
+      this.on[type] = f;
+    }
     play() {
       this.plays++;
-      return FakeAudio.answer().then(() => void (this.paused = false));
+      return FakeAudio.answer().then(() => {
+        this.paused = false;
+        this.on.playing?.();
+      });
     }
     pause() {
       this.paused = true;
@@ -106,7 +121,7 @@ describe('the soundtrack player', () => {
   const refuse = () => Promise.reject(Object.assign(new Error('no'), { name: 'NotAllowedError' }));
   function player() {
     (globalThis as { Audio?: unknown }).Audio = FakeAudio;
-    const t = new Soundtrack('/music/title.m4a');
+    const t = new Soundtrack(['title'], '/music/');
     const ctx = { createMediaElementSource: () => ({ connect() {} }) } as unknown as AudioContext;
     t.connect(ctx, {} as AudioNode);
     return { t, el: t.el as unknown as FakeAudio };
@@ -152,5 +167,27 @@ describe('the soundtrack player', () => {
     t.play(true);
     await settle();
     expect(t.failed).toBe(true);
+  });
+
+  test("a race's playlist starts off the last race's track, goes on to another when one ends, and remembers what played", async () => {
+    FakeAudio.answer = () => Promise.resolve();
+    (globalThis as { Audio?: unknown }).Audio = FakeAudio;
+    const played: string[] = [];
+    const t = new Soundtrack(playlistFor('downtown', false), '/music/', { last: 'downtown', remember: (x) => played.push(x) }, () => 0);
+    const el = t.el as unknown as FakeAudio;
+    t.connect({ createMediaElementSource: () => ({ connect() {} }) } as unknown as AudioContext, {} as AudioNode);
+    expect(t.current).not.toBe('downtown');
+    expect(el.loop).toBe(false);
+    t.play(true);
+    await settle();
+    expect(played).toEqual([t.current]);
+    const first = t.current;
+    el.paused = true;
+    el.on.ended();
+    await settle();
+    expect(t.current).not.toBe(first);
+    expect(el.src).toBe(`/music/${t.current}.m4a`);
+    expect(el.paused).toBe(false);
+    expect(played).toEqual([first, t.current]);
   });
 });

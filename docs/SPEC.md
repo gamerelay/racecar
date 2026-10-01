@@ -1873,17 +1873,20 @@ Review fixes (PRs #26–#30):
 
 The soundtrack (owner's tracks, 2026-10-01):
 
-- **Recorded music: one track for the title and menus, and one per map** (`public/music/`:
-  `title`, `downtown`, `backroads`, `paradise`). The owner's WAVs (about 30 MB each) are AAC in
-  `.m4a` at 128 kb/s, 2–3 MB each, which every browser plays (Safari too). Their loudness is within
-  1.3 LU of each other (−14 to −15.5 LUFS), so they aren't normalised.
+- **Recorded music: one track for the title and menus, one per map, and two for any map**
+  (`public/music/`: `title`, `downtown`, `backroads`, `paradise`, `finish-line`,
+  `final-sprint`). The owner's WAVs (30–40 MB each) are AAC in `.m4a` at 128 kb/s, 2–3.4 MB each
+  (17 MB in all), which every browser plays (Safari too). Their loudness is within 1.8 LU of each
+  other (−14.2 to −16 LUFS), so they aren't normalised.
 - **Streamed and looped through the music bus** (`src/audio/soundtrack.ts`): an `<audio>` element
   into Web Audio, so N, M, the slow-mo duck and the music level apply as before. It sits at
   `TRACK_LEVEL` (0.45) into the bus: the tracks are mastered far louder than the synth. Paused,
   hidden or muted, the track pauses with the context (it would play on unheard otherwise).
-- **Which track:** the title's behind the menus and in lobbies (the attract page), the map's in a
-  race and on its results. The title's track isn't muffled behind the menu (the synth was, under
-  the attract race). Each page plays its own from the start: a race is a new page.
+- **Which track:** the title's behind the menus and in lobbies (the attract page), looping. A race
+  (and its results) plays a playlist: the map's own track and the two for any map (the owner's,
+  so a map's music doesn't go stale). Never the same song twice in a row: a race starts on one the
+  last race didn't play (`racecar.lastTrack` on the device), and when a track ends another one
+  follows. The title's track isn't muffled behind the menu (the synth was, under the attract race).
 - **The synth is the fallback**, for a track that can't load or play, and with `?music=0`.
 - **Played from gestures too** (review of PR #44): some browsers (iOS Safari, Safari's "Never
   Auto-Play") only start media from a key or click, and the frame loop isn't one. The first
