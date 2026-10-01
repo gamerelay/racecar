@@ -6,7 +6,6 @@
 //
 // They never wreck anyone: a hit costs a little speed, the bigger the prop the more.
 
-import type { SmashDef } from '../content';
 import { hash01 } from '../rng';
 import type { Track } from '../track/bake';
 import { newHit, projectGlobal, sampleAt } from '../track/query';

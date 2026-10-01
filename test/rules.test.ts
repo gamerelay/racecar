@@ -195,3 +195,21 @@ describe('second review pass', () => {
     expect([c.prx[i], c.prz[i], c.slip[i]]).toEqual([0, 0, 0]);
   });
 });
+
+describe('a whole race', () => {
+  test('eight AIs from the grid to the flag: every one finishes, each in its own place, in the order they crossed', () => {
+    const sim = ringSim(3);
+    const ids = CLASSES.map((c) => c.id);
+    for (let i = 0; i < 8; i++) sim.addCar({ cls: ids[i % ids.length], racer: { difficulty: (i % 3) as 0 | 1 | 2 } });
+    sim.startRace(1, 0.5);
+    const none: Controls[] = [];
+    for (let k = 0; k < 120 * 60 && sim.race.finishedCount < 8; k++) sim.step(none);
+    expect(sim.race.finishedCount).toBe(8);
+    const c = sim.cars;
+    const places = [...c.place].slice(0, 8).sort((a, b) => a - b);
+    expect(places).toEqual([1, 2, 3, 4, 5, 6, 7, 8]);
+    const byPlace = [0, 1, 2, 3, 4, 5, 6, 7].sort((a, b) => c.place[a] - c.place[b]);
+    for (let k = 1; k < 8; k++) expect(c.finishTime[byPlace[k]]).toBeGreaterThanOrEqual(c.finishTime[byPlace[k - 1]]);
+    for (const i of byPlace) expect(c.finished[i]).toBe(1);
+  });
+});

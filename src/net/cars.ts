@@ -34,6 +34,8 @@ export interface NetRoom {
   readonly me: string;
   /** Whether you hold the room's host role (it moves by itself). */
   readonly isHost: boolean;
+  /** Who holds it: a host entity's owner is them. */
+  readonly hostId: string;
   /** The server-clock moment others' entities are shown at (ms). */
   readonly renderTime: number;
   define(kind: string, fields: Record<string, unknown>, options?: { rate?: number }): NetKind;
@@ -43,6 +45,12 @@ export interface NetRoom {
 export const CAR_RATE = 30;
 /** Prediction looks this far ahead at most (s): past it, a stalled connection would fling the car. */
 const MAX_LEAD = 0.25;
+/**
+ * The most another page's car may be said to move (m/s, about twice the fastest car's top speed) and
+ * turn (rad/s): what it sends is its word, and a car flung at you is your sim's problem.
+ */
+const MAX_SPEED = 140;
+const MAX_YAW = 12;
 /** A jump this long in one step (m) is a reset or a respawn: everyone snaps instead of sliding. */
 export const TELEPORT_M = 12;
 
@@ -70,6 +78,15 @@ export const CAR_FIELDS = {
 } as const;
 
 const n = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) ? v : 0);
+const clamp = (v: number, lim: number) => Math.max(-lim, Math.min(lim, v));
+
+/** How far ahead to predict others' entities now (s): from the SDK's render delay, capped. */
+export function predictLead(room: NetRoom, now: number): number {
+  return Math.min(MAX_LEAD, Math.max(0, (now - room.renderTime) / 1000));
+}
+
+/** Another page's steering, as a control (the wheels show it). */
+export const remoteSteer = (e: Record<string, unknown>) => clamp(n(e.steer), 1);
 
 /** Car `i`'s entity fields, from the sim as it is now. */
 export function carFields(sim: Sim, i: number): Record<string, number | boolean> {
@@ -96,19 +113,29 @@ export function carFields(sim: Sim, i: number): Record<string, number | boolean>
   };
 }
 
-/** A remote car's pose `lead` seconds on from the entity's (straight on, turning at its yaw rate). */
+/** A remote car's pose `lead` seconds on from the entity's (straight on, turning at its yaw rate), its motion capped. */
 export function predict(e: Record<string, unknown>, lead: number): RemotePose {
   // A wreck tumbles on its own path; it isn't driving anywhere worth guessing at.
   const t = e.wreck ? 0 : lead;
+  let vx = n(e.vx);
+  let vy = n(e.vy);
+  let vz = n(e.vz);
+  const v = Math.hypot(vx, vy, vz);
+  if (v > MAX_SPEED) {
+    vx *= MAX_SPEED / v;
+    vy *= MAX_SPEED / v;
+    vz *= MAX_SPEED / v;
+  }
+  const yaw = clamp(n(e.yaw), MAX_YAW);
   return {
-    x: n(e.x) + n(e.vx) * t,
-    y: n(e.y) + n(e.vy) * t,
-    z: n(e.z) + n(e.vz) * t,
-    h: n(e.h) + n(e.yaw) * t,
-    vx: n(e.vx),
-    vy: n(e.vy),
-    vz: n(e.vz),
-    yaw: n(e.yaw),
+    x: n(e.x) + vx * t,
+    y: n(e.y) + vy * t,
+    z: n(e.z) + vz * t,
+    h: n(e.h) + yaw * t,
+    vx,
+    vy,
+    vz,
+    yaw,
     pitch: n(e.pitch),
     roll: n(e.roll),
     rx: n(e.rx),
@@ -156,7 +183,7 @@ export class NetCars {
   beforeStep(): void {
     // Each step, not once: a tab in the background doesn't step, and its sim's clock falls behind.
     if (this.at !== undefined && this.sim.race.phase === 'countdown') this.sim.race.goTime = this.sim.time + startDelay(this.at, this.now());
-    const lead = Math.min(MAX_LEAD, Math.max(0, (this.now() - this.room.renderTime) / 1000));
+    const lead = predictLead(this.room, this.now());
     const here = new Set<string>();
     for (const e of this.kind.all()) {
       if (e.mine) continue;
@@ -166,7 +193,7 @@ export class NetCars {
       this.seen.add(e.owner.id);
       this.sim.cars.active[i] = 1;
       this.sim.setPose(i, predict(e, lead));
-      this.sim.controls[i].steer = n(e.steer);
+      this.sim.controls[i].steer = remoteSteer(e);
     }
     // Gone for good (left the room): their car leaves the race. One not seen yet isn't in it yet
     // (`addCar` leaves a remote car out until it shows up).

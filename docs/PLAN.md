@@ -1,5 +1,9 @@
 # Plan: lobbies, names, polish, and Paradise
 
+> **Done (2026-10-01):** all six phases are merged (PRs #14–#30, `alpha-1.8` to `alpha-1.12`).
+> What's next is milestone 3, in [HANDOFF.md](./HANDOFF.md)'s "Next, in order". This file stays
+> as the record of the batch, and "Other ideas" below is still a pool to draw from.
+
 The next batch of work, from the playtest notes of 2026-09-30. Each phase is one PR with CI, and
 builds on what's there: the lobby design in SPEC §11, the Valley's generator for the new map,
 the Trestle and the City's decks for Paradise's freeway. Decisions made while building go in
@@ -13,7 +17,8 @@ leave a few small details behind.
 
 1. **The title is Racecar**: a RACECAR wordmark on the title screen.
 2. **Lobbies ship locally first** (your lobby with bots, fully playable); online lobbies plug in
-   once GameRelay PR #30 is deployed, when the owner approves it.
+   once GameRelay PR #30 is deployed, when the owner approves it. (Obsolete: online lobbies
+   shipped in PR #32, `alpha-1.14`.)
 3. **The car select screen** puts everything on one screen, like other racing games: the menu
    docks left, your car sits centre-right, and the selected map runs behind as the preview, so
    picking a map, a car or a paint shows it at once.
@@ -73,7 +78,7 @@ is a lobby with seven bots.
   The screens only see the model. Starting a race turns the seats into `specs`, as
   `main.ts` does today.
 - **Until online lands:** the list shows your local lobby and a "Online lobbies arrive soon"
-  row, not fake rooms.
+  row, not fake rooms. (Obsolete: online lobbies are listed since PR #32.)
 - **Tests:**
   - seats become the race's cars (AI seats get their difficulty, closed seats get nothing);
   - the host rules (only the host changes seats);
@@ -243,14 +248,14 @@ race; some move, and a few you can hit.
 
 - **Stunt air:** a barrel roll or flat spin in the air pays extra on a clean landing, with a
   "Barrel roll!" pop. It builds on the air boost; the aftertouch already lets you tilt.
-- **Signature hazards per map** as shared moments: volcano bombs on Paradise, a cattle crossing
-  on Backroads, the drawbridge rising on Downtown (a jump when it's half up).
+- **Signature hazards per map** as shared moments: volcano bombs on Paradise (done, PR #24), a
+  cattle crossing on Backroads, the drawbridge rising on Downtown (a jump when it's half up).
 - **Rivals:** whoever took you down last gets a red marker over their car and on the minimap
   until you get revenge (the revenge takedown already exists).
 - **Race-time flavour:**
   - Downtown at dusk or night;
-  - Paradise at noon or sunset;
-  - weather that can arrive mid-race (a shower rolling in).
+  - Paradise at noon or sunset (done: the Time option, PR #23);
+  - weather that can arrive mid-race (done: Paradise's passing showers, PR #23).
 - **Map vote cards** with a thumbnail rendered from each layout, for the between-race vote in
   SPEC §11.
 - **Ghost of your best lap** in free drive, and a daily seed with a leaderboard (GameRelay

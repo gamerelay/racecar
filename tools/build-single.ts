@@ -33,7 +33,7 @@ await build({
     // One script: everything, the editor's lazy imports included, in one IIFE.
     modulePreload: false,
     cssCodeSplit: false,
-    rollupOptions: { input: join(root, 'index.html'), output: { format: 'iife', inlineDynamicImports: true } },
+    rolldownOptions: { input: join(root, 'index.html'), output: { format: 'iife', codeSplitting: false } },
   },
 });
 

@@ -6,6 +6,14 @@ and where things stand is [docs/HANDOFF.md](./docs/HANDOFF.md).
 
 ## Unreleased
 
+- **Fixed:** a player's name with markup in it ran on everyone's results screen. Names are plates
+  now, wherever they come from, and the results escape them.
+- **Fixed:** a lobby listing or a host's lobby with a bad map or seat could break the lobby list
+  or screen for everyone. Everything other players send is checked all through.
+- **Fixed:** anyone could drive an AI on everyone's screen by sending one of their own, and other
+  players' cars can't be flung at you at any speed.
+- The docs are up to date with milestone 3 (README, HANDOFF, SPEC, PLAN, MAPS, CARS).
+
 ## alpha-1.19: the AIs online
 
 PR #42.

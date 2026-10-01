@@ -16,6 +16,8 @@ are in [SPEC.md](./SPEC.md) "Changed while building"; this is the map.
 | `src/lobby/backend.ts` | `LobbyBackend`, the local lobby (`LocalBackend`, in this browser), and `Lobbies`, which puts both behind one. |
 | `src/ui/menu.ts` | The screens: the title's list, Create lobby, the lobby, the plate editor. |
 | `src/net/cars.ts` | In the race: each player's car as an entity, everyone else's as a remote car. |
+| `src/net/join.ts` | The race page's join: it stays in the lobby's room, sends your car once in, and starts the race from here if that takes over 8 s. |
+| `src/lobby/warn.ts` | `warned`: an online failure the lobby carries on through, said in the console. |
 | `src/net/rivals.ts` | In the race: the AIs, driven by the SDK's host and sent to everyone as `rival` entities. |
 
 ## A lobby's life

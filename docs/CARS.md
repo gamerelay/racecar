@@ -69,7 +69,7 @@ Current designs:
 | rally (Mudlark) | player | jacked-up hatch, chunky tyres, flaps, scoop, light pod, number livery |
 | compact | traffic | short round nose, domed roof, big friendly round lamps |
 | truck | traffic | cab, a real gap, then a separate cargo box with twin rear tyres |
-| police | garage only | sedan shell, black-and-white livery, flashing light bar, push bar |
+| police (Interceptor) | player | sedan shell, black-and-white livery, flashing light bar, push bar |
 
 ### 2. Building the shape (`build.ts`)
 
@@ -189,7 +189,7 @@ art can be worked on without driving. State lives in the URL (`cls`, `paint`, `v
 
 - **Views:** chase, orbit, rear34, side, front34, top.
 - **Keys:**
-  - 1–7 player classes, 8 compact, 9 truck, `-` police, 0 lineup, T traffic lineup.
+  - 1–8 player classes (8 is police), 9 compact, `-` truck, 0 lineup, T traffic lineup.
   - P paint, V view, M palette.
   - O ink, K car ink, F post.
   - W wreck, R repair, B brake, Space boost, ←/→ steer, S road.
@@ -254,7 +254,8 @@ The method each time:
 2. **Add it to the garage.** Put it on a key in `src/viewer/cars.ts` and check it in chase, side,
    front34 and the lineup. Check ink with K on and off, and wreck with W then R.
 3. **Hook it into the game, if it's for play or traffic.**
-   - **Player or AI class:** a class JSON in `content/cars/` plus `CLASSES`, and the lap report
+   - **Player or AI class:** a class JSON in `content/cars/` plus its id in `CLASS_ORDER`
+     (`src/core/content.ts`; `CLASSES` in `src/content.ts` is built from it), and the lap report
      (`bun tools/lap-report.ts --cars`) to balance it.
    - **Traffic:** the design id matching the traffic kind id is enough. `trafficModel` looks it up.
 4. **Build only what the design needs.** If it needs a new part, add an optional field to `CarDesign`
