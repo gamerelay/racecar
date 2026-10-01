@@ -183,7 +183,7 @@ export class Lobbies implements LobbyBackend {
     return this.online.create(host, init);
   }
 
-  /** Too slow (online), it's null; the join goes on, and the caller decides (the menu abandons it, the race page keeps waiting). */
+  /** Too slow (online), it's null, though the join goes on: the menu abandons it (the race page waits on the backend's own `get`). */
   async get(id: string): Promise<Lobby | null> {
     const backend = this.of(id);
     if (!backend) return null;
