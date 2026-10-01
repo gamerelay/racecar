@@ -95,7 +95,7 @@ if (run.mode === 'race') sim.startRace(run.laps, attract ? 1 : onlineRace ? 30 :
 let net: NetCars | null = null;
 if (onlineRace) void joinRace();
 // A race of your own from an online lobby: the page still stays in its room, so your seat is still yours after it.
-else if (run.lobby && run.lobby !== LOCAL_ID && online) void lobbies.get(run.lobby);
+else if (run.lobby && run.lobby !== LOCAL_ID && online) void online.get(run.lobby).catch(() => null);
 
 /** The race page stays in its lobby's room (your seat is still yours after it), and your car goes out. */
 async function joinRace(): Promise<void> {
@@ -104,7 +104,9 @@ async function joinRace(): Promise<void> {
     if (!net && sim.race.phase === 'countdown') sim.race.goTime = sim.time + 3;
   }, 8000);
   try {
-    const lobby = await lobbies.get(run.lobby!);
+    // The backend's own join, not the screens' (which give up after 5 s): however long it takes,
+    // your car goes out once you're in (the fallback has started the race by then).
+    const lobby = await online!.get(run.lobby!);
     const relay = await online!.connection();
     if (!lobby || !relay.room) return;
     net = new NetCars(relay.room as unknown as NetRoom, () => relay.now(), sim, me, remote, run.at);

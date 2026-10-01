@@ -240,6 +240,7 @@ svg.thumb .cut { stroke: var(--sun); stroke-width: 1.5; stroke-dasharray: 3 2; }
 .seats .ping .fair { color: var(--sun); }
 .seats .ping .poor { color: #ff9a3c; }
 .seats .ping .bad { color: #ff5c6c; }
+.seats .ping .away { color: var(--muted); font-style: italic; }
 /* Your plate in your seat: a button that opens the plate editor. */
 .card button.seatPlate { margin: 0; padding: 0; background: none; border: 0; box-shadow: none; cursor: pointer; }
 .card button.seatPlate:hover, .card button.seatPlate:focus-visible { transform: translate(-1px, -1px); box-shadow: none; }
