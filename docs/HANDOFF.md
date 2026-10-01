@@ -17,11 +17,14 @@ The third map is **Paradise** (`content/maps/paradise`, key `paradise/island`).
 
 1. `cd ~/dev/racecar && bun install && bun run dev`, then open http://localhost:5178. For online
    lobbies, also run the gamerelay.io repo's server (`bun run dev` there, :8787), then use two tabs.
-2. Read this file, then SPEC §17 and the milestone 2 notes under "Changed while building".
-3. The platform side is ready: gamerelay PR #30 (host controls) is deployed and SDK
-   `0.1.0-alpha.4` has it (see "GameRelay side" below).
-4. Before changing anything: `bun test && bun run typecheck && bun tools/validate.ts`. All three
-   are green on `main` (187 tests). Branch off `main`, one PR per phase, with CI.
+2. Read this file, then [ONLINE.md](./ONLINE.md) (how lobbies, hosts, parties and players work),
+   SPEC §17 and the milestone 3 notes under "Changed while building".
+3. The platform side is ready: SDK `0.1.0-alpha.4` has everything racecar uses (host controls,
+   listings, parties, `lanRoute`), and the `racecar` instance has parties and Direct connections
+   on (see "GameRelay side" below).
+4. Before changing anything: `bun test && bun run typecheck && bun tools/validate.ts --ai`. All
+   three are green on `main` (247 tests). Branch off `main`, one PR per change, with CI, then
+   `/code-review` on the PR.
 
 ## Where things stand
 
@@ -292,10 +295,16 @@ Clockwise round a tropical island, the volcano in the middle and the sea all rou
   meta as text.
 - So milestone 3's lobby isn't blocked on the platform any more: the `relay` LobbyBackend can be
   built against the published SDK.
-- **An ask, not blocking:** the lobby header says how players reach each other (LAN, Relay or
-  Server) from `room.lanRoute`. It can't name the relay's region, or tell a LAN from a direct
-  path over the internet (party direct): the SDK would need to say which (for example, the TURN
-  relay's region with `'relay'`, and `'lan'` vs `'p2p'` for direct).
+- **The `racecar` instance** (`ins_qnGcfcjInJCg8dTr`, 8 players): parties on, Direct
+  connections on (for P2P), allowed origins `http://localhost` and `https://asleepace.com`. Its
+  public key is in `.env.production`.
+- **Asks, none blocking** (ONLINE.md "Asks for GameRelay"):
+  - direct connections between a room's players, with no party (a party drags its members into
+    its leader's next room, so racecar has to make sure it never outlives the lobby);
+  - whether a direct channel is across one network or over the internet, and a relayed one's
+    region, so the connection button can say LAN, P2P or the region (it says P2P, Relay or
+    Server today);
+  - seat reservations for invite links.
 
 ## Hosted test build
 
@@ -323,33 +332,37 @@ Clockwise round a tropical island, the volcano in the middle and the sea all rou
      `df1f6a2`). The relays didn't need it: they run the Rust `resonance-node`, which already
      metered signed requests.
    - PLAN's "Other ideas" (stunt air, rivals, map vote cards...).
-2. **Milestone 3 (online), per the spec:**
-   - **Online lobbies: merged** (PR #32, `alpha-1.14`; SPEC "Online lobbies"). Lobbies are
-     rooms (`src/lobby/relay.ts`), listed with `setListing`, and the SDK's host applies
-     everyone's actions with `apply`. Start takes everyone into the same race, and the race page
-     keeps the seat. A lobby is Public, Invite only (by link, unlisted) or Private (locked:
-     nobody new sits down); the host cycles it from the header's button. Only Public lobbies are
-     listed; your own (local) one isn't, and closes when you leave. Quick race skips lobbies.
-     The lobby as it was signed off: `screenshots/lobby-desktop.png`.
-   - **How online works, end to end, and what Xbox Live does for each part:** `docs/ONLINE.md`.
-   - **P2P:** each online lobby is also a party (`Lobby.party`), and the client connects with
-     `lan: { direct: 'party' }`; the `racecar` instance's Direct connections setting is on. It
-     shows players each other's IP, without asking: revisit (an opt-in) before going public.
-   - **Remote cars: merged** (PR #33, `alpha-1.15`; SPEC "Remote cars"). Each player's car
-     is an entity at 30 Hz (`src/net/cars.ts`), a remote car in everyone else's sim, predicted to
-     now. Green is on the server's clock. Next: the AIs as host entities, traffic with
-     `room.claim`, bump dedupe and wreck credit, and the host's results.
-     The production instance is `racecar` (`ins_qnGcfcjInJCg8dTr`, 8 players, parties on); its
-     public key is in `.env.production`. Its allowed origins are only `http://localhost` for
-     now: add the site's origin there (dashboard, or the account MCP) when racecar is hosted.
-   - Plates go in player data, and names float over cars within ~60 m (PLAN phase 3).
-   - The `net/` layer:
-     - car entities at 30 Hz with steer and throttle, and prediction in-game,
-     - bump dedupe within ±150 ms, and the victim decides wrecks,
-     - traffic hits and triggers resolved with `room.claim`,
-     - shared moments scheduled about 250 ms ahead on the server clock.
-   - A vote on the next race, a net overlay, and bots. The repo goes public.
-   - Then milestone 3b: the neon City skin, which is the launch.
+2. **Milestone 3 (online).** How it all works, end to end, and what Xbox Live does for each
+   part: [ONLINE.md](./ONLINE.md). Done so far:
+   - **Online lobbies** (PR #32, `alpha-1.14`): a lobby is a room (`src/lobby/relay.ts`), the
+     SDK's host applies everyone's actions with `apply`, Start takes everyone into the same race,
+     and the race page keeps the seat.
+   - **Remote cars** (PR #33, `alpha-1.15`): each player's car is an entity at 30 Hz
+     (`src/net/cars.ts`), a remote car in everyone else's sim, predicted to now. Green is on the
+     server's clock.
+   - **The lobby, cleaned up** (PR #36, `alpha-1.17`): Public, Invite only or Private (the host
+     cycles it from the header), only Public listed, your own lobby local and closed when you
+     leave, Quick race without a lobby, a ping per player and the connection type, your plate
+     editable from your seat, a random car when you sit down. As it was signed off:
+     `screenshots/lobby-desktop.png`.
+   - **P2P** (PRs #37 and #38, `alpha-1.18`): each online lobby is also a party (`Lobby.party`,
+     `src/lobby/party.ts`), and the client connects with `lan: { direct: 'party' }`. It shows
+     players each other's IP, without asking.
+   - **The online review** (PR #39, `alpha-1.18`): the SDK host role moving re-tidies the lobby
+     (`host_changed`), room changes run one at a time, a join the menu gives up on leaves, Away
+     for a dropped player, and relay.ts split into wire, party, presence and relay.
+
+   Next, in order:
+   - **The AIs as host-owned `rival` entities**, so every screen has the same bots (today each
+     screen runs its own).
+   - **Traffic hits through `room.claim`**, then bump dedupe (±150 ms) and wreck credit (the
+     victim decides wrecks already).
+   - **Results written by the host** (Xbox's arbitration), so everyone's results agree.
+   - **Names over cars** within ~60 m, from player data (PLAN phase 3).
+   - **A vote on the next race**, and a net overlay.
+   - **Before the repo goes public:** a P2P opt-in (it shows IPs today), and seat reservations
+     for invite links if GameRelay adds them.
+   - The repo goes public. Then milestone 3b: the neon City skin, which is the launch.
 3. **Playtest with a controller** whenever there's a build to try: tune with F4, and press F8 on
    anything odd. Still open: whether ~1 wreck a race on Downtown is too tame (add denser traffic
    on the straights rather than sections in corners), and whether each car's drift carry feels
@@ -407,6 +420,15 @@ Clockwise round a tropical island, the volcano in the middle and the sea all rou
   - `__rc.renderer.freeCamera = true` leaves the camera where you put it, for fly-overs and
     screenshots.
   - `__rc.sim.placeCar(i, spline, s, lateral, speed)` teleports a car.
+- **Testing online in Chrome:** two tabs are two players (the local server: `bun run dev` in
+  ~/dev/gamerelay.io). A hidden tab doesn't run the net hooks until you `__rc.advance` it, and
+  the extension's key presses don't reach the page (dispatch `KeyboardEvent`s on `window`, or click
+  through `document.getElementById(...)`). On the race page, `__rc.net.room` is the SDK's room
+  (`lanRoute`, `players`). To drop a player's connection without leaving (Away, then their seat
+  freed after the server's 30 s grace), send their tab to another site; the extension can't open
+  `about:blank`.
+- **After `/code-review`,** check the repo is still on your branch: a review once left it on a
+  detached HEAD.
 - **URL flags:** `&ink=0`, `&post=0`, `&trace=1`. A race's whole setup, weather included, lives in
   the query string.
 - **Checks worth running after track or AI changes:**
@@ -424,3 +446,5 @@ Clockwise round a tropical island, the volcano in the middle and the sea all rou
   - Record design changes in the spec's "Changed while building".
   - Each milestone is a PR with CI.
   - Merge, deploy and release only when the owner asks.
+  - Notes go in SPEC "Changed while building", CHANGELOG "Unreleased" and here.
+  - `git add -A` would sweep up `dist-single/` if `.gitignore` didn't list it (it does).
