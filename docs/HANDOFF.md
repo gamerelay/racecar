@@ -242,7 +242,7 @@ Clockwise round a tropical island, the volcano in the middle and the sea all rou
 - **The music isn't in the single file** (10 MB of tracks in a database row is too much): there
   the game plays the synth until the tracks are hosted somewhere with CORS and the build sets
   `VITE_MUSIC_URL` to it (SPEC "The soundtrack").
-- **What's there now:** `main` at PR #42 (`alpha-1.19`), updated 2026-10-01. Keep it the
+- **What's there now:** `main` at PR #44 (`alpha-1.19` plus the cleanup pass and the soundtrack, which plays the synth there), updated 2026-10-01. Keep it the
   one row: update Z442EE in place rather than adding a game.
 
 ## Next, in order
