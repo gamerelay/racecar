@@ -6,6 +6,10 @@ and where things stand is [docs/HANDOFF.md](./docs/HANDOFF.md).
 
 ## Unreleased
 
+## alpha-1.17: The lobby, cleaned up
+
+PR #36.
+
 - **Who can join a lobby: Public, Invite only or Private.** The host clicks the lobby header's
   button to cycle them. Private lets nobody new in; Invite only is the old "private" (by link,
   not listed). Create lobby offers the same three, where Private is you and bots in this browser.
