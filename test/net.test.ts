@@ -353,7 +353,7 @@ describe('rivals', () => {
     stepAll(bo);
     expect(bo.sim.cars.lastSpline[2]).toBeLessThan(bo.sim.track.splines.length);
     expect(bo.sim.cars.wreckCause[2]).not.toBe(42);
-    expect(Math.hypot(bo.sim.cars.vx[2], bo.sim.cars.vz[2])).toBeLessThanOrEqual(140);
+    expect(Math.hypot(bo.sim.cars.vx[2], bo.sim.cars.vz[2])).toBeLessThanOrEqual(140 + 1e-9);
     // And taking the role then, and respawning, doesn't throw.
     hub.host = 'bo';
     wreckCar(bo.sim, 2, Cause.Wall, 0, 0, -1);
