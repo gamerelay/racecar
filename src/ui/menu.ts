@@ -117,6 +117,8 @@ export class Menu {
     if (own?.phase === 'racing') await this.backend.send(own.id, { type: 'end' });
     await this.syncName();
     let lobby = lobbyId ? await this.backend.get(lobbyId) : null;
+    // Gone, or too slow to wait for: the title, and out of it if the join lands later.
+    if (lobbyId && !lobby) void this.backend.abandon?.(lobbyId);
     // Back from an online lobby's race: its host reopens it (the others come back when they finish).
     if (lobby && lobby.phase === 'racing' && lobby.host === this.backend.youIn(lobby.id)) lobby = (await this.backend.send(lobby.id, { type: 'end' })) ?? lobby;
     return this.show(lobby ? { kind: 'lobby', id: lobby.id } : { kind: 'title' });
