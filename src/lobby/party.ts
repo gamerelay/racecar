@@ -11,6 +11,7 @@
 // and joining a party's game is something you choose. Here the party is only the key to a direct
 // connection: GameRelay's ask is direct connections between a room's players, with no party.
 
+import { warned } from './warn';
 import type { RelayLike, RoomLike } from './relay';
 import { readLobby } from './wire';
 import type { Lobby } from './lobby';
@@ -31,7 +32,7 @@ export class LobbyParty {
   /** A new party for a lobby being made (after its room: a leader drags its party into any room it makes). */
   async create(): Promise<string | undefined> {
     const relay = await this.relay();
-    return (await relay?.createParty?.().catch(() => null))?.code;
+    return (await relay?.createParty?.().catch(warned('making the P2P party failed', null)))?.code;
   }
 
   /**

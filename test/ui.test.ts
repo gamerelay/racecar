@@ -6,7 +6,7 @@ import { describe, expect, test } from 'bun:test';
 import { delta, fmt, ordinal, pingClass } from '../src/ui/format';
 import { esc } from '../src/ui/html';
 import { pickNext, type Box } from '../src/ui/nav';
-import { quickRaceSetup, randomCar, readChoices, readSetup, toQuery } from '../src/ui/setup';
+import { menuQuery, offline, quickRaceSetup, randomCar, readChoices, readSetup, toQuery } from '../src/ui/setup';
 
 // The HUD's formatting, the URL setup parser (hand-edited and stale links), and menu navigation.
 
@@ -172,3 +172,28 @@ describe('names on screen', () => {
     expect(readSetup(q, 'downtown/downtown')?.others?.[0].name).toBe('SCRIPT');
   });
 });
+
+describe('after an online race', () => {
+  const link = 'mode=race&map=downtown%2Fdowntown&car=coupe&paint=3&seats=proooooo&laps=2&seed=7&lobby=K7QM&at=123456&others=' + encodeURIComponent('[[1,"bo","police",8,"BO"]]');
+
+  test("Restart and Race again are yours alone: the others' seats close, and the online parts go", () => {
+    const s = readSetup(new URLSearchParams(link), 'downtown/downtown')!;
+    const o = offline(s);
+    expect(o.seats).toBe('pxoooooo');
+    expect(o.others).toBeUndefined();
+    expect(o.at).toBeUndefined();
+    expect(o.seed).toBe(7);
+    // A race that was never online is left as it is.
+    const solo = readSetup(new URLSearchParams('mode=race&seats=poooooox'), 'downtown/downtown')!;
+    expect(offline(solo)).toBe(solo);
+  });
+
+  test('Back to lobby is the lobby and nothing else; without one, the title keeps your choices', () => {
+    const s = readSetup(new URLSearchParams(link), 'downtown/downtown')!;
+    expect(menuQuery(s)).toBe('lobby=K7QM');
+    const q = new URLSearchParams(menuQuery({ ...s, lobby: undefined }));
+    expect(q.has('mode')).toBe(false);
+    expect(q.get('car')).toBe('coupe');
+  });
+});
+

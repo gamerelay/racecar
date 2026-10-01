@@ -118,7 +118,7 @@ export function restart(s: RaceSetup): void {
 }
 
 /** An online race's link without its online parts: a restart or another race is yours alone. */
-function offline(s: RaceSetup): RaceSetup {
+export function offline(s: RaceSetup): RaceSetup {
   if (!s.others && !s.at) return s;
   const { others: _, at: __, ...rest } = s;
   return { ...rest, seats: rest.seats.replace(/r/g, 'x') };

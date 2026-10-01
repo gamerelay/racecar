@@ -84,7 +84,7 @@ export default defineConfig({
     chunkSizeWarningLimit: 800,
     rolldownOptions: {
       input: { main: join(root, 'index.html'), cars: join(root, 'cars.html'), poster: join(root, 'poster.html') },
-      output: { advancedChunks: { groups: [{ name: 'three', test: /node_modules[\\/]three/ }] } },
+      output: { codeSplitting: { groups: [{ name: 'three', test: /node_modules[\\/]three/ }] } },
     },
   },
 });
