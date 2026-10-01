@@ -19,6 +19,9 @@ are in [SPEC.md](./SPEC.md) "Changed while building"; this is the map.
 | `src/net/join.ts` | The race page's join: it stays in the lobby's room, sends your car once in, and starts the race from here if that takes over 8 s. |
 | `src/lobby/warn.ts` | `warned`: an online failure the lobby carries on through, said in the console. |
 | `src/net/rivals.ts` | In the race: the AIs, driven by the SDK's host and sent to everyone as `rival` entities. |
+| `src/net/stepper.ts` | Who steps the race: frames until it's in its room, then the relay's tick (it goes on in a hidden tab). |
+| `src/net/traffic.ts` | Traffic hits: whoever wrecks a traffic car claims it (`room.claim`), and everyone wrecks it from the winner's time. |
+| `src/net/contact.ts` | Bumps between screens' cars (once each, a contact both saw within ±150 ms not twice), and takedown credit from the victim's screen. |
 
 ## A lobby's life
 
@@ -41,6 +44,23 @@ are in [SPEC.md](./SPEC.md) "Changed while building"; this is the map.
 Joining, creating and leaving run one at a time, in order (the SDK has one room at a time, and its
 leave doesn't name a room). A join the menu gives up on (too slow, or Esc) leaves when it lands;
 the race page never gives up on its lobby's room.
+
+## In the race
+
+Each screen moves and wrecks only its own cars (yours, and the AIs on the SDK's host). What they
+share:
+
+- **The race's clock.** Green is at `startAt` on the server's clock, and each screen's race time
+  follows the server's from then (`syncClock`, net/cars.ts): traffic, weather, hazards and
+  smashables are functions of it, so they're the same everywhere.
+- **Traffic hits** (net/traffic.ts). A hit happens only where the hitting car is driven, so that
+  screen claims the traffic car, and the winner says when: every screen wrecks it from then.
+- **Bumps** (net/contact.ts). Your car touching another screen's: you push yours, and tell its
+  owner, who pushes theirs unless their sim saw the same contact within 150 ms.
+- **Wrecks and credit.** The victim's screen decides a wreck (its car, its call) and tells the
+  attacker's owner, whose screen gives its car the takedown.
+- **Messages are checked:** a bump only from the owner of the car that made it, a takedown only
+  from the victim's owner, a traffic hit only for a car there is at about now.
 
 ## Two hosts
 

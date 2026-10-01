@@ -61,27 +61,33 @@ function resolve(sim: SimState, a: number, b: number, ma: number, mb: number): v
     cars.vz[b] += j * ib * nz;
   }
   const tick = sim.tick;
-  if (closing > 1.5) sim.events.push(tick, Ev.CarContact, a, contact.x, (cars.y[a] + cars.y[b]) / 2 + 0.5, contact.z, closing, 0, b);
+  // Who hit whom: the one moving into the other harder is the attacker.
+  const aAttacks = vna > -vnb;
+  // b: which was the attacker, 1 car a, 2 the other (3 and 4 the same, from a bump another screen sent: net/contact.ts).
+  if (closing > 1.5) sim.events.push(tick, Ev.CarContact, a, contact.x, (cars.y[a] + cars.y[b]) / 2 + 0.5, contact.z, closing, aAttacks ? 1 : 2, b);
   cars.lastHitBy[a] = b;
   cars.lastHitT[a] = tick;
   cars.lastHitBy[b] = a;
   cars.lastHitT[b] = tick;
+  const s = aAttacks ? 1 : -1;
+  takedownCheck(sim, aAttacks ? a : b, aAttacks ? b : a, closing, nx * s, nz * s);
+}
 
-  // Who hit whom: the one moving into the other harder is the attacker.
-  const aAttacks = vna > -vnb;
-  const att = aAttacks ? a : b;
-  const vic = aAttacks ? b : a;
-  const mAtt = aAttacks ? ma : mb;
-  const mVic = aAttacks ? mb : ma;
-  // Another player's car wrecks on their screen, not here (SPEC §10: the victim decides).
+/**
+ * The takedown rule: car `att` hit car `vic` at `closing` m/s along (nx, nz) (from the attacker to
+ * the victim). Wrecks the victim if that's hard enough (less if the attacker boosts, drifts or is
+ * heavier), or if it's shoved into a wall. Another player's car wrecks on their screen, not here
+ * (SPEC §10: the victim decides): online, their screen runs this on a bump it didn't see itself.
+ */
+export function takedownCheck(sim: SimState, att: number, vic: number, closing: number, nx: number, nz: number): void {
+  const cars = sim.cars;
   if (cars.wreck[vic] || cars.remote[vic]) return;
+  const mAtt = sim.classes[cars.cls[att]].mass;
+  const mVic = sim.classes[cars.cls[vic]].mass;
   let threshold = cars.boosting[att] ? T.takedownBoosting : T.takedown;
   threshold *= Math.sqrt(mVic / mAtt);
   // A drift through a pack hits like a heavier car.
   if (cars.drift[att]) threshold /= 1.3;
   const shovedIntoWall = cars.wallT[vic] > 0 && closing > threshold * 0.5;
-  if (closing > threshold || shovedIntoWall) {
-    const s = aAttacks ? 1 : -1;
-    wreckCar(sim, vic, Cause.Car, nx * s * closing * 0.4, nz * s * closing * 0.4, att);
-  }
+  if (closing > threshold || shovedIntoWall) wreckCar(sim, vic, Cause.Car, nx * closing * 0.4, nz * closing * 0.4, att);
 }

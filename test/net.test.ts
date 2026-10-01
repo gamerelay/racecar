@@ -2,14 +2,17 @@ import { describe, expect, test } from 'bun:test';
 import { neutralControls } from '../src/core/controls';
 import type { Sim } from '../src/core/sim';
 import { createLobby, apply, encodeSeats, othersIn, roster, type Lobby } from '../src/lobby/lobby';
-import { NetCars, predict, remoteSteer, startDelay, type NetEntity, type NetKind, type NetRoom } from '../src/net/cars';
+import { CLOCK_SNAP, NetCars, predict, remoteSteer, startDelay, syncClock, type NetEntity, type NetKind, type NetRoom } from '../src/net/cars';
+import { HOLD_S, NetTraffic, readHit, RELEASE_S, TRAFFIC_HIT } from '../src/net/traffic';
+import { BUMP, carNames, NetContact, TAKEDOWN } from '../src/net/contact';
+import { Ev } from '../src/core/events';
 import { NetRivals } from '../src/net/rivals';
 import { FALLBACK_MS, joinRace, type RaceJoin } from '../src/net/join';
 import { MAX_STEPS, Stepper, type Tick } from '../src/net/stepper';
 import { wreckCar } from '../src/core/car/physics';
 import { Cause } from '../src/core/events';
 import { raceFromLobby, readSetup, toQuery } from '../src/ui/setup';
-import { CLASSES, ringSim } from './helpers';
+import { CLASSES, citySim, ringSim } from './helpers';
 
 // Remote cars (milestone 3): each player owns their car and sends it as an entity; everyone else
 // has it as a remote car in their sim, put where the entity says (predicted to now) before each
@@ -22,10 +25,34 @@ class Hub {
   now = 0;
   /** Who holds the host role: host entities are theirs to write. */
   host = 'ada';
+  /** Claims, by key: who holds each. */
+  claims = new Map<string, string>();
+  /** Every room's event handlers (sent to all, the sender's only with echo). */
+  handlers: { me: string; type: string; fn: (data: unknown, from: string) => void }[] = [];
+  /** Events sent, in order. */
+  sent: { type: string; from: string; data: unknown }[] = [];
   room(me: string): NetRoom {
     const hub = this;
     return {
       me,
+      async claim(key) {
+        if (hub.claims.has(key)) return false;
+        hub.claims.set(key, me);
+        return true;
+      },
+      release(key) {
+        if (hub.claims.get(key) === me) hub.claims.delete(key);
+      },
+      emit(type, data, options) {
+        hub.sent.push({ type, from: me, data });
+        const to = options?.to === 'host' ? hub.host : options?.to;
+        for (const h of [...hub.handlers]) if (h.type === type && (h.me !== me || options?.echo !== false) && (to === undefined || h.me === to)) h.fn(structuredClone(data), me);
+      },
+      on(type, fn) {
+        const h = { me, type, fn };
+        hub.handlers.push(h);
+        return () => (hub.handlers = hub.handlers.filter((x) => x !== h));
+      },
       get isHost() {
         return hub.host === me;
       },
@@ -445,7 +472,7 @@ describe("the race page's join", () => {
     sim.addCar({ cls: 'coupe', racer: { difficulty: 1 } });
     sim.startRace(1, 30);
     let pending: (() => void) | null = null;
-    const got: { net: unknown; rivals: unknown; tick: Tick | null } = { net: null, rivals: null, tick: null };
+    const got: { net: unknown; rivals: unknown; tick: Tick | null; traffic: unknown } = { net: null, rivals: null, tick: null, traffic: null };
     const j: RaceJoin = {
       lobby: async () => (await opts.slow, opts.lobby === undefined ? { id: 'K7QM' } : opts.lobby),
       connection: async () => ({ room: opts.room === false ? null : hub.room('ada'), now: () => hub.now, tick: opts.tick }),
@@ -455,7 +482,7 @@ describe("the race page's join", () => {
       aiSeats: new Map([[1, 1]]),
       seed: 7,
       at: opts.at,
-      onNet: (net, rivals, tick) => Object.assign(got, { net, rivals, tick }),
+      onNet: (l) => Object.assign(got, { net: l.cars, rivals: l.rivals, tick: l.tick, traffic: l.traffic }),
       timers: { set: (f) => ((pending = f), 1), clear: () => (pending = null) },
     };
     return { hub, sim, j, got, fire: () => pending?.(), armed: () => pending !== null };
@@ -469,6 +496,8 @@ describe("the race page's join", () => {
     expect(p.hub.entities.filter((e) => e.kind === 'car')).toHaveLength(1);
     expect(p.armed()).toBe(false);
     expect(p.sim.race.goTime - p.sim.time).toBeCloseTo(3);
+    // No time in the link: its race isn't on the server's clock, so no traffic hits or contact to share.
+    expect(p.got.traffic).toBeNull();
   });
 
   test('the lobby gone, or no room: no net layers, and the fallback starts the race 3 s on', async () => {
@@ -493,6 +522,14 @@ describe("the race page's join", () => {
     expect(await joining).toBe(true);
     expect(p.got.net).not.toBeNull();
     expect(p.sim.race.goTime).toBe(go);
+    // Started on its own clock: none either, even with the link's time.
+    const q = page({ at: 5_000, slow: new Promise<void>((r) => (land = r)) });
+    const late = joinRace(q.j);
+    q.fire();
+    land();
+    await late;
+    expect(q.got.net).not.toBeNull();
+    expect(q.got.traffic).toBeNull();
   });
 
   test("with the link's time, green is the server clock's (not 3 s on); without AIs, no rivals", async () => {
@@ -501,6 +538,7 @@ describe("the race page's join", () => {
     p.hub.now = 1_000;
     await joinRace(p.j);
     expect(p.got.rivals).toBeNull();
+    expect(p.got.traffic).not.toBeNull();
     expect(p.sim.race.goTime - p.sim.time).toBeGreaterThan(20);
     (p.got.net as NetCars).beforeStep();
     expect(p.sim.race.goTime - p.sim.time).toBeCloseTo(4);
@@ -613,5 +651,297 @@ describe('the race on the relay\'s tick', () => {
     expect(t.running()).toBe(false);
     s.frame(1 / 60, true);
     expect(steps).toBe(122);
+  });
+});
+
+describe("the race's clock online", () => {
+  test('two pages loaded at different times have the same race time, so the same traffic', () => {
+    const at = 10_000;
+    const make = () => {
+      const sim = citySim(4);
+      sim.addCar({ cls: 'coupe', human: true });
+      sim.startRace(1, 30);
+      return sim;
+    };
+    const a = make();
+    const b = make();
+    // b's page loaded 1.3 s after a's: a has stepped that much more by the same server moment.
+    let now = 0;
+    for (let k = 0; k < 78; k++) {
+      syncClock(a, at, now);
+      a.step([neutralControls()]);
+      now += 1000 / 60;
+    }
+    for (let k = 0; k < 600; k++) {
+      syncClock(a, at, now);
+      a.step([neutralControls()]);
+      syncClock(b, at, now);
+      b.step([neutralControls()]);
+      now += 1000 / 60;
+    }
+    expect(a.race.phase).toBe('racing');
+    expect(Math.abs(a.time - b.time)).toBeLessThan(1e-9);
+    const tr = (s: Sim) => s.world.traffic.sAt(3, s.time);
+    expect(tr(a)).toBeCloseTo(tr(b), 6);
+    // On the server's clock: the race time is how long since green at `at` (the last sync, plus its step).
+    expect(a.time - a.race.goTime).toBeCloseTo((now - 1000 / 60 - at) / 1000 + 1 / 60, 6);
+  });
+
+  test('racing: a little behind is slewed out, a lot behind is jumped, ahead goes back at most half a step', () => {
+    const sim = ringSim(1);
+    sim.addCar({ cls: 'coupe', human: true });
+    sim.startRace(1, 3);
+    sim.race.phase = 'racing';
+    sim.race.goTime = 3;
+    const at = 0;
+    // Server says 2 s after green: race time 5.
+    sim.time = 4.9;
+    syncClock(sim, at, 2000);
+    expect(sim.time).toBeCloseTo(4.905, 6);
+    sim.time = 5 - CLOCK_SNAP - 0.1;
+    syncClock(sim, at, 2000);
+    expect(sim.time).toBe(5);
+    sim.time = 6;
+    syncClock(sim, at, 2000);
+    expect(sim.time).toBeCloseTo(6 - sim.dt / 2, 9);
+    // Free drive has no race clock.
+    sim.race.phase = 'free';
+    sim.time = 1;
+    syncClock(sim, at, 2000);
+    expect(sim.time).toBe(1);
+  });
+});
+
+describe('traffic hits online', () => {
+  /** Two screens of one race (ada in seat 0, bo in seat 1) with traffic, each with its traffic layer. */
+  function pair() {
+    const hub = new Hub();
+    const make = (me: 'ada' | 'bo') => {
+      const sim = citySim(4);
+      sim.addCar(me === 'ada' ? { cls: 'coupe', human: true } : { cls: 'coupe', remote: true });
+      sim.addCar(me === 'bo' ? { cls: 'coupe', human: true } : { cls: 'coupe', remote: true });
+      sim.time = 40;
+      return { sim, net: new NetTraffic(hub.room(me), sim, '4:0'), car: me === 'ada' ? 0 : 1 };
+    };
+    return { hub, ada: make('ada'), bo: make('bo') };
+  }
+  /** Car `i` wrecks traffic car k on this screen now (as collideWorld does). */
+  const wreck = (p: { sim: Sim }, i: number, k: number) => {
+    p.sim.world.traffic.wreckedAt[k] = p.sim.time;
+    p.sim.events.push(p.sim.tick, Ev.TrafficWreck, i, 10, 0, 20, 12, 0, k);
+  };
+  const settle = () => new Promise((r) => setTimeout(r, 0));
+
+  test('your car wrecks one: you claim it, and every other screen wrecks it from your time (with its debris)', async () => {
+    const { hub, ada, bo } = pair();
+    wreck(ada, 0, 5);
+    ada.net.afterStep();
+    await settle();
+    expect(hub.claims.get(ada.net.key(5))).toBe('ada');
+    expect(hub.sent.map((e) => e.type)).toEqual([TRAFFIC_HIT]);
+    expect(bo.sim.world.traffic.wreckedAt[5]).toBe(40);
+    const seen: number[] = [];
+    bo.sim.events.read(0, (e) => e.type === Ev.TrafficWreck && seen.push(e.other));
+    expect(seen).toEqual([5]);
+    // As it comes back (a second before it's solid), the claim goes.
+    ada.sim.time = 40 + RELEASE_S - 0.01;
+    ada.net.afterStep();
+    expect(hub.claims.size).toBe(1);
+    ada.sim.time = 40 + RELEASE_S;
+    ada.net.afterStep();
+    expect(hub.claims.size).toBe(0);
+    expect(RELEASE_S).toBeLessThan(HOLD_S);
+  });
+
+  test('both screens wreck it: one claim wins, and both end with its time', async () => {
+    const { hub, ada, bo } = pair();
+    bo.sim.time = 40.05;
+    wreck(ada, 0, 7);
+    wreck(bo, 1, 7);
+    ada.net.afterStep();
+    bo.net.afterStep();
+    await settle();
+    expect(hub.sent).toHaveLength(1);
+    expect(hub.sent[0].from).toBe('ada');
+    expect(ada.sim.world.traffic.wreckedAt[7]).toBe(40);
+    expect(bo.sim.world.traffic.wreckedAt[7]).toBe(40);
+    // bo had its own debris already: none again.
+    let n = 0;
+    bo.sim.events.read(0, (e) => e.type === Ev.TrafficWreck && n++);
+    expect(n).toBe(1);
+  });
+
+  test("not claimed: another player's car (their screen does), a hazard's (every screen does); a later wreck of the car stays", async () => {
+    const { hub, ada, bo } = pair();
+    wreck(ada, 1, 5);
+    wreck(ada, -1, 6);
+    ada.net.afterStep();
+    await settle();
+    expect(hub.sent).toHaveLength(0);
+    // A hit from before bo's own later wreck of that car (it's been back since) doesn't undo it.
+    bo.sim.world.traffic.wreckedAt[9] = 40 + HOLD_S + 2;
+    bo.sim.time = 40 + HOLD_S + 3;
+    ada.net['room'].emit(TRAFFIC_HIT, { k: 9, t: 40, x: 0, y: 0, z: 0, a: 5, b: 0 });
+    expect(bo.sim.world.traffic.wreckedAt[9]).toBe(40 + HOLD_S + 2);
+  });
+
+  test("another screen's word is checked: a traffic car there is, a time near now, numbers", () => {
+    const sim = citySim(4);
+    sim.time = 40;
+    const ok = { k: 3, t: 40.1, x: 1, y: 2, z: 3, a: 1e6, b: 1 };
+    expect(readHit(ok, sim)).toEqual({ ...ok, a: 100 });
+    for (const bad of [null, 'x', { ...ok, k: -1 }, { ...ok, k: 1.5 }, { ...ok, k: sim.world.traffic.count }, { ...ok, t: 40 + HOLD_S + 1 }, { ...ok, x: NaN }, { ...ok, y: '2' }]) expect(readHit(bad, sim)).toBeNull();
+  });
+});
+
+describe('contact between screens', () => {
+  /** ada's and bo's screens, each moving its own car (ada car 0, bo car 1), side by side on a ring. */
+  function pair() {
+    const hub = new Hub();
+    const make = (me: 'ada' | 'bo') => {
+      const sim = ringSim(1);
+      sim.addCar(me === 'ada' ? { cls: 'coupe', human: true } : { cls: 'coupe', remote: true });
+      sim.addCar(me === 'bo' ? { cls: 'coupe', human: true } : { cls: 'coupe', remote: true });
+      sim.startRace(1, 0.1);
+      for (let k = 0; k < 30; k++) sim.step([neutralControls(), neutralControls()]);
+      const c = sim.cars;
+      c.active[0] = c.active[1] = 1;
+      // ada's car at x 0, bo's 2 m to its right (+x), both still.
+      [c.x[0], c.z[0], c.x[1], c.z[1]] = [0, 0, 2, 0];
+      for (const i of [0, 1]) c.vx[i] = c.vz[i] = 0;
+      const myIdx = me === 'ada' ? 0 : 1;
+      const other = me === 'ada' ? 'bo' : 'ada';
+      const net = new NetContact(hub.room(me), sim, carNames(myIdx, me, new Map([[other, 1 - myIdx]]), new Map()));
+      return { sim, net };
+    };
+    return { hub, ada: make('ada'), bo: make('bo') };
+  }
+  /** On this screen, car a ran into car b at `closing` m/s (as resolve() reports it). */
+  const touch = (p: { sim: Sim }, a: number, b: number, closing: number) => {
+    const c = p.sim.cars;
+    [c.lastHitBy[a], c.lastHitBy[b], c.lastHitT[a], c.lastHitT[b]] = [b, a, p.sim.tick - 1, p.sim.tick - 1];
+    p.sim.events.push(p.sim.tick, Ev.CarContact, a, 1, 0.5, 0, closing, 1, b);
+  };
+  /** A fifth of a second on, on this screen: past the window for seeing a contact too. */
+  const later = (p: { sim: Sim; net: NetContact }) => {
+    p.sim.time += 0.2;
+    p.net.afterStep();
+  };
+
+  test('a bump only your screen saw reaches their car: pushed away from yours, once', () => {
+    const { hub, ada, bo } = pair();
+    touch(ada, 0, 1, 6);
+    ada.net.afterStep();
+    ada.net.afterStep();
+    expect(hub.sent.filter((e) => e.type === BUMP)).toHaveLength(1);
+    // Held for the window first: bo's sim might see it itself.
+    bo.net.afterStep();
+    expect(bo.sim.cars.vx[1]).toBe(0);
+    later(bo);
+    expect(bo.sim.cars.vx[1]).toBeGreaterThan(1);
+    expect(Math.abs(bo.sim.cars.vz[1])).toBeLessThan(1e-9);
+    // Applied there, it isn't sent back.
+    bo.net.afterStep();
+    expect(hub.sent.filter((e) => e.type === BUMP)).toHaveLength(1);
+  });
+
+  test("a contact both screens saw is pushed once on each: neither applies the other's bump (whichever came first)", () => {
+    const { ada, bo } = pair();
+    // bo's sim saw it first, and its bump reached ada before ada's sim saw it too.
+    touch(bo, 0, 1, 6);
+    bo.net.afterStep();
+    touch(ada, 0, 1, 6);
+    ada.net.afterStep();
+    later(ada);
+    later(bo);
+    expect(bo.sim.cars.vx[1]).toBe(0);
+    expect(ada.sim.cars.vx[0]).toBe(0);
+  });
+
+  test('hit hard by their car, yours wrecks on your screen, and theirs gets the takedown on theirs', () => {
+    const { hub, ada, bo } = pair();
+    touch(ada, 0, 1, 45);
+    ada.net.afterStep();
+    later(bo);
+    expect(bo.sim.cars.wreck[1]).toBe(1);
+    // bo's screen decided it: it tells ada's.
+    bo.net.afterStep();
+    expect(hub.sent.filter((e) => e.type === TAKEDOWN).map((e) => e.data)).toEqual([{ victim: 'p:bo', by: 'p:ada', t: bo.sim.time }]);
+    expect(ada.sim.cars.takedowns[0]).toBe(1);
+    expect(ada.sim.cars.score[0]).toBeGreaterThan(0);
+    const got: number[] = [];
+    ada.sim.events.read(0, (e) => e.type === Ev.Takedown && got.push(e.car));
+    expect(got).toEqual([0]);
+  });
+
+  /** One step on this screen, with (or without) its sim resolving a contact between cars a and b. */
+  const stepTouching = (p: { sim: Sim; net: NetContact }, contact: [number, number] | null, closing = 6) => {
+    p.sim.time += 1 / 60;
+    p.sim.tick++;
+    if (contact) touch(p, contact[0], contact[1], closing);
+    p.net.afterStep();
+  };
+
+  test('grinding side by side, both screens resolving it every step: the other screen\'s bumps are never added on', () => {
+    const { hub, ada, bo } = pair();
+    for (let k = 0; k < 60; k++) {
+      stepTouching(ada, [0, 1]);
+      stepTouching(bo, [0, 1]);
+    }
+    expect(hub.sent.filter((e) => e.type === BUMP).length).toBeGreaterThan(10);
+    expect(bo.sim.cars.vx[1]).toBe(0);
+    expect(ada.sim.cars.vx[0]).toBe(0);
+  });
+
+  test('a gentle contact (no event) still counts as seen', () => {
+    const { ada, bo } = pair();
+    stepTouching(ada, [0, 1]);
+    // bo's sim resolved it too, too gently for an event: only lastHitT says so.
+    bo.sim.time = ada.sim.time;
+    bo.sim.tick++;
+    [bo.sim.cars.lastHitBy[1], bo.sim.cars.lastHitT[1]] = [0, bo.sim.tick - 1];
+    bo.net.afterStep();
+    for (let k = 0; k < 15; k++) stepTouching(bo, null);
+    expect(bo.sim.cars.vx[1]).toBe(0);
+  });
+
+  test("a long push only your screen sees reaches theirs in full: every bump, not every other", () => {
+    const { hub, ada, bo } = pair();
+    bo.sim.time = ada.sim.time;
+    const pushes: number[] = [];
+    for (let k = 0; k < 90; k++) {
+      stepTouching(ada, [0, 1]);
+      const before = bo.sim.cars.vx[1];
+      stepTouching(bo, null);
+      if (bo.sim.cars.vx[1] !== before) pushes.push(k);
+    }
+    const sent = hub.sent.filter((e) => e.type === BUMP && e.from === 'ada').length;
+    // The last one or two are still held when it stops.
+    expect(pushes.length).toBeGreaterThanOrEqual(sent - 2);
+    expect(sent).toBeGreaterThan(4);
+  });
+
+  test("other screens' word is checked: from the car's owner, to your own car, capped, near now", () => {
+    const { hub, bo } = pair();
+    const ada = hub.room('ada');
+    const carl = hub.room('carl');
+    // About bo's own car, from "bo's car": not ada's to say. From carl, about ada's car: not carl's.
+    ada.emit(BUMP, { to: 'p:bo', by: 'p:bo', t: bo.sim.time, dvx: 5, dvz: 0, closing: 5, att: false }, { to: 'bo' });
+    carl.emit(BUMP, { to: 'p:bo', by: 'p:ada', t: bo.sim.time, dvx: 5, dvz: 0, closing: 5, att: false }, { to: 'bo' });
+    // To ada's car, on bo's screen (not bo's to move).
+    ada.emit(BUMP, { to: 'p:ada', by: 'p:bo', t: bo.sim.time, dvx: 5, dvz: 0, closing: 5, att: false }, { to: 'bo' });
+    // Long ago, or not numbers.
+    ada.emit(BUMP, { to: 'p:bo', by: 'p:ada', t: bo.sim.time - 10, dvx: 5, dvz: 0, closing: 5 }, { to: 'bo' });
+    ada.emit(BUMP, { to: 'p:bo', by: 'p:ada', t: bo.sim.time, dvx: 'x', dvz: 0, closing: 5 }, { to: 'bo' });
+    // A takedown for bo's car, said by someone who isn't the victim's owner.
+    carl.emit(TAKEDOWN, { victim: 'p:ada', by: 'p:bo', t: bo.sim.time }, { to: 'bo' });
+    later(bo);
+    expect(bo.sim.cars.vx[1]).toBe(0);
+    expect(bo.sim.cars.vx[0]).toBe(0);
+    expect(bo.sim.cars.takedowns[1]).toBe(0);
+    // A huge one is capped.
+    ada.emit(BUMP, { to: 'p:bo', by: 'p:ada', t: bo.sim.time, dvx: 1e6, dvz: 0, closing: 5, att: false }, { to: 'bo' });
+    later(bo);
+    expect(bo.sim.cars.vx[1]).toBeCloseTo(30, 6);
   });
 });

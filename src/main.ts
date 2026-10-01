@@ -33,6 +33,8 @@ import type { NetCars } from './net/cars';
 import { joinRace } from './net/join';
 import type { NetRivals } from './net/rivals';
 import { Stepper } from './net/stepper';
+import type { NetTraffic } from './net/traffic';
+import type { NetContact } from './net/contact';
 import { roster } from './lobby/lobby';
 import { loadPlate } from './lobby/plate';
 import { CLASSES, LAYOUTS, MAPS, PAINTS, SURFACES } from './content';
@@ -99,6 +101,10 @@ if (run.mode === 'race') sim.startRace(run.laps, attract ? 1 : onlineRace ? 30 :
 let net: NetCars | null = null;
 /** The AIs online: the room's host drives them (net/rivals.ts). */
 let rivals: NetRivals | null = null;
+/** Traffic hits online: the screen whose car made one claims it and tells everyone (net/traffic.ts). */
+let traffic: NetTraffic | null = null;
+/** Bumps and takedown credit with the other screens' cars (net/contact.ts). */
+let contact: NetContact | null = null;
 if (onlineRace)
   void joinRace({
     lobby: () => online!.get(run.lobby!),
@@ -109,9 +115,12 @@ if (onlineRace)
     aiSeats,
     seed: run.seed,
     at: run.at,
-    onNet: (n, r, tick) => {
-      net = n;
-      rivals = r;
+    onNet: (layers) => {
+      net = layers.cars;
+      rivals = layers.rivals;
+      traffic = layers.traffic;
+      contact = layers.contact;
+      const tick = layers.tick;
       // In: the race steps on the relay's tick, so it goes on in a hidden tab (you might be the host).
       if (tick) stepper.useTick(tick, () => !editorOpen);
     },
@@ -271,6 +280,8 @@ function stepOnce(): void {
   sim.step(inputs);
   net?.afterStep();
   rivals?.afterStep();
+  traffic?.afterStep();
+  contact?.afterStep();
   telemetry.afterStep(me, performance.now() - t0);
 }
 
