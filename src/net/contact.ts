@@ -53,8 +53,12 @@ const num = (v: unknown): number | null => (typeof v === 'number' && Number.isFi
 
 export class NetContact {
   private cursor: number;
-  /** When each pair (`a|b`, by name, sorted) last touched here, race time (s). */
-  private touched = new Map<string, number>();
+  /**
+   * When each pair (`a|b`, by name, sorted) touched in this screen's sim lately, race time (s):
+   * every step's, gentle ones too, so a contact that lasts is seen all along. Bumps applied from
+   * other screens aren't in it.
+   */
+  private touched = new Map<string, number[]>();
   /** When each pair's bump last went out. */
   private sent = new Map<string, number>();
   /** Other screens' bumps, held until it's clear this screen didn't see the contact too. */
@@ -89,13 +93,28 @@ export class NetContact {
   afterStep(): void {
     const sim = this.sim;
     const c = sim.cars;
+    // What the step just run resolved: every contact sets lastHitT, however gentle (only harder
+    // ones are events). A bump applied here writes the step before (see apply), so it isn't one.
+    for (let i = 0; i < c.count; i++) {
+      const o = c.lastHitBy[i];
+      if (c.lastHitT[i] !== sim.tick - 1 || o < 0 || !this.mine(i) || this.mine(o)) continue;
+      const a = this.names.name(i);
+      const b = this.names.name(o);
+      if (!a || !b) continue;
+      const key = this.pair(a, b);
+      const seen = this.touched.get(key) ?? [];
+      seen.push(sim.time);
+      // A second's worth is plenty for a ±SAME_CONTACT_S check.
+      while (seen.length && seen[0] < sim.time - 1) seen.shift();
+      this.touched.set(key, seen);
+    }
     this.cursor = sim.events.read(this.cursor, (e) => {
-      if (e.type === Ev.CarContact && e.other >= 0) {
+      // b 3 or 4: a bump applied here (apply), not one to tell them about.
+      if (e.type === Ev.CarContact && e.other >= 0 && e.b < 3) {
         const na = this.names.name(e.car);
         const nb = this.names.name(e.other);
         if (!na || !nb) return;
         const key = this.pair(na, nb);
-        this.touched.set(key, sim.time);
         // One of yours and one of theirs (two of yours are settled here; two of theirs aren't yours to tell).
         const ours = this.mine(e.car);
         if (ours === this.mine(e.other)) return;
@@ -126,11 +145,11 @@ export class NetContact {
       this.pending = this.pending.filter((b) => sim.time < b.t + SAME_CONTACT_S);
       for (const b of due) {
         const seen = this.touched.get(b.key);
-        if (seen === undefined || Math.abs(seen - b.t) > SAME_CONTACT_S) this.apply(b);
+        if (!seen?.some((t) => Math.abs(t - b.t) <= SAME_CONTACT_S)) this.apply(b);
       }
     }
     // Forget old contacts.
-    if (this.touched.size > 64) for (const [k, t] of this.touched) if (sim.time - t > 2) (this.touched.delete(k), this.sent.delete(k));
+    if (this.touched.size > 64) for (const [k, t] of this.touched) if (!t.length || sim.time - t[t.length - 1] > 2) (this.touched.delete(k), this.sent.delete(k));
   }
 
   /** Another screen's bump to one of your cars: held, then applied unless this screen saw it too. */
@@ -152,18 +171,17 @@ export class NetContact {
     const c = sim.cars;
     const { m, r } = b;
     if (!c.active[m] || c.wreck[m] || c.ghostT[m] > 0) return;
-    this.touched.set(b.key, sim.time);
-    // Its contact event below isn't one to tell them about.
-    this.sent.set(b.key, sim.time);
     const dv = Math.hypot(b.dvx, b.dvz);
     const k = dv > MAX_DV ? MAX_DV / dv : 1;
     c.vx[m] += b.dvx * k;
     c.vz[m] += b.dvz * k;
+    // Who hit it, for a wreck's credit; as of the step before, so the next afterStep doesn't take
+    // it for a contact this sim resolved.
     c.lastHitBy[m] = r;
-    c.lastHitT[m] = sim.tick;
+    c.lastHitT[m] = sim.tick - 1;
     c.lastHitBy[r] = m;
-    c.lastHitT[r] = sim.tick;
-    if (b.closing > 1.5) sim.events.push(sim.tick, Ev.CarContact, m, c.x[m], c.y[m] + 0.5, c.z[m], b.closing, b.att ? 2 : 1, r);
+    c.lastHitT[r] = sim.tick - 1;
+    if (b.closing > 1.5) sim.events.push(sim.tick, Ev.CarContact, m, c.x[m], c.y[m] + 0.5, c.z[m], b.closing, b.att ? 4 : 3, r);
     if (b.att && dv > 0) takedownCheck(sim, r, m, b.closing, b.dvx / dv, b.dvz / dv);
   }
 

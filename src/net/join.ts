@@ -35,9 +35,9 @@ export interface RaceJoin {
 export interface NetLayers {
   cars: NetCars;
   rivals: NetRivals | null;
-  traffic: NetTraffic;
-  /** Bumps and takedown credit between screens. */
-  contact: NetContact;
+  /** Traffic hits, and bumps and takedown credit between screens: null for a race on its own clock. */
+  traffic: NetTraffic | null;
+  contact: NetContact | null;
   tick: Tick | null;
 }
 
@@ -65,8 +65,12 @@ export async function joinRace(j: RaceJoin): Promise<boolean> {
     const race = `${j.seed}:${j.at ?? 0}`;
     const rivals = j.aiSeats.size ? new NetRivals(room, now, sim, j.aiSeats, race) : null;
     joined = true;
-    const contact = new NetContact(room, sim, carNames(j.me, room.me, j.remote, j.aiSeats));
-    j.onNet({ cars: net, rivals, traffic: new NetTraffic(room, sim, race), contact, tick: relay.tick ? (rate, fn) => relay.tick!(rate, fn) : null });
+    // Traffic hits, bumps and credit say when on the race's clock: a race on its own clock (the
+    // fallback started it, or the link had no time) has nothing to compare, so it keeps them to itself.
+    const shared = !ownClock && j.at !== undefined;
+    const traffic = shared ? new NetTraffic(room, sim, race) : null;
+    const contact = shared ? new NetContact(room, sim, carNames(j.me, room.me, j.remote, j.aiSeats)) : null;
+    j.onNet({ cars: net, rivals, traffic, contact, tick: relay.tick ? (rate, fn) => relay.tick!(rate, fn) : null });
     // No time from the link: green 3 s from now (once racing, it's too late to matter).
     if (sim.race.phase === 'countdown' && !j.at) sim.race.goTime = sim.time + 3;
     timers.clear(fallback);

@@ -63,7 +63,7 @@ function resolve(sim: SimState, a: number, b: number, ma: number, mb: number): v
   const tick = sim.tick;
   // Who hit whom: the one moving into the other harder is the attacker.
   const aAttacks = vna > -vnb;
-  // b: which was the attacker (1 car a, 2 the other), and the impulse, for the net layer (net/contact.ts).
+  // b: which was the attacker, 1 car a, 2 the other (3 and 4 the same, from a bump another screen sent: net/contact.ts).
   if (closing > 1.5) sim.events.push(tick, Ev.CarContact, a, contact.x, (cars.y[a] + cars.y[b]) / 2 + 0.5, contact.z, closing, aAttacks ? 1 : 2, b);
   cars.lastHitBy[a] = b;
   cars.lastHitT[a] = tick;

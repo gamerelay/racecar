@@ -2017,3 +2017,17 @@ Traffic, bumps and credit online (after `alpha-1.21`):
 - **Checked senders:** a bump only from the owner of the car that made it, a takedown only from
   the victim's owner (the host for an AI), so nobody can push or credit cars that aren't theirs
   to speak for.
+
+Review fixes (PR #47):
+
+- **A contact this screen saw is every one its sim resolved**, gentle ones too (each sets
+  `lastHitT`; only harder ones are events), and all of the last second's, not just the latest. Two
+  cars grinding side by side had the other screen's bumps added on top every 0.15 s; and a bump
+  applied here no longer counts as seen, which had dropped every other bump of a long push only
+  one screen saw.
+- **No traffic hits or contact on a race's own clock** (the fallback started it, or the link had
+  no time): its times aren't comparable, so every message either way was refused or, for traffic,
+  landed at the wrong moment.
+- **A traffic claim is let go as the car fades back** (12 s), a second before it can be hit again:
+  released only once it was solid, a screen whose clock ran a little ahead could hit it, lose the
+  claim and never share that wreck.

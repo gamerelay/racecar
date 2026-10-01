@@ -5,7 +5,7 @@
 // tells everyone when: each screen wrecks that car from then, so nobody hits a car that's gone
 // on another screen. A screen that wrecked it too but lost the claim takes the winner's time (only
 // the wreck's time is shared: your car's crash, boost and score are your sim's, as always). The
-// claim is let go once the car is back.
+// claim is let go as the car comes back.
 
 import { Ev } from '../core/events';
 import type { Sim } from '../core/sim';
@@ -14,8 +14,14 @@ import type { NetRoom } from './cars';
 
 /** The event the claim's winner sends. */
 export const TRAFFIC_HIT = 'traffic_hit';
-/** A wreck's claim is held this long (s of race time): until the car is back on the road. */
+/** A wreck is this wreck (and a hit is near now) within this long of it (s): until the car is back on the road. */
 export const HOLD_S = TRAFFIC_RESPAWN + FADE_BACK;
+/**
+ * Its claim is let go this long after (s): as the car starts fading back, a second before it can
+ * be hit again, so the next hit's claim isn't refused by this one (a screen's clock can run a
+ * little ahead, and the release takes a moment to land).
+ */
+export const RELEASE_S = TRAFFIC_RESPAWN;
 
 /** What the winner sends: the traffic car, when (race time, s), where, how hard, and how (0 a crash, 1 a check). */
 export interface TrafficHit {
@@ -84,7 +90,7 @@ export class NetTraffic {
         (won) => {
           this.asking.delete(key);
           if (!won) return;
-          this.held.set(key, hit.t + HOLD_S);
+          this.held.set(key, hit.t + RELEASE_S);
           this.room.emit(TRAFFIC_HIT, { ...hit }, { echo: false });
         },
         () => this.asking.delete(key),
