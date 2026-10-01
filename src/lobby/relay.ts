@@ -175,6 +175,8 @@ export class RelayBackend implements LobbyBackend {
   private off: (() => void)[] = [];
   /** Each player's ping in the room you're in (ms), by id. */
   private pings = new Map<string, number>();
+  private pingRoom: RoomLike | null = null;
+  private stopPings: (() => void) | null = null;
   private listeners = new Set<(lobby: Lobby | null) => void>();
   private listed = '';
   private listingTimer: ReturnType<typeof setTimeout> | null = null;
@@ -281,7 +283,11 @@ export class RelayBackend implements LobbyBackend {
   subscribe(id: string, fn: (lobby: Lobby | null) => void): () => void {
     const each = (lobby: Lobby | null) => fn(lobby && lobby.id === id ? lobby : null);
     this.listeners.add(each);
-    return () => this.listeners.delete(each);
+    this.pinging();
+    return () => {
+      this.listeners.delete(each);
+      this.pinging();
+    };
   }
 
   private notify(lobby: Lobby | null): void {
@@ -306,7 +312,6 @@ export class RelayBackend implements LobbyBackend {
         const ms = readPing(data);
         if (ms !== null) this.pings.set(from, ms);
       }),
-      this.measurePings(room),
       // The host's work: someone gone for good gives up their seat, and a new host checks for
       // anyone who left while nobody was host (and lists the room).
       room.on('player_left', () => room.isHost && this.tidy(room)),
@@ -318,6 +323,16 @@ export class RelayBackend implements LobbyBackend {
       }),
     ];
     if (room.isHost) this.tidy(room);
+    this.pinging();
+  }
+
+  /** Pings go round while a lobby screen is watching (the race page attaches the room too, but has no use for them). */
+  private pinging(): void {
+    const want = this.room && this.listeners.size > 0 ? this.room : null;
+    if (want === this.pingRoom) return;
+    this.stopPings?.();
+    this.stopPings = want ? this.measurePings(want) : null;
+    this.pingRoom = want;
   }
 
   /** Every PING_MS while you're in `room`: your ping, kept and sent to everyone else. Returns a stop. */
@@ -339,6 +354,7 @@ export class RelayBackend implements LobbyBackend {
     this.off = [];
     this.pings.clear();
     this.room = null;
+    this.pinging();
     if (this.listingTimer) clearTimeout(this.listingTimer);
     this.listingTimer = null;
   }

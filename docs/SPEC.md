@@ -1562,7 +1562,8 @@ The lobby's header, and who can join (playtest, 2026-10-01):
   (`relay.ping()`), so every lobby page measures it every 3 s and sends `{ type: 'ping', ms }` to
   everyone (`room.send`); each screen shows them in the seats' Ping column, checked as they come
   in: blue under 50 ms, yellow from 50, orange from 75, red from 100 (`pingClass`). The column
-  is a fixed width, so a changing ping doesn't move the others. It's each player's round trip to the server, not to each other. Your own lobby
+  is a fixed width, so a changing ping doesn't move the others. Pings go round only while a lobby screen
+  is watching: the race page attaches the room too, and would send them for nothing. It's each player's round trip to the server, not to each other. Your own lobby
   has no Ping column. The 4th column is headed Status.
 - **Your plate in your seat is a button:** it opens the plate editor, and Save or Back returns
   to the lobby, still seated (you never left the room). Saving renames your seat, and, if you

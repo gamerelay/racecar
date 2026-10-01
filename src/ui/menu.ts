@@ -171,6 +171,8 @@ export class Menu {
     else if (screen.kind === 'plate') this.renderPlate(screen.from);
     else {
       let lobby = await this.backend.get(screen.id);
+      // Gone elsewhere while it loaded (Esc while joining): that screen has the menu now.
+      if (this.screen !== screen) return;
       if (!lobby) return this.show({ kind: 'title' });
       let phase = lobby.phase;
       this.unsubscribe = this.backend.subscribe(screen.id, (l) => {
