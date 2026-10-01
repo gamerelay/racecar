@@ -27,12 +27,15 @@ const env = (k: string) => {
   if (!v) throw new Error(`${k} isn't set (run with --env-file pointing at the Space's keys)`);
   return v;
 };
-const s3 = new S3Client({
+// Made when uploading: a --dry run needs no keys.
+const client = () =>
+  new S3Client({
   accessKeyId: env('DIGITAL_OCEAN_STORAGE_ACCESS_ID'),
   secretAccessKey: env('DIGITAL_OCEAN_STORAGE_SECRET_KEY'),
   bucket: env('DIGITAL_OCEAN_STORAGE_BUCKET_NAME'),
   endpoint: env('DIGITAL_OCEAN_STORAGE_BUCKET_ENDPOINT'),
-});
+  });
+let s3: S3Client | null = null;
 
 /** Anyone may read (public-read objects only: CORS lends no access to private ones). */
 const CORS = '<CORSConfiguration><CORSRule><AllowedOrigin>*</AllowedOrigin><AllowedMethod>GET</AllowedMethod><AllowedMethod>HEAD</AllowedMethod><AllowedHeader>*</AllowedHeader><ExposeHeader>Content-Length</ExposeHeader><ExposeHeader>Content-Range</ExposeHeader><ExposeHeader>Accept-Ranges</ExposeHeader><MaxAgeSeconds>86400</MaxAgeSeconds></CORSRule></CORSConfiguration>';
@@ -51,6 +54,7 @@ for (const set of SETS) {
       console.log(`would upload ${key} (${(bytes / 1e6).toFixed(1)} MB)`);
       continue;
     }
+    s3 ??= client();
     await s3.write(key, Bun.file(local), { type: set.type, acl: 'public-read' });
     const stat = await s3.stat(key);
     if (stat.size !== bytes) throw new Error(`${key}: uploaded ${stat.size} bytes, expected ${bytes}`);

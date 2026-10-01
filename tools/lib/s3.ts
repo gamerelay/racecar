@@ -1,15 +1,19 @@
 // A signed S3 request to a DigitalOcean Space (AWS SigV4), for what Bun's S3Client doesn't do (the
 // bucket's CORS). Keys from DIGITAL_OCEAN_STORAGE_*, as publish-assets.ts.
 import { createHash, createHmac } from 'node:crypto';
-const env = (k: string) => process.env[k]!;
-const bucket = env('DIGITAL_OCEAN_STORAGE_BUCKET_NAME');
-const endpoint = new URL(env('DIGITAL_OCEAN_STORAGE_BUCKET_ENDPOINT'));
-const region = endpoint.hostname.split('.')[0];
-const host = `${bucket}.${endpoint.hostname}`;
+const env = (k: string) => {
+  const v = process.env[k];
+  if (!v) throw new Error(`${k} isn't set (run with --env-file pointing at the Space's keys)`);
+  return v;
+};
 const sha = (s: string) => createHash('sha256').update(s).digest('hex');
 const hmac = (k: Buffer | string, s: string) => createHmac('sha256', k).update(s).digest();
 /** `query` is the signed query string (e.g. `cors=`); `body` an XML document for a PUT. */
 export async function s3(method: 'GET' | 'PUT', query: string, body = '') {
+  // Read when used, not when imported: a --dry run needs no keys at all.
+  const endpoint = new URL(env('DIGITAL_OCEAN_STORAGE_BUCKET_ENDPOINT'));
+  const region = endpoint.hostname.split('.')[0];
+  const host = `${env('DIGITAL_OCEAN_STORAGE_BUCKET_NAME')}.${endpoint.hostname}`;
   const now = new Date().toISOString().replace(/[:-]|\.\d{3}/g, '');
   const day = now.slice(0, 8);
   const payload = sha(body);
