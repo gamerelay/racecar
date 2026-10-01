@@ -32,6 +32,7 @@ import { RelayBackend, type RelayLike } from './lobby/relay';
 import type { NetCars } from './net/cars';
 import { joinRace } from './net/join';
 import type { NetRivals } from './net/rivals';
+import { Stepper } from './net/stepper';
 import { roster } from './lobby/lobby';
 import { loadPlate } from './lobby/plate';
 import { CLASSES, LAYOUTS, MAPS, PAINTS, SURFACES } from './content';
@@ -108,7 +109,12 @@ if (onlineRace)
     aiSeats,
     seed: run.seed,
     at: run.at,
-    onNet: (n, r) => ((net = n), (rivals = r)),
+    onNet: (n, r, tick) => {
+      net = n;
+      rivals = r;
+      // In: the race steps on the relay's tick, so it goes on in a hidden tab (you might be the host).
+      if (tick) stepper.useTick(tick, () => !editorOpen);
+    },
   });
 // A race of your own from an online lobby: the page still stays in its room, so your seat is still yours after it.
 else if (run.lobby && run.lobby !== LOCAL_ID && online) void online.get(run.lobby).catch(() => null);
@@ -236,7 +242,6 @@ const braking: boolean[] = [];
 let paused = false;
 let lastSwitch = 0;
 let editorOpen = false;
-let acc = 0;
 let last = performance.now();
 
 // The car you drive; none in attract mode, where car 0 (the camera's) is an AI.
@@ -269,6 +274,8 @@ function stepOnce(): void {
   telemetry.afterStep(me, performance.now() - t0);
 }
 
+const stepper = new Stepper(TICK_RATE, stepOnce);
+
 function frame(now: number): void {
   requestAnimationFrame(frame);
   const dt = Math.min((now - last) / 1000, 0.1);
@@ -278,19 +285,14 @@ function frame(now: number): void {
   if (paused) input.pollMenu();
   hud.setDevice(input.lastDevice);
   // An online race doesn't stop for your pause menu: the others are still driving (yours coasts).
-  if ((!paused || onlineRace) && !editorOpen) {
+  const stepping = (!paused || onlineRace) && !editorOpen;
+  if (stepping) {
     if (paused) Object.assign(controls, neutralControls());
     else input.poll(controls, dt);
     renderer.lookBack = human >= 0 && controls.lookBack;
-    acc += dt;
-    let steps = 0;
-    while (acc >= 1 / TICK_RATE && steps < 5) {
-      stepOnce();
-      acc -= 1 / TICK_RATE;
-      steps++;
-    }
-    if (steps === 5) acc = 0;
   }
+  // The frame loop's steps (on the relay's tick once an online race is in: net/stepper.ts).
+  const alpha = stepper.frame(dt, stepping);
   for (let i = 0; i < sim.cars.count; i++) {
     steer[i] = i === human ? controls.steer : sim.controls[i].steer;
     braking[i] = i === human ? controls.brake > 0 : sim.controls[i].brake > 0;
@@ -302,7 +304,7 @@ function frame(now: number): void {
     // The turntable goes where the lobby leaves room for it.
     const stage = renderer.showroom.visible ? document.querySelector<HTMLElement>('#menu .stage') : null;
     if (stage) renderer.showroom.frame(stage.getBoundingClientRect(), window.innerWidth, window.innerHeight);
-    renderer.frame(acc * TICK_RATE, dt, steer, braking);
+    renderer.frame(alpha, dt, steer, braking);
     if (attract) {
       // Follow whoever leads.
       let lead = 0;
@@ -330,6 +332,9 @@ function openMenu(): HTMLElement | null {
 // Switching away mid-race pauses it (not behind the menu, not once you're in the results). Not
 // online: the race goes on without you, and the menu would only be in the way when you're back.
 const awayPause = () => {
+  // Online the race steps on in a hidden tab (net/stepper.ts): no frames poll your keys there, so
+  // your car coasts, as behind the menu.
+  if (onlineRace) Object.assign(controls, neutralControls());
   if (!attract && !onlineRace && !editorOpen && !paused && !raceUi.shown) setPaused(true);
 };
 window.addEventListener('blur', awayPause);

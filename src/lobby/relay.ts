@@ -34,6 +34,8 @@ export interface RelayLike {
   listRooms(tag?: string, options?: { includeFull?: boolean }): Promise<{ code: string; players: number; name: string | null; meta: unknown; locked: boolean }[]>;
   /** Your round trip to the server (ms). */
   ping?(): Promise<number>;
+  /** `fn` at a fixed rate on a timer that keeps going in hidden tabs (the race page steps on it: net/stepper.ts). */
+  tick?(rate: number, fn: (dt: number, tick: number) => void): () => void;
   /** Your party (the SDK's), if it knows you're in one. */
   readonly party?: { code: string } | null;
   createParty?(): Promise<{ code: string }>;

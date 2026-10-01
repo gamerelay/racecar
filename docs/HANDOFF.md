@@ -280,7 +280,7 @@ Clockwise round a tropical island, the volcano in the middle and the sea all rou
      for a dropped player, and relay.ts split into wire, party, presence and relay.
    - **The AIs online** (PR #42, `alpha-1.19`): the SDK's host drives the AIs and sends them as
      `rival` host entities (`src/net/rivals.ts`), so every screen has the same bots; the next host
-     drives them on. A hidden host tab still freezes them until the role moves (next, below).
+     drives them on.
    - **The cleanup pass** (PR #43, `alpha-1.20`): everything other players send is checked all
      through (names are plates and escaped, the lobby in state, map keys, rivals only from the
      host role, remote poses capped), the race page's join is `net/join.ts` with tests, and the
@@ -288,11 +288,11 @@ Clockwise round a tropical island, the volcano in the middle and the sea all rou
    - **The soundtrack** (PRs #44 and #45, `alpha-1.20`/`alpha-1.21`): the owner's tracks, a
      playlist per race with no repeats, played from https://cdn.gamerelay.io (gamerelay.io's
      caching proxy for the games' asset store: "Hosted test build" below).
+   - **The race on `relay.tick`** (unreleased): an online race steps on the SDK's tick, a worker
+     timer that keeps going in hidden tabs (`src/net/stepper.ts`), so a hidden host tab no longer
+     freezes the AIs; drawing stays on `requestAnimationFrame`.
 
    Next, in order:
-   - **The online race on `relay.tick`**, so a hidden host tab doesn't freeze the AIs for
-     everyone (the sim steps on `requestAnimationFrame`, which stops in a background tab). Keep
-     drawing in rAF. It steadies every online test after it.
    - **Traffic hits through `room.claim`**, then bump dedupe (±150 ms) and wreck credit (the
      victim decides wrecks already): where screens disagree most in a real race.
    - **Results written by the host** (Xbox's arbitration), together with **a vote on the next
@@ -313,9 +313,6 @@ Clockwise round a tropical island, the volcano in the middle and the sea all rou
 ### Smaller follow-ups
 
 - **Online:**
-  - Step the online race on `relay.tick`, so a hidden host tab doesn't freeze the AIs (the sim
-    steps on `requestAnimationFrame`, which stops in a background tab). A stopgap is handing the
-    role on with `room.transferHost` when the host's tab hides.
   - Remote poses are capped now (speed, turn, steering; rivals' handover range-checked), but not
     their position: a modified client can still put its car anywhere, on top of yours too. A
     position near the track (and near where it last was) is the next check.
@@ -381,7 +378,8 @@ Clockwise round a tropical island, the volcano in the middle and the sea all rou
     screenshots.
   - `__rc.sim.placeCar(i, spline, s, lateral, speed)` teleports a car.
 - **Testing online in Chrome:** two tabs are two players (the local server: `bun run dev` in
-  ~/dev/gamerelay.io). A hidden tab doesn't run the net hooks until you `__rc.advance` it, and
+  ~/dev/gamerelay.io). An online race steps by itself in a hidden tab (on `relay.tick`), so both
+  tabs race without `__rc.advance`; the title and lobby pages still need it there. And
   the extension's key presses don't reach the page (dispatch `KeyboardEvent`s on `window`, or click
   through `document.getElementById(...)`). On the race page, `__rc.net.room` is the SDK's room
   (`lanRoute`, `players`). To drop a player's connection without leaving (Away, then their seat

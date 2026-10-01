@@ -6,6 +6,7 @@
 import type { Sim } from '../core/sim';
 import { NetCars, type NetRoom } from './cars';
 import { NetRivals } from './rivals';
+import type { Tick } from './stepper';
 
 /** Not connected by then (ms): the lights go anyway, 3 s on, and you race from here. */
 export const FALLBACK_MS = 8000;
@@ -13,8 +14,8 @@ export const FALLBACK_MS = 8000;
 export interface RaceJoin {
   /** The lobby's room joined (the backend's own join: `Lobbies.get`), or null if it's gone. */
   lobby: () => Promise<unknown>;
-  /** The connection, once joined: its room and the server's clock. */
-  connection: () => Promise<{ room?: unknown; now(): number }>;
+  /** The connection, once joined: its room, the server's clock, and its tick (a timer that keeps going in hidden tabs). */
+  connection: () => Promise<{ room?: unknown; now(): number; tick?: Tick }>;
   sim: Sim;
   /** Your car's index, the other players' by id, and the AIs' by lobby seat. */
   me: number;
@@ -23,8 +24,8 @@ export interface RaceJoin {
   seed: number;
   /** When the lights go green on the server's clock (ms), if the link says. */
   at?: number;
-  /** Where the net layers go once they're made (the page's step loop calls them). */
-  onNet: (net: NetCars, rivals: NetRivals | null) => void;
+  /** Where the net layers go once they're made (the page's step loop calls them), with the tick to step the race on from then. */
+  onNet: (net: NetCars, rivals: NetRivals | null, tick: Tick | null) => void;
   timers?: { set: (f: () => void, ms: number) => unknown; clear: (t: unknown) => void };
 }
 
@@ -46,7 +47,7 @@ export async function joinRace(j: RaceJoin): Promise<boolean> {
     const net = new NetCars(room, now, sim, j.me, j.remote, j.at);
     const rivals = j.aiSeats.size ? new NetRivals(room, now, sim, j.aiSeats, `${j.seed}:${j.at ?? 0}`) : null;
     joined = true;
-    j.onNet(net, rivals);
+    j.onNet(net, rivals, relay.tick ? (rate, fn) => relay.tick!(rate, fn) : null);
     // No time from the link: green 3 s from now (once racing, it's too late to matter).
     if (sim.race.phase === 'countdown' && !j.at) sim.race.goTime = sim.time + 3;
     timers.clear(fallback);

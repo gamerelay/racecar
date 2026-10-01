@@ -146,10 +146,10 @@ outside itself, and never touches the DOM or Three.js: a test enforces it (`test
 
 ### Loop
 
-- A fixed-step loop on `requestAnimationFrame` (`main.ts`) runs `core/sim.ts` at 60 Hz, online
-  too, and renders, interpolating between the last two sim states. Running the online race on
-  `relay.tick(60, step)` is planned: it keeps going in a hidden tab, so a host tab in the
-  background wouldn't freeze the AIs.
+- A fixed-step loop runs `core/sim.ts` at 60 Hz and renders on `requestAnimationFrame`,
+  interpolating between the last two sim states (`net/stepper.ts`). Offline, each frame steps the
+  time it covers; an online race, once it's in its room, steps on `relay.tick(60, step)`, which
+  keeps going in a hidden tab, so a host tab in the background still drives the AIs.
 - Render, audio, HUD and net read the tick's **event queue** (a typed ring buffer, not
   callbacks), so the sim never calls into them and a slow renderer can't stall a tick.
 - **Slow-mo is a property of the wreck, not of your screen.** Online, a wrecked car's body
@@ -1916,7 +1916,7 @@ The AIs online (milestone 3, part 3, 2026-10-01):
   the host's car only.
 - **A hidden host tab freezes the bots** on everyone's screen until the role moves: its sim
   doesn't step without animation frames. The SDK moves the role off a hidden tab that can't keep
-  up. Running the host's sim on `relay.tick` (which keeps going in hidden tabs) is a follow-up.
+  up. (Fixed after `alpha-1.21`: the online race steps on `relay.tick`, below.)
 - **Contact with an AI** is the same as with a player's car. The host's sim bumps and wrecks it.
   Every other screen's sim bumps your car off it, and leaves the AI where the host says.
 
@@ -1959,3 +1959,17 @@ The cleanup pass (2026-10-01, after `alpha-1.19`):
 - **Online failures say so in the console** (`warned`, lobby/warn.ts) instead of vanishing; the
   fallbacks are the same.
 - **tsc refuses unused locals and parameters**, as a cheap lint (there's no linter).
+
+The race on the relay's tick (after `alpha-1.21`):
+
+- **An online race steps on `relay.tick`**, not on animation frames (`net/stepper.ts`). The SDK's
+  tick is a timer in a worker, which a hidden tab doesn't throttle, so a host whose tab is in the
+  background still drives the AIs for everyone, and every player's car still goes out. Drawing
+  stays on `requestAnimationFrame`, between the tick's last two steps. Measured with two hidden
+  tabs on the local relay: the host stepped 191 times in 3 s with no animation frame at all, and
+  the other tab raced its AIs from it.
+- **Until the page is in its room** (and always offline), frames step it as before: the countdown
+  holds for the connection anyway, and a race alone doesn't need to go on behind your back.
+- **Your car coasts in a hidden tab:** nothing polls your keys there, so the controls you held
+  when you switched away are let go, as behind the menu.
+- **The editor open holds the tick too**, as it held the frames.
