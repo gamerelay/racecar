@@ -1,8 +1,8 @@
-import { describe, expect, test } from 'bun:test';
+import { describe, expect, spyOn, test } from 'bun:test';
 import { CLASS_ORDER } from '../src/core/content';
-import { doppler, ENGINE_SOUNDS, engineHz, engineSound, gearbox, spatial } from '../src/audio/model';
+import { doppler, ENGINE_SOUNDS, engineHz, engineSound, gearbox, musicMix, spatial } from '../src/audio/model';
 import { CLASSES } from './helpers';
-import { existsSync } from 'node:fs';
+import { existsSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { ANY_MAP, pickTrack, playlistFor, Soundtrack, TRACKS, trackUrl, type TrackName } from '../src/audio/soundtrack';
 import { MAPS } from '../tools/content';
@@ -190,4 +190,177 @@ describe('the soundtrack player', () => {
     expect(el.paused).toBe(false);
     expect(played).toEqual([first, t.current]);
   });
+
+  const ctxOf = (sources: { n: number } = { n: 0 }) =>
+    ({
+      createMediaElementSource: () => {
+        sources.n++;
+        return { connect() {} };
+      },
+    }) as unknown as AudioContext;
+  function race(list = playlistFor('backroads', false), rand = Math.random) {
+    FakeAudio.answer = () => Promise.resolve();
+    (globalThis as { Audio?: unknown }).Audio = FakeAudio;
+    const played: string[] = [];
+    const t = new Soundtrack(list, '/music/', { last: null, remember: (x) => played.push(x) }, rand);
+    t.connect(ctxOf(), {} as AudioNode);
+    return { t, el: t.el as unknown as FakeAudio, played };
+  }
+  /** performance.now, held still or moved on, for the frame throttle. */
+  function clock() {
+    let t = 10_000;
+    const spy = spyOn(performance, 'now').mockImplementation(() => t);
+    return { at: (ms: number) => (t = ms), restore: () => spy.mockRestore() };
+  }
+
+  test("the title's track loops alone; a race's playlist doesn't (it moves on), and both stream with CORS", () => {
+    const title = player().el;
+    expect(title.loop).toBe(true);
+    expect(title.src).toBe('/music/title.m4a');
+    const { el, t } = race();
+    expect(el.loop).toBe(false);
+    expect(el.src).toBe(`/music/${t.current}.m4a`);
+    expect(el.crossOrigin).toBe('anonymous');
+    expect(el.preload).toBe('auto');
+  });
+
+  test("a track that can't load is the synth's from then on, and says so in the console", async () => {
+    const warn = console.warn;
+    const said: unknown[] = [];
+    console.warn = (...a: unknown[]) => void said.push(a[0]);
+    try {
+      const { t, el } = race();
+      el.on.error();
+      expect(t.failed).toBe(true);
+      expect(String(said[0])).toContain("can't play");
+      t.play(true);
+      await settle();
+      expect(el.plays).toBe(0);
+    } finally {
+      console.warn = warn;
+    }
+  });
+
+  test('joining the audio graph happens once, and a graph that refuses it is the synth', () => {
+    FakeAudio.answer = () => Promise.resolve();
+    (globalThis as { Audio?: unknown }).Audio = FakeAudio;
+    const t = new Soundtrack(['title'], '/music/');
+    const sources = { n: 0 };
+    t.connect(ctxOf(sources), {} as AudioNode);
+    t.connect(ctxOf(sources), {} as AudioNode);
+    expect(sources.n).toBe(1);
+    const warn = console.warn;
+    console.warn = () => {};
+    try {
+      const u = new Soundtrack(['title'], '/music/');
+      u.connect({ createMediaElementSource: () => { throw new Error('taken'); } } as unknown as AudioContext, {} as AudioNode);
+      expect(u.failed).toBe(true);
+    } finally {
+      console.warn = warn;
+    }
+  });
+
+  test('nothing plays before the graph exists, one play is on its way at a time, and none while it already plays', async () => {
+    FakeAudio.answer = () => Promise.resolve();
+    (globalThis as { Audio?: unknown }).Audio = FakeAudio;
+    const t = new Soundtrack(['title'], '/music/');
+    const el = t.el as unknown as FakeAudio;
+    t.play(true);
+    expect(el.plays).toBe(0);
+    t.connect(ctxOf(), {} as AudioNode);
+    t.play(true);
+    t.play(true);
+    expect(el.plays).toBe(1);
+    await settle();
+    expect(el.paused).toBe(false);
+    t.play(true);
+    expect(el.plays).toBe(1);
+  });
+
+  test('from frames it tries at most once a second; a key or click tries at once', async () => {
+    const c = clock();
+    try {
+      const { t, el } = race();
+      FakeAudio.answer = refuse;
+      t.play();
+      await settle();
+      c.at(10_500);
+      t.play();
+      await settle();
+      expect(el.plays).toBe(1);
+      c.at(11_001);
+      t.play();
+      await settle();
+      expect(el.plays).toBe(2);
+      t.play(true);
+      await settle();
+      expect(el.plays).toBe(3);
+    } finally {
+      c.restore();
+    }
+  });
+
+  test('through a long race, never the same song twice in a row, every one comes round, and each is remembered', async () => {
+    let seed = 7;
+    const rand = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
+    const { t, el, played } = race(playlistFor('paradise', false), rand);
+    t.play(true);
+    await settle();
+    const order = [t.current];
+    for (let k = 0; k < 60; k++) {
+      el.paused = true;
+      // A track ending a moment after the last play: the next starts at once, not a second later.
+      el.on.ended();
+      await settle();
+      order.push(t.current);
+    }
+    for (let k = 1; k < order.length; k++) expect(order[k]).not.toBe(order[k - 1]);
+    expect(new Set(order)).toEqual(new Set(playlistFor('paradise', false)));
+    expect(played).toEqual(order);
+    expect(el.plays).toBe(61);
+  });
 });
+
+describe('the soundtrack files', () => {
+  test('every track is AAC in an MP4 box (not a WAV that slipped in), and a few MB at most', () => {
+    for (const name of TRACKS) {
+      const path = join(import.meta.dir, '..', 'public', 'music', `${name}.m4a`);
+      const head = readFileSync(path).subarray(0, 12);
+      expect(head.subarray(4, 8).toString('latin1')).toBe('ftyp');
+      expect(['M4A ', 'mp42', 'isom']).toContain(head.subarray(8, 12).toString('latin1'));
+      const mb = statSync(path).size / 1e6;
+      expect(mb).toBeGreaterThan(0.5);
+      expect(mb).toBeLessThan(5);
+    }
+  });
+});
+
+describe('the music mix', () => {
+  const base = { recorded: true, on: true, menu: false, titleTrack: false, racing: true, finalLap: false, timeScale: 1 };
+
+  test('a recorded track plays instead of the synth; without one (or failed), the synth', () => {
+    expect(musicMix(base)).toMatchObject({ track: true, synth: false, level: 0.5, tone: 12000 });
+    expect(musicMix({ ...base, recorded: false })).toMatchObject({ track: false, synth: true, intensity: 1 });
+  });
+
+  test('N off: neither plays, and the bus is silent', () => {
+    expect(musicMix({ ...base, on: false })).toMatchObject({ track: false, synth: false, level: 0 });
+    expect(musicMix({ ...base, on: false, recorded: false })).toMatchObject({ track: false, synth: false, level: 0 });
+  });
+
+  test("behind the menus the title's track is clear; the synth (or a race track there) is muffled", () => {
+    expect(musicMix({ ...base, menu: true, titleTrack: true }).tone).toBe(12000);
+    expect(musicMix({ ...base, menu: true, titleTrack: true, recorded: false }).tone).toBe(1400);
+    expect(musicMix({ ...base, menu: true }).tone).toBe(1400);
+  });
+
+  test("slow-mo muffles it; the synth's layers follow the race (none behind a menu or once finished, more on the final lap)", () => {
+    expect(musicMix({ ...base, timeScale: 0.5 }).tone).toBe(550);
+    const synth = { ...base, recorded: false };
+    expect(musicMix({ ...synth, menu: true }).intensity).toBe(0);
+    expect(musicMix({ ...synth, racing: false }).intensity).toBe(0);
+    expect(musicMix(synth).intensity).toBe(1);
+    expect(musicMix({ ...synth, finalLap: true }).intensity).toBe(2);
+  });
+});
+

@@ -12,7 +12,7 @@ import { Vector3, type PerspectiveCamera } from 'three';
 import { clamp, damp } from '../core/math';
 import { Cause, Ev, type GameEvent } from '../core/events';
 import type { Sim } from '../core/sim';
-import { doppler, engineHz, engineSound, gearbox, spatial, type Gear, type Spatial } from './model';
+import { doppler, engineHz, engineSound, gearbox, musicMix, spatial, type Gear, type Spatial } from './model';
 import { Music, type Intensity } from './music';
 import type { Soundtrack } from './soundtrack';
 import { EngineVoice, glide, NoiseVoice, noiseShot, note, Out, toneShot, type Shot } from './synth';
@@ -320,19 +320,14 @@ export class GameAudio {
     // ---- music ----
     const racing = sim.race.phase === 'racing' && !c.finished[i];
     const finalLap = racing && sim.race.laps > 1 && c.lap[i] === sim.race.laps - 1;
-    const recorded = !!this.track && !this.track.failed;
-    this.wantTrack = recorded && this.settings.music;
-    if (recorded) {
-      if (this.settings.music) this.track!.play();
-      else this.track!.pause();
-    } else {
-      g.music.intensity = (f.menu || !racing ? 0 : finalLap ? 2 : 1) as Intensity;
-      if (this.settings.music) g.music.update();
-    }
-    glide(g.musicLevel.gain, this.settings.music ? 0.5 : 0, now, 0.3);
-    // Muffled in slow-mo, and behind the menu (unless it's the title's own track).
-    const behind = f.menu && !(recorded && this.titleTrack);
-    glide(g.musicTone.frequency, behind ? 1400 : sim.timeScale < 0.9 ? 550 : 12000, now, 0.15);
+    const mix = musicMix({ recorded: !!this.track && !this.track.failed, on: this.settings.music, menu: f.menu, titleTrack: this.titleTrack, racing, finalLap, timeScale: sim.timeScale });
+    this.wantTrack = mix.track;
+    if (mix.track) this.track!.play();
+    else this.track?.pause();
+    g.music.intensity = mix.intensity as Intensity;
+    if (mix.synth) g.music.update();
+    glide(g.musicLevel.gain, mix.level, now, 0.3);
+    glide(g.musicTone.frequency, mix.tone, now, 0.15);
   }
 
   /** Plays a one-shot at level `gain`, panned `pan`, through `fn`. */
