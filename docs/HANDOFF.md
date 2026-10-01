@@ -319,7 +319,7 @@ Clockwise round a tropical island, the volcano in the middle and the sea all rou
 - **Update it** (asleepace.com repo, its `publishing-games` skill): run the sanitizer on the new
   file, then `UPDATE games SET html = … WHERE id = 'Z442EE'`. It's live at once; players get it
   when they reload. Don't run its multiplayer injection: racecar brings GameRelay's SDK.
-- **What's there now:** `main` at PR #40 (alpha-1.17 plus P2P, the online review and the title's flags), updated 2026-10-01. Keep it the
+- **What's there now:** `main` at PR #42 (alpha-1.18 plus the AIs online), updated 2026-10-01. Keep it the
   one row: update Z442EE in place rather than adding a game.
 
 ## Next, in order
