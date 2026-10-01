@@ -1596,8 +1596,12 @@ The online code, reviewed (2026-10-01; the map is docs/ONLINE.md):
 - **Away** (from Xbox Live's member states): a player whose connection has been gone 4 s or more
   shows Away in the Ping column; their seat's held through the server's grace, and they're back
   in it if they return.
-- **A join the screen gave up on leaves the room when it lands** (it took over 5 s, or Esc while
+- **A join the menu gave up on leaves the room when it lands** (it took over 5 s, or Esc while
   joining): before, you'd be in that room, unseen and in its party, until you left another way.
+  Only the menu gives up (`abandon`): the race page stays in its room however long joining takes.
+- **Joins, creates and leaves run one at a time, in order** (`inTurn`), and the backend knows which
+  lobby the screens want (`wanted`). The SDK has one room at a time and its leave doesn't name a
+  room, so a late join's leave, overlapping the next join, could take you out of that one.
 
 P2P (2026-10-01):
 

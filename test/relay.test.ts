@@ -23,6 +23,8 @@ class Hub {
   parties = new Map<string, Set<string>>();
   /** How long a party join takes (ms). */
   joinMs = 0;
+  /** How long joining a room takes (ms). */
+  roomMs = 0;
   /** Each room made, with the party its maker was in then (a leader's room pulls its party in). */
   made: { code: string; party?: string }[] = [];
   private n = 0;
@@ -178,6 +180,7 @@ class FakeRelay implements RelayLike {
     return this.enter(room);
   }
   async joinRoom(code: string): Promise<RoomLike> {
+    if (this.hub.roomMs) await new Promise((r) => setTimeout(r, this.hub.roomMs));
     const room = this.hub.rooms.get(code);
     if (!room) throw new Error('not_found');
     const back = room.members.find((m) => m.id === this.playerId);
@@ -670,18 +673,56 @@ describe('the SDK host role moving, and who is away', () => {
     p.dispose();
   });
 
-  test('a join the screen gave up waiting on leaves the room when it lands, so nobody sits in it unseen', async () => {
+  const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
+  const membersOf = (hub: Hub, code: string) => hub.rooms.get(code)?.members.map((m) => m.id) ?? [];
+
+  test("a join the menu gave up on (too slow, or Esc) leaves when it lands; one it didn't give up on stays (the race page's)", async () => {
     const hub = new Hub();
-    const [ada, bo] = players(hub, 'ada', 'bo');
+    const [ada, bo, cy] = players(hub, 'ada', 'bo', 'cy');
     const lobby = await ada.backend.create(player('ADA'), {});
-    // Bo's join is slow: the screen waits 10 ms, the join takes 30.
-    const slow = new RelayBackend(async () => {
-      await new Promise((r) => setTimeout(r, 30));
-      return bo.relay;
-    });
-    const both = new Lobbies(new LocalBackend(null), slow, 10);
-    expect(await both.get(lobby.id)).toBeNull();
-    await new Promise((r) => setTimeout(r, 60));
-    expect(hub.rooms.get(lobby.id)!.members.map((m) => m.id)).toEqual(['ada']);
+    hub.roomMs = 30;
+    // The screens wait 10 ms: both gets come back empty while the joins go on.
+    const boSide = new Lobbies(new LocalBackend(null), bo.backend, 10);
+    const cySide = new Lobbies(new LocalBackend(null), cy.backend, 10);
+    expect(await boSide.get(lobby.id)).toBeNull();
+    expect(await cySide.get(lobby.id)).toBeNull();
+    // Bo's menu gives up; Cy's is a race page, which keeps waiting.
+    void boSide.abandon(lobby.id);
+    await wait(60);
+    expect(membersOf(hub, lobby.id).sort()).toEqual(['ada', 'cy']);
+  });
+
+  test('Esc while joining one lobby, then into another: the late join leaves its own room, never the new one', async () => {
+    const hub = new Hub();
+    const [ada, cy, bo] = players(hub, 'ada', 'cy', 'bo');
+    const x = await ada.backend.create(player('ADA'), {});
+    const y = await cy.backend.create(player('CY'), {});
+    hub.roomMs = 20;
+    const joiningX = bo.backend.get(x.id);
+    // Esc: the menu gives X up, and Bo opens Y straight away.
+    void bo.backend.abandon(x.id);
+    const inY = await bo.backend.get(y.id);
+    await joiningX;
+    expect(inY?.id).toBe(y.id);
+    expect(membersOf(hub, x.id)).toEqual(['ada']);
+    expect(membersOf(hub, y.id).sort()).toEqual(['bo', 'cy']);
+    expect(bo.backend.current?.code).toBe(y.id);
+  });
+
+  test("a join given up on after you're in another lobby doesn't take you out of it", async () => {
+    const hub = new Hub();
+    const [ada, cy, bo] = players(hub, 'ada', 'cy', 'bo');
+    const x = await ada.backend.create(player('ADA'), {});
+    hub.roomMs = 20;
+    const side = new Lobbies(new LocalBackend(null), bo.backend, 5);
+    expect(await side.get(x.id)).toBeNull();
+    void side.abandon(x.id);
+    // To the title, then Bo makes a lobby of his own while X's join is still landing.
+    const mine = await bo.backend.create(player('BO'), {});
+    await wait(50);
+    expect(bo.backend.current?.code).toBe(mine.id);
+    expect(membersOf(hub, mine.id)).toEqual(['bo']);
+    expect(membersOf(hub, x.id)).toEqual(['ada']);
+    void cy;
   });
 });

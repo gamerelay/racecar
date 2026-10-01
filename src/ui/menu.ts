@@ -175,10 +175,14 @@ export class Menu {
       // leave the room you got into (Esc's leave went out before you were in it).
       if (this.screen !== screen) {
         const now = this.screen;
-        if (lobby && screen.id !== LOCAL_ID && !(now.kind === 'lobby' && now.id === screen.id)) void this.backend.send(screen.id, { type: 'leave' });
+        if (!(now.kind === 'lobby' && now.id === screen.id)) void this.backend.abandon?.(screen.id);
         return;
       }
-      if (!lobby) return this.show({ kind: 'title' });
+      // Gone, or too slow to wait for: to the title, and out of it if the join lands later.
+      if (!lobby) {
+        void this.backend.abandon?.(screen.id);
+        return this.show({ kind: 'title' });
+      }
       let phase = lobby.phase;
       this.unsubscribe = this.backend.subscribe(screen.id, (l) => {
         if (!l) return void this.show({ kind: 'title' });

@@ -85,6 +85,13 @@ export class RelayBackend implements LobbyBackend {
   private listed = '';
   private listingTimer: ReturnType<typeof setTimeout> | null = null;
   private listingAt = 0;
+  /**
+   * Joins, creates and leaves run one at a time, in order: the SDK has one room at a time, and its
+   * leave doesn't say which room. Overlapping, a late join's leave could take you out of the next.
+   */
+  private queue: Promise<unknown> = Promise.resolve();
+  /** The lobby the screens want you in (a create's is its new room's, once there is one). */
+  private wanted: string | null = null;
 
   /** `connect` opens the connection, once, when the backend is first used (the SDK's `GameRelay.connect`). */
   constructor(private connect: () => Promise<RelayLike>) {}
@@ -143,7 +150,19 @@ export class RelayBackend implements LobbyBackend {
     return rows.flatMap((r) => (r.players > 0 && readListing(r)) || []);
   }
 
+  /** `fn` after every room change before it (whether those worked or not). */
+  private inTurn<T>(fn: () => Promise<T>): Promise<T> {
+    const run = this.queue.then(fn, fn);
+    this.queue = run.catch(() => {});
+    return run;
+  }
+
   async create(host: Player, init: Parameters<LobbyBackend['create']>[1]): Promise<Lobby> {
+    this.wanted = null;
+    return this.inTurn(() => this.createNow(host, init));
+  }
+
+  private async createNow(host: Player, init: Parameters<LobbyBackend['create']>[1]): Promise<Lobby> {
     const relay = await this.relayNow();
     await this.leaveRoom();
     // Out of any party first (a fresh page's SDK doesn't know it's in one): a leader's new room
@@ -153,18 +172,22 @@ export class RelayBackend implements LobbyBackend {
     const room = await relay.createRoom({ maxPlayers: SEATS, tag: TAG, public: visibility === 'public' });
     const party = await this.party.create();
     const lobby: Lobby = { ...createLobby(room.code, { ...host, id: room.me }, { ...init, visibility }), ...(party ? { party } : {}) };
+    this.wanted = room.code;
     this.attach(room);
     this.commit(room, lobby);
     return lobby;
   }
 
   async get(id: string): Promise<Lobby | null> {
-    const room = await this.enter(id);
+    this.wanted = id;
+    const room = await this.inTurn(() => this.enter(id));
     return room && readLobby(room.state);
   }
 
   /** The room for lobby `id`: the one you're in, or joined now (a reload resumes your seat). */
   private async enter(id: string): Promise<RoomLike | null> {
+    // Given up on before its turn came.
+    if (this.wanted !== id) return null;
     if (this.room?.code === id) return this.room;
     const relay = await this.relayNow();
     if (relay.room?.code === id) {
@@ -175,7 +198,25 @@ export class RelayBackend implements LobbyBackend {
     const room = await relay.joinRoom(id).catch(() => null);
     if (!room) return null;
     this.attach(room);
+    // Given up on while it joined (Esc, or too slow for the screen): out again, before anything
+    // after it runs, so this leave can only be this room's.
+    if (this.wanted !== id) {
+      await this.leaveRoom();
+      return null;
+    }
     return room;
+  }
+
+  /**
+   * The screens no longer want lobby `id` (Esc while joining, or a join too slow to wait for): out
+   * of it if you got in, or as soon as you do. Only the menu gives up on a lobby; the race page
+   * stays in its room however long joining takes.
+   */
+  async abandon(id: string): Promise<void> {
+    if (this.wanted === id) this.wanted = null;
+    await this.inTurn(async () => {
+      if (this.room?.code === id && this.wanted !== id) await this.leaveRoom();
+    });
   }
 
   async send(id: string, action: LobbyAction): Promise<Lobby | null> {
@@ -188,7 +229,10 @@ export class RelayBackend implements LobbyBackend {
     else next = (await room.request('lobby', action as never).catch(() => null)) as Lobby | null;
     // Out of the room whether or not you had a seat (you may have been watching: it was full, or racing).
     if (action.type === 'leave') {
-      await this.leaveRoom();
+      if (this.wanted === id) this.wanted = null;
+      await this.inTurn(async () => {
+        if (this.room === room) await this.leaveRoom();
+      });
       return null;
     }
     return next && obj(next) ? next : null;
@@ -280,7 +324,10 @@ export class RelayBackend implements LobbyBackend {
         // You're the one kicked, and you hold the SDK's role (it moves on reloads), which can't
         // kick itself: hand on the lobby, then go.
         this.commit(room, next);
-        void this.leaveRoom();
+        if (this.wanted === room.code) this.wanted = null;
+        void this.inTurn(async () => {
+          if (this.room === room) await this.leaveRoom();
+        });
         return next;
       }
       if (s.kind === 'player') void room.kick(s.id, { ban: false }).catch(() => {});

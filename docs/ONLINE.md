@@ -34,6 +34,10 @@ are in [SPEC.md](./SPEC.md) "Changed while building"; this is the map.
 6. **Leave.** Leave, a kick or the room closing takes you out of the room and its party. The last
    one out unlists the room; the server closes it two minutes later.
 
+Joining, creating and leaving run one at a time, in order (the SDK has one room at a time, and its
+leave doesn't name a room). A join the menu gives up on (too slow, or Esc) leaves when it lands;
+the race page never gives up on its lobby's room.
+
 ## Two hosts
 
 - **The SDK's host** holds the room's write role. It moves by itself (a reload, a dropped

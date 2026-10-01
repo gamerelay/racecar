@@ -21,6 +21,8 @@ export interface LobbyBackend {
   ping?(id: string, player: string): number | null;
   /** Online: whether player `player`'s connection has been gone a while (their seat's held for them). */
   away?(id: string, player: string): boolean;
+  /** Online: the screens no longer want lobby `id` (a join given up on): out of it, now or when the join lands. */
+  abandon?(id: string): Promise<void>;
 }
 
 /**
@@ -181,29 +183,16 @@ export class Lobbies implements LobbyBackend {
     return this.online.create(host, init);
   }
 
-  /** Online joins the screens gave up waiting on, by lobby id. */
-  private gaveUp = new Set<string>();
-
+  /** Too slow (online), it's null; the join goes on, and the caller decides (the menu abandons it, the race page keeps waiting). */
   async get(id: string): Promise<Lobby | null> {
     const backend = this.of(id);
     if (!backend) return null;
     if (backend === this.local) return backend.get(id);
-    this.gaveUp.delete(id);
-    const joining = backend.get(id);
-    try {
-      return (await inTime(joining, this.wait)) ?? null;
-    } catch {
-      // Too slow: the screen moves on, but the join goes on without it. If it lands, leave
-      // again, or you'd sit in that room unseen (and in its party) until you left another way.
-      this.gaveUp.add(id);
-      void joining.then(
-        (lobby) => {
-          if (lobby && this.gaveUp.delete(id)) void backend.send(id, { type: 'leave' });
-        },
-        () => this.gaveUp.delete(id),
-      );
-      return null;
-    }
+    return (await inTime(backend.get(id), this.wait).catch(() => null)) ?? null;
+  }
+
+  async abandon(id: string): Promise<void> {
+    await this.of(id)?.abandon?.(id);
   }
 
   async send(id: string, action: LobbyAction): Promise<Lobby | null> {
