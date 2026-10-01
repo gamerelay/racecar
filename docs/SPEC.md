@@ -1911,7 +1911,8 @@ The cleanup pass (2026-10-01, after `alpha-1.19`):
 - **The lobby in a room's state is checked all through** (`readLobby`, and the host's answer to an
   action, which wasn't checked at all): every seat, option and field, or it isn't a lobby. Only the
   seat count and the host were, and the SDK's host role moves to any player: a bad seat broke
-  everyone's lobby screen.
+  everyone's lobby screen. One that fails isn't the lobby gone: the screens keep the last good one (a
+  bad state sent everyone to the title, review of PR #43), and the next host writes a good one.
 - **A map is a layout key by its shape** (`downtown/downtown`), from a listing or the options. A
   listing naming `constructor` was a function in the layouts' lookup, and took the lobby list down
   for every player while it was listed.

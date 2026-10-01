@@ -312,6 +312,25 @@ describe('online lobbies', () => {
     expect(now?.seats[0]).toEqual({ kind: 'open' });
   });
 
+  test("a lobby in state that fails its checks isn't the lobby gone: every screen keeps the last good one", async () => {
+    const hub = new Hub();
+    const [ada, bo] = players(hub, 'ada', 'bo');
+    const lobby = await ada.backend.create(player('ADA'), {});
+    await bo.backend.get(lobby.id);
+    await bo.backend.send(lobby.id, { type: 'join', player: player('BO') });
+    const seen: unknown[] = [];
+    bo.backend.subscribe(lobby.id, (l) => seen.push(l));
+    const room = hub.rooms.get(lobby.id)!;
+    const good = room.state.lobby as { seats: Record<string, unknown>[] };
+    // Whoever holds the host role writes a seat no plate can name.
+    const seats = good.seats.map((x, i) => (i === 1 ? { ...x, name: '!!' } : x));
+    room.members.find((m) => m.id === 'ada')!.setState({ lobby: { ...good, seats } });
+    await settle();
+    expect(seen.length).toBeGreaterThan(0);
+    expect(seen.every((l) => l !== null)).toBe(true);
+    expect((await bo.backend.get(lobby.id))?.seats[1]).toMatchObject({ kind: 'player', name: 'BO' });
+  });
+
   test("a kick opens the seat and puts them out of the room, and the listing follows the lobby's visibility", async () => {
     const hub = new Hub();
     const [ada, bo] = players(hub, 'ada', 'bo');
