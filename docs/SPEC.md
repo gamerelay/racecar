@@ -1585,6 +1585,20 @@ The lobby's header, and who can join (playtest, 2026-10-01):
   minutes), listed as it last was ("1/8"). The list skips rooms the server counts nobody in, and
   the last one out unlists the room as they go (`setAccess({ public: false })`).
 
+The online code, reviewed (2026-10-01; the map is docs/ONLINE.md):
+
+- **The SDK's host role moving re-tidies the lobby.** The backend listened for a `host` event,
+  which the SDK never sends: its name is `host_changed`. So whoever the role moved to (a page
+  load moves it) didn't open the seats of players who'd left meanwhile, or bring the listing up
+  to date. Room events are a typed list of the SDK's names now, so a misspelt one doesn't compile.
+- **relay.ts is four files:** wire.ts (checking what other players send), party.ts (the P2P
+  party), presence.ts (pings, the connection, who's away) and relay.ts (the lobby as a room).
+- **Away** (from Xbox Live's member states): a player whose connection has been gone 4 s or more
+  shows Away in the Ping column; their seat's held through the server's grace, and they're back
+  in it if they return.
+- **A join the screen gave up on leaves the room when it lands** (it took over 5 s, or Esc while
+  joining): before, you'd be in that room, unseen and in its party, until you left another way.
+
 P2P (2026-10-01):
 
 - **Every online lobby is a GameRelay party too, so its players connect straight to each other.**

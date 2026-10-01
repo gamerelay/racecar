@@ -1,6 +1,8 @@
 import { describe, expect, test } from 'bun:test';
 import { Lobbies, LocalBackend, LOCAL_ID } from '../src/lobby/backend';
-import { netRoute, readAction, readPing, PING_MS, readListing, RelayBackend, type RelayLike, type RoomLike } from '../src/lobby/relay';
+import { AWAY_MS, netRoute, PING_MS, Presence } from '../src/lobby/presence';
+import { RelayBackend, type RelayLike, type RoomLike } from '../src/lobby/relay';
+import { readAction, readListing, readPing } from '../src/lobby/wire';
 import { raceFromLobby } from '../src/ui/setup';
 
 // Online lobbies (milestone 3): a lobby is a GameRelay room, written only by the SDK's host, which
@@ -48,7 +50,8 @@ class FakeRoom {
     const wasHost = this.host === c;
     this.members = this.members.filter((m) => m !== c);
     this.emit('player_left', c.id);
-    if (wasHost) this.host?.fire('host');
+    // As the SDK says it: `host_changed` to everyone, with the new host's id.
+    if (wasHost && this.host) this.emit('host_changed', this.host.id, c.id);
     if (!this.members.length) this.hub.rooms.delete(this.code);
   }
 }
@@ -75,7 +78,7 @@ class FakeClient implements RoomLike {
     return this.room.public;
   }
   get players() {
-    return this.room.members.map((m) => ({ id: m.id }));
+    return this.room.members.map((m) => ({ id: m.id, connected: m.connected }));
   }
   get state() {
     return this.room.state;
@@ -623,5 +626,62 @@ describe('P2P: never left in a party the lobby is done with', () => {
     host.setState({ lobby: { ...(room.state.lobby as object), party: code } });
     await new Promise((r) => setTimeout(r, 80));
     expect(partyOf(hub, 'bo')).toBe(code);
+  });
+});
+
+describe('the SDK host role moving, and who is away', () => {
+  test("whoever the SDK's host role moves to tidies up: a seat whose player left while nobody held it opens", async () => {
+    const hub = new Hub();
+    const [ada, bo] = players(hub, 'ada', 'bo');
+    const lobby = await ada.backend.create(player('ADA'), {});
+    await bo.backend.get(lobby.id);
+    await bo.backend.send(lobby.id, { type: 'join', player: player('BO') });
+    const room = hub.rooms.get(lobby.id)!;
+    // Someone left while the role was between pages (nobody saw it go): their seat's still down.
+    const seats = (room.state.lobby as { seats: unknown[] }).seats.slice();
+    seats[2] = { kind: 'player', ready: false, id: 'zed', name: 'ZED', car: 'coupe', paint: 0 };
+    room.state = { ...room.state, lobby: { ...(room.state.lobby as object), seats } };
+    // Ada's page drops: the role moves to Bo, and the SDK says so with `host_changed`.
+    room.members.find((m) => m.id === 'ada')!.connected = false;
+    room.emit('host_changed', 'bo', 'ada');
+    expect((room.state.lobby as { seats: { kind: string }[] }).seats[2]).toEqual({ kind: 'open' });
+  });
+
+  test("a player whose connection has been gone a while is away (not a page load's moment), and back when it's back", () => {
+    const hub = new Hub();
+    const room = new FakeRoom(hub, 'R');
+    const ada = new FakeClient(room, 'ada');
+    const bo = new FakeClient(room, 'bo');
+    room.members.push(ada, bo);
+    let t = 1000;
+    const p = new Presence(ada, async () => 10, () => t);
+    expect(p.away('bo')).toBe(false);
+    bo.connected = false;
+    room.emit('player_disconnected', 'bo');
+    t += AWAY_MS - 1;
+    expect(p.away('bo')).toBe(false);
+    t += 1;
+    expect(p.away('bo')).toBe(true);
+    // You're never away to yourself.
+    expect(p.away('ada')).toBe(false);
+    bo.connected = true;
+    room.emit('player_reconnected', 'bo');
+    expect(p.away('bo')).toBe(false);
+    p.dispose();
+  });
+
+  test('a join the screen gave up waiting on leaves the room when it lands, so nobody sits in it unseen', async () => {
+    const hub = new Hub();
+    const [ada, bo] = players(hub, 'ada', 'bo');
+    const lobby = await ada.backend.create(player('ADA'), {});
+    // Bo's join is slow: the screen waits 10 ms, the join takes 30.
+    const slow = new RelayBackend(async () => {
+      await new Promise((r) => setTimeout(r, 30));
+      return bo.relay;
+    });
+    const both = new Lobbies(new LocalBackend(null), slow, 10);
+    expect(await both.get(lobby.id)).toBeNull();
+    await new Promise((r) => setTimeout(r, 60));
+    expect(hub.rooms.get(lobby.id)!.members.map((m) => m.id)).toEqual(['ada']);
   });
 });

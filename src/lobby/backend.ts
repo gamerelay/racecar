@@ -19,6 +19,8 @@ export interface LobbyBackend {
   route?(id: string): NetRoute | null;
   /** Online: player `player`'s ping to the server (ms), or null while it isn't known. */
   ping?(id: string, player: string): number | null;
+  /** Online: whether player `player`'s connection has been gone a while (their seat's held for them). */
+  away?(id: string, player: string): boolean;
 }
 
 /**
@@ -119,8 +121,8 @@ export class LocalBackend implements LobbyBackend {
 /** Online calls the screens wait on give up after this long (ms): a server that never answers isn't one. */
 const ONLINE_WAIT_MS = 5000;
 
-function inTime<T>(p: Promise<T>): Promise<T> {
-  return Promise.race([p, new Promise<never>((_, reject) => setTimeout(() => reject(new Error('timeout')), ONLINE_WAIT_MS))]);
+function inTime<T>(p: Promise<T>, ms: number): Promise<T> {
+  return Promise.race([p, new Promise<never>((_, reject) => setTimeout(() => reject(new Error('timeout')), ms))]);
 }
 
 /**
@@ -134,6 +136,8 @@ export class Lobbies implements LobbyBackend {
   constructor(
     readonly local: LocalBackend,
     readonly online: LobbyBackend | null,
+    /** How long the screens wait on an online call (ms). */
+    private wait = ONLINE_WAIT_MS,
   ) {
     if (!online) this.offline = 'Online lobbies need a GameRelay key (VITE_GAMERELAY_KEY).';
   }
@@ -154,11 +158,15 @@ export class Lobbies implements LobbyBackend {
     return this.of(id)?.ping?.(id, player) ?? null;
   }
 
+  away(id: string, player: string): boolean {
+    return this.of(id)?.away?.(id, player) ?? false;
+  }
+
   /** The online lobbies to join. Your own isn't one: it's private, and closes when you leave it. */
   async list(): Promise<LobbySummary[]> {
     if (!this.online) return [];
     try {
-      const rows = await inTime(this.online.list());
+      const rows = await inTime(this.online.list(), this.wait);
       this.offline = '';
       return rows;
     } catch {
@@ -173,10 +181,29 @@ export class Lobbies implements LobbyBackend {
     return this.online.create(host, init);
   }
 
+  /** Online joins the screens gave up waiting on, by lobby id. */
+  private gaveUp = new Set<string>();
+
   async get(id: string): Promise<Lobby | null> {
     const backend = this.of(id);
     if (!backend) return null;
-    return (await (backend === this.local ? backend.get(id) : inTime(backend.get(id))).catch(() => null)) ?? null;
+    if (backend === this.local) return backend.get(id);
+    this.gaveUp.delete(id);
+    const joining = backend.get(id);
+    try {
+      return (await inTime(joining, this.wait)) ?? null;
+    } catch {
+      // Too slow: the screen moves on, but the join goes on without it. If it lands, leave
+      // again, or you'd sit in that room unseen (and in its party) until you left another way.
+      this.gaveUp.add(id);
+      void joining.then(
+        (lobby) => {
+          if (lobby && this.gaveUp.delete(id)) void backend.send(id, { type: 'leave' });
+        },
+        () => this.gaveUp.delete(id),
+      );
+      return null;
+    }
   }
 
   async send(id: string, action: LobbyAction): Promise<Lobby | null> {

@@ -171,8 +171,13 @@ export class Menu {
     else if (screen.kind === 'plate') this.renderPlate(screen.from);
     else {
       let lobby = await this.backend.get(screen.id);
-      // Gone elsewhere while it loaded (Esc while joining): that screen has the menu now.
-      if (this.screen !== screen) return;
+      // Gone elsewhere while it loaded (Esc while joining): that screen has the menu now, and you
+      // leave the room you got into (Esc's leave went out before you were in it).
+      if (this.screen !== screen) {
+        const now = this.screen;
+        if (lobby && screen.id !== LOCAL_ID && !(now.kind === 'lobby' && now.id === screen.id)) void this.backend.send(screen.id, { type: 'leave' });
+        return;
+      }
       if (!lobby) return this.show({ kind: 'title' });
       let phase = lobby.phase;
       this.unsubscribe = this.backend.subscribe(screen.id, (l) => {
@@ -560,8 +565,9 @@ export class Menu {
     return route ? `<button class="ghost invite net" disabled title="${NET_ROUTES[route][1]}">${NET_ROUTES[route][0]}</button>` : '';
   }
 
-  /** A player's ping to the server, as the Ping column shows it. */
+  /** A player's ping to the server, as the Ping column shows it: or Away, while their connection's gone. */
   private pingText(id: string, player: string): string {
+    if (this.backend.away?.(id, player)) return '<span class="away" title="Their connection dropped: the seat is held for them a little while">Away</span>';
     const ms = this.backend.ping?.(id, player) ?? null;
     return ms === null ? '—' : `<span class="${pingClass(ms)}">${ms} ms</span>`;
   }
