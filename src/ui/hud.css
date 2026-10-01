@@ -132,6 +132,7 @@ body.boosting #gFill { stroke: var(--sun); }
 .card.results td { padding: 5px 8px; border-bottom: 1px solid rgba(216, 198, 242, 0.2); font-variant-numeric: tabular-nums; }
 .card.results tr.me td { color: var(--sun); font-weight: 700; }
 .card .dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 8px; border: 1px solid var(--outline); }
+.card .dot.open { background: var(--muted); opacity: 0.6; }
 .card.setup { max-width: 640px; }
 .card.setup .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 10px 14px; margin: 0 0 16px; }
 .card.setup label { display: grid; gap: 4px; font-weight: 700; font-size: 13px; color: var(--muted); }
@@ -208,11 +209,14 @@ svg.thumb .cut { stroke: var(--sun); stroke-width: 1.5; stroke-dasharray: 3 2; }
 .card .sub { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 0; color: var(--muted); font-size: 13px; margin: 0 0 22px; }
 /* Items with room between them, split by a dim dot. */
 .card .sub span + span::before { content: '·'; margin: 0 14px; opacity: 0.5; }
-/* An online lobby's invite link, at the end of its line. */
-.card .sub .invite { margin-left: 14px; padding: 2px 10px; font-size: 0.85em; vertical-align: middle; }
+/* An online lobby's who-can-join (the host's to cycle) and invite link. */
+.card .sub .invite { margin: 0 10px 0 0; padding: 2px 10px; font-size: 0.85em; vertical-align: middle; }
+/* Everyone else's is the same button, there to read. */
+.card .sub button.invite:disabled { cursor: default; transform: none; border-color: var(--ink); color: var(--ink); box-shadow: 5px 5px 0 var(--outline); }
 .seats { width: 100%; border-collapse: collapse; font-size: 14px; }
 .seats th { text-align: left; color: var(--muted); font-weight: 700; padding: 6px 10px 8px; border-bottom: 2px solid var(--muted); }
 .seats td { padding: 0 10px; border-bottom: 1px solid rgba(216, 198, 242, 0.2); height: 56px; vertical-align: middle; }
+.seats tbody tr:last-child td { border-bottom: 0; }
 /* Every row the same: seat controls one width, all controls one height. */
 .seats td:nth-child(2) { width: 170px; white-space: nowrap; }
 .seats td:nth-child(2) select { width: 150px; }
@@ -229,7 +233,19 @@ svg.thumb .cut { stroke: var(--sun); stroke-width: 1.5; stroke-dasharray: 3 2; }
 .seats .ready { color: #7cff6b; }
 /* Still in the lobby's race (online): back when their lobby screen opens. */
 .seats .racing { color: var(--cyan); }
-.seats .ping { color: var(--muted); }
+.seats .ping { color: var(--muted); white-space: nowrap; font-variant-numeric: tabular-nums; }
+/* Wide enough for "999 ms", so a changing ping doesn't move the other columns. */
+.seats th:last-child, .seats td.ping { width: 64px; text-align: right; }
+.seats .ping .good { color: var(--cyan); }
+.seats .ping .fair { color: var(--sun); }
+.seats .ping .poor { color: #ff9a3c; }
+.seats .ping .bad { color: #ff5c6c; }
+/* Your plate in your seat: a button that opens the plate editor. */
+.card button.seatPlate { margin: 0; padding: 0; background: none; border: 0; box-shadow: none; cursor: pointer; }
+.card button.seatPlate:hover, .card button.seatPlate:focus-visible { transform: translate(-1px, -1px); box-shadow: none; }
+.card button.seatPlate:hover .plate, .card button.seatPlate:focus-visible .plate { outline: 2px solid var(--cyan); outline-offset: 2px; }
+/* Your own lobby is just you: no pings to show. */
+.seats.local th:last-child, .seats.local td:last-child { display: none; }
 @media (max-width: 760px) {
   .seats th:last-child, .seats td:last-child { display: none; }
 }
@@ -270,13 +286,11 @@ svg.thumb .cut { stroke: var(--sun); stroke-width: 1.5; stroke-dasharray: 3 2; }
 #menu.dock .card.lobby .sub { margin-bottom: clamp(10px, 2vh, 20px); }
 /* The rows share what height there is, down to a pad-sized minimum. */
 #menu.dock .seats td { height: clamp(40px, 6.2vh, 58px); }
-#menu.dock .seats th:last-child, #menu.dock .seats td:last-child { display: none; }
-#menu.dock .card.lobby > .row { margin: auto 0 0; padding-top: clamp(12px, 2vh, 20px); flex-wrap: nowrap; }
-#menu.dock .card.lobby > .row button { padding: 8px 16px; white-space: nowrap; }
-#menu.dock .card.lobby > .row button:last-child { margin-right: 0; }
+/* Start (or Ready) over Leave, each the panel's width. */
+#menu.dock .card.lobby > .row { margin: auto 0 0; padding-top: clamp(12px, 2vh, 20px); display: grid; gap: 14px; }
+#menu.dock .card.lobby > .row button { width: 100%; margin: 0; padding: 10px 16px; white-space: nowrap; }
 #menu.dock .seats td:nth-child(2) { width: 150px; }
 #menu.dock .seats td:nth-child(2) select { width: 132px; }
-@media (max-width: 1500px) { #menu.dock .card.lobby > .row button { font-size: 15px; padding: 7px 12px; } }
 
 /* The race's options: the host's to set, a summary for everyone else. */
 #menu.dock .mapCard { position: absolute; top: 24px; right: 24px; width: var(--opts); max-width: none; margin: 0; padding: 14px 16px 16px; display: grid; grid-template-columns: auto 1fr; gap: 12px 14px; align-items: center; background: rgba(18, 8, 38, 0.86); box-shadow: 6px 6px 0 var(--outline); }
@@ -292,17 +306,18 @@ svg.thumb .cut { stroke: var(--sun); stroke-width: 1.5; stroke-dasharray: 3 2; }
 .card select:disabled { opacity: 0.7; cursor: default; border-color: rgba(216, 198, 242, 0.4); background-image: none; }
 
 /* The turntable's box, and the arrows either side of the table (sized as frameStage sizes it). */
-#menu.dock .stage { position: absolute; left: var(--side); right: calc(var(--opts) + 24px); top: 0; bottom: var(--under); pointer-events: none; container-type: size; }
+/* The whole width right of the seats, so the car turns in its middle, and low, clear of the options. */
+#menu.dock .stage { position: absolute; left: var(--side); right: 0; top: clamp(120px, 28vh, 340px); bottom: var(--under); pointer-events: none; container-type: size; }
 .card button.carArrow, .carArrow { position: absolute; top: 58%; width: 52px; height: 68px; margin: 0; padding: 0; display: grid; place-items: center; transform: translateY(-50%); pointer-events: auto; color: var(--ink); background: rgba(18, 8, 38, 0.72); border: 3px solid var(--ink); box-shadow: 5px 5px 0 var(--outline); cursor: pointer; }
 .carArrow:hover, .carArrow:focus-visible { color: var(--cyan); border-color: var(--cyan); outline: none; }
 .carArrow:active { transform: translate(3px, calc(-50% + 3px)); box-shadow: 2px 2px 0 var(--outline); }
 .carArrow svg { width: 26px; height: 26px; fill: none; stroke: currentColor; stroke-width: 4; stroke-linecap: square; }
 #lPrev svg { transform: scaleX(-1); }
-#lPrev { left: max(12px, calc(50% - min(36cqh, 36cqw) - 84px)); }
-#lNext { right: max(12px, calc(50% - min(36cqh, 36cqw) - 84px)); }
+#lPrev { left: max(12px, calc(50% - min(50cqh, 36cqw) - 84px)); }
+#lNext { right: max(12px, calc(50% - min(50cqh, 36cqw) - 84px)); }
 
-/* Under the car (the stage's middle), as far as it can be without running into the seats. */
-.card.carPanel { --pw: min(720px, calc(100vw - var(--side) - 48px)); position: absolute; bottom: 24px; left: max(calc(var(--side) + 24px + var(--pw) / 2), calc(var(--side) + (100vw - var(--side) - var(--opts) - 24px) / 2)); transform: translateX(-50%); width: var(--pw); max-width: none; margin: 0; padding: 14px 20px 16px; display: grid; gap: 8px; background: rgba(18, 8, 38, 0.84); box-shadow: 6px 6px 0 var(--outline); }
+/* Under the car: the middle of what's right of the seats. */
+.card.carPanel { --pw: min(720px, calc(100vw - var(--side) - 48px)); position: absolute; bottom: 24px; left: calc(var(--side) + (100vw - var(--side)) / 2); transform: translateX(-50%); width: var(--pw); max-width: none; margin: 0; padding: 14px 20px 16px; display: grid; gap: 8px; background: rgba(18, 8, 38, 0.84); box-shadow: 6px 6px 0 var(--outline); }
 .carPanel .carHead { display: flex; align-items: baseline; gap: 12px; }
 .carPanel .carName { font-family: var(--display); font-weight: 400; font-size: 30px; line-height: 1; color: var(--sun); -webkit-text-stroke: 2px var(--outline); paint-order: stroke fill; text-shadow: 3px 3px 0 var(--pink); }
 .carPanel .carCount { font-size: 12px; font-weight: 700; color: var(--muted); font-variant-numeric: tabular-nums; }

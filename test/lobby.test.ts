@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'bun:test';
 import { LocalBackend, type KeyValue } from '../src/lobby/backend';
 import { aiPlate } from '../src/lobby/plate';
-import { FILL_DIFFICULTY, SEATS, allReady, apply, createLobby, encodeSeats, legacySeats, roster, summarize, type Lobby, type Player } from '../src/lobby/lobby';
+import { FILL_DIFFICULTY, SEATS, allReady, apply, canJoin, createLobby, nextVisibility, encodeSeats, legacySeats, roster, summarize, type Lobby, type Player } from '../src/lobby/lobby';
 import { raceFromLobby, readSetup, toQuery } from '../src/ui/setup';
 import { thumb } from '../src/ui/thumb';
 import { CLASSES, LAYOUT_KEYS, layout as readLayout } from '../tools/content';
@@ -111,6 +111,41 @@ describe('a lobby', () => {
     expect(l.seats[4]).toMatchObject({ id: 'kev' });
     expect(apply(l, 'zed', { type: 'join', player: { ...guest, id: 'zed' } })).toBeNull();
     expect(summarize(l)).toMatchObject({ players: 2, filled: 8, pips: 'pnnnpnnn' });
+  });
+
+  test('who can join cycles Public, Invite only, Private and round again', () => {
+    expect(nextVisibility('public')).toBe('invite');
+    expect(nextVisibility('invite')).toBe('locked');
+    expect(nextVisibility('locked')).toBe('public');
+    // Something unknown (an older build's word) starts again at public.
+    expect(nextVisibility('private' as never)).toBe('public');
+  });
+
+  test("you may sit down between races in an open seat, unless it's locked and someone's there to keep it so", () => {
+    let l = createLobby('local', host);
+    expect(canJoin(l, 'kev')).toBe(true);
+    // Already seated.
+    expect(canJoin(l, 'you')).toBe(false);
+    l = ok(l, 'you', { type: 'options', visibility: 'locked' });
+    expect(canJoin(l, 'kev')).toBe(false);
+    // Everyone left: the next one in takes it over.
+    expect(canJoin({ ...l, host: '' }, 'kev')).toBe(true);
+    l = ok(l, 'you', { type: 'options', visibility: 'invite' });
+    expect(canJoin({ ...l, phase: 'racing' }, 'kev')).toBe(false);
+    for (let k = 1; k < SEATS; k++) l = ok(l, 'you', { type: 'seat', index: k, to: 'ai-easy' });
+    expect(canJoin(l, 'kev')).toBe(false);
+  });
+
+  test("a private lobby takes nobody new, an invite-only one does (it just isn't listed), and only the host sets which", () => {
+    let l = createLobby('local', host, { visibility: 'invite' });
+    l = ok(l, 'kev', { type: 'join', player: guest });
+    expect(apply(l, 'kev', { type: 'options', visibility: 'locked' })).toBeNull();
+    l = ok(l, 'you', { type: 'options', visibility: 'locked' });
+    expect(apply(l, 'zed', { type: 'join', player: { ...guest, id: 'zed' } })).toBeNull();
+    // Those already in keep their seats.
+    expect(l.seats[1]).toMatchObject({ id: 'kev' });
+    l = ok(l, 'you', { type: 'options', visibility: 'public' });
+    expect(ok(l, 'zed', { type: 'join', player: { ...guest, id: 'zed' } }).seats[2]).toMatchObject({ id: 'zed' });
   });
 });
 

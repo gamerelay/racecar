@@ -44,7 +44,8 @@ export interface Lobby {
   name: string;
   /** The host's player id: only the host changes seats and options, and starts the race. */
   host: string;
-  visibility: 'public' | 'private';
+  /** Who can join: anyone (listed online), anyone with the link, or nobody new ("Private"). An older build's `private` was by link: `invite`. */
+  visibility: 'public' | 'invite' | 'locked';
   phase: 'lobby' | 'racing';
   options: LobbyOptions;
   seats: Seat[];
@@ -118,6 +119,19 @@ export function seatIndex(lobby: Lobby, id: string): number {
   return lobby.seats.findIndex((s) => s.kind === 'player' && s.id === id);
 }
 
+/** Whether player `id` may sit down now: between races, not seated, a seat open, and not locked (unless nobody's left to keep it so). */
+export function canJoin(lobby: Lobby, id: string): boolean {
+  return lobby.phase === 'lobby' && seatIndex(lobby, id) < 0 && !(lobby.visibility === 'locked' && lobby.host) && lobby.seats.some((s) => s.kind === 'open');
+}
+
+/** Who can join, in the order the host's button goes through them. */
+export const VISIBILITIES: readonly Lobby['visibility'][] = ['public', 'invite', 'locked'];
+
+/** The next who-can-join after `v` (an unknown one starts again at public). */
+export function nextVisibility(v: Lobby['visibility']): Lobby['visibility'] {
+  return VISIBILITIES[(VISIBILITIES.indexOf(v) + 1) % VISIBILITIES.length];
+}
+
 /** Every non-host player is ready (the host's Start waits on them). */
 export function allReady(lobby: Lobby): boolean {
   return lobby.seats.every((s) => s.kind !== 'player' || s.id === lobby.host || s.ready);
@@ -175,9 +189,8 @@ export function apply(lobby: Lobby, actor: string, action: LobbyAction): Lobby |
       return next;
     }
     case 'join': {
-      if (mine >= 0 || seatIndex(lobby, action.player.id) >= 0 || lobby.phase !== 'lobby') return null;
+      if (mine >= 0 || !canJoin(lobby, action.player.id)) return null;
       const open = lobby.seats.findIndex((s) => s.kind === 'open');
-      if (open < 0) return null;
       next.seats[open] = { kind: 'player', ready: false, ...action.player };
       // A lobby everyone left (an online room can outlive its seats) goes to whoever sits down.
       if (!lobby.host) next.host = action.player.id;

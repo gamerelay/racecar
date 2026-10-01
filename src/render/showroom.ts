@@ -43,12 +43,12 @@ export interface Box {
 /**
  * How the camera frames a table of radius `r` (m) into `box` on a `w` × `h` view with a vertical
  * field of view `fov` (deg): how far back it stands, and the view offset that puts the table in
- * the box's middle. The table spans most of the box's height, and never more than its width.
+ * the box's middle. The table spans the box's height, and never more than most of its width.
  */
 export function frameStage(w: number, h: number, box: Box, r: number, fov = FOV): { dist: number; offX: number; offY: number } {
   const t = Math.tan((fov * Math.PI) / 360);
   // The table's radius on screen, in px.
-  const px = Math.max(8, Math.min(box.height * 0.36, box.width * 0.36));
+  const px = Math.max(8, Math.min(box.height * 0.5, box.width * 0.36));
   return { dist: (r * h) / (2 * px * t), offX: w / 2 - (box.left + box.width / 2), offY: h / 2 - (box.top + box.height / 2) };
 }
 

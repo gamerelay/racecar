@@ -10,8 +10,8 @@
 // race page joins the room again (a reload resumes the same player), so the room lives through
 // many races, as SPEC §10 has it.
 
-import type { LobbyBackend } from './backend';
-import { apply, createLobby, DEFAULT_OPTIONS, SEATS, summarize, type Lobby, type LobbyAction, type LobbyOptions, type LobbySummary, type Player, type SeatChoice } from './lobby';
+import type { LobbyBackend, NetRoute } from './backend';
+import { apply, createLobby, DEFAULT_OPTIONS, SEATS, summarize, VISIBILITIES, type Lobby, type LobbyAction, type LobbyOptions, type LobbySummary, type Player, type SeatChoice } from './lobby';
 
 /** What the backend uses of `@gamerelay/sdk`, so tests can stand in a hub of their own. */
 export interface RelayLike {
@@ -21,7 +21,9 @@ export interface RelayLike {
   readonly room: RoomLike | null;
   createRoom(options: { maxPlayers?: number; tag?: string; public?: boolean }): Promise<RoomLike>;
   joinRoom(code: string): Promise<RoomLike>;
-  listRooms(tag?: string, options?: { includeFull?: boolean }): Promise<{ code: string; name: string | null; meta: unknown; locked: boolean }[]>;
+  listRooms(tag?: string, options?: { includeFull?: boolean }): Promise<{ code: string; players: number; name: string | null; meta: unknown; locked: boolean }[]>;
+  /** Your round trip to the server (ms). */
+  ping?(): Promise<number>;
 }
 
 export interface RoomLike {
@@ -40,6 +42,25 @@ export interface RoomLike {
   setAccess(access: { public?: boolean }): Promise<void>;
   kick(playerId: string, options?: { ban?: boolean }): Promise<void>;
   leave(): Promise<void>;
+  /** A message to everyone else in the room (their `message` event). */
+  send?(data: never): void;
+  /** The SDK's channel with a player straight to them: across one network, through its TURN relay, or none. */
+  lanRoute?(playerId: string): 'direct' | 'relay' | null;
+}
+
+/** How often each player measures their ping and tells the room (ms). */
+export const PING_MS = 3000;
+
+/** A player's ping as they sent it (`{ type: 'ping', ms }`), checked, or null. */
+export function readPing(data: unknown): number | null {
+  return obj(data) && data.type === 'ping' && int(data.ms, 0, 60_000) ? data.ms : null;
+}
+
+/** The slowest of the routes to everyone else: no channel to someone is the server; none at all, nobody else. */
+export function netRoute(routes: ('direct' | 'relay' | null)[]): NetRoute | null {
+  if (!routes.length) return null;
+  if (routes.includes(null)) return 'server';
+  return routes.includes('relay') ? 'relay' : 'lan';
 }
 
 /** How far ahead of the Start the lights go green (ms): everyone's race page loads and connects in it. */
@@ -78,8 +99,10 @@ export function readAction(data: unknown, from: string): LobbyAction | null {
         out.name = data.name;
       }
       if (data.visibility !== undefined) {
-        if (data.visibility !== 'public' && data.visibility !== 'private') return null;
-        out.visibility = data.visibility;
+        // An older build's `private` was by link.
+        const v = data.visibility === 'private' ? 'invite' : data.visibility;
+        if (!VISIBILITIES.includes(v as Lobby['visibility'])) return null;
+        out.visibility = v as Lobby['visibility'];
       }
       if (data.options !== undefined) {
         if (!obj(data.options)) return null;
@@ -129,6 +152,8 @@ export function readListing(r: { code: string; name: string | null; meta: unknow
   const m = r.meta;
   if (!obj(m) || !str(m.map, 64) || !int(m.laps, 1, 9) || (m.phase !== 'lobby' && m.phase !== 'racing') || !str(m.pips, 8) || !PIPS.test(m.pips)) return null;
   if (!int(m.players, 0, SEATS) || !int(m.filled, 0, SEATS)) return null;
+  // Invite only or private, by its host's own word (an older host's listing doesn't say: public).
+  if (m.visibility !== undefined && m.visibility !== 'public') return null;
   return { id: r.code, name: (r.name ?? '').slice(0, 48) || 'Lobby', map: m.map, laps: m.laps, phase: m.phase, visibility: 'public', pips: m.pips, players: m.players, filled: m.filled };
 }
 
@@ -137,13 +162,19 @@ function lobbyIn(room: RoomLike): Lobby | null {
   const l = room.state.lobby;
   if (!obj(l) || !Array.isArray(l.seats) || l.seats.length !== SEATS || typeof l.host !== 'string') return null;
   const lobby = l as unknown as Lobby;
-  return { ...lobby, options: { ...DEFAULT_OPTIONS, ...lobby.options } };
+  // Kept by an older build, whose `private` was by link (not locked).
+  const visibility = (lobby.visibility as string) === 'private' ? 'invite' : lobby.visibility;
+  return { ...lobby, visibility, options: { ...DEFAULT_OPTIONS, ...lobby.options } };
 }
 
 export class RelayBackend implements LobbyBackend {
   private relay: Promise<RelayLike> | null = null;
   private room: RoomLike | null = null;
   private off: (() => void)[] = [];
+  /** Each player's ping in the room you're in (ms), by id. */
+  private pings = new Map<string, number>();
+  private pingRoom: RoomLike | null = null;
+  private stopPings: (() => void) | null = null;
   private listeners = new Set<(lobby: Lobby | null) => void>();
   private listed = '';
   private listingTimer: ReturnType<typeof setTimeout> | null = null;
@@ -169,6 +200,17 @@ export class RelayBackend implements LobbyBackend {
     return this.you;
   }
 
+  /** Player `player`'s ping to the server (ms), as they last said (yours as you measured it), or null. */
+  ping(id: string, player: string): number | null {
+    return this.room?.code === id ? (this.pings.get(player) ?? null) : null;
+  }
+
+  route(id: string): NetRoute | null {
+    const room = this.room?.code === id ? this.room : null;
+    if (!room?.lanRoute) return null;
+    return netRoute(room.players.filter((p) => p.id !== room.me).map((p) => room.lanRoute!(p.id)));
+  }
+
   private async relayNow(): Promise<RelayLike> {
     this.relay ??= this.connect().then(
       (r) => ((this.you = r.playerId), r),
@@ -184,7 +226,9 @@ export class RelayBackend implements LobbyBackend {
   async list(): Promise<LobbySummary[]> {
     const relay = await this.relayNow();
     const rows = await relay.listRooms(TAG, { includeFull: true });
-    return rows.flatMap((r) => readListing(r) ?? []);
+    // A room everyone left waits out its idle time (two minutes) before it closes, still listed
+    // as it last was: by the server's count, nobody's in it, so it isn't a lobby to join.
+    return rows.flatMap((r) => (r.players > 0 && readListing(r)) || []);
   }
 
   async create(host: Player, init: Parameters<LobbyBackend['create']>[1]): Promise<Lobby> {
@@ -237,7 +281,11 @@ export class RelayBackend implements LobbyBackend {
   subscribe(id: string, fn: (lobby: Lobby | null) => void): () => void {
     const each = (lobby: Lobby | null) => fn(lobby && lobby.id === id ? lobby : null);
     this.listeners.add(each);
-    return () => this.listeners.delete(each);
+    this.pinging();
+    return () => {
+      this.listeners.delete(each);
+      this.pinging();
+    };
   }
 
   private notify(lobby: Lobby | null): void {
@@ -257,6 +305,11 @@ export class RelayBackend implements LobbyBackend {
         return next ?? null;
       }),
       room.on('state', () => this.notify(lobbyIn(room))),
+      // Everyone's ping, as each measures it: the SDK only knows your own.
+      room.on('message', (data: unknown, from: string) => {
+        const ms = readPing(data);
+        if (ms !== null) this.pings.set(from, ms);
+      }),
       // The host's work: someone gone for good gives up their seat, and a new host checks for
       // anyone who left while nobody was host (and lists the room).
       room.on('player_left', () => room.isHost && this.tidy(room)),
@@ -268,12 +321,38 @@ export class RelayBackend implements LobbyBackend {
       }),
     ];
     if (room.isHost) this.tidy(room);
+    this.pinging();
+  }
+
+  /** Pings go round while a lobby screen is watching (the race page attaches the room too, but has no use for them). */
+  private pinging(): void {
+    const want = this.room && this.listeners.size > 0 ? this.room : null;
+    if (want === this.pingRoom) return;
+    this.stopPings?.();
+    this.stopPings = want ? this.measurePings(want) : null;
+    this.pingRoom = want;
+  }
+
+  /** Every PING_MS while you're in `room`: your ping, kept and sent to everyone else. Returns a stop. */
+  private measurePings(room: RoomLike): () => void {
+    const measure = async () => {
+      const relay = await this.relayNow().catch(() => null);
+      const ms = relay?.ping ? await relay.ping().catch(() => null) : null;
+      if (ms === null || this.room !== room) return;
+      this.pings.set(room.me, Math.round(ms));
+      room.send?.({ type: 'ping', ms: Math.round(ms) } as never);
+    };
+    void measure();
+    const timer = setInterval(() => void measure(), PING_MS);
+    return () => clearInterval(timer);
   }
 
   private detach(): void {
     for (const f of this.off) f();
     this.off = [];
+    this.pings.clear();
     this.room = null;
+    this.pinging();
     if (this.listingTimer) clearTimeout(this.listingTimer);
     this.listingTimer = null;
   }
@@ -282,6 +361,8 @@ export class RelayBackend implements LobbyBackend {
     const room = this.room;
     if (!room) return;
     this.detach();
+    // The last one out unlists it, so nothing (quick match included) sends anyone into an empty room.
+    if (room.isHost && room.isPublic && room.players.every((p) => p.id === room.me)) await room.setAccess({ public: false }).catch(() => {});
     await room.leave().catch(() => {});
     this.notify(null);
   }
@@ -327,8 +408,10 @@ export class RelayBackend implements LobbyBackend {
 
   /** What the room lists show: the lobby's summary, when it changes, at most once a second. */
   private relist(room: RoomLike, lobby: Lobby): void {
-    const { id: _, name, visibility, ...meta } = summarize(lobby);
-    const key = JSON.stringify([name, visibility, meta]);
+    // Who can join goes in the listing too: if unlisting the room didn't land, the list still leaves it out.
+    const { id: _, name, ...meta } = summarize(lobby);
+    const { visibility } = meta;
+    const key = JSON.stringify([name, meta]);
     if (key === this.listed) return;
     const send = () => {
       this.listingTimer = null;
@@ -336,7 +419,8 @@ export class RelayBackend implements LobbyBackend {
       this.listed = key;
       void room.setListing({ name, meta: meta as never }).catch(() => {});
       // Against the room itself, not what we last sent: a host before us may not have got to it.
-      if (room.isPublic !== (visibility === 'public')) void room.setAccess({ public: visibility === 'public' }).catch(() => {});
+      // One that fails is tried again with the next change.
+      if (room.isPublic !== (visibility === 'public')) void room.setAccess({ public: visibility === 'public' }).catch(() => (this.listed = ''));
     };
     if (this.listingTimer) return;
     const wait = this.listingAt + LISTING_MS - Date.now();

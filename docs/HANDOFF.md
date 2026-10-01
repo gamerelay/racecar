@@ -292,6 +292,10 @@ Clockwise round a tropical island, the volcano in the middle and the sea all rou
   meta as text.
 - So milestone 3's lobby isn't blocked on the platform any more: the `relay` LobbyBackend can be
   built against the published SDK.
+- **An ask, not blocking:** the lobby header says how players reach each other (LAN, Relay or
+  Server) from `room.lanRoute`. It can't name the relay's region, or tell a LAN from a direct
+  path over the internet (party direct): the SDK would need to say which (for example, the TURN
+  relay's region with `'relay'`, and `'lan'` vs `'p2p'` for direct).
 
 ## Hosted test build
 
@@ -321,7 +325,10 @@ Clockwise round a tropical island, the volcano in the middle and the sea all rou
    - **Online lobbies: merged** (PR #32, `alpha-1.14`; SPEC "Online lobbies"). Lobbies are
      rooms (`src/lobby/relay.ts`), listed with `setListing`, and the SDK's host applies
      everyone's actions with `apply`. Start takes everyone into the same race, and the race page
-     keeps the seat.
+     keeps the seat. A lobby is Public, Invite only (by link, unlisted) or Private (locked:
+     nobody new sits down); the host cycles it from the header's button. Only Public lobbies are
+     listed; your own (local) one isn't, and closes when you leave. Quick race skips lobbies.
+     The lobby as it was signed off: `screenshots/lobby-desktop.png`.
    - **Remote cars: merged** (PR #33, `alpha-1.15`; SPEC "Remote cars"). Each player's car
      is an entity at 30 Hz (`src/net/cars.ts`), a remote car in everyone else's sim, predicted to
      now. Green is on the server's clock. Next: the AIs as host entities, traffic with

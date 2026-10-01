@@ -6,6 +6,26 @@ and where things stand is [docs/HANDOFF.md](./docs/HANDOFF.md).
 
 ## Unreleased
 
+- **Who can join a lobby: Public, Invite only or Private.** The host clicks the lobby header's
+  button to cycle them. Private lets nobody new in; Invite only is the old "private" (by link,
+  not listed). Create lobby offers the same three, where Private is you and bots in this browser.
+- **A tidier lobby header:** who can join and the invite link. The car count and room code are
+  gone.
+- **The turntable and your car's panel are centered** on the preview side, and the car sits
+  lower and bigger.
+- **The lobby says how you're connected** to the others: LAN, Relay or Server.
+- **Everyone's ping, in the seats' new Ping column** (yellow from 50 ms, orange from 75, red from
+  100), and the ready column is headed Status.
+- **Edit your plate from the lobby:** click it in your seat.
+- **The seats panel:** open seats say "Random bot", and Start (or Ready) sits over Leave, both
+  full width.
+- **You start each lobby in a random car and paint.**
+- **Only Public lobbies are in the list.** Your own Private lobby isn't either, and it closes
+  when you leave it.
+- **Quick race starts a race straight away:** you and seven bots on a random map, no lobby.
+- **Lobbies everyone left are gone from the list** at once, instead of showing "1/8" until the
+  server closes them.
+
 ## alpha-1.16: Online fixes and a hosted test build
 
 PRs #34 and #35.

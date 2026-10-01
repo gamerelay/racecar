@@ -4,7 +4,7 @@
 // lobbies (`opponents` and `difficulty` instead of `seats`) still start the race they meant.
 
 import { resolveLayout, type TimeOption } from '../core/content';
-import { encodeSeats, legacySeats, othersIn, parseSeats, seatIndex, type Difficulty, type Lobby, type Other } from '../lobby/lobby';
+import { DEFAULT_OPTIONS, FILL_DIFFICULTY, encodeSeats, legacySeats, othersIn, parseSeats, seatIndex, type Difficulty, type Lobby, type Other } from '../lobby/lobby';
 
 export interface RaceSetup {
   mode: 'race' | 'free';
@@ -163,5 +163,27 @@ export function raceFromLobby(lobby: Lobby, you: string, seed: number, online = 
     lobby: lobby.id,
     ...(others.length ? { others } : {}),
     ...(online && lobby.startAt ? { at: lobby.startAt } : {}),
+  };
+}
+
+/** A car and paint picked at random from `cars` (ids) and `paints` (how many): yours, new to a lobby. */
+export function randomCar(cars: readonly string[], paints: number, rand: () => number = Math.random): { car: string; paint: number } {
+  return { car: cars[Math.floor(rand() * cars.length)], paint: Math.floor(rand() * paints) };
+}
+
+/** Quick race: no lobby, you in `yours` and seven normal bots, on one of `maps` at random, in random weather and time. */
+export function quickRaceSetup(maps: readonly string[], yours: { car: string; paint: number }, rand: () => number = Math.random): RaceSetup {
+  return {
+    mode: 'race',
+    map: maps[Math.floor(rand() * maps.length)],
+    car: yours.car,
+    paint: yours.paint,
+    seats: legacySeats(7, FILL_DIFFICULTY),
+    laps: DEFAULT_OPTIONS.laps,
+    weather: 'random',
+    time: 'random',
+    mayhem: DEFAULT_OPTIONS.mayhem,
+    traffic: true,
+    seed: Math.floor(rand() * 1e9),
   };
 }

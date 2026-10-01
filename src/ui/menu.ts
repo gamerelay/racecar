@@ -8,11 +8,12 @@
 // own lobby is in this browser, and online ones are GameRelay rooms (lobby/relay.ts).
 
 import type { CarClass, MapDef, PaintDef, TrackLayout } from '../core/content';
-import type { KeyValue, LobbyBackend } from '../lobby/backend';
+import type { KeyValue, LobbyBackend, NetRoute } from '../lobby/backend';
 import { LOCAL_ID } from '../lobby/backend';
 import { aiPlate, cleanPlate, plateProblem, PLATE_MAX, savePlate, typedPlate } from '../lobby/plate';
-import { DEFAULT_OPTIONS, DIFFICULTY_NAMES, FILL_DIFFICULTY, SEATS, legacySeats, seatIndex, summarize, type Lobby, type LobbyAction, type LobbyOptions, type LobbySummary, type SeatChoice } from '../lobby/lobby';
-import { MAX_LAPS, raceFromLobby, toQuery, type RaceSetup } from './setup';
+import { DEFAULT_OPTIONS, FILL_DIFFICULTY, SEATS, canJoin, nextVisibility, legacySeats, seatIndex, summarize, type Lobby, type LobbyAction, type LobbyOptions, type LobbySummary, type SeatChoice } from '../lobby/lobby';
+import { pingClass } from './format';
+import { MAX_LAPS, quickRaceSetup, raceFromLobby, randomCar, toQuery, type RaceSetup } from './setup';
 import { carStats } from './stats';
 import { thumb, thumbSvg } from './thumb';
 
@@ -32,12 +33,25 @@ export interface Preview {
   car?: { car: string; paint: number; plate: string };
 }
 
-type Screen = { kind: 'title' } | { kind: 'create' } | { kind: 'plate' } | { kind: 'lobby'; id: string };
+/** `from`: the lobby the plate editor was opened from (it goes back there, still seated). */
+type Screen = { kind: 'title' } | { kind: 'create' } | { kind: 'plate'; from?: string } | { kind: 'lobby'; id: string };
 
 /** The race options' choices, as [value, label]. */
 const WEATHERS: [string, string][] = [['random', 'Random'], ['clear', 'Clear'], ['rain', 'Rain']];
 const TIMES: [string, string][] = [['random', 'Random'], ['day', 'Day'], ['sunset', 'Sunset']];
 const MAYHEMS: [string, string][] = [['normal', 'Normal'], ['chaos', 'Chaos'], ['off', 'Off']];
+/** Who can join a lobby, in the order the host's button cycles them. */
+const ACCESS: [Lobby['visibility'], string, string][] = [
+  ['public', 'Public', 'Anyone: listed online'],
+  ['invite', 'Invite only', 'Anyone with the link: not listed'],
+  ['locked', 'Private', 'Nobody new can join'],
+];
+/** What the lobby's header says about its connection. */
+const NET_ROUTES: Record<NetRoute, [string, string]> = {
+  lan: ['LAN', 'Everyone is on your network: straight across it'],
+  relay: ['Relay', 'Through a GameRelay relay near you'],
+  server: ['Server', 'Through the game server (a direct way is still being found, or there isn\'t one)'],
+};
 const label = (opts: [string, string][], v: string) => opts.find(([k]) => k === v)?.[1] ?? v;
 
 /** The car arrows' chevron (pointing right; the previous one is flipped in CSS). */
@@ -64,7 +78,7 @@ export class Menu {
   offline?: () => string;
   /** Whether lobbies can be online (there's a relay). */
   online = false;
-  /** The title's list refreshing (online lobbies come and go). */
+  /** The title's list refreshing (online lobbies come and go), or an online lobby's connection label. */
   private refresh: ReturnType<typeof setInterval> | null = null;
   /** Off to a race: the page is about to load, so later lobby updates don't start another. */
   private going = false;
@@ -108,10 +122,11 @@ export class Menu {
     return this.show(lobby ? { kind: 'lobby', id: lobby.id } : { kind: 'title' });
   }
 
-  /** Back (Esc, the pad's B): lobby, create and the plate go to the title. Out of an online lobby, that's leaving it. */
+  /** Back (Esc, the pad's B): lobby, create and the plate go to the title. Out of a lobby, that's leaving it (yours closes: only bots are left). */
   back(): void {
     const screen = this.screen;
-    if (screen.kind === 'lobby' && screen.id !== LOCAL_ID) void this.backend.send(screen.id, { type: 'leave' });
+    if (screen.kind === 'plate' && screen.from) return void this.show({ kind: 'lobby', id: screen.from });
+    if (screen.kind === 'lobby') void this.backend.send(screen.id, { type: 'leave' });
     if (screen.kind !== 'title') void this.show({ kind: 'title' });
   }
 
@@ -153,9 +168,11 @@ export class Menu {
         }, 4000);
     }
     else if (screen.kind === 'create') this.renderCreate();
-    else if (screen.kind === 'plate') this.renderPlate();
+    else if (screen.kind === 'plate') this.renderPlate(screen.from);
     else {
       let lobby = await this.backend.get(screen.id);
+      // Gone elsewhere while it loaded (Esc while joining): that screen has the menu now.
+      if (this.screen !== screen) return;
       if (!lobby) return this.show({ kind: 'title' });
       let phase = lobby.phase;
       this.unsubscribe = this.backend.subscribe(screen.id, (l) => {
@@ -167,13 +184,25 @@ export class Menu {
         if (this.going) return;
         // Its host left mid-race and it passed to you while you wait here: reopen it.
         if (l.phase === 'racing' && l.host === this.backend.youIn(l.id)) void this.backend.send(l.id, { type: 'end' });
-        // Watching (it was racing, or full) and a seat's free now: take it.
+        // Watching (it was racing, full or private) and a seat's free now: take it.
         if (!seated) void this.sit(l);
         // Here, but still down as racing (the first "back" didn't land: the host role moves while
         // everyone reloads at the end of a race): say it again.
         else void this.back_(l);
         this.renderLobby(l);
       });
+      // The connection label follows the SDK as it finds (or loses) a direct way to each player,
+      // and the pings come in every few seconds.
+      if (screen.id !== LOCAL_ID)
+        this.refresh = setInterval(() => {
+          const el = document.getElementById('lNet');
+          const html = this.netLabel(screen.id);
+          if (el && el.innerHTML !== html) el.innerHTML = html;
+          for (const td of this.root.querySelectorAll<HTMLElement>('.seats td.ping[data-player]')) {
+            const html = this.pingText(screen.id, td.dataset.player!);
+            if (td.innerHTML !== html) td.innerHTML = html;
+          }
+        }, 1000);
       lobby = (await this.sit(lobby)) ?? lobby;
       // Back from its race: the others see you're here again.
       lobby = (await this.back_(lobby)) ?? lobby;
@@ -193,12 +222,13 @@ export class Menu {
     }
   }
 
-  /** In someone else's lobby without a seat: take the first open one, if it's between races. */
+  /** In someone else's lobby without a seat: take the first open one, if it's between races (and not private, unless nobody's left to keep it so). */
   private async sit(lobby: Lobby): Promise<Lobby | null> {
-    if (this.sitting || lobby.phase !== 'lobby' || seatIndex(lobby, this.backend.youIn(lobby.id)) >= 0 || !lobby.seats.some((s) => s.kind === 'open')) return null;
+    // The same rule the host's `apply` holds a join to.
+    if (this.sitting || !canJoin(lobby, this.backend.youIn(lobby.id))) return null;
     this.sitting = true;
     try {
-      return await this.backend.send(lobby.id, { type: 'join', player: this.me(lobby.id) });
+      return await this.backend.send(lobby.id, { type: 'join', player: this.newcomer(lobby.id) });
     } finally {
       this.sitting = false;
     }
@@ -242,14 +272,14 @@ export class Menu {
         </div>
         <button id="mCreate" class="big">Create lobby</button>
         <div class="row"><button id="mQuick" class="ghost">Quick race</button><button id="mFree" class="ghost">Free drive</button></div>
-        <p class="muted">Every race is a lobby, and bots fill the open seats. Quick race starts yours as it's set (you and seven bots, to begin with). Drift (Shift / RB) to take corners tighter; air, near misses and the oncoming lane fill boost.</p>
+        <p class="muted">Every race is a lobby, and bots fill the open seats. Quick race is you and seven bots on a random map. Drift (Shift / RB) to take corners tighter; air, near misses and the oncoming lane fill boost.</p>
       </div>`,
       lobbies.length ? `lobby-${lobbies[0].id}` : 'mCreate',
     );
     for (const l of lobbies) this.on(`lobby-${l.id}`, () => void this.show({ kind: 'lobby', id: l.id }));
     this.on('mCreate', () => void this.show({ kind: 'create' }));
     this.on('mPlate', () => void this.show({ kind: 'plate' }));
-    this.on('mQuick', () => void this.quickRace());
+    this.on('mQuick', () => this.quickRace());
     this.on('mFree', () => void this.freeDrive());
   }
 
@@ -258,27 +288,21 @@ export class Menu {
     const offline = this.offline?.() ?? '';
     const text = offline || (lobbies.some((l) => l.id !== LOCAL_ID) ? '' : 'No online lobbies right now');
     if (!text) return '';
-    return `<div class="lrow soon"><span class="thumb"></span><span class="lname">${esc(text)}</span><span class="lmeta">${offline ? 'Your own lobby still works: race the bots.' : 'Create one and send your friends the link, with bots in the empty seats.'}</span></div>`;
+    return `<div class="lrow soon"><span class="thumb"></span><span class="lname">${esc(text)}</span><span class="lmeta">${offline ? 'Quick race still works: race the bots.' : 'Create one and send your friends the link, with bots in the empty seats.'}</span></div>`;
   }
 
   private lobbyRow(l: LobbySummary): string {
     const pips = [...l.pips].map((c) => `<i class="pip ${c === 'p' ? 'player' : c === 'o' ? 'open' : c === 'x' ? 'closed' : 'ai'}"></i>`).join('');
     const phase = l.phase === 'racing' ? 'racing' : 'in lobby';
     return `<button class="lrow" id="lobby-${esc(l.id)}">${thumbSvg(this.content.layouts[l.map], 44)}
-      <span class="lname">${esc(l.name)}${l.visibility === 'private' ? ' <small>private</small>' : ''}</span>
+      <span class="lname">${esc(l.name)}${l.visibility !== 'public' ? ' <small>private</small>' : ''}</span>
       <span class="lmeta">${esc(this.mapName(l.map))} · ${l.laps} lap${l.laps === 1 ? '' : 's'} · ${phase}</span>
       <span class="pips">${pips}</span><span class="lcount">${l.filled}/${SEATS}</span></button>`;
   }
 
-  /** Your lobby, made with the defaults if there isn't one. */
-  private async ownLobby(): Promise<Lobby> {
-    return (await this.backend.get(LOCAL_ID)) ?? this.backend.create(this.me(LOCAL_ID), { options: this.defaults });
-  }
-
-  /** Straight into a race from your lobby, as it's set up. */
-  private async quickRace(): Promise<void> {
-    const lobby = await this.ownLobby();
-    await this.start(lobby);
+  /** Straight into a race, no lobby: your car and seven bots, on a map picked at random, in random weather. */
+  private quickRace(): void {
+    location.search = toQuery(quickRaceSetup(Object.keys(this.content.layouts), this.yours));
   }
 
   private async freeDrive(): Promise<void> {
@@ -300,6 +324,12 @@ export class Menu {
     location.search = toQuery(setup);
   }
 
+  /** You, new to lobby `id`: a car and paint picked at random (yours to change at the turntable). */
+  private newcomer(id: string): ReturnType<Menu['me']> {
+    const { classes, paints } = this.content;
+    return { ...this.me(id), ...randomCar(classes.map((c) => c.id), paints.length) };
+  }
+
   /** You, as a player in lobby `id`: your plate is your name. */
   private me(id: string): { id: string; name: string; car: string; paint: number } {
     return { id: this.backend.youIn(id), name: this.plate, ...this.yours };
@@ -307,7 +337,7 @@ export class Menu {
 
   // ---- your plate ----
 
-  private renderPlate(): void {
+  private renderPlate(from?: string): void {
     this.paint(
       `<div class="card plateEdit">
         <h1>Your plate</h1>
@@ -338,7 +368,8 @@ export class Menu {
       const old = this.plate;
       this.plate = plate;
       await this.syncName(old);
-      void this.show({ kind: 'title' });
+      if (from && from !== LOCAL_ID) await this.syncName(old, from);
+      void this.show(from ? { kind: 'lobby', id: from } : { kind: 'title' });
     };
     field.onkeydown = (e) => {
       if (e.key === 'Enter') {
@@ -356,13 +387,13 @@ export class Menu {
    * the one it was given (`‹old›'s lobby`). Also mends lobbies saved before plates (a seat named
    * "You"), when the menu opens.
    */
-  private async syncName(old?: string): Promise<void> {
-    const own = await this.backend.get(LOCAL_ID);
-    const seat = own?.seats[seatIndex(own, this.backend.youIn(LOCAL_ID))];
+  private async syncName(old?: string, id = LOCAL_ID): Promise<void> {
+    const own = await this.backend.get(id);
+    const seat = own?.seats[seatIndex(own, this.backend.youIn(id))];
     if (!own || seat?.kind !== 'player') return;
     if (seat.name !== this.plate) await this.backend.send(own.id, { type: 'name', name: this.plate });
     const was = old ?? seat.name;
-    if (own.host === this.backend.youIn(LOCAL_ID) && own.name === `${was}'s lobby` && was !== this.plate) await this.backend.send(own.id, { type: 'options', name: `${this.plate}'s lobby` });
+    if (own.host === this.backend.youIn(id) && own.name === `${was}'s lobby` && was !== this.plate) await this.backend.send(own.id, { type: 'options', name: `${this.plate}'s lobby` });
   }
 
   private yourCar(lobby: Lobby | null): { car: string; paint: number } {
@@ -406,10 +437,10 @@ export class Menu {
         <div class="grid">
           <label class="wide">Name <input id="cName" maxlength="32" autocomplete="off" data-1p-ignore data-lpignore="true" value="${esc(this.plate)}'s lobby"></label>
           ${this.optionFields(o, false)}
-          <label>Who can join ${this.sel('cVis', this.online ? [['public', 'Anyone: listed online'], ['private', 'Friends: by link'], ['local', 'Just me, with bots']] : [['local', 'Just me, with bots']], this.online ? 'public' : 'local')}</label>
+          <label>Who can join ${this.sel('cVis', this.online ? [['public', 'Public'], ['invite', 'Invite only'], ['local', 'Private']] : [['local', 'Private']], this.online ? 'public' : 'local')}</label>
         </div>
         <div class="row"><button id="cGo">Create</button><button id="cBack" class="ghost">Back</button></div>
-        <p class="muted">You'll host it: set each seat to an AI, open or closed. Open seats get a bot when the race starts.</p>
+        <p class="muted">You'll host it: set each seat to an AI, open or closed. Open seats get a bot when the race starts. Public lobbies are listed online, Invite only ones are joined by their link, and a Private one is you and bots, in this browser.</p>
       </div>`,
       'cGo',
     );
@@ -421,13 +452,13 @@ export class Menu {
       const name = (document.getElementById('cName') as HTMLInputElement).value;
       const who = (document.getElementById('cVis') as HTMLSelectElement).value;
       const online = who !== 'local';
-      const visibility: Lobby['visibility'] = who === 'private' ? 'private' : 'public';
+      const visibility: Lobby['visibility'] = who === 'invite' ? 'invite' : 'public';
       const go = document.getElementById('cGo') as HTMLButtonElement;
       go.disabled = true;
-      const lobby = await this.backend.create(this.me(online ? '' : LOCAL_ID), { name, visibility, online, options: this.readOptions() }).catch(() => null);
+      const lobby = await this.backend.create(this.newcomer(online ? '' : LOCAL_ID), { name, visibility, online, options: this.readOptions() }).catch(() => null);
       go.disabled = false;
       if (lobby) void this.show({ kind: 'lobby', id: lobby.id });
-      else (document.querySelector('.create .muted') as HTMLElement).textContent = "Couldn't reach the lobby server. Try again, or pick Just me.";
+      else (document.querySelector('.create .muted') as HTMLElement).textContent = "Couldn't reach the lobby server. Try again, or pick Private.";
     });
   }
 
@@ -453,11 +484,13 @@ export class Menu {
         let who: string, car: string, status: string;
         if (s.kind === 'player') {
           const me = s.id === you;
-          who = `${plateChip(s.name)}${s.id === lobby.host ? ' <small class="tag">host</small>' : ''}`;
+          // Yours is a button: your plate, edited without leaving the lobby.
+          const plate = me ? `<button id="lPlate" class="seatPlate" title="Edit your plate">${plateChip(s.name)}</button>` : plateChip(s.name);
+          who = `${plate}${s.id === lobby.host ? ' <small class="tag">host</small>' : ''}`;
           // Your own car is picked beside the turntable.
           car = `${dot(s.paint)}${esc(className(s.car))}`;
           status = s.racing && s.id !== you ? '<span class="racing">Racing</span>' : s.id === lobby.host ? '' : s.ready ? '<span class="ready">Ready</span>' : 'Not ready';
-          return `<tr class="${me ? 'me' : ''}"><td>${k + 1}</td><td>${who}</td><td><div class="car">${car}</div></td><td>${status}</td><td class="ping">—</td></tr>`;
+          return `<tr class="${me ? 'me' : ''}"><td>${k + 1}</td><td>${who}</td><td><div class="car">${car}</div></td><td>${status}</td><td class="ping" data-player="${esc(s.id)}">${this.pingText(lobby.id, s.id)}</td></tr>`;
         }
         const choice: SeatChoice = s.kind === 'ai' ? (['ai-easy', 'ai-normal', 'ai-hard'] as const)[s.difficulty] : s.kind;
         who = host ? this.sel(`seat-${k}`, seatOpts, choice) : `<span>${seatOpts.find(([v]) => v === choice)![1]}</span>`;
@@ -465,7 +498,8 @@ export class Menu {
         const cls = classes[k % classes.length];
         const paint = (yours.paint + k) % paints.length;
         if (s.kind === 'ai') car = `${dot(paint)}${plateChip(aiPlate(cls.id))} ${esc(cls.name)}`;
-        else if (s.kind === 'open') car = `<span class="muted">${DIFFICULTY_NAMES[FILL_DIFFICULTY][0].toUpperCase() + DIFFICULTY_NAMES[FILL_DIFFICULTY].slice(1)} bot at the start</span>`;
+        // A bot takes it at the start (whichever rival the seat brings).
+        else if (s.kind === 'open') car = `<i class="dot open"></i><span class="muted">Random bot</span>`;
         else car = '';
         status = s.kind === 'ai' ? 'Bot' : '';
         return `<tr class="${s.kind}"><td>${k + 1}</td><td>${who}</td><td><div class="car">${car}</div></td><td>${status}</td><td class="ping"></td></tr>`;
@@ -477,10 +511,10 @@ export class Menu {
     this.paint(
       `<div class="card lobby">
         <h1>${esc(lobby.name)}</h1>
-        <p class="sub"><span>${lobby.visibility === 'public' ? 'Public' : 'Private'}</span><span>${SEATS - lobby.seats.filter((x) => x.kind === 'closed').length} cars on the grid</span><span>${online ? `Online · ${esc(lobby.id)}` : 'This browser'}</span>${online ? '<button id="lInvite" class="ghost invite">Copy invite link</button>' : ''}</p>
-        <table class="seats"><thead><tr><th>#</th><th>Seat</th><th>Car</th><th></th><th>Ping</th></tr></thead><tbody>${rows}</tbody></table>
+        <p class="sub">${online ? this.access(lobby, host) : '<button class="ghost invite" disabled title="Just you, with bots, in this browser">Private</button>'}</p>
+        <table class="seats${online ? '' : ' local'}"><thead><tr><th>#</th><th>Seat</th><th>Car</th><th>Status</th><th>Ping</th></tr></thead><tbody>${rows}</tbody></table>
         <div class="row">${host ? '<button id="lStart">Start race</button>' : `<button id="lReady">${mine >= 0 && lobby.seats[mine].kind === 'player' && lobby.seats[mine].ready ? 'Not ready' : 'Ready'}</button>`}
-          ${online ? '' : '<button id="lBack" class="ghost">Title</button>'}<button id="lLeave" class="ghost danger">${host && s.players === 1 ? 'Close lobby' : 'Leave'}</button></div>
+<button id="lLeave" class="ghost danger">${host && s.players === 1 ? 'Close lobby' : 'Leave'}</button></div>
       </div>
       ${this.optionsPanel(o, host)}
       ${mine >= 0 ? this.carPanel(yours) : '<div class="stage" aria-hidden="true"></div>'}`,
@@ -492,7 +526,6 @@ export class Menu {
       const me = lobby.seats[mine];
       this.send(lobby, { type: 'ready', ready: !(me?.kind === 'player' && me.ready) });
     });
-    this.on('lBack', () => this.back());
     this.on('lInvite', () => {
       const link = `${location.origin}${location.pathname}?lobby=${encodeURIComponent(lobby.id)}`;
       void navigator.clipboard?.writeText(link).then(() => {
@@ -500,7 +533,9 @@ export class Menu {
         if (b) b.textContent = 'Copied';
       });
     });
+    this.on('lVis', () => this.send(lobby, { type: 'options', visibility: nextVisibility(lobby.visibility) }));
     this.on('lLeave', () => this.send(lobby, { type: 'leave' }));
+    this.on('lPlate', () => void this.show({ kind: 'plate', from: lobby.id }));
     const change = (id: string, fn: (v: string) => void) => {
       const el = document.getElementById(id) as HTMLSelectElement | null;
       if (el) el.onchange = () => fn(el.value);
@@ -510,6 +545,25 @@ export class Menu {
     this.on('lNext', () => this.pick('right'));
     for (let k = 0; k < paints.length; k++) this.on(`lPaint-${k}`, () => this.send(lobby, { type: 'car', car: yours.car, paint: k }));
     if (host) for (const id of ['oMap', 'oLaps', 'oWeather', 'oTime', 'oMayhem', 'oTraffic']) change(id, () => this.send(lobby, { type: 'options', options: this.readOptions() }));
+  }
+
+  /** Who can join, which the host clicks through, and the invite link while anyone new can. */
+  private access(lobby: Lobby, host: boolean): string {
+    const [, name, hint] = ACCESS.find(([v]) => v === lobby.visibility) ?? ACCESS[0];
+    const who = host ? `<button id="lVis" class="ghost invite" title="${esc(hint)}. Click to change">${name}</button>` : `<button class="ghost invite" disabled title="${esc(hint)}">${name}</button>`;
+    return who + (lobby.visibility === 'locked' ? '' : '<button id="lInvite" class="ghost invite">Copy invite link</button>') + `<span id="lNet">${this.netLabel(lobby.id)}</span>`;
+  }
+
+  /** How you reach the lobby's other players: the SDK finds the best way to each, so it can change. */
+  private netLabel(id: string): string {
+    const route = this.backend.route?.(id) ?? null;
+    return route ? `<button class="ghost invite net" disabled title="${NET_ROUTES[route][1]}">${NET_ROUTES[route][0]}</button>` : '';
+  }
+
+  /** A player's ping to the server, as the Ping column shows it. */
+  private pingText(id: string, player: string): string {
+    const ms = this.backend.ping?.(id, player) ?? null;
+    return ms === null ? '—' : `<span class="${pingClass(ms)}">${ms} ms</span>`;
   }
 
   /**

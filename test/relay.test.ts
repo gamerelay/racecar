@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test';
 import { Lobbies, LocalBackend, LOCAL_ID } from '../src/lobby/backend';
-import { readAction, readListing, RelayBackend, type RelayLike, type RoomLike } from '../src/lobby/relay';
+import { netRoute, readAction, readPing, PING_MS, readListing, RelayBackend, type RelayLike, type RoomLike } from '../src/lobby/relay';
 import { raceFromLobby } from '../src/ui/setup';
 
 // Online lobbies (milestone 3): a lobby is a GameRelay room, written only by the SDK's host, which
@@ -11,6 +11,12 @@ type Handler = (...args: never[]) => void;
 
 class Hub {
   rooms = new Map<string, FakeRoom>();
+  /** Each player's round trip to the server, as `relay.ping()` measures it. */
+  pings = new Map<string, number>();
+  /** The SDK's channel between two players (`a>b`), as `room.lanRoute` says it. */
+  routes = new Map<string, 'direct' | 'relay'>();
+  /** setAccess calls to fail before one gets through. */
+  failAccess = 0;
   private n = 0;
   code(): string {
     return `R${++this.n}`;
@@ -93,7 +99,17 @@ class FakeClient implements RoomLike {
     this.room.listing = structuredClone(listing);
   }
   async setAccess(access: { public?: boolean }): Promise<void> {
+    if (this.room.hub.failAccess > 0) {
+      this.room.hub.failAccess--;
+      throw new Error('rate_limited');
+    }
     if (access.public !== undefined) this.room.public = access.public;
+  }
+  send(data: never): void {
+    for (const m of this.room.members) if (m !== this) m.fire('message', structuredClone(data), this.me);
+  }
+  lanRoute(playerId: string): 'direct' | 'relay' | null {
+    return this.room.hub.routes.get(`${this.me}>${playerId}`) ?? null;
   }
   async kick(playerId: string): Promise<void> {
     if (playerId === this.me) throw new Error("the host can't kick itself");
@@ -110,6 +126,9 @@ class FakeClient implements RoomLike {
 class FakeRelay implements RelayLike {
   room: FakeClient | null = null;
   now = () => 1_000_000;
+  async ping(): Promise<number> {
+    return this.hub.pings.get(this.playerId) ?? 20;
+  }
   constructor(
     readonly hub: Hub,
     readonly playerId: string,
@@ -138,7 +157,7 @@ class FakeRelay implements RelayLike {
     return (this.room = c);
   }
   async listRooms() {
-    return [...this.hub.rooms.values()].filter((r) => r.public).map((r) => ({ code: r.code, name: r.listing.name ?? null, meta: r.listing.meta ?? null, locked: false }));
+    return [...this.hub.rooms.values()].filter((r) => r.public).map((r) => ({ code: r.code, players: r.members.length, name: r.listing.name ?? null, meta: r.listing.meta ?? null, locked: false }));
   }
 }
 
@@ -266,9 +285,52 @@ describe('online lobbies', () => {
     expect(hub.rooms.get(lobby.id)!.members.map((m) => m.id)).toEqual(['ada']);
 
     await new Promise((r) => setTimeout(r, 1100));
-    await ada.backend.send(lobby.id, { type: 'options', visibility: 'private' });
+    await ada.backend.send(lobby.id, { type: 'options', visibility: 'invite' });
     await new Promise((r) => setTimeout(r, 1100));
     expect(hub.rooms.get(lobby.id)!.public).toBe(false);
+    expect(await bo.backend.list()).toEqual([]);
+  });
+
+  test('a lobby an older build made "private" (by link) is invite only: a friend with the link still sits down', async () => {
+    const hub = new Hub();
+    const [ada, bo] = players(hub, 'ada', 'bo');
+    const lobby = await ada.backend.create(player('ADA'), {});
+    const room = hub.rooms.get(lobby.id)!;
+    room.state = { ...room.state, lobby: { ...(room.state.lobby as object), visibility: 'private' } };
+    await bo.backend.get(lobby.id);
+    const joined = await bo.backend.send(lobby.id, { type: 'join', player: player('BO') });
+    expect(joined?.visibility).toBe('invite');
+    expect(joined?.seats[1]).toMatchObject({ kind: 'player', id: 'bo' });
+  });
+
+  test("a ping someone sends is checked before it's shown", () => {
+    expect(readPing({ type: 'ping', ms: 42 })).toBe(42);
+    expect(readPing({ type: 'ping', ms: -1 })).toBeNull();
+    expect(readPing({ type: 'ping', ms: 'fast' })).toBeNull();
+    expect(readPing({ type: 'chat', ms: 42 })).toBeNull();
+  });
+
+  test("the lobby's connection is its slowest route: LAN only if every pair is direct, Server if any pair has no channel", () => {
+    expect(netRoute([])).toBeNull();
+    expect(netRoute(['direct', 'direct'])).toBe('lan');
+    expect(netRoute(['direct', 'relay'])).toBe('relay');
+    expect(netRoute(['relay', null])).toBe('server');
+  });
+
+  test("a lobby everyone left isn't listed while its room waits out its idle time", async () => {
+    const hub = new Hub();
+    const [ada, bo] = players(hub, 'ada', 'bo');
+    const lobby = await ada.backend.create(player('ADA'), {});
+    await settle();
+    expect(await bo.backend.list()).toHaveLength(1);
+    const room = hub.rooms.get(lobby.id)!;
+    await ada.backend.send(lobby.id, { type: 'leave' });
+    // The room's still there (the server closes it later), but out of the list.
+    hub.rooms.set(lobby.id, room);
+    expect(room.public).toBe(false);
+    expect(await bo.backend.list()).toEqual([]);
+    // And one whose public flag is still up (its last player's page just closed) isn't listed either.
+    room.public = true;
     expect(await bo.backend.list()).toEqual([]);
   });
 
@@ -276,6 +338,10 @@ describe('online lobbies', () => {
     expect(readAction({ type: 'seat', index: 9, to: 'open' }, 'x')).toBeNull();
     expect(readAction({ type: 'seat', index: 2, to: 'piano' }, 'x')).toBeNull();
     expect(readAction({ type: 'options', options: { weather: 'snow' } }, 'x')).toBeNull();
+    expect(readAction({ type: 'options', visibility: 'invite' }, 'x')).toEqual({ type: 'options', visibility: 'invite' });
+    expect(readAction({ type: 'options', visibility: 'secret' }, 'x')).toBeNull();
+    // An older build's "private" was by link: invite only, not locked.
+    expect(readAction({ type: 'options', visibility: 'private' }, 'x')).toEqual({ type: 'options', visibility: 'invite' });
     expect(readAction({ type: 'options', options: { laps: 3, junk: 1 } }, 'x')).toEqual({ type: 'options', options: { laps: 3 } });
     expect(readAction({ type: 'join', player: { id: 'ada', name: 'X', car: 'coupe', paint: 1 } }, 'bo')).toEqual({ type: 'join', player: { id: 'bo', name: 'X', car: 'coupe', paint: 1 } });
     expect(readAction({ type: 'start', seed: -1 }, 'x')).toBeNull();
@@ -285,9 +351,11 @@ describe('online lobbies', () => {
     expect(readListing({ code: 'K7QM', name: 'ok', meta: { map: 'downtown/downtown', laps: 2, phase: 'lobby', pips: 'pooooooo', players: 1, filled: 1 } })).toMatchObject({ id: 'K7QM' });
     expect(readListing({ code: 'K7QM', name: 'ok', meta: { map: 'downtown/downtown', laps: 2, phase: 'lobby', pips: '<img>', players: 1, filled: 1 } })).toBeNull();
     expect(readListing({ code: 'K7QM', name: 'ok', meta: null })).toBeNull();
+    // A listing that says it's invite only or private isn't a row, even if the room is still listed.
+    expect(readListing({ code: 'K7QM', name: 'ok', meta: { map: 'downtown/downtown', laps: 2, phase: 'lobby', pips: 'pooooooo', players: 1, filled: 1, visibility: 'invite' } })).toBeNull();
   });
 
-  test('Lobbies: your own lobby stays local, the rest are online, and the list has both (or yours alone when offline)', async () => {
+  test('Lobbies: your own lobby stays local and unlisted, the rest are online (and none when offline)', async () => {
     const hub = new Hub();
     const [ada] = players(hub, 'ada');
     const local = new LocalBackend(null);
@@ -299,11 +367,11 @@ describe('online lobbies', () => {
     expect(both.youIn(LOCAL_ID)).toBe('you');
     expect(both.youIn(room.id)).toBe('ada');
     await settle();
-    expect((await both.list()).map((l) => l.id)).toEqual([LOCAL_ID, room.id]);
+    expect((await both.list()).map((l) => l.id)).toEqual([room.id]);
 
     const down = new Lobbies(new LocalBackend(null), new RelayBackend(() => Promise.reject(new Error('offline'))));
     await down.create(player('ADA'), {});
-    expect((await down.list()).map((l) => l.id)).toEqual([LOCAL_ID]);
+    expect(await down.list()).toEqual([]);
     expect(down.offline).not.toBe('');
     expect(new Lobbies(new LocalBackend(null), null).offline).toContain('VITE_GAMERELAY_KEY');
   });
@@ -334,5 +402,82 @@ describe('online lobbies', () => {
     expect(await bo.backend.send(lobby.id, { type: 'join', player: player('BO') })).toBeNull();
     await bo.backend.send(lobby.id, { type: 'leave' });
     expect(hub.rooms.get(lobby.id)!.members.map((m) => m.id)).toEqual(['ada']);
+  });
+});
+
+describe("the lobby screen's connection and pings", () => {
+  async function pair() {
+    const hub = new Hub();
+    const [ada, bo] = players(hub, 'ada', 'bo');
+    const lobby = await ada.backend.create(player('ADA'), {});
+    await bo.backend.get(lobby.id);
+    await bo.backend.send(lobby.id, { type: 'join', player: player('BO') });
+    return { hub, ada, bo, id: lobby.id };
+  }
+
+  test('each player sends their own ping while a lobby screen watches, and sees everyone\'s', async () => {
+    const { hub, ada, bo, id } = await pair();
+    hub.pings.set('ada', 31).set('bo', 87);
+    await settle();
+    // Nobody's watching (the race page attaches the room too): nothing measured or sent.
+    expect(ada.backend.ping(id, 'bo')).toBeNull();
+    const offA = ada.backend.subscribe(id, () => {});
+    const offB = bo.backend.subscribe(id, () => {});
+    await new Promise((r) => setTimeout(r, 10));
+    expect(ada.backend.ping(id, 'ada')).toBe(31);
+    expect(ada.backend.ping(id, 'bo')).toBe(87);
+    expect(bo.backend.ping(id, 'ada')).toBe(31);
+    expect(ada.backend.ping('elsewhere', 'bo')).toBeNull();
+    // Junk in a message is ignored, not shown.
+    hub.rooms.get(id)!.members.find((m) => m.id === 'bo')!.send({ type: 'ping', ms: 'fast' } as never);
+    expect(ada.backend.ping(id, 'bo')).toBe(87);
+    offA();
+    offB();
+    expect(PING_MS).toBeGreaterThanOrEqual(1000);
+  });
+
+  test("leaving forgets the room's pings", async () => {
+    const { ada, id } = await pair();
+    ada.backend.subscribe(id, () => {});
+    await new Promise((r) => setTimeout(r, 10));
+    expect(ada.backend.ping(id, 'ada')).toBe(20);
+    await ada.backend.send(id, { type: 'leave' });
+    expect(ada.backend.ping(id, 'ada')).toBeNull();
+  });
+
+  test('the connection is the slowest route to anyone: none alone, Server until a channel is up, then Relay or LAN', async () => {
+    const hub = new Hub();
+    const [ada, bo, cy] = players(hub, 'ada', 'bo', 'cy');
+    const lobby = await ada.backend.create(player('ADA'), {});
+    expect(ada.backend.route(lobby.id)).toBeNull();
+    for (const p of [bo, cy]) {
+      await p.backend.get(lobby.id);
+      await p.backend.send(lobby.id, { type: 'join', player: player('X') });
+    }
+    expect(ada.backend.route(lobby.id)).toBe('server');
+    hub.routes.set('ada>bo', 'direct').set('ada>cy', 'direct');
+    expect(ada.backend.route(lobby.id)).toBe('lan');
+    hub.routes.set('ada>cy', 'relay');
+    expect(ada.backend.route(lobby.id)).toBe('relay');
+    // Your own lobby has no connection to speak of.
+    expect(new Lobbies(new LocalBackend(null), ada.backend).route(LOCAL_ID)).toBeNull();
+  });
+
+  test("unlisting that fails is tried again, and the listing says who can join, so the list leaves it out meanwhile", async () => {
+    const hub = new Hub();
+    const [ada, bo] = players(hub, 'ada', 'bo');
+    const lobby = await ada.backend.create(player('ADA'), {});
+    const room = hub.rooms.get(lobby.id)!;
+    await new Promise((r) => setTimeout(r, 1100));
+    hub.failAccess = 1;
+    await ada.backend.send(lobby.id, { type: 'options', visibility: 'invite' });
+    await settle();
+    expect(room.public).toBe(true);
+    expect((room.listing.meta as { visibility?: string }).visibility).toBe('invite');
+    expect(await bo.backend.list()).toEqual([]);
+    await new Promise((r) => setTimeout(r, 1100));
+    await ada.backend.send(lobby.id, { type: 'options', options: { laps: 3 } });
+    await settle();
+    expect(room.public).toBe(false);
   });
 });

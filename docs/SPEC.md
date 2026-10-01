@@ -1535,6 +1535,56 @@ Landmarks, part 1: Downtown (PLAN phase 6):
 - **Cost:** each landmark's still boxes are one instanced mesh, and the clock's four dials, four
   readouts and eight hands are three draws. All five together are ~11 draw calls.
 
+The lobby's header, and who can join (playtest, 2026-10-01):
+
+- **Who can join is three ways, not two:** Public (listed online), Invite only (anyone with the
+  link, not listed: what "private" meant before) and Private, which is the spec's **lock**:
+  nobody new sits down (`apply` refuses a `join`), and those in keep their seats. Someone who
+  opens a private lobby's link watches without a seat, and sits down if it opens up again. The
+  host clicks the header's button to cycle them; everyone else sees it as a label. Create lobby
+  offers the same three words: Public, Invite only, or Private, which there is the local lobby
+  (you and bots, in this browser: nobody else can join that either). Its header says Private.
+- **A lobby an older build made `private` is read as `invite`**, in its room's state and in
+  actions, since that's what it meant then. The lock (Private) is its own value, `locked`, so a
+  lobby that lives through a deploy doesn't shut its friends out.
+- **The header is just that and the invite link** (gone while it's Private). The cars on the grid
+  and the room code were noise next to the seats.
+- **The turntable is in the middle of everything right of the seats**, lower, clear of the
+  options card, and bigger: the table spans the stage's height (`frameStage`, 0.5 of it as its
+  radius, up from 0.36), still never more than 0.36 of its width. The car's panel is centered
+  under it.
+- **The header says how you reach the others:** LAN (every pair direct, across one network),
+  Relay (some pair through the TURN relay) or Server (some pair with no channel yet), the slowest
+  pair's way, from `room.lanRoute`, shown as a button like the others. It updates every second, and there's none while you're
+  alone. The SDK doesn't say a relay's region, so it doesn't show one yet (HANDOFF's GameRelay
+  side).
+- **Pings: each player measures their own and tells the room.** The SDK only knows your ping
+  (`relay.ping()`), so every lobby page measures it every 3 s and sends `{ type: 'ping', ms }` to
+  everyone (`room.send`); each screen shows them in the seats' Ping column, checked as they come
+  in: blue under 50 ms, yellow from 50, orange from 75, red from 100 (`pingClass`). The column
+  is a fixed width, so a changing ping doesn't move the others. Pings go round only while a lobby screen
+  is watching: the race page attaches the room too, and would send them for nothing. It's each player's round trip to the server, not to each other. Your own lobby
+  has no Ping column. The 4th column is headed Status.
+- **Your plate in your seat is a button:** it opens the plate editor, and Save or Back returns
+  to the lobby, still seated (you never left the room). Saving renames your seat, and, if you
+  host it and it still has its default name, the lobby (`syncName` for any lobby, not just
+  yours).
+- **The seats panel:** an open seat says "Random bot" by a gray dot, the last seat has no rule
+  under it, and Start (or Ready) and Leave are stacked, each the panel's width.
+- **You start a lobby in a random car and paint**, creating it or sitting down in one. The
+  turntable changes it.
+- **Only Public lobbies are listed, by two checks.** The room is unlisted (`setAccess`, tried
+  again if it fails), and the listing's meta says who can join, so the list drops one that isn't
+  Public even while its room is still listed.
+- **Your own lobby isn't in the list, and closes when you leave it.** With you gone only bots are
+  left. Its Title button is gone (Leave, now Close lobby, and Esc both close it), and a stale one
+  in storage (a closed tab) isn't listed.
+- **Quick race skips lobbies:** you and seven normal bots, a random map, random weather and time,
+  the default laps. Its results go to the main menu.
+- **A lobby everyone left isn't listed.** GameRelay keeps an empty room for its idle time (two
+  minutes), listed as it last was ("1/8"). The list skips rooms the server counts nobody in, and
+  the last one out unlists the room as they go (`setAccess({ public: false })`).
+
 Online races don't pause, and the lobby says who's still racing (playtest, 2026-10-01):
 
 - **Switching away doesn't pause an online race.** It's shared, so it goes on, and the pause menu
