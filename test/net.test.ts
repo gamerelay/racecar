@@ -3,6 +3,9 @@ import { neutralControls } from '../src/core/controls';
 import type { Sim } from '../src/core/sim';
 import { createLobby, apply, encodeSeats, othersIn, roster, type Lobby } from '../src/lobby/lobby';
 import { NetCars, predict, startDelay, type NetEntity, type NetKind, type NetRoom } from '../src/net/cars';
+import { NetRivals } from '../src/net/rivals';
+import { wreckCar } from '../src/core/car/physics';
+import { Cause } from '../src/core/events';
 import { raceFromLobby, readSetup, toQuery } from '../src/ui/setup';
 import { CLASSES, ringSim } from './helpers';
 
@@ -12,32 +15,40 @@ import { CLASSES, ringSim } from './helpers';
 
 /** A room's entities, shared by every player's view of it: the SDK, minus the network. */
 class Hub {
-  entities: { owner: string; fields: Record<string, unknown>; teleports: number; removed: boolean }[] = [];
+  entities: { kind: string; owner: string; fields: Record<string, unknown>; teleports: number; removed: boolean }[] = [];
   renderTime = 0;
   now = 0;
+  /** Who holds the host role: host entities are theirs to write. */
+  host = 'ada';
   room(me: string): NetRoom {
     const hub = this;
     return {
       me,
+      get isHost() {
+        return hub.host === me;
+      },
       get renderTime() {
         return hub.renderTime;
       },
-      define(): NetKind {
+      define(kind: string): NetKind {
+        const mine = (e: Hub['entities'][number]) => e.owner === me || (e.owner === 'host' && hub.host === me);
         const view = (e: Hub['entities'][number]): NetEntity =>
           new Proxy(
-            { owner: { id: e.owner }, mine: e.owner === me, teleport: () => e.teleports++, remove: () => (e.removed = true) },
+            { owner: { id: e.owner }, mine: mine(e), teleport: () => e.teleports++, remove: () => (e.removed = true) },
             {
               get: (t, k) => (k in t ? (t as Record<string | symbol, unknown>)[k] : e.fields[k as string]),
               set: (_t, k, v) => ((e.fields[k as string] = v), true),
             },
           ) as unknown as NetEntity;
+        const live = () => hub.entities.filter((e) => e.kind === kind && !e.removed);
         return {
-          spawn(initial) {
-            const e = { owner: me, fields: { ...initial }, teleports: 0, removed: false };
+          spawn(initial, options) {
+            const e = { kind, owner: options?.owner === 'host' ? 'host' : me, fields: { ...initial }, teleports: 0, removed: false };
             hub.entities.push(e);
             return view(e);
           },
-          all: () => hub.entities.filter((e) => !e.removed).map(view),
+          all: () => live().map(view),
+          mine: () => live().filter(mine).map(view),
         };
       },
     };
@@ -127,7 +138,7 @@ describe('remote cars', () => {
   test("a car whose player left goes from the race, and one that hasn't shown up isn't in it (no car parked on the grid)", () => {
     const { hub, ada, bo } = twoPlayers();
     // Bo's page hasn't connected yet.
-    const boCar = hub.entities.find((e) => e.owner === 'bo')!;
+    const boCar = hub.entities.find((e) => e.kind === 'car' && e.owner === 'bo')!;
     boCar.removed = true;
     step(ada);
     expect(ada.sim.cars.active[1]).toBe(0);
@@ -135,7 +146,7 @@ describe('remote cars', () => {
     step(bo);
     step(ada);
     expect(ada.sim.cars.active[1]).toBe(1);
-    hub.entities.find((e) => e.owner === 'bo')!.removed = true;
+    hub.entities.find((e) => e.kind === 'car' && e.owner === 'bo')!.removed = true;
     step(ada);
     expect(ada.sim.cars.active[1]).toBe(0);
   });
@@ -158,7 +169,7 @@ describe('remote cars', () => {
     step(ada);
     ada.sim.placeCar(0, 0, 400, 0, 0);
     step(ada);
-    expect(hub.entities.find((e) => e.owner === 'ada')!.teleports).toBe(1);
+    expect(hub.entities.find((e) => e.kind === 'car' && e.owner === 'ada')!.teleports).toBe(1);
 
     expect(startDelay(10_000, 4_000)).toBe(6);
     expect(startDelay(10_000, 12_000)).toBe(0);
@@ -175,6 +186,155 @@ describe('remote cars', () => {
     net.beforeStep();
     sim.step([neutralControls()]);
     expect(sim.race.phase).toBe('racing');
+  });
+});
+
+/** Ada and Bo, with a hard AI in seat 2 on both screens: the host's to drive. */
+function withRival() {
+  const hub = new Hub();
+  const make = (meSeat: 0 | 1) => {
+    const sim = ringSim(1);
+    const ids = ['ada', 'bo'];
+    sim.addCar(meSeat === 0 ? { cls: 'coupe', human: true } : { cls: 'coupe', human: true, remote: true });
+    sim.addCar(meSeat === 1 ? { cls: 'coupe', human: true } : { cls: 'coupe', human: true, remote: true });
+    sim.addCar({ cls: 'coupe', racer: { difficulty: 2 } });
+    sim.startRace(1, 0.1);
+    const other = 1 - meSeat;
+    const room = hub.room(ids[meSeat]);
+    const net = new NetCars(room, () => hub.now, sim, meSeat, new Map([[ids[other], other]]));
+    const rivals = new NetRivals(room, () => hub.now, sim, new Map([[2, 2]]), 'r1');
+    return { sim, net, rivals, me: meSeat };
+  };
+  return { hub, ada: make(0), bo: make(1) };
+}
+
+function stepAll(p: ReturnType<typeof withRival>['ada']) {
+  const input: ReturnType<typeof neutralControls>[] = [];
+  input[p.me] = neutralControls();
+  p.net.beforeStep();
+  p.rivals.beforeStep();
+  p.sim.step(input);
+  p.net.afterStep();
+  p.rivals.afterStep();
+}
+
+const rivalsIn = (hub: Hub) => hub.entities.filter((e) => e.kind === 'rival' && !e.removed);
+const gap = (a: Sim, b: Sim, i: number) => Math.hypot(a.cars.x[i] - b.cars.x[i], a.cars.z[i] - b.cars.z[i]);
+
+describe('rivals', () => {
+  test("the host drives the AIs, and every other screen has them where the host's sim puts them", () => {
+    const { hub, ada, bo } = withRival();
+    for (let k = 0; k < 240; k++) {
+      stepAll(ada);
+      stepAll(bo);
+    }
+    expect(ada.sim.cars.progress[2]).toBeGreaterThan(50);
+    expect(rivalsIn(hub)).toHaveLength(1);
+    expect(rivalsIn(hub)[0]).toMatchObject({ owner: 'host', fields: { seat: 2 } });
+    expect(ada.sim.cars.remote[2]).toBe(0);
+    expect(bo.sim.cars.remote[2]).toBe(1);
+    // Bo's copy is Ada's car, a step behind at most.
+    const v = Math.hypot(ada.sim.cars.vx[2], ada.sim.cars.vz[2]);
+    expect(gap(ada.sim, bo.sim, 2)).toBeLessThan(v / 60 + 0.05);
+  });
+
+  test("until the host's rivals show up, every screen drives them itself, from the same grid", () => {
+    const { hub, ada, bo } = withRival();
+    hub.host = 'nobody';
+    for (let k = 0; k < 120; k++) {
+      stepAll(ada);
+      stepAll(bo);
+    }
+    expect(rivalsIn(hub)).toHaveLength(0);
+    expect(ada.sim.cars.remote[2]).toBe(0);
+    expect(bo.sim.cars.remote[2]).toBe(0);
+    expect(bo.sim.cars.progress[2]).toBeGreaterThan(10);
+    // The same driver from the same place, with the players parked: the same car.
+    expect(gap(ada.sim, bo.sim, 2)).toBeLessThan(0.5);
+  });
+
+  test('when the host role moves, the next host drives them on from where they are: no new rivals, no jump', () => {
+    const { hub, ada, bo } = withRival();
+    for (let k = 0; k < 240; k++) {
+      stepAll(ada);
+      stepAll(bo);
+    }
+    const id = rivalsIn(hub)[0];
+    const before = { x: bo.sim.cars.x[2], z: bo.sim.cars.z[2], p: bo.sim.cars.progress[2] };
+    hub.host = 'bo';
+    stepAll(bo);
+    stepAll(ada);
+    expect(bo.sim.cars.remote[2]).toBe(0);
+    expect(ada.sim.cars.remote[2]).toBe(1);
+    expect(Math.hypot(bo.sim.cars.x[2] - before.x, bo.sim.cars.z[2] - before.z)).toBeLessThan(2);
+    for (let k = 0; k < 120; k++) {
+      stepAll(bo);
+      stepAll(ada);
+    }
+    expect(rivalsIn(hub)).toEqual([id]);
+    expect(id.teleports).toBe(0);
+    expect(bo.sim.cars.progress[2]).toBeGreaterThan(before.p + 20);
+    expect(gap(ada.sim, bo.sim, 2)).toBeLessThan(Math.hypot(bo.sim.cars.vx[2], bo.sim.cars.vz[2]) / 60 + 0.05);
+  });
+
+  test("a rival wrecked when the role moves carries on its wreck, and respawns where it was, not on the grid", () => {
+    const { hub, ada, bo } = withRival();
+    for (let k = 0; k < 240; k++) {
+      stepAll(ada);
+      stepAll(bo);
+    }
+    wreckCar(ada.sim, 2, Cause.Wall, 0, 0, -1);
+    for (let k = 0; k < 30; k++) {
+      stepAll(ada);
+      stepAll(bo);
+    }
+    const spot = ada.sim.cars.lastS[2];
+    expect(spot).toBeGreaterThan(50);
+    expect(bo.sim.cars.wreckT[2]).toBeCloseTo(ada.sim.cars.wreckT[2], 1);
+    expect(bo.sim.cars.lastS[2]).toBeCloseTo(spot, 1);
+    hub.host = 'bo';
+    // On through the respawn: back on the road by its last spot, nowhere near the grid.
+    for (let k = 0; k < 360; k++) {
+      stepAll(bo);
+      stepAll(ada);
+    }
+    expect(bo.sim.cars.wreck[2]).toBe(0);
+    expect(bo.sim.cars.progress[2]).toBeGreaterThan(spot - 20);
+  });
+
+  test("the last race's rivals are left alone (each screen drives its own until this race's show up), and the host removes them", () => {
+    const { hub, ada, bo } = withRival();
+    const old = { kind: 'rival', owner: 'host', fields: { seat: 2, race: 'r0', x: 500, z: 500 }, teleports: 0, removed: false };
+    hub.entities.push(old);
+    stepAll(bo);
+    expect(bo.sim.cars.remote[2]).toBe(0);
+    stepAll(ada);
+    expect(old.removed).toBe(true);
+    expect(rivalsIn(hub)).toHaveLength(1);
+  });
+
+  test("the role coming back isn't a teleport for every rival", () => {
+    const { hub, ada, bo } = withRival();
+    for (let k = 0; k < 120; k++) {
+      stepAll(ada);
+      stepAll(bo);
+    }
+    hub.host = 'bo';
+    for (let k = 0; k < 240; k++) {
+      stepAll(bo);
+      stepAll(ada);
+    }
+    hub.host = 'ada';
+    stepAll(ada);
+    expect(rivalsIn(hub)[0].teleports).toBe(0);
+  });
+
+  test('two hosts at once (for a moment) leave one rival per seat', () => {
+    const { hub, ada } = withRival();
+    hub.entities.push({ kind: 'rival', owner: 'host', fields: { seat: 2, race: 'r1' }, teleports: 0, removed: false });
+    hub.entities.push({ kind: 'rival', owner: 'host', fields: { seat: 2, race: 'r1' }, teleports: 0, removed: false });
+    stepAll(ada);
+    expect(rivalsIn(hub)).toHaveLength(1);
   });
 });
 
@@ -200,13 +360,28 @@ describe('an online race link', () => {
   test("the roster makes their seat a remote car in their car and paint, named by their plate, in its grid slot", () => {
     const l = lobby();
     const r = roster(encodeSeats(l, 'ada', true), ids, 8, { car: 'coupe', paint: 1, plate: 'ADA' }, othersIn(l, 'ada'));
-    expect(r.specs[1]).toEqual({ cls: 'muscle', paint: 3, remote: true });
+    expect(r.specs[1]).toEqual({ cls: 'muscle', paint: 3, human: true, remote: true });
     expect(r.names[1]).toBe('BO');
     expect(r.remote.get('bo')).toBe(1);
     // Bo's view: Ada is the remote one, in seat 0.
     const b = roster(encodeSeats(l, 'bo', true), ids, 8, { car: 'muscle', paint: 3, plate: 'BO' }, othersIn(l, 'bo'));
     expect(b.me).toBe(1);
     expect(b.remote.get('ada')).toBe(0);
+  });
+
+  test("the AIs are the same rivals on every screen (seat, car, paint and plate), whoever's paint you race in", () => {
+    const l = lobby();
+    const a = roster(encodeSeats(l, 'ada', true), ids, 8, { car: 'coupe', paint: 1, plate: 'ADA' }, othersIn(l, 'ada'));
+    const b = roster(encodeSeats(l, 'bo', true), ids, 8, { car: 'muscle', paint: 3, plate: 'BO' }, othersIn(l, 'bo'));
+    expect([...a.rivals.keys()]).toEqual([2, 3, 4, 5, 6, 7]);
+    expect([...b.rivals]).toEqual([...a.rivals]);
+    for (const [, i] of a.rivals) {
+      expect(b.specs[i]).toEqual(a.specs[i]);
+      expect(b.names[i]).toBe(a.names[i]);
+    }
+    // Alone (no other players), they're in your paint plus their seat, as offline.
+    const solo = roster('poxxxxxx', ids, 8, { car: 'coupe', paint: 5 });
+    expect(solo.specs[1].paint).toBe(6);
   });
 
   test('a link with a bad `others` is a race without them', () => {

@@ -16,6 +16,7 @@ are in [SPEC.md](./SPEC.md) "Changed while building"; this is the map.
 | `src/lobby/backend.ts` | `LobbyBackend`, the local lobby (`LocalBackend`, in this browser), and `Lobbies`, which puts both behind one. |
 | `src/ui/menu.ts` | The screens: the title's list, Create lobby, the lobby, the plate editor. |
 | `src/net/cars.ts` | In the race: each player's car as an entity, everyone else's as a remote car. |
+| `src/net/rivals.ts` | In the race: the AIs, driven by the SDK's host and sent to everyone as `rival` entities. |
 
 ## A lobby's life
 
@@ -28,7 +29,8 @@ are in [SPEC.md](./SPEC.md) "Changed while building"; this is the map.
    `apply` and writes the result. Everyone sees it through the room's `state` event.
 4. **Start.** The lobby's host starts it: every seated player is marked `racing`, and the lights
    go green at `startAt` on the server's clock, six seconds on. Each page loads the race, joins the
-   room again (the SDK resumes the same player) and sends its car (net/cars.ts).
+   room again (the SDK resumes the same player) and sends its car (net/cars.ts). The SDK's host
+   drives the AIs and sends them too (net/rivals.ts).
 5. **Back.** Each player's lobby screen says they're back (`racing: false`). The host reopens the
    lobby (`end`), which un-readies everyone else for the next one.
 6. **Leave.** Leave, a kick or the room closing takes you out of the room and its party. The last
@@ -49,6 +51,10 @@ the race page never gives up on its lobby's room.
   next one to sit down gets it).
 
 `apply` checks the lobby's host, so it never matters who holds the SDK's role.
+
+In the race, the SDK's host also drives the AIs (`rival` host entities), so every screen has the
+same bots. The AI keeps no memory but its car's pose, so when the role moves the next host drives
+them on from where they are. Until the host's rivals show up, each screen drives them itself.
 
 ## Players
 
@@ -97,6 +103,7 @@ it) solved most of this first. What we took, and what's left:
 | **Seat reservations for invites**: an invitee's seat is held for them for a while. | Not yet: an invite link can find the lobby full. | Next. |
 | **Rich presence** ("In ACE's lobby, Downtown"). | Not yet. | Later. |
 | **Peer connections never show players' addresses** (secure device associations). | P2P shows public IPs. | An opt-in before going public. |
+| **Host-owned world objects** carried over in host migration. | The AIs are host entities: the next host drives them on. | Taken. |
 | **The host reports the results** (arbitration). | Each screen has its own results. | On HANDOFF's list. |
 
 ## Asks for GameRelay

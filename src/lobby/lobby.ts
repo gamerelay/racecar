@@ -282,18 +282,23 @@ export interface Roster {
   me: number;
   /** Each other player's car index, by their id (online). */
   remote: Map<string, number>;
+  /** Each AI's car index, by its seat (online, the host drives them: net/rivals.ts). */
+  rivals: Map<number, number>;
 }
 
 /**
  * The race's cars from its seats, in seat order (which is the grid), and their names: plates
  * (plate.ts), yours and each AI class's. An AI's car and paint come from its seat, so a seat keeps
  * its rival from race to race: seat `s` drives class `s` in your paint plus `s`, with that class's
- * plate. Closed seats get no car.
+ * plate. With other players (online), paint `s`: every screen has the same rivals. Closed seats get no car.
  */
 export function roster(seats: string, classes: readonly string[], paints: number, you: { car: string; paint: number; plate?: string }, others: readonly Other[] = []): Roster {
   const specs: CarSpec[] = [];
   const names: string[] = [];
   const remote = new Map<string, number>();
+  const rivals = new Map<number, number>();
+  // Your paint is yours alone: with other players, the AIs' can't depend on it.
+  const base = seats.includes('r') ? 0 : you.paint;
   let me = -1;
   [...seats].forEach((c, s) => {
     if (c === 'x') return;
@@ -302,7 +307,8 @@ export function roster(seats: string, classes: readonly string[], paints: number
       const o = others.find((x) => x.seat === s);
       if (!o) return;
       remote.set(o.id, specs.length);
-      specs.push({ cls: classes.includes(o.car) ? o.car : classes[0], paint: o.paint % paints, remote: true });
+      // A person (for the AIs' catch-up), driven from their screen.
+      specs.push({ cls: classes.includes(o.car) ? o.car : classes[0], paint: o.paint % paints, human: true, remote: true });
       names.push(o.name);
       return;
     }
@@ -314,10 +320,11 @@ export function roster(seats: string, classes: readonly string[], paints: number
     }
     const difficulty = (c === 'o' ? FILL_DIFFICULTY : AI_LETTERS.indexOf(c)) as Difficulty;
     const cls = classes[s % classes.length];
-    specs.push({ cls, paint: (you.paint + s) % paints, racer: { difficulty } });
+    rivals.set(s, specs.length);
+    specs.push({ cls, paint: (base + s) % paints, racer: { difficulty } });
     names.push(aiPlate(cls));
   });
-  return { specs, names, me, remote };
+  return { specs, names, me, remote, rivals };
 }
 
 /** The lobby list's row for a lobby. */

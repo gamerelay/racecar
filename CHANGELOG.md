@@ -6,6 +6,11 @@ and where things stand is [docs/HANDOFF.md](./docs/HANDOFF.md).
 
 ## Unreleased
 
+- **Online, every screen races the same bots.** The room's host drives the AIs and sends them to
+  everyone, like a player's car (`rival` entities). When the host leaves, the next one drives them
+  on from where they are. Their paint is the same on every screen, and other players now count
+  for their catch-up.
+
 ## alpha-1.18: P2P and a sturdier online
 
 PRs #37–#40.

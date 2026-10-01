@@ -29,6 +29,7 @@ import { GameRelay } from '@gamerelay/sdk';
 import { Lobbies, LocalBackend, LOCAL_ID } from './lobby/backend';
 import { RelayBackend, type RelayLike } from './lobby/relay';
 import { NetCars, type NetRoom } from './net/cars';
+import { NetRivals } from './net/rivals';
 import { roster } from './lobby/lobby';
 import { loadPlate } from './lobby/plate';
 import { CLASSES, LAYOUTS, MAPS, PAINTS, SURFACES } from './content';
@@ -86,13 +87,15 @@ const sim = new Sim(bakeTrack(layout, SURFACES), CLASSES, SURFACES, {
   traffic: run.traffic ? 1 : 0,
 });
 // The seats become the cars, in grid order; behind the menu, eight AIs of every skill.
-const { specs, names, me: you, remote } = roster(run.seats, CLASSES.map((c) => c.id), PAINTS.length, { ...run, plate }, run.others);
+const { specs, names, me: you, remote, rivals: aiSeats } = roster(run.seats, CLASSES.map((c) => c.id), PAINTS.length, { ...run, plate }, run.others);
 for (const s of specs) sim.addCar(s);
 /** The car the HUD, telemetry and the debug readout follow: yours, or the attract race's first. */
 const me = Math.max(0, you);
 // Online, the countdown holds until the connection says when green is (`run.at`, the server's clock).
 if (run.mode === 'race') sim.startRace(run.laps, attract ? 1 : onlineRace ? 30 : 4);
 let net: NetCars | null = null;
+/** The AIs online: the room's host drives them (net/rivals.ts). */
+let rivals: NetRivals | null = null;
 if (onlineRace) void joinRace();
 // A race of your own from an online lobby: the page still stays in its room, so your seat is still yours after it.
 else if (run.lobby && run.lobby !== LOCAL_ID && online) void online.get(run.lobby).catch(() => null);
@@ -109,7 +112,9 @@ async function joinRace(): Promise<void> {
     const lobby = await online!.get(run.lobby!);
     const relay = await online!.connection();
     if (!lobby || !relay.room) return;
-    net = new NetCars(relay.room as unknown as NetRoom, () => relay.now(), sim, me, remote, run.at);
+    const room = relay.room as unknown as NetRoom;
+    net = new NetCars(room, () => relay.now(), sim, me, remote, run.at);
+    if (aiSeats.size) rivals = new NetRivals(room, () => relay.now(), sim, aiSeats, `${run.seed}:${run.at ?? 0}`);
     if (sim.race.phase === 'countdown' && !run.at) sim.race.goTime = sim.time + 3;
     clearTimeout(fallback);
   } catch {
@@ -257,8 +262,10 @@ function frame(now: number): void {
       telemetry.beforeStep(inputs);
       const t0 = performance.now();
       net?.beforeStep();
+      rivals?.beforeStep();
       sim.step(inputs);
       net?.afterStep();
+      rivals?.afterStep();
       telemetry.afterStep(me, performance.now() - t0);
       acc -= 1 / TICK_RATE;
       steps++;
@@ -477,8 +484,10 @@ if (import.meta.env.DEV) {
       for (let k = 0; k < Math.round(seconds * TICK_RATE); k++) {
         telemetry.beforeStep(inputs);
         net?.beforeStep();
+        rivals?.beforeStep();
         sim.step(inputs);
         net?.afterStep();
+        rivals?.afterStep();
       }
       renderer.snapCamera();
       for (let k = 0; k < 30; k++) renderer.frame(1, 1 / 60, steer, braking);
