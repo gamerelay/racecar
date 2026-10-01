@@ -4,14 +4,16 @@ Where racecar stands and what's next, for whoever picks it up (a person or a fre
 The design is [SPEC.md](./SPEC.md): decisions in §17, and what building changed in "Changed while
 building". This file is "where are we"; the spec is "what are we making".
 
-**Last updated:** 2026-10-01. `main` is tagged **`alpha-1.19`**: milestone 2 (PR #2, tagged
-`alpha-1.0`), Countryside v2 (PR #4, `alpha-1.1`), seven cars plus polish (PR #6, `alpha-1.2`),
-traffic that fades instead of popping (PR #7, `alpha-1.3`), audio plus a review pass (PR #9, `alpha-1.4`), Valley v3 with smooth shortcut joins (PR #10, `alpha-1.5`), drift chains, skid marks, new car designs and a second review pass (PR #12, `alpha-1.6`), the police car, solid Trestle legs, air boost and boost by position (PR #13, `alpha-1.7`), the quick wins plus the title screen and local lobbies (PRs #14 and #16, `alpha-1.8`), license plates, the lobby polish, the cars doc `docs/CARS.md`, marketing art with link previews and the car select (PRs #18, #19, #15, #17 and #20, `alpha-1.9`), Paradise's lap, land and scenery (PRs #21 and #22, `alpha-1.10`), and Paradise's weather, sunset, hazards and tuning plus the Powerglide and Superman HUD tweaks (PRs #23 and #24, `alpha-1.11`), the lobby layout (PR #25), and landmarks on every map, smashables and the Valley's wrecks (PRs #26–#30, `alpha-1.12`), Downtown's field-wreck sweep (PR #31, `alpha-1.13`), online lobbies (PR #32, `alpha-1.14`), remote cars (PR #33, `alpha-1.15`), the single-file build with online pause fixes (PRs #34 and #35, `alpha-1.16`), and the lobby cleaned up: who can join, pings, the connection, Quick race without a lobby (PR #36, `alpha-1.17`), P2P, the online review (docs/ONLINE.md) and the title's flags (PRs #37–#40, `alpha-1.18`), and the AIs online (PR #42, `alpha-1.19`). Every release is in [CHANGELOG.md](../CHANGELOG.md): add to its "Unreleased" section as you go, and retitle that section when you tag. What's next is [PLAN.md](./PLAN.md) (phase 1, the quick wins, merged as PR #14; phase 2, the title screen and local lobbies, merged as PR #16; phase 3, license plates, merged as PR #18; phase 4, the car select, merged as PR #20; phase 5, Paradise: parts 1 and 2, the lap, land and scenery, merged as PRs #21 and #22; part 3, weather, sunset, hazards and tuning, merged as PRs #23 and #24; phase 6, landmarks and smashables, merged as PRs #26–#30), and how maps are made is [MAPS.md](./MAPS.md).
+**Last updated:** 2026-10-01. `main` is tagged **`alpha-1.19`** (PR #42, the AIs online).
+Every release is in [CHANGELOG.md](../CHANGELOG.md): add to its "Unreleased" section as you go,
+and retitle that section when you tag. [PLAN.md](./PLAN.md)'s six phases are all merged (it keeps
+a pool of other ideas), how online works is [ONLINE.md](./ONLINE.md), and how maps are made is
+[MAPS.md](./MAPS.md).
 
 **Map names:** City is now **Downtown** and Countryside is **Backroads** (content in
 `content/maps/downtown` and `content/maps/backroads`; keys `downtown/downtown`, `backroads/valley`;
-old keys still resolve). This file still says City and Countryside in places; they're the same maps.
-The third map is **Paradise** (`content/maps/paradise`, key `paradise/island`).
+old keys still resolve). The third map is **Paradise** (`content/maps/paradise`, key
+`paradise/island`).
 
 ## Resume in five minutes
 
@@ -23,126 +25,30 @@ The third map is **Paradise** (`content/maps/paradise`, key `paradise/island`).
    listings, parties, `lanRoute`), and the `racecar` instance has parties and Direct connections
    on (see "GameRelay side" below).
 4. Before changing anything: `bun test && bun run typecheck && bun tools/validate.ts --ai`. All
-   three are green on `main` (255 tests). Branch off `main`, one PR per change, with CI, then
+   three are green on `main`. Branch off `main`, one PR per change, with CI, then
    `/code-review` on the PR.
 
 ## Where things stand
 
 - **Repo:** `gamerelay/racecar`, private until milestone 3, cloned at `~/dev/racecar`. The default
   branch is `main`.
-- **Milestone 1 (greybox sandbox): merged** (PR #1).
-- **Marketing art and link previews: merged** (PR #17): `poster.html` (dev) stages shots on the
-  real renderer, `bun tools/poster.ts` renders them into `marketing/` through headless Chrome,
-  and `public/og.png` plus the Open Graph and Twitter tags are on `index.html`. There are also
-  favicons, a web manifest and JSON-LD.
-- **Cars doc: merged** (PR #15): `docs/CARS.md`, how the cars are designed and built, and adding
-  one.
-- **Paradise, parts 1–3: merged** (PRs #21–#24, PLAN phase 5, `alpha-1.10` and `alpha-1.11`). Part 1, the
-  Island (`tools/gen-paradise.ts`, `content/maps/paradise`): 3.44 km clockwise, a 68.2 s hard-AI
-  floor (66.8 s after part 3's Sandbar), the Sandbar and the Lava Tube. The shared lap-laying is
-  `tools/lib/lap.ts` (the Valley regenerates byte-for-byte). The land is `buildTerrain` with
-  `terrain.island`/`sea`/`volcano`: the sea, a beach, the cone; roads over the sea are decks, so
-  the Freeway stands on `deckPillars` over the bay. New surfaces `sand`, `red-earth`,
-  `lava-rock`, `shore`; the `tropic` palette with a daytime sky (`day`). The bus's accel went 13
-  → 14 for balance. SPEC "Paradise, part 1". Part 2 (PR #22) is the scenery (`island.ts`),
-  waves, and a color grade palettes can set in the post pass (Paradise's vivid 2000s-beach look;
-  the other maps have none). SPEC "Paradise, part 2". Part 3 (`alpha-1.11`) came in two PRs. The first,
-  weather and time (PR #23), adds passing tropical showers (`shower` in a
-  map's weather), a sky that clouds over in the rain on every map (`overcast` per palette), the
-  `sunset` palette with a lobby Time option (`paletteFor`), and no rain in the Lava Tube
-  (`covers`). SPEC "Paradise, part 3a". The second (PR #24) is the hazards and tuning: volcano bombs on the rim (a scheduled kind), coconuts on the beach
-  road (a trigger, and a new bump contact, `Solid.Bump`), and the Sandbar re-laid straight along
-  the waterline. The old one was most of the field's wrecks. SPEC "Paradise, part 3b". Paradise
-  now wrecks the AI field ~1.25 times a race with its hazards (16 seeds), and classes hold ±5%.
-  Also in #24, the HUD tweaks: "Powerglide" (was "Drift boost"), a **Superman** for boosting
-  through the air (`superT`, 1.5× air pay, `supermanMin`/`supermanPay`), and a bold outline
-  on the countdown's numbers. SPEC "HUD tweaks".
-- **Smashables: merged** (PR #30, `alpha-1.12`). These close PLAN
-  phase 6. Sim pieces (`core/world/smash.ts`), placed from the layout's `smashables` rows, carried
-  in snapshots, back 30 s after a hit. A hit pays a pinch of boost and costs a little speed.
-  Greybox models in `render/skins/greybox/smash.ts`. SPEC "Smashables".
-- **Landmarks, part 3 (Paradise): merged** (PR #29, `alpha-1.12`). A shipwreck, a breaching whale, a surf shack, a tiki head and seaplanes,
-  plus the lighthouse beam in the rain. Builders get `ctx.sea`. SPEC "Landmarks, part 3".
-- **Landmarks, part 2 (Backroads): merged** (PR #28, `alpha-1.12`). A cow, a water tower (`label`), a scarecrow, a windpump, a drive-in and a
-  balloon. The forest keeps their ground (`marks`), and builders get `ctx.ground`. SPEC
-  "Landmarks, part 2".
-- **Valley field wrecks: merged** (PR #27, `alpha-1.12`).
-  The Valley wrecked the field 2.5 times a race over 16 seeds. Traffic now starts past the
-  Trestle's legs and the falling sign is gone: 1.13 a race, held by a test. SPEC "The Valley's
-  field wrecks". Downtown's sweep (since) found 1.0 a race, not ~1.6: SPEC "Downtown's field
-  wrecks".
-- **Landmarks, part 1 (Downtown): merged** (PR #26, `alpha-1.12`). Layouts
-  carry `landmarks` (kind, at, rot, r, params), built by `render/skins/greybox/landmarks.ts`. The
-  validator keeps roads `r` off them, the city leaves their ground empty (`Keep`), and the track
-  visual's update gets `SceneLive` (race time, leader plate, wetness). Downtown has a clock tower,
-  a leader billboard, a fountain, a donut shop and a canal with a drawbridge. SPEC "Landmarks,
-  part 1". Next: Backroads, Paradise, then smashables.
-- **Lobby layout: merged** (PR #25, `alpha-1.12`). The seats alone dock left and fit the
-  window, the car sits between them and the options (top right, the host's to set; guests see
-  chips), arrows and A/D cycle the car, W/S and swatches the paint (`pick-*` menu actions,
-  `Menu.pick`), and races default to 2 laps. SPEC "The lobby's layout".
-- **Car select: merged** (PR #20, PLAN phase 4, `alpha-1.9`). The lobby docks left and your car turns on a table
-  beside it (`src/render/showroom.ts`), a 1:50 model held in front of the world camera, so the
-  post pass and weather treat it like the world, framed into the lobby's `.stage` box so CSS places it (beside the menu, or above it
-  on a phone). The race behind swaps map and weather in place (`swapMap` in `main.ts`,
-  `Sim.setTrack`/`setWeather`, `GameRenderer.setMap`/`setPlates`), under a slow crane camera.
-  Stat bars in `src/ui/stats.ts`. SPEC "Car select". 159 tests.
-- **Lobby polish: merged** (PR #19): capitalised labels, a spaced subheader, 56 px seat rows, and a
-  roomier map card.
-- **License plates: merged** (PR #18, PLAN phase 3): your name is a plate (`src/lobby/plate.ts`:
-  rules, blocklist, AI plates per class, storage). Every car's plates are drawn from one canvas
-  atlas that maps the cars' shared lamp material (`car/plates.ts`), so they cost no draw calls.
-  SPEC "License plates". 151 tests.
-- **Title screen and local lobbies: merged** (PR #16, PLAN phase 2) and tagged `alpha-1.8`: every race is a lobby. The
-  model is `src/lobby/lobby.ts`: a pure `apply(lobby, actor, action)` with the host rules, and
-  seats become the race's cars through `roster()`. `LocalBackend` keeps your lobby in
-  localStorage. The screens are `src/ui/menu.ts`, and race links carry `seats`
-  (`p`/`e`/`n`/`h`/`o`/`x`); old `opponents` links still work. SPEC "Title screen and local
-  lobbies". 142 tests.
-- **Quick wins: merged** (PR #14, PLAN phase 1): Downtown and Backroads, one-word paints, the HUD
-  swap, one control style, MAPS.md and PLAN.md.
-- **Police car, Trestle legs, air boost, boost by position: merged** (PR #13) and tagged
-  `alpha-1.7`: the Interceptor is the eighth class, the Trestle's legs on the home
-  stretch are solid (crash if you clip one), air time pays on a clean landing, boost from moves
-  is scaled ×0.9 (leading) to ×1.35 (last), and the contact shadow fades when a car flips. SPEC
-  "Police car, Trestle legs, air boost and boost by position". 126 tests.
-- **Drift chains, skid marks, the new car designs and a second review pass: merged** (PR #12)
-  and tagged `alpha-1.6`: chains that link S-bends and pay boost and a pop, rubber
-  on the road, the compact, truck and police designs plus the car polish pass from `car-polish`,
-  and the fixes from a four-way review. SPEC "Drift chains and skid marks", "Second review pass".
-  113 tests.
-- **Valley v3 and smooth shortcut joins: merged** (PR #10) and tagged `alpha-1.5`: the Valley
-  re-laid for drifting (more sweepers, wider road, banked corners, grass banks at the edges),
-  shortcuts that meet the main road flush on every map, and the HUD's key hints moved to the
-  pause menu with a bigger lap badge bottom left. SPEC "Changed while building", Valley v3. 97 tests.
-- **Audio and a review pass: merged** (PR #9) and tagged `alpha-1.4`: synthesized audio
-  (`src/audio/`: engines, tyres, impacts, cues, a music loop; M mutes, N music) and the fixes
-  from a four-way code review (SPEC "Review pass"). 88 tests.
-- **Traffic fades instead of popping: merged** (PR #7) and tagged `alpha-1.3`: visibility is part
-  of the traffic formula (45 m fades at lane sections and the grid, 1 s back after a wreck), the
-  renderer draws fading cars see-through, and `test/traffic.test.ts` holds it (0 pops measured).
-  Follow-up: AI resets near the Valley's finish (lap-report seeds 2 and 4), same on `alpha-1.2`
-  (now a rate test: at most one reset in six field races; the one left is a car shoved off the
-  road the wrong way by the log spill).
-- **Seven cars and polish: merged** (PR #6) and tagged `alpha-1.2`:
-  - sedan (Cruiser), rally (Mudlark) and bus (Route 88) join as player and AI classes; race
-    traffic is drawn from the racer designs (sedan, van, bus, the compact as the hatch);
-  - every class balanced to within ±5% of the mean lap on both layouts (`bun tools/lap-report.ts
-    --cars`, held by `test/cars.test.ts`), each with a job on the picker; a new `offroad` stat;
-  - an mph dial, a Menu button, no rain under roofs, more drift boost, and catch-up boost on
-    respawn after a wreck (10% plus up to 50% by how far behind the leader).
-- **Countryside v2: merged** (PR #4) and tagged `alpha-1.1`: the Valley rebuilt on real terrain
-  (see "The Countryside lap" below).
-- **Milestone 2 (the world): merged** (PR #2) and tagged `alpha-1.0`. It contains everything
-  below; PR #3 (detailed cars, car ink, visible wrecks) was merged into it first. Just before the
-  tag it had a code review, and these were fixed:
-  - traffic posed between ticks like the cars;
-  - the AI seeing across the start/finish seam;
-  - GPU leaks on editor rebuilds;
-  - hazard telegraphs firing twice after a restore;
-  - rumble and input reaching AI car 0 in attract mode;
-  - per-tick closures in the AI;
-  - the HUD and minimap redrawing everything each frame.
+- **Milestones 1 and 2 are merged** (PRs #1 and #2, `alpha-1.0`), and so are all six of
+  [PLAN.md](./PLAN.md)'s phases (PRs #14–#30, `alpha-1.8` to `alpha-1.12`).
+- **Milestone 3 (online) is under way:** online lobbies, remote cars, P2P and the host's AIs are
+  in (PRs #32–#42, `alpha-1.14` to `alpha-1.19`). What's left is the milestone 3 list under "Next,
+  in order".
+- **What exists, by area** (details in "What's built" below and in SPEC "Changed while
+  building"):
+  - **Maps:** Downtown, Backroads and Paradise, each with landmarks and smashables, traffic,
+    hazards and weather. Paradise has passing showers and a sunset (the lobby's Time option).
+  - **Cars:** eight classes, each within ±5% of the mean lap, with paints and license plates
+    (your name is a plate). How they're built is [CARS.md](./CARS.md).
+  - **Front door:** the title screen with the lobby list, Create lobby, the lobby (seats,
+    options, the car turning on a table) and the plate editor. Quick race skips lobbies.
+  - **Online:** a lobby is a GameRelay room (and a party, for P2P); other players' cars and the
+    host's AIs are entities. [ONLINE.md](./ONLINE.md) has the whole picture.
+  - **Art and hosting:** marketing shots and link previews (`poster.html`, `bun tools/poster.ts`,
+    `public/og.png`), and the hosted test build (below).
 - **Played by a human:** the owner has driven it and steered the look and tuning (the notes under
   "Changed while building" quote them). Drift, boost and crash feel still want more hands on a
   controller.
@@ -166,7 +72,9 @@ The third map is **Paradise** (`content/maps/paradise`, key `paradise/island`).
     With `trestles: true` (the Valley), a bridge high over another road stands on solid legs
     there (`supports` in `bake.ts`, drawn by `forest.ts` on the same grid).
   - **World:** traffic that is a pure function of time and only exists in per-lane sections,
-    seeded weather, and hazards (log truck, falling sign).
+    seeded weather (with Paradise's passing showers), hazards (the log truck on Downtown and
+    Backroads, the falling sign on Downtown only, volcano bombs and coconuts on Paradise), and
+    smashables (`core/world/smash.ts`).
   - **Racing AI** (`core/ai/racer.ts`): a racing line that threads solid props, path tracking,
     time-to-contact avoidance (judged where the car will be, not just where it's aiming),
     shortcut choice, boost and catch-up. It doesn't drift.
@@ -183,7 +91,7 @@ The third map is **Paradise** (`content/maps/paradise`, key `paradise/island`).
     (`car/shadow.ts`).
   - **Traffic** (`car/traffic.ts`): sedan, compact, van, box truck and bus in the same style. Each
     kind is one instanced draw; a vertex mask picks which parts take the paint and which glow.
-  - **City** (`cityscape.ts`, `city.ts`, `track.ts`):
+  - **Downtown** (`cityscape.ts`, `city.ts`, `track.ts`):
     - A street grid out to the fog, with buildings by district, rooftop clutter, neon blade signs,
       billboards, awnings, parked and background cars, trees, lamps, steam, blinking lights and
       searchlights.
@@ -191,7 +99,7 @@ The third map is **Paradise** (`content/maps/paradise`, key `paradise/island`).
       ones are a lit tunnel with portals.
     - The Alley has shopfronts and strung lights.
     - All of it is built from the track, not authored, and it's the same every race.
-  - **Countryside** (`terrain.ts`, `forest.ts`, `track.ts`):
+  - **Backroads** (`terrain.ts`, `forest.ts`, `track.ts`):
     - Real land: a heightfield that meets every road, with hills and mountains beyond and the river
       carved in, drawn as water that mirrors in any weather.
     - Roads over the river or over another road come out as bridges: a covered bridge for a short
@@ -201,8 +109,22 @@ The third map is **Paradise** (`content/maps/paradise`, key `paradise/island`).
     - Chevrons round every tight corner, telegraph poles and wires, a fire lookout, a campsite with
       a fire and fireflies, birds, and mist on the river.
     - Dirt roads have ruts and timber guardrails, and cars throw dust on dirt and clods off grass.
-- **UI** (`src/ui`): a setup menu over an attract-mode AI race (the setup lives in the URL), HUD,
-  countdown lights, results table and minimap.
+  - **Paradise** (`island.ts`, `terrain.ts`, `track.ts`): the island's land, sea and volcano
+    (`terrain.island`/`sea`/`volcano`), beaches and waves, palms and jungle, the Freeway on
+    pillars over the bay, and a colour grade in the post pass.
+  - **Landmarks and smashables** (`landmarks.ts`, `smash.ts`): built from layout data, a few
+    instanced draws each.
+- **UI** (`src/ui`): the title screen with the lobby list, Create lobby, the lobby with a car
+  select (your car on a turntable, `src/render/showroom.ts`, with stat bars) and the plate
+  editor (`menu.ts`), all over a live AI race on the lobby's map. Then the HUD, countdown lights,
+  results table and minimap. A race's whole setup lives in the URL (`setup.ts`).
+- **Lobbies** (`src/lobby`): the lobby model and its host rules (`lobby.ts`, one `apply`), your
+  own lobby in localStorage or a GameRelay room (`backend.ts`, `relay.ts`), the P2P party
+  (`party.ts`), pings and Away (`presence.ts`), checking what other players send (`wire.ts`), and
+  plates (`plate.ts`). How it works: [ONLINE.md](./ONLINE.md).
+- **Online race** (`src/net`): each player's car is an entity, a remote car in everyone else's
+  sim (`cars.ts`), and the SDK's host drives the AIs for everyone as `rival` entities
+  (`rivals.ts`). See [ONLINE.md](./ONLINE.md).
 - **Tools:**
   - The level editor (backquote key).
   - A live tuning panel (F4).
@@ -214,7 +136,7 @@ The third map is **Paradise** (`content/maps/paradise`, key `paradise/island`).
 
 ### Numbers to know
 
-| | City (Downtown) | Countryside (Valley) | Paradise (Island) |
+| | Downtown | Backroads (Valley) | Paradise (Island) |
 |---|---|---|---|
 | Lap length | 3.26 km | 2.92 km | 3.44 km |
 | AI lap floor (hard, empty track) | 58.6 s | 63.4 s | 66.8 s |
@@ -223,11 +145,11 @@ The third map is **Paradise** (`content/maps/paradise`, key `paradise/island`).
 | Scenery build (per editor edit) | ~200 ms | ~150 ms | ~600 ms (land and scenery, measured in bun) |
 
 The game holds 120 fps (the display's cap) on the dev Mac, rain included. The frame rate hasn't
-been measured since the detailed cars went in, so watch it. City has 150 draw calls on the grid in
+been measured since the detailed cars went in, so watch it. Downtown has 150 draw calls on the grid in
 the rain with all 8 new cars, and up to ~415 with detailed traffic around (60 fps in a background
 tab, which is Chrome's cap there).
 
-### The City lap (v2), in order
+### The Downtown lap (v2), in order
 
 - **Boulevard:** four lanes, traffic, and the finish line. The Skyway crosses overhead on pillars
   in the median; the median pillars are a takedown spot.
@@ -239,10 +161,10 @@ tab, which is Chrome's cap there).
 - **Underpass:** a sunken road into a covered tunnel (neon strips, orange lamps, portals), then up
   over a crest just before the line.
 
-The City layout is generated by `tools/gen-city.ts`. Rerunning it overwrites hand edits made in the
+The Downtown layout is generated by `tools/gen-city.ts`. Rerunning it overwrites hand edits made in the
 editor.
 
-### The Countryside lap (Valley v3), in order
+### The Backroads lap (Valley v3), in order
 
 - **The Village:** the start, on the asphalt river road with traffic, then a flowing S through the
   village square. The **Barn** shortcut goes straight on through the barn.
@@ -293,8 +215,6 @@ Clockwise round a tropical island, the volcano in the middle and the sea all rou
   - a player kicked while offline gets `closed('kicked', message)` when they reconnect.
 - Bans are per player id (lock the room to keep strangers out), and games render room names and
   meta as text.
-- So milestone 3's lobby isn't blocked on the platform any more: the `relay` LobbyBackend can be
-  built against the published SDK.
 - **The `racecar` instance** (`ins_qnGcfcjInJCg8dTr`, 8 players): parties on, Direct
   connections on (for P2P), allowed origins `http://localhost` and `https://asleepace.com`. Its
   public key is in `.env.production`.
@@ -324,15 +244,7 @@ Clockwise round a tropical island, the volcano in the middle and the sea all rou
 
 ## Next, in order
 
-1. **PLAN phase 6 is done** (PRs #26–#30, merged and tagged `alpha-1.12`): the last of PLAN's
-   phases. Worth doing next:
-   - Downtown's field wrecks were swept: 1.0 a race over 16 seeds (the ~1.6 was stale), so no
-     map is over MAPS.md's 1.5 and nothing moved. A test holds it (SPEC "Downtown's field wrecks").
-   - gamerelay.io's four audit follow-ups (its PR #35) are merged and deployed (production on
-     `df1f6a2`). The relays didn't need it: they run the Rust `resonance-node`, which already
-     metered signed requests.
-   - PLAN's "Other ideas" (stunt air, rivals, map vote cards...).
-2. **Milestone 3 (online).** How it all works, end to end, and what Xbox Live does for each
+1. **Milestone 3 (online).** How it all works, end to end, and what Xbox Live does for each
    part: [ONLINE.md](./ONLINE.md). Done so far:
    - **Online lobbies** (PR #32, `alpha-1.14`): a lobby is a room (`src/lobby/relay.ts`), the
      SDK's host applies everyone's actions with `apply`, Start takes everyone into the same race,
@@ -351,10 +263,9 @@ Clockwise round a tropical island, the volcano in the middle and the sea all rou
    - **The online review** (PR #39, `alpha-1.18`): the SDK host role moving re-tidies the lobby
      (`host_changed`), room changes run one at a time, a join the menu gives up on leaves, Away
      for a dropped player, and relay.ts split into wire, party, presence and relay.
-
-   - **The AIs online** (PR #42, `alpha-1.19`): the SDK's host drives the AIs and sends them as `rival`
-     host entities (`src/net/rivals.ts`), so every screen has the same bots; the next host drives
-     them on. A hidden host tab still freezes them until the role moves (follow-up: the host's
+   - **The AIs online** (PR #42, `alpha-1.19`): the SDK's host drives the AIs and sends them as
+     `rival` host entities (`src/net/rivals.ts`), so every screen has the same bots; the next host
+     drives them on. A hidden host tab still freezes them until the role moves (follow-up: the host's
      sim on `relay.tick`).
 
    Next, in order:
@@ -364,54 +275,74 @@ Clockwise round a tropical island, the volcano in the middle and the sea all rou
    - **Names over cars** within ~60 m, from player data (PLAN phase 3).
    - **A vote on the next race**, and a net overlay.
    - **Before the repo goes public:** a P2P opt-in (it shows IPs today), and seat reservations
-     for invite links if GameRelay adds them.
-   - The repo goes public. Then milestone 3b: the neon City skin, which is the launch.
-3. **Playtest with a controller** whenever there's a build to try: tune with F4, and press F8 on
+     for invite links if GameRelay adds them. Also: the git history's author email becomes
+     public with it. Rewriting the history is the only fix, and that's the owner's call.
+   - The repo goes public. Then milestone 3b: the neon skin on Downtown (SPEC's City), which is
+     the launch.
+2. **Playtest with a controller** whenever there's a build to try: tune with F4, and press F8 on
    anything odd. Still open: whether ~1 wreck a race on Downtown is too tame (add denser traffic
    on the straights rather than sections in corners), and whether each car's drift carry feels
    right (`driftExit*`, `boostFromDrift`).
 
 ### Smaller follow-ups
 
-- From the review, not done yet (organization and perf, no bugs):
+- **Online:**
+  - Step the online race on `relay.tick`, so a hidden host tab doesn't freeze the AIs (the sim
+    steps on `requestAnimationFrame`, which stops in a background tab). A stopgap is handing the
+    role on with `room.transferHost` when the host's tab hides.
+  - Remote poses are capped now (speed, turn, steering; rivals' handover range-checked), but not
+    their position: a modified client can still put its car anywhere, on top of yours too. A
+    position near the track (and near where it last was) is the next check.
+  - `RoomLike` (relay.ts) doesn't declare the SDK room's `define`, `renderTime` and `hostId`, so
+    net/join.ts casts the room to `NetRoom`. Declaring them means every test's fake room grows
+    them too.
+  - An online Create lobby can't be cancelled: Esc to the title, and if the create lands after,
+    the menu opens the new lobby.
+  - The relay tests sleep through the listing's 1 s throttle (about 4 s of the run) and use tight
+    real-time waits; an injected clock (as presence.ts has) would make them faster and steadier.
+  - Lobby names aren't filtered like plates (`cleanName` in `lobby.ts` only trims and cuts to 32
+    characters), and Public ones are listed to strangers.
+- **Performance:**
+  - Tile the Valley's terrain (one 256k-triangle mesh, never culled); upload only live ambient
+    cars and particles instead of whole buffers each frame.
+  - Ambient city cars could animate in the vertex shader instead of on the CPU (they're only
+    posed within 420 m of the camera). Out-of-range ones are still written as zero-scale
+    instances and the whole buffer is uploaded each frame: write the near ones compactly and set
+    `count` instead.
+  - `logTruck.at` rescans traffic every tick for its truck: remember it on the occurrence.
+  - Loading a layout builds the whole of Downtown in about 200 ms. That's fine per editor edit
+    (edits apply when you let go of a point); if it ever runs per frame, cache it.
+- **Code organisation** (from the two reviews; no bugs):
   - One road spatial index for `cityscape.ts` (Corridors), `forest.ts`, `island.ts` and
     `terrain.ts` (the forest and the island each hash the road the same way); one instancing
     builder for `scenery.boxes()` and `forest.instanced()` (the island uses the latter); a
     `gantry()` helper.
-  - Tile the Valley's terrain (one 256k-triangle mesh, never culled); upload only live ambient
-    cars and particles instead of whole buffers each frame.
-  - Touch controls: phones can't drive yet.
-
-- Traffic has silhouette ink only: no window or panel ink, and no crumple on wreck.
-- City has 4 puddles, all in corners; a few on straights would add rain atmosphere.
-- The tunnel lost its traffic section, which was too short to keep a straight at both ends.
-- The AI never drifts, so it never earns drift boost. That's an edge for a player who drifts
-  well; a drifting AI needs its drift controller tuned against the lap report.
-- Ambient city cars could animate in the vertex shader instead of on the CPU (they're only posed
-  within 420 m of the camera). Out-of-range ones are still written as zero-scale instances and the
-  whole buffer is uploaded each frame: write the near ones compactly and set `count` instead.
-- From PR #13:
+  - Split the two biggest functions: `buildCar` (`car/build.ts`, ~680 lines: body, cabin, lamps,
+    wheels, glows) and `buildCityscape` (`cityscape.ts`, ~680: buildings, signs, streets,
+    ambience).
+  - A shared `lateralOf(sp, i, x, z)` in `query.ts` for the ~8 hand-written lateral projections.
+  - `src/content.ts` (the bundle loader) and `src/core/content.ts` (types) share a name.
+- **Content and visual:**
+  - Traffic has silhouette ink only: no window or panel ink, and no crumple on wreck.
+  - Downtown has 4 puddles, all in corners; a few on straights would add rain atmosphere.
+  - The tunnel lost its traffic section, which was too short to keep a straight at both ends.
+  - The AI never drifts, so it never earns drift boost. That's an edge for a player who drifts
+    well; a drifting AI needs its drift controller tuned against the lap report.
   - Logs from the log truck's spill roll through the Trestle's legs (hazard pieces don't collide
     with props). The one AI reset left in the field tests is a car the spill shoved off the road
     the wrong way.
   - The police car's lights always flash; a siren and a pursuit mode would suit it.
   - A wrecked car sitting on its wheels loses its shadow too (it goes with `onRoad`).
-- From the second review (2026-09-30), not done:
-  - Split the two biggest functions: `buildCar` (`car/build.ts`, ~665 lines: body, cabin, lamps,
-    wheels, glows) and `buildCityscape` (`cityscape.ts`, ~675: buildings, signs, streets, ambience).
-  - A shared `lateralOf(sp, i, x, z)` in `query.ts` for the ~8 hand-written lateral projections.
-  - `logTruck.at` rescans traffic every tick for its truck: remember it on the occurrence.
-  - `src/content.ts` (the bundle loader) and `src/core/content.ts` (types) share a name.
   - Unused surfaces (`ice`, `oil`, `lava-crust`, `boost-pad`) wait for a map that uses them.
   - Downtown's and the Valley's lap floors (58.6, 63.4 s) are under SPEC's 70–100 s target;
-    Paradise's (68.2 s) is close. Validate warns only under 55 s.
-- From Paradise part 2: the land over the Lava Tube is still cut open (every road caps the land
-  below it), so the tube reads as a roofed cutting, not a tunnel under the cone. A branch that's
-  a tunnel would need to leave the land alone over its middle and draw portals.
-- The falling sign's and log truck's markers use the road's centre height, like the bombs did
-  before; on a banked stretch their rings would sink. Neither sits on a steep bank today.
-- Loading a layout builds the whole City in about 200 ms. That's fine per editor edit (edits
-  apply when you let go of a point); if it ever runs per frame, cache it.
+    Paradise's (66.8 s) is close. Validate warns only under 55 s.
+  - The land over the Lava Tube is still cut open (every road caps the land below it), so the
+    tube reads as a roofed cutting, not a tunnel under the cone. A branch that's a tunnel would
+    need to leave the land alone over its middle and draw portals.
+  - The falling sign's and log truck's markers use the road's centre height, like the bombs did
+    before; on a banked stretch their rings would sink. Neither sits on a steep bank today.
+- **Controls:**
+  - Touch controls: phones can't drive yet.
 
 ## Working notes
 

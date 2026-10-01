@@ -4,13 +4,18 @@ A cel-shaded arcade street racer for the browser: Burnout 3's crashes, Mario Kar
 8 players online through [GameRelay](https://gamerelay.io), with long circuits, shortcuts, traffic,
 hazards and weather.
 
-**Status: milestone 2 (the world).** Single-player races on City and Countryside against up to 7 AI
-drivers, with traffic, hazards (log trucks, falling signs), rain, shortcuts, takedowns, near misses
-and drifting; the level editor, local telemetry and replayable reports. Online play is
-milestone 3. The design is in
+**Status: milestone 3 (online) in progress; `main` is tagged `alpha-1.19`.** Three maps
+(Downtown, Backroads, Paradise) and 8 cars, against up to 7 AI drivers, with traffic, hazards
+(log trucks, a falling sign, volcano bombs, coconuts), rain and passing showers, shortcuts,
+takedowns, near misses and drifting. Online, lobbies are GameRelay rooms: other players' cars
+show in your race, players connect P2P where they can, and the room's host drives the AIs for
+everyone. There's also the level editor, local telemetry and replayable reports. Online play is
+party-grade: the room's host is trusted, and a modified client could cheat (SPEC §10, "Trust").
+The design is in
 [docs/SPEC.md](./docs/SPEC.md); what changed in each release is in [CHANGELOG.md](./CHANGELOG.md),
-where things stand is [docs/HANDOFF.md](./docs/HANDOFF.md), what's next is
-[docs/PLAN.md](./docs/PLAN.md), and how maps are made is [docs/MAPS.md](./docs/MAPS.md).
+where things stand and what's next is [docs/HANDOFF.md](./docs/HANDOFF.md), how online works is
+[docs/ONLINE.md](./docs/ONLINE.md), how maps are made is [docs/MAPS.md](./docs/MAPS.md), and how
+cars are made is [docs/CARS.md](./docs/CARS.md).
 
 ## Run it
 
@@ -30,13 +35,19 @@ server, and your own lobby still works.
 | Drift | hold Shift while steering | RB (or X) |
 | Boost | Space | A |
 | Look back / reset | C / R | B / Y |
+| Horn | H | left stick (press) |
 | Pause (the controls are listed there) | Esc | Start |
 | Sound · music | M · N | |
 | Felt wrong? (saves the last 30 s) | F8 | Select + Start |
+| Ink outlines on / off | F6 | |
 | Editor (dev) · debug · tuning | \` · F2 · F4 | |
 
-The setup screen writes the race into the URL (`?mode=race&map=downtown&car=hatch&opponents=7&difficulty=1&laps=3&weather=random&mayhem=normal&traffic=1`);
-add `&post=0` (no post pass) or `&trace=1` (per-tick trace of your car into telemetry).
+Starting a race writes it into the URL
+(`?mode=race&map=downtown/downtown&car=hatch&paint=0&seats=pnnnnnnn&laps=2&weather=random&time=random&mayhem=normal&traffic=1&seed=…`):
+`seats` is one letter a seat (`p` you, `e`/`n`/`h` an easy, normal or hard AI, `o` open, `x`
+closed), `time` is `day`, `sunset` or `random`, and laps default to 2. Old links with
+`opponents` and `difficulty` still work. Add `&post=0` (no post pass), `&ink=0` (no outlines) or
+`&trace=1` (per-tick trace of your car into telemetry).
 
 ## Editing tracks
 
@@ -67,6 +78,11 @@ bun test                        # core tests: physics, tracks, determinism, no a
   `src/ui` is the HUD and menus; `src/input` the keyboard and pads; `src/editor` edits layouts
   (dev builds, the backtick key); `src/telemetry` records sessions and F8 reports;
   `src/viewer` is the garage (`/cars.html`).
+- `src/lobby`: the lobby model (`lobby.ts`, the host rules as one `apply`), your own lobby or a
+  GameRelay room behind one interface (`backend.ts`, `relay.ts`), the P2P party (`party.ts`),
+  pings and who's away (`presence.ts`), checking what other players send (`wire.ts`), and plates.
+- `src/net`: the online race: players' cars (`cars.ts`) and the host's AIs (`rivals.ts`) as
+  GameRelay entities. How it all fits is [docs/ONLINE.md](./docs/ONLINE.md).
 - `content/`: cars, paints, surfaces and maps, as JSON.
 - `tools/`: validate, the AI lap report, replaying F8 reports, and the map generators
   (`tools/content.ts` loads content for tools and tests).

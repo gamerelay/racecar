@@ -41,8 +41,8 @@ editor edits are for trying things and get overwritten.
 - **Nodes filleted into arcs:** list the corners as nodes with a radius; the generator fillets
   each into an arc between straights. Spline points come from the arcs, so corners have a
   constant radius and don't wobble.
-- **Width by corner type:** drift corners (sweepers) get `DRIFT_WIDTH` extra; hairpins and kinks
-  don't.
+- **Width by corner type:** drift corners (sweepers) get the `driftWidth` option extra (1.5 m by
+  default, in `tools/lib/lap.ts`); hairpins and kinks don't.
 - **Banking into the turn:** a corner banks toward its inside (a left turn lowers the left
   side, a negative bank). About 0.06 rad for hairpins and 0.1 for sweepers, and 0 where a flick
   shouldn't bank. Bank rolls over at under 0.5° per metre, so an S rolls from one side to the

@@ -1,6 +1,7 @@
 # racecar: design
 
-> **Status (2026-09-30): milestone 1 merged; milestone 2 (the world) built on branch `m2-world`.** A loose outline: when building teaches us
+> **Status (2026-10-01): `main` is tagged `alpha-1.19`; milestones 1 and 2 are merged, and milestone 3
+> (online) is in progress.** A loose outline: when building teaches us
 > something, we change it here and say so under "Changed while building". Decisions made so far
 > are in §17.
 >
@@ -77,7 +78,8 @@ These decide the arguments before they happen.
 - Schemas for content with a small validator (no runtime dependency; types generated from the
   same source).
 - Repo **`gamerelay/racecar`**, private until the online milestone is playable, then public.
-  Deployed as static files at `racecar.gamerelay.io`, itch.io later.
+  Meant to be deployed as static files at `racecar.gamerelay.io`, itch.io later. For now the test
+  build is one HTML file (`bun run build:single`) on https://asleepace.com/games/Z442EE.
 
 ## §2 Architecture
 
@@ -86,49 +88,68 @@ tests, in the editor, and in headless bots.
 
 ```
 src/
+  main.ts          the page: menu or race, the frame loop, the net layer's hooks
+  content.ts       loads content/ for the browser (CLASSES and the rest; core/content.ts has the types)
   core/
-    clock.ts       race time, ticks
     rng.ts         seeded streams, one per system (§4)
-    pools/         fixed-capacity SoA stores: cars, traffic, colliders, zones
-    track/         layout loading, baking (distance table, walls, chunks), queries by s
-    car/           physics, drift, boost, wreck body, stats
-    world/         traffic, hazards, weather, surfaces, item boxes (all deterministic)
-    collide/       OBB/segment tests, spatial grids, contact resolution
-    rules/         progress, laps, positions, scoring (near miss, takedown, air…)
-    ai/            racing line, drivers, rubber-band
+    state.ts       the sim's shared state, as the systems see it
+    controls.ts    the Controls a car is driven by
+    content.ts     content types and lookups (CLASS_ORDER, layout keys, aliases)
+    track/         layout loading, baking (distance table, walls, supports), queries by s, validate
+    car/           physics, the SoA car pool, tuning
+    world/         traffic, hazards, weather, smashables (all deterministic)
+    collide/       OBB tests, walls, the spatial grid (grid.ts), car contacts, cars against
+                   traffic, hazard pieces and props
+    rules/         progress, laps, positions
+    ai/            the racing AI (racer.ts: line, avoidance, shortcuts, boost), the pace car
     events.ts      the per-tick event queue
     sim.ts         the tick pipeline (§3) that runs all of the above in order
-  modes/           one file per mode, behind the Mode interface
-  net/             GameRelay adapter: lobby, party, entities, prediction, triggers, votes
+  lobby/           the lobby model and its rules, your own lobby or a GameRelay room, the P2P
+                   party, pings and presence, checking what others send, plates (docs/ONLINE.md)
+  net/             the online race: players' cars (cars.ts) and the host's AIs (rivals.ts)
   render/
-    scene.ts       renderer, cameras, chunk culling, instancing
+    renderer.ts    draws the sim, interpolated; camera.ts, the post pass (post.ts), car ink
+                   (ink.ts), skid marks, the lobby's turntable (showroom.ts)
+    skin.ts        the Skin interface
     skins/
-      greybox/     flat-shaded, colored by surface, shows triggers and zones (the default)
-      neon/        the prototype's look (later)
-  editor/          the level editor (dev builds only, §6)
-  input/           keyboard, gamepad, touch → Controls; menu focus
-  ui/              screens: lobby, party, garage, settings, HUD, results, vote
+      greybox/     flat-shaded, colored by surface, with the cars, scenery and landmarks (the default)
+                   (neon/, the prototype's look, is planned for milestone 3b)
+  editor/          the level editor and tuning panel (dev builds only, §6)
+  input/           keyboard and gamepad → Controls; menu actions (touch is planned)
+  ui/              screens: title, lobby, car select, plate, HUD, results, stats
   audio/           engine synth, SFX, music
   telemetry/       events → local files (dev) / PostHog (playtests); reports (§14)
+  viewer/          the garage (cars.html) and the poster stage (poster.html), dev tools
 content/
-  maps/<map>/      map.json, <layout>.track.json, hazards.json
-  cars/*.json      car classes
+  maps/<map>/      map.json, <layout>.track.json (hazards, landmarks and smashables included)
+  cars/*.json      car classes, and paints.json
   surfaces.json    the surface table
 tools/
-  bots/            headless GameRelay clients driven by core/ai (load tests, filling rooms)
   validate.ts      content validator (runs in CI)
+  lap-report.ts    the AI lap report
+  gen-*.ts         the map generators, on lib/lap.ts
   telemetry.ts     summarizes local telemetry files
   replay.ts        re-runs a saved report headless
+  build-single.ts  the single-file build
+  poster.ts        renders the marketing shots
+  (bots/, headless GameRelay clients driven by core/ai, are planned)
 ```
 
-Dependency direction: `ui, render, net, input, editor → core`; `modes → core`. `core` imports
-nothing outside itself. `render/skins/*` only implement the `Skin` interface. Enforced with an
-import lint rule.
+Planned and not there yet: a race clock module (`clock.ts`; the sim keeps time itself), general
+`pools/` (only cars have a pool, `car/pool.ts`), `modes/` (Race and free drive live in `main.ts`
+and the sim), the neon skin, touch input and bots.
+
+Dependency direction: `ui, render, net, lobby, input, editor → core`. `core` imports nothing
+outside itself, and never touches the DOM or Three.js: a test enforces it (`test/core.test.ts`,
+"core imports nothing outside core, and no DOM or three"). `render/skins/*` only implement the
+`Skin` interface.
 
 ### Loop
 
-- `relay.tick(60, step)` (or a local fixed-step loop offline) runs `core/sim.ts` at 60 Hz.
-- `requestAnimationFrame` renders, interpolating between the last two sim states.
+- A fixed-step loop on `requestAnimationFrame` (`main.ts`) runs `core/sim.ts` at 60 Hz, online
+  too, and renders, interpolating between the last two sim states. Running the online race on
+  `relay.tick(60, step)` is planned: it keeps going in a hidden tab, so a host tab in the
+  background wouldn't freeze the AIs.
 - Render, audio, HUD and net read the tick's **event queue** (a typed ring buffer, not
   callbacks), so the sim never calls into them and a slow renderer can't stall a tick.
 - **Slow-mo is a property of the wreck, not of your screen.** Online, a wrecked car's body
@@ -376,13 +397,16 @@ skin what to draw. Lobby option: clear / rain / random.
 ## §8 Maps
 
 Five maps, each with 1–2 layouts plus a short layout, built greybox first. v1 ships City and
-Countryside; the rest follow through the same pipeline.
+Countryside; the rest follow through the same pipeline. As built: City is **Downtown**,
+Countryside is **Backroads**, and **Paradise** (a tropical island with a volcano, lava bombs
+and a lava tube) took the Volcano island's slot as the third map. Harbor and Alpine are still
+to come.
 
 | Map | Lap | Shortcuts | Hazards | Weather | Signature spot |
 |---|---|---|---|---|---|
 | **City** (neon downtown at dusk) | ~85 s | alley through a parking garage, rooftop jump off a ramp, subway tunnel | falling sign, oil spill, container drop at the docks edge | clear, rain | the overpass pillars |
 | **Countryside** (valley) | ~90 s | dirt track through a barn, field cut across a hairpin, jump over a creek | log-truck, train crossing, rockfall at the quarry | clear, rain, fog | the narrow stone bridge |
-| **Volcano island** | ~80 s | lava tube tunnel, a jump over a lava river | lava bombs (eruptions), rockfall, lava crust | clear, ash (fog) | the crater rim |
+| **Volcano island** (Paradise took this slot) | ~80 s | lava tube tunnel, a jump over a lava river | lava bombs (eruptions), rockfall, lava crust | clear, ash (fog) | the crater rim |
 | **Harbor** | ~75 s | through a warehouse, across moored barges | drawbridge, container drop, swinging cranes, oil spill | clear, rain, fog | the drawbridge |
 | **Alpine pass** | ~95 s | frozen lake crossing, avalanche tunnel | rockfall, avalanche (trigger), ice zones | snow, clear | the hairpin switchbacks |
 
@@ -462,7 +486,7 @@ mini-turbo, Burnout's boost for driving on the edge, and Need for Speed's drift 
 - **Static grid** baked at load from each chunk's walls and props, never rebuilt.
 - **The track's `s`** is a free 1D index: "cars within 50 m along the road" is a window on a
   sorted array (near miss, AI, positions, audio).
-- Hidden behind `core/collide/spatial.ts` so a quadtree can replace a grid if a map measures
+- Hidden behind `SpatialGrid` (`src/core/collide/grid.ts`) so a quadtree can replace a grid if a map measures
   worse (very uneven density).
 - **Traffic LOD:** only traffic within ~300 m of *any local car* gets posed and put in the grid
   each tick; the rest is a formula nobody evaluates.
@@ -753,7 +777,7 @@ What we've settled, so nobody re-argues it. Changing one is fine; say so here.
 | Players per room | **8** (fits the LAN/relay shortcut; the grid is 2 × 4) |
 | Graphics | greybox first; skins are a separate layer and milestone (§6) |
 | Level design | our own in-browser editor over JSON tracks; no external tools (Blender etc.) needed |
-| Lap length | 70–100 s, 3 laps default; short layouts ~45 s |
+| Lap length | 70–100 s; short layouts ~45 s (default laps: see Laps) |
 | Network shape | players own cars; host owns AI and race facts; the world is `f(seed, raceTime)` |
 | Who decides a wreck | the victim (it owns its car); takedown credit by `room.claim` |
 | Remote cars | predicted in `net/`; stays in the game (car-specific), not an SDK feature |
@@ -766,18 +790,18 @@ What we've settled, so nobody re-argues it. Changing one is fine; say so here.
 | Lobby list | one list with a mode filter (split into tabs only if it gets crowded) |
 | Missing SDK features | built into GameRelay (§11), never faked in the game |
 | Trust | party-grade; host sanity-checks finishes; ranked is out of scope |
-| Maps | City, Countryside (v1), then Volcano, Harbor, Alpine |
-| Cars | 4 in v1 (coupe, muscle, hatch, van), several paint coats each (color + finish) |
-| Laps | 3 by default |
+| Maps | **Changed** (was City, Countryside, then Volcano, Harbor, Alpine): Downtown, Backroads and Paradise (the island took Volcano's slot); Harbor and Alpine later |
+| Cars | **Changed** (was 4 in v1): 8 classes (coupe, muscle, hatch, van, sedan, rally, bus, police; `CLASS_ORDER`), several paint coats each (color + finish) |
+| Laps | **Changed** (was 3): 2 by default (`DEFAULT_OPTIONS`), 1–5 |
 | Mobile | supported as long as it takes nothing from desktop (§13) |
-| Hosting | `racecar.gamerelay.io`, static files |
+| Hosting | `racecar.gamerelay.io`, static files, is still the intended home. **Changed for now:** the test build is at https://asleepace.com/games/Z442EE, one HTML file from `bun run build:single` |
 | GameRelay account | racecar is a normal instance on a paid plan (dogfooding billing and limits); bots run on a separate instance so load tests don't eat players' capacity |
 | Launch | after 3b: online City race with the neon skin. The repo is public from 3, but promoted at 3b |
 | Wreck slow-mo online | the wreck itself runs slow for everyone; the world doesn't slow |
 | Contacts | each owner resolves its own car; bumps deduped within ±150 ms |
 | Leaderboard laps | Time Trial only, above the layout's AI lap floor |
 | City look | dusk (the prototype's palette) by default, midnight for rain/night; greybox uses the dusk sky from day one |
-| Drift | hold-to-drift with a small hop, angle band set by the stick, 3-stage mini-turbo, drift chains, assist setting (§9) |
+| Drift | hold-to-drift with a small hop, angle band set by the stick, drift chains, assist setting (§9). **Changed** (was a 3-stage mini-turbo): no mini-turbo; a drift banks boost that a clean release pays into the meter (`TUNING.miniTurbo: false` keeps the code) |
 | Telemetry | local JSONL files in dev (Claude reads them directly), PostHog for playtests, F8 reports replayable headless (§14) |
 
 Still open, and fine to leave open until they matter:
@@ -1332,7 +1356,6 @@ Car select (2026-09-30, PLAN phase 4):
   above the other, and up and down move between them. Right from the lobby's buttons reaches
   them, and up from them goes back into the lobby.
 
-
 Paradise, part 1: the lap and the land (2026-09-30, PLAN phase 5):
 
 - **One lap-laying library for every map** (`tools/lib/lap.ts`): filleted arcs, drift-corner
@@ -1492,7 +1515,6 @@ HUD tweaks (owner, 2026-09-30):
 - **The countdown's number shows its outline:** a stroke under the fill only shows its outer
   half (1.5 px), which was lost on the night sky, so it's 7 px, ringed in outline shadows as well.
 
-
 The lobby's layout (owner, 2026-09-30):
 
 - **Three panels, nothing scrolls:** the seats alone dock left, their rows sharing the window's
@@ -1534,251 +1556,6 @@ Landmarks, part 1: Downtown (PLAN phase 6):
     its water, and a flat bridge crosses it at each side street.
 - **Cost:** each landmark's still boxes are one instanced mesh, and the clock's four dials, four
   readouts and eight hands are three draws. All five together are ~11 draw calls.
-
-The AIs online (milestone 3, part 3, 2026-10-01):
-
-- **The room's host drives the AIs, so every screen races the same bots** (`src/net/rivals.ts`,
-  `NetRivals`). Each AI seat is a host entity (`rival`, 30 Hz): a car's fields plus its lobby
-  seat. The SDK's host writes them from its sim after each step; every other screen has them as
-  remote cars, like players, predicted to now. Before, each screen ran its own bots, and they
-  were in different places on every screen.
-- **The SDK's host, not the lobby's.** The host role moves by itself (a reload, a dropped
-  connection), and host entities move with it. The AI keeps no memory but the car's pose
-  (ai/racer.ts), so the next host just drives them on from where they are: no new rivals and no
-  jump. Before each step, a screen that holds the role steps the AIs itself; any other screen puts
-  them where their entity says.
-- **Until the host's rivals show up, every screen drives them itself**, from the same grid: the
-  host hasn't connected yet, or nobody has. If two pages are host for a moment, both spawn
-  rivals, so the next host keeps one per seat and removes the rest.
-- **The AIs' paint is their seat's when there are other players**, not your paint plus their
-  seat: your paint is yours alone, so every screen had them in different colours. Alone (Race
-  again, or no other players), it's as before.
-- **Other players count for the AIs' catch-up** (a remote car is `human` too). It held back for
-  the host's car only.
-- **A hidden host tab freezes the bots** on everyone's screen until the role moves: its sim
-  doesn't step without animation frames. The SDK moves the role off a hidden tab that can't keep
-  up. Running the host's sim on `relay.tick` (which keeps going in hidden tabs) is a follow-up.
-- **Contact with an AI** is the same as with a player's car. The host's sim bumps and wrecks it.
-  Every other screen's sim bumps your car off it, and leaves the AI where the host says.
-
-Review fixes (PR #42):
-
-- **A rival carries what the next host needs, not only its pose:** its wreck (how long, why, the
-  tumble's spin), its boost and its last good spot on the road. Every screen copies them in as
-  they come. Before, a bot wrecked when the host left started a fresh wreck on the new host, then
-  respawned at the last spot that screen had driven it to: usually the grid. The AI's stuck
-  recovery still starts over (a second or two of state).
-- **A rival says which race it's in** (its seed and start). A room's host entities outlive a
-  race, so the next race in the same lobby found the last one's bots, at the finish, and placed
-  its own there. With a host that wasn't racing, they stayed there all race. The last race's are
-  ignored now, and the host removes them.
-- **The role coming back isn't a teleport.** A host that lost the role and got it back compared
-  each bot with where it last wrote it, and snapped them all on everyone's screen.
-
-The lobby's header, and who can join (playtest, 2026-10-01):
-
-- **Who can join is three ways, not two:** Public (listed online), Invite only (anyone with the
-  link, not listed: what "private" meant before) and Private, which is the spec's **lock**:
-  nobody new sits down (`apply` refuses a `join`), and those in keep their seats. Someone who
-  opens a private lobby's link watches without a seat, and sits down if it opens up again. The
-  host clicks the header's button to cycle them; everyone else sees it as a label. Create lobby
-  offers the same three words: Public, Invite only, or Private, which there is the local lobby
-  (you and bots, in this browser: nobody else can join that either). Its header says Private.
-- **A lobby an older build made `private` is read as `invite`**, in its room's state and in
-  actions, since that's what it meant then. The lock (Private) is its own value, `locked`, so a
-  lobby that lives through a deploy doesn't shut its friends out.
-- **The header is just that and the invite link** (gone while it's Private). The cars on the grid
-  and the room code were noise next to the seats.
-- **The turntable is in the middle of everything right of the seats**, lower, clear of the
-  options card, and bigger: the table spans the stage's height (`frameStage`, 0.5 of it as its
-  radius, up from 0.36), still never more than 0.36 of its width. The car's panel is centered
-  under it.
-- **The header says how you reach the others:** LAN (every pair direct, across one network),
-  Relay (some pair through the TURN relay) or Server (some pair with no channel yet), the slowest
-  pair's way, from `room.lanRoute`, shown as a button like the others. It updates every second, and there's none while you're
-  alone. The SDK doesn't say a relay's region, so it doesn't show one yet (HANDOFF's GameRelay
-  side).
-- **Pings: each player measures their own and tells the room.** The SDK only knows your ping
-  (`relay.ping()`), so every lobby page measures it every 3 s and sends `{ type: 'ping', ms }` to
-  everyone (`room.send`); each screen shows them in the seats' Ping column, checked as they come
-  in: blue under 50 ms, yellow from 50, orange from 75, red from 100 (`pingClass`). The column
-  is a fixed width, so a changing ping doesn't move the others. Pings go round only while a lobby screen
-  is watching: the race page attaches the room too, and would send them for nothing. It's each player's round trip to the server, not to each other. Your own lobby
-  has no Ping column. The 4th column is headed Status.
-- **Your plate in your seat is a button:** it opens the plate editor, and Save or Back returns
-  to the lobby, still seated (you never left the room). Saving renames your seat, and, if you
-  host it and it still has its default name, the lobby (`syncName` for any lobby, not just
-  yours).
-- **The seats panel:** an open seat says "Random bot" by a gray dot, the last seat has no rule
-  under it, and Start (or Ready) and Leave are stacked, each the panel's width.
-- **You start a lobby in a random car and paint**, creating it or sitting down in one. The
-  turntable changes it.
-- **Only Public lobbies are listed, by two checks.** The room is unlisted (`setAccess`, tried
-  again if it fails), and the listing's meta says who can join, so the list drops one that isn't
-  Public even while its room is still listed.
-- **Your own lobby isn't in the list, and closes when you leave it.** With you gone only bots are
-  left. Its Title button is gone (Leave, now Close lobby, and Esc both close it), and a stale one
-  in storage (a closed tab) isn't listed.
-- **Quick race skips lobbies:** you and seven normal bots, a random map, random weather and time,
-  the default laps. Its results go to the main menu.
-- **A lobby everyone left isn't listed.** GameRelay keeps an empty room for its idle time (two
-  minutes), listed as it last was ("1/8"). The list skips rooms the server counts nobody in, and
-  the last one out unlists the room as they go (`setAccess({ public: false })`).
-
-The online code, reviewed (2026-10-01; the map is docs/ONLINE.md):
-
-- **The SDK's host role moving re-tidies the lobby.** The backend listened for a `host` event,
-  which the SDK never sends: its name is `host_changed`. So whoever the role moved to (a page
-  load moves it) didn't open the seats of players who'd left meanwhile, or bring the listing up
-  to date. Room events are a typed list of the SDK's names now, so a misspelt one doesn't compile.
-- **relay.ts is four files:** wire.ts (checking what other players send), party.ts (the P2P
-  party), presence.ts (pings, the connection, who's away) and relay.ts (the lobby as a room).
-- **Away** (from Xbox Live's member states): a player whose connection has been gone 4 s or more
-  shows Away in the Ping column; their seat's held through the server's grace, and they're back
-  in it if they return.
-- **A join the menu gave up on leaves the room when it lands** (it took over 5 s, or Esc while
-  joining): before, you'd be in that room, unseen and in its party, until you left another way.
-  Only the menu gives up (`abandon`): the race page stays in its room however long joining takes.
-- **Joins, creates and leaves run one at a time, in order** (`inTurn`), and the backend knows which
-  lobby the screens want (`wanted`). The SDK has one room at a time and its leave doesn't name a
-  room, so a late join's leave, overlapping the next join, could take you out of that one.
-
-P2P (2026-10-01):
-
-- **Every online lobby is a GameRelay party too, so its players connect straight to each other.**
-  GameRelay only connects party members directly over the internet (`lan: { direct: 'party' }`,
-  with the instance's Direct connections setting on); everyone else in a room goes through its
-  TURN relay. So the host makes a party with the room, `Lobby.party` holds its code, and every
-  page that attaches the room (the lobby's and the race's) joins it. A party gone (everyone left
-  it) gets a new one from the SDK's host.
-- **This shows each player the others' public IP**, in public lobbies too: chosen on purpose for
-  now (no per-player opt-in). The SDK's guidance is to ask each player first, and not for games
-  children under 13 may play. Revisit before the repo goes public.
-- **Leaving the lobby leaves its party** (Leave, a kick, the room closing, a new lobby): a
-  party's leader drags its members into any room it makes or joins, so the party must not
-  outlive the lobby.
-- **Leaving the party is always asked of the server**, not only when the SDK says you're in
-  one: after a page load it doesn't know (the server keeps you in it through its reconnect
-  grace, 30 s). A join that lands after you left is undone, and a party change that comes in
-  while a join is trying is tried next (review of PR #37).
-- **The header says P2P instead of LAN** for a direct channel: it may be across one network or
-  over the internet, and the SDK doesn't say which.
-
-
-- **Switching away doesn't pause an online race.** It's shared, so it goes on, and the pause menu
-  would only be in the way when you came back. Esc still opens it as "Menu": the race goes on and
-  your car coasts until you resume.
-- **No Restart or Race again online.** A race everyone's in can't be restarted for one of them:
-  the host's Restart gave them a race of their own, and from there Back to lobby reopened the
-  lobby while the others were still racing. The menu and the results offer Back to lobby
-  instead, and the next race is the lobby's.
-- **The lobby says who's still racing.** The start marks every seated player `racing`, and each
-  clears it when their lobby screen opens again (`{ type: 'racing', racing }`, their own seat
-  only). Their seat shows "Racing". Since the end un-readies everyone, the host's Start waits
-  for them.
-
-Remote cars (milestone 3, part 2, 2026-10-01):
-
-- **Every player owns their car** (`src/net/cars.ts`, `NetCars`). Yours is a GameRelay entity
-  (`car`, 30 Hz): pose, velocity, yaw rate, pitch and roll, the wreck tumble, steering, and the
-  grounded, drift, boost and wreck flags. It's written from your sim after each step. A jump over
-  12 m in one step (a reset) is a `teleport`, so everyone snaps instead of sliding.
-- **Everyone else's car is a remote car in your sim** (`CarSpec.remote`). Before each step it's
-  put where its entity says (`sim.setPose`), predicted forward from the SDK's ~100 ms render delay
-  to now: straight on from its velocity, turning at its yaw rate, at most 0.25 s, and not at all
-  while it's wrecked. Steering, drift and the track aren't in the prediction yet. Your sim only
-  finds it on the track (`locateCar`: progress, laps, rank). It doesn't drive it, wall it or put
-  it through hazards and traffic.
-- **Contact:**
-  - Your car is pushed and bumped off theirs (its own share of the impulse). Theirs isn't moved
-    at all, since it's where its owner says, and their own sim bumps it off yours on their screen.
-  - Your sim never wrecks another player's car: the victim decides (§10).
-  - Two remote cars touching is left to their screens.
-  - Bump dedupe (±150 ms) and credit for wrecks are still to come.
-- **The race link carries the others** (`others`: seat, id, car, paint, plate). Their seats are
-  `r`, which the roster makes remote cars in their own grid slots, so every screen's grid is the
-  same. A Restart or Race again from an online race is a race of your own (the `r` seats close).
-- **The lights go green together.** The host's Start stamps `startAt` 6 s ahead on the server's
-  clock (`relay.now()`), and the race page holds its countdown (READY) until it's connected. The
-  net layer then sets green from the server's clock on every countdown step. Every step, not just
-  once, because a tab in the background doesn't step and its sim's clock falls behind; it catches
-  up on the first step it gets. If not connected within 8 s, the race starts anyway, with your
-  car not going out.
-- **An online race doesn't pause.** The pause menu still opens, but your car coasts on neutral
-  controls and the others keep driving.
-- **A player's car joins the race when it first shows up**, and leaves it when their entity goes.
-  `addCar` leaves a remote car out until then, so one who never connects isn't a car parked on
-  the grid (where it would be a wall: your car takes all the push off a remote one).
-- **From the review:**
-  - An online race has no world slow-mo for your wreck. Your sim would run slow, you'd crawl on
-    everyone else's screen, and your race clock (and finish time) would fall behind theirs.
-  - A respawned car's ghost goes out with it (`ghost`), so you pass through it as its owner does.
-  - Race again from an online race is a race of your own: the net layer needs the link's online
-    parts (`others` or `at`). That page only keeps your seat in the room; it doesn't send a car
-    into the others' race.
-- **Not yet:** the AIs are each client's own (the same seed, but they drift apart as players race
-  differently). Traffic hits, hazards and finishes are each screen's own too, as are results.
-  Next come host-owned rival entities, `room.claim` for traffic, and the host's results.
-
-Online lobbies (milestone 3, part 1, 2026-09-30):
-
-- **A lobby is a GameRelay room** (`src/lobby/relay.ts`, `RelayBackend`), tagged `race`. The
-  lobby lives in `room.state.lobby`, and only the SDK's host writes it. Everyone else sends
-  their actions to that host (`room.request('lobby', …)`), and it applies them with the same
-  `apply` a local lobby uses. So the rules (who sets seats, who starts) are one piece of code.
-- **The SDK's host isn't the lobby's host.** The SDK's role moves on its own: a reload, a hidden
-  tab, and every race is a reload. The lobby's host (`lobby.host`, who sets the seats and starts)
-  changes only when they leave. Whoever holds the SDK's role applies the actions, and `apply`
-  checks the lobby's host, so the role can hop mid-lobby and nothing changes.
-- **Actions from others are checked first** (`readAction`): shapes, ranges and known values, and
-  a join is always the sender's own (the id the server vouches for, not the one in the action).
-  A room's listing is a host's JSON, so the list checks it too (`readListing`).
-- **The room lists show the lobby's summary** (`setListing`: name, plus map, laps, phase, pips,
-  players), sent when it changes and at most once a second (the SDK allows 10 in a row, then one a
-  second). A private lobby is an unlisted room (`setAccess({ public })`), joined by its link.
-- **Your own lobby stays local.** `Lobbies` (backend.ts) puts both behind the screens: `local` is
-  this browser's, and every other id is a room code. Quick race and free drive still use yours.
-  Create lobby asks who can join: anyone (listed online), friends (by link), or just you. The
-  interface's `you` became `youIn(id)`, since online your id is the relay's.
-- **A race keeps your seat.** A race is still a page load. The race page joins the room again (a
-  reload resumes the same player), so the room lives through many races. The host's Start
-  carries a seed (`{ type: 'start', seed }`, kept as `lobby.seed`), and everyone seated follows
-  the lobby into the same race when it turns `racing`. Only that change moves you: opening a
-  lobby that's already racing doesn't. When the lobby's host comes back to it, it's reopened.
-  Players still racing come back to it when they finish.
-- **Between races** (from the review): the end un-readies everyone but the host, so the host
-  can't start the next race while others are still racing this one. If the lobby's host leaves
-  mid-race, the lobby passes to someone waiting in it, and their screen reopens it. Back (Esc)
-  from an online lobby leaves it, so a look doesn't hold a seat. Someone watching a full or
-  racing lobby takes a seat when one opens between races, and Leave puts them out of the room
-  whether or not they had a seat. A lobby whose seats all emptied goes to whoever sits down
-  next. A kick aimed at the player holding the SDK's role (which can't kick itself) is carried
-  out by that player: they hand the lobby on, then go.
-- **Not yet: other players' cars.** Each player races the same race (same map, seed, AIs and
-  weather) with the others' seats empty. Remote cars are the `net/` layer, next.
-- **Someone gone for good gives up their seat.** On `player_left` (after the SDK's 30 s grace),
-  and when the SDK's role passes to someone, the host opens the seats of anyone no longer in the
-  room. A kick also puts them out of the room (not banned).
-- **Offline is fine.** Without `VITE_GAMERELAY_KEY` there's no relay, and the title says so. With
-  one and no server, the list shows your own lobby and "Can't reach the lobby server". Online
-  calls the screens wait on give up after 5 s. `.env.development` points dev at the local
-  GameRelay server (`gr_pub_dev`, `http://localhost:8787`), and `.env.production` has the
-  `racecar` instance's public key on gamerelay.io (8 players; allowed origins only
-  `http://localhost` until racecar is hosted somewhere).
-- **The SDK is a dependency now** (`@gamerelay/sdk` 0.1.0-alpha.4, 28 KB gzipped).
-  `bunfig.toml` exempts it from the global 7-day `minimumReleaseAge`, since it's ours and every
-  release is newer than that.
-
-Downtown's field wrecks (sweep, 2026-09-30):
-
-- **1.0 a race over 16 seeds** (0.88 on seeds 1–8; 1.13 at `alpha-1.11`, before the landmarks
-  and smashables). The ~1.6 that MAPS.md and HANDOFF quoted dated from the quick wins and was
-  never re-measured. Downtown is under MAPS.md's 1.5 and didn't change.
-- **The one cluster** is at 150–250 m, where the start's traffic meets the colonnade (pillars at
-  239–261 m): 7 of the 16 wrecks. Ending that traffic at 150 m gave 1.06 a race, and taking the
-  pillars out gave 0.88. Both are inside the ±0.3 that seeds swing by, and each just moved the
-  wrecks to the Market's traffic (1,550–1,950 m), so the colonnade stays.
-- A test holds the 8-seed field to 1.5, like the Valley's.
 
 The Valley's field wrecks (sweep, 2026-09-30):
 
@@ -1870,3 +1647,281 @@ Review fixes (PRs #26–#30):
 - **The canal cuts only its own footprint from a sidewalk slab.** At the canal's two ends the
   cut ran across the whole slab. It subtracts the canal's rectangle now, leaving up to four
   pieces round it.
+
+Downtown's field wrecks (sweep, 2026-09-30):
+
+- **1.0 a race over 16 seeds** (0.88 on seeds 1–8; 1.13 at `alpha-1.11`, before the landmarks
+  and smashables). The ~1.6 that MAPS.md and HANDOFF quoted dated from the quick wins and was
+  never re-measured. Downtown is under MAPS.md's 1.5 and didn't change.
+- **The one cluster** is at 150–250 m, where the start's traffic meets the colonnade (pillars at
+  239–261 m): 7 of the 16 wrecks. Ending that traffic at 150 m gave 1.06 a race, and taking the
+  pillars out gave 0.88. Both are inside the ±0.3 that seeds swing by, and each just moved the
+  wrecks to the Market's traffic (1,550–1,950 m), so the colonnade stays.
+- A test holds the 8-seed field to 1.5, like the Valley's.
+
+### Milestone 3 (online)
+
+Online lobbies (milestone 3, part 1, 2026-09-30):
+
+- **A lobby is a GameRelay room** (`src/lobby/relay.ts`, `RelayBackend`), tagged `race`. The
+  lobby lives in `room.state.lobby`, and only the SDK's host writes it. Everyone else sends
+  their actions to that host (`room.request('lobby', …)`), and it applies them with the same
+  `apply` a local lobby uses. So the rules (who sets seats, who starts) are one piece of code.
+- **The SDK's host isn't the lobby's host.** The SDK's role moves on its own: a reload, a hidden
+  tab, and every race is a reload. The lobby's host (`lobby.host`, who sets the seats and starts)
+  changes only when they leave. Whoever holds the SDK's role applies the actions, and `apply`
+  checks the lobby's host, so the role can hop mid-lobby and nothing changes.
+- **Actions from others are checked first** (`readAction`): shapes, ranges and known values, and
+  a join is always the sender's own (the id the server vouches for, not the one in the action).
+  A room's listing is a host's JSON, so the list checks it too (`readListing`).
+- **The room lists show the lobby's summary** (`setListing`: name, plus map, laps, phase, pips,
+  players), sent when it changes and at most once a second (the SDK allows 10 in a row, then one a
+  second). A private lobby is an unlisted room (`setAccess({ public })`), joined by its link.
+- **Your own lobby stays local.** `Lobbies` (backend.ts) puts both behind the screens: `local` is
+  this browser's, and every other id is a room code. Quick race and free drive still use yours.
+  Create lobby asks who can join: anyone (listed online), friends (by link), or just you. The
+  interface's `you` became `youIn(id)`, since online your id is the relay's.
+- **A race keeps your seat.** A race is still a page load. The race page joins the room again (a
+  reload resumes the same player), so the room lives through many races. The host's Start
+  carries a seed (`{ type: 'start', seed }`, kept as `lobby.seed`), and everyone seated follows
+  the lobby into the same race when it turns `racing`. Only that change moves you: opening a
+  lobby that's already racing doesn't. When the lobby's host comes back to it, it's reopened.
+  Players still racing come back to it when they finish.
+- **Between races** (from the review): the end un-readies everyone but the host, so the host
+  can't start the next race while others are still racing this one. If the lobby's host leaves
+  mid-race, the lobby passes to someone waiting in it, and their screen reopens it. Back (Esc)
+  from an online lobby leaves it, so a look doesn't hold a seat. Someone watching a full or
+  racing lobby takes a seat when one opens between races, and Leave puts them out of the room
+  whether or not they had a seat. A lobby whose seats all emptied goes to whoever sits down
+  next. A kick aimed at the player holding the SDK's role (which can't kick itself) is carried
+  out by that player: they hand the lobby on, then go.
+- **Not yet: other players' cars.** Each player races the same race (same map, seed, AIs and
+  weather) with the others' seats empty. Remote cars are the `net/` layer, next.
+- **Someone gone for good gives up their seat.** On `player_left` (after the SDK's 30 s grace),
+  and when the SDK's role passes to someone, the host opens the seats of anyone no longer in the
+  room. A kick also puts them out of the room (not banned).
+- **Offline is fine.** Without `VITE_GAMERELAY_KEY` there's no relay, and the title says so. With
+  one and no server, the list shows your own lobby and "Can't reach the lobby server". Online
+  calls the screens wait on give up after 5 s. `.env.development` points dev at the local
+  GameRelay server (`gr_pub_dev`, `http://localhost:8787`), and `.env.production` has the
+  `racecar` instance's public key on gamerelay.io (8 players; allowed origins only
+  `http://localhost` until racecar is hosted somewhere; since 2026-10-01 also
+  `https://asleepace.com`, for the hosted test build).
+- **The SDK is a dependency now** (`@gamerelay/sdk` 0.1.0-alpha.4, 28 KB gzipped).
+  `bunfig.toml` exempts it from the global 7-day `minimumReleaseAge`, since it's ours and every
+  release is newer than that.
+
+Remote cars (milestone 3, part 2, 2026-10-01):
+
+- **Every player owns their car** (`src/net/cars.ts`, `NetCars`). Yours is a GameRelay entity
+  (`car`, 30 Hz): pose, velocity, yaw rate, pitch and roll, the wreck tumble, steering, and the
+  grounded, drift, boost and wreck flags. It's written from your sim after each step. A jump over
+  12 m in one step (a reset) is a `teleport`, so everyone snaps instead of sliding.
+- **Everyone else's car is a remote car in your sim** (`CarSpec.remote`). Before each step it's
+  put where its entity says (`sim.setPose`), predicted forward from the SDK's ~100 ms render delay
+  to now: straight on from its velocity, turning at its yaw rate, at most 0.25 s, and not at all
+  while it's wrecked. Steering, drift and the track aren't in the prediction yet. Your sim only
+  finds it on the track (`locateCar`: progress, laps, rank). It doesn't drive it, wall it or put
+  it through hazards and traffic.
+- **Contact:**
+  - Your car is pushed and bumped off theirs (its own share of the impulse). Theirs isn't moved
+    at all, since it's where its owner says, and their own sim bumps it off yours on their screen.
+  - Your sim never wrecks another player's car: the victim decides (§10).
+  - Two remote cars touching is left to their screens.
+  - Bump dedupe (±150 ms) and credit for wrecks are still to come.
+- **The race link carries the others** (`others`: seat, id, car, paint, plate). Their seats are
+  `r`, which the roster makes remote cars in their own grid slots, so every screen's grid is the
+  same. A Restart or Race again from an online race is a race of your own (the `r` seats close).
+  (Superseded: online races offer neither now, only Back to lobby. See "Online races don't pause
+  or restart" below.)
+- **The lights go green together.** The host's Start stamps `startAt` 6 s ahead on the server's
+  clock (`relay.now()`), and the race page holds its countdown (READY) until it's connected. The
+  net layer then sets green from the server's clock on every countdown step. Every step, not just
+  once, because a tab in the background doesn't step and its sim's clock falls behind; it catches
+  up on the first step it gets. If not connected within 8 s, the race starts anyway, with your
+  car not going out.
+- **An online race doesn't pause.** The pause menu still opens, but your car coasts on neutral
+  controls and the others keep driving.
+- **A player's car joins the race when it first shows up**, and leaves it when their entity goes.
+  `addCar` leaves a remote car out until then, so one who never connects isn't a car parked on
+  the grid (where it would be a wall: your car takes all the push off a remote one).
+- **From the review:**
+  - An online race has no world slow-mo for your wreck. Your sim would run slow, you'd crawl on
+    everyone else's screen, and your race clock (and finish time) would fall behind theirs.
+  - A respawned car's ghost goes out with it (`ghost`), so you pass through it as its owner does.
+  - Race again from an online race is a race of your own: the net layer needs the link's online
+    parts (`others` or `at`). That page only keeps your seat in the room; it doesn't send a car
+    into the others' race. (Superseded: there's no Race again online now. See "Online races
+    don't pause or restart" below.)
+- **Not yet:** the AIs are each client's own (the same seed, but they drift apart as players race
+  differently). Traffic hits, hazards and finishes are each screen's own too, as are results.
+  Next come host-owned rival entities (since done: PR #42), `room.claim` for traffic, and the
+  host's results.
+
+Online races don't pause or restart (PRs #34 and #35, `alpha-1.16`, 2026-10-01):
+
+- **Switching away doesn't pause an online race.** It's shared, so it goes on, and the pause menu
+  would only be in the way when you came back. Esc still opens it as "Menu": the race goes on and
+  your car coasts until you resume.
+- **No Restart or Race again online.** A race everyone's in can't be restarted for one of them:
+  the host's Restart gave them a race of their own, and from there Back to lobby reopened the
+  lobby while the others were still racing. The menu and the results offer Back to lobby
+  instead, and the next race is the lobby's.
+- **The lobby says who's still racing.** The start marks every seated player `racing`, and each
+  clears it when their lobby screen opens again (`{ type: 'racing', racing }`, their own seat
+  only). Their seat shows "Racing". Since the end un-readies everyone, the host's Start waits
+  for them.
+
+The lobby's header, and who can join (playtest, 2026-10-01):
+
+- **Who can join is three ways, not two:** Public (listed online), Invite only (anyone with the
+  link, not listed: what "private" meant before) and Private, which is the spec's **lock**:
+  nobody new sits down (`apply` refuses a `join`), and those in keep their seats. Someone who
+  opens a private lobby's link watches without a seat, and sits down if it opens up again. The
+  host clicks the header's button to cycle them; everyone else sees it as a label. Create lobby
+  offers the same three words: Public, Invite only, or Private, which there is the local lobby
+  (you and bots, in this browser: nobody else can join that either). Its header says Private.
+- **A lobby an older build made `private` is read as `invite`**, in its room's state and in
+  actions, since that's what it meant then. The lock (Private) is its own value, `locked`, so a
+  lobby that lives through a deploy doesn't shut its friends out.
+- **The header is just that and the invite link** (gone while it's Private). The cars on the grid
+  and the room code were noise next to the seats.
+- **The turntable is in the middle of everything right of the seats**, lower, clear of the
+  options card, and bigger: the table spans the stage's height (`frameStage`, 0.5 of it as its
+  radius, up from 0.36), still never more than 0.36 of its width. The car's panel is centered
+  under it.
+- **The header says how you reach the others:** LAN (every pair direct, across one network),
+  Relay (some pair through the TURN relay) or Server (some pair with no channel yet), the slowest
+  pair's way, from `room.lanRoute`, shown as a button like the others. It updates every second, and there's none while you're
+  alone. The SDK doesn't say a relay's region, so it doesn't show one yet (HANDOFF's GameRelay
+  side).
+- **Pings: each player measures their own and tells the room.** The SDK only knows your ping
+  (`relay.ping()`), so every lobby page measures it every 3 s and sends `{ type: 'ping', ms }` to
+  everyone (`room.send`); each screen shows them in the seats' Ping column, checked as they come
+  in: blue under 50 ms, yellow from 50, orange from 75, red from 100 (`pingClass`). The column
+  is a fixed width, so a changing ping doesn't move the others. Pings go round only while a lobby screen
+  is watching: the race page attaches the room too, and would send them for nothing. It's each player's round trip to the server, not to each other. Your own lobby
+  has no Ping column. The 4th column is headed Status.
+- **Your plate in your seat is a button:** it opens the plate editor, and Save or Back returns
+  to the lobby, still seated (you never left the room). Saving renames your seat, and, if you
+  host it and it still has its default name, the lobby (`syncName` for any lobby, not just
+  yours).
+- **The seats panel:** an open seat says "Random bot" by a gray dot, the last seat has no rule
+  under it, and Start (or Ready) and Leave are stacked, each the panel's width.
+- **You start a lobby in a random car and paint**, creating it or sitting down in one. The
+  turntable changes it.
+- **Only Public lobbies are listed, by two checks.** The room is unlisted (`setAccess`, tried
+  again if it fails), and the listing's meta says who can join, so the list drops one that isn't
+  Public even while its room is still listed.
+- **Your own lobby isn't in the list, and closes when you leave it.** With you gone only bots are
+  left. Its Title button is gone (Leave, now Close lobby, and Esc both close it), and a stale one
+  in storage (a closed tab) isn't listed.
+- **Quick race skips lobbies:** you and seven normal bots, a random map, random weather and time,
+  the default laps. Its results go to the main menu.
+- **A lobby everyone left isn't listed.** GameRelay keeps an empty room for its idle time (two
+  minutes), listed as it last was ("1/8"). The list skips rooms the server counts nobody in, and
+  the last one out unlists the room as they go (`setAccess({ public: false })`).
+
+P2P (2026-10-01):
+
+- **Every online lobby is a GameRelay party too, so its players connect straight to each other.**
+  GameRelay only connects party members directly over the internet (`lan: { direct: 'party' }`,
+  with the instance's Direct connections setting on); everyone else in a room goes through its
+  TURN relay. So the host makes a party with the room, `Lobby.party` holds its code, and every
+  page that attaches the room (the lobby's and the race's) joins it. A party gone (everyone left
+  it) gets a new one from the SDK's host.
+- **This shows each player the others' public IP**, in public lobbies too: chosen on purpose for
+  now (no per-player opt-in). The SDK's guidance is to ask each player first, and not for games
+  children under 13 may play. Revisit before the repo goes public.
+- **Leaving the lobby leaves its party** (Leave, a kick, the room closing, a new lobby): a
+  party's leader drags its members into any room it makes or joins, so the party must not
+  outlive the lobby.
+- **Leaving the party is always asked of the server**, not only when the SDK says you're in
+  one: after a page load it doesn't know (the server keeps you in it through its reconnect
+  grace, 30 s). A join that lands after you left is undone, and a party change that comes in
+  while a join is trying is tried next (review of PR #37).
+- **The header says P2P instead of LAN** for a direct channel: it may be across one network or
+  over the internet, and the SDK doesn't say which.
+
+The online code, reviewed (2026-10-01; the map is docs/ONLINE.md):
+
+- **The SDK's host role moving re-tidies the lobby.** The backend listened for a `host` event,
+  which the SDK never sends: its name is `host_changed`. So whoever the role moved to (a page
+  load moves it) didn't open the seats of players who'd left meanwhile, or bring the listing up
+  to date. Room events are a typed list of the SDK's names now, so a misspelt one doesn't compile.
+- **relay.ts is four files:** wire.ts (checking what other players send), party.ts (the P2P
+  party), presence.ts (pings, the connection, who's away) and relay.ts (the lobby as a room).
+- **Away** (from Xbox Live's member states): a player whose connection has been gone 4 s or more
+  shows Away in the Ping column; their seat's held through the server's grace, and they're back
+  in it if they return.
+- **A join the menu gave up on leaves the room when it lands** (it took over 5 s, or Esc while
+  joining): before, you'd be in that room, unseen and in its party, until you left another way.
+  Only the menu gives up (`abandon`): the race page stays in its room however long joining takes.
+- **Joins, creates and leaves run one at a time, in order** (`inTurn`), and the backend knows which
+  lobby the screens want (`wanted`). The SDK has one room at a time and its leave doesn't name a
+  room, so a late join's leave, overlapping the next join, could take you out of that one.
+
+The AIs online (milestone 3, part 3, 2026-10-01):
+
+- **The room's host drives the AIs, so every screen races the same bots** (`src/net/rivals.ts`,
+  `NetRivals`). Each AI seat is a host entity (`rival`, 30 Hz): a car's fields plus its lobby
+  seat. The SDK's host writes them from its sim after each step; every other screen has them as
+  remote cars, like players, predicted to now. Before, each screen ran its own bots, and they
+  were in different places on every screen.
+- **The SDK's host, not the lobby's.** The host role moves by itself (a reload, a dropped
+  connection), and host entities move with it. The AI keeps no memory but the car's pose
+  (ai/racer.ts), so the next host just drives them on from where they are: no new rivals and no
+  jump. Before each step, a screen that holds the role steps the AIs itself; any other screen puts
+  them where their entity says.
+- **Until the host's rivals show up, every screen drives them itself**, from the same grid: the
+  host hasn't connected yet, or nobody has. If two pages are host for a moment, both spawn
+  rivals, so the next host keeps one per seat and removes the rest.
+- **The AIs' paint is their seat's when there are other players**, not your paint plus their
+  seat: your paint is yours alone, so every screen had them in different colours. Alone (Race
+  again, or no other players), it's as before.
+- **Other players count for the AIs' catch-up** (a remote car is `human` too). It held back for
+  the host's car only.
+- **A hidden host tab freezes the bots** on everyone's screen until the role moves: its sim
+  doesn't step without animation frames. The SDK moves the role off a hidden tab that can't keep
+  up. Running the host's sim on `relay.tick` (which keeps going in hidden tabs) is a follow-up.
+- **Contact with an AI** is the same as with a player's car. The host's sim bumps and wrecks it.
+  Every other screen's sim bumps your car off it, and leaves the AI where the host says.
+
+Review fixes (PR #42):
+
+- **A rival carries what the next host needs, not only its pose:** its wreck (how long, why, the
+  tumble's spin), its boost and its last good spot on the road. Every screen copies them in as
+  they come. Before, a bot wrecked when the host left started a fresh wreck on the new host, then
+  respawned at the last spot that screen had driven it to: usually the grid. The AI's stuck
+  recovery still starts over (a second or two of state).
+- **A rival says which race it's in** (its seed and start). A room's host entities outlive a
+  race, so the next race in the same lobby found the last one's bots, at the finish, and placed
+  its own there. With a host that wasn't racing, they stayed there all race. The last race's are
+  ignored now, and the host removes them.
+- **The role coming back isn't a teleport.** A host that lost the role and got it back compared
+  each bot with where it last wrote it, and snapped them all on everyone's screen.
+
+The cleanup pass (2026-10-01, after `alpha-1.19`):
+
+- **Nothing another player sends reaches a page as markup.** The results table put names into
+  its HTML as they came, and nothing on the way cleaned them. A modified client's "name" ran in
+  everyone's results. The table escapes them now (`esc`, ui/html.ts, shared with the menu), and
+  names from the network and the race link are cleaned into plates (`cleanPlate`), which a plate
+  can show and nothing else.
+- **The lobby in a room's state is checked all through** (`readLobby`, and the host's answer to an
+  action, which wasn't checked at all): every seat, option and field, or it isn't a lobby. Only the
+  seat count and the host were, and the SDK's host role moves to any player: a bad seat broke
+  everyone's lobby screen.
+- **A map is a layout key by its shape** (`downtown/downtown`), from a listing or the options. A
+  listing naming `constructor` was a function in the layouts' lookup, and took the lobby list down
+  for every player while it was listed.
+- **Rivals only from the host role** (an entity's owner is whoever holds it), and the handover's
+  fields in range: a spline that exists, a cause that does. Anyone could spawn a `rival` for a
+  seat and drive that AI on everyone's screen, and a spline that wasn't one threw on respawn.
+- **Remote poses are capped:** speed at 140 m/s (about twice the fastest car), turn at 12 rad/s,
+  steering at ±1. Before, a car said to be doing 1e6 m/s was predicted there and hit you there.
+- **The race page's join is its own module** (net/join.ts), tested: in, out, too slow, and with
+  the link's time.
+- **Online failures say so in the console** (`warned`, lobby/warn.ts) instead of vanishing; the
+  fallbacks are the same.
+- **tsc refuses unused locals and parameters**, as a cheap lint (there's no linter).
