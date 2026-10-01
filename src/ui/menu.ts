@@ -8,6 +8,8 @@
 // own lobby is in this browser, and online ones are GameRelay rooms (lobby/relay.ts).
 
 import type { CarClass, MapDef, PaintDef, TrackLayout } from '../core/content';
+// The crossed chequered flags (the favicon's): after the wordmark.
+import FLAGS from './icons/flags.svg?raw';
 import type { KeyValue, LobbyBackend, NetRoute } from '../lobby/backend';
 import { LOCAL_ID } from '../lobby/backend';
 import { aiPlate, cleanPlate, plateProblem, PLATE_MAX, savePlate, typedPlate } from '../lobby/plate';
@@ -264,7 +266,7 @@ export class Menu {
     const rows = lobbies.map((l) => this.lobbyRow(l)).join('');
     this.paint(
       `<div class="card title">
-        <div class="wordmark" aria-label="Racecar">RACECAR</div>
+        <div class="wordmark" aria-label="Racecar">RACECAR<span class="flags">${FLAGS}</span></div>
         <div class="titleTop"><h2>Lobbies</h2>
           <button id="mPlate" class="ghost plateBtn" title="Your plate: your name in races">${plateChip(this.plate)}<small>edit plate</small></button></div>
         <div class="lobbies">${rows}

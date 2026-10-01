@@ -6,6 +6,8 @@ and where things stand is [docs/HANDOFF.md](./docs/HANDOFF.md).
 
 ## Unreleased
 
+- **The title has the crossed chequered flags** (the favicon's) after RACECAR.
+
 - **P2P:** everyone in an online lobby connects straight to each other where they can (each lobby
   is a GameRelay party, with direct connections on). The lobby header says P2P when every pair
   is direct.
