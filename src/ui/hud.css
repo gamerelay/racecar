@@ -173,6 +173,10 @@ body.countdown #pops { top: 46%; }
   #debug { top: calc(env(safe-area-inset-top, 0px) + 170px); }
 }
 .card.results .fast { color: var(--sun); font-weight: 400; }
+/* The vote on the next map, under the results (online). */
+.card.results .voteHead { margin: 0 0 8px; display: flex; gap: 10px; align-items: baseline; }
+.card.results .voteRow button.vote b { margin-left: 6px; color: var(--sun); }
+.card.results .voteRow button.vote.on { box-shadow: 0 0 0 2px var(--outline), 0 0 0 4px var(--sun); }
 .card.results .muted { color: var(--muted); }
 
 /* ---- the front door: title, lobby list, create lobby, the lobby (ui/menu.ts) ---- */

@@ -24,7 +24,7 @@ import { playlistFor, Soundtrack } from './audio/soundtrack';
 import { Hud } from './ui/hud';
 import { RaceUi } from './ui/race';
 import { accept, navigate } from './ui/nav';
-import { backToSetup, raceAgain, readChoices, readSetup, restart, type RaceSetup } from './ui/setup';
+import { backToSetup, raceAgain, raceFromLobby, readChoices, readSetup, restart, toQuery, type RaceSetup } from './ui/setup';
 import { Menu, type Preview } from './ui/menu';
 import { GameRelay } from '@gamerelay/sdk';
 import { Lobbies, LocalBackend, LOCAL_ID } from './lobby/backend';
@@ -32,9 +32,10 @@ import { RelayBackend, type RelayLike } from './lobby/relay';
 import type { NetCars } from './net/cars';
 import { joinRace } from './net/join';
 import type { NetRivals } from './net/rivals';
-import { Stepper } from './net/stepper';
+import { Stepper, type Tick } from './net/stepper';
 import type { NetTraffic } from './net/traffic';
 import type { NetContact } from './net/contact';
+import { PostRace } from './net/postrace';
 import { roster } from './lobby/lobby';
 import { loadPlate } from './lobby/plate';
 import { CLASSES, LAYOUTS, MAPS, PAINTS, SURFACES } from './content';
@@ -99,6 +100,8 @@ const me = Math.max(0, you);
 // Online, the countdown holds until the connection says when green is (`run.at`, the server's clock).
 if (run.mode === 'race') sim.startRace(run.laps, attract ? 1 : onlineRace ? 30 : 4);
 let net: NetCars | null = null;
+/** What else runs on the relay's tick once the race page is in (it keeps going in a hidden tab). */
+const whenTick: ((tick: Tick) => void)[] = [];
 /** The AIs online: the room's host drives them (net/rivals.ts). */
 let rivals: NetRivals | null = null;
 /** Traffic hits online: the screen whose car made one claims it and tells everyone (net/traffic.ts). */
@@ -122,7 +125,10 @@ if (onlineRace)
       contact = layers.contact;
       const tick = layers.tick;
       // In: the race steps on the relay's tick, so it goes on in a hidden tab (you might be the host).
-      if (tick) stepper.useTick(tick, () => !editorOpen);
+      if (tick) {
+        stepper.useTick(tick, () => !editorOpen);
+        for (const f of whenTick) f(tick);
+      }
     },
   });
 // A race of your own from an online lobby: the page still stays in its room, so your seat is still yours after it.
@@ -166,6 +172,42 @@ raceUi.onSetup = () => backToSetup(run);
 if (run.lobby) raceUi.setupLabel = 'Back to lobby';
 // Nor raced again: the next race is the lobby's.
 raceUi.canAgain = !onlineRace;
+
+// After an online race (net/postrace.ts): the lobby's results, the vote on the next map, and on
+// into the next race. (A link without the race's start time is an older one: no vote for it.)
+if (onlineRace && run.at !== undefined) {
+  let serverNow: () => number = () => Date.now();
+  void online!.connection().then((r) => (serverNow = () => r.now())).catch(() => {});
+  const mySeat = run.seats.indexOf('p');
+  const cars = new Map<number, number>([[mySeat, me], ...aiSeats]);
+  for (const o of run.others ?? []) {
+    const i = remote.get(o.id);
+    if (i !== undefined) cars.set(o.seat, i);
+  }
+  const voteMaps = [...MAPS].sort((a, b) => a.name.localeCompare(b.name)).map((m) => `${m.id}/${m.layouts[0]}`);
+  const post = new PostRace({
+    backend: lobbies,
+    lobby: run.lobby!,
+    race: `${run.seed}:${run.at}`,
+    sim,
+    cars,
+    seat: mySeat,
+    maps: voteMaps,
+    now: () => serverNow(),
+    go: (l) => (location.search = toQuery(raceFromLobby(l, lobbies.youIn(l.id), l.seed!, true))),
+  });
+  // On a page timer until the race page is in, then on the relay's tick: the lobby host's page
+  // runs the vote, and a hidden tab's timers slow to once a minute.
+  const timer = setInterval(() => void post.tick(), 250);
+  whenTick.push((tick) => {
+    clearInterval(timer);
+    tick(4, () => void post.tick());
+  });
+  raceUi.official = () => post.official();
+  raceUi.vote = () => post.view();
+  raceUi.onVote = (map) => post.vote(map);
+  raceUi.mapName = (key) => MAPS.find((m) => key.startsWith(`${m.id}/`))?.name ?? key;
+}
 // The camera, HUD, results and audio follow your car, whichever seat it's in.
 if (you >= 0) {
   renderer.focus = hud.focus = raceUi.focus = me;

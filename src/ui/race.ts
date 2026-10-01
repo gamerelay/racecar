@@ -5,6 +5,8 @@ import type { CarClass } from '../core/content';
 import { Ev, type GameEvent } from '../core/events';
 import type { Sim } from '../core/sim';
 import { fmt, ordinal } from './format';
+import type { ResultRow } from '../lobby/lobby';
+import type { VoteView } from '../net/postrace';
 
 export class RaceUi {
   private readonly lights: HTMLDivElement;
@@ -30,6 +32,14 @@ export class RaceUi {
   onSetup: () => void = () => {};
   /** The results screen's way back to the menu. */
   setupLabel = 'Change setup';
+  /** Online: the lobby's results by car (each car's own screen's word), over this screen's numbers. */
+  official: () => ReadonlyMap<number, ResultRow> = () => new Map();
+  /** Online: the vote on the next map, once it's open. */
+  vote: () => VoteView | null = () => null;
+  onVote: (map: string) => void = () => {};
+  /** A layout key's map name, for the vote. */
+  mapName: (key: string) => string = (key) => key;
+  private voteHtml = '';
 
   constructor(
     private readonly sim: Sim,
@@ -103,10 +113,11 @@ export class RaceUi {
       const show = () => (this.canShow() ? this.showResults() : setTimeout(show, 250));
       setTimeout(show, 2500);
     }
-    // Results stay live (once a second) until the last car is in.
-    if (this.open && sim.race.finishedCount < sim.cars.count && performance.now() > this.refreshAt) {
+    // Results stay live (once a second) until the last car is in, and while there's a vote.
+    if (this.open && (sim.race.finishedCount < sim.cars.count || this.vote()) && performance.now() > this.refreshAt) {
       this.refreshAt = performance.now() + 1000;
       this.rows();
+      this.renderVote();
     }
     // Start lights (hidden a moment after green, whether or not we saw the event).
     if (sim.race.phase !== 'countdown' && this.lights.classList.contains('on') && sim.time - sim.race.goTime > 1) this.lights.className = 'hud';
@@ -151,10 +162,13 @@ export class RaceUi {
   }
 
   showResults(): void {
-    this.results.innerHTML = `<div class="card results"><h1>${ordinal(this.sim.cars.place[this.focus])}</h1>
+    this.results.innerHTML = `<div class="card results"><h1 id="rPlace">${ordinal(this.sim.cars.place[this.focus])}</h1>
       <table><thead><tr><th></th><th>Driver</th><th>Car</th><th>Time</th><th>Best lap</th><th>Takedowns</th><th>Wrecks</th><th>Score</th></tr></thead><tbody id="rRows"></tbody></table>
+      <div id="rVote"></div>
       <div class="row">${this.canAgain ? '<button id="rAgain">Race again</button>' : ''}<button id="rSetup" class="${this.canAgain ? 'ghost' : ''}">${this.setupLabel}</button></div></div>`;
+    this.voteHtml = '';
     this.rows();
+    this.renderVote();
     this.results.classList.add('on');
     const again = document.getElementById('rAgain') as HTMLButtonElement | null;
     if (again) again.onclick = () => this.onAgain();
@@ -169,23 +183,61 @@ export class RaceUi {
   private rows(): void {
     const c = this.sim.cars;
     const L = this.sim.track.main.length;
+    const off = this.official();
+    // Each car's own screen's word where the lobby has it (online), this screen's otherwise.
+    const done = (i: number): number | null => {
+      const r = off.get(i);
+      return r ? r.time : c.finished[i] ? c.finishTime[i] : null;
+    };
+    const best = (i: number): number => off.get(i)?.best ?? c.bestLap[i];
     const rows = Array.from({ length: c.count }, (_, i) => i)
-      .filter((i) => c.active[i])
-      .sort((a, b) => (c.place[a] || 99) - (c.place[b] || 99) || c.progress[b] - c.progress[a]);
+      .filter((i) => c.active[i] || off.has(i))
+      .sort((a, b) => (done(a) ?? Infinity) - (done(b) ?? Infinity) || (c.place[a] || 99) - (c.place[b] || 99) || c.progress[b] - c.progress[a]);
+    const place = new Map(rows.filter((i) => done(i) !== null).map((i, k) => [i, k + 1]));
     let fastest = -1;
-    for (const i of rows) if (c.bestLap[i] && (fastest < 0 || c.bestLap[i] < c.bestLap[fastest])) fastest = i;
+    for (const i of rows) if (best(i) && (fastest < 0 || best(i) < best(fastest))) fastest = i;
     const lead = Math.max(...rows.map((i) => c.progress[i]));
+    const h1 = document.getElementById('rPlace');
+    const mine = place.get(this.focus);
+    if (h1 && mine) h1.textContent = ordinal(mine);
     const time = (i: number) => {
-      if (c.finished[i]) return fmt(c.finishTime[i]);
+      const t = done(i);
+      if (t !== null) return fmt(t);
       const back = lead - c.progress[i];
       return `<span class="muted">${back > L ? `+${Math.floor(back / L)} lap${back >= 2 * L ? 's' : ''}` : `+${Math.round(back)} m`}</span>`;
     };
     document.getElementById('rRows')!.innerHTML = rows
       .map(
         (i) =>
-          `<tr class="${i === this.focus ? 'me' : ''}"><td>${c.place[i] || '–'}</td><td><i class="dot" style="background:${this.colors[i]}"></i><span class="plate">${esc(this.names[i])}</span></td><td>${this.classes[c.cls[i]].name}</td><td>${time(i)}</td><td>${c.bestLap[i] ? fmt(c.bestLap[i]) : '–'}${i === fastest ? ' <b class="fast" title="Fastest lap">★</b>' : ''}</td><td>${c.takedowns[i]}</td><td>${c.wrecks[i]}</td><td>${Math.floor(c.score[i]).toLocaleString()}</td></tr>`,
+          `<tr class="${i === this.focus ? 'me' : ''}"><td>${place.get(i) ?? '–'}</td><td><i class="dot" style="background:${this.colors[i]}"></i><span class="plate">${esc(this.names[i])}</span></td><td>${this.classes[c.cls[i]].name}</td><td>${time(i)}</td><td>${best(i) ? fmt(best(i)) : '–'}${i === fastest ? ' <b class="fast" title="Fastest lap">★</b>' : ''}</td><td>${off.get(i)?.takedowns ?? c.takedowns[i]}</td><td>${off.get(i)?.wrecks ?? c.wrecks[i]}</td><td>${Math.floor(off.get(i)?.score ?? c.score[i]).toLocaleString()}</td></tr>`,
       )
       .join('');
   }
-}
 
+  /** The vote on the next map (online), under the table: a button a map, with its votes and the time left. */
+  private renderVote(): void {
+    const el = document.getElementById('rVote');
+    if (!el) return;
+    const v = this.vote();
+    let html = '';
+    if (v?.over) html = '<p class="muted">The host went back to the lobby.</p>';
+    else if (v) {
+      const buttons = v.choices
+        .map((c) => `<button class="vote${c.mine ? ' on' : ''}" data-map="${esc(c.map)}" aria-pressed="${c.mine}">${esc(this.mapName(c.map))}${c.votes ? ` <b>${c.votes}</b>` : ''}</button>`)
+        .join('');
+      const when = v.left > 0 ? (v.allIn ? `Next race in ${v.left} s` : `Waiting for the others · ${v.left} s`) : 'Next race…';
+      html = `<p class="voteHead"><b>Next map</b> <span class="muted">${when}</span></p><div class="row voteRow">${buttons}</div>`;
+    }
+    // With a vote to make, leaving is the lesser button.
+    document.getElementById('rSetup')?.classList.toggle('ghost', !!v && !v.over);
+    if (html === this.voteHtml) return;
+    // Rebuilding the buttons would drop the focus a pad or keys put on one: keep it on the same map.
+    const focused = (document.activeElement as HTMLElement | null)?.dataset?.map;
+    this.voteHtml = html;
+    el.innerHTML = html;
+    for (const b of el.querySelectorAll<HTMLButtonElement>('button.vote')) {
+      b.onclick = () => this.onVote(b.dataset.map!);
+      if (b.dataset.map === focused) b.focus();
+    }
+  }
+}

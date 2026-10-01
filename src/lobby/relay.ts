@@ -243,8 +243,9 @@ export class RelayBackend implements LobbyBackend {
   async send(id: string, action: LobbyAction): Promise<Lobby | null> {
     const room = this.room?.code === id ? this.room : null;
     if (!room) return null;
-    // The lights go green a few seconds from now on the server's clock, the same moment for everyone.
-    if (action.type === 'start' && action.at === undefined) action = { ...action, at: (await this.relayNow()).now() + START_LEAD_MS };
+    // The lights go green a few seconds from now on the server's clock, the same moment for
+    // everyone: the first race's start, and the next one's after a vote.
+    if ((action.type === 'start' || action.type === 'next') && action.at === undefined) action = { ...action, at: (await this.relayNow()).now() + START_LEAD_MS };
     let next: Lobby | null;
     if (room.isHost) next = this.applyHere(room, room.me, action);
     // The host's answer is another player's word, like the room's state.
