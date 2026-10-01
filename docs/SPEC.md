@@ -1892,7 +1892,8 @@ The soundtrack (owner's tracks, 2026-10-01):
   Auto-Play") only start media from a key or click, and the frame loop isn't one. The first
   gesture starts the track, and every key or click after retries it while it should be playing
   (after the pause menu, say). From frames it's tried once a second at most. Three plays refused
-  from gestures in a row, and it's the synth's.
+  from gestures in a row, and it's the synth's. A tap counts on its release (`pointerup`): iOS starts no media on a
+  touch's `pointerdown`, so three taps there would have handed it to the synth (second review).
 - **Where the tracks are:** the page's own `music/` (dev and `bun run build`). A build hosted
   without them beside it (the single-file build) sets `VITE_MUSIC_URL` to where they are; from
   another origin they need CORS, or the synth plays.

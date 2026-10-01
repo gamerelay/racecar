@@ -4,7 +4,8 @@
 // the recorded soundtrack (soundtrack.ts), or the synth (music.ts) where there's no track. The rest
 // is synthesized (synth.ts). All presentation: it reads the sim and never writes to it.
 //
-// Browsers only start audio after a gesture, so the context is made on the first key or click.
+// Browsers only start audio after a gesture, so the context is made on the first key or click (a
+// tap's release).
 // Paused or hidden, it suspends. M mutes, N toggles music; both are remembered on this device.
 
 import { Vector3, type PerspectiveCamera } from 'three';
@@ -93,16 +94,18 @@ export class GameAudio {
       this.start();
       if (this.g) {
         window.removeEventListener('keydown', unlock);
-        window.removeEventListener('pointerdown', unlock);
+        window.removeEventListener('pointerup', unlock);
       }
     };
+    // A tap's activation is on its release (`pointerup`), not its press: iOS starts nothing on a
+    // touch's `pointerdown`.
     window.addEventListener('keydown', unlock);
-    window.addEventListener('pointerdown', unlock);
+    window.addEventListener('pointerup', unlock);
     // Every key or click after, too: a track paused (the pause menu, a hidden tab) may only start
     // again from one.
     const again = () => this.g && this.wantTrack && this.track?.play(true);
     window.addEventListener('keydown', again);
-    window.addEventListener('pointerdown', again);
+    window.addEventListener('pointerup', again);
     document.addEventListener('visibilitychange', () => {
       this.hidden = document.hidden;
       // A hidden tab runs no frames, so update() can't do this: suspend here, and update()
