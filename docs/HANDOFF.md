@@ -15,7 +15,8 @@ The third map is **Paradise** (`content/maps/paradise`, key `paradise/island`).
 
 ## Resume in five minutes
 
-1. `cd ~/dev/racecar && bun install && bun run dev`, then open http://localhost:5178.
+1. `cd ~/dev/racecar && bun install && bun run dev`, then open http://localhost:5178. For online
+   lobbies, also run the gamerelay.io repo's server (`bun run dev` there, :8787), then use two tabs.
 2. Read this file, then SPEC §17 and the milestone 2 notes under "Changed while building".
 3. The platform side is ready: gamerelay PR #30 (host controls) is deployed and SDK
    `0.1.0-alpha.4` has it (see "GameRelay side" below).
@@ -298,14 +299,18 @@ Clockwise round a tropical island, the volcano in the middle and the sea all rou
    phases. Worth doing next:
    - Downtown's field wrecks were swept: 1.0 a race over 16 seeds (the ~1.6 was stale), so no
      map is over MAPS.md's 1.5 and nothing moved. A test holds it (SPEC "Downtown's field wrecks").
-   - gamerelay.io's four audit follow-ups are its PR #35 (platform, not racecar): not merged or
-     deployed. Production and both relays need it.
+   - gamerelay.io's four audit follow-ups (its PR #35) are merged and deployed (production on
+     `df1f6a2`). The relays didn't need it: they run the Rust `resonance-node`, which already
+     metered signed requests.
    - PLAN's "Other ideas" (stunt air, rivals, map vote cards...).
 2. **Milestone 3 (online), per the spec:**
-   - A `relay` LobbyBackend (`src/lobby/backend.ts`): lobbies as rooms with `setListing`, the
-     list from `listRooms('race', { includeFull: true })`, and actions sent to the host, who
-     applies them with `apply` and broadcasts the lobby. The screens don't change. Other
-     players' seats become remote cars (in a local link they're closed today).
+   - **Online lobbies: in review** (branch `relay-lobbies`; SPEC "Online lobbies"). Lobbies are
+     rooms (`src/lobby/relay.ts`), listed with `setListing`, and the SDK's host applies
+     everyone's actions with `apply`. Start takes everyone into the same race, and the race page
+     keeps the seat. Still to do: other players' seats as remote cars (the `net/` layer, below).
+     The production instance is `racecar` (`ins_qnGcfcjInJCg8dTr`, 8 players, parties on); its
+     public key is in `.env.production`. Its allowed origins are only `http://localhost` for
+     now: add the site's origin there (dashboard, or the account MCP) when racecar is hosted.
    - Plates go in player data, and names float over cars within ~60 m (PLAN phase 3).
    - The `net/` layer:
      - car entities at 30 Hz with steer and throttle, and prediction in-game,
