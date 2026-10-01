@@ -4,7 +4,7 @@
 // anything malformed. Pure: no SDK, no DOM.
 
 import { cleanPlate } from './plate';
-import { DEFAULT_OPTIONS, SEATS, VISIBILITIES, type Difficulty, type Lobby, type LobbyAction, type LobbyOptions, type LobbySummary, type Seat, type SeatChoice } from './lobby';
+import { DEFAULT_OPTIONS, SEATS, VISIBILITIES, type Difficulty, type Lobby, type LobbyAction, type LobbyOptions, type LobbySummary, type ResultRow, type Seat, type SeatChoice, type Vote } from './lobby';
 
 const SEAT_CHOICES: readonly SeatChoice[] = ['open', 'closed', 'ai-easy', 'ai-normal', 'ai-hard'];
 const OPTION_KEYS: readonly (keyof LobbyOptions)[] = ['map', 'laps', 'weather', 'time', 'mayhem', 'traffic'];
@@ -22,6 +22,28 @@ const int = (v: unknown, lo: number, hi: number): v is number => Number.isIntege
 /** A layout key's shape (`downtown/downtown`): never a name every object has, like `constructor`. */
 const MAP_KEY = /^[a-z0-9-]{1,30}\/[a-z0-9-]{1,30}$/;
 const mapKey = (v: unknown): v is string => typeof v === 'string' && MAP_KEY.test(v);
+
+const time = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v) && v > 0;
+/** A race time or lap (s): a day's worth at most, or null for none. */
+const raceSeconds = (v: unknown): v is number | null => v === null || (typeof v === 'number' && Number.isFinite(v) && v > 0 && v < 86_400);
+
+/** A car's result row, checked. */
+export function readResult(v: unknown): ResultRow | null {
+  if (!obj(v) || !int(v.seat, 0, SEATS - 1) || !raceSeconds(v.time) || !raceSeconds(v.best)) return null;
+  if (!int(v.takedowns, 0, 999) || !int(v.wrecks, 0, 999) || !(typeof v.score === 'number' && Number.isFinite(v.score) && v.score >= 0 && v.score < 1e9)) return null;
+  return { seat: v.seat, time: v.time, best: v.best, takedowns: v.takedowns, wrecks: v.wrecks, score: v.score };
+}
+
+/** The vote in a lobby's state, checked: a close time and each player's map. */
+function readVote(v: unknown): Vote | null {
+  if (!obj(v) || !time(v.ends) || !obj(v.votes)) return null;
+  const votes: Record<string, string> = {};
+  for (const [id, m] of Object.entries(v.votes)) {
+    if (!str(id, 64) || !mapKey(m)) return null;
+    votes[id] = m;
+  }
+  return Object.keys(votes).length <= SEATS ? { ends: v.ends, votes } : null;
+}
 
 /** A lobby's options as someone sent them (any of them), or null if one is malformed. Unknown keys are dropped. */
 function readOptions(v: unknown): Partial<LobbyOptions> | null {
@@ -110,6 +132,18 @@ export function readAction(data: unknown, from: string): LobbyAction | null {
     case 'leave':
     case 'end':
       return { type: data.type };
+    case 'result': {
+      const row = readResult(data.row);
+      return row && str(data.race, 40) ? { type: 'result', race: data.race, row } : null;
+    }
+    case 'vote':
+      return mapKey(data.map) ? { type: 'vote', map: data.map } : null;
+    case 'voteEnds':
+      return time(data.ends) ? { type: 'voteEnds', ends: data.ends } : null;
+    case 'next': {
+      if (!mapKey(data.map) || !int(data.seed, 0, 2 ** 31 - 1) || (data.at !== undefined && !time(data.at))) return null;
+      return { type: 'next', map: data.map, seed: data.seed, ...(data.at === undefined ? {} : { at: data.at as number }) };
+    }
   }
   return null;
 }
@@ -145,6 +179,9 @@ export function readLobby(state: Record<string, unknown>): Lobby | null {
   if (l.seed !== undefined && !int(l.seed, 0, 2 ** 31 - 1)) return null;
   if (l.startAt !== undefined && !(typeof l.startAt === 'number' && Number.isFinite(l.startAt) && l.startAt > 0)) return null;
   if (l.party !== undefined && !str(l.party, 64)) return null;
+  // The results and vote (online, after a race): bad ones are dropped, not the whole lobby.
+  const results = Array.isArray(l.results) ? l.results.slice(0, SEATS).map(readResult).filter((r): r is ResultRow => !!r) : undefined;
+  const vote = l.vote === undefined ? null : readVote(l.vote);
   return {
     id: l.id,
     name: l.name,
@@ -156,6 +193,8 @@ export function readLobby(state: Record<string, unknown>): Lobby | null {
     ...(l.seed === undefined ? {} : { seed: l.seed as number }),
     ...(l.startAt === undefined ? {} : { startAt: l.startAt as number }),
     ...(l.party === undefined ? {} : { party: l.party as string }),
+    ...(results?.length ? { results } : {}),
+    ...(vote ? { vote } : {}),
   };
 }
 

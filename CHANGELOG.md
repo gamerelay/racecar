@@ -6,6 +6,12 @@ and where things stand is [docs/HANDOFF.md](./docs/HANDOFF.md).
 
 ## Unreleased
 
+- **Online, a vote on the next map** after each race, on the results screen: 15 s once everyone's
+  in, the host breaks a tie, then straight into the next race together. "Back to lobby" sits you
+  out of it.
+- **Online, one results table** for everyone: each car's result comes from the screen that drives
+  it.
+
 ## alpha-1.22: online races that agree
 
 PRs #46 and #47.

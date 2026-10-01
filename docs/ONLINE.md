@@ -21,6 +21,7 @@ are in [SPEC.md](./SPEC.md) "Changed while building"; this is the map.
 | `src/net/rivals.ts` | In the race: the AIs, driven by the SDK's host and sent to everyone as `rival` entities. |
 | `src/net/stepper.ts` | Who steps the race: frames until it's in its room, then the relay's tick (it goes on in a hidden tab). |
 | `src/net/traffic.ts` | Traffic hits: whoever wrecks a traffic car claims it (`room.claim`), and everyone wrecks it from the winner's time. |
+| `src/net/postrace.ts` | After the race: results to the lobby, the vote (run by `lobby/vote.ts` on the lobby host's page), and on into the next race. |
 | `src/net/contact.ts` | Bumps between screens' cars (once each, a contact both saw within ±150 ms not twice), and takedown credit from the victim's screen. |
 
 ## A lobby's life
@@ -36,9 +37,16 @@ are in [SPEC.md](./SPEC.md) "Changed while building"; this is the map.
    go green at `startAt` on the server's clock, six seconds on. Each page loads the race, joins the
    room again (the SDK resumes the same player) and sends its car (net/cars.ts). The SDK's host
    drives the AIs and sends them too (net/rivals.ts).
-5. **Back.** Each player's lobby screen says they're back (`racing: false`). The host reopens the
-   lobby (`end`), which un-readies everyone else for the next one.
-6. **Leave.** Leave, a kick or the room closing takes you out of the room and its party. The last
+5. **Results and the vote.** Each car's result goes to the lobby from the screen that drives it
+   (yours from yours, the AIs' from the lobby host's), so everyone's results screen shows one
+   table. The first player over the line opens a vote on the next map (lobby/vote.ts): it closes
+   15 s after the last player is in (a minute after the first at most, 3 s once everyone's voted),
+   and the most picked map wins, the host breaking a tie. Then the next race starts by itself
+   (`next`), and every race page still in this race goes straight to it (net/postrace.ts).
+6. **Back.** "Back to lobby" sits you out: your lobby screen says you're back (`racing: false`),
+   and the next race goes on without you. The lobby host going back ends the run of races: it
+   reopens the lobby (`end`), which un-readies everyone else for the next one.
+7. **Leave.** Leave, a kick or the room closing takes you out of the room and its party. The last
    one out unlists the room; the server closes it two minutes later.
 
 Joining, creating and leaving run one at a time, in order (the SDK has one room at a time, and its
@@ -126,7 +134,8 @@ it) solved most of this first. What we took, and what's left:
 | **Rich presence** ("In ACE's lobby, Downtown"). | Not yet. | Later. |
 | **Peer connections never show players' addresses** (secure device associations). | P2P shows public IPs. | An opt-in before going public. |
 | **Host-owned world objects** carried over in host migration. | The AIs are host entities: the next host drives them on. | Taken. |
-| **The host reports the results** (arbitration). | Each screen has its own results. | On HANDOFF's list. |
+| **The host reports the results** (arbitration). | Each car's own screen reports its result, and the lobby keeps one table for everyone. | Taken. |
+| **The next match is voted on** (map votes between rounds). | A vote on the next map on the results screen; the host breaks a tie; then straight into it. | Taken. |
 
 ## Asks for GameRelay
 

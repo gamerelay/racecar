@@ -56,6 +56,12 @@ contact, join). It works and each part is tested, but some patterns repeat.
 - **Net layers aren't closed.** `NetTraffic.close` and `NetContact.close` exist but nothing calls
   them, since the race page lives as long as its race. Harmless now; it matters if a race ever
   restarts in place (Race again online). *Small.*
+- **The post-race runs on a `setInterval`** in main.ts (net/postrace.ts's `tick`, 4 a second),
+  outside the stepper, and the results screen only redraws in frames: a hidden tab reports and
+  runs the vote fine, but can't show or take a vote. Fine for people; worth knowing in tests.
+  *Small.*
+- **The vote's map list is "every map, in name order"** (main.ts). If maps grow past a handful,
+  it wants a pick of three (the current one and two others, by the seed). *Small.*
 - **Positions from other screens aren't checked**, only speeds and turns. A pose near the track,
   and near where that car last was, is the next check (also in HANDOFF). *Medium.*
 

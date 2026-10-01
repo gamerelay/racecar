@@ -296,12 +296,13 @@ Clockwise round a tropical island, the volcano in the middle and the sea all rou
    - **Traffic, bumps and credit** (PR #47, `alpha-1.22`): the race's clock is the server's (traffic was
      15–20 m apart between screens), traffic hits are claimed (`src/net/traffic.ts`), and bumps
      and takedown credit cross screens (`src/net/contact.ts`).
+   - **Results and the vote** (unreleased): one results table from each car's own screen, a vote
+     on the next map on the results screen (`src/lobby/vote.ts`, `src/net/postrace.ts`), and
+     straight into the next race.
 
    Next, in order:
-   - **Results written by the host** (Xbox's arbitration), together with **a vote on the next
-     race**: one results-to-lobby flow.
    - **Names over cars** within ~60 m, from player data (PLAN phase 3), and **a net overlay**
-     (pings, routes, entity ages) to debug the two above in playtests.
+     (pings, routes, entity ages, claims and bumps) to debug online races in playtests.
    - **Before the repo goes public:** a P2P opt-in (it shows IPs today), a filter on Public lobby
      names (strangers see them), and seat reservations for invite links if GameRelay adds them.
      Also: the git history's author email becomes public with it. Rewriting the history is the

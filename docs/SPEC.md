@@ -2031,3 +2031,27 @@ Review fixes (PR #47):
 - **A traffic claim is let go as the car fades back** (12 s), a second before it can be hit again:
   released only once it was solid, a screen whose clock ran a little ahead could hit it, lose the
   claim and never share that wreck.
+
+Results and the vote on the next race (after `alpha-1.22`; the owner's calls: vote on the map,
+straight into the next race, 15 s, the host breaks a tie):
+
+- **One results table, each car's own word** (Xbox's arbitration, without a referee): every
+  screen counts every car's laps, but a car's result goes to the lobby from the screen that drives
+  it (`result`: yours from yours, the AIs' from the lobby host's, which counts them like any). The
+  results screen shows the lobby's rows over its own numbers, and places by them.
+- **The vote** (`lobby/vote.ts`, run by the lobby host's race page): open at the first player's
+  finish (an AI's doesn't count), for a minute at most; 15 s once every player still racing is
+  in; 3 s once they've all voted, to see the winner. Most votes wins; a tie goes the lobby host's
+  way if they picked one of the tied, else to one by the race's seed; no votes, the same map.
+  The three maps are the choices, in name order.
+- **Straight into the next race** (`next`): the winning map, a new seed, green on the server's
+  clock 6 s on. Every race page still in the race moves to it (net/postrace.ts). Laps, weather
+  and the rest stay as the host set them.
+- **Sitting out:** "Back to lobby" during the vote takes you out of the next race (your seat stops
+  racing; it's in the link as a car that never shows). The lobby host going back ends the run, as
+  before (`end`), and the others' results say so.
+- **Checked:** a result only for your own seat (or, from the host, an AI's), only for the race on
+  now; a vote only from a player still racing; the results and vote in a lobby's state are each
+  checked, and a bad one is dropped rather than the lobby.
+- Checked on two tabs: three races in a row by themselves, the vote shown on the results screen,
+  and a vote for Paradise taking both tabs there.

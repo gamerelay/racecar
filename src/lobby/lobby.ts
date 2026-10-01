@@ -59,6 +59,60 @@ export interface Lobby {
    * (P2P: the SDK's `lan: { direct: 'party' }`, which only goes direct between party members).
    */
   party?: string;
+  /**
+   * The race's results, a row per seat, as each car's own screen reported it (a player's from
+   * theirs, the AIs' from the host's): one table for everyone, like Xbox's arbitration.
+   */
+  results?: ResultRow[];
+  /** The vote on the next race's map, open from the first player's finish (online). */
+  vote?: Vote;
+}
+
+/** A car's race: its time and best lap (s; null if it didn't finish or set one), takedowns, wrecks and score. */
+export interface ResultRow {
+  seat: number;
+  time: number | null;
+  best: number | null;
+  takedowns: number;
+  wrecks: number;
+  score: number;
+}
+
+export interface Vote {
+  /** When it closes, on the server's clock (ms). */
+  ends: number;
+  /** Each player's pick, by player id: a layout key. */
+  votes: Record<string, string>;
+}
+
+/** Which race the lobby's on: its seed and start (a result or vote is for one race only). */
+export function raceKey(lobby: Pick<Lobby, 'seed' | 'startAt'>): string {
+  return `${lobby.seed ?? 0}:${lobby.startAt ?? 0}`;
+}
+
+/** The players in the lobby's race now (not the ones who went back to the lobby). */
+export function racers(lobby: Lobby): Extract<Seat, { kind: 'player' }>[] {
+  return lobby.seats.filter((s): s is Extract<Seat, { kind: 'player' }> => s.kind === 'player' && !!s.racing);
+}
+
+/**
+ * The vote's winner: the most picked map among the racers' votes; a tie goes the lobby host's way
+ * if they picked one of the tied, else to one of them by the race's seed (the same on every
+ * screen). No votes: the same map again.
+ */
+export function tally(lobby: Lobby): string {
+  const votes = lobby.vote?.votes ?? {};
+  const counts = new Map<string, number>();
+  for (const s of racers(lobby)) {
+    const v = votes[s.id];
+    if (v) counts.set(v, (counts.get(v) ?? 0) + 1);
+  }
+  if (!counts.size) return lobby.options.map;
+  const top = Math.max(...counts.values());
+  const tied = [...counts].filter(([, n]) => n === top).map(([m]) => m).sort();
+  const hosts = votes[lobby.host];
+  if (hosts && tied.includes(hosts)) return hosts;
+  return tied[(lobby.seed ?? 0) % tied.length];
 }
 
 /** A row in the lobby list. */
@@ -91,7 +145,15 @@ export type LobbyAction =
   | { type: 'leave' }
   | { type: 'kick'; index: number }
   | { type: 'start'; seed?: number; at?: number }
-  | { type: 'end' };
+  | { type: 'end' }
+  /** A car's result in race `race`: your own seat's, or (the host) an AI's. */
+  | { type: 'result'; race: string; row: ResultRow }
+  /** Your pick for the next race's map. */
+  | { type: 'vote'; map: string }
+  /** The host opens the vote, or moves when it closes. */
+  | { type: 'voteEnds'; ends: number }
+  /** The host, when the vote's closed: the next race, on its winning map, for everyone still in this one. */
+  | { type: 'next'; map: string; seed: number; at?: number };
 
 export const DEFAULT_OPTIONS: LobbyOptions = { map: 'downtown/downtown', laps: 2, weather: 'random', time: 'random', mayhem: 'normal', traffic: true };
 const MAX_NAME = 32;
@@ -219,13 +281,47 @@ export function apply(lobby: Lobby, actor: string, action: LobbyAction): Lobby |
       next.phase = 'racing';
       // Everyone seated goes; each is back when their lobby screen opens again.
       next.seats = next.seats.map((s) => (s.kind === 'player' ? { ...s, racing: true } : s));
+      delete next.results;
+      delete next.vote;
       if (action.seed !== undefined) next.seed = action.seed;
       if (action.at !== undefined) next.startAt = action.at;
+      return next;
+    }
+    case 'result': {
+      const { row } = action;
+      const s = lobby.seats[row.seat];
+      if (lobby.phase !== 'racing' || action.race !== raceKey(lobby) || !s) return null;
+      // Your own car's, or the host's word for an AI's (its screen counts their laps like any).
+      if (!(row.seat === mine || (isHost && (s.kind === 'ai' || s.kind === 'open')))) return null;
+      next.results = [...(lobby.results ?? []).filter((r) => r.seat !== row.seat), { ...row }].sort((a, b) => a.seat - b.seat);
+      return next;
+    }
+    case 'vote': {
+      const s = lobby.seats[mine];
+      if (lobby.phase !== 'racing' || !lobby.vote || s?.kind !== 'player' || !s.racing) return null;
+      next.vote = { ...lobby.vote, votes: { ...lobby.vote.votes, [actor]: action.map } };
+      return next;
+    }
+    case 'voteEnds': {
+      if (!isHost || lobby.phase !== 'racing') return null;
+      next.vote = { ends: action.ends, votes: lobby.vote?.votes ?? {} };
+      return next;
+    }
+    case 'next': {
+      if (!isHost || lobby.phase !== 'racing') return null;
+      next.options.map = action.map;
+      next.seed = action.seed;
+      if (action.at !== undefined) next.startAt = action.at;
+      delete next.results;
+      delete next.vote;
+      // The ones still in this race go on to the next (each is back in the lobby when they leave it).
       return next;
     }
     case 'end': {
       if (!isHost || lobby.phase !== 'racing') return null;
       next.phase = 'lobby';
+      delete next.results;
+      delete next.vote;
       // Ready again for the next one: the host can't start it while the others are still racing this one.
       next.seats = next.seats.map((s) => (s.kind === 'player' && s.id !== lobby.host ? { ...s, ready: false } : s));
       return next;
