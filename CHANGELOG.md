@@ -6,6 +6,10 @@ and where things stand is [docs/HANDOFF.md](./docs/HANDOFF.md).
 
 ## Unreleased
 
+## alpha-1.16: Online fixes and a hosted test build
+
+PRs #34 and #35.
+
 - A single-file build (`bun run build:single`), for hosts that take a game as one HTML file. The
   test build is on asleepace.com's games library: https://asleepace.com/games/Z442EE.
 - Online races don't pause when you switch away, and their menu and results have no Restart or
