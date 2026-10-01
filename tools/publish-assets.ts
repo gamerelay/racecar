@@ -18,7 +18,7 @@ import { s3 as signed } from './lib/s3';
 
 /** The folder in the Space, and what goes in it (local folder → path under it). */
 export const PREFIX = 'assets/racecar';
-const SETS: { dir: string; to: string; type: string }[] = [{ dir: 'public/music', to: 'music', type: 'audio/mp4' }];
+const SETS: { dir: string; to: string; type: string; ext: string }[] = [{ dir: 'public/music', to: 'music', type: 'audio/mp4', ext: '.m4a' }];
 
 const root = join(import.meta.dir, '..');
 const dry = process.argv.includes('--dry');
@@ -46,7 +46,9 @@ if (process.argv.includes('--cors') && !dry) {
 }
 
 for (const set of SETS) {
-  for (const name of readdirSync(join(root, set.dir)).sort()) {
+  // Its own kind of file only: not a .DS_Store, a folder, or anything else that's there.
+  const names = readdirSync(join(root, set.dir)).filter((name) => name.endsWith(set.ext) && statSync(join(root, set.dir, name)).isFile());
+  for (const name of names.sort()) {
     const local = join(root, set.dir, name);
     const key = `${PREFIX}/${set.to}/${name}`;
     const bytes = statSync(local).size;

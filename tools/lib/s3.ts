@@ -11,9 +11,12 @@ const hmac = (k: Buffer | string, s: string) => createHmac('sha256', k).update(s
 /** `query` is the signed query string (e.g. `cors=`); `body` an XML document for a PUT. */
 export async function s3(method: 'GET' | 'PUT', query: string, body = '') {
   // Read when used, not when imported: a --dry run needs no keys at all.
-  const endpoint = new URL(env('DIGITAL_OCEAN_STORAGE_BUCKET_ENDPOINT'));
-  const region = endpoint.hostname.split('.')[0];
-  const host = `${env('DIGITAL_OCEAN_STORAGE_BUCKET_NAME')}.${endpoint.hostname}`;
+  // The region's endpoint (`sfo3.digitaloceanspaces.com`), or the bucket's own (`<bucket>.sfo3…`).
+  const bucket = env('DIGITAL_OCEAN_STORAGE_BUCKET_NAME');
+  const given = new URL(env('DIGITAL_OCEAN_STORAGE_BUCKET_ENDPOINT')).hostname;
+  const base = given.startsWith(`${bucket}.`) ? given.slice(bucket.length + 1) : given;
+  const region = base.split('.')[0];
+  const host = `${bucket}.${base}`;
   const now = new Date().toISOString().replace(/[:-]|\.\d{3}/g, '');
   const day = now.slice(0, 8);
   const payload = sha(body);
