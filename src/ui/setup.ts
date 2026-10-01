@@ -4,7 +4,7 @@
 // lobbies (`opponents` and `difficulty` instead of `seats`) still start the race they meant.
 
 import { resolveLayout, type TimeOption } from '../core/content';
-import { encodeSeats, legacySeats, parseSeats, seatIndex, type Difficulty, type Lobby } from '../lobby/lobby';
+import { encodeSeats, legacySeats, othersIn, parseSeats, seatIndex, type Difficulty, type Lobby, type Other } from '../lobby/lobby';
 
 export interface RaceSetup {
   mode: 'race' | 'free';
@@ -21,6 +21,27 @@ export interface RaceSetup {
   seed: number;
   /** The lobby this race came from: after it, the menu goes back there. */
   lobby?: string;
+  /** Online: the other players (their seats are `r`). */
+  others?: Other[];
+  /** Online: when the lights go green, on the server's clock (ms). */
+  at?: number;
+}
+
+/** The `others` a link carries, checked: each a seat, an id, a car, a paint and a plate. */
+function readOthers(v: string | null): Other[] | undefined {
+  if (!v) return undefined;
+  try {
+    const list = JSON.parse(v) as unknown;
+    if (!Array.isArray(list)) return undefined;
+    const out = list.flatMap((o): Other[] =>
+      Array.isArray(o) && o.length === 5 && Number.isInteger(o[0]) && o[0] >= 0 && o[0] < 8 && typeof o[1] === 'string' && typeof o[2] === 'string' && Number.isInteger(o[3]) && o[3] >= 0 && typeof o[4] === 'string'
+        ? [{ seat: o[0], id: o[1].slice(0, 64), car: o[2].slice(0, 32), paint: o[3], name: o[4].slice(0, 16) }]
+        : [],
+    );
+    return out.length ? out : undefined;
+  } catch {
+    return undefined;
+  }
 }
 
 /** What a setup may name: car ids, how many paints there are, and the layout keys. */
@@ -52,6 +73,8 @@ export function readSetup(q: URLSearchParams, defaultMap: string, known?: Known)
   // Free drive always had three rivals; a race, `opponents` of them.
   const seats = parseSeats(q.get('seats')) ?? legacySeats(mode === 'free' ? 3 : int('opponents', 7, 0, 7), difficulty);
   const lobby = q.get('lobby');
+  const others = readOthers(q.get('others'));
+  const at = Number(q.get('at'));
   return {
     mode,
     map: (known?.layouts ? resolveLayout(q.get('map'), known.layouts) : q.get('map')) ?? defaultMap,
@@ -65,6 +88,8 @@ export function readSetup(q: URLSearchParams, defaultMap: string, known?: Known)
     traffic: q.get('traffic') !== '0',
     seed: int('seed', Math.floor(Math.random() * 1e9), 0, 2 ** 31 - 1),
     ...(lobby ? { lobby } : {}),
+    ...(others ? { others } : {}),
+    ...(q.has('at') && Number.isFinite(at) && at > 0 ? { at } : {}),
   };
 }
 
@@ -78,18 +103,29 @@ export function readChoices(q: URLSearchParams, defaultMap: string, known?: Know
 
 export function toQuery(s: RaceSetup): string {
   const q = new URLSearchParams();
-  for (const [k, v] of Object.entries(s)) if (v !== undefined) q.set(k, typeof v === 'boolean' ? (v ? '1' : '0') : String(v));
+  for (const [k, v] of Object.entries(s)) {
+    if (v === undefined) continue;
+    if (k === 'others') q.set(k, JSON.stringify((v as Other[]).map((o) => [o.seat, o.id, o.car, o.paint, o.name])));
+    else q.set(k, typeof v === 'boolean' ? (v ? '1' : '0') : String(v));
+  }
   return q.toString();
 }
 
 /** The same race again: same seed, so the same weather and traffic (the pause menu's Restart). */
 export function restart(s: RaceSetup): void {
-  location.search = toQuery(s);
+  location.search = toQuery(offline(s));
+}
+
+/** An online race's link without its online parts: a restart or another race is yours alone. */
+function offline(s: RaceSetup): RaceSetup {
+  if (!s.others && !s.at) return s;
+  const { others: _, at: __, ...rest } = s;
+  return { ...rest, seats: rest.seats.replace(/r/g, 'x') };
 }
 
 /** Another race with the same setup and a fresh seed (the results screen's Race again). */
 export function raceAgain(s: RaceSetup): void {
-  location.search = toQuery({ ...s, seed: Math.floor(Math.random() * 1e9) });
+  location.search = toQuery({ ...offline(s), seed: Math.floor(Math.random() * 1e9) });
 }
 
 /** Where the menu goes after a race: back to its lobby, or the title with your choices kept. */
@@ -104,16 +140,20 @@ export function backToSetup(s: RaceSetup): void {
   location.search = menuQuery(s);
 }
 
-/** The race link for a lobby's race, as `you` drive it: its seats become the race's cars. */
-export function raceFromLobby(lobby: Lobby, you: string, seed: number): RaceSetup {
+/**
+ * The race link for a lobby's race, as `you` drive it: its seats become the race's cars. Online,
+ * the other players' seats are their cars, and the lights go green at the lobby's `startAt`.
+ */
+export function raceFromLobby(lobby: Lobby, you: string, seed: number, online = false): RaceSetup {
   const seat = lobby.seats[seatIndex(lobby, you)];
   const o = lobby.options;
+  const others = online ? othersIn(lobby, you) : [];
   return {
     mode: 'race',
     map: o.map,
     car: seat?.kind === 'player' ? seat.car : 'coupe',
     paint: seat?.kind === 'player' ? seat.paint : 0,
-    seats: encodeSeats(lobby, you),
+    seats: encodeSeats(lobby, you, online),
     laps: o.laps,
     weather: o.weather,
     time: o.time,
@@ -121,5 +161,7 @@ export function raceFromLobby(lobby: Lobby, you: string, seed: number): RaceSetu
     traffic: o.traffic,
     seed,
     lobby: lobby.id,
+    ...(others.length ? { others } : {}),
+    ...(online && lobby.startAt ? { at: lobby.startAt } : {}),
   };
 }

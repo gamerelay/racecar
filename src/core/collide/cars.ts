@@ -20,6 +20,8 @@ export function collideCars(sim: SimState, grid: SpatialGrid): void {
     for (let k = 0; k < n; k++) {
       const b = near[k];
       if (b <= a || !cars.active[b] || cars.ghostT[b] > 0) continue;
+      // Two other players' cars touching is for their screens to settle.
+      if (cars.remote[a] && cars.remote[b]) continue;
       if (Math.abs(cars.y[a] - cars.y[b]) > 1.6) continue;
       const ca = sim.classes[cars.cls[a]];
       const cb = sim.classes[cars.cls[b]];
@@ -34,8 +36,10 @@ function resolve(sim: SimState, a: number, b: number, ma: number, mb: number): v
   const { nx, nz, depth } = contact;
   const ia = 1 / ma;
   const ib = 1 / mb;
-  const wa = ia / (ia + ib);
-  const wb = ib / (ia + ib);
+  // Another player's car stays where they say it is: yours takes all of the push apart (and only
+  // its own share of the bump: theirs is on their screen).
+  const wa = cars.remote[a] ? 0 : cars.remote[b] ? 1 : ia / (ia + ib);
+  const wb = cars.remote[a] ? 1 : cars.remote[b] ? 0 : ib / (ia + ib);
   cars.x[a] -= nx * depth * wa;
   cars.z[a] -= nz * depth * wa;
   cars.x[b] += nx * depth * wb;
@@ -48,10 +52,14 @@ function resolve(sim: SimState, a: number, b: number, ma: number, mb: number): v
   if (closing <= 0) return;
   const j = ((1 + T.carRestitution) * closing) / (ia + ib);
   // Side swipes shove harder sideways, which is what knocks cars into walls.
-  cars.vx[a] -= j * ia * nx;
-  cars.vz[a] -= j * ia * nz;
-  cars.vx[b] += j * ib * nx;
-  cars.vz[b] += j * ib * nz;
+  if (!cars.remote[a]) {
+    cars.vx[a] -= j * ia * nx;
+    cars.vz[a] -= j * ia * nz;
+  }
+  if (!cars.remote[b]) {
+    cars.vx[b] += j * ib * nx;
+    cars.vz[b] += j * ib * nz;
+  }
   const tick = sim.tick;
   if (closing > 1.5) sim.events.push(tick, Ev.CarContact, a, contact.x, (cars.y[a] + cars.y[b]) / 2 + 0.5, contact.z, closing, 0, b);
   cars.lastHitBy[a] = b;
@@ -65,7 +73,8 @@ function resolve(sim: SimState, a: number, b: number, ma: number, mb: number): v
   const vic = aAttacks ? b : a;
   const mAtt = aAttacks ? ma : mb;
   const mVic = aAttacks ? mb : ma;
-  if (cars.wreck[vic]) return;
+  // Another player's car wrecks on their screen, not here (SPEC §10: the victim decides).
+  if (cars.wreck[vic] || cars.remote[vic]) return;
   let threshold = cars.boosting[att] ? T.takedownBoosting : T.takedown;
   threshold *= Math.sqrt(mVic / mAtt);
   // A drift through a pack hits like a heavier car.

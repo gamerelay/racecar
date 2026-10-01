@@ -100,11 +100,12 @@ export class RaceUi {
     }
     // Start lights (hidden a moment after green, whether or not we saw the event).
     if (sim.race.phase !== 'countdown' && this.lights.classList.contains('on') && sim.time - sim.race.goTime > 1) this.lights.className = 'hud';
+    // Online the countdown holds until the connection says when green is: READY until it's near.
     if (sim.race.phase === 'countdown') {
       const left = sim.race.goTime - sim.time;
       const n = Math.ceil(left);
       this.lights.className = 'hud on';
-      if (n !== this.lightsN) this.lights.innerHTML = `<div class="lamps">${[3, 2, 1].map((k) => `<i class="${n <= k ? 'lit' : ''}"></i>`).join('')}</div><b>${n > 0 ? n : 'GO'}</b>`;
+      if (n !== this.lightsN) this.lights.innerHTML = `<div class="lamps">${[3, 2, 1].map((k) => `<i class="${n <= k ? 'lit' : ''}"></i>`).join('')}</div><b>${n > 5 ? 'READY' : n > 0 ? n : 'GO'}</b>`;
       this.lightsN = n;
     }
     // Minimap.

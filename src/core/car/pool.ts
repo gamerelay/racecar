@@ -22,8 +22,8 @@ export const CAR_FIELDS = [
   // AI: the lateral line it has committed to round something, and for how long (s); backing out
   // when pinned (s left, or negative: s until it may try again).
   'aiLat', 'aiHold', 'aiBack',
-  // identity
-  'active', 'cls', 'paint', 'human',
+  // identity: `remote` is another player's car online, which follows the pose it's given (net/cars.ts)
+  'active', 'cls', 'paint', 'human', 'remote',
 ] as const;
 
 export type CarField = (typeof CAR_FIELDS)[number];

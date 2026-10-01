@@ -540,6 +540,6 @@ export class Menu {
   private go(lobby: Lobby): void {
     if (this.going) return;
     this.going = true;
-    location.search = toQuery(raceFromLobby(lobby, this.backend.youIn(lobby.id), lobby.seed ?? Math.floor(Math.random() * 1e9)));
+    location.search = toQuery(raceFromLobby(lobby, this.backend.youIn(lobby.id), lobby.seed ?? Math.floor(Math.random() * 1e9), lobby.id !== LOCAL_ID));
   }
 }

@@ -1535,6 +1535,41 @@ Landmarks, part 1: Downtown (PLAN phase 6):
 - **Cost:** each landmark's still boxes are one instanced mesh, and the clock's four dials, four
   readouts and eight hands are three draws. All five together are ~11 draw calls.
 
+Remote cars (milestone 3, part 2, 2026-10-01):
+
+- **Every player owns their car** (`src/net/cars.ts`, `NetCars`). Yours is a GameRelay entity
+  (`car`, 30 Hz): pose, velocity, yaw rate, pitch and roll, the wreck tumble, steering, and the
+  grounded, drift, boost and wreck flags. It's written from your sim after each step. A jump over
+  12 m in one step (a reset) is a `teleport`, so everyone snaps instead of sliding.
+- **Everyone else's car is a remote car in your sim** (`CarSpec.remote`). Before each step it's
+  put where its entity says (`sim.setPose`), predicted forward from the SDK's ~100 ms render delay
+  to now: straight on from its velocity, turning at its yaw rate, at most 0.25 s, and not at all
+  while it's wrecked. Steering, drift and the track aren't in the prediction yet. Your sim only
+  finds it on the track (`locateCar`: progress, laps, rank). It doesn't drive it, wall it or put
+  it through hazards and traffic.
+- **Contact:**
+  - Your car is pushed and bumped off theirs (its own share of the impulse). Theirs isn't moved
+    at all, since it's where its owner says, and their own sim bumps it off yours on their screen.
+  - Your sim never wrecks another player's car: the victim decides (§10).
+  - Two remote cars touching is left to their screens.
+  - Bump dedupe (±150 ms) and credit for wrecks are still to come.
+- **The race link carries the others** (`others`: seat, id, car, paint, plate). Their seats are
+  `r`, which the roster makes remote cars in their own grid slots, so every screen's grid is the
+  same. A Restart or Race again from an online race is a race of your own (the `r` seats close).
+- **The lights go green together.** The host's Start stamps `startAt` 6 s ahead on the server's
+  clock (`relay.now()`), and the race page holds its countdown (READY) until it's connected. The
+  net layer then sets green from the server's clock on every countdown step. Every step, not just
+  once, because a tab in the background doesn't step and its sim's clock falls behind; it catches
+  up on the first step it gets. If not connected within 8 s, the race starts anyway, with your
+  car not going out.
+- **An online race doesn't pause.** The pause menu still opens, but your car coasts on neutral
+  controls and the others keep driving.
+- **A player who leaves** (their entity goes) leaves the race. One who hasn't shown up yet waits
+  on the grid.
+- **Not yet:** the AIs are each client's own (the same seed, but they drift apart as players race
+  differently). Traffic hits, hazards and finishes are each screen's own too, as are results.
+  Next come host-owned rival entities, `room.claim` for traffic, and the host's results.
+
 Online lobbies (milestone 3, part 1, 2026-09-30):
 
 - **A lobby is a GameRelay room** (`src/lobby/relay.ts`, `RelayBackend`), tagged `race`. The
