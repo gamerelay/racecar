@@ -239,10 +239,23 @@ Clockwise round a tropical island, the volcano in the middle and the sea all rou
 - **Update it** (asleepace.com repo, its `publishing-games` skill): run the sanitizer on the new
   file, then `UPDATE games SET html = … WHERE id = 'Z442EE'`. It's live at once; players get it
   when they reload. Don't run its multiplayer injection: racecar brings GameRelay's SDK.
-- **The music isn't in the single file** (10 MB of tracks in a database row is too much): there
-  the game plays the synth until the tracks are hosted somewhere with CORS and the build sets
-  `VITE_MUSIC_URL` to it (SPEC "The soundtrack").
-- **What's there now:** `main` at PR #44 (`alpha-1.20`; the soundtrack plays the synth there until the tracks are hosted), updated 2026-10-01. Keep it the
+- **The music** (17 MB) isn't in the single file: it's in the games' asset store, a
+  DigitalOcean Space (`asleepace-storage-bucket`, sfo3), under `assets/racecar/music/`. Other
+  sites get their own `assets/<name>/`. Builds read it from `VITE_MUSIC_URL` (`.env.production`).
+  - **Upload:** `bun --env-file=../asleepace.com/.env tools/publish-assets.ts` (`--dry` to see,
+    `--cors` to set the Space's CORS rule again).
+  - **CORS:** the Space allows GET and HEAD from any origin (set 2026-10-01; it had no CORS config
+    before). Web Audio needs it to play a track from another site, or the synth plays.
+  - **From the origin, not the CDN:** the Space's CDN (`….cdn.digitaloceanspaces.com`) caches one
+    copy per URL whatever the request's Origin, though the Space says `Vary: Origin`. Spaces only
+    send the CORS header to a request with an Origin, so a plain request (a link, a curl) fills
+    the cache with a copy without it, and the music breaks for an hour. The origin answers each
+    request itself.
+  - **`cdn.gamerelay.io`** (the plan): a front that always sends `Access-Control-Allow-Origin: *`,
+    so it can cache. Either a small caching proxy on the gamerelay.io droplet, or the Space's CDN
+    with its custom domain *if* every request carries an Origin. gamerelay.io's DNS is on
+    DigitalOcean.
+- **What's there now:** `main` at PR #44 (`alpha-1.20`, with the soundtrack from the asset store), updated 2026-10-01. Keep it the
   one row: update Z442EE in place rather than adding a game.
 
 ## Next, in order
