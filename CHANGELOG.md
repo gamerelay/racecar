@@ -6,6 +6,8 @@ and where things stand is [docs/HANDOFF.md](./docs/HANDOFF.md).
 
 ## Unreleased
 
+- A single-file build (`bun run build:single`), for hosts that take a game as one HTML file. The
+  test build is on asleepace.com's games library: https://asleepace.com/games/Z442EE.
 - Online races don't pause when you switch away, and their menu and results have no Restart or
   Race again (only Back to lobby). The lobby shows who's still racing.
 
