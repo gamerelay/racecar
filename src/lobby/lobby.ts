@@ -343,8 +343,17 @@ const SEATS_RE = /^[penhoxr]{1,8}$/;
  */
 export function encodeSeats(lobby: Lobby, you: string, online = false): string {
   return lobby.seats
-    .map((s) => (s.kind === 'player' ? (s.id === you ? 'p' : online ? 'r' : 'x') : s.kind === 'ai' ? AI_LETTERS[s.difficulty] : s.kind === 'open' ? 'o' : 'x'))
+    .map((s) => (s.kind === 'player' ? (s.id === you ? 'p' : online && inRace(lobby, s) ? 'r' : 'x') : s.kind === 'ai' ? AI_LETTERS[s.difficulty] : s.kind === 'open' ? 'o' : 'x'))
     .join('');
+}
+
+/**
+ * Whether a seated player is in the lobby's race: everyone, at the start; once it's running (the
+ * next race after a vote), not one who went back to the lobby. Their seat's empty on the grid
+ * rather than a car nobody drives.
+ */
+function inRace(lobby: Lobby, s: Extract<Seat, { kind: 'player' }>): boolean {
+  return lobby.phase !== 'racing' || s.racing !== false;
 }
 
 /** Another player in an online race: their seat (the grid slot), id, car, paint and plate. */
@@ -358,7 +367,7 @@ export interface Other {
 
 /** The other players in a lobby, as `you` race them. */
 export function othersIn(lobby: Lobby, you: string): Other[] {
-  return lobby.seats.flatMap((s, seat) => (s.kind === 'player' && s.id !== you ? [{ seat, id: s.id, car: s.car, paint: s.paint, name: s.name }] : []));
+  return lobby.seats.flatMap((s, seat) => (s.kind === 'player' && s.id !== you && inRace(lobby, s) ? [{ seat, id: s.id, car: s.car, paint: s.paint, name: s.name }] : []));
 }
 
 /** A `seats` value if it's a valid one with exactly one `p`, else null. */

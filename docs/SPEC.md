@@ -2055,3 +2055,13 @@ straight into the next race, 15 s, the host breaks a tie):
   checked, and a bad one is dropped rather than the lobby.
 - Checked on two tabs: three races in a row by themselves, the vote shown on the results screen,
   and a vote for Paradise taking both tabs there.
+
+Review fixes (PR #48):
+
+- **Sitting out leaves your seat empty** in the next race: a seated player who went back to the
+  lobby was still in the race link as another player's car, so it sat on the grid all race and
+  in the results at "+N laps". Once a lobby's race is running, only players still racing are in
+  its links (`encodeSeats`, `othersIn`).
+- **The post-race runs on the relay's tick** once the page is in its room, like the race: on a
+  page timer, a lobby host whose tab had been hidden a while (Chrome slows those to once a minute)
+  left everyone on "Next race…" for up to a minute.

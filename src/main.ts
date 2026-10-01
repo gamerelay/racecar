@@ -32,7 +32,7 @@ import { RelayBackend, type RelayLike } from './lobby/relay';
 import type { NetCars } from './net/cars';
 import { joinRace } from './net/join';
 import type { NetRivals } from './net/rivals';
-import { Stepper } from './net/stepper';
+import { Stepper, type Tick } from './net/stepper';
 import type { NetTraffic } from './net/traffic';
 import type { NetContact } from './net/contact';
 import { PostRace } from './net/postrace';
@@ -100,6 +100,8 @@ const me = Math.max(0, you);
 // Online, the countdown holds until the connection says when green is (`run.at`, the server's clock).
 if (run.mode === 'race') sim.startRace(run.laps, attract ? 1 : onlineRace ? 30 : 4);
 let net: NetCars | null = null;
+/** What else runs on the relay's tick once the race page is in (it keeps going in a hidden tab). */
+const whenTick: ((tick: Tick) => void)[] = [];
 /** The AIs online: the room's host drives them (net/rivals.ts). */
 let rivals: NetRivals | null = null;
 /** Traffic hits online: the screen whose car made one claims it and tells everyone (net/traffic.ts). */
@@ -123,7 +125,10 @@ if (onlineRace)
       contact = layers.contact;
       const tick = layers.tick;
       // In: the race steps on the relay's tick, so it goes on in a hidden tab (you might be the host).
-      if (tick) stepper.useTick(tick, () => !editorOpen);
+      if (tick) {
+        stepper.useTick(tick, () => !editorOpen);
+        for (const f of whenTick) f(tick);
+      }
     },
   });
 // A race of your own from an online lobby: the page still stays in its room, so your seat is still yours after it.
@@ -191,7 +196,13 @@ if (onlineRace && run.at !== undefined) {
     now: () => serverNow(),
     go: (l) => (location.search = toQuery(raceFromLobby(l, lobbies.youIn(l.id), l.seed!, true))),
   });
-  setInterval(() => void post.tick(), 250);
+  // On a page timer until the race page is in, then on the relay's tick: the lobby host's page
+  // runs the vote, and a hidden tab's timers slow to once a minute.
+  const timer = setInterval(() => void post.tick(), 250);
+  whenTick.push((tick) => {
+    clearInterval(timer);
+    tick(4, () => void post.tick());
+  });
   raceUi.official = () => post.official();
   raceUi.vote = () => post.view();
   raceUi.onVote = (map) => post.vote(map);

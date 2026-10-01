@@ -3,6 +3,7 @@ import { apply, createLobby, raceKey, tally, type Lobby, type LobbyAction, type 
 import { VOTE_MAX_MS, VOTE_MS, VOTED_MS, voteStep } from '../src/lobby/vote';
 import { readAction, readLobby } from '../src/lobby/wire';
 import { PostRace, resultOf } from '../src/net/postrace';
+import { raceFromLobby } from '../src/ui/setup';
 import { ringSim } from './helpers';
 
 // After an online race (SPEC §11): one results table from each car's own screen, the vote on the
@@ -100,6 +101,14 @@ describe('the vote', () => {
     expect(l.results).toBeUndefined();
     expect(l.vote).toBeUndefined();
     expect(l.seats.slice(0, 3).map((s) => s.kind === 'player' && !!s.racing)).toEqual([true, true, false]);
+    // cy sat out: an empty seat in the next race, not a car nobody drives.
+    const link = raceFromLobby(l, 'ada', 9, true);
+    expect(link.seats.slice(0, 4)).toBe('prxh');
+    expect(link.others?.map((o) => o.id)).toEqual(['bo']);
+    // At the start, everyone seated is in it.
+    const first = raceFromLobby(racing(), 'ada', 7, true);
+    expect(first.seats.slice(0, 3)).toBe('prr');
+    expect(first.others?.map((o) => o.id)).toEqual(['bo', 'cy']);
   });
 });
 
