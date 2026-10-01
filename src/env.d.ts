@@ -7,4 +7,6 @@ interface ImportMetaEnv {
   readonly VITE_GAMERELAY_KEY?: string;
   /** The GameRelay server (default https://gamerelay.io). */
   readonly VITE_GAMERELAY_URL?: string;
+  /** Where the soundtrack's tracks are (a base URL), when they aren't in the page's own `music/`. */
+  readonly VITE_MUSIC_URL?: string;
 }

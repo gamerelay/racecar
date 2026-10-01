@@ -1,23 +1,28 @@
 // Game audio (SPEC §13): the focus car's engine, tyres, gravel, wind and boost as continuous voices;
 // the three nearest rivals' engines, panned and Doppler-shifted; one-shots from sim events (hits,
-// wrecks, landings, boost, chimes, near-miss horns, hazard alerts, the countdown); and the music.
-// All synthesized (synth.ts), all presentation: it reads the sim and never writes to it.
+// wrecks, landings, boost, chimes, near-miss horns, hazard alerts, the countdown); and the music:
+// the recorded soundtrack (soundtrack.ts), or the synth (music.ts) where there's no track. The rest
+// is synthesized (synth.ts). All presentation: it reads the sim and never writes to it.
 //
-// Browsers only start audio after a gesture, so the context is made on the first key or click.
+// Browsers only start audio after a gesture, so the context is made on the first key or click (a
+// tap's release).
 // Paused or hidden, it suspends. M mutes, N toggles music; both are remembered on this device.
 
 import { Vector3, type PerspectiveCamera } from 'three';
 import { clamp, damp } from '../core/math';
 import { Cause, Ev, type GameEvent } from '../core/events';
 import type { Sim } from '../core/sim';
-import { doppler, engineHz, engineSound, gearbox, spatial, type Gear, type Spatial } from './model';
+import { doppler, engineHz, engineSound, gearbox, musicMix, spatial, type Gear, type Spatial } from './model';
 import { Music, type Intensity } from './music';
+import type { Soundtrack } from './soundtrack';
 import { EngineVoice, glide, NoiseVoice, noiseShot, note, Out, toneShot, type Shot } from './synth';
 
 const RIVALS = 3;
 /** Rivals are heard within this of the camera. */
 const HEAR = 90;
 const SETTINGS_KEY = 'racecar.audio';
+/** The recorded tracks' level into the music bus. */
+const TRACK_LEVEL = 0.8;
 
 export interface AudioSettings {
   muted: boolean;
@@ -50,6 +55,8 @@ interface Graph {
   engines: GainNode;
   musicLevel: GainNode;
   musicTone: BiquadFilterNode;
+  /** The music's own master (it skips the compressor): muted with `master`. */
+  musicOut: GainNode;
   engine: EngineVoice;
   tyres: NoiseVoice;
   gravel: NoiseVoice;
@@ -58,6 +65,8 @@ interface Graph {
   horn: Out;
   rivals: EngineVoice[];
   music: Music;
+  /** The recorded track's level (`TRACK_LEVEL`), into the music bus. */
+  trackLevel: GainNode;
 }
 
 export class GameAudio {
@@ -70,25 +79,43 @@ export class GameAudio {
   private rpm = 0;
   private beeped = 0;
   private hidden = false;
+  /** The track should be playing (as of the last frame). */
+  private wantTrack = false;
   private readonly near: number[] = [];
   private readonly shot: Shot = { ctx: undefined as unknown as AudioContext, bus: undefined as unknown as AudioNode, gain: 0, pan: 0 };
 
-  constructor(private readonly sim: Sim) {
+  constructor(
+    private readonly sim: Sim,
+    /** The page's recorded track, if it has one (soundtrack.ts); the synth plays without one. */
+    private readonly track: Soundtrack | null = null,
+    /** It's the title's: heard clearly behind the menus (the synth is muffled there). */
+    private readonly titleTrack = false,
+  ) {
     this.cursor = sim.events.head;
     const unlock = () => {
       this.start();
       if (this.g) {
         window.removeEventListener('keydown', unlock);
-        window.removeEventListener('pointerdown', unlock);
+        window.removeEventListener('pointerup', unlock);
       }
     };
+    // A tap's activation is on its release (`pointerup`), not its press: iOS starts nothing on a
+    // touch's `pointerdown`.
     window.addEventListener('keydown', unlock);
-    window.addEventListener('pointerdown', unlock);
+    window.addEventListener('pointerup', unlock);
+    // Every key or click after, too: a track paused (the pause menu, a hidden tab) may only start
+    // again from one.
+    const again = () => this.g && this.wantTrack && this.track?.play(true);
+    window.addEventListener('keydown', again);
+    window.addEventListener('pointerup', again);
     document.addEventListener('visibilitychange', () => {
       this.hidden = document.hidden;
       // A hidden tab runs no frames, so update() can't do this: suspend here, and update()
       // resumes when frames come back.
-      if (this.hidden) void this.g?.ctx.suspend();
+      if (this.hidden) {
+        void this.g?.ctx.suspend();
+        this.track?.pause();
+      }
     });
   }
 
@@ -123,7 +150,11 @@ export class GameAudio {
     musicTone.frequency.value = 12000;
     const musicLevel = ctx.createGain();
     musicLevel.gain.value = 0;
-    musicLevel.connect(musicTone).connect(master);
+    // Its own way out, not through the compressor: loud engines and crashes pumped it down there.
+    // Muted with everything else (`musicOut` follows the master's level).
+    const musicOut = ctx.createGain();
+    musicOut.gain.value = master.gain.value;
+    musicLevel.connect(musicTone).connect(musicOut).connect(ctx.destination);
     const horn = new Out(ctx, sfx);
     for (const hz of [370, 466]) {
       const o = ctx.createOscillator();
@@ -142,6 +173,7 @@ export class GameAudio {
       engines,
       musicLevel,
       musicTone,
+      musicOut,
       engine: new EngineVoice(ctx, engines),
       tyres: new NoiseVoice(ctx, sfx, 'bandpass', 1500, 5),
       gravel: new NoiseVoice(ctx, sfx, 'lowpass', 650, 0.7),
@@ -150,7 +182,13 @@ export class GameAudio {
       horn,
       rivals: Array.from({ length: RIVALS }, () => new EngineVoice(ctx, engines)),
       music: new Music(ctx, musicLevel),
+      trackLevel: ctx.createGain(),
     };
+    this.g.trackLevel.gain.value = TRACK_LEVEL;
+    this.g.trackLevel.connect(musicLevel);
+    this.track?.connect(ctx, this.g.trackLevel);
+    // In the gesture itself: the only time some browsers start media.
+    if (this.settings.music && !this.settings.muted) this.track?.play(true);
     this.shot.ctx = ctx;
     this.shot.bus = sfx;
   }
@@ -159,7 +197,10 @@ export class GameAudio {
   toggleMute(): boolean {
     this.settings.muted = !this.settings.muted;
     this.save();
-    if (this.g) glide(this.g.master.gain, this.settings.muted ? 0 : 0.8, this.g.ctx.currentTime, 0.05);
+    if (this.g) {
+      glide(this.g.master.gain, this.settings.muted ? 0 : 0.8, this.g.ctx.currentTime, 0.05);
+      glide(this.g.musicOut.gain, this.settings.muted ? 0 : 0.8, this.g.ctx.currentTime, 0.05);
+    }
     return this.settings.muted;
   }
 
@@ -187,7 +228,12 @@ export class GameAudio {
     // Muted, or paused, or away: nothing to hear, so nothing runs.
     const quiet = f.paused || this.hidden || this.settings.muted;
     if (quiet !== (g.ctx.state === 'suspended')) void (quiet ? g.ctx.suspend() : g.ctx.resume());
-    if (quiet) return;
+    if (quiet) {
+      // A track would play on through a suspended context, unheard: it waits instead.
+      this.wantTrack = false;
+      this.track?.pause();
+      return;
+    }
     const now = g.ctx.currentTime;
     const sim = this.sim;
     const c = sim.cars;
@@ -274,11 +320,14 @@ export class GameAudio {
     // ---- music ----
     const racing = sim.race.phase === 'racing' && !c.finished[i];
     const finalLap = racing && sim.race.laps > 1 && c.lap[i] === sim.race.laps - 1;
-    g.music.intensity = (f.menu || !racing ? 0 : finalLap ? 2 : 1) as Intensity;
-    if (this.settings.music) g.music.update();
-    glide(g.musicLevel.gain, this.settings.music ? 0.5 : 0, now, 0.3);
-    // Muffled behind the menu and in slow-mo.
-    glide(g.musicTone.frequency, f.menu ? 1400 : sim.timeScale < 0.9 ? 550 : 12000, now, 0.15);
+    const mix = musicMix({ recorded: !!this.track && !this.track.failed, on: this.settings.music, menu: f.menu, titleTrack: this.titleTrack, racing, finalLap, timeScale: sim.timeScale });
+    this.wantTrack = mix.track;
+    if (mix.track) this.track!.play();
+    else this.track?.pause();
+    g.music.intensity = mix.intensity as Intensity;
+    if (mix.synth) g.music.update();
+    glide(g.musicLevel.gain, mix.level, now, 0.3);
+    glide(g.musicTone.frequency, mix.tone, now, 0.15);
   }
 
   /** Plays a one-shot at level `gain`, panned `pan`, through `fn`. */

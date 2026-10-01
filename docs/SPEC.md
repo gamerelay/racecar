@@ -117,7 +117,7 @@ src/
   editor/          the level editor and tuning panel (dev builds only, §6)
   input/           keyboard and gamepad → Controls; menu actions (touch is planned)
   ui/              screens: title, lobby, car select, plate, HUD, results, stats
-  audio/           engine synth, SFX, music
+  audio/           engine synth, SFX, music (the soundtrack, synth fallback)
   telemetry/       events → local files (dev) / PostHog (playtests); reports (§14)
   viewer/          the garage (cars.html) and the poster stage (poster.html), dev tools
 content/
@@ -1079,7 +1079,7 @@ Audio (2026-09-30):
   boost, drift-boost and mini-turbo chimes, near-miss whoosh and horn, traffic checks, takedown
   stinger, spin-outs, a two-tone alert for every hazard telegraph, countdown beeps and GO, lap and
   final-lap chimes, a finish fanfare, the catch-up chime).
-- **Music:** Am–F–C–G synthwave at 112 bpm, scheduled on the audio clock. Pad and bass behind the
+- **Music** (since 2026-10-01 the fallback: see "The soundtrack"): Am–F–C–G synthwave at 112 bpm, scheduled on the audio clock. Pad and bass behind the
   menu (muffled), drums and arp in a race, the arp up an octave on the final lap, muffled in
   slow-mo.
 - **Starts on the first key or click** (browsers' rule), suspends when paused, hidden or in the
@@ -1658,6 +1658,37 @@ Downtown's field wrecks (sweep, 2026-09-30):
   pillars out gave 0.88. Both are inside the ±0.3 that seeds swing by, and each just moved the
   wrecks to the Market's traffic (1,550–1,950 m), so the colonnade stays.
 - A test holds the 8-seed field to 1.5, like the Valley's.
+
+The soundtrack (owner's tracks, 2026-10-01):
+
+- **Recorded music: one track for the title and menus, one per map, and two for any map**
+  (`public/music/`: `title`, `downtown`, `backroads`, `paradise`, `finish-line`,
+  `final-sprint`). The owner's WAVs (30–40 MB each) are AAC in `.m4a` at 128 kb/s, 2–3.4 MB each
+  (17 MB in all), which every browser plays (Safari too). Their loudness is within 1.8 LU of each
+  other (−14.2 to −16 LUFS), so they aren't normalised.
+- **Streamed and looped through the music bus** (`src/audio/soundtrack.ts`): an `<audio>` element
+  into Web Audio, so N, M, the slow-mo duck and the music level apply as before. It sits at
+  `TRACK_LEVEL` (0.8) into the bus. Paused, hidden or muted, the track pauses with the context
+  (it would play on unheard otherwise).
+- **The music skips the compressor** (playtest: too quiet, and the engines drowned it). The
+  master compressor squeezed it down whenever the engines and crashes were loud, so the music
+  has its own way out (`musicOut`, muted with the master). In a race it's now about level with
+  the effects and above the engines (−30 dB against −29 and −34 on the buses).
+- **Which track:** the title's behind the menus and in lobbies (the attract page), looping. A race
+  (and its results) plays a playlist: the map's own track and the two for any map (the owner's,
+  so a map's music doesn't go stale). Never the same song twice in a row: a race starts on one the
+  last race didn't play (`racecar.lastTrack` on the device), and when a track ends another one
+  follows. The title's track isn't muffled behind the menu (the synth was, under the attract race).
+- **The synth is the fallback**, for a track that can't load or play, and with `?music=0`.
+- **Played from gestures too** (review of PR #44): some browsers (iOS Safari, Safari's "Never
+  Auto-Play") only start media from a key or click, and the frame loop isn't one. The first
+  gesture starts the track, and every key or click after retries it while it should be playing
+  (after the pause menu, say). From frames it's tried once a second at most. Three plays refused
+  from gestures in a row, and it's the synth's. A tap counts on its release (`pointerup`): iOS starts no media on a
+  touch's `pointerdown`, so three taps there would have handed it to the synth (second review).
+- **Where the tracks are:** the page's own `music/` (dev and `bun run build`). A build hosted
+  without them beside it (the single-file build) sets `VITE_MUSIC_URL` to where they are; from
+  another origin they need CORS, or the synth plays.
 
 ### Milestone 3 (online)
 

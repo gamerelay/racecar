@@ -85,3 +85,41 @@ export function doppler(dx: number, dz: number, svx: number, svz: number, lvx: n
   const closing = -((svx - lvx) * dx + (svz - lvz) * dz) / d;
   return clamp(SOUND / (SOUND - clamp(closing, -SOUND * 0.5, SOUND * 0.5)), 0.7, 1.4);
 }
+
+/** What the music does this frame (audio.ts plays it): the recorded track or the synth, how loud, how bright. */
+export interface MusicMix {
+  /** The recorded track plays (else it's paused). */
+  track: boolean;
+  /** The synth plays, and at which intensity (0 pad and bass, 1 the race, 2 the final lap). */
+  synth: boolean;
+  intensity: 0 | 1 | 2;
+  /** The music bus's level, and its lowpass (Hz): muffled behind a menu and in slow-mo. */
+  level: number;
+  tone: number;
+}
+
+export function musicMix(o: {
+  /** There's a recorded track and it hasn't failed. */
+  recorded: boolean;
+  /** N: music on. */
+  on: boolean;
+  /** Behind a menu (the attract page). */
+  menu: boolean;
+  /** The recorded track is the title's (heard clearly behind the menus). */
+  titleTrack: boolean;
+  /** Your car's racing (not finished), and on its final lap of several. */
+  racing: boolean;
+  finalLap: boolean;
+  timeScale: number;
+}): MusicMix {
+  const synth = !o.recorded && o.on;
+  const behind = o.menu && !(o.recorded && o.titleTrack);
+  return {
+    track: o.recorded && o.on,
+    synth,
+    intensity: o.menu || !o.racing ? 0 : o.finalLap ? 2 : 1,
+    level: o.on ? 0.5 : 0,
+    tone: behind ? 1400 : o.timeScale < 0.9 ? 550 : 12000,
+  };
+}
+
