@@ -186,13 +186,15 @@ export class Menu {
         else void this.back_(l);
         this.renderLobby(l);
       });
-      // The connection label follows the SDK as it finds (or loses) a direct way to each player.
+      // The connection label follows the SDK as it finds (or loses) a direct way to each player,
+      // and the pings come in every few seconds.
       if (screen.id !== LOCAL_ID)
         this.refresh = setInterval(() => {
           const el = document.getElementById('lNet');
           const html = this.netLabel(screen.id);
           if (el && el.innerHTML !== html) el.innerHTML = html;
-        }, 2000);
+          for (const td of this.root.querySelectorAll<HTMLElement>('.seats td.ping[data-player]')) td.textContent = this.pingText(screen.id, td.dataset.player!);
+        }, 1000);
       lobby = (await this.sit(lobby)) ?? lobby;
       // Back from its race: the others see you're here again.
       lobby = (await this.back_(lobby)) ?? lobby;
@@ -489,7 +491,7 @@ export class Menu {
           // Your own car is picked beside the turntable.
           car = `${dot(s.paint)}${esc(className(s.car))}`;
           status = s.racing && s.id !== you ? '<span class="racing">Racing</span>' : s.id === lobby.host ? '' : s.ready ? '<span class="ready">Ready</span>' : 'Not ready';
-          return `<tr class="${me ? 'me' : ''}"><td>${k + 1}</td><td>${who}</td><td><div class="car">${car}</div></td><td>${status}</td><td class="ping">—</td></tr>`;
+          return `<tr class="${me ? 'me' : ''}"><td>${k + 1}</td><td>${who}</td><td><div class="car">${car}</div></td><td>${status}</td><td class="ping" data-player="${esc(s.id)}">${this.pingText(lobby.id, s.id)}</td></tr>`;
         }
         const choice: SeatChoice = s.kind === 'ai' ? (['ai-easy', 'ai-normal', 'ai-hard'] as const)[s.difficulty] : s.kind;
         who = host ? this.sel(`seat-${k}`, seatOpts, choice) : `<span>${seatOpts.find(([v]) => v === choice)![1]}</span>`;
@@ -511,7 +513,7 @@ export class Menu {
       `<div class="card lobby">
         <h1>${esc(lobby.name)}</h1>
         <p class="sub">${online ? this.access(lobby, host) : '<button class="ghost invite" disabled title="Just you, with bots, in this browser">Private</button>'}</p>
-        <table class="seats"><thead><tr><th>#</th><th>Seat</th><th>Car</th><th></th><th>Ping</th></tr></thead><tbody>${rows}</tbody></table>
+        <table class="seats${online ? '' : ' local'}"><thead><tr><th>#</th><th>Seat</th><th>Car</th><th>Status</th><th>Ping</th></tr></thead><tbody>${rows}</tbody></table>
         <div class="row">${host ? '<button id="lStart">Start race</button>' : `<button id="lReady">${mine >= 0 && lobby.seats[mine].kind === 'player' && lobby.seats[mine].ready ? 'Not ready' : 'Ready'}</button>`}
 <button id="lLeave" class="ghost danger">${host && s.players === 1 ? 'Close lobby' : 'Leave'}</button></div>
       </div>
@@ -549,13 +551,19 @@ export class Menu {
   private access(lobby: Lobby, host: boolean): string {
     const [, name, hint] = ACCESS.find(([v]) => v === lobby.visibility) ?? ACCESS[0];
     const who = host ? `<button id="lVis" class="ghost invite" title="${esc(hint)}. Click to change">${name}</button>` : `<button class="ghost invite" disabled title="${esc(hint)}">${name}</button>`;
-    return who + (lobby.visibility === 'locked' ? '' : '<button id="lInvite" class="ghost invite">Copy invite link</button>') + `<span class="net" id="lNet">${this.netLabel(lobby.id)}</span>`;
+    return who + (lobby.visibility === 'locked' ? '' : '<button id="lInvite" class="ghost invite">Copy invite link</button>') + `<span id="lNet">${this.netLabel(lobby.id)}</span>`;
   }
 
   /** How you reach the lobby's other players: the SDK finds the best way to each, so it can change. */
   private netLabel(id: string): string {
     const route = this.backend.route?.(id) ?? null;
-    return route ? `<span title="${NET_ROUTES[route][1]}">${NET_ROUTES[route][0]}</span>` : '';
+    return route ? `<button class="ghost invite net" disabled title="${NET_ROUTES[route][1]}">${NET_ROUTES[route][0]}</button>` : '';
+  }
+
+  /** A player's ping to the server, as the Ping column shows it. */
+  private pingText(id: string, player: string): string {
+    const ms = this.backend.ping?.(id, player) ?? null;
+    return ms === null ? '—' : `${ms} ms`;
   }
 
   /**

@@ -17,6 +17,8 @@ export interface LobbyBackend {
   subscribe(id: string, fn: (lobby: Lobby | null) => void): () => void;
   /** Online, with others in the room: how your broadcasts reach them (see `NetRoute`). */
   route?(id: string): NetRoute | null;
+  /** Online: player `player`'s ping to the server (ms), or null while it isn't known. */
+  ping?(id: string, player: string): number | null;
 }
 
 /**
@@ -146,6 +148,10 @@ export class Lobbies implements LobbyBackend {
 
   route(id: string): NetRoute | null {
     return this.of(id)?.route?.(id) ?? null;
+  }
+
+  ping(id: string, player: string): number | null {
+    return this.of(id)?.ping?.(id, player) ?? null;
   }
 
   /** The online lobbies to join. Your own isn't one: it's private, and closes when you leave it. */

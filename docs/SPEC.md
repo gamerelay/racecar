@@ -1555,9 +1555,14 @@ The lobby's header, and who can join (playtest, 2026-10-01):
   under it.
 - **The header says how you reach the others:** LAN (every pair direct, across one network),
   Relay (some pair through the TURN relay) or Server (some pair with no channel yet), the slowest
-  pair's way, from `room.lanRoute`. It updates every two seconds, and there's none while you're
+  pair's way, from `room.lanRoute`, shown as a button like the others. It updates every second, and there's none while you're
   alone. The SDK doesn't say a relay's region, so it doesn't show one yet (HANDOFF's GameRelay
   side).
+- **Pings: each player measures their own and tells the room.** The SDK only knows your ping
+  (`relay.ping()`), so every lobby page measures it every 3 s and sends `{ type: 'ping', ms }` to
+  everyone (`room.send`); each screen shows them in the seats' Ping column, in cyan, checked as
+  they come in. It's each player's round trip to the server, not to each other. Your own lobby
+  has no Ping column. The 4th column is headed Status.
 - **The seats panel:** an open seat says "Random bot" by a gray dot, the last seat has no rule
   under it, and Start (or Ready) and Leave are stacked, each the panel's width.
 - **You start a lobby in a random car and paint**, creating it or sitting down in one. The

@@ -22,6 +22,8 @@ export interface RelayLike {
   createRoom(options: { maxPlayers?: number; tag?: string; public?: boolean }): Promise<RoomLike>;
   joinRoom(code: string): Promise<RoomLike>;
   listRooms(tag?: string, options?: { includeFull?: boolean }): Promise<{ code: string; players: number; name: string | null; meta: unknown; locked: boolean }[]>;
+  /** Your round trip to the server (ms). */
+  ping?(): Promise<number>;
 }
 
 export interface RoomLike {
@@ -40,8 +42,18 @@ export interface RoomLike {
   setAccess(access: { public?: boolean }): Promise<void>;
   kick(playerId: string, options?: { ban?: boolean }): Promise<void>;
   leave(): Promise<void>;
+  /** A message to everyone else in the room (their `message` event). */
+  send?(data: never): void;
   /** The SDK's channel with a player straight to them: across one network, through its TURN relay, or none. */
   lanRoute?(playerId: string): 'direct' | 'relay' | null;
+}
+
+/** How often each player measures their ping and tells the room (ms). */
+export const PING_MS = 3000;
+
+/** A player's ping as they sent it (`{ type: 'ping', ms }`), checked, or null. */
+export function readPing(data: unknown): number | null {
+  return obj(data) && data.type === 'ping' && int(data.ms, 0, 60_000) ? data.ms : null;
 }
 
 /** The slowest of the routes to everyone else: no channel to someone is the server; none at all, nobody else. */
@@ -161,6 +173,8 @@ export class RelayBackend implements LobbyBackend {
   private relay: Promise<RelayLike> | null = null;
   private room: RoomLike | null = null;
   private off: (() => void)[] = [];
+  /** Each player's ping in the room you're in (ms), by id. */
+  private pings = new Map<string, number>();
   private listeners = new Set<(lobby: Lobby | null) => void>();
   private listed = '';
   private listingTimer: ReturnType<typeof setTimeout> | null = null;
@@ -184,6 +198,11 @@ export class RelayBackend implements LobbyBackend {
 
   youIn(): string {
     return this.you;
+  }
+
+  /** Player `player`'s ping to the server (ms), as they last said (yours as you measured it), or null. */
+  ping(id: string, player: string): number | null {
+    return this.room?.code === id ? (this.pings.get(player) ?? null) : null;
   }
 
   route(id: string): NetRoute | null {
@@ -282,6 +301,12 @@ export class RelayBackend implements LobbyBackend {
         return next ?? null;
       }),
       room.on('state', () => this.notify(lobbyIn(room))),
+      // Everyone's ping, as each measures it: the SDK only knows your own.
+      room.on('message', (data: unknown, from: string) => {
+        const ms = readPing(data);
+        if (ms !== null) this.pings.set(from, ms);
+      }),
+      this.measurePings(room),
       // The host's work: someone gone for good gives up their seat, and a new host checks for
       // anyone who left while nobody was host (and lists the room).
       room.on('player_left', () => room.isHost && this.tidy(room)),
@@ -295,9 +320,24 @@ export class RelayBackend implements LobbyBackend {
     if (room.isHost) this.tidy(room);
   }
 
+  /** Every PING_MS while you're in `room`: your ping, kept and sent to everyone else. Returns a stop. */
+  private measurePings(room: RoomLike): () => void {
+    const measure = async () => {
+      const relay = await this.relayNow().catch(() => null);
+      const ms = relay?.ping ? await relay.ping().catch(() => null) : null;
+      if (ms === null || this.room !== room) return;
+      this.pings.set(room.me, Math.round(ms));
+      room.send?.({ type: 'ping', ms: Math.round(ms) } as never);
+    };
+    void measure();
+    const timer = setInterval(() => void measure(), PING_MS);
+    return () => clearInterval(timer);
+  }
+
   private detach(): void {
     for (const f of this.off) f();
     this.off = [];
+    this.pings.clear();
     this.room = null;
     if (this.listingTimer) clearTimeout(this.listingTimer);
     this.listingTimer = null;
