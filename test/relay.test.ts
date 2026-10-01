@@ -266,7 +266,7 @@ describe('online lobbies', () => {
     expect(hub.rooms.get(lobby.id)!.members.map((m) => m.id)).toEqual(['ada']);
 
     await new Promise((r) => setTimeout(r, 1100));
-    await ada.backend.send(lobby.id, { type: 'options', visibility: 'private' });
+    await ada.backend.send(lobby.id, { type: 'options', visibility: 'invite' });
     await new Promise((r) => setTimeout(r, 1100));
     expect(hub.rooms.get(lobby.id)!.public).toBe(false);
     expect(await bo.backend.list()).toEqual([]);
@@ -276,6 +276,8 @@ describe('online lobbies', () => {
     expect(readAction({ type: 'seat', index: 9, to: 'open' }, 'x')).toBeNull();
     expect(readAction({ type: 'seat', index: 2, to: 'piano' }, 'x')).toBeNull();
     expect(readAction({ type: 'options', options: { weather: 'snow' } }, 'x')).toBeNull();
+    expect(readAction({ type: 'options', visibility: 'invite' }, 'x')).toEqual({ type: 'options', visibility: 'invite' });
+    expect(readAction({ type: 'options', visibility: 'secret' }, 'x')).toBeNull();
     expect(readAction({ type: 'options', options: { laps: 3, junk: 1 } }, 'x')).toEqual({ type: 'options', options: { laps: 3 } });
     expect(readAction({ type: 'join', player: { id: 'ada', name: 'X', car: 'coupe', paint: 1 } }, 'bo')).toEqual({ type: 'join', player: { id: 'bo', name: 'X', car: 'coupe', paint: 1 } });
     expect(readAction({ type: 'start', seed: -1 }, 'x')).toBeNull();

@@ -112,6 +112,18 @@ describe('a lobby', () => {
     expect(apply(l, 'zed', { type: 'join', player: { ...guest, id: 'zed' } })).toBeNull();
     expect(summarize(l)).toMatchObject({ players: 2, filled: 8, pips: 'pnnnpnnn' });
   });
+
+  test("a private lobby takes nobody new, an invite-only one does (it just isn't listed), and only the host sets which", () => {
+    let l = createLobby('local', host, { visibility: 'invite' });
+    l = ok(l, 'kev', { type: 'join', player: guest });
+    expect(apply(l, 'kev', { type: 'options', visibility: 'private' })).toBeNull();
+    l = ok(l, 'you', { type: 'options', visibility: 'private' });
+    expect(apply(l, 'zed', { type: 'join', player: { ...guest, id: 'zed' } })).toBeNull();
+    // Those already in keep their seats.
+    expect(l.seats[1]).toMatchObject({ id: 'kev' });
+    l = ok(l, 'you', { type: 'options', visibility: 'public' });
+    expect(ok(l, 'zed', { type: 'join', player: { ...guest, id: 'zed' } }).seats[2]).toMatchObject({ id: 'zed' });
+  });
 });
 
 describe('seats become the race', () => {

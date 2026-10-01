@@ -321,7 +321,8 @@ Clockwise round a tropical island, the volcano in the middle and the sea all rou
    - **Online lobbies: merged** (PR #32, `alpha-1.14`; SPEC "Online lobbies"). Lobbies are
      rooms (`src/lobby/relay.ts`), listed with `setListing`, and the SDK's host applies
      everyone's actions with `apply`. Start takes everyone into the same race, and the race page
-     keeps the seat.
+     keeps the seat. A lobby is Public, Invite only (by link, unlisted) or Private (locked:
+     nobody new sits down); the host cycles it from the header's button.
    - **Remote cars: merged** (PR #33, `alpha-1.15`; SPEC "Remote cars"). Each player's car
      is an entity at 30 Hz (`src/net/cars.ts`), a remote car in everyone else's sim, predicted to
      now. Green is on the server's clock. Next: the AIs as host entities, traffic with

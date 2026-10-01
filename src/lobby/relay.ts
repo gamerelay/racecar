@@ -78,8 +78,8 @@ export function readAction(data: unknown, from: string): LobbyAction | null {
         out.name = data.name;
       }
       if (data.visibility !== undefined) {
-        if (data.visibility !== 'public' && data.visibility !== 'private') return null;
-        out.visibility = data.visibility;
+        if (!VISIBILITIES.includes(data.visibility as Lobby['visibility'])) return null;
+        out.visibility = data.visibility as Lobby['visibility'];
       }
       if (data.options !== undefined) {
         if (!obj(data.options)) return null;
@@ -121,6 +121,8 @@ export function readAction(data: unknown, from: string): LobbyAction | null {
   }
   return null;
 }
+
+const VISIBILITIES: readonly Lobby['visibility'][] = ['public', 'invite', 'private'];
 
 const PIPS = /^[penhox]{8}$/;
 

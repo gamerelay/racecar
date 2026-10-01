@@ -1535,6 +1535,19 @@ Landmarks, part 1: Downtown (PLAN phase 6):
 - **Cost:** each landmark's still boxes are one instanced mesh, and the clock's four dials, four
   readouts and eight hands are three draws. All five together are ~11 draw calls.
 
+The lobby's header, and who can join (playtest, 2026-10-01):
+
+- **Who can join is three ways, not two:** Public (listed online), Invite only (anyone with the
+  link, not listed: what "private" meant before) and Private, which is the spec's **lock**:
+  nobody new sits down (`apply` refuses a `join`), and those in keep their seats. Someone who
+  opens a private lobby's link watches without a seat, and sits down if it opens up again. The
+  host clicks the header's button to cycle them; everyone else sees it as a label. New lobbies
+  are Public or Invite only.
+- **The header is just that and the invite link** (gone while it's Private). The cars on the grid
+  and the room code were noise next to the seats.
+- **The turntable is in the middle of everything right of the seats**, and lower, clear of the
+  options card. The car's panel is centered under it.
+
 Online races don't pause, and the lobby says who's still racing (playtest, 2026-10-01):
 
 - **Switching away doesn't pause an online race.** It's shared, so it goes on, and the pause menu
