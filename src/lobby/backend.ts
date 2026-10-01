@@ -22,10 +22,10 @@ export interface LobbyBackend {
 }
 
 /**
- * How a lobby's players reach each other, the slowest pair's way: `lan`, straight across one
- * network; `relay`, through GameRelay's TURN relay; `server`, only through the game server.
+ * How a lobby's players reach each other, the slowest pair's way: `p2p`, straight to each other
+ * (across one network, or over the internet: the lobby is a party with direct connections on); `relay`, through GameRelay's TURN relay; `server`, only through the game server.
  */
-export type NetRoute = 'lan' | 'relay' | 'server';
+export type NetRoute = 'p2p' | 'relay' | 'server';
 
 /** What the local backend keeps its lobby in: localStorage in the game, a Map in tests. */
 export interface KeyValue {

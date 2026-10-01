@@ -1585,7 +1585,23 @@ The lobby's header, and who can join (playtest, 2026-10-01):
   minutes), listed as it last was ("1/8"). The list skips rooms the server counts nobody in, and
   the last one out unlists the room as they go (`setAccess({ public: false })`).
 
-Online races don't pause, and the lobby says who's still racing (playtest, 2026-10-01):
+P2P (2026-10-01):
+
+- **Every online lobby is a GameRelay party too, so its players connect straight to each other.**
+  GameRelay only connects party members directly over the internet (`lan: { direct: 'party' }`,
+  with the instance's Direct connections setting on); everyone else in a room goes through its
+  TURN relay. So the host makes a party with the room, `Lobby.party` holds its code, and every
+  page that attaches the room (the lobby's and the race's) joins it. A party gone (everyone left
+  it) gets a new one from the SDK's host.
+- **This shows each player the others' public IP**, in public lobbies too: chosen on purpose for
+  now (no per-player opt-in). The SDK's guidance is to ask each player first, and not for games
+  children under 13 may play. Revisit before the repo goes public.
+- **Leaving the lobby leaves its party** (Leave, a kick, the room closing, a new lobby): a
+  party's leader drags its members into any room it makes or joins, so the party must not
+  outlive the lobby.
+- **The header says P2P instead of LAN** for a direct channel: it may be across one network or
+  over the internet, and the SDK doesn't say which.
+
 
 - **Switching away doesn't pause an online race.** It's shared, so it goes on, and the pause menu
   would only be in the way when you came back. Esc still opens it as "Menu": the race goes on and

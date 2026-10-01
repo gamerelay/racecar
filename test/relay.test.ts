@@ -17,6 +17,8 @@ class Hub {
   routes = new Map<string, 'direct' | 'relay'>();
   /** setAccess calls to fail before one gets through. */
   failAccess = 0;
+  /** Parties, by code: who's in each. */
+  parties = new Map<string, Set<string>>();
   private n = 0;
   code(): string {
     return `R${++this.n}`;
@@ -128,6 +130,29 @@ class FakeRelay implements RelayLike {
   now = () => 1_000_000;
   async ping(): Promise<number> {
     return this.hub.pings.get(this.playerId) ?? 20;
+  }
+  get party(): { code: string } | null {
+    for (const [code, members] of this.hub.parties) if (members.has(this.playerId)) return { code };
+    return null;
+  }
+  async createParty(): Promise<{ code: string }> {
+    await this.leaveParty();
+    const code = `P${this.hub.code()}`;
+    this.hub.parties.set(code, new Set([this.playerId]));
+    return { code };
+  }
+  async joinParty(code: string): Promise<unknown> {
+    const p = this.hub.parties.get(code);
+    if (!p) throw new Error('not_found');
+    await this.leaveParty();
+    p.add(this.playerId);
+    return { code };
+  }
+  async leaveParty(): Promise<void> {
+    for (const [code, members] of this.hub.parties) {
+      members.delete(this.playerId);
+      if (!members.size) this.hub.parties.delete(code);
+    }
   }
   constructor(
     readonly hub: Hub,
@@ -310,9 +335,9 @@ describe('online lobbies', () => {
     expect(readPing({ type: 'chat', ms: 42 })).toBeNull();
   });
 
-  test("the lobby's connection is its slowest route: LAN only if every pair is direct, Server if any pair has no channel", () => {
+  test("the lobby's connection is its slowest route: P2P only if every pair is direct, Server if any pair has no channel", () => {
     expect(netRoute([])).toBeNull();
-    expect(netRoute(['direct', 'direct'])).toBe('lan');
+    expect(netRoute(['direct', 'direct'])).toBe('p2p');
     expect(netRoute(['direct', 'relay'])).toBe('relay');
     expect(netRoute(['relay', null])).toBe('server');
   });
@@ -445,7 +470,7 @@ describe("the lobby screen's connection and pings", () => {
     expect(ada.backend.ping(id, 'ada')).toBeNull();
   });
 
-  test('the connection is the slowest route to anyone: none alone, Server until a channel is up, then Relay or LAN', async () => {
+  test('the connection is the slowest route to anyone: none alone, Server until a channel is up, then Relay or P2P', async () => {
     const hub = new Hub();
     const [ada, bo, cy] = players(hub, 'ada', 'bo', 'cy');
     const lobby = await ada.backend.create(player('ADA'), {});
@@ -456,7 +481,7 @@ describe("the lobby screen's connection and pings", () => {
     }
     expect(ada.backend.route(lobby.id)).toBe('server');
     hub.routes.set('ada>bo', 'direct').set('ada>cy', 'direct');
-    expect(ada.backend.route(lobby.id)).toBe('lan');
+    expect(ada.backend.route(lobby.id)).toBe('p2p');
     hub.routes.set('ada>cy', 'relay');
     expect(ada.backend.route(lobby.id)).toBe('relay');
     // Your own lobby has no connection to speak of.
@@ -479,5 +504,62 @@ describe("the lobby screen's connection and pings", () => {
     await ada.backend.send(lobby.id, { type: 'options', options: { laps: 3 } });
     await settle();
     expect(room.public).toBe(false);
+  });
+});
+
+describe('P2P: a lobby is a party too', () => {
+  const partyOf = (hub: Hub, id: string) => [...hub.parties].find(([, m]) => m.has(id))?.[0];
+
+  test("its host makes the party with the room, everyone who comes in joins it, and leaving leaves it", async () => {
+    const hub = new Hub();
+    const [ada, bo] = players(hub, 'ada', 'bo');
+    const lobby = await ada.backend.create(player('ADA'), {});
+    expect(lobby.party).toBeDefined();
+    expect(partyOf(hub, 'ada')).toBe(lobby.party);
+    await bo.backend.get(lobby.id);
+    await settle();
+    expect(partyOf(hub, 'bo')).toBe(lobby.party);
+    await bo.backend.send(lobby.id, { type: 'leave' });
+    // Out of the party with the room: its leader can't drag them into its next one.
+    expect(partyOf(hub, 'bo')).toBeUndefined();
+    expect(partyOf(hub, 'ada')).toBe(lobby.party);
+  });
+
+  test("someone kicked is out of the party too, and a new lobby doesn't keep the old one's", async () => {
+    const hub = new Hub();
+    const [ada, bo] = players(hub, 'ada', 'bo');
+    const lobby = await ada.backend.create(player('ADA'), {});
+    await bo.backend.get(lobby.id);
+    await bo.backend.send(lobby.id, { type: 'join', player: player('BO') });
+    await settle();
+    expect(partyOf(hub, 'bo')).toBe(lobby.party);
+    await ada.backend.send(lobby.id, { type: 'kick', index: 1 });
+    await settle();
+    expect(partyOf(hub, 'bo')).toBeUndefined();
+    const next = await ada.backend.create(player('ADA'), {});
+    expect(next.party).not.toBe(lobby.party);
+    expect(partyOf(hub, 'ada')).toBe(next.party);
+  });
+
+  test("a lobby whose party is gone gets a new one from the SDK's host, and the others follow it", async () => {
+    const hub = new Hub();
+    const [ada, bo] = players(hub, 'ada', 'bo');
+    const lobby = await ada.backend.create(player('ADA'), {});
+    const room = hub.rooms.get(lobby.id)!;
+    await new Promise((r) => setTimeout(r, 10));
+    // The party went (everyone dropped out of it, say a server restart), but the room's still there.
+    hub.parties.clear();
+    room.state = { ...room.state, lobby: { ...(room.state.lobby as object), party: 'PGONE' } };
+    await bo.backend.get(lobby.id);
+    // Bo can't join it (and isn't the host): no party. Ada's next look (her page reloading) mends it.
+    await settle();
+    expect(partyOf(hub, 'bo')).toBeUndefined();
+    const ada2 = players(hub, 'ada')[0];
+    await ada2.backend.get(lobby.id);
+    await new Promise((r) => setTimeout(r, 10));
+    const mended = (room.state.lobby as { party?: string }).party;
+    expect(mended).not.toBe('PGONE');
+    expect(partyOf(hub, 'ada')).toBe(mended);
+    expect(partyOf(hub, 'bo')).toBe(mended);
   });
 });

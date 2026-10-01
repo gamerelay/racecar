@@ -59,7 +59,7 @@ const plate = loadPlate(storage());
 /** Online lobbies: GameRelay rooms, when the build has a key (VITE_GAMERELAY_KEY; .env.development has the local server's). */
 const relayKey = import.meta.env.VITE_GAMERELAY_KEY;
 const online = relayKey
-  ? new RelayBackend(() => GameRelay.connect({ publicKey: relayKey, playerName: plate, ...(import.meta.env.VITE_GAMERELAY_URL ? { url: import.meta.env.VITE_GAMERELAY_URL } : {}) }) as Promise<RelayLike>)
+  ? new RelayBackend(() => GameRelay.connect({ publicKey: relayKey, playerName: plate, lan: { direct: 'party' }, ...(import.meta.env.VITE_GAMERELAY_URL ? { url: import.meta.env.VITE_GAMERELAY_URL } : {}) }) as Promise<RelayLike>)
   : null;
 const lobbies = new Lobbies(local, online);
 // Behind a lobby, its map runs.
