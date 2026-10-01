@@ -1,14 +1,15 @@
-// Where lobbies live. The screens only talk to a LobbyBackend, so the local one (in this browser,
-// the only one until milestone 3) and the relay one (GameRelay rooms, with setListing and
-// listRooms from gamerelay PR #30) are interchangeable. Async throughout, as the relay's will be.
+// Where lobbies live. The screens only talk to a LobbyBackend, so the local one (in this browser)
+// and the relay one (GameRelay rooms: relay.ts) are interchangeable, and `Lobbies` puts both
+// behind one: your own lobby is local (`LOCAL_ID`), every other is a room, by its code.
 
 import { apply, createLobby, DEFAULT_OPTIONS, summarize, type Lobby, type LobbyAction, type LobbyOptions, type LobbySummary, type Player } from './lobby';
 
 export interface LobbyBackend {
-  /** Your player id. */
-  readonly you: string;
+  /** Your player id in lobby `id` (online it's the relay's, which is only known once connected). */
+  youIn(id: string): string;
   list(): Promise<LobbySummary[]>;
-  create(host: Player, init: { name?: string; visibility?: Lobby['visibility']; options?: Partial<LobbyOptions> }): Promise<Lobby>;
+  /** `online`: a GameRelay room (when there's a relay), else a lobby in this browser. */
+  create(host: Player, init: { name?: string; visibility?: Lobby['visibility']; options?: Partial<LobbyOptions>; online?: boolean }): Promise<Lobby>;
   get(id: string): Promise<Lobby | null>;
   /** Your action on a lobby: the lobby after it, or null if it was refused (or the lobby is gone). */
   send(id: string, action: LobbyAction): Promise<Lobby | null>;
@@ -33,6 +34,10 @@ export const LOCAL_ID = 'local';
  */
 export class LocalBackend implements LobbyBackend {
   readonly you = 'you';
+
+  youIn(): string {
+    return this.you;
+  }
   private memory: Lobby | null = null;
   private listeners = new Set<(lobby: Lobby | null) => void>();
 
@@ -98,5 +103,69 @@ export class LocalBackend implements LobbyBackend {
     const each = (lobby: Lobby | null) => fn(lobby && lobby.id === id ? lobby : null);
     this.listeners.add(each);
     return () => this.listeners.delete(each);
+  }
+}
+
+/** Online calls the screens wait on give up after this long (ms): a server that never answers isn't one. */
+const ONLINE_WAIT_MS = 5000;
+
+function inTime<T>(p: Promise<T>): Promise<T> {
+  return Promise.race([p, new Promise<never>((_, reject) => setTimeout(() => reject(new Error('timeout')), ONLINE_WAIT_MS))]);
+}
+
+/**
+ * Your local lobby and the online ones, as one backend. Without a relay (no key, or offline), only
+ * the local one: the list shows what it can and an online create fails.
+ */
+export class Lobbies implements LobbyBackend {
+  /** Why the online list is missing ('' when it isn't): shown on the title. */
+  offline = '';
+
+  constructor(
+    readonly local: LocalBackend,
+    readonly online: LobbyBackend | null,
+  ) {
+    if (!online) this.offline = 'Online lobbies need a GameRelay key (VITE_GAMERELAY_KEY).';
+  }
+
+  private of(id: string): LobbyBackend | null {
+    return id === LOCAL_ID ? this.local : this.online;
+  }
+
+  youIn(id: string): string {
+    return this.of(id)?.youIn(id) ?? '';
+  }
+
+  async list(): Promise<LobbySummary[]> {
+    const own = await this.local.list();
+    if (!this.online) return own;
+    try {
+      const rows = await inTime(this.online.list());
+      this.offline = '';
+      return [...own, ...rows];
+    } catch {
+      this.offline = "Can't reach the lobby server right now.";
+      return own;
+    }
+  }
+
+  async create(host: Player, init: Parameters<LobbyBackend['create']>[1]): Promise<Lobby> {
+    if (!init.online) return this.local.create(host, init);
+    if (!this.online) throw new Error(this.offline);
+    return this.online.create(host, init);
+  }
+
+  async get(id: string): Promise<Lobby | null> {
+    const backend = this.of(id);
+    if (!backend) return null;
+    return (await (backend === this.local ? backend.get(id) : inTime(backend.get(id))).catch(() => null)) ?? null;
+  }
+
+  async send(id: string, action: LobbyAction): Promise<Lobby | null> {
+    return (await this.of(id)?.send(id, action).catch(() => null)) ?? null;
+  }
+
+  subscribe(id: string, fn: (lobby: Lobby | null) => void): () => void {
+    return this.of(id)?.subscribe(id, fn) ?? (() => {});
   }
 }

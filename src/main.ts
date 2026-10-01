@@ -25,7 +25,9 @@ import { RaceUi } from './ui/race';
 import { accept, navigate } from './ui/nav';
 import { backToSetup, raceAgain, readChoices, readSetup, restart, type RaceSetup } from './ui/setup';
 import { Menu, type Preview } from './ui/menu';
-import { LocalBackend } from './lobby/backend';
+import { GameRelay } from '@gamerelay/sdk';
+import { Lobbies, LocalBackend, LOCAL_ID } from './lobby/backend';
+import { RelayBackend, type RelayLike } from './lobby/relay';
 import { roster } from './lobby/lobby';
 import { loadPlate } from './lobby/plate';
 import { CLASSES, LAYOUTS, MAPS, PAINTS, SURFACES } from './content';
@@ -49,12 +51,18 @@ const known = { cars: CLASSES.map((c) => c.id), paints: PAINTS.length, layouts: 
 const setup: RaceSetup | null = readSetup(params, DEFAULT_LAYOUT, known);
 // No setup yet: attract mode, a hard AI race on Downtown behind the menu.
 const attract = !setup;
-/** Lobbies in this browser (online ones come with milestone 3). */
-const lobbies = new LocalBackend(storage());
+/** Your lobby, in this browser. */
+const local = new LocalBackend(storage());
 /** Your plate: your name on your car, in lobbies and in the results. */
 const plate = loadPlate(storage());
+/** Online lobbies: GameRelay rooms, when the build has a key (VITE_GAMERELAY_KEY; .env.development has the local server's). */
+const relayKey = import.meta.env.VITE_GAMERELAY_KEY;
+const online = relayKey
+  ? new RelayBackend(() => GameRelay.connect({ publicKey: relayKey, playerName: plate, ...(import.meta.env.VITE_GAMERELAY_URL ? { url: import.meta.env.VITE_GAMERELAY_URL } : {}) }) as Promise<RelayLike>)
+  : null;
+const lobbies = new Lobbies(local, online);
 // Behind a lobby, its map runs.
-const lobbyMap = params.get('lobby') ? lobbies.peek(params.get('lobby')!)?.options.map : undefined;
+const lobbyMap = params.get('lobby') ? local.peek(params.get('lobby')!)?.options.map : undefined;
 const run: RaceSetup = setup ?? { mode: 'race', map: resolveLayout(params.get('map') ?? lobbyMap, LAYOUT_KEYS) ?? DEFAULT_LAYOUT, car: 'coupe', paint: 0, seats: 'hnehnehn', laps: 3, weather: 'random', time: 'day', mayhem: 'normal', traffic: true, seed: Math.floor(Math.random() * 1e9) };
 let layoutKey = resolveLayout(run.map, LAYOUT_KEYS) ?? DEFAULT_LAYOUT;
 
@@ -110,8 +118,13 @@ if (attract) {
   // Back from a race (Main menu, Change setup): its choices are the defaults.
   screens = new Menu(lobbies, { maps: MAPS, layouts: LAYOUTS, classes: CLASSES, paints: PAINTS }, readChoices(params, layoutKey, known), plate, storage());
   screens.onPreview = preview;
+  screens.online = !!online;
+  screens.offline = () => lobbies.offline;
   void screens.open(params.get('lobby'));
 }
+// An online lobby's race: the race page stays in its room, so your seat is still yours after it
+// (a reload resumes the same player, and a seat waits 30 s for a dropped one).
+if (setup?.lobby && setup.lobby !== LOCAL_ID) void lobbies.get(setup.lobby);
 
 /** Behind the lobby: its map and weather, and your car on the table; off the lobby, just the race. */
 function preview(p: Preview | null): void {

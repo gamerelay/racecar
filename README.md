@@ -19,6 +19,11 @@ bun install
 bun run dev        # http://localhost:5178
 ```
 
+Online lobbies need a GameRelay server. In dev, `.env.development` points at a local one: run
+`bun run dev` in the gamerelay.io repo (it serves :8787 with the dev key `gr_pub_dev`), and open
+two tabs (each tab is its own player). Without it, the title says it can't reach the lobby
+server, and your own lobby still works.
+
 | | Keyboard | Gamepad |
 |---|---|---|
 | Drive | WASD / arrows | left stick, RT, LT |

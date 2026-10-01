@@ -47,6 +47,8 @@ export interface Lobby {
   phase: 'lobby' | 'racing';
   options: LobbyOptions;
   seats: Seat[];
+  /** The race's seed, set at the start: online, everyone in the lobby races the same race. */
+  seed?: number;
 }
 
 /** A row in the lobby list. */
@@ -76,7 +78,7 @@ export type LobbyAction =
   | { type: 'join'; player: Player }
   | { type: 'leave' }
   | { type: 'kick'; index: number }
-  | { type: 'start' }
+  | { type: 'start'; seed?: number }
   | { type: 'end' };
 
 export const DEFAULT_OPTIONS: LobbyOptions = { map: 'downtown/downtown', laps: 2, weather: 'random', time: 'random', mayhem: 'normal', traffic: true };
@@ -183,6 +185,7 @@ export function apply(lobby: Lobby, actor: string, action: LobbyAction): Lobby |
     case 'start': {
       if (!isHost || lobby.phase !== 'lobby' || !allReady(lobby)) return null;
       next.phase = 'racing';
+      if (action.seed !== undefined) next.seed = action.seed;
       return next;
     }
     case 'end': {

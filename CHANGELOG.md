@@ -6,6 +6,12 @@ and where things stand is [docs/HANDOFF.md](./docs/HANDOFF.md).
 
 ## Unreleased
 
+- **Online lobbies** (milestone 3, part 1). A lobby can be a GameRelay room: listed for anyone,
+  or private by its invite link. Others join from the title, and seats, cars, ready and options
+  sync. The host's Start takes everyone seated into the same race (same seed), and the room keeps
+  each seat through it. Other players' cars don't show in the race yet. Your own lobby, quick
+  race and free drive stay in this browser.
+
 ## alpha-1.13: Downtown's field wrecks
 
 PR #31.

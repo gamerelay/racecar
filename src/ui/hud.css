@@ -208,6 +208,8 @@ svg.thumb .cut { stroke: var(--sun); stroke-width: 1.5; stroke-dasharray: 3 2; }
 .card .sub { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 0; color: var(--muted); font-size: 13px; margin: 0 0 22px; }
 /* Items with room between them, split by a dim dot. */
 .card .sub span + span::before { content: '·'; margin: 0 14px; opacity: 0.5; }
+/* An online lobby's invite link, at the end of its line. */
+.card .sub .invite { margin-left: 14px; padding: 2px 10px; font-size: 0.85em; vertical-align: middle; }
 .seats { width: 100%; border-collapse: collapse; font-size: 14px; }
 .seats th { text-align: left; color: var(--muted); font-weight: 700; padding: 6px 10px 8px; border-bottom: 2px solid var(--muted); }
 .seats td { padding: 0 10px; border-bottom: 1px solid rgba(216, 198, 242, 0.2); height: 56px; vertical-align: middle; }

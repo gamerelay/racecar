@@ -1535,6 +1535,45 @@ Landmarks, part 1: Downtown (PLAN phase 6):
 - **Cost:** each landmark's still boxes are one instanced mesh, and the clock's four dials, four
   readouts and eight hands are three draws. All five together are ~11 draw calls.
 
+Online lobbies (milestone 3, part 1, 2026-09-30):
+
+- **A lobby is a GameRelay room** (`src/lobby/relay.ts`, `RelayBackend`), tagged `race`. The
+  lobby lives in `room.state.lobby`, and only the SDK's host writes it. Everyone else sends
+  their actions to that host (`room.request('lobby', …)`), and it applies them with the same
+  `apply` a local lobby uses. So the rules (who sets seats, who starts) are one piece of code.
+- **The SDK's host isn't the lobby's host.** The SDK's role moves on its own: a reload, a hidden
+  tab, and every race is a reload. The lobby's host (`lobby.host`, who sets the seats and starts)
+  changes only when they leave. Whoever holds the SDK's role applies the actions, and `apply`
+  checks the lobby's host, so the role can hop mid-lobby and nothing changes.
+- **Actions from others are checked first** (`readAction`): shapes, ranges and known values, and
+  a join is always the sender's own (the id the server vouches for, not the one in the action).
+  A room's listing is a host's JSON, so the list checks it too (`readListing`).
+- **The room lists show the lobby's summary** (`setListing`: name, plus map, laps, phase, pips,
+  players), sent when it changes and at most once a second (the SDK allows 10 in a row, then one a
+  second). A private lobby is an unlisted room (`setAccess({ public })`), joined by its link.
+- **Your own lobby stays local.** `Lobbies` (backend.ts) puts both behind the screens: `local` is
+  this browser's, and every other id is a room code. Quick race and free drive still use yours.
+  Create lobby asks who can join: anyone (listed online), friends (by link), or just you. The
+  interface's `you` became `youIn(id)`, since online your id is the relay's.
+- **A race keeps your seat.** A race is still a page load. The race page joins the room again (a
+  reload resumes the same player), so the room lives through many races. The host's Start
+  carries a seed (`{ type: 'start', seed }`, kept as `lobby.seed`), and everyone seated follows
+  the lobby into the same race when it turns `racing`. Only that change moves you: opening a
+  lobby that's already racing doesn't. When the lobby's host comes back to it, it's reopened.
+  Players still racing come back to it when they finish.
+- **Not yet: other players' cars.** Each player races the same race (same map, seed, AIs and
+  weather) with the others' seats empty. Remote cars are the `net/` layer, next.
+- **Someone gone for good gives up their seat.** On `player_left` (after the SDK's 30 s grace),
+  and when the SDK's role passes to someone, the host opens the seats of anyone no longer in the
+  room. A kick also puts them out of the room (not banned).
+- **Offline is fine.** Without `VITE_GAMERELAY_KEY` there's no relay, and the title says so. With
+  one and no server, the list shows your own lobby and "Can't reach the lobby server". Online
+  calls the screens wait on give up after 5 s. `.env.development` points dev at the local
+  GameRelay server (`gr_pub_dev`, `http://localhost:8787`).
+- **The SDK is a dependency now** (`@gamerelay/sdk` 0.1.0-alpha.4, 28 KB gzipped).
+  `bunfig.toml` exempts it from the global 7-day `minimumReleaseAge`, since it's ours and every
+  release is newer than that.
+
 Downtown's field wrecks (sweep, 2026-09-30):
 
 - **1.0 a race over 16 seeds** (0.88 on seeds 1–8; 1.13 at `alpha-1.11`, before the landmarks
