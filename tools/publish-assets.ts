@@ -30,10 +30,10 @@ const env = (k: string) => {
 // Made when uploading: a --dry run needs no keys.
 const client = () =>
   new S3Client({
-  accessKeyId: env('DIGITAL_OCEAN_STORAGE_ACCESS_ID'),
-  secretAccessKey: env('DIGITAL_OCEAN_STORAGE_SECRET_KEY'),
-  bucket: env('DIGITAL_OCEAN_STORAGE_BUCKET_NAME'),
-  endpoint: env('DIGITAL_OCEAN_STORAGE_BUCKET_ENDPOINT'),
+    accessKeyId: env('DIGITAL_OCEAN_STORAGE_ACCESS_ID'),
+    secretAccessKey: env('DIGITAL_OCEAN_STORAGE_SECRET_KEY'),
+    bucket: env('DIGITAL_OCEAN_STORAGE_BUCKET_NAME'),
+    endpoint: env('DIGITAL_OCEAN_STORAGE_BUCKET_ENDPOINT'),
   });
 let s3: S3Client | null = null;
 
