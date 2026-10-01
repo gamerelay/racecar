@@ -70,6 +70,8 @@ export interface RemotePose {
   drift: boolean;
   boosting: boolean;
   wreck: boolean;
+  /** Just respawned and passing through others (on its own screen too). */
+  ghost: boolean;
 }
 
 export class Sim implements SimState {
@@ -146,7 +148,9 @@ export class Sim implements SimState {
     const cls = this.classes.findIndex((c) => c.id === spec.cls);
     if (cls < 0) throw new Error(`unknown car class ${spec.cls}`);
     const c = this.cars;
-    c.active[i] = 1;
+    // Another player's car joins the race when it first shows up (net/cars.ts): one that never
+    // does isn't a car parked on the grid.
+    c.active[i] = spec.remote ? 0 : 1;
     c.cls[i] = cls;
     c.paint[i] = spec.paint ?? i;
     c.human[i] = spec.human ? 1 : 0;
@@ -317,6 +321,8 @@ export class Sim implements SimState {
     c.drift[i] = p.drift ? 1 : 0;
     c.boosting[i] = p.boosting ? 1 : 0;
     c.wreck[i] = p.wreck ? 1 : 0;
+    // Ghosted while it's said to be (this sim doesn't count it down: it doesn't step the car).
+    c.ghostT[i] = p.ghost ? 1 : 0;
   }
 
   /** One fixed step. `input[i]` drives car i (humans); drivers fill in the rest. */

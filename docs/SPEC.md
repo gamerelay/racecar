@@ -1564,8 +1564,16 @@ Remote cars (milestone 3, part 2, 2026-10-01):
   car not going out.
 - **An online race doesn't pause.** The pause menu still opens, but your car coasts on neutral
   controls and the others keep driving.
-- **A player who leaves** (their entity goes) leaves the race. One who hasn't shown up yet waits
-  on the grid.
+- **A player's car joins the race when it first shows up**, and leaves it when their entity goes.
+  `addCar` leaves a remote car out until then, so one who never connects isn't a car parked on
+  the grid (where it would be a wall: your car takes all the push off a remote one).
+- **From the review:**
+  - An online race has no world slow-mo for your wreck. Your sim would run slow, you'd crawl on
+    everyone else's screen, and your race clock (and finish time) would fall behind theirs.
+  - A respawned car's ghost goes out with it (`ghost`), so you pass through it as its owner does.
+  - Race again from an online race is a race of your own: the net layer needs the link's online
+    parts (`others` or `at`). That page only keeps your seat in the room; it doesn't send a car
+    into the others' race.
 - **Not yet:** the AIs are each client's own (the same seed, but they drift apart as players race
   differently). Traffic hits, hazards and finishes are each screen's own too, as are results.
   Next come host-owned rival entities, `room.claim` for traffic, and the host's results.

@@ -71,9 +71,15 @@ let layout: TrackLayout = structuredClone(LAYOUTS[layoutKey] ?? Object.values(LA
 const mapOf = (key: string) => MAPS.find((m) => key.startsWith(m.id + '/')) ?? MAPS[0];
 let map = mapOf(layoutKey);
 
+/**
+ * An online race: the others drive their own cars (net/cars.ts), and the lights go green together.
+ * A race of your own from an online lobby (Race again) isn't one: it only keeps your seat.
+ */
+const onlineRace = !!(run.mode === 'race' && run.lobby && run.lobby !== LOCAL_ID && online && (run.others || run.at) && run.seats.includes('p'));
 const sim = new Sim(bakeTrack(layout, SURFACES), CLASSES, SURFACES, {
   seed: run.seed,
-  slowmo: 'world',
+  // Your wreck slows the world only when it's yours alone: online the others don't slow down.
+  slowmo: onlineRace ? 'wreck' : 'world',
   weather: run.weather,
   weatherAllowed: map.weather,
   mayhem: run.mayhem,
@@ -84,12 +90,12 @@ const { specs, names, me: you, remote } = roster(run.seats, CLASSES.map((c) => c
 for (const s of specs) sim.addCar(s);
 /** The car the HUD, telemetry and the debug readout follow: yours, or the attract race's first. */
 const me = Math.max(0, you);
-/** An online race: the others drive their own cars (net/cars.ts), and the lights go green together. */
-const onlineRace = !!(run.mode === 'race' && run.lobby && run.lobby !== LOCAL_ID && online && you >= 0);
 // Online, the countdown holds until the connection says when green is (`run.at`, the server's clock).
 if (run.mode === 'race') sim.startRace(run.laps, attract ? 1 : onlineRace ? 30 : 4);
 let net: NetCars | null = null;
 if (onlineRace) void joinRace();
+// A race of your own from an online lobby: the page still stays in its room, so your seat is still yours after it.
+else if (run.lobby && run.lobby !== LOCAL_ID && online) void lobbies.get(run.lobby);
 
 /** The race page stays in its lobby's room (your seat is still yours after it), and your car goes out. */
 async function joinRace(): Promise<void> {

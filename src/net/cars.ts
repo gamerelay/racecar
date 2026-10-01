@@ -61,6 +61,7 @@ export const CAR_FIELDS = {
   drift: 'flag',
   boosting: 'flag',
   wreck: 'flag',
+  ghost: 'flag',
 } as const;
 
 const n = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) ? v : 0);
@@ -86,6 +87,7 @@ export function predict(e: Record<string, unknown>, lead: number): RemotePose {
     drift: !!e.drift,
     boosting: !!e.boosting,
     wreck: !!e.wreck,
+    ghost: !!e.ghost,
   };
 }
 
@@ -141,6 +143,7 @@ export class NetCars {
       drift: c.drift[i] === 1,
       boosting: c.boosting[i] === 1,
       wreck: c.wreck[i] === 1,
+      ghost: c.ghostT[i] > 0,
     };
   }
 
@@ -160,8 +163,8 @@ export class NetCars {
       this.sim.setPose(i, predict(e, lead));
       this.sim.controls[i].steer = n(e.steer);
     }
-    // Gone for good (left the room): their car leaves the race. One not seen yet is still loading,
-    // and waits on the grid.
+    // Gone for good (left the room): their car leaves the race. One not seen yet isn't in it yet
+    // (`addCar` leaves a remote car out until it shows up).
     for (const [id, i] of this.remote) if (this.seen.has(id) && !here.has(id)) this.sim.cars.active[i] = 0;
   }
 

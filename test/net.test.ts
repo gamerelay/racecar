@@ -124,15 +124,33 @@ describe('remote cars', () => {
     expect(Math.hypot(bo.sim.cars.x[1] - boAt[0], bo.sim.cars.z[1] - boAt[1])).toBeGreaterThan(0.1);
   });
 
-  test("a car whose player left goes from the race; one that hasn't shown up yet waits on the grid", () => {
+  test("a car whose player left goes from the race, and one that hasn't shown up isn't in it (no car parked on the grid)", () => {
     const { hub, ada, bo } = twoPlayers();
+    // Bo's page hasn't connected yet.
+    const boCar = hub.entities.find((e) => e.owner === 'bo')!;
+    boCar.removed = true;
     step(ada);
-    expect(ada.sim.cars.active[1]).toBe(1);
+    expect(ada.sim.cars.active[1]).toBe(0);
+    boCar.removed = false;
     step(bo);
     step(ada);
+    expect(ada.sim.cars.active[1]).toBe(1);
     hub.entities.find((e) => e.owner === 'bo')!.removed = true;
     step(ada);
     expect(ada.sim.cars.active[1]).toBe(0);
+  });
+
+  test("a car ghosted on its own screen (just respawned) is ghosted on yours: you pass through it", () => {
+    const { ada, bo } = twoPlayers();
+    step(bo);
+    bo.sim.cars.ghostT[1] = 1.5;
+    step(bo);
+    step(ada);
+    expect(ada.sim.cars.ghostT[1]).toBeGreaterThan(0);
+    bo.sim.cars.ghostT[1] = 0;
+    step(bo);
+    step(ada);
+    expect(ada.sim.cars.ghostT[1]).toBe(0);
   });
 
   test('a reset is a teleport (everyone snaps), and the lights go green on the server clock, whatever the sim clock says', () => {
