@@ -4,6 +4,7 @@
 
 import {
   AdditiveBlending,
+  CanvasTexture,
   BoxGeometry,
   BufferAttribute,
   BufferGeometry,
@@ -237,6 +238,29 @@ export function buildWorldVisual(scene: Scene, sim: Sim, roof?: (x: number, z: n
   root.add(rain);
   const seeds = Float32Array.from({ length: DROPS * 3 }, () => Math.random());
 
+  // ---- snow (a map whose weather lists snow): flakes drifting down and swaying in a bigger box ----
+  const FLAKES = 2600;
+  const flakePos = new Float32Array(FLAKES * 3);
+  const flakeGeo = new BufferGeometry();
+  flakeGeo.setAttribute('position', new BufferAttribute(flakePos, 3));
+  // A soft round dot, not the square a point draws by default.
+  const dot = document.createElement('canvas');
+  dot.width = dot.height = 32;
+  const dctx = dot.getContext('2d');
+  if (dctx) {
+    const grad = dctx.createRadialGradient(16, 16, 0, 16, 16, 16);
+    grad.addColorStop(0, 'rgba(255,255,255,1)');
+    grad.addColorStop(0.5, 'rgba(255,255,255,0.8)');
+    grad.addColorStop(1, 'rgba(255,255,255,0)');
+    dctx.fillStyle = grad;
+    dctx.fillRect(0, 0, 32, 32);
+  }
+  const flakes = new Points(flakeGeo, new PointsMaterial({ color: 0xffffff, size: 0.3, map: new CanvasTexture(dot), transparent: true, opacity: 0.9, depthWrite: false }));
+  flakes.frustumCulled = false;
+  flakes.visible = false;
+  root.add(flakes);
+  const flakeSeeds = Float32Array.from({ length: FLAKES * 3 }, () => Math.random());
+
   function onEvent(ev: GameEvent): void {
     if (ev.type !== Ev.TrafficWreck) return;
     const k = ev.other;
@@ -414,8 +438,30 @@ export function buildWorldVisual(scene: Scene, sim: Sim, roof?: (x: number, z: n
         (r.material as MeshBasicMaterial).opacity = 0.3 + 0.5 * u;
       }
 
+      // Snow, where it snows instead of raining: slow, swaying, and wrapped round the camera so a
+      // car at speed drives through it.
+      flakes.visible = sim.snowing && sim.wetness > 0.05;
+      if (flakes.visible) {
+        const box = 80;
+        rainT += dt;
+        const time = rainT;
+        for (let d = 0; d < FLAKES; d++) {
+          const a = flakeSeeds[d * 3];
+          const b = flakeSeeds[d * 3 + 1];
+          const c = flakeSeeds[d * 3 + 2];
+          const sway = Math.sin(time * (0.6 + a) + c * 40) * 1.2;
+          const wrap = (v: number, at: number) => at + ((((v - at) % box) + box * 1.5) % box) - box / 2;
+          const j = d * 3;
+          flakePos[j] = wrap(a * box * 7 + sway, cam.x);
+          flakePos[j + 1] = cam.y + 30 - ((c * 50 + time * (2 + b * 1.5)) % 50);
+          flakePos[j + 2] = wrap(b * box * 7 + Math.cos(time * 0.5 + a * 30) * 1.2, cam.z);
+        }
+        (flakeGeo.attributes.position as BufferAttribute).needsUpdate = true;
+        (flakes.material as PointsMaterial).opacity = 0.9 * Math.min(1, sim.wetness * 1.5);
+      }
+
       // Rain.
-      rain.visible = sim.wetness > 0.05;
+      rain.visible = !sim.snowing && sim.wetness > 0.05;
       if (rain.visible) {
         const box = 60;
         const fall = 40;

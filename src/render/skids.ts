@@ -1,7 +1,8 @@
 // Skid marks: rubber laid down under the rear wheels in a slide, a drift or a hard stop, dark on
 // asphalt and churned on dirt and grass. One pooled ring of quads (one draw call): each wheel
 // extends its own strip, the oldest marks are overwritten first, and a mark fades out with age.
-// Presentation only: the sim never sees them.
+// Presentation only: the sim never sees them. A second, bigger ring (the renderer's snow tracks)
+// keeps tyre tracks in snow for a whole run, in longer segments.
 
 import { AddEquation, BufferAttribute, BufferGeometry, CustomBlending, DoubleSide, DstColorFactor, Mesh, OneFactor, ShaderMaterial, ZeroFactor } from 'three';
 
@@ -28,10 +29,10 @@ interface Strip {
 
 export class Skids {
   readonly mesh: Mesh;
-  private readonly pos = new Float32Array(MAX * 4 * 3);
-  private readonly col = new Float32Array(MAX * 4 * 3);
+  private readonly pos: Float32Array;
+  private readonly col: Float32Array;
   /** Per vertex: born (s), alpha, side (-1 or 1, for the soft edges). */
-  private readonly info = new Float32Array(MAX * 4 * 3);
+  private readonly info: Float32Array;
   private readonly geo = new BufferGeometry();
   private readonly material: ShaderMaterial;
   private readonly strips = new Map<number, Strip>();
@@ -41,9 +42,17 @@ export class Skids {
   private dirtyCount = 0;
   private time = 0;
 
-  constructor() {
-    const index = new Uint32Array(MAX * 6);
-    for (let k = 0; k < MAX; k++) {
+  /** `max` segments in the ring, each mark lasting `life` s, a segment every `step` m. */
+  constructor(
+    private readonly max = MAX,
+    life = SKID_LIFE,
+    private readonly step = STEP,
+  ) {
+    this.pos = new Float32Array(max * 4 * 3);
+    this.col = new Float32Array(max * 4 * 3);
+    this.info = new Float32Array(max * 4 * 3);
+    const index = new Uint32Array(max * 6);
+    for (let k = 0; k < max; k++) {
       const v = k * 4;
       index.set([v, v + 1, v + 2, v + 2, v + 1, v + 3], k * 6);
     }
@@ -52,7 +61,7 @@ export class Skids {
     this.geo.setAttribute('color', new BufferAttribute(this.col, 3));
     this.geo.setAttribute('info', new BufferAttribute(this.info, 3));
     this.material = new ShaderMaterial({
-      uniforms: { uTime: { value: 0 }, uLife: { value: SKID_LIFE }, uFogNear: { value: 1e5 }, uFogFar: { value: 2e5 } },
+      uniforms: { uTime: { value: 0 }, uLife: { value: life }, uFogNear: { value: 1e5 }, uFogFar: { value: 2e5 } },
       side: DoubleSide,
       transparent: true,
       depthWrite: false,
@@ -108,7 +117,7 @@ export class Skids {
     const dx = x - s.x;
     const dz = z - s.z;
     const d = Math.hypot(dx, dz);
-    if (d < STEP) return;
+    if (d < this.step) return;
     if (d > JUMP) {
       // Teleported (a respawn, a reset): start over from here.
       s.joined = false;
@@ -155,7 +164,7 @@ export class Skids {
     s.x = x;
     s.y = y;
     s.z = z;
-    this.head = (k + 1) % MAX;
+    this.head = (k + 1) % this.max;
     if (this.dirtyFrom < 0) this.dirtyFrom = k;
     this.dirtyCount++;
   }
@@ -174,12 +183,12 @@ export class Skids {
     u.uFogNear.value = fogNear;
     u.uFogFar.value = fogFar;
     if (this.dirtyCount === 0) return;
-    const count = Math.min(MAX, this.dirtyCount);
+    const count = Math.min(this.max, this.dirtyCount);
     for (const name of ['position', 'color', 'info']) {
       const a = this.geo.getAttribute(name) as BufferAttribute;
       a.clearUpdateRanges();
       const first = this.dirtyFrom;
-      const run = Math.min(count, MAX - first);
+      const run = Math.min(count, this.max - first);
       a.addUpdateRange(first * 12, run * 12);
       if (run < count) a.addUpdateRange(0, (count - run) * 12);
       a.needsUpdate = true;
@@ -195,13 +204,13 @@ export class Skids {
     for (const s of this.strips.values()) s.on = false;
     this.head = 0;
     this.dirtyFrom = 0;
-    this.dirtyCount = MAX;
+    this.dirtyCount = this.max;
   }
 
   /** How many segments are laid (for tests and the debug panel). */
   get laid(): number {
     let n = 0;
-    for (let k = 0; k < MAX; k++) if (this.info[k * 12 + 7] > 0 || this.info[k * 12 + 10] > 0) n++;
+    for (let k = 0; k < this.max; k++) if (this.info[k * 12 + 7] > 0 || this.info[k * 12 + 10] > 0) n++;
     return n;
   }
 

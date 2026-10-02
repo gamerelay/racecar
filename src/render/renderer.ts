@@ -32,6 +32,15 @@ const SKID_WIDTH = 0.4;
 const SKID_ROAD = [0.3, 0.28, 0.34] as const;
 const SKID_DIRT = [0.55, 0.42, 0.3] as const;
 const SKID_GRASS = [0.5, 0.62, 0.36] as const;
+/**
+ * Tracks in snow (docs/AVALANCHE.md): every wheel on a snow surface leaves one, not just a slide,
+ * and they last the whole run: faint and narrow on the groomed piste, deep and wide in powder.
+ */
+const TRACK_SEGMENTS = 24000;
+const TRACK_LIFE = 900;
+const TRACK_STEP = 1.2;
+const TRACK_GROOMED = [0.8, 0.85, 0.94] as const;
+const TRACK_POWDER = [0.6, 0.68, 0.84] as const;
 
 export interface RenderOptions {
   post: boolean;
@@ -89,6 +98,8 @@ export class GameRenderer {
   private readonly ink = new InkPass(1, 1);
   private readonly fx = new Particles();
   private readonly skids = new Skids();
+  /** Tracks in snow, made the first time a map has snow to leave them in (they're a big ring). */
+  private snowTracks: Skids | null = null;
   private readonly skidHit = newHit();
   private readonly scenicHit = newHit();
   /** Where the car select's camera is along the lap (m). */
@@ -177,6 +188,7 @@ export class GameRenderer {
     this.scene.add(this.trackVisual.debug);
     // Marks lie on the old road.
     this.skids.clear();
+    this.snowTracks?.clear();
     // Gantries and the like are placed from the track, so the world visual is rebuilt too.
     this.worldVisual.dispose();
     this.worldVisual = this.skin.world(this.scene, this.sim, this.trackVisual);
@@ -317,6 +329,7 @@ export class GameRenderer {
     this.fx.update(sdt);
     const haze = this.scene.fog as Fog | null;
     this.skids.update(sdt, haze?.near, haze?.far);
+    this.snowTracks?.update(sdt, haze?.near, haze?.far);
     this.updateCamera(dt);
     // The turntable rides in front of the camera, so it's placed once the camera has moved.
     if (this.showroom.visible) {
@@ -333,7 +346,7 @@ export class GameRenderer {
     this.live.leader = this.opts.plates?.[positions(this.sim, this.order)[0]]?.text ?? null;
     this.live.wetness = this.sim.wetness;
     this.trackVisual.update?.(this.worldTime, sdt, this.camera.position, this.live);
-    this.skin.update?.(this.worldTime, this.camera.position.x, this.camera.position.y, this.camera.position.z, this.sim.wetness);
+    this.skin.update?.(this.worldTime, this.camera.position.x, this.camera.position.y, this.camera.position.z, this.sim.wetness, this.sim.snowing);
 
     const stage = this.showroom.visible ? this.showroom : null;
     if (stage) {
@@ -356,7 +369,8 @@ export class GameRenderer {
       u.uFogFar.value = fog.far;
       u.uSky.value.copy(fog.color);
     }
-    u.uWet.value = this.sim.wetness;
+    // Snowfall doesn't wet the road (no sheen on the snow).
+    u.uWet.value = this.sim.snowing ? 0 : this.sim.wetness;
     u.uWater.value = this.trackVisual.water ? 1 : 0;
     this.camera.updateMatrixWorld();
     u.uProj.value.copy(this.camera.projectionMatrix);
@@ -538,7 +552,11 @@ export class GameRenderer {
     const stopping = braking && fwd > 18;
     const surf = this.sim.surfaces[c.surface[i]];
     const near = Math.hypot(x - this.camera.position.x, z - this.camera.position.z) < SKID_RANGE;
-    const on = near && c.grounded[i] === 1 && !c.wreck[i] && speed > 4 && (sliding || stopping) && surf?.id !== 'puddle';
+    const down = near && c.grounded[i] === 1 && !c.wreck[i] && speed > 4;
+    // In snow, tracks instead of rubber: always, deeper in a slide.
+    const snow = !!surf?.slide;
+    if (snow || this.snowTracks) this.snowMarks(i, x, z, h, down && snow, surf?.offroad ? 1 : 0, sliding);
+    const on = down && !snow && (sliding || stopping) && surf?.id !== 'puddle';
     const cls = this.sim.classes[c.cls[i]];
     const fx = Math.sin(h);
     const fz = Math.cos(h);
@@ -557,6 +575,35 @@ export class GameRenderer {
       // On the road's surface under the wheel (banked, ramped), not the car's middle.
       project(this.sim.track.splines[c.spline[i]], wx, wz, c.s[i], this.skidHit);
       this.skids.mark(key, wx, this.skidHit.ground, wz, SKID_WIDTH, r, g, b, alpha);
+    }
+  }
+
+  /** Car `i`'s rear wheels' tracks in snow while `on`: `deep` 1 in powder, 0 on the groomed piste. */
+  private snowMarks(i: number, x: number, z: number, h: number, on: boolean, deep: number, sliding: boolean): void {
+    if (!this.snowTracks) {
+      if (!on) return;
+      this.snowTracks = new Skids(TRACK_SEGMENTS, TRACK_LIFE, TRACK_STEP);
+      this.scene.add(this.snowTracks.mesh);
+    }
+    const tracks = this.snowTracks;
+    const c = this.sim.cars;
+    const cls = this.sim.classes[c.cls[i]];
+    const fx = Math.sin(h);
+    const fz = Math.cos(h);
+    const back = cls.size[1] - 0.6;
+    const [r, g, b] = deep ? TRACK_POWDER : TRACK_GROOMED;
+    const alpha = (deep ? 0.7 : 0.45) + (sliding ? 0.2 : 0);
+    for (let side = -1; side <= 1; side += 2) {
+      const key = i * 2 + (side > 0 ? 1 : 0);
+      if (!on) {
+        tracks.lift(key);
+        continue;
+      }
+      const lat = side * (cls.size[0] - 0.2);
+      const wx = x - fx * back - fz * lat;
+      const wz = z - fz * back + fx * lat;
+      project(this.sim.track.splines[c.spline[i]], wx, wz, c.s[i], this.skidHit);
+      tracks.mark(key, wx, this.skidHit.ground, wz, deep ? 0.6 : 0.45, r, g, b, alpha);
     }
   }
 

@@ -95,6 +95,16 @@ describe('skid marks', () => {
     expect(sk.laid).toBe(before);
   });
 
+  test("snow's ring: its own size and segment length, and the oldest overwritten when it's full", () => {
+    const sk = new Skids(40, 900, 1.2);
+    drive(sk, 0, 0, 12);
+    // ~1.2 m a segment over 12 m.
+    expect(sk.laid).toBeGreaterThanOrEqual(9);
+    expect(sk.laid).toBeLessThanOrEqual(11);
+    drive(sk, 0, 12.25, 200);
+    expect(sk.laid).toBe(40);
+  });
+
   test('the ring wraps: old marks are overwritten, never more than it holds', () => {
     const sk = new Skids();
     drive(sk, 1, 0, 4000);

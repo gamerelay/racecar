@@ -1,7 +1,9 @@
 // Weather (SPEC §7, category D): a timeline chosen from the seed at the start of the race, then a
 // pure function of race time. Wetness lowers grip, turns on `when: "wet"` zones (puddles) and
 // thickens the fog; the skin draws the rain. A map whose weather lists `shower` (Paradise) gets
-// tropical showers for random weather: rain that rolls in partway through and passes again.
+// tropical showers for random weather: rain that rolls in partway through and passes again. A map
+// whose weather lists `snow` (Avalanche) gets snowfall wherever another map gets rain: a little less
+// grip, no puddles, the fog closing in, and the skin draws flakes.
 
 import { Rng } from '../rng';
 
@@ -16,6 +18,8 @@ export interface WeatherPlan {
   /** A shower: it clears again, back to `from` over [t2, t3]. */
   t2?: number;
   t3?: number;
+  /** It snows rather than rains (the map lists `snow`). */
+  snow?: boolean;
 }
 
 export interface WeatherState {
@@ -29,7 +33,13 @@ export interface WeatherState {
 
 /** Picks the race's weather. `allowed` is the map's list (a desert never rains). */
 export function planWeather(option: WeatherOption, seed: number, allowed: string[] = ['clear', 'rain']): WeatherPlan {
-  const canRain = allowed.includes('rain');
+  const plan = planFall(option, seed, allowed);
+  return allowed.includes('snow') ? { ...plan, snow: true } : plan;
+}
+
+/** Rain's timeline, or snow's (the same, under another sky). */
+function planFall(option: WeatherOption, seed: number, allowed: string[]): WeatherPlan {
+  const canRain = allowed.includes('rain') || allowed.includes('snow');
   if (option === 'clear' || !canRain) return { from: 0, to: 0, t0: 0, t1: 0 };
   if (option === 'rain') return { from: 1, to: 1, t0: 0, t1: 0 };
   const r = Rng.stream(seed, 'weather');
@@ -53,8 +63,8 @@ export function weatherAt(plan: WeatherPlan, t: number, out: WeatherState): Weat
   if (plan.t2 !== undefined && plan.t3 !== undefined) u -= ramp(plan.t2, plan.t3);
   const w = plan.from + (plan.to - plan.from) * u;
   out.wetness = w;
-  out.grip = 1 - 0.2 * w;
-  out.wet = w > 0.5;
-  out.visibility = 1 - 0.4 * w;
+  out.grip = 1 - (plan.snow ? 0.1 : 0.2) * w;
+  out.wet = !plan.snow && w > 0.5;
+  out.visibility = 1 - (plan.snow ? 0.55 : 0.4) * w;
   return out;
 }

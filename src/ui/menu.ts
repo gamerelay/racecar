@@ -481,6 +481,12 @@ export class Menu {
     return chooser(id, opts, value, disabled);
   }
 
+  /** The weather choices: on a map where it snows (map.json lists `snow`), rain's is snow's. */
+  private weathers(key: string): [string, string][] {
+    const snow = this.content.maps.find((m) => key.startsWith(m.id + '/'))?.weather.includes('snow');
+    return snow ? WEATHERS.map(([v, l]) => [v, v === 'rain' ? 'Snow' : l]) : WEATHERS;
+  }
+
   /** A race's length in words: "3 laps", or "one run" on a map that's one run down (layout.run). */
   private lapsText(map: string, laps: number): string {
     return this.layout(map)?.run ? 'one run' : `${laps} lap${laps === 1 ? '' : 's'}`;
@@ -499,7 +505,7 @@ export class Menu {
     const maps: [string, string][] = Object.keys(this.content.layouts).map((k) => [k, this.mapName(k)]);
     return `<label>Map ${this.sel('oMap', maps, o.map, disabled)}</label>
       ${this.lapsField(o.map, o.laps, disabled)}
-      <label>Weather ${this.sel('oWeather', WEATHERS, o.weather, disabled)}</label>
+      <label>Weather ${this.sel('oWeather', this.weathers(o.map), o.weather, disabled)}</label>
       <label>Time ${this.sel('oTime', TIMES, o.time, disabled || !this.hasSunset(o.map))}</label>
       <label>Mayhem ${this.sel('oMayhem', MAYHEMS, o.mayhem, disabled)}</label>
       <label>Traffic ${this.sel('oTraffic', [['1', 'On'], ['0', 'Off']], o.traffic ? '1' : '0', disabled)}</label>`;
@@ -686,7 +692,7 @@ export class Menu {
     const km = layout ? `${thumb(layout).km.toFixed(1)} km` : '';
     const head = `${thumbSvg(layout, host ? 64 : 44)}<div class="mapHead"><b>${esc(this.mapName(o.map))}</b><small>${km}</small></div>`;
     if (host) return `<aside class="card mapCard">${head}<div class="opts">${this.optionFields(o, false)}</div></aside>`;
-    const bits = [this.lapsText(o.map, o.laps), `${label(WEATHERS, o.weather)} weather`, ...(this.hasSunset(o.map) ? [`${label(TIMES, o.time)} time`] : []), `${label(MAYHEMS, o.mayhem)} mayhem`, `Traffic ${o.traffic ? 'on' : 'off'}`];
+    const bits = [this.lapsText(o.map, o.laps), `${label(this.weathers(o.map), o.weather)} weather`, ...(this.hasSunset(o.map) ? [`${label(TIMES, o.time)} time`] : []), `${label(MAYHEMS, o.mayhem)} mayhem`, `Traffic ${o.traffic ? 'on' : 'off'}`];
     return `<aside class="card mapCard mini">${head}<p class="optLine">${bits.map((b) => `<span>${esc(b)}</span>`).join('')}</p></aside>`;
   }
 

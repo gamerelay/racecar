@@ -282,6 +282,11 @@ export class Sim implements SimState {
     }
   }
 
+  /** It's snow that's falling, not rain (sim.wetness is how hard). */
+  get snowing(): boolean {
+    return !!this.weatherPlan.snow;
+  }
+
   /** Plans the weather again (another map behind the menu, which may not see rain). */
   setWeather(weather: WeatherOption, allowed?: string[]): void {
     this.weatherPlan = planWeather(weather, this.seed, allowed);

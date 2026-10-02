@@ -428,6 +428,23 @@ Items 1 and 2 are built (2026-10-02, on PR #74):
 - The lap report is unchanged (98.32 s; the field and chaos the same), and so are the other maps'
   floors.
 
+Item 3 is built too (2026-10-02):
+
+- **Tracks that last.** Every rear wheel on snow leaves a track, not just a slide's: faint and
+  narrow on the groomed piste, deeper and wider in powder, darker in a slide. They're in a second
+  skid ring (`Skids(24000, 900, 1.2)`: 15 minutes, a segment every 1.2 m), made the first time a
+  map has snow, so the other maps don't carry it. There's no rubber on snow.
+- **Snow sounds.** A crunch on the groomed piste (band-passed noise that flutters frame to frame),
+  a hiss in powder (no gravel there any more), no tyre squeal on snow. A landing on snow, even a
+  mogul's hop, is a soft whump.
+- **Snowfall.** A map whose weather lists `snow` gets snow wherever another gets rain
+  (`WeatherPlan.snow`). Grip drops a tenth, where rain takes a fifth. Puddles stay off, and so does
+  the wet-road sheen. The sky goes fully overcast, and the fog closes in, whiter. Round flakes sway
+  down in an 80 m box around the camera, and a car drives through them. The lobby's "Rain" reads
+  "Snow" there. Avalanche's map.json is now `['clear', 'snow']`.
+- The lap report takes `--weather rain` (snow where the map snows). In snow: 99.47 s, clean. The
+  snowy field and chaos: no wrecks.
+
 The sketches as they were:
 
 1. **It reads as a run.**

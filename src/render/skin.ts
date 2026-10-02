@@ -71,8 +71,8 @@ export interface Skin {
   car(cls: CarClass, paint: PaintDef, plate?: CarPlate): CarVisual;
   /** `track` is this track's visual, for what it covers (rain stops under a roof). */
   world(scene: Scene, sim: Sim, track?: TrackVisual): WorldVisual;
-  /** Per frame, for animated skies and the like. */
-  update?(time: number, cameraX: number, cameraY: number, cameraZ: number, wetness: number): void;
+  /** Per frame, for animated skies and the like; `snow`: what's falling (wetness of it) is snow. */
+  update?(time: number, cameraX: number, cameraY: number, cameraZ: number, wetness: number, snow?: boolean): void;
 }
 
 /** A map's look in the post pass: saturation and contrast (1: as rendered), a tint multiplied into the shadows, and the vignette's strength (0.5 by default). */
