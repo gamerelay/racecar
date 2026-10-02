@@ -118,16 +118,23 @@ const barn: BranchDef = {
     { p: [0, 1, 210], width: 8, lanes: 1, shoulder: 1.5, surface: 'dirt' },
   ],
 };
-// Logger's Leap: off the ridge's edge before the corner, a kicker, and down onto the Descent.
+// Logger's Leap: off the ridge's edge before the corner, a kicker, and down onto the Descent on a
+// bermed left across the corner's inside. A branch is the main road's ground while it overlaps
+// it (no bank of its own there), so the berm is where it's pulled clear. It rejoins once the
+// Descent's heading is its own: rejoining square onto the corner's exit, it kinked through an
+// off-camber left. (Its fork is as it was: forking wider or turning sooner, two cars side by side
+// collided there, the outside one not yet on the branch.)
+const leapTo = sAt(336, -163, 42);
 const leap: BranchDef = {
   id: 'leap',
   kind: 'shortcut',
   from: sAt(424, -70, 52),
-  to: sAt(355, -157, 45),
+  to: leapTo,
   points: [
     fork(sAt(424, -70, 52), 30, -9, -0.3, 10),
-    { p: [400, r1(yAt(424, -100, 52) - 1), -126], width: 10, lanes: 1, shoulder: 1.5, surface: 'dirt' },
-    { p: [380, r1(yAt(360, -158, 45) + 1.5), -145], width: 11, lanes: 1, shoulder: 2, surface: 'dirt' },
+    // The berm: banked into the left (a negative bank lowers the left), the outside raised.
+    { p: [400, r1(yAt(424, -100, 52) - 1), -126], width: 11, lanes: 1, shoulder: 2, surface: 'dirt', bank: -0.18 },
+    { p: [378, r1(yAt(380, -158, 46) + 1.3), -140], width: 11, lanes: 1, shoulder: 2, surface: 'dirt', bank: -0.12 },
   ],
 };
 // The Creek Bed: off the Hollow's westbound leg, straight down across the stream inside the
