@@ -57,6 +57,13 @@ export interface RampDef {
   height: number;
   length: number;
   spline?: string;
+  /**
+   * A rounded kicker: the rise curves up from flat (h ∝ u^1.5, its lip 1.5× as steep as a straight
+   * one's), and past the lip the ground rolls back down over `back` m instead of dropping straight
+   * to the road. Flat at the top of that roll, so the lip still launches you. Unset: a straight
+   * wedge with a sheer back.
+   */
+  back?: number;
 }
 
 export interface PropDef {
