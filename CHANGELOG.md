@@ -4,7 +4,9 @@ What changed in each release of racecar, newest first. Releases are git tags on 
 reasons behind each change are in [docs/SPEC.md](./docs/SPEC.md) under "Changed while building",
 and where things stand is [docs/HANDOFF.md](./docs/HANDOFF.md).
 
-## Unreleased
+## alpha-1.28: the press feel, the title's music and Logger's Leap
+
+PRs #67–#70.
 
 - **Menus:** buttons flash and dip when pressed, by mouse, touch, key or gamepad, with a click
   (a softer one for Back and Cancel); choosers and sliders tick as they move. The clicks follow the

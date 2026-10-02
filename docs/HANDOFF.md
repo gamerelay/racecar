@@ -4,10 +4,12 @@ Where racecar stands and what's next, for whoever picks it up (a person or a fre
 The design is [SPEC.md](./SPEC.md): decisions in §17, and what building changed in "Changed while
 building". This file is "where are we"; the spec is "what are we making".
 
-**Last updated:** 2026-10-02. The last tag is **`alpha-1.27`** (PRs #63–#65: PLAN's next-up notes,
-a pickup truck and Avalanche; a tech-debt pass over the whole codebase; and three fixes: the
-minimap was the track's mirror image, Overdrive re-popped, a slingshot survived a wreck). Before
-it, `alpha-1.26` (PR #62: two new tracks), `alpha-1.25` (PR #61: boost, Overdrive, the
+**Last updated:** 2026-10-02. The last tag is **`alpha-1.28`** (PRs #67–#70: a press flash and a
+click on the menus' buttons; the title's music from the start where the browser allows it, with a
+"press any key" hint where it doesn't; Logger's Leap smoothed and bermed, and shortcuts' mouths
+cleaner on every map; the traffic fading in front of you investigated, its fix to choose, in
+PLAN). Before it, `alpha-1.27` (PRs #63–#65: PLAN's next-up notes, a pickup truck and Avalanche; a
+tech-debt pass; the mirrored minimap and two speed fixes), `alpha-1.26` (PR #62: two new tracks), `alpha-1.25` (PR #61: boost, Overdrive, the
 slipstream) and `alpha-1.24` (PRs #49–#60). It's on the hosted build ("Hosted test build"
 below).
 Every release is in [CHANGELOG.md](../CHANGELOG.md): add to its "Unreleased" section as you go,
@@ -205,7 +207,7 @@ old keys still resolve). The third map is **Paradise** (`content/maps/paradise`,
 |---|---|---|---|
 | Lap length | 3.26 km | 2.92 km | 3.80 km (3.44 before PR #58) |
 | AI lap floor (hard, empty track) | 57.9 s (58.6 before PR #61's boost) | 62.9 s (63.4) | 71.5 s (71.9; 66.8 before PR #58) |
-| Wrecks per 8-AI race (`lap-report --field`, 16 seeds) | 1.3; 2.0 at chaos (`--chaos`) | 0.6; 0.8 at chaos | 1.5, the tests' limit (1.1 before PR #61); 1.7 at chaos |
+| Wrecks per 8-AI race (`lap-report --field`, 16 seeds) | 1.3; 2.0 at chaos (`--chaos`) | 0.6; 0.6 at chaos (0.8 before PR #70) | 1.5, the tests' limit (1.1 before PR #61); 1.7 at chaos |
 | Draw calls | ~90–415 | ~65–330 | ~35–150 for the world; ~350 in the chase view with the field on screen (mostly cars) |
 | Scenery build (per editor edit) | ~200 ms | ~150 ms | ~600 ms (land and scenery, measured in bun) |
 
@@ -324,7 +326,7 @@ the cone's far flanks.
     the track for an hour. The proxy always sends it.
   - **CORS on the Space** (GET and HEAD from any origin) stays: it lets a build read the Space's
     origin directly too, if the CDN is ever down.
-- **What's there now:** `alpha-1.27` (PRs #63–#65), updated 2026-10-02, with every track on the
+- **What's there now:** `alpha-1.28` (PRs #67–#70), updated 2026-10-02, with every track on the
   CDN. Keep it the one row: update Z442EE in place rather than adding a game.
 
 ## Next, in order
@@ -382,10 +384,12 @@ the cone's far flanks.
    "Slingshot!" when you pull out from behind a rival? The numbers are all in the F4 panel.
    Paradise's field is at 1.5 wrecks a race over 16 seeds, the field tests' limit, so a change
    that adds speed there has to give some back.
-3. **PLAN.md's "Next up"** (from the playtest): button click effects, the title's music from the
-   start, traffic fading out in front of you, Logger's Leap's edges and berms, Backroads by day,
-   and more particles and sounds when smashing props. Then the pickup truck, and Avalanche (a
-   large job: a greybox slope and the AI on it first).
+3. **PLAN.md's "Next up"** (from the playtest): the click effects, the title's music and Logger's
+   Leap are done (`alpha-1.28`; listen to the clicks, and open the title in a fresh browser
+   profile to see the music hint, neither checked by ear or eye here). Left: the traffic fading
+   out in front of you (investigated: choose a fix from PLAN's options), Backroads by day (a
+   maybe), and more particles and sounds when smashing props. Then the pickup truck, and Avalanche
+   (a large job: a greybox slope and the AI on it first).
 4. **Paradise v2 (alpha-1.24):** drive it. Do the Beach Cut and Smugglers' Trail feel
    like a fair gamble? The hard AI is about even on both (−0.4 s and level). Does the dust feel
    right running wide onto the beach and the jungle's edge? It isn't checked by eye: the poster
