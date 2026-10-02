@@ -9,8 +9,9 @@ and where things stand is [docs/HANDOFF.md](./docs/HANDOFF.md).
 - **Settings** (title → Settings, or the in-race menu): volume sliders (master, music, engines,
   effects), graphics (a Low / Medium / High preset, resolution, post effects, outlines, an FPS
   counter) and an analytics opt-out, kept on this device and applied as they change.
-- **A real in-race menu:** the Menu button (and Esc) opens Resume, Restart, Settings and Quit,
-  instead of the button quitting straight out.
+- **A real in-race menu:** the Menu button (and Esc) opens it, instead of quitting straight out:
+  How to play, then Resume, Restart, Settings, Controls and Quit stacked at the bottom. The keys
+  moved to their own Controls screen.
 - **Choosers instead of dropdowns:** the lobby's options and seats cycle (`‹ Downtown ›`) with a
   click, a tap, the arrows or the d-pad.
 - **Transitions:** menu screens fade and slide, overlays pop in, and races fade in and out

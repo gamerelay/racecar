@@ -179,9 +179,14 @@ What's in, and where it went differently from the plan above:
   `&ink=0` in the URL still turn those off whatever the setting.
 - **Privacy:** Analytics on or off, only in builds that send any (a PostHog key). Off applies at
   once (the sink checks before every send); the old `racecar.telemetry` opt-out is carried over.
-- **The in-race menu:** the "☰ Menu" button (it used to quit) and Esc open it: Resume, Restart
-  (offline), Settings, and Back to lobby or Quit, then How to play. Esc or B closes Settings first,
-  then the menu.
+- **The in-race menu:** the "☰ Menu" button (it used to quit) and Esc open it. From the top: the
+  title, what's going on (online: the race goes on), How to play (the gameplay tips, no keys), then
+  the buttons stacked at the bottom like the lobby's: Resume, Restart (offline), Settings, Controls,
+  and Back to lobby or Quit. Esc or B closes Settings or Controls first, then the menu.
+- **Controls** (`src/ui/controls.ts`): what each key and pad button does, read-only, from the
+  in-race menu. Remapping (step 3) goes here. The HUD's per-device key strip (`hud.keys`, with pad
+  glyphs once a pad's used) isn't shown anywhere now; step 3 can build the list from the bindings
+  instead.
 - **Choosers** (`src/ui/chooser.ts`): every dropdown in the menus (the lobby's options, the seats,
   Who can join). The left part of one goes back, the rest on; left and right step it, and sliders,
   when focused. The map chooser is cycling only for now (the thumbnail grid is still open).

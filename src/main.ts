@@ -27,6 +27,7 @@ import { accept, navigate } from './ui/nav';
 import { installChoosers } from './ui/chooser';
 import { fadeIn } from './ui/fade';
 import { SettingsPanel } from './ui/settings';
+import { ControlsPanel } from './ui/controls';
 import { SettingsStore } from './settings';
 import { backToSetup, raceAgain, readChoices, readSetup, restart, type RaceSetup } from './ui/setup';
 import { Menu, type Preview } from './ui/menu';
@@ -167,6 +168,7 @@ settings.onChange((s) => {
   setTelemetryOptOut(!s.analytics);
 });
 const settingsPanel = new SettingsPanel(settings, posthogBuilt);
+const controlsPanel = new ControlsPanel();
 const raceUi = new RaceUi(sim, CLASSES, names, specs.map((x) => PAINTS[(x.paint ?? 0) % PAINTS.length].color));
 raceUi.onAgain = () => raceAgain(run);
 raceUi.onSetup = () => backToSetup(run);
@@ -359,7 +361,7 @@ requestAnimationFrame(frame);
 
 /** The menu on screen, if any: Settings (over the rest), the F8 form, the pause menu, results, or the title and lobbies. */
 function openMenu(): HTMLElement | null {
-  return document.querySelector<HTMLElement>('#settings.on') ?? document.querySelector<HTMLElement>('#reportForm, #pause.on, #results.on, #menu');
+  return document.querySelector<HTMLElement>('#settings.on, #controls.on') ?? document.querySelector<HTMLElement>('#reportForm, #pause.on, #results.on, #menu');
 }
 
 // Switching away mid-race pauses it (not behind the menu, not once you're in the results). Not
@@ -385,6 +387,7 @@ input.on((a) => {
   if (a === 'accept') return void (menu && accept(menu));
   // Settings are over everything: back (Esc, B) closes them, to the menu they were opened from.
   if ((a === 'back' || a === 'pause') && settingsPanel.isOpen) return settingsPanel.close();
+  if ((a === 'back' || a === 'pause') && controlsPanel.isOpen) return controlsPanel.close();
   // The F8 form owns the controls while it's up: back closes it, nothing else gets through.
   if (closeReport) return void (a === 'back' && closeReport());
   if (a === 'back') return void (paused ? setPaused(false) : screens?.back());
@@ -406,19 +409,22 @@ function setPaused(on: boolean): void {
   if (attract || (on && raceUi.shown)) return;
   paused = on;
   if (!on && settingsPanel.isOpen) settingsPanel.close();
+  if (!on && controlsPanel.isOpen) controlsPanel.close();
   let el = document.getElementById('pause');
   if (!el) {
     document.body.insertAdjacentHTML(
       'beforeend',
-      `<div id="pause"><div class="card"><h1>${onlineRace ? 'Menu' : 'Paused'}</h1>${onlineRace ? '<p class="muted">The race goes on without you: your car coasts until you resume.</p>' : ''}
-        <div class="row pauseButtons"><button id="pResume">Resume</button>${onlineRace ? '' : '<button id="pRestart" class="ghost">Restart</button>'}<button id="pSettings" class="ghost">Settings</button><button id="pSetup" class="ghost">${run.lobby ? 'Back to lobby' : 'Quit'}</button></div>
+      // The title, what's going on, how to play, then the buttons stacked at the bottom (as the
+      // lobby's are). Which key does what is on the Controls screen.
+      `<div id="pause"><div class="card pauseCard"><h1>${onlineRace ? 'Menu' : 'Paused'}</h1>${onlineRace ? '<p class="muted">The race goes on without you: your car coasts until you resume.</p>' : ''}
         <h2>How to play</h2>
-        <dl><dt>Drive</dt><dd>WASD / arrows, or a gamepad (RT, LT, stick)</dd><dt>Drift</dt><dd>hold Shift (RB) while steering: steer in to tighten, out to widen: a quicker way round a corner</dd><dt>Boost</dt><dd>Space (A): fills from air, near misses, the oncoming lane in traffic, checking traffic and takedowns</dd><dt>Takedowns</dt><dd>ram a rival hard, boost into them, or shove them into a wall, a pillar or traffic</dd><dt>Traffic</dt><dd>boost into the back of a small car to check it out of the way; don't hit anything head on</dd><dt>Start</dt><dd>hit the throttle just before GO for a perfect start; too early and you stall</dd><dt>Sound</dt><dd>M mutes everything, N toggles the music</dd><dt>Felt wrong?</dt><dd>F8 (Select+Start) saves the last 30 s with a note</dd></dl>
-        <p class="keys" id="keys">${hud.keys}</p></div></div>`,
+        <dl><dt>Drift</dt><dd>steer in to tighten, out to widen: a quicker way round a corner</dd><dt>Boost</dt><dd>fills from air, near misses, the oncoming lane in traffic, checking traffic and takedowns</dd><dt>Takedowns</dt><dd>ram a rival hard, boost into them, or shove them into a wall, a pillar or traffic</dd><dt>Traffic</dt><dd>boost into the back of a small car to check it out of the way; don't hit anything head on</dd><dt>Start</dt><dd>hit the throttle just before GO for a perfect start; too early and you stall</dd></dl>
+        <div class="row stack"><button id="pResume">Resume</button>${onlineRace ? '' : '<button id="pRestart" class="ghost">Restart</button>'}<button id="pSettings" class="ghost">Settings</button><button id="pControls" class="ghost">Controls</button><button id="pSetup" class="ghost danger">${run.lobby ? 'Back to lobby' : 'Quit'}</button></div></div></div>`,
     );
     el = document.getElementById('pause')!;
     document.getElementById('pResume')!.onclick = () => setPaused(false);
     document.getElementById('pSettings')!.onclick = () => settingsPanel.open(document.getElementById('pSettings'));
+    document.getElementById('pControls')!.onclick = () => controlsPanel.open(document.getElementById('pControls'));
     // A race everyone's in can't be restarted for one of them.
     const again = document.getElementById('pRestart');
     if (again) again.onclick = () => restart(run);
