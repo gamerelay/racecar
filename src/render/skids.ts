@@ -13,7 +13,7 @@ export const SKID_LIFE = 30;
 const STEP = 0.5;
 const JUMP = 6;
 /** How far above the ground the marks sit (m), under polygon offset. */
-const LIFT = 0.025;
+const LIFT = 0.045;
 
 interface Strip {
   on: boolean;

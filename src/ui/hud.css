@@ -95,21 +95,17 @@ body.boosting #gFill { stroke: var(--sun); }
 .card h1 { font-family: var(--display); font-weight: 400; font-size: clamp(38px, 8vw, 60px); line-height: 0.92; margin: 0 0 12px; color: var(--sun); -webkit-text-stroke: 3px var(--outline); paint-order: stroke fill; text-shadow: 5px 5px 0 var(--pink); }
 .card dl { display: grid; grid-template-columns: auto 1fr; gap: 6px 14px; font-size: 14px; margin: 0 0 16px; }
 .card dt { font-weight: 700; } .card dd { margin: 0; color: var(--muted); }
-.card .keys { font-size: 13px; line-height: 1.9; color: var(--muted); margin: 0 0 16px; }
-.card .keys kbd { font: 700 11px var(--ui); border: 1px solid var(--muted); padding: 0 4px; border-radius: 3px; color: var(--ink); }
 /* One style for every control (menus, pause, results, the F8 form and the in-race menu button):
    sun-yellow buttons with a pink drop, ghost buttons in outline, and fields as dark panels with an
    ink border that light up cyan when focused. */
 .card button, #quit { font-family: var(--display); font-size: 18px; color: var(--outline); background: var(--sun); border: 3px solid var(--outline); padding: 8px 20px; cursor: pointer; box-shadow: 5px 5px 0 var(--pink); margin-right: 10px; transition: transform 0.06s, box-shadow 0.06s; }
 .card button:hover, #quit:hover { transform: translate(-1px, -1px); box-shadow: 6px 6px 0 var(--pink); }
 .card button:active, #quit:active { transform: translate(3px, 3px); box-shadow: 2px 2px 0 var(--pink); }
-.card select, .card input, .card textarea { font: 700 15px var(--ui); color: var(--ink); background: rgba(10, 4, 20, 0.85); border: 2px solid var(--ink); border-radius: 0; box-shadow: 3px 3px 0 var(--outline); padding: 7px 10px; outline: none; }
+.card input, .card textarea { font: 700 15px var(--ui); color: var(--ink); background: rgba(10, 4, 20, 0.85); border: 2px solid var(--ink); border-radius: 0; box-shadow: 3px 3px 0 var(--outline); padding: 7px 10px; outline: none; }
 .card input, .card textarea { width: 100%; user-select: text; -webkit-user-select: text; }
 .card input::placeholder, .card textarea::placeholder { color: var(--muted); opacity: 0.7; font-weight: 400; }
 /* Selects draw their own arrow, so they match on every browser. */
-.card select { appearance: none; -webkit-appearance: none; padding-right: 30px; cursor: pointer; background-image: linear-gradient(45deg, transparent 50%, var(--cyan) 50%), linear-gradient(135deg, var(--cyan) 50%, transparent 50%); background-position: calc(100% - 16px) 50%, calc(100% - 11px) 50%; background-size: 5px 5px; background-repeat: no-repeat; }
-.card select option { background: var(--bg); color: var(--ink); }
-.card select:hover, .card input:hover, .card textarea:hover { border-color: var(--cyan); }
+.card input:hover, .card textarea:hover { border-color: var(--cyan); }
 .row { display: flex; gap: 10px; align-items: center; margin: 0 0 12px; flex-wrap: wrap; }
 @media (prefers-reduced-motion: reduce) { .pop { animation-duration: 1.8s; } body.boosting #meterFill { animation: none; } }
 
@@ -151,7 +147,7 @@ body.countdown #pops { top: 46%; }
 
 /* Keyboard and pad focus in menus: plain to see from the sofa. */
 .card button:focus-visible, #quit:focus-visible { outline: 3px solid var(--cyan); outline-offset: 3px; }
-.card select:focus, .card input:focus, .card textarea:focus { border-color: var(--cyan); box-shadow: 0 0 0 3px var(--cyan); }
+.card input:focus, .card textarea:focus { border-color: var(--cyan); box-shadow: 0 0 0 3px var(--cyan); }
 
 /* Small screens: nothing overlaps (portrait phones, short landscape windows, mid-size laptops). */
 /* Narrow screens scroll the table sideways inside the card rather than overflowing it. */
@@ -311,7 +307,6 @@ svg.thumb .cut { stroke: var(--sun); stroke-width: 1.5; stroke-dasharray: 3 2; }
 #menu.dock .mapCard.mini { width: auto; max-width: 320px; padding: 10px 14px; gap: 6px 12px; }
 .mapCard .optLine { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 5px; margin: 0; }
 .mapCard .optLine span { font-size: 12px; font-weight: 700; color: var(--ink); background: rgba(10, 4, 20, 0.7); border: 1px solid rgba(216, 198, 242, 0.45); padding: 2px 7px; white-space: nowrap; }
-.card select:disabled { opacity: 0.7; cursor: default; border-color: rgba(216, 198, 242, 0.4); background-image: none; }
 
 /* The turntable's box, and the arrows either side of the table (sized as frameStage sizes it). */
 /* The whole width right of the seats, so the car turns in its middle, and low, clear of the options. */

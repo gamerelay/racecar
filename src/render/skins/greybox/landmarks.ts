@@ -159,8 +159,14 @@ function staticCanvas(w: number, h: number, draw: (g: CanvasRenderingContext2D) 
   return tex;
 }
 
-/** A lit sign face: shows at night, and isn't shaded. */
-const face = (tex: CanvasTexture, w: number, h: number) => new Mesh(new PlaneGeometry(w, h), new MeshBasicMaterial({ map: tex, toneMapped: false }));
+/**
+ * A lit sign's material: shows at night, and isn't shaded. Signs sit a few centimetres off what
+ * they're on, and the depth buffer can't tell that apart from far away (the camera's near plane is
+ * 10 cm): they're pulled forward in the depth test too, so they don't flicker through it.
+ */
+const lit = (map: CanvasTexture) => new MeshBasicMaterial({ map, toneMapped: false, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -4 });
+/** A lit sign face. */
+const face = (tex: CanvasTexture, w: number, h: number) => new Mesh(new PlaneGeometry(w, h), lit(tex));
 
 // ---- Downtown ----
 
@@ -220,26 +226,30 @@ function clockTower(m: LandmarkDef): Built {
   };
   // Four dials and four readouts, one merged mesh each; the eight hands one instanced mesh, posed
   // each frame (a hand's matrix: its side, its pivot at the dial's middle, its turn, its size).
+  // The faces stand 10 cm off the stone (the box's face is at 5.2), and are lit signs (`lit`): the
+  // tower is seen from hundreds of metres, and at 2 cm the dial flickered through the stone.
   const sides = [0, 1, 2, 3].map((k) => new Matrix4().makeRotationY((k * Math.PI) / 2));
-  const onSides = (w: number, hgt: number, y: number) => mergeGeometries(sides.map((r) => new PlaneGeometry(w, hgt).applyMatrix4(new Matrix4().multiplyMatrices(r, new Matrix4().makeTranslation(0, y, 5.22)))))!;
-  root.add(new Mesh(onSides(8, 8, top + 6.2), new MeshBasicMaterial({ map: dial, toneMapped: false })));
-  root.add(new Mesh(onSides(5, 1.56, top + 1.3), new MeshBasicMaterial({ map: readout.tex, toneMapped: false })));
+  const onSides = (w: number, hgt: number, y: number) => mergeGeometries(sides.map((r) => new PlaneGeometry(w, hgt).applyMatrix4(new Matrix4().multiplyMatrices(r, new Matrix4().makeTranslation(0, y, 5.3)))))!;
+  root.add(new Mesh(onSides(8, 8, top + 6.2), lit(dial)));
+  root.add(new Mesh(onSides(5, 1.56, top + 1.3), lit(readout.tex)));
   const handGeo = new BoxGeometry(1, 1, 1).translate(0, 0.43, 0);
   const hands = new InstancedMesh(handGeo, new MeshBasicMaterial({ color: 0x1b1030 }), 8);
   hands.frustumCulled = false;
   root.add(hands);
+  // Clear of the dial and of each other where they cross (each is 6 cm deep).
   const HANDS = [
-    { w: 0.28, len: 3.6, z: 5.4 },
-    { w: 0.45, len: 2.4, z: 5.35 },
+    { w: 0.28, len: 3.6, z: 5.5 },
+    { w: 0.45, len: 2.4, z: 5.4 },
   ];
   const hm = new Matrix4();
   const turn = new Matrix4();
   const size = new Matrix4();
+  const pivot = new Matrix4();
   const pose = (long: number, short: number) => {
     sides.forEach((r, k) =>
       HANDS.forEach((hd, j) => {
-        hm.multiplyMatrices(r, new Matrix4().makeTranslation(0, top + 6.2, hd.z));
-        hm.multiply(turn.makeRotationZ(j === 0 ? long : short)).multiply(size.makeScale(hd.w, hd.len, 0.08));
+        hm.multiplyMatrices(r, pivot.makeTranslation(0, top + 6.2, hd.z));
+        hm.multiply(turn.makeRotationZ(j === 0 ? long : short)).multiply(size.makeScale(hd.w, hd.len, 0.06));
         hands.setMatrixAt(k * 2 + j, hm);
       }),
     );
@@ -270,7 +280,7 @@ function donutShop(): Built {
   const glass = new MeshBasicMaterial({ color: 0x9ee6ff });
   for (const x of [-4.8, 4.8]) {
     const w = new Mesh(new PlaneGeometry(4.8, 2.6), glass);
-    w.position.set(x, 2.4, 5.52);
+    w.position.set(x, 2.4, 5.56);
     root.add(w);
   }
   S.add(2, 3.2, 0.2, 0x6d3b52, 0, 1.6, 5.55);
@@ -331,7 +341,8 @@ function fountain(m: LandmarkDef, time: { value: number }): Built {
   const basin = r * 0.55;
   root.add(cyl(basin, basin + 0.3, 1.1, 0xc9bda8, 0.55, 24));
   const pool = new Mesh(new CylinderGeometry(basin - 0.5, basin - 0.5, 0.1, 24), new MeshBasicMaterial({ color: 0x3aa7d9 }));
-  pool.position.y = 1.05;
+  // Its top 3 cm over the basin's (level with it, the two flickered).
+  pool.position.y = 1.08;
   root.add(pool);
   root.add(cyl(0.9, 1.3, 3.2, 0xc9bda8, 2.1, 12));
   root.add(cyl(2.6, 1.6, 0.6, 0xd8c7ad, 3.9, 16));
@@ -455,7 +466,7 @@ function canal(m: LandmarkDef, time: { value: number }): Built {
     hinge.position.set(side * (w / 2 + WALL), 0.25, draw);
     const leaf = box(w / 2 + WALL, 0.5, street, 0x39304f, -side * ((w / 2 + WALL) / 2), 0, 0);
     hinge.add(leaf);
-    const stripe = box(0.4, 0.55, street, 0xffd23f, -side * (w / 2 + WALL - 0.3), 0, 0);
+    const stripe = box(0.4, 0.55, street + 0.04, 0xffd23f, -side * (w / 2 + WALL - 0.3), 0, 0);
     hinge.add(stripe);
     root.add(hinge);
     leaves.push(hinge);
@@ -598,7 +609,7 @@ function cow(): Built {
     g.fillText('BIG BESSIE', 256, 52);
   });
   const f = face(sign, 8, 1.5);
-  f.position.set(0, 0.5, 3.02);
+  f.position.set(0, 0.5, 3.06);
   root.add(f);
   return {
     root,

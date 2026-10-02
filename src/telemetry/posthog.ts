@@ -23,16 +23,20 @@ export function posthogEnabled(): boolean {
   return !!KEY && store('racecar.telemetry') !== 'off';
 }
 
+/** Off for this page whatever storage says: blocked storage can't keep the choice, and it still holds. */
+let offHere = false;
+
 /** Whether the player turned analytics off (Settings → Privacy). */
 export function telemetryOptedOut(): boolean {
-  return store('racecar.telemetry') === 'off';
+  return offHere || store('racecar.telemetry') === 'off';
 }
 
 /** Whether this build sends analytics at all (it has a PostHog key). */
 export const posthogBuilt = !!KEY;
 
 export function setTelemetryOptOut(off: boolean): void {
-  store('racecar.telemetry', off ? 'off' : 'on');
+  offHere = off;
+  if (store('racecar.telemetry') !== (off ? 'off' : 'on')) store('racecar.telemetry', off ? 'off' : 'on');
 }
 
 export function posthogSink(session: string, build: string): (lines: Record[], beacon: boolean) => void {

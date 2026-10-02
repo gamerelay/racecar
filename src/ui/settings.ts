@@ -4,6 +4,7 @@
 // it, back to the button that opened it.
 
 import { chooser } from './chooser';
+import { Overlay } from './overlay';
 import type { Quality, Settings, SettingsStore } from '../settings';
 
 const ON_OFF: [string, string][] = [['1', 'On'], ['0', 'Off']];
@@ -11,19 +12,13 @@ const QUALITIES: [Quality, string][] = [['low', 'Low'], ['medium', 'Medium'], ['
 const RESOLUTIONS: [string, string][] = [0.5, 0.6, 0.7, 0.8, 0.9, 1].map((r) => [String(r), `${Math.round(r * 100)}%`]);
 const VOLUMES: [keyof Settings['volume'], string][] = [['master', 'Master'], ['music', 'Music'], ['engines', 'Engines'], ['effects', 'Effects']];
 
-export class SettingsPanel {
-  readonly el: HTMLElement;
-  /** Where focus goes back to on close. */
-  private from: HTMLElement | null = null;
-
+export class SettingsPanel extends Overlay {
   constructor(
     private readonly store: SettingsStore,
     /** Whether this build sends analytics at all (it has a PostHog key). */
     private readonly analyticsBuilt: boolean,
   ) {
-    this.el = document.createElement('div');
-    this.el.id = 'settings';
-    document.body.appendChild(this.el);
+    super('settings');
     // A graphics preset changes the settings under it: those redraw. Volumes don't (a redraw would
     // drop the slider being dragged).
     let graphics = '';
@@ -34,22 +29,11 @@ export class SettingsPanel {
     });
   }
 
-  get isOpen(): boolean {
-    return this.el.classList.contains('on');
-  }
-
-  /** Opens it; `from` is where focus goes back to (the button that opened it: a click may not focus it). */
+  /** Opens it; `from` is where focus goes back to. */
   open(from?: HTMLElement | null): void {
-    this.from = from ?? (document.activeElement as HTMLElement | null);
     this.render();
-    this.el.classList.add('on');
+    this.show(from);
     (document.getElementById('vol-master') as HTMLElement | null)?.focus({ preventScroll: true });
-  }
-
-  close(): void {
-    this.el.classList.remove('on');
-    this.from?.focus({ preventScroll: true });
-    this.from = null;
   }
 
   private render(): void {

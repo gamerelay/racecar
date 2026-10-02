@@ -3,7 +3,7 @@
 // lobby in a room's state, a ping. Each reader returns the value in its proper shape, or null for
 // anything malformed. Pure: no SDK, no DOM.
 
-import { cleanPlate } from './plate';
+import { cleanPlate, plateProblem } from './plate';
 import { DEFAULT_OPTIONS, SEATS, VISIBILITIES, type Difficulty, type Lobby, type LobbyAction, type LobbyOptions, type LobbySummary, type ResultRow, type Seat, type SeatChoice, type Vote } from './lobby';
 
 const SEAT_CHOICES: readonly SeatChoice[] = ['open', 'closed', 'ai-easy', 'ai-normal', 'ai-hard'];
@@ -16,8 +16,12 @@ const OPTION_VALUES: Partial<Record<keyof LobbyOptions, readonly unknown[]>> = {
 
 export const obj = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null && !Array.isArray(v);
 const str = (v: unknown, max: number): v is string => typeof v === 'string' && v.length <= max;
-/** A player's name is their plate: only what a plate can show (it's drawn in other players' pages). */
-const plate = (v: unknown): string | null => (str(v, 64) ? cleanPlate(v) || null : null);
+/** A player's name is their plate: only what a plate can show (it's drawn in other players' pages),
+ * and one the menu would have refused is shown as a stock plate. */
+const plate = (v: unknown): string | null => {
+  const p = str(v, 64) ? cleanPlate(v) : '';
+  return p ? (plateProblem(p) ? 'RC' : p) : null;
+};
 const int = (v: unknown, lo: number, hi: number): v is number => Number.isInteger(v) && (v as number) >= lo && (v as number) <= hi;
 /** A layout key's shape (`downtown/downtown`): never a name every object has, like `constructor`. */
 const MAP_KEY = /^[a-z0-9-]{1,30}\/[a-z0-9-]{1,30}$/;

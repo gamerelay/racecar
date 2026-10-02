@@ -413,4 +413,3 @@ export const KINDS: Record<string, HazardKind> = {
   coconuts,
 };
 
-export const HAZARD_KINDS = Object.keys(KINDS);

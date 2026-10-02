@@ -195,7 +195,10 @@ export class Menu {
     this.root.classList.toggle('dock', screen.kind === 'lobby');
     if (screen.kind !== 'lobby') this.onPreview?.(null);
     if (screen.kind === 'title') {
-      this.renderTitle(await this.backend.list());
+      const rows = await this.backend.list();
+      // Another screen was asked for while the list loaded (each await below checks the same).
+      if (this.screen !== screen) return;
+      this.renderTitle(rows);
       // Online lobbies come and go: the list follows every few seconds while it's up.
       if (this.online)
         this.refresh = setInterval(async () => {
@@ -249,8 +252,10 @@ export class Menu {
           }
         }, 1000);
       lobby = (await this.sit(lobby)) ?? lobby;
+      if (this.screen !== screen) return;
       // Back from its race: the others see you're here again.
       lobby = (await this.back_(lobby)) ?? lobby;
+      if (this.screen !== screen) return;
       this.renderLobby(lobby);
     }
   }
@@ -513,6 +518,8 @@ export class Menu {
       go.disabled = true;
       const lobby = await this.backend.create(this.newcomer(online ? '' : LOCAL_ID), { name, visibility, online, options: this.readOptions() }).catch(() => null);
       go.disabled = false;
+      // Back (or Esc) while it was being made: you've left, and so does the lobby.
+      if (this.screen.kind !== 'create') return void (lobby && this.backend.abandon?.(lobby.id));
       if (lobby) void this.show({ kind: 'lobby', id: lobby.id });
       else (document.querySelector('.create .muted') as HTMLElement).textContent = "Couldn't reach the lobby server. Try again, or pick Private.";
     });
@@ -583,9 +590,16 @@ export class Menu {
       this.send(lobby, { type: 'ready', ready: !(me?.kind === 'player' && me.ready) });
     });
     this.on('lInvite', async () => {
-      // The lobby's short link (gamerelay.io/<game>/<link>, which previews in chat apps), or this
-      // page's link with its code where there isn't one.
-      const link = (await this.backend.shareLink?.(lobby.id)) ?? `${location.origin}${location.pathname}?lobby=${encodeURIComponent(lobby.id)}`;
+      // The lobby's short link (play.gamerelay.io/<game>/<link>, which previews in chat apps), or
+      // this page's link with its code where there isn't one. Not for Invite only: its code doesn't
+      // get anyone in, so a failed link says so instead.
+      const short = (await this.backend.shareLink?.(lobby.id)) ?? null;
+      if (!short && lobby.visibility === 'invite') {
+        const b = document.getElementById('lInvite');
+        if (b) b.textContent = "Couldn't get the link: try again";
+        return;
+      }
+      const link = short ?? `${location.origin}${location.pathname}?lobby=${encodeURIComponent(lobby.id)}`;
       void navigator.clipboard?.writeText(link).then(() => {
         const b = document.getElementById('lInvite');
         if (b) b.textContent = 'Copied';

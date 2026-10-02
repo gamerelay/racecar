@@ -465,7 +465,8 @@ function buildChunk(g: Geo, track: Track, sp: BakedSpline, i0: number, i1: numbe
           // A lip of pavement round the top, so the ground meets the trench with no gap.
           const lipA = at(A, side * (sa + WALL_THICK + LIP), 0);
           const lipB = at(B, side * (sb + WALL_THICK + LIP), 0);
-          const y = groundY + 0.01;
+          // 5 cm up: the ground under it reaches the trench, and a closer gap flickers from far away.
+          const y = groundY + 0.05;
           g.face([backA[0], y, backA[2]], [backB[0], y, backB[2]], [lipB[0], y, lipB[2]], [lipA[0], y, lipA[2]], '#6d5f86');
         }
         outer[side < 0 ? 0 : 1] = WALL_THICK;
@@ -503,14 +504,15 @@ function buildChunk(g: Geo, track: Track, sp: BakedSpline, i0: number, i1: numbe
       const under = groundY - 0.6;
       g.face([la[0], under, la[2]], [lb[0], under, lb[2]], [rb[0], under, rb[2]], [ra[0], under, ra[2]], '#5a5070');
       g.shade = 1;
-      const top = groundY + 0.02;
+      const top = groundY + 0.05;
       g.face([la[0], top, la[2]], [ra[0], top, ra[2]], [rb[0], top, rb[2]], [lb[0], top, lb[2]], (Math.floor(s / 8) + Math.floor(Math.abs(la[0]) / 8)) % 2 === 0 ? '#7a6c96' : '#6d5f86');
       g.shade = 0.5;
     }
 
     // Markings: solid edge lines, dashed lane lines (the center one yellow), a checkered finish.
     const lanes = sp.lanes[i] || 2;
-    const lift = 0.02;
+    // Clear of the asphalt as far off as the depth buffer allows (closer flickers on long straights), under the skids (skids.ts).
+    const lift = 0.035;
     const line = (l0: number, l1: number, color: string) => {
       p = at(A, l0, lift);
       q = at(A, l1, lift);
@@ -528,16 +530,18 @@ function buildChunk(g: Geo, track: Track, sp: BakedSpline, i0: number, i1: numbe
       }
       continue;
     }
-    if (!sp.openL[i]) line(-wa + 0.35, -wa + 0.5, '#f4efe6');
-    if (!sp.openR[i]) line(wa - 0.5, wa - 0.35, '#f4efe6');
-    if (s % 10 < 3.5) {
+    // The checkered finish has the line to itself: lines under it, at the same lift, flickered through.
+    const finish = sp.index === 0 && s < 4;
+    if (!sp.openL[i] && !finish) line(-wa + 0.35, -wa + 0.5, '#f4efe6');
+    if (!sp.openR[i] && !finish) line(wa - 0.5, wa - 0.35, '#f4efe6');
+    if (s % 10 < 3.5 && !finish) {
       for (let k = 1; k < lanes; k++) {
         const l = -wa + (k * 2 * wa) / lanes;
         const center = lanes % 2 === 0 && k === lanes / 2;
         line(l - 0.09, l + 0.09, center ? '#ffc93c' : '#f4efe6');
       }
     }
-    if (sp.index === 0 && s < 4) {
+    if (finish) {
       const cells = 12;
       for (let k = 0; k < cells; k++) {
         const l0 = -wa + (k * 2 * wa) / cells;

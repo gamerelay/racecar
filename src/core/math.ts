@@ -26,14 +26,8 @@ export const smoothstep = (e0: number, e1: number, x: number): number => {
   return t * t * (3 - 2 * t);
 };
 
-/**
- * Headings: 0 faces +z, and h grows toward +x, which is the car's left (y up, right-handed).
- * forward = (sin h, cos h), right = (-cos h, sin h). Steering right (steer > 0) lowers h.
- */
-export const forwardX = (h: number): number => Math.sin(h);
-export const forwardZ = (h: number): number => Math.cos(h);
-export const headingOf = (x: number, z: number): number => Math.atan2(x, z);
+// Headings: 0 faces +z, and h grows toward +x, which is the car's left (y up, right-handed).
+// forward = (sin h, cos h), right = (-cos h, sin h). Steering right (steer > 0) lowers h.
 
-export const KMH = 3.6;
 /** Meters per second to miles per hour: what the speedometer reads. */
 export const MPH = 2.2369363;
