@@ -1679,7 +1679,10 @@ The soundtrack (owner's tracks, 2026-10-01 and 10-02):
   so a map's music doesn't go stale). Downtown and Paradise have a second track of their own
   (`tokyo-dubstep`, `hawaiian-vibes`, the owner's, 2026-10-01: `MAP_TRACKS`), at the same loudness
   as the rest (−15.9 LUFS). `relentless-pursuit` and `half-time-surge` (2026-10-02) are the third and fourth for any
-  map, their WAVs 1 dB down and 0.5 dB up to −15.9 LUFS too. Never the same song twice in a row: a race starts on one the
+  map, their WAVs 1 dB down and 0.5 dB up to −15.9 LUFS too. The title has a second track
+  (`pursuit-orchestra`, `TITLE_TRACKS`) and Backroads one of its own (`backroads-acoustic`), both
+  2026-10-02 and at −15.8 LUFS; the menus remember their last track apart from the races
+  (`racecar.lastTitleTrack`), so neither starts on the one it played last. Never the same song twice in a row: a race starts on one the
   last race didn't play (`racecar.lastTrack` on the device), and when a track ends another one
   follows. The title's track isn't muffled behind the menu (the synth was, under the attract race).
 - **The synth is the fallback**, for a track that can't load or play, and with `?music=0`.

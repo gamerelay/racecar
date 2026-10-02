@@ -4,7 +4,7 @@ import { doppler, ENGINE_SOUNDS, engineHz, engineSound, gearbox, musicMix, MUSIC
 import { CLASSES } from './helpers';
 import { existsSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
-import { ANY_MAP, MAP_TRACKS, pickTrack, playlistFor, Soundtrack, TRACKS, trackUrl } from '../src/audio/soundtrack';
+import { ANY_MAP, MAP_TRACKS, pickTrack, playlistFor, Soundtrack, TITLE_TRACKS, TRACKS, trackUrl } from '../src/audio/soundtrack';
 import { MAPS } from '../tools/content';
 
 // The sound model is pure (the Web Audio graph isn't testable in Bun): gears, pitch, where a sound
@@ -71,13 +71,14 @@ describe('audio model', () => {
 });
 
 describe('the soundtrack', () => {
-  test("the title's track behind the menus; in a race the map's own and the four for any map; a file for every one", () => {
-    expect(playlistFor('downtown', true)).toEqual(['title']);
+  test("the title's tracks behind the menus; in a race the map's own and the four for any map; a file for every one", () => {
+    expect(playlistFor('downtown', true)).toEqual(['title', 'pursuit-orchestra']);
+    expect(playlistFor('backroads', false)).toEqual(['backroads', 'backroads-acoustic', ...ANY_MAP]);
     // Every map has its own (named after it, first), and every track is someone's.
     for (const m of MAPS) expect(playlistFor(m.id, false)).toEqual([m.id as (typeof TRACKS)[number], ...MAP_TRACKS[m.id]!.slice(1), ...ANY_MAP]);
     expect(playlistFor('downtown', false)).toEqual(['downtown', 'tokyo-dubstep', ...ANY_MAP]);
     expect(playlistFor('paradise', false)).toEqual(['paradise', 'hawaiian-vibes', ...ANY_MAP]);
-    expect(new Set(['title', ...Object.values(MAP_TRACKS).flat(), ...ANY_MAP])).toEqual(new Set(TRACKS));
+    expect(new Set([...TITLE_TRACKS, ...Object.values(MAP_TRACKS).flat(), ...ANY_MAP])).toEqual(new Set(TRACKS));
     expect(playlistFor('volcano', false)).toEqual([...ANY_MAP]);
     expect(playlistFor('constructor', false)).toEqual([...ANY_MAP]);
     for (const name of TRACKS) expect(existsSync(join(import.meta.dir, '..', 'public', 'music', `${name}.m4a`))).toBe(true);

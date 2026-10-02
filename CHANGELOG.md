@@ -4,6 +4,11 @@ What changed in each release of racecar, newest first. Releases are git tags on 
 reasons behind each change are in [docs/SPEC.md](./docs/SPEC.md) under "Changed while building",
 and where things stand is [docs/HANDOFF.md](./docs/HANDOFF.md).
 
+## Unreleased
+
+- **Two new tracks:** an orchestral one behind the title and the menus, taking turns with the
+  title's own, and an acoustic one for Backroads.
+
 ## alpha-1.25: Overdrive and the slipstream
 
 PR #61.
