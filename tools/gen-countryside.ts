@@ -164,7 +164,16 @@ const walled: [number, number][] = [
   span(sAt(255, 320, 7), sAt(355, 200, 36)), // the switchbacks
   span(sAt(-60, -284, 20), sAt(150, -262, 27)), // the trestle
 ];
-layout.walls = { gaps: wallGaps(walled, L) };
+// The Barn's fence on the main road's side stops where the track runs within 25 m of it, at both
+// ends: it jutted into the village S where the Barn leaves and rejoins.
+const barnSp = withBranches.splines[1];
+layout.walls = {
+  gaps: [
+    ...wallGaps(walled, L),
+    { spline: 'barn', s: [0, Math.round(barnSp.length * 0.28)], side: 'right' },
+    { spline: 'barn', s: [Math.round(barnSp.length * 0.7), Math.ceil(barnSp.length)], side: 'right' },
+  ],
+};
 
 // ---- traffic on the asphalt, hazards, water ----
 // The home stretch's traffic starts past the Trestle's legs: appearing among them, in the lane the
