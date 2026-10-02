@@ -4,6 +4,7 @@
 // pad's A go on to the next. It's a <button> with a `value` and a `change` event, so code reads it
 // as it read a <select>: `el.value`, `el.onchange`, `el.disabled`.
 
+import { uiSound } from './click';
 import { esc } from './html';
 
 /** Index `i` moved `d` along a list of `n`, wrapping round. */
@@ -36,6 +37,7 @@ export function stepChooser(el: HTMLButtonElement, d: number): void {
   el.classList.remove('nudge-l', 'nudge-r');
   void el.offsetWidth;
   el.classList.add(d < 0 ? 'nudge-l' : 'nudge-r');
+  uiSound('tick');
   el.dispatchEvent(new Event('change'));
 }
 

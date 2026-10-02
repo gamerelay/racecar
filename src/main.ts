@@ -25,6 +25,7 @@ import { Hud } from './ui/hud';
 import { RaceUi } from './ui/race';
 import { accept, navigate } from './ui/nav';
 import { installChoosers } from './ui/chooser';
+import { installClicks } from './ui/click';
 import { fadeIn, ready, veiled } from './ui/fade';
 import { SettingsPanel } from './ui/settings';
 import { ControlsPanel } from './ui/controls';
@@ -159,6 +160,8 @@ const track = playlist
     })
   : null;
 const audio = new GameAudio(sim, track, attract);
+// The menus' buttons, choosers and sliders click (ui/click.ts).
+installClicks((kind) => audio.uiSound(kind));
 // The frame rate, top left, when Settings → Show FPS is on.
 document.body.insertAdjacentHTML('beforeend', '<div id="fps" aria-hidden="true"></div>');
 const fpsEl = document.getElementById('fps')!;

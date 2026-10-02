@@ -4,6 +4,12 @@ What changed in each release of racecar, newest first. Releases are git tags on 
 reasons behind each change are in [docs/SPEC.md](./docs/SPEC.md) under "Changed while building",
 and where things stand is [docs/HANDOFF.md](./docs/HANDOFF.md).
 
+## Unreleased
+
+- **Menus:** buttons flash and dip when pressed, by mouse, touch, key or gamepad, with a click
+  (a softer one for Back and Cancel); choosers and sliders tick as they move. The clicks follow the
+  effects volume, are heard over the title and in the pause menu, and stay silent when muted.
+
 ## alpha-1.27: the minimap the right way round
 
 PRs #63–#65.
