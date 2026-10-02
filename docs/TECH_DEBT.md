@@ -206,9 +206,6 @@ contact, join). It works and each part is tested, but some patterns repeat.
   (`menu.ts`), and `if (this.screen !== screen) return` after each await. Every new async step
   has to remember both (the stale-screens bug was one that didn't). A per-`show()` token, and one
   transition state. *Medium.*
-- **The minimap and the thumbnail each fit a lap to a box,** in their own code (`race.ts`,
-  `thumb.ts`), which is how the minimap came out mirrored (HANDOFF). One pure
-  `fitBox(points, size, pad)`, tested once. *Small.* (PR #65 does this.)
 - **Held keys are the module's:** `held` (`input.ts`) is shared by every `Input`, the
   constructor adds window listeners with no `dispose`, and the input tests fire `blur` to reset
   it between them. `fakeBrowser` lives in `test/fake-audio.ts`. An instance field, a `dispose()`,
@@ -362,6 +359,12 @@ Not problems, but places where a little work would make the code easier to build
 ## Done
 
 What's been handled, so the list above stays the open ones.
+
+- After the tech-debt pass of 2026-10-02 (PR #65):
+  - **One fit-to-box for the minimap and the thumbnail:** `fitBox` in `ui/thumb.ts` (the minimap
+    had come out the track's mirror image).
+  - **The respawn clears the slipstream, slingshot and Overdrive** (one of the two reset lists'
+    differences; the shared `clearTransient` is still open above).
 
 - The codebase review after the menus and settings (2026-10-01):
   - **One overlay for Settings and Controls:** `src/ui/overlay.ts` (focus back to the opener,

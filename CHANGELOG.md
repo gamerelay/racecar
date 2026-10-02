@@ -4,7 +4,9 @@ What changed in each release of racecar, newest first. Releases are git tags on 
 reasons behind each change are in [docs/SPEC.md](./docs/SPEC.md) under "Changed while building",
 and where things stand is [docs/HANDOFF.md](./docs/HANDOFF.md).
 
-## Unreleased
+## alpha-1.27: the minimap the right way round
+
+PRs #63–#65.
 
 - **Fix:** the minimap was the track's mirror image (a lap you drive clockwise went round it
   anticlockwise); it's now the same way up as the world, and as the lobby's map thumbnail.

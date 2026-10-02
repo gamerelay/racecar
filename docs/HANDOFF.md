@@ -4,11 +4,12 @@ Where racecar stands and what's next, for whoever picks it up (a person or a fre
 The design is [SPEC.md](./SPEC.md): decisions in §17, and what building changed in "Changed while
 building". This file is "where are we"; the spec is "what are we making".
 
-**Last updated:** 2026-10-02. The last tag is **`alpha-1.26`** (PR #62: an orchestral track for
-the menus beside the title's, and an acoustic one for Backroads). Before it, `alpha-1.25` (PR #61:
-boost easier to get, longer and stronger; Overdrive; the slipstream and its slingshot) and
-`alpha-1.24` (PRs #49–#60: Settings and a real menu, Paradise v2, and more). It's on the hosted
-build ("Hosted test build" below).
+**Last updated:** 2026-10-02. The last tag is **`alpha-1.27`** (PRs #63–#65: PLAN's next-up notes,
+a pickup truck and Avalanche; a tech-debt pass over the whole codebase; and three fixes: the
+minimap was the track's mirror image, Overdrive re-popped, a slingshot survived a wreck). Before
+it, `alpha-1.26` (PR #62: two new tracks), `alpha-1.25` (PR #61: boost, Overdrive, the
+slipstream) and `alpha-1.24` (PRs #49–#60). It's on the hosted build ("Hosted test build"
+below).
 Every release is in [CHANGELOG.md](../CHANGELOG.md): add to its "Unreleased" section as you go,
 and retitle that section when you tag. [PLAN.md](./PLAN.md)'s six phases are all merged (it keeps
 a pool of other ideas), how online works is [ONLINE.md](./ONLINE.md), how maps are made is
@@ -310,7 +311,7 @@ the cone's far flanks.
     the track for an hour. The proxy always sends it.
   - **CORS on the Space** (GET and HEAD from any origin) stays: it lets a build read the Space's
     origin directly too, if the CDN is ever down.
-- **What's there now:** `alpha-1.26` (PR #62), updated 2026-10-02, with every track on the
+- **What's there now:** `alpha-1.27` (PRs #63–#65), updated 2026-10-02, with every track on the
   CDN. Keep it the one row: update Z442EE in place rather than adding a game.
 
 ## Next, in order
@@ -413,17 +414,7 @@ Bugs and gameplay gaps. Refactors, duplication, performance and tooling go in
     need to leave the land alone over its middle and draw portals.
   - The falling sign's and log truck's markers use the road's centre height, like the bombs did
     before; on a banked stretch their rings would sink. Neither sits on a steep bank today.
-- **Found in the tech-debt pass (2026-10-02), not fixed yet:**
-  - A slingshot survives a wreck: `respawn` (`car/physics.ts`) doesn't clear `slingT`, `draft`,
-    `draftT` or `cruise`, and a wrecked car's `stepCar` returns before they count down, so a car
-    wrecked mid-slingshot comes back with what's left of its +10%. (`placeCar` clears them; the
-    respawn's own list doesn't.)
-  - "Overdrive" can pop and chime over and over on one straight: one tick under the throttle or
-    steering limit fades `cruise` just under 1, and it's back at 1 (and fires again) 0.04 s
-    later. It wants hysteresis in the sim (fire again only once it's fallen under, say, 0.5).
-  - The minimap is the track's mirror image (a lap driven clockwise goes round it anticlockwise):
-    `race.ts`'s `project` puts larger z up the screen with x to the right; the lobby's thumbnail
-    (z down) is the right way round. (Fixed in PR #65.)
+- **Found in the tech-debt pass (2026-10-02), not fixed yet** (the first three were, in PR #65):
   - A spurious run-off dust puff: `lastSurface` (renderer.ts) is only updated for cars in effects
     range and not wrecked, so a car that left the road out of range (or wrecked) and comes back
     still off it puffs as if it had just run off.
