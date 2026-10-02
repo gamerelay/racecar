@@ -49,7 +49,10 @@ export function installClicks(play: (kind: UiSound) => void): void {
     const el = e.target;
     if (el instanceof HTMLInputElement && el.type === 'range' && el.closest('.card')) uiSound('tick');
   });
-  document.addEventListener('animationend', (e) => {
+  // Cancelled too: a button that hides its own card (Resume, Back) would flash again when it's shown.
+  const done = (e: AnimationEvent) => {
     if (e.animationName.startsWith('pressFx') && e.target instanceof HTMLElement) e.target.classList.remove('pressed');
-  });
+  };
+  document.addEventListener('animationend', done);
+  document.addEventListener('animationcancel', done);
 }

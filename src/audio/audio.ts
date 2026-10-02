@@ -279,13 +279,16 @@ export class GameAudio {
     }
     // Muted, or paused, or away: nothing to hear, so nothing runs.
     const quiet = f.paused || this.hidden || this.settings.muted;
-    // Paused, a menu click keeps the context running till it's rung out (uiSound silenced the rest).
+    // Paused, a menu click keeps the context running till it's rung out, with only the click heard.
     const stop = quiet && !(f.paused && !this.hidden && !this.settings.muted && performance.now() < this.uiUntil);
     if (stop !== (g.ctx.state === 'suspended')) void (stop ? g.ctx.suspend() : g.ctx.resume());
     if (quiet) {
       // A track would play on through a suspended context, unheard: it waits instead.
       this.wantTrack = false;
       this.track?.pause();
+      // Running for a click: the race is silent behind it (it may have been paused by that click,
+      // the ☰ Menu button, with everything still up). Unpaused, they glide back.
+      if (!stop) this.silenceRace();
       // What happened meanwhile isn't heard later (online, the race goes on while muted or paused).
       this.cursor = this.sim.events.head;
       return;
@@ -519,13 +522,9 @@ export class GameAudio {
   uiSound(kind: 'press' | 'back' | 'tick'): void {
     const g = this.g;
     if (!g || this.settings.muted || this.hidden) return;
-    const now = g.ctx.currentTime;
     if (g.ctx.state === 'suspended') {
       // Paused: the engines, effects and music go silent before it runs, and glide back on unpausing.
-      for (const p of [g.engines.gain, g.sfx.gain, g.musicLevel.gain]) {
-        p.cancelScheduledValues(now);
-        p.value = 0;
-      }
+      this.silenceRace();
       void g.ctx.resume();
     }
     this.uiUntil = performance.now() + UI_RING_MS;
@@ -543,6 +542,17 @@ export class GameAudio {
       toneShot(s, 'square', 1250, 900, 0.001, 0.045, t);
       toneShot(s, 'triangle', 1870, 1870, 0.002, 0.08, t + 0.012);
       noiseShot(s, 'highpass', 4000, 3000, 0.001, 0.02, 1, t);
+    }
+  }
+
+  /** The engines, effects and music at 0 at once (a paused race behind a menu click). */
+  private silenceRace(): void {
+    const g = this.g;
+    if (!g) return;
+    const now = g.ctx.currentTime;
+    for (const p of [g.engines.gain, g.sfx.gain, g.musicLevel.gain]) {
+      p.cancelScheduledValues(now);
+      p.value = 0;
     }
   }
 

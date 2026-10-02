@@ -3,9 +3,15 @@ import { installClicks, uiSound, type UiSound } from '../src/ui/click';
 
 test('a dragged slider ticks at most every 70 ms; presses always click', () => {
   const heard: UiSound[] = [];
-  // No document here: only the sound hook is set.
-  (globalThis as { document?: unknown }).document ??= { addEventListener() {} };
-  installClicks((k) => heard.push(k));
+  // No page here: a stand-in document, so only the sound hook is set.
+  const g = globalThis as { document?: unknown };
+  const was = g.document;
+  g.document = { addEventListener() {} };
+  try {
+    installClicks((k) => heard.push(k));
+  } finally {
+    g.document = was;
+  }
   uiSound('tick');
   uiSound('tick');
   uiSound('press');
