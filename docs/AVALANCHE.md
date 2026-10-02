@@ -337,7 +337,7 @@ Not done yet:
 - **Respawns** put you back on the piste where you left it, facing down it. Out of bounds
   in a canyon or up a wall needs no more than that.
 
-### Step 3, one run (2026-10-02, experimental, stacked on step 1)
+### Step 3, one run (2026-10-02, experimental, in PR #74)
 
 Brought forward on the owner's drive: the map is one run, summit to valley, with more verticality
 and uneven ground. Open it as before, `?mode=free&map=avalanche/slope`.
@@ -372,7 +372,7 @@ Not done yet:
   coarser mesh ("Looking ahead") are for a wider mountain.
 - **Gates** across the whole mountain: nothing to skip yet, the checkpoints are enough.
 
-### Rocks on the piste (2026-10-02, experimental, stacked on step 3)
+### Rocks on the piste (2026-10-02, experimental, in PR #74)
 
 The owner's ask after driving the run: a few snow-capped rocks and ridges in the middle of the
 piste, to go round left or right, or crash. The first of step 5's "things to hit".
@@ -400,6 +400,97 @@ piste, to go round left or right, or crash. The first of step 5's "things to hit
   traffic or weather here to vary it.)
 - **Tests:** a few rocks, solid, on the piste and on the ground, a ridge among them; driven straight
   at, one wrecks you.
+
+## Next: a loose plan (2026-10-02)
+
+The owner picked these after driving the run with its rocks ("this amount of rocks looks good").
+Loose, like the rest of this file: an order and a sketch of each, not specs. One PR each, all on
+the experimental line (PR #74) until the owner says it's ready. Measure every change with the lap
+report (`bun tools/lap-report.ts avalanche/slope`, `--field`, `--chaos`) and check the other maps'
+lap floors haven't moved.
+
+### The feel first
+
+1. **It reads as a run.**
+   - The HUD: "Run" instead of "Lap 1/1", and a meter of the distance to the bottom (or a thin
+     bar of the run with every car on it, which the minimap nearly is already).
+   - A start gate at the top (a timber arch, banners) and a finish arch in the valley, drawn from
+     `track.run`; the results say "run", not "lap", and a best run is a best lap's slot.
+   - The lobby says "one run" for this map and hides the laps chooser.
+   - Small: `src/ui/hud.ts`, `src/ui/race.ts`, `src/ui/menu.ts`, `snow.ts`.
+2. **The camera follows the slope.**
+   - Pitch it with the ground ahead (smoothed), so a 70% wall looks like one and a crest hides
+     what's past it. Only where the layout has a ground: the other maps' camera stays as it is.
+   - The owner's note: uphill, it's hard to see over the top. They like that on the other maps,
+     so on this one only, try lifting the camera a little as the slope ahead rises.
+   - Where: `src/render/camera.ts`. Check it in the poster scout at the walls' tops.
+3. **Snow you feel and hear.**
+   - Tracks that last: skid marks on snow and powder that stay the whole race (the skids'
+     ring buffer, bigger, or a second one for snow), fainter on groomed snow.
+   - Sound: a crunch on groomed snow, a hiss in powder, a thump on a mogul landing (the audio's
+     surface layer; it has one for dirt).
+   - Snowfall as weather (`weather: ['clear', 'snow']`): flakes like the rain, a little less grip
+     (`weatherGrip`), and fog that closes in.
+
+### Gameplay a run is made for
+
+4. **The avalanche** (at mayhem).
+   - A wall of snow coming down the run behind the field, closed-form in time like traffic (its s
+     is a function of the race clock), so it's the same on every screen with nothing to sync.
+   - It starts behind the grid a few seconds after green, runs a little slower than the leaders and
+     faster than the back of the field, and speeds up on the steep pitches. Caught: you wreck
+     (`Cause.Hazard`) and respawn ahead of it.
+   - Drawn as a churning white front with a powder cloud, a rumble that grows as it closes, and a
+     warning on the HUD ("Avalanche!", its distance behind you).
+   - A canyon is a way out: the avalanche runs the piste, and the canyon's floor is below it.
+   - Off at normal mayhem, on at chaos; tune so it catches a car a race or so, not the field.
+5. **Slalom gates.**
+   - Pairs of flags across the piste, a gap 10–14 m wide, sometimes offset left or right. Through
+     one: a little boost (like a near miss's). Missed: nothing lost, only the boost.
+   - They show the fast line down the bunny slopes and the winding stretch, and they reward
+     driving it cleanly. Cheap: a trigger zone and two poles (smashable, so a missed gate isn't a
+     wreck).
+   - The AI takes them when its line passes through, and at hard steers for them a little.
+6. **Pines off the piste.**
+   - Forests on the open snow, with colliders (circles, bucketed in a grid, as AVALANCHE's
+     "Colliders" section sketches). A powder cut is then a gamble through the trees, not just a
+     little slower.
+   - Snow-laden pines from one list, the renderer drawing exactly what's solid. Thin near the
+     piste, dense up the walls (and they hide the walls, which look bare now).
+   - Keep the piste's edges and the canyons' mouths clear, and check the AI never needs to leave
+     the piste.
+7. **A ski jump near the bottom.**
+   - One big kicker as the run's landmark: a long in-run, a lip, and a steep landing hill below
+     it, so the flight is long but the landing is soft (land on a slope, not a flat).
+   - Superman it (boost in the air) for the big payout. The AI flies it too.
+   - With a tower and flags, seen from up the mountain.
+
+### Before it could ship
+
+8. **The AI downhill** (the plan's step 2).
+   - Its speed plan is about corners; downhill it carries more speed than it planned. Plan the
+     braking with the slope in it (the braking pass's `brake` less the downhill pull), and the
+     corner speeds with the bank.
+   - Sometimes take a canyon line (as a branch the AI knows, at a skill-based chance, like
+     shortcuts), so a canyon's a real alternative and you see rivals ride it.
+   - Then narrower and steeper stretches are safe to build.
+9. **On a phone.**
+   - Measure: the ground's build (0.6 s on a desktop), its draw (0.48 million points in 128 m
+     tiles), the rocks and the snow spray, on a mid-range phone.
+   - If it's slow: "Looking ahead"'s corridor (only the tiles near the road at 2.5 m, a coarse
+     mesh past them) and a level of detail per tile, and build the ground in a worker or once and
+     cache it.
+10. **Release.**
+    - The lobby (one run), the map's thumbnail and minimap for an open run, the validator taught
+      about `layout.run` (it assumes a loop: the grid 50 m behind s = 0, checkpoints wrapping).
+    - The map's music (the owner's own track), the attract mode and the map vote.
+    - Then take `experimental: true` off, and it's a map.
+
+### Later
+
+- **What Avalanche taught, on the other maps:** slope gravity on Backroads' crests and Paradise's
+  volcano, open ground for fields you can cut across. Their own experiment, once this settles: it
+  changes their tuning.
 
 ## Questions for the owner
 
