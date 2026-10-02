@@ -6,6 +6,12 @@ and where things stand is [docs/HANDOFF.md](./docs/HANDOFF.md).
 
 ## Unreleased
 
+- **Paradise, reworked:** deeper S-bends and wider sweepers to drift through, the jungle's
+  hairpins opened up, and off the road is the beach, undergrowth or ash, which slows you rather
+  than spinning you. Two secret shortcuts, not on the map (look for the gap in the palms, and the
+  sand where the road swings inland out of town). Lava runs down the volcano, and at chaos it
+  rains small rocks on the jungle's straight and the run down off the rim. The jungle's road
+  looks like earth now, and the trees stand back from the road.
 - **A loading screen between pages:** going into a race or back to the lobby, the crossed flags
   pulse in the middle of the dark screen until the next page has drawn (at least 0.7 s), and an
   offline race waits behind it, so its countdown starts when you can see it.
