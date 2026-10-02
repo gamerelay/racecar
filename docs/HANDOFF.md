@@ -295,7 +295,7 @@ the cone's far flanks.
 - **Update it** (asleepace.com repo, its `publishing-games` skill): run the sanitizer on the new
   file, then `UPDATE games SET html = … WHERE id = 'Z442EE'`. It's live at once; players get it
   when they reload. Don't run its multiplayer injection: racecar brings GameRelay's SDK.
-- **The music** (29 MB) isn't in the single file: it's on the games CDN,
+- **The music** (35 MB) isn't in the single file: it's on the games CDN,
   **https://cdn.gamerelay.io/racecar/music/** (`VITE_MUSIC_URL` in `.env.production`).
   - **The CDN** is gamerelay.io's caching proxy (its `apps/server/src/cdn.ts`; setup and
     behaviour in its `docs/INFRASTRUCTURE.md`, "Asset CDN", live since 2026-10-01). It fronts the

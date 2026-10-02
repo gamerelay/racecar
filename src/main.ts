@@ -135,10 +135,11 @@ const renderer = new GameRenderer(document.getElementById('stage')!, new Greybox
   plates: names.map((text) => ({ text, region: map.name, map: map.id })),
 });
 const hud = new Hud(sim);
-// The page's soundtrack: the title's behind the menus; in a race, the map's own track and the two
-// for any map, never the one the last race played first (`?music=0`: the synth's).
+// The page's soundtrack: the title's behind the menus; in a race, the map's own tracks and the four
+// for any map. Never first the one the last page of the same kind played (the menus and the races
+// remember theirs apart; `?music=0`: the synth's).
 const playlist = params.get('music') === '0' ? null : playlistFor(map.id, attract);
-const LAST_TRACK = 'racecar.lastTrack';
+const LAST_TRACK = attract ? 'racecar.lastTitleTrack' : 'racecar.lastTrack';
 const track = playlist
   ? new Soundtrack(playlist, import.meta.env.VITE_MUSIC_URL ?? `${import.meta.env.BASE_URL}music/`, {
       last: (() => {
@@ -149,7 +150,6 @@ const track = playlist
         }
       })(),
       remember: (t) => {
-        if (t === 'title') return;
         try {
           localStorage.setItem(LAST_TRACK, t);
         } catch {

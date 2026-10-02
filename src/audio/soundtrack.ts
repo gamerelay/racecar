@@ -1,24 +1,26 @@
-// The recorded soundtrack: the title's track behind the menus, and in a race a playlist of the
+// The recorded soundtrack: the title's tracks behind the menus, and in a race a playlist of the
 // map's own tracks and the four that go anywhere, so the same song never plays twice in a row (from
 // one race to the next either). A streamed <audio> element played through the music bus (so N, M,
 // the slow-mo duck and the level all apply to it). A track that can't load (not hosted where the
 // page is, say) falls back to the synth music (music.ts), the same as before there were tracks.
 
-/** The tracks, by name: `title`, each map's own, and the four any race may play. */
-export const TRACKS = ['title', 'downtown', 'tokyo-dubstep', 'backroads', 'paradise', 'hawaiian-vibes', 'finish-line', 'final-sprint', 'relentless-pursuit', 'half-time-surge'] as const;
+/** The tracks, by name: the title's, each map's own, and the four any race may play. */
+export const TRACKS = ['title', 'pursuit-orchestra', 'downtown', 'tokyo-dubstep', 'backroads', 'backroads-acoustic', 'paradise', 'hawaiian-vibes', 'finish-line', 'final-sprint', 'relentless-pursuit', 'half-time-surge'] as const;
 export type TrackName = (typeof TRACKS)[number];
+/** Behind the menus (the attract page): the title's own, and the orchestral one (the owner's, 2026-10-02). */
+export const TITLE_TRACKS: readonly TrackName[] = ['title', 'pursuit-orchestra'];
 /** Tracks for any map's race (`relentless-pursuit` and `half-time-surge`, the owner's, 2026-10-02). */
 export const ANY_MAP: readonly TrackName[] = ['finish-line', 'final-sprint', 'relentless-pursuit', 'half-time-surge'];
-/** Each map's own tracks: the city has the Tokyo dubstep too, the island the Hawaiian one (2026-10-01). */
+/** Each map's own tracks: the city has the Tokyo dubstep too, the island the Hawaiian one (2026-10-01), the valley an acoustic one (2026-10-02). */
 export const MAP_TRACKS: Readonly<Record<string, readonly TrackName[]>> = {
   downtown: ['downtown', 'tokyo-dubstep'],
-  backroads: ['backroads'],
+  backroads: ['backroads', 'backroads-acoustic'],
   paradise: ['paradise', 'hawaiian-vibes'],
 };
 
-/** The page's playlist: the title's alone behind the menus (attract mode), else the map's own and the four for any map. */
+/** The page's playlist: the title's behind the menus (attract mode), else the map's own and the four for any map. */
 export function playlistFor(mapId: string, attract: boolean): TrackName[] {
-  if (attract) return ['title'];
+  if (attract) return [...TITLE_TRACKS];
   return [...(Object.hasOwn(MAP_TRACKS, mapId) ? MAP_TRACKS[mapId] : []), ...ANY_MAP];
 }
 
