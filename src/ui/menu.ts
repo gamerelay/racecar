@@ -302,9 +302,11 @@ export class Menu {
     this.root.classList.remove('leaving');
     this.leaving = false;
     this.syncInert();
+    // The class only for a new screen: left on, everything a redraw put in (each lobby update,
+    // a car picked) would play the fade-in again.
+    this.root.classList.remove('entering');
     if (this.entering) {
       this.entering = false;
-      this.root.classList.remove('entering');
       void this.root.offsetWidth;
       this.root.classList.add('entering');
     }
