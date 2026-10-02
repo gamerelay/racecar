@@ -264,7 +264,7 @@ too (`poster.html?scout=avalanche/slope&s=…`).
     where two stretches were equally near: cliffs up to 136 m on the ridge between the run and the
     road back. Relaxed, nowhere steps more than 2.5 m between points 2 m apart;
   - rough snow off it (up to 1.2 m, 18 m across);
-  - a mogul field (1.1 m bumps, 7 m apart, rows offset);
+  - a mogul field (1.6 m bumps, 10 m apart, rows offset; 1.1 m and 7 m before the owner's drive);
   - a canyon: a 10 m floor, 5 m deep, quarter-circle walls about 60° at the lip, easing in over
     30 m;
   - walls rising 0.8 m per m from 70 m out.
@@ -308,6 +308,16 @@ Not done yet:
 - **Feel:** nothing is tuned by a drive yet. That's the owner's next step. Each of these is one
   number: how hard snow pulls (`slide`), powder's cost (its `drag`), the moguls' height and spacing,
   the canyon's depth, how steep the pitches are (the generator's heights).
+
+### The owner's drive (2026-10-02)
+
+- **It feels good.** The snow, the pull of the slope and the moguls work.
+- **Moguls:** bigger and further apart. Now 1.6 m high and 10 m apart.
+- **The camera uphill:** going up a climb, the camera's angle makes it hard to see over the top.
+  The owner likes that on the other maps (a blind crest), so it stays. Come back to it for this
+  map: a camera that follows the slope's pitch (step 4).
+- **One run, straight down:** a single run from the top to the bottom, with more verticality,
+  more uneven ground, and small tilts and gradual banks that wind and switch. That's step 3, next.
 
 ### Looking ahead (from step 1's review)
 

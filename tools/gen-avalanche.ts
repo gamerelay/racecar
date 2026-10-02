@@ -76,7 +76,7 @@ layout.ground = {
   wallFrom: 70,
   wallRise: 0.8,
   rough: { height: 1.2, size: 18 },
-  moguls: [{ s: [sAt(-30, 960), sAt(-20, 1060)], lateral: [3, 40], height: 1.1, spacing: 7 }],
+  moguls: [{ s: [sAt(-30, 960), sAt(-20, 1060)], lateral: [3, 40], height: 1.6, spacing: 10 }],
   canyons: [{ s: [sAt(-25, 1050), sAt(20, 1230)], lateral: -40, floor: 10, depth: 5, ease: 30 }],
 };
 
