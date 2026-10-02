@@ -99,7 +99,8 @@ export class Hazards {
     readonly seed: number,
     readonly mayhem: Mayhem = 'normal',
   ) {
-    this.defs = mayhem === 'off' ? [] : (track.layout.hazards ?? []);
+    // A def that names a mayhem is only there at that one (every screen in a room has the same).
+    this.defs = mayhem === 'off' ? [] : (track.layout.hazards ?? []).filter((d) => !d.mayhem || d.mayhem === mayhem);
     this.kinds = this.defs.map((d) => KINDS[d.use]);
     const scale = mayhem === 'chaos' ? 0.5 : 1;
     this.defs.forEach((def, d) => {
@@ -339,7 +340,9 @@ const volcanoBombs: HazardKind = {
         h.addPiece(occ.id, Piece.Bomb, land.s, land.x, y, land.z, land.yaw, r, r, r, false, 0, f);
         continue;
       }
-      h.addPiece(occ.id, Piece.Bomb, land.s, land.x, land.y + r * 0.7, land.z, land.yaw, r, r, r * 0.8, true, def.params?.wreck ?? 18, 1 + u);
+      // `soft`: small rocks (the island's lava rain) you hop over and lose a little speed to, like a coconut.
+      const soft = !!def.params?.soft;
+      h.addPiece(occ.id, Piece.Bomb, land.s, land.x, land.y + r * 0.7, land.z, land.yaw, r, r, r * 0.8, soft ? Solid.Bump : true, soft ? Infinity : (def.params?.wreck ?? 18), 1 + u);
     }
   },
 };

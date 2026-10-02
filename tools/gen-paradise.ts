@@ -222,6 +222,12 @@ layout.traffic = {
 layout.hazards = [
   { use: 'volcano-bombs', s: [sAt(...rim(0, 210), 35), sAt(...rim(33, 210), 35)], params: { every: 45, bombs: 2 } },
   { use: 'coconuts', s: sAt(-372, 346) },
+  // Chaos only: lava rain, small glowing rocks thrown far that you hop over (they cost a little
+  // speed, never a wreck), on the jungle's straight between its hairpins and the run down off the
+  // rim (by the field report at chaos: 1.6 wrecks a race against 1.25 without; on the jungle's last
+  // leg, where the field lines up for the Lava Tube, it was 2.1).
+  { use: 'volcano-bombs', s: [sAt(375, -256), sAt(280, -233)], params: { every: 30, bombs: 4, size: 0.5, soft: 1 }, mayhem: 'chaos' },
+  { use: 'volcano-bombs', s: [sAt(300, 310, 26), sAt(380, 352, 19)], params: { every: 34, bombs: 4, size: 0.5, soft: 1 }, mayhem: 'chaos' },
 ];
 // Landmarks (PLAN phase 6; the lighthouse is the island's own scenery, and its beam shows through a
 // shower): a wreck in the shallows off Coconut Coast and a whale breaching beyond it; a surf shack

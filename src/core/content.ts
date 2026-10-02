@@ -94,6 +94,8 @@ export interface HazardDef {
   side?: -1 | 1;
   /** Kind-specific numbers (mean interval, lifetime…). */
   params?: Record<string, number>;
+  /** Only at this mayhem (the island's lava rain is chaos's alone); at every level but off by default. */
+  mayhem?: 'normal' | 'chaos';
 }
 
 /**

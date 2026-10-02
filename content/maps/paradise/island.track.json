@@ -4196,6 +4196,34 @@
   {
    "use": "coconuts",
    "s": 593
+  },
+  {
+   "use": "volcano-bombs",
+   "s": [
+    2361,
+    2459
+   ],
+   "params": {
+    "every": 30,
+    "bombs": 4,
+    "size": 0.5,
+    "soft": 1
+   },
+   "mayhem": "chaos"
+  },
+  {
+   "use": "volcano-bombs",
+   "s": [
+    3296,
+    3385
+   ],
+   "params": {
+    "every": 34,
+    "bombs": 4,
+    "size": 0.5,
+    "soft": 1
+   },
+   "mayhem": "chaos"
   }
  ],
  "landmarks": [
