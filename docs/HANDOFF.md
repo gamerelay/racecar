@@ -421,8 +421,9 @@ Bugs and gameplay gaps. Refactors, duplication, performance and tooling go in
   - "Overdrive" can pop and chime over and over on one straight: one tick under the throttle or
     steering limit fades `cruise` just under 1, and it's back at 1 (and fires again) 0.04 s
     later. It wants hysteresis in the sim (fire again only once it's fallen under, say, 0.5).
-  - The lobby's map thumbnail is the minimap upside down: `thumb.ts` puts larger z down the
-    screen, `race.ts`'s `project` puts it up, so a clockwise lap draws anticlockwise on one.
+  - The minimap is the track's mirror image (a lap driven clockwise goes round it anticlockwise):
+    `race.ts`'s `project` puts larger z up the screen with x to the right; the lobby's thumbnail
+    (z down) is the right way round. (Fixed in PR #65.)
   - A spurious run-off dust puff: `lastSurface` (renderer.ts) is only updated for cars in effects
     range and not wrecked, so a car that left the road out of range (or wrecked) and comes back
     still off it puffs as if it had just run off.

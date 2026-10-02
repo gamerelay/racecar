@@ -207,8 +207,8 @@ contact, join). It works and each part is tested, but some patterns repeat.
   has to remember both (the stale-screens bug was one that didn't). A per-`show()` token, and one
   transition state. *Medium.*
 - **The minimap and the thumbnail each fit a lap to a box,** in their own code (`race.ts`,
-  `thumb.ts`), which is how they came out flipped against each other (HANDOFF). One pure
-  `fitBox(points, size, pad)`, tested once. *Small.*
+  `thumb.ts`), which is how the minimap came out mirrored (HANDOFF). One pure
+  `fitBox(points, size, pad)`, tested once. *Small.* (PR #65 does this.)
 - **Held keys are the module's:** `held` (`input.ts`) is shared by every `Input`, the
   constructor adds window listeners with no `dispose`, and the input tests fire `blur` to reset
   it between them. `fakeBrowser` lives in `test/fake-audio.ts`. An instance field, a `dispose()`,
