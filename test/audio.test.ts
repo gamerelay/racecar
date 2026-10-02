@@ -71,7 +71,7 @@ describe('audio model', () => {
 });
 
 describe('the soundtrack', () => {
-  test("the title's track behind the menus; in a race the map's own and the two for any map; a file for every one", () => {
+  test("the title's track behind the menus; in a race the map's own and the three for any map; a file for every one", () => {
     expect(playlistFor('downtown', true)).toEqual(['title']);
     // Every map has its own (named after it, first), and every track is someone's.
     for (const m of MAPS) expect(playlistFor(m.id, false)).toEqual([m.id as (typeof TRACKS)[number], ...MAP_TRACKS[m.id]!.slice(1), ...ANY_MAP]);
