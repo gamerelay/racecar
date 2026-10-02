@@ -424,6 +424,27 @@ describe('online lobbies', () => {
     expect(readAction({ type: 'options', options: { laps: 1e9 } }, 'x')).toBeNull();
   });
 
+  test("a plate the menu would refuse, sent by someone else's page, is shown as a stock plate", () => {
+    const join = (name: string) => readAction({ type: 'join', player: { name, car: 'coupe', paint: 0 } }, 'x');
+    expect(join('SH1T')).toEqual({ type: 'join', player: { id: 'x', name: 'RC', car: 'coupe', paint: 0 } });
+    expect(join('ace 7')).toEqual({ type: 'join', player: { id: 'x', name: 'ACE 7', car: 'coupe', paint: 0 } });
+    expect(join('')).toBeNull();
+  });
+
+  test('a short-link join too slow to wait for is left once it lands', async () => {
+    let land!: (code: string) => void;
+    const abandoned: string[] = [];
+    const online = {
+      joinLink: () => new Promise<string>((r) => (land = r)),
+      abandon: async (id: string) => void abandoned.push(id),
+    } as unknown as ConstructorParameters<typeof Lobbies>[1];
+    const both = new Lobbies(new LocalBackend(null), online, 20);
+    expect(await both.joinLink('ZwsG3pRrM1s')).toBeNull();
+    land('K7QM');
+    await settle();
+    expect(abandoned).toEqual(['K7QM']);
+  });
+
   test("the lobby in a room's state is checked all through: whoever holds the host role writes it", () => {
     const good = createLobby('K7QM', { id: 'ada', name: 'ADA', car: 'coupe', paint: 1 });
     expect(readLobby({ lobby: good })).toEqual(good);

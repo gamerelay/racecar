@@ -6,7 +6,6 @@ import { Ev, type GameEvent } from '../core/events';
 import { MPH } from '../core/math';
 import { positions } from '../core/rules/progress';
 import type { Sim } from '../core/sim';
-import type { InputDevice } from '../input/input';
 import { delta, fmt, ordinal } from './format';
 
 // Elements are looked up once, and text and transforms are written only when they change: the HUD
@@ -52,7 +51,6 @@ export class Hud {
   private shownStage = -1;
   /** The focus car's best lap before the one just finished (for the lap pop's delta). */
   private bestBefore = 0;
-  private device: InputDevice | '' = '';
 
   constructor(private readonly sim: Sim) {
     document.body.insertAdjacentHTML(
@@ -112,22 +110,6 @@ export class Hud {
 
   toggleDebug(): boolean {
     return (this.debugOn = $('debug').classList.toggle('on'));
-  }
-
-  /** The controls for the device in use (pad glyphs once a pad is used), for the pause menu; dev keys in dev builds. */
-  keys = '';
-
-  setDevice(device: InputDevice): void {
-    if (device === this.device) return;
-    this.device = device;
-    const k = (s: string) => `<kbd>${s}</kbd>`;
-    const dev = import.meta.env.DEV ? ` · ${k('`')} editor · ${k('F2')} debug · ${k('F6')} ink` : '';
-    this.keys =
-      device === 'gamepad'
-        ? `${k('RT')}/${k('LT')} drive · ${k('RB')} drift · ${k('A')} boost · ${k('Y')} reset · ${k('B')} look back · ${k('Start')} pause`
-        : `${k('WASD')}/${k('←↑→↓')} drive · ${k('Shift')} drift · ${k('Space')} boost · ${k('R')} reset · ${k('C')} look back · ${k('Esc')} pause · ${k('M')} sound · ${k('N')} music${dev} · ${k('F8')} felt wrong?`;
-    const el = document.getElementById('keys');
-    if (el) el.innerHTML = this.keys;
   }
 
   update(): void {

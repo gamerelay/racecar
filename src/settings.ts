@@ -47,7 +47,7 @@ export function parseSettings(raw: string | null): Settings {
   const d = DEFAULT_SETTINGS;
   const vol = (s.volume ?? {}) as Record<string, unknown>;
   const gr = (s.graphics ?? {}) as Record<string, unknown>;
-  const quality = gr.quality === 'custom' || (typeof gr.quality === 'string' && gr.quality in QUALITY) ? (gr.quality as Settings['graphics']['quality']) : d.graphics.quality;
+  const quality = gr.quality === 'custom' || (typeof gr.quality === 'string' && Object.hasOwn(QUALITY, gr.quality)) ? (gr.quality as Settings['graphics']['quality']) : d.graphics.quality;
   return {
     volume: { master: unit(vol.master, d.volume.master), music: unit(vol.music, d.volume.music), engines: unit(vol.engines, d.volume.engines), effects: unit(vol.effects, d.volume.effects) },
     graphics: {

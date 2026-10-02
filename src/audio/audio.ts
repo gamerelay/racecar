@@ -235,6 +235,12 @@ export class GameAudio {
     this.settings.muted = !this.settings.muted;
     this.save();
     this.applyMaster();
+    // Unmuting is a key press: start the context and the track in it, as some browsers (iOS) only
+    // allow then. A pause or a menu still stops them on the next frame.
+    if (!this.settings.muted && this.g) {
+      void this.g.ctx.resume();
+      if (this.settings.music) this.track?.play(true);
+    }
     return this.settings.muted;
   }
 
@@ -266,6 +272,8 @@ export class GameAudio {
       // A track would play on through a suspended context, unheard: it waits instead.
       this.wantTrack = false;
       this.track?.pause();
+      // What happened meanwhile isn't heard later (online, the race goes on while muted or paused).
+      this.cursor = this.sim.events.head;
       return;
     }
     const now = g.ctx.currentTime;

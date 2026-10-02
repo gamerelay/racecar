@@ -61,7 +61,8 @@ export class PostRace {
   private off: () => void;
 
   constructor(private d: PostRaceDeps) {
-    this.off = d.backend.subscribe(d.lobby, (l) => this.update(l));
+    // No pings: nothing on the race page shows them.
+    this.off = d.backend.subscribe(d.lobby, (l) => this.update(l), { pings: false });
     // The lobby as it is now (a subscription only says when it changes); the race page's join has it already.
     void d.backend.get(d.lobby).then(
       (l) => l && !this.lobby && this.update(l),

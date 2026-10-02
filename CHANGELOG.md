@@ -25,6 +25,28 @@ and where things stand is [docs/HANDOFF.md](./docs/HANDOFF.md).
   previews in chat apps with the lobby's name and the cover art and opens the game straight into
   the lobby (`?join=<link>`). An Invite only lobby is now link-only: its code doesn't get anyone
   in, so nobody joins by guessing one (a player who had a seat still comes back). SDK 0.1.0-alpha.5.
+- **Fixes from a code review:**
+  - **Flicker:** the clock tower's dials no longer flicker through the stone from a distance. The
+    same fix (more room between the surfaces, and lit signs drawn forward in the depth test) went
+    to the start line's checkers, the road markings, the trench and tunnel edges, the fountain's
+    water, the donut shop's windows, the cow's sign and the drawbridge stripe.
+  - **Sound:** muting (M), or the in-race menu online, no longer plays everything that happened
+    meanwhile in one burst when the sound comes back. Unmuting starts the music again on iOS
+    without a second tap.
+  - **Menus:** Esc during an online join or create no longer leaves you on a dead lobby screen.
+    Settings and Controls hold the keyboard while they're up (Tab can't reach the buttons behind
+    them), and closing them puts focus back where it was, even after the title's list refreshes.
+  - **Gamepad:** with the F8 form up, the pad works the form rather than the menu under it.
+  - **F6 (outlines)** goes through Settings, so the panel agrees and a slider doesn't undo it.
+  - **Analytics:** Off holds for the page even where the browser blocks storage.
+  - **Online:**
+    - A short link that's slow to join no longer leaves you in the room unseen.
+    - Copy invite link on an Invite only lobby says when it couldn't get the link, instead of
+      copying a code link that can't get anyone in.
+    - The race page stops pinging the room every 3 s.
+    - A plate the menu would refuse, sent by a modified page, shows as a stock plate.
+  - **Tests:** 61 more, for the fixes above and code that had none (the audio's events, the
+    music, the lobby's messages, the input, the spline, the settings). 391 in all.
 - Internal: the race's online code tidied (one place for its message checks and its clock, and
   the race page's online part out of main.ts: `src/net/online.ts`). No change in play.
 

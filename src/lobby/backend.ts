@@ -13,8 +13,12 @@ export interface LobbyBackend {
   get(id: string): Promise<Lobby | null>;
   /** Your action on a lobby: the lobby after it, or null if it was refused (or the lobby is gone). */
   send(id: string, action: LobbyAction): Promise<Lobby | null>;
-  /** Calls `fn` whenever the lobby changes (from here or elsewhere); returns an unsubscribe. */
-  subscribe(id: string, fn: (lobby: Lobby | null) => void): () => void;
+  /**
+   * Calls `fn` whenever the lobby changes (from here or elsewhere); returns an unsubscribe. Online,
+   * pings go round the room while a subscriber wants them (the lobby screen's ping column); the race
+   * page's `pings: false` doesn't.
+   */
+  subscribe(id: string, fn: (lobby: Lobby | null) => void, opts?: { pings?: boolean }): () => void;
   /** Online, with others in the room: how your broadcasts reach them (see `NetRoute`). */
   route?(id: string): NetRoute | null;
   /** Online: player `player`'s ping to the server (ms), or null while it isn't known. */
@@ -203,17 +207,22 @@ export class Lobbies implements LobbyBackend {
     return (await this.of(id)?.shareLink?.(id).catch(() => null)) ?? null;
   }
 
-  /** Too slow (online), it's null, like `get`. */
+  /** Too slow (online), it's null, like `get`; and if the join lands later, you leave the room. */
   async joinLink(link: string): Promise<string | null> {
-    if (!this.online?.joinLink) return null;
-    return (await inTime(this.online.joinLink(link), this.wait).catch(() => null)) ?? null;
+    const online = this.online;
+    if (!online?.joinLink) return null;
+    const join = online.joinLink(link);
+    const id = (await inTime(join, this.wait).catch(() => null)) ?? null;
+    // The menu can't abandon a lobby it never learned the code of: that's done here once it's known.
+    if (!id) void join.then((late) => void (late && online.abandon?.(late))).catch(() => {});
+    return id;
   }
 
   async send(id: string, action: LobbyAction): Promise<Lobby | null> {
     return (await this.of(id)?.send(id, action).catch(() => null)) ?? null;
   }
 
-  subscribe(id: string, fn: (lobby: Lobby | null) => void): () => void {
-    return this.of(id)?.subscribe(id, fn) ?? (() => {});
+  subscribe(id: string, fn: (lobby: Lobby | null) => void, opts?: { pings?: boolean }): () => void {
+    return this.of(id)?.subscribe(id, fn, opts) ?? (() => {});
   }
 }

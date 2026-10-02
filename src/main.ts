@@ -317,7 +317,6 @@ function frame(now: number): void {
   // A menu up: arrows and the pad move focus there (and Start still works while paused).
   input.menuOpen = !!openMenu();
   if (paused) input.pollMenu();
-  hud.setDevice(input.lastDevice);
   // An online race doesn't stop for your pause menu: the others are still driving (yours coasts).
   const stepping = (!paused || onlineRace) && !editorOpen;
   if (stepping) {
@@ -359,9 +358,13 @@ function frame(now: number): void {
 }
 requestAnimationFrame(frame);
 
-/** The menu on screen, if any: Settings (over the rest), the F8 form, the pause menu, results, or the title and lobbies. */
+/** The menu on screen, if any, topmost first: the F8 form, Settings or Controls, the pause menu, results, or the title and lobbies. */
 function openMenu(): HTMLElement | null {
-  return document.querySelector<HTMLElement>('#settings.on, #controls.on') ?? document.querySelector<HTMLElement>('#reportForm, #pause.on, #results.on, #menu');
+  for (const sel of ['#reportForm', '#settings.on', '#controls.on', '#pause.on', '#results.on', '#menu']) {
+    const el = document.querySelector<HTMLElement>(sel);
+    if (el) return el;
+  }
+  return null;
 }
 
 // Switching away mid-race pauses it (not behind the menu, not once you're in the results). Not
@@ -385,11 +388,11 @@ input.on((a) => {
     return;
   }
   if (a === 'accept') return void (menu && accept(menu));
-  // Settings are over everything: back (Esc, B) closes them, to the menu they were opened from.
+  // The F8 form owns the controls while it's up (it's over everything): back closes it, nothing else gets through.
+  if (closeReport) return void (a === 'back' && closeReport());
+  // Settings and Controls are over the menus: back (Esc, B) closes them, to the menu they were opened from.
   if ((a === 'back' || a === 'pause') && settingsPanel.isOpen) return settingsPanel.close();
   if ((a === 'back' || a === 'pause') && controlsPanel.isOpen) return controlsPanel.close();
-  // The F8 form owns the controls while it's up: back closes it, nothing else gets through.
-  if (closeReport) return void (a === 'back' && closeReport());
   if (a === 'back') return void (paused ? setPaused(false) : screens?.back());
   // Behind the menu there's nothing to pause: Esc and Start go back a screen.
   if (a === 'pause' && attract) screens?.back();
@@ -399,7 +402,8 @@ input.on((a) => {
     renderer.debug = hud.toggleDebug();
   } else if (a === 'editor' && import.meta.env.DEV) toggleEditor();
   else if (a === 'tuning' && import.meta.env.DEV) import('./editor/tuning').then((m) => m.toggleTuning(TUNING));
-  else if (a === 'ink') renderer.opts.outline = !renderer.opts.outline;
+  // Through the settings, so the panel agrees and the next change doesn't undo it.
+  else if (a === 'ink') settings.set({ graphics: { outline: !settings.get().graphics.outline } });
   else if (a === 'mute') toast(audio.toggleMute() ? 'Sound off (M)' : 'Sound on (M)');
   else if (a === 'music') toast(audio.toggleMusic() ? 'Music on (N)' : 'Music off (N)');
 });

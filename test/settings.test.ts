@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test';
 import { DEFAULT_SETTINGS, parseSettings, QUALITY, SETTINGS_KEY, SettingsStore, withGraphics, type SettingsStorage } from '../src/settings';
-import { cycleIndex } from '../src/ui/chooser';
+import { chooser, cycleIndex } from '../src/ui/chooser';
 
 // The player's settings (settings.ts, docs/MENU.md): what's stored, read back whatever it is, and
 // the graphics presets; and the chooser's cycling (ui/chooser.ts).
@@ -63,11 +63,129 @@ describe('settings', () => {
     b.set({ analytics: false });
     expect(b.get().analytics).toBe(false);
   });
+
+  test('volumes out of range are clamped to 0 to 1; ones that are no number at all (1e999 is Infinity) are the default', () => {
+    const s = parseSettings(JSON.stringify({ volume: { master: -3, music: 0, engines: 1.5 } }).replace('1.5', '1e999'));
+    expect(s.volume).toEqual({ master: 0, music: 0, engines: 1, effects: 1 });
+    expect(parseSettings(JSON.stringify({ volume: { master: 2, effects: -0.1 } })).volume).toMatchObject({ master: 1, effects: 0 });
+    expect(parseSettings(JSON.stringify({ volume: { master: null, music: '0.5', engines: [0.5], effects: {} } })).volume).toEqual(DEFAULT_SETTINGS.volume);
+  });
+
+  test("whatever shape is stored, it's settings: arrays, nulls, strings in place of objects", () => {
+    for (const raw of ['null', '[]', '[1,2]', '"high"', 'true', '{"volume":null,"graphics":null}', '{"volume":5,"graphics":"low"}', '{"volume":[1],"graphics":[1]}']) {
+      expect(parseSettings(raw)).toEqual(DEFAULT_SETTINGS);
+    }
+  });
+
+  test("a stored quality that's a name every object has (constructor, __proto__) is the default, not a preset with no values", () => {
+    for (const quality of ['constructor', 'toString', '__proto__', 'hasOwnProperty', 'valueOf']) {
+      expect(parseSettings(JSON.stringify({ graphics: { quality } })).graphics).toEqual(DEFAULT_SETTINGS.graphics);
+    }
+  });
+
+  test("a custom resolution is held to 50% to 100%; one that isn't a number is the default", () => {
+    const res = (resolution: unknown) => parseSettings(JSON.stringify({ graphics: { quality: 'custom', resolution } })).graphics.resolution;
+    expect(res(0.7)).toBe(0.7);
+    expect(res(0)).toBe(0.5);
+    expect(res(-1)).toBe(0.5);
+    expect(res(4)).toBe(1);
+    expect(res('0.7')).toBe(DEFAULT_SETTINGS.graphics.resolution);
+    expect(res(null)).toBe(DEFAULT_SETTINGS.graphics.resolution);
+    // Custom's switches: booleans, or the defaults.
+    expect(parseSettings(JSON.stringify({ graphics: { quality: 'custom', post: 'no', outline: 0, fps: 1 } })).graphics).toMatchObject({ post: true, outline: true, fps: false });
+  });
+
+  test('a change to match another preset names that one, from custom or from a preset', () => {
+    const high = DEFAULT_SETTINGS.graphics;
+    // High's values, one at a time, to low's: custom on the way, low at the end.
+    const a = withGraphics(high, { resolution: QUALITY.low.resolution });
+    const b = withGraphics(a, { post: false });
+    expect([a.quality, b.quality]).toEqual(['custom', 'custom']);
+    expect(withGraphics(b, { outline: false })).toEqual({ ...high, quality: 'low', ...QUALITY.low });
+    // To medium's resolution from high: medium.
+    expect(withGraphics(high, { resolution: QUALITY.medium.resolution }).quality).toBe('medium');
+    // A preset chosen over custom sets all its values, whatever custom had.
+    const odd = withGraphics(high, { resolution: 0.55, post: false });
+    expect(withGraphics(odd, { quality: 'medium' })).toEqual({ ...odd, quality: 'medium', ...QUALITY.medium });
+    // And its fps is the player's own, through all of it.
+    expect(withGraphics({ ...odd, fps: true }, { quality: 'low' }).fps).toBe(true);
+  });
+
+  test("a preset in the change wins over values sent with it (they're the preset's)", () => {
+    expect(withGraphics(DEFAULT_SETTINGS.graphics, { quality: 'low', resolution: 1, post: true })).toMatchObject({ quality: 'low', ...QUALITY.low });
+  });
 });
 
 describe('chooser', () => {
   test('cycles both ways and wraps round', () => {
     expect([cycleIndex(0, 3, 1), cycleIndex(2, 3, 1), cycleIndex(0, 3, -1), cycleIndex(1, 3, -4)]).toEqual([1, 0, 2, 0]);
     expect(cycleIndex(0, 0, 1)).toBe(0);
+  });
+
+  test('wraps any distance, either way, and an empty list is always 0', () => {
+    expect(cycleIndex(0, 3, -1)).toBe(2);
+    expect(cycleIndex(0, 3, -3)).toBe(0);
+    expect(cycleIndex(0, 3, -7)).toBe(2);
+    expect(cycleIndex(2, 3, 10)).toBe(0);
+    expect(cycleIndex(0, 1, -1)).toBe(0);
+    for (const d of [-5, -1, 0, 1, 5]) expect(cycleIndex(3, 0, d)).toBe(0);
+    // Never -0 or NaN for a list.
+    expect(Object.is(cycleIndex(1, 2, -1), 0)).toBe(true);
+  });
+
+  const MAPS: [string, string][] = [
+    ['downtown', 'Downtown'],
+    ['backroads', 'Backroads'],
+    ['paradise', 'Paradise'],
+    ['island', 'Island'],
+  ];
+  /** The HTML's attribute `name`, as the browser would read it (entities left as they are). */
+  const attr = (html: string, name: string) => html.match(new RegExp(` ${name}="([^"]*)"`))?.[1];
+  const shown = (html: string) => html.match(/<span class="cv">(.*?)<\/span>/)?.[1];
+
+  test('starts on its value, or the first option if the value is none of them', () => {
+    const at = chooser('map', MAPS, 'paradise');
+    expect(attr(at, 'value')).toBe('paradise');
+    expect(shown(at)).toBe('Paradise');
+    const unknown = chooser('map', MAPS, 'atlantis');
+    expect(attr(unknown, 'value')).toBe('downtown');
+    expect(shown(unknown)).toBe('Downtown');
+    expect(unknown).toContain('<small class="cn">1/4</small>');
+    // No options: an empty chooser, not a crash.
+    expect(attr(chooser('x', [], 'a'), 'value')).toBe('');
+  });
+
+  test("escapes its id, values and labels (a lobby's name or a player's plate can be in them)", () => {
+    const evil: [string, string][] = [
+      ['"><img src=x onerror=alert(1)>', '<b>bold</b> & "quoted"'],
+      ["it's", 'fine'],
+    ];
+    const html = chooser('a"b', evil, evil[0][0]);
+    expect(html).not.toContain('<img');
+    expect(html).not.toContain('<b>');
+    expect(attr(html, 'id')).toBe('a&#34;b');
+    expect(shown(html)).toBe('&#60;b&#62;bold&#60;/b&#62; &#38; &#34;quoted&#34;');
+    expect(attr(html, 'value')).toBe('&#34;&#62;&#60;img src=x onerror=alert(1)&#62;');
+    // The options ride along as JSON in an attribute: escaped, and read back whole.
+    const opts = attr(html, 'data-opts')!;
+    expect(opts).not.toMatch(/[<>"']/);
+    const unescaped = opts.replace(/&#(\d+);/g, (_, n) => String.fromCharCode(Number(n)));
+    expect(JSON.parse(unescaped)).toEqual(evil);
+  });
+
+  test('says where it is (n/m) only in a list of more than three that the labels don\'t count themselves', () => {
+    expect(chooser('map', MAPS, 'backroads')).toContain('<small class="cn">2/4</small>');
+    expect(chooser('map', MAPS.slice(0, 3), 'backroads')).not.toContain('class="cn"');
+    const laps: [string, string][] = ['1', '2', '3', '4', '5'].map((n) => [n, n]);
+    expect(chooser('laps', laps, '3')).not.toContain('class="cn"');
+    const volumes: [string, string][] = ['0%', '25%', '50%', '75%', '100%'].map((n) => [n, n]);
+    expect(chooser('vol', volumes, '50%')).not.toContain('class="cn"');
+    // One label that isn't a number is enough to count.
+    expect(chooser('laps', [...laps, ['inf', 'Endless']], 'inf')).toContain('<small class="cn">6/6</small>');
+  });
+
+  test('disabled only when asked', () => {
+    expect(chooser('map', MAPS, 'downtown', true)).toMatch(/<button[^>]* disabled>/);
+    expect(chooser('map', MAPS, 'downtown')).not.toContain('disabled');
   });
 });

@@ -91,6 +91,8 @@ export class RelayBackend implements LobbyBackend {
     (room, lobby) => this.commit(room, lobby),
   );
   private listeners = new Set<(lobby: Lobby | null) => void>();
+  /** The subscribers that want pings (the lobby screen; not the race page). */
+  private pinging = new Set<(lobby: Lobby | null) => void>();
   private listed = '';
   private listingTimer: ReturnType<typeof setTimeout> | null = null;
   private listingAt = 0;
@@ -293,13 +295,15 @@ export class RelayBackend implements LobbyBackend {
     return next;
   }
 
-  subscribe(id: string, fn: (lobby: Lobby | null) => void): () => void {
+  subscribe(id: string, fn: (lobby: Lobby | null) => void, opts?: { pings?: boolean }): () => void {
     const each = (lobby: Lobby | null) => fn(lobby && lobby.id === id ? lobby : null);
     this.listeners.add(each);
-    this.presence?.watch(true);
+    if (opts?.pings !== false) this.pinging.add(each);
+    this.presence?.watch(this.pinging.size > 0);
     return () => {
       this.listeners.delete(each);
-      this.presence?.watch(this.listeners.size > 0);
+      this.pinging.delete(each);
+      this.presence?.watch(this.pinging.size > 0);
     };
   }
 
@@ -317,7 +321,7 @@ export class RelayBackend implements LobbyBackend {
       return relay.ping ? relay.ping() : null;
     });
     // Pings go round while a lobby screen watches (the race page attaches the room too, with no use for them).
-    this.presence.watch(this.listeners.size > 0);
+    this.presence.watch(this.pinging.size > 0);
     this.off = [
       room.onRequest('lobby', (data, from) => {
         const action = readAction(data, from);
