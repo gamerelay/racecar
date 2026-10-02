@@ -26,16 +26,16 @@ import surfaces from '../content/surfaces.json';
 import { type Crest, type Node, lapPoints, onLap, r1, span, wallGaps } from './lib/lap';
 
 const node = (w: number, surface: string, shoulder: number) => (x: number, z: number, y: number, r?: number, more: Partial<Node> = {}): Node => ({ x, z, y, w, r, surface, shoulder, ...more });
-/** Harbor Town and Lighthouse Point: asphalt. */
-const T = node(15, 'asphalt', 3);
-/** Coconut Coast: the wide beach road. */
-const C = node(18.5, 'asphalt', 3);
-/** The Freeway: a deck, with a narrow verge inside its barriers. */
-const F = node(18, 'asphalt', 1.5);
-/** Jungle Switchbacks: red earth, wide for hairpins. */
-const J = node(15, 'red-earth', 2.5);
+/** Harbor Town and Lighthouse Point: asphalt, with a wide verge to run out onto. */
+const T = node(15, 'asphalt', 4);
+/** Coconut Coast: the wide beach road, with the beach right beside it. */
+const C = node(18.5, 'asphalt', 5);
+/** The Freeway: a deck, with a verge inside its barriers wide enough to drift out onto. */
+const F = node(18, 'asphalt', 3);
+/** Jungle Switchbacks: red earth, wide for the hairpins. */
+const J = node(17, 'red-earth', 4);
 /** Volcano Rim: lava rock. */
-const V = node(15, 'lava-rock', 2.5);
+const V = node(15, 'lava-rock', 3.5);
 
 /** The volcano: its middle, the crater's radius, and the lip's height. */
 const VOLCANO = { x: 150, z: 60, crater: 55, h: 95, r: 330 };
@@ -46,36 +46,40 @@ const rim = (deg: number, radius: number): [number, number] => {
 };
 
 const nodes: Node[] = [
-  // Harbor Town: the line on the harbour front heading west, then a flowing S out of town.
+  // Harbor Town: the line on the harbour front heading west, then a deep S out of town.
   T(160, 430, 2),
   T(-30, 430, 2, 80),
-  T(-150, 392, 2.5, 75),
-  T(-280, 420, 2.5, 60),
-  // Coconut Coast: north up the west shore, long sweepers round the headland.
-  C(-420, 300, 3, 110),
-  C(-410, 170, 3.5, 90),
-  C(-300, 45, 5, 80),
-  C(-420, -90, 4, 90),
+  T(-150, 372, 2.5, 60),
+  T(-275, 434, 2.5, 55),
+  // Coconut Coast: north up the west shore, then an S over the headland and back to the water.
+  C(-425, 300, 3, 90),
+  C(-405, 185, 3.5, 70),
+  C(-290, 92, 5, 60),
+  C(-335, -8, 5, 60),
+  C(-430, -95, 4, 80),
   // The Freeway: up the ramp and round the bay on the deck.
   F(-440, -235, 9, 130),
   F(-260, -410, 12.5, 150),
   F(0, -440, 13, 170),
   F(215, -385, 11, 120),
-  // Jungle Switchbacks: off the deck, then two wide hairpins.
-  J(395, -330, 7, 28),
-  J(250, -300, 9, 70, { bank: 0 }),
-  J(75, -262, 11, 28),
-  J(215, -205, 13, 70, { bank: 0 }),
-  // Volcano Rim: round the cone's flank, clockwise, climbing.
+  // Jungle Switchbacks: off the deck and down the slope in two open hairpins (each two corners,
+  // so its radius holds: one node turning 150° gets filleted into a much tighter arc).
+  J(425, -372, 8, 50),
+  J(452, -278, 9, 50),
+  J(290, -232, 10, 70, { bank: 0 }),
+  J(128, -246, 11, 50),
+  J(134, -150, 12, 50),
+  // Volcano Rim: round the cone's flank, clockwise, climbing, swinging in and out.
   V(...rim(-72, 215), 17, 70),
-  V(...rim(-45, 190), 24, 120),
-  V(...rim(-12, 212), 32, 110),
-  V(...rim(28, 210), 38, 110),
-  V(...rim(62, 190), 40, 110),
-  // Lighthouse Point: down off the rim (a jump), round the point and along the cliff, and the S into town.
+  V(...rim(-45, 194), 24, 90),
+  V(...rim(-12, 218), 32, 80),
+  V(...rim(28, 204), 38, 80),
+  V(...rim(62, 190), 40, 90),
+  // Lighthouse Point: down off the rim (a jump), round the point in two corners, along the cliff, and the S into town.
   T(335, 330, 24, 70),
-  T(445, 405, 15, 55),
-  T(330, 468, 8, 70),
+  T(440, 372, 15, 60),
+  T(432, 455, 10, 60),
+  T(330, 472, 6, 70),
   T(240, 432, 3, 80),
 ];
 
@@ -90,7 +94,8 @@ function xz([x, z]: [number, number]) {
   return { x, z };
 }
 
-const pts = lapPoints(nodes, crests);
+// Sweepers 3 m wider than the road around them, for drifting (the other maps' 1.5 m felt narrow here).
+const pts = lapPoints(nodes, crests, { driftWidth: 3 });
 
 const layout: TrackLayout = {
   id: 'paradise-island',
@@ -159,12 +164,12 @@ layout.ramps = [
 ];
 
 // ---- walls: the harbour front, the freeway deck, the rim's drop; open beach and jungle elsewhere ----
-const walled: [number, number][] = [
-  span(sAt(150, 430), sAt(-110, 400)), // the harbour front
-  span(sAt(-420, -200, 8), sAt(240, -370, 11)), // the freeway
-  span(sAt(...rim(-40, 186), 28), sAt(...rim(50, 186), 40)), // the rim
-];
-layout.walls = { gaps: wallGaps(walled, L) };
+// The harbour front and the rim have a wall on the drop's side only (the sea on the left, the
+// rim's edge on the left: the cone is on the right); the inland side runs out onto the land.
+const harbour = span(sAt(150, 430), sAt(-110, 400));
+const rimSpan = span(sAt(...rim(-40, 186), 28), sAt(...rim(50, 186), 40));
+const walled: [number, number][] = [harbour, span(sAt(-420, -200, 8), sAt(240, -370, 11)), rimSpan];
+layout.walls = { gaps: [...wallGaps(walled, L), { s: harbour, side: 'right' }, { s: rimSpan, side: 'right' }] };
 
 // ---- traffic: two-way in town; the freeway is one-way, both lanes running with the race ----
 const town: [number, number][] = [[sAt(240, 432), sAt(-60, 430)]];
@@ -188,7 +193,7 @@ layout.traffic = {
 // up the rim), and coconuts on the beach road before the Sandbar, which hop you but never wreck.
 layout.hazards = [
   { use: 'volcano-bombs', s: [sAt(...rim(0, 210), 35), sAt(...rim(33, 210), 35)], params: { every: 45 } },
-  { use: 'coconuts', s: 560 },
+  { use: 'coconuts', s: sAt(-372, 346) },
 ];
 // Landmarks (PLAN phase 6; the lighthouse is the island's own scenery, and its beam shows through a
 // shower): a wreck in the shallows off Coconut Coast and a whale breaching beyond it; a surf shack
@@ -201,20 +206,21 @@ layout.hazards = [
     return Math.round(Math.atan2(a[0] - b[0], a[2] - b[2]) * 1000) / 1000;
   };
   const tiki = fork(tubeFrom, -4, 20, 0, 1).p;
-  const shack = fork(620, 0, -30, 0, 1).p;
+  const shackS = sAt(-406, 298);
+  const shack = fork(shackS, 0, -30, 0, 1).p;
   layout.landmarks = [
     { kind: 'shipwreck', at: [-490, 180], rot: 0.5, r: 14, params: { scale: 1.6 } },
     { kind: 'whale', at: [-600, 120], r: 0, params: { every: 80, scale: 1.5 } },
-    { kind: 'surf-shack', at: [shack[0], shack[2]], rot: Math.round((facing(620) - Math.PI / 2) * 1000) / 1000, r: 8 },
+    { kind: 'surf-shack', at: [shack[0], shack[2]], rot: Math.round((facing(shackS) - Math.PI / 2) * 1000) / 1000, r: 8 },
     { kind: 'tiki-head', at: [tiki[0], tiki[2]], rot: facing(tubeFrom), r: 5, params: { scale: 1.3 } },
     { kind: 'seaplanes', at: [40, -392], r: 0, params: { radius: 160, alt: 55 } },
   ];
 }
 // Smashables: beach umbrellas on the coast road's sea side, fruit stands through Harbor Town.
 layout.smashables = [
-  { kind: 'beach-umbrella', s: [620, 800], every: 16, side: -1 },
+  { kind: 'beach-umbrella', s: [sAt(-406, 298), sAt(-400, 200)], every: 16, side: -1 },
   { kind: 'fruit-stand', s: [30, 170], every: 45 },
-  { kind: 'fruit-stand', s: [3360, 3425], every: 60, side: 1 },
+  { kind: 'fruit-stand', s: [sAt(241, 434), sAt(176, 430)], every: 60, side: 1 },
 ];
 layout.takedownSpots = [
   { s: sAt(0, -440, 13), name: 'The Freeway' },
