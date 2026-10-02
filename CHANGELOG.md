@@ -15,7 +15,8 @@ and where things stand is [docs/HANDOFF.md](./docs/HANDOFF.md).
   looks like earth now, and the trees stand back from the road.
 - **No walls jutting into the road at shortcuts:** Paradise's Sandbar, Beach Cut and Smugglers'
   Trail are open to the sand and the undergrowth (the Lava Tube keeps its walls inside the rock),
-  and Downtown's Alley comes back onto the Boulevard without its wall sticking out.
+  Downtown's Alley comes back onto the Boulevard without its wall sticking out, and Backroads'
+  Barn track leaves and rejoins the village S without its fence sticking out.
 - **The grid starts in your own lane:** where the start has two-way traffic (every map, today),
   the whole grid lines up in the race's half of the road, staggered, so nobody starts facing
   oncoming cars.
