@@ -435,6 +435,12 @@ export class GameAudio {
         // A rising run, a note per drift in the chain (up to five).
         if (e.car === focus) this.chime([0, 4, 7, 12, 16, 19].slice(0, Math.min(6, e.b + 1)), 0.2);
         break;
+      case Ev.Slingshot:
+        if (e.car === focus) this.play(0.3, 0, (s) => noiseShot(s, 'bandpass', 500, 2600, 0.04, 0.45, 1.4));
+        break;
+      case Ev.Overdrive:
+        if (e.car === focus) this.chime([0, 7], 0.12);
+        break;
       case Ev.ChainLost:
         if (e.car === focus) this.play(0.25, 0, (s) => toneShot(s, 'triangle', 330, 150, 0.005, 0.35));
         break;

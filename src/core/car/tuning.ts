@@ -19,6 +19,35 @@ export const TUNING = {
   boostTop: 1.35,
   /** A full meter lasts the class's boostCapacity / boostDrain seconds (it was 1: it ran out too fast). */
   boostDrain: 0.8,
+  /**
+   * The slipstream: tucked in behind another car (within slipRange m ahead, slipWidth m either
+   * side of your line, both over slipMinSpeed) the air drag drops by slipDrag and the top speed
+   * rises by slipTop, easing in and out over about a third of a second. Held slipCharge s, pulling
+   * out to pass is a slingshot: the top speed is slingTop over the class's for slingTime s (not
+   * boost: the AI boosting past the car it was behind took it down, and the field wrecked half
+   * again as often).
+   */
+  slipRange: 25,
+  slipWidth: 2.2,
+  slipMinSpeed: 20,
+  slipDrag: 0.4,
+  slipTop: 0.05,
+  slipCharge: 1.2,
+  slingTop: 0.1,
+  slingTime: 1.5,
+  /**
+   * The straight-line build: flat out (cruiseAt of the class's top or more: drag holds a car to
+   * 89–93% of it on the throttle alone), not braking, drifting or steering past cruiseSteer, on the
+   * road, the top speed climbs to cruiseTop over the class's over cruiseBuild s. Braking, a drift,
+   * a spin, leaving the road or a hit (a wall, a car, or the speed under cruiseLose of where the
+   * build starts) ends it at once; easing off or steering lets it fade.
+   */
+  cruiseAt: 0.86,
+  cruiseSteer: 0.35,
+  cruiseTop: 0.06,
+  cruiseBuild: 5,
+  cruiseLose: 0.95,
+  cruiseFade: 0.5,
   /** Drift charge and the release mini-turbo. Off: a drift is only a way round a corner (playtest). */
   miniTurbo: false,
   miniTurboAccel: 20,

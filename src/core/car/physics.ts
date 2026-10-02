@@ -71,7 +71,10 @@ export function stepCar(sim: SimState, i: number, c: Controls, dt: number): void
   if (cars.miniT[i] > 0) cars.miniT[i] = Math.max(0, cars.miniT[i] - dt);
   const boosting = cars.boosting[i] === 1;
   const mini = cars.miniT[i] > 0;
-  const top = cls.topSpeed * (boosting ? T.boostTop : 1) * (mini ? T.miniTurboTop : 1);
+  slipstream(sim, i, fx, fz, speed, dt);
+  cruiseBuild(sim, i, c, fwd, cls.topSpeed, surf.offroad === true, dt);
+  const draft = cars.draft[i];
+  const top = cls.topSpeed * (boosting ? T.boostTop : 1) * (mini ? T.miniTurboTop : 1) * (1 + T.slipTop * draft + (cars.slingT[i] > 0 ? T.slingTop : 0)) * (1 + T.cruiseTop * cars.cruise[i]);
 
   // Spin-out: no control until it settles.
   if (cars.spinT[i] > 0) {
@@ -92,7 +95,9 @@ export function stepCar(sim: SimState, i: number, c: Controls, dt: number): void
       if (fwd > 0.5) a -= cls.brake * c.brake;
       else if (fwd > -T.reverseSpeed) a -= cls.accel * 0.5 * c.brake;
     }
-    a -= T.airDrag * fwd * Math.abs(fwd) + T.rolling * sign(fwd) * Math.min(1, Math.abs(fwd)) + surf.drag * (1 - rough) * fwd;
+    // Less drag in a slipstream only flat out near the top (closing on a car into a corner wrecked the AI).
+    const tow = c.brake === 0 && fwd > cls.topSpeed * 0.85 ? T.slipDrag * draft : 0;
+    a -= T.airDrag * (1 - tow) * fwd * Math.abs(fwd) + T.rolling * sign(fwd) * Math.min(1, Math.abs(fwd)) + surf.drag * (1 - rough) * fwd;
 
     // Drift entry.
     const drifting = cars.drift[i] === 1;
@@ -431,6 +436,57 @@ export function earnBoost(sim: SimState, i: number, amount: number): number {
   const paid = Math.max(0, Math.min(amount * scale, 1 - cars.boost[i]));
   cars.boost[i] += paid;
   return paid;
+}
+
+/**
+ * The slipstream (TUNING slipRange…slipBoost): whether car i is tucked in behind another, eased into
+ * `draft`; and the slingshot (`slingT`) when it pulls out to pass after slipCharge s in one.
+ */
+function slipstream(sim: SimState, i: number, fx: number, fz: number, speed: number, dt: number): void {
+  const cars = sim.cars;
+  let tucked = false;
+  // Pulled out to the side of the car it was behind (still ahead, no longer in line): passing.
+  let beside = false;
+  if (cars.grounded[i] === 1 && speed > T.slipMinSpeed) {
+    for (let k = 0; k < cars.count && !tucked; k++) {
+      if (k === i || !cars.active[k] || cars.wreck[k]) continue;
+      const dx = cars.x[k] - cars.x[i];
+      const dz = cars.z[k] - cars.z[i];
+      const ahead = dx * fx + dz * fz;
+      if (ahead < -2 || ahead > T.slipRange) continue;
+      // Going the same way, and fast enough to punch a hole in the air.
+      if (cars.vx[k] * fx + cars.vz[k] * fz < T.slipMinSpeed) continue;
+      const side = Math.abs(dx * fz - dz * fx);
+      if (ahead >= 3 && side <= T.slipWidth) tucked = true;
+      else if (side <= T.slipWidth * 3) beside = true;
+    }
+  }
+  cars.draft[i] = approach(cars.draft[i], tucked ? 1 : 0, 3 * dt);
+  if (cars.slingT[i] > 0) cars.slingT[i] = Math.max(0, cars.slingT[i] - dt);
+  if (tucked) cars.draftT[i] = Math.min(T.slipCharge, cars.draftT[i] + dt);
+  else if (cars.draftT[i] > 0) {
+    // A slingshot only for pulling out to pass: falling back, or the car ahead going, gives nothing.
+    if (beside && cars.draftT[i] >= T.slipCharge) {
+      cars.slingT[i] = T.slingTime;
+      sim.events.push(sim.tick, Ev.Slingshot, i, cars.x[i], cars.y[i], cars.z[i]);
+    }
+    cars.draftT[i] = 0;
+  }
+}
+
+/** The straight-line build past top speed (TUNING cruiseAt…cruiseFade), in `cruise`. */
+function cruiseBuild(sim: SimState, i: number, c: Controls, fwd: number, classTop: number, offroad: boolean, dt: number): void {
+  const cars = sim.cars;
+  const was = cars.cruise[i];
+  // A hit: a wall (wallT), a car (lastHitT, this tick or the last), or anything else that knocked
+  // the speed down under cruiseLose of where the build starts.
+  const hit = cars.wallT[i] > 0 || (cars.lastHitT[i] > 0 && sim.tick - cars.lastHitT[i] <= 1) || (was > 0 && fwd < classTop * T.cruiseAt * T.cruiseLose);
+  const broken = hit || c.brake > 0 || cars.drift[i] === 1 || cars.spinT[i] > 0 || offroad;
+  if (broken) cars.cruise[i] = 0;
+  else if (cars.grounded[i] === 1 && c.throttle > 0.9 && Math.abs(c.steer) < T.cruiseSteer && fwd >= classTop * T.cruiseAt) {
+    cars.cruise[i] = Math.min(1, was + dt / T.cruiseBuild);
+    if (was < 1 && cars.cruise[i] >= 1) sim.events.push(sim.tick, Ev.Overdrive, i, cars.x[i], cars.y[i], cars.z[i]);
+  } else if (cars.grounded[i] === 1) cars.cruise[i] = Math.max(0, was - dt * T.cruiseFade);
 }
 
 /** Pays a wrecked car's catch-up boost (see TUNING.respawnBoost); returns how much. */

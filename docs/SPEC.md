@@ -2120,3 +2120,28 @@ much"), a small step on each, not an overcorrection:
 - **Pushes harder:** `boostAccel` 16 → 18.5 and `boostTop` 1.3 → 1.35. The hard AI's lap floors
   fall 0.35–0.75 s (Downtown 58.25 s, Backroads 63.0 s, Paradise 71.35 s); field wrecks over 16
   seeds 18/12/9 (Paradise/Downtown/Backroads, against 18/20/10); classes within ±4.9% (±4.4%).
+
+Past top speed, and catching up (same playtest: the class's top speed capped everything, and
+being far behind after a crash was hard to come back from):
+
+- **The straight-line build** (`cruise`, TUNING `cruiseAt`…`cruiseFade`): flat out (86% of the
+  class's top or more; drag holds a car to 89–93% of it on the throttle alone), not braking,
+  drifting or steering past 0.35, on the road, the top speed climbs 6% over 5 s ("Overdrive" when
+  full). A brake, a drift, a spin, leaving the road, a wall or a car ends it at once; easing off or
+  steering lets it fade over 2 s. It stacks with boost. 8% put the field at 1.5 wrecks a race on
+  Paradise, the tests' limit; 6% is about where it was.
+- **The slipstream** (`draft`, TUNING `slip*`, `sling*`): within 25 m behind another car and 2.2 m
+  of its line, both over 20 m/s, the top speed is 5% higher and, flat out near the top, the air
+  drag 40% lower. Held 1.2 s, pulling out to pass is a **slingshot**: 10% over the class's top for
+  1.5 s. It's what other racers use to let the pack fight while whoever's behind closes in, and
+  it's the same for everyone online (where the cars are, not a hidden help).
+- **What didn't work:** the slingshot paying boost. The AI boosted straight into the car it was
+  behind (a takedown), and the field wrecked half again as often (Downtown 31 a race over 16
+  seeds, against 12); a burst of top speed doesn't.
+- **The AI uses all three** (its speed target includes them), and it no longer boosts while it's
+  getting round something ahead in its line (a car, traffic, a hazard): that's where its boosts
+  became wrecks.
+- **Measured** (with the boost change above): the hard AI's lap floors are Downtown 57.9 s,
+  Backroads 62.9 s, Paradise 71.5 s (from 58.6, 63.5 and 72.1 this morning). The field over 16
+  seeds: 21/14/15 wrecks (Paradise/Downtown/Backroads; 18/20/10 before today), and at chaos
+  30/33/19 (26/32/11). Classes within ±4.8%.

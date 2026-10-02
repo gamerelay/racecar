@@ -48,6 +48,10 @@ export const Ev = {
   AirBoost: 28,
   /** car smashed a smashable. a = its speed, b = the prop's kind (SMASH_KINDS). */
   Smash: 29,
+  /** Pulled out to pass after slipCharge s or more in a slipstream: a slingshot (slingTop for slingTime s). */
+  Slingshot: 30,
+  /** The straight-line build reached its full cruiseTop. */
+  Overdrive: 31,
 } as const;
 export type Ev = (typeof Ev)[keyof typeof Ev];
 
@@ -81,6 +85,8 @@ export const EV_NAMES: Record<number, string> = {
   27: 'chain_lost',
   28: 'air_boost',
   29: 'smash',
+  30: 'slingshot',
+  31: 'overdrive',
 };
 
 /**

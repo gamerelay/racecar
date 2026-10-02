@@ -219,8 +219,11 @@ export function driveRacer(sim: SimState, i: number, d: RacerDriver, out: Contro
 
   // Speed: the profile a little ahead (so braking starts in time), scaled by skill and catch-up.
   let v = lineAt(sp, s + speed * 0.35 + 4, line.speed) * skill.pace;
-  if (avoidCap < v) v = avoidCap;
-  v = Math.min(v, cls.topSpeed * (c.boosting[i] ? T.boostTop : 1));
+  // Getting round something ahead in its line (a car, traffic, a hazard).
+  const avoiding = avoidCap < v;
+  if (avoiding) v = avoidCap;
+  // As fast as the car can go: boosting, in a slipstream, and the straight-line build too.
+  v = Math.min(v, cls.topSpeed * (c.boosting[i] ? T.boostTop : 1) * (1 + T.slipTop * c.draft[i] + (c.slingT[i] > 0 ? T.slingTop : 0)) * (1 + T.cruiseTop * c.cruise[i]));
   v *= catchup(sim, i, skill.catchup);
   // Surfaces: slower on loose or wet ground.
   const grip = sim.surfaces[c.surface[i]].grip * sim.weatherGrip;
@@ -232,7 +235,8 @@ export function driveRacer(sim: SimState, i: number, d: RacerDriver, out: Contro
   // Boost on long fast stretches.
   let straight = true;
   for (let dd = 20; dd <= 160; dd += 35) if (lineAt(sp, s + dd, line.speed) < cls.topSpeed * 0.95) straight = false;
-  out.boost = skill.boost && straight && c.boost[i] > 0.25 && c.wreck[i] === 0 && Math.abs(out.steer) < 0.3;
+  // Not into something it's getting round (a car or traffic ahead in its line): that's a wreck.
+  out.boost = skill.boost && straight && !avoiding && c.boost[i] > 0.25 && c.wreck[i] === 0 && Math.abs(out.steer) < 0.3;
 
   // Pinned against something: back off for a moment, steering the other way, then try again.
   // (Not while wrecked: stuckT is frozen then, and a respawn clears it.)

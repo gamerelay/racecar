@@ -9,6 +9,12 @@ and where things stand is [docs/HANDOFF.md](./docs/HANDOFF.md).
 - **Boost, a little better all round:** moves pay 20% more of it, a full meter lasts a quarter
   longer, and it pushes a little harder and a little faster (a top speed 35% over the car's,
   from 30%).
+- **Past top speed:** hold it flat out and clean on a straight and your top speed keeps climbing,
+  up to 6% more over five seconds ("Overdrive"); braking, drifting, leaving the road or a hit ends
+  it.
+- **Slipstream:** tuck in behind a rival and you're a little faster; stay there a moment, then
+  pull out to pass for a slingshot (a burst of speed past them). The AI uses it too.
+- The AI no longer boosts into a car or traffic it's getting round.
 
 ## alpha-1.24: Paradise reworked, Settings and a real menu
 
