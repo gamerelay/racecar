@@ -6,6 +6,9 @@ and where things stand is [docs/HANDOFF.md](./docs/HANDOFF.md).
 
 ## Unreleased
 
+- **A loading screen between pages:** going into a race or back to the lobby, the crossed flags
+  pulse in the middle of the dark screen until the next page has drawn (at least 0.7 s), and an
+  offline race waits behind it, so its countdown starts when you can see it.
 - **Fix:** clicking in the lobby (a seat, Ready, a car or paint) no longer plays the whole screen's
   fade-in again; only a change of screen does.
 - **Settings** (title → Settings, or the in-race menu): volume sliders (master, music, engines,

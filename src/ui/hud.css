@@ -413,8 +413,10 @@ svg.thumb .cut { stroke: var(--sun); stroke-width: 1.5; stroke-dasharray: 3 2; }
 @keyframes screenInBack { from { opacity: 0; transform: translateX(-18px); } }
 #pause.on > .card, #settings.on > .card, #controls.on > .card, #results.on > .card { animation: popIn 0.16s ease-out both; }
 @keyframes popIn { from { opacity: 0; transform: scale(0.96); } }
-#pageFade { position: fixed; inset: 0; z-index: 50; background: var(--bg); pointer-events: none; opacity: 0; transition: opacity 0.18s ease-in; }
-#pageFade.in { animation: pageIn 0.35s ease-out both; }
+/* The loading screen's look is in index.html (it's up before this stylesheet). Up until the page is
+   ready, then .in lifts it; .out brings it back before the next page. */
+#pageFade.in { opacity: 0; animation: pageIn 0.35s ease-out both; }
+#pageFade.in .logo { animation-play-state: paused; }
 #pageFade.out { opacity: 1; animation: none; }
 @keyframes pageIn { from { opacity: 1; } to { opacity: 0; } }
 @media (prefers-reduced-motion: reduce) {
