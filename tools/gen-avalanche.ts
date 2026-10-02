@@ -108,7 +108,8 @@ const layout: TrackLayout = {
   run: { start: 70, finish: total },
 };
 
-const L = bakeTrack(layout, surfaces).main.length;
+const baked = bakeTrack(layout, surfaces).main;
+const L = baked.length;
 /** A run distance on the baked road (they differ a little: the road's length counts its drop). */
 const at = (s: number) => Math.round((s / total) * L);
 const stretch = (name: string): [number, number] => {
@@ -126,7 +127,15 @@ layout.ramps = [kicker(stretch('a climb to a crest')[1] - 30, 1.8), kicker(stret
 // a solid prop (size: across, high, along); a ridge is a long one. None on a kicker's approach or
 // landing, in the moguls across the piste, or near the grid and the finish.
 const rock = (name: string, from: number, lateral: number, across: number, high: number, along: number): PropDef => ({ kind: 'rock', s: stretch(name)[0] + from, lateral, size: [across, high, along] });
+// A gate over the start and the finish: a post either side of the piste, just off it (solid, like
+// any prop on the road's line: drive between them). The snow skin draws the arch and its banner.
+const gate = (s: number): PropDef[] => {
+  const half = baked.width[Math.round(s / baked.step)] / 2;
+  return [-1, 1].map((side) => ({ kind: 'gate-post', s, lateral: side * (half + 1.5), size: [0.8, 7, 0.8] as [number, number, number] }));
+};
 layout.props = [
+  ...gate(layout.run.start),
+  ...gate(layout.run.finish),
   rock('a bunny slope', 220, 0, 5, 2.4, 5),
   rock('its run-out', 120, -12, 4.5, 2.2, 4.5),
   rock('its run-out', 128, 11, 4, 2, 4),

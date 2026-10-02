@@ -369,7 +369,7 @@ export class Menu {
     const phase = l.phase === 'racing' ? 'racing' : 'in lobby';
     return `<button class="lrow" id="lobby-${esc(l.id)}">${thumbSvg(this.layout(l.map), 44)}
       <span class="lname">${esc(l.name)}${l.visibility !== 'public' ? ' <small>private</small>' : ''}</span>
-      <span class="lmeta">${esc(this.mapName(l.map))} · ${l.laps} lap${l.laps === 1 ? '' : 's'} · ${phase}</span>
+      <span class="lmeta">${esc(this.mapName(l.map))} · ${this.lapsText(l.map, l.laps)} · ${phase}</span>
       <span class="pips">${pips}</span><span class="lcount">${l.filled}/${SEATS}</span></button>`;
   }
 
@@ -481,10 +481,24 @@ export class Menu {
     return chooser(id, opts, value, disabled);
   }
 
+  /** A race's length in words: "3 laps", or "one run" on a map that's one run down (layout.run). */
+  private lapsText(map: string, laps: number): string {
+    return this.layout(map)?.run ? 'one run' : `${laps} lap${laps === 1 ? '' : 's'}`;
+  }
+
+  /**
+   * The laps chooser, or on a map that's one run, the run in its place (no laps to pick; the laps
+   * picked are kept for the next map).
+   */
+  private lapsField(map: string, laps: number, disabled: boolean): string {
+    if (this.layout(map)?.run) return `<label id="oLapsField">Length ${this.sel('oLaps', [[String(laps), 'One run']], String(laps), true)}</label>`;
+    return `<label id="oLapsField">Laps ${this.sel('oLaps', Array.from({ length: MAX_LAPS }, (_, k) => [String(k + 1), String(k + 1)] as [string, string]), String(laps), disabled)}</label>`;
+  }
+
   private optionFields(o: LobbyOptions, disabled: boolean): string {
     const maps: [string, string][] = Object.keys(this.content.layouts).map((k) => [k, this.mapName(k)]);
     return `<label>Map ${this.sel('oMap', maps, o.map, disabled)}</label>
-      <label>Laps ${this.sel('oLaps', Array.from({ length: MAX_LAPS }, (_, k) => [String(k + 1), String(k + 1)] as [string, string]), String(o.laps), disabled)}</label>
+      ${this.lapsField(o.map, o.laps, disabled)}
       <label>Weather ${this.sel('oWeather', WEATHERS, o.weather, disabled)}</label>
       <label>Time ${this.sel('oTime', TIMES, o.time, disabled || !this.hasSunset(o.map))}</label>
       <label>Mayhem ${this.sel('oMayhem', MAYHEMS, o.mayhem, disabled)}</label>
@@ -519,9 +533,14 @@ export class Menu {
       'cGo',
     );
     this.on('cBack', () => this.back());
-    // Time only means something on a map with a sunset.
+    // Time only means something on a map with a sunset, and laps on a map that isn't one run.
     const mapSel = document.getElementById('oMap') as HTMLButtonElement | null;
-    if (mapSel) mapSel.onchange = () => ((document.getElementById('oTime') as HTMLButtonElement).disabled = !this.hasSunset(mapSel.value));
+    if (mapSel)
+      mapSel.onchange = () => {
+        (document.getElementById('oTime') as HTMLButtonElement).disabled = !this.hasSunset(mapSel.value);
+        const laps = Number((document.getElementById('oLaps') as HTMLButtonElement).value);
+        document.getElementById('oLapsField')!.outerHTML = this.lapsField(mapSel.value, laps, false);
+      };
     this.on('cGo', async () => {
       const name = (document.getElementById('cName') as HTMLInputElement).value;
       const who = (document.getElementById('cVis') as HTMLButtonElement).value;
@@ -667,7 +686,7 @@ export class Menu {
     const km = layout ? `${thumb(layout).km.toFixed(1)} km` : '';
     const head = `${thumbSvg(layout, host ? 64 : 44)}<div class="mapHead"><b>${esc(this.mapName(o.map))}</b><small>${km}</small></div>`;
     if (host) return `<aside class="card mapCard">${head}<div class="opts">${this.optionFields(o, false)}</div></aside>`;
-    const bits = [`${o.laps} lap${o.laps === 1 ? '' : 's'}`, `${label(WEATHERS, o.weather)} weather`, ...(this.hasSunset(o.map) ? [`${label(TIMES, o.time)} time`] : []), `${label(MAYHEMS, o.mayhem)} mayhem`, `Traffic ${o.traffic ? 'on' : 'off'}`];
+    const bits = [this.lapsText(o.map, o.laps), `${label(WEATHERS, o.weather)} weather`, ...(this.hasSunset(o.map) ? [`${label(TIMES, o.time)} time`] : []), `${label(MAYHEMS, o.mayhem)} mayhem`, `Traffic ${o.traffic ? 'on' : 'off'}`];
     return `<aside class="card mapCard mini">${head}<p class="optLine">${bits.map((b) => `<span>${esc(b)}</span>`).join('')}</p></aside>`;
   }
 

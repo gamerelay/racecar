@@ -3355,6 +3355,46 @@
  "checkpoints": "auto",
  "props": [
   {
+   "kind": "gate-post",
+   "s": 70,
+   "lateral": -20,
+   "size": [
+    0.8,
+    7,
+    0.8
+   ]
+  },
+  {
+   "kind": "gate-post",
+   "s": 70,
+   "lateral": 20,
+   "size": [
+    0.8,
+    7,
+    0.8
+   ]
+  },
+  {
+   "kind": "gate-post",
+   "s": 6002,
+   "lateral": -16.5,
+   "size": [
+    0.8,
+    7,
+    0.8
+   ]
+  },
+  {
+   "kind": "gate-post",
+   "s": 6002,
+   "lateral": 16.5,
+   "size": [
+    0.8,
+    7,
+    0.8
+   ]
+  },
+  {
    "kind": "rock",
    "s": 313,
    "lateral": 0,

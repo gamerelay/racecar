@@ -4,6 +4,7 @@ import { neutralControls } from '../src/core/controls';
 import { Sim } from '../src/core/sim';
 import { bakeTrack } from '../src/core/track/bake';
 import { canyonDepth } from '../src/core/track/ground';
+import { slopeView } from '../src/render/camera';
 import { ALL_MAPS, EXPERIMENTAL_KEYS, LAYOUT_KEYS, MAPS } from '../tools/content';
 import { CLASSES, SURFACES, layout } from './helpers';
 
@@ -195,6 +196,36 @@ describe("the Slope's rocks", () => {
     }
     expect(wrecked).toBe(true);
     expect(Math.abs(sim.cars.s[i] - r.s)).toBeLessThan(r.hz + 4);
+  });
+});
+
+describe("the Slope's gates", () => {
+  test('a gate over the start and the finish: a solid post either side, just off the piste', () => {
+    const track = bakeTrack(layout('avalanche/slope'), SURFACES);
+    const posts = track.props.filter((p) => p.kind === 'gate-post');
+    expect(posts.length).toBe(4);
+    for (const s of [track.run!.start, track.run!.finish]) {
+      const pair = posts.filter((p) => p.s === s);
+      expect(pair.length).toBe(2);
+      const half = track.main.width[Math.round(s / track.main.step)] / 2;
+      for (const p of pair) {
+        expect(p.solid).toBe(true);
+        expect(Math.abs(p.lateral)).toBeGreaterThan(half);
+        expect(Math.abs(p.lateral)).toBeLessThan(half + 3);
+      }
+      expect(Math.sign(pair[0].lateral)).toBe(-Math.sign(pair[1].lateral));
+    }
+  });
+});
+
+describe('the camera on a slope', () => {
+  test('it looks down a pitch and up a climb, lifting only uphill, and a little', () => {
+    expect(slopeView(-10).look).toBeLessThan(-4);
+    expect(slopeView(-10).lift).toBe(0);
+    expect(slopeView(6).look).toBeGreaterThan(2);
+    expect(slopeView(6).lift).toBeGreaterThan(0);
+    expect(slopeView(100).lift).toBeLessThanOrEqual(2.5);
+    expect(slopeView(0)).toEqual({ look: 0, lift: 0 });
   });
 });
 

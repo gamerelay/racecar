@@ -411,6 +411,25 @@ lap floors haven't moved.
 
 ### The feel first
 
+Items 1 and 2 are built (2026-10-02, on PR #74):
+
+- **The run reads as a run.** The HUD's lap box is "To go", the distance to the bottom (km, then
+  m), and a run's pop is "Run 1:38.2" / "Best run!". The results say "Best run". The generator puts
+  a gate over the start and the finish: solid timber posts (`gate-post` props) just off the piste
+  either side, which `snow.ts` draws with a beam and a banner, striped red at the top and checkered
+  at the bottom, high enough to drive under. The lobby says "one run" and puts "Length: One run"
+  in place of the laps chooser. Nobody sees that yet, because the lobby doesn't list experimental
+  maps; it's ready for item 10.
+- **The camera follows the slope**, on open ground only (`slopeView` in `camera.ts`). The look
+  point follows the ground a look-distance and two ahead, smoothed, so the wall looks down onto
+  the valley. Uphill it lifts the camera up to 2.5 m (a quarter of the rise) to see over the top.
+  It also stays 1.2 m above the snow, since behind a car on a steep pitch it was inside the slope.
+  The other maps' camera is unchanged.
+- The lap report is unchanged (98.32 s; the field and chaos the same), and so are the other maps'
+  floors.
+
+The sketches as they were:
+
 1. **It reads as a run.**
    - The HUD: "Run" instead of "Lap 1/1", and a meter of the distance to the bottom (or a thin
      bar of the run with every car on it, which the minimap nearly is already).

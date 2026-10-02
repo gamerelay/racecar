@@ -9,7 +9,7 @@ import { clamp, damp, wrapAngle } from '../core/math';
 import type { Sim } from '../core/sim';
 import { newHit, project, sampleAt } from '../core/track/query';
 import { Particles } from './fx';
-import { chaseOffset, lookBackOffset, type ChaseOffset } from './camera';
+import { chaseOffset, GROUND_CLEAR, lookBackOffset, slopeView, type ChaseOffset } from './camera';
 import { InkPass } from './ink';
 import { PostPass } from './post';
 import { Showroom } from './showroom';
@@ -111,6 +111,8 @@ export class GameRenderer {
   private boostVis = 0;
   private camHeading = 0;
   private camPos = new Vector3();
+  /** On open ground: the ground ahead's height over the ground under the focus car, smoothed (camera.ts slopeView). */
+  private slopeRise = 0;
   private readonly offset: ChaseOffset = { dist: 0, height: 0, ahead: 0, lookUp: 0 };
   /** Paused: the camera still settles, but nothing in the world moves (smoke, wheels, debris). */
   paused = false;
@@ -418,9 +420,23 @@ export class GameRenderer {
         this.camDist += (o.dist - this.camDist) * damp(4, dt);
         this.camPos.x = car.x - fx * this.camDist;
         this.camPos.z = car.z - fz * this.camDist;
-        this.camPos.y += (car.y + o.height - this.camPos.y) * damp(5, dt);
+        let height = o.height;
+        let lookUp = o.lookUp;
+        const ground = this.sim.track.ground;
+        if (ground) {
+          // The ground a look-distance and two ahead, against the ground under the car (not the car:
+          // in the air off a kicker the view stays on the slope).
+          const at = (d: number) => ground.height(car.x + fx * d, car.z + fz * d);
+          const rise = (at(o.ahead) + at(o.ahead * 2)) / 2 - at(0);
+          this.slopeRise += (rise - this.slopeRise) * damp(3, dt);
+          const v = slopeView(this.slopeRise);
+          height += v.lift;
+          lookUp += v.look;
+        }
+        this.camPos.y += (car.y + height - this.camPos.y) * damp(5, dt);
+        if (ground) this.camPos.y = Math.max(this.camPos.y, ground.height(this.camPos.x, this.camPos.z) + GROUND_CLEAR);
         cam.position.copy(this.camPos);
-        this.look.set(car.x + fx * o.ahead, car.y + o.lookUp, car.z + fz * o.ahead);
+        this.look.set(car.x + fx * o.ahead, car.y + lookUp, car.z + fz * o.ahead);
       }
     }
     this.lastWreck = c.wreck[i] === 1;

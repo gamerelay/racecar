@@ -88,7 +88,79 @@ export function buildSnow(track: Track): Object3D[] {
   if (lines) out.push(lines);
   const rocks = buildRocks(track);
   if (rocks) out.push(rocks);
+  const gates = buildGates(track);
+  if (gates) out.push(gates);
   return out;
+}
+
+const TIMBER = new Color('#6b4a32');
+const TIMBER_DARK = new Color('#4f3524');
+const BANNER = new Color('#e8433a');
+const BANNER_LIGHT = new Color('#f4efe6');
+const BANNER_DARK = new Color('#120a20');
+
+/**
+ * One run's gates (props of kind `gate-post`, a pair across the piste at its start and at its
+ * finish): timber posts as tall as their colliders, a beam across their tops, and a banner under
+ * it, striped red at the start and checkered at the finish, high enough to drive under.
+ */
+function buildGates(track: Track): Mesh | null {
+  const posts = track.props.filter((p) => p.kind === 'gate-post');
+  if (posts.length < 2 || !track.run) return null;
+  const pos: number[] = [];
+  const col: number[] = [];
+  /** A box: centered on `c`, `hu` along the unit `u` (level), `hv` up, `hw` across both. */
+  const box = (c: number[], u: number[], hu: number, hv: number, hw: number, color: Color) => {
+    const w = [-u[2], 0, u[0]];
+    const corner = (a: number, b: number, d: number) => [c[0] + u[0] * hu * a + w[0] * hw * d, c[1] + hv * b, c[2] + u[2] * hu * a + w[2] * hw * d];
+    // Each face as two triangles, wound to face out.
+    const faces: [number, number, number][][] = [
+      [[1, -1, -1], [1, 1, -1], [1, 1, 1], [1, -1, 1]],
+      [[-1, -1, 1], [-1, 1, 1], [-1, 1, -1], [-1, -1, -1]],
+      [[-1, 1, -1], [-1, 1, 1], [1, 1, 1], [1, 1, -1]],
+      [[-1, -1, 1], [-1, -1, -1], [1, -1, -1], [1, -1, 1]],
+      [[-1, -1, 1], [1, -1, 1], [1, 1, 1], [-1, 1, 1]],
+      [[1, -1, -1], [-1, -1, -1], [-1, 1, -1], [1, 1, -1]],
+    ];
+    for (const f of faces) {
+      for (const k of [0, 1, 2, 0, 2, 3]) {
+        pos.push(...corner(...f[k]));
+        col.push(color.r, color.g, color.b);
+      }
+    }
+  };
+  for (const s of [track.run.start, track.run.finish]) {
+    const pair = posts.filter((p) => Math.abs(p.s - s) < 1);
+    if (pair.length !== 2) continue;
+    const [a, b] = pair;
+    const top = Math.max(a.y, b.y) + 2 * Math.max(a.hy, b.hy);
+    const dx = b.x - a.x;
+    const dz = b.z - a.z;
+    const span = Math.hypot(dx, dz);
+    const u = [dx / span, 0, dz / span];
+    for (const p of pair) box([p.x, (p.y - 0.5 + top) / 2, p.z], u, p.hx, (top - p.y + 0.5) / 2, p.hz, TIMBER);
+    const mid = [(a.x + b.x) / 2, top + 0.3, (a.z + b.z) / 2];
+    box(mid, u, span / 2 + 0.6, 0.3, 0.35, TIMBER_DARK);
+    // The banner: a strip under the beam, in cells.
+    const finish = s === track.run.finish;
+    const cells = Math.round(span / 1.4);
+    for (let k = 0; k < cells; k++) {
+      for (let row = 0; row < 2; row++) {
+        const t = (k + 0.5) / cells - 0.5;
+        const color = finish ? ((k + row) % 2 ? BANNER_DARK : BANNER_LIGHT) : row === 0 ? BANNER : k % 2 ? BANNER : BANNER_LIGHT;
+        box([mid[0] + u[0] * span * t, top - 0.45 - row * 0.7, mid[2] + u[2] * span * t], u, span / cells / 2, 0.35, 0.08, color);
+      }
+    }
+  }
+  if (!pos.length) return null;
+  const geo = new BufferGeometry();
+  geo.setAttribute('position', new Float32BufferAttribute(pos, 3));
+  geo.setAttribute('color', new Float32BufferAttribute(col, 3));
+  geo.computeVertexNormals();
+  geo.computeBoundingSphere();
+  const mesh = new Mesh(geo, toon({ vertexColors: true }));
+  mesh.matrixAutoUpdate = false;
+  return mesh;
 }
 
 const CAP = new Color('#f7fbff');

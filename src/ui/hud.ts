@@ -1,4 +1,4 @@
-// The race HUD (DOM, SPEC §1): position, lap and times, boost meter, speed, the drift readout
+// The race HUD (DOM, SPEC §1): position, lap (or the distance to the bottom of a run) and times, boost meter, speed, the drift readout
 // (points, chain, and the mini-turbo stage when that's on), pops for moments, and a debug panel (F2).
 
 import { TUNING } from '../core/car/tuning';
@@ -56,7 +56,7 @@ export class Hud {
     document.body.insertAdjacentHTML(
       'beforeend',
       `<div class="hud" id="race">
-        <div class="stat" id="statLap"><small>Lap</small><b id="lap">1/3</b></div>
+        <div class="stat" id="statLap"><small id="lapLabel">Lap</small><b id="lap">1/3</b></div>
         <div class="stat"><small>Time</small><b id="time">0:00.0</b></div>
         <div class="stat"><small>Best</small><b id="best">–</b></div>
         <div class="stat"><small>Score</small><b id="score">0</b></div>
@@ -89,12 +89,13 @@ export class Hud {
     style('gBoost', 'strokeDasharray', `0 ${from.toFixed(2)} ${(ARC - from).toFixed(2)} 100`);
   }
 
-  /** A lap done: its time against the best before it, and the final lap called out. */
+  /** A lap done (or one run down): its time against the best before it, and the final lap called out. */
   private lap(time: number, lapsDone: number): void {
     const best = this.bestBefore;
-    if (!best) this.pop(`Lap ${fmt(time)}`);
-    else if (time < best) this.pop(`Best lap! ${fmt(time)} ${delta(time, best)}`, 'hot');
-    else this.pop(`Lap ${fmt(time)} ${delta(time, best)}`, 'slow');
+    const word = this.sim.track.run ? 'Run' : 'Lap';
+    if (!best) this.pop(`${word} ${fmt(time)}`);
+    else if (time < best) this.pop(`Best ${word.toLowerCase()}! ${fmt(time)} ${delta(time, best)}`, 'hot');
+    else this.pop(`${word} ${fmt(time)} ${delta(time, best)}`, 'slow');
     this.bestBefore = best ? Math.min(best, time) : time;
     const laps = this.sim.race.laps;
     if (this.sim.race.phase === 'racing' && laps > 1 && lapsDone === laps - 1) this.pop('Final lap!', 'big');
@@ -122,8 +123,15 @@ export class Hud {
     positions(this.sim, this.order);
     text('pos', `${this.order.indexOf(i) + 1}/${this.order.length}`);
     const laps = this.sim.race.laps;
+    const run = this.sim.track.run;
+    text('lapLabel', run ? 'To go' : 'Lap');
+    if (run) {
+      // One run: how far to the bottom, not a lap count.
+      const left = c.lap[i] > 0 ? 0 : Math.max(0, run.finish - run.start - c.progress[i]);
+      text('lap', left >= 1000 ? `${(left / 1000).toFixed(1)} km` : `${Math.round(left / 10) * 10} m`);
+    }
     // Free drive has no race length: just the lap you're on.
-    text('lap', racing ? `${Math.min(laps, c.lap[i] + 1)}/${laps}` : String(c.lap[i] + 1));
+    else text('lap', racing ? `${Math.min(laps, c.lap[i] + 1)}/${laps}` : String(c.lap[i] + 1));
     $('statLap').classList.toggle('final', racing && laps > 1 && c.lap[i] + 1 >= laps && !c.finished[i]);
     text('time', c.finished[i] ? fmt(c.finishTime[i]) : racing ? fmt(Math.max(0, this.sim.time - this.sim.race.goTime)) : fmt(this.sim.time - c.lapStartTime[i]));
     text('best', c.bestLap[i] ? fmt(c.bestLap[i]) : '–');
