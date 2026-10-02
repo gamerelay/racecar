@@ -248,9 +248,10 @@ race; some move, and a few you can hit.
 
 - **Button click effects:** a press feel on the menus' buttons and choosers (a quick scale or
   flash, and a click sound through the effects bus).
-- **Music on the title screen from the start:** it waits for the first click or key now (browsers
-  block sound before a gesture, `Soundtrack` in `src/audio/soundtrack.ts`). Find what can start
-  sooner (the first pointer move, a "click to start" splash), or make the wait less noticeable.
+- **Music on the title screen from the start** (done, 2026-10-02): the audio starts at load
+  (`GameAudio`'s constructor), which plays where the browser allows it. Where it doesn't, the
+  first key or click starts it as before, and a hint on the title says so. A pointer move isn't a
+  gesture to browsers, and a "click to start" splash would block the title, so neither was used.
 - **Traffic fading out in front of you:** investigate. Traffic fades over `FADE` m at the ends of
   its lanes' sections and in and out of the start grid's clear zone (`GRID_CLEAR` in
   `src/core/world/traffic.ts`); a car vanishing just ahead is probably one of those edges, or

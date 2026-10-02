@@ -159,6 +159,26 @@ const track = playlist
     })
   : null;
 const audio = new GameAudio(sim, track, attract);
+// The title's music waits for a first key or click where the browser won't start it by itself:
+// a hint says so, if it hasn't started a moment in (where it's allowed, it never shows).
+if (attract && track) {
+  setTimeout(() => {
+    if (audio.audible || !audio.settings.music || audio.settings.muted) return;
+    const hint = document.createElement('div');
+    hint.id = 'soundHint';
+    hint.setAttribute('aria-hidden', 'true');
+    hint.textContent = matchMedia('(pointer: coarse)').matches ? '♪ Tap for music' : '♪ Press any key for music';
+    document.body.appendChild(hint);
+    const gone = () => {
+      hint.classList.add('out');
+      setTimeout(() => hint.remove(), 400);
+      window.removeEventListener('keydown', gone);
+      window.removeEventListener('pointerup', gone);
+    };
+    window.addEventListener('keydown', gone);
+    window.addEventListener('pointerup', gone);
+  }, 1500);
+}
 // The frame rate, top left, when Settings → Show FPS is on.
 document.body.insertAdjacentHTML('beforeend', '<div id="fps" aria-hidden="true"></div>');
 const fpsEl = document.getElementById('fps')!;

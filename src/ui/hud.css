@@ -88,6 +88,12 @@ body.boosting #gFill { stroke: var(--sun); }
 #debug.on { display: block; }
 
 .toast { position: fixed; left: 50%; top: 18px; transform: translateX(-50%); z-index: 20; background: var(--panel); border: 2px solid var(--ink); box-shadow: 4px 4px 0 var(--outline); padding: 8px 14px; font-weight: 700; }
+/* The title's "press any key for music" (main.ts), while the browser holds the sound back. */
+#soundHint { position: fixed; right: 18px; bottom: 18px; z-index: 12; padding: 6px 12px; font: 700 13px var(--ui); color: var(--ink); background: var(--panel); border: 2px solid var(--ink); box-shadow: 3px 3px 0 var(--outline); pointer-events: none; animation: hintIn 0.4s ease-out, hintPulse 2.4s ease-in-out 0.4s infinite; transition: opacity 0.4s; }
+#soundHint.out { opacity: 0; }
+@keyframes hintIn { from { opacity: 0; transform: translateY(8px); } }
+@keyframes hintPulse { 50% { border-color: var(--cyan); } }
+@media (prefers-reduced-motion: reduce) { #soundHint { animation: none; } }
 
 #pause { position: fixed; inset: 0; z-index: 10; display: none; place-items: center; background: rgba(13, 6, 32, 0.6); }
 #pause.on { display: grid; }

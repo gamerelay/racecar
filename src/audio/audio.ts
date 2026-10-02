@@ -4,8 +4,9 @@
 // the recorded soundtrack (soundtrack.ts), or the synth (music.ts) where there's no track. The rest
 // is synthesized (synth.ts). All presentation: it reads the sim and never writes to it.
 //
-// Browsers only start audio after a gesture, so the context is made on the first key or click (a
-// tap's release).
+// Browsers mostly start audio only after a gesture: the context is made at once in case this one
+// allows it (a site the player's been on a lot, or one allowed sound), and resumed on the first key
+// or click (a tap's release) if not.
 // Paused or hidden, it suspends. M mutes, N toggles music; both are remembered on this device.
 
 import { Vector3, type PerspectiveCamera } from 'three';
@@ -122,6 +123,10 @@ export class GameAudio {
     // touch's `pointerdown`.
     window.addEventListener('keydown', unlock);
     window.addEventListener('pointerup', unlock);
+    // Without a gesture too, unless the browser says it won't (Firefox can tell): the title's music
+    // from the start where it's allowed. Where it isn't, the context waits suspended for the first.
+    const policy = (navigator as { getAutoplayPolicy?: (t: string) => string }).getAutoplayPolicy?.('audiocontext');
+    if (policy !== 'disallowed') this.start(false);
     // Every key or click after, too: a track paused (the pause menu, a hidden tab) may only start
     // again from one.
     const again = () => this.g && this.wantTrack && this.track?.play(true);
@@ -138,8 +143,11 @@ export class GameAudio {
     });
   }
 
-  /** Makes the graph (first gesture) and resumes the context. */
-  private start(): void {
+  /**
+   * Makes the graph and resumes the context. `gesture`: from a key or click (the page's load
+   * otherwise, where a refused play is just "not yet", not one of the refusals that give up on it).
+   */
+  private start(gesture = true): void {
     if (this.g) {
       void this.g.ctx.resume();
       return;
@@ -207,9 +215,14 @@ export class GameAudio {
     this.g.trackLevel.connect(musicLevel);
     this.track?.connect(ctx, this.g.trackLevel);
     // In the gesture itself: the only time some browsers start media.
-    if (this.settings.music && !this.settings.muted) this.track?.play(true);
+    if (this.settings.music && !this.settings.muted) this.track?.play(gesture);
     this.shot.ctx = ctx;
     this.shot.bus = sfx;
+  }
+
+  /** Whether anything can be heard yet: the context is running (the browser allowed it, or a gesture did). */
+  get audible(): boolean {
+    return this.g?.ctx.state === 'running';
   }
 
   /** The master's level now: M's mute, then the player's master volume. */
