@@ -1659,11 +1659,11 @@ Downtown's field wrecks (sweep, 2026-09-30):
   wrecks to the Market's traffic (1,550–1,950 m), so the colonnade stays.
 - A test holds the 8-seed field to 1.5, like the Valley's.
 
-The soundtrack (owner's tracks, 2026-10-01):
+The soundtrack (owner's tracks, 2026-10-01 and 10-02):
 
-- **Recorded music: one track for the title and menus, one per map, and two for any map**
+- **Recorded music: one track for the title and menus, one per map, and four for any map**
   (`public/music/`: `title`, `downtown`, `backroads`, `paradise`, `finish-line`,
-  `final-sprint`). The owner's WAVs (30–40 MB each) are AAC in `.m4a` at 128 kb/s, 2–3.4 MB each
+  `final-sprint`, `relentless-pursuit`, `half-time-surge`). The owner's WAVs (30–40 MB each) are AAC in `.m4a` at 128 kb/s, 2–3.4 MB each
   (17 MB in all), which every browser plays (Safari too). Their loudness is within 1.8 LU of each
   other (−14.2 to −16 LUFS), so they aren't normalised.
 - **Streamed and looped through the music bus** (`src/audio/soundtrack.ts`): an `<audio>` element
@@ -1675,10 +1675,11 @@ The soundtrack (owner's tracks, 2026-10-01):
   has its own way out (`musicOut`, muted with the master). In a race it's now about level with
   the effects and above the engines (−30 dB against −29 and −34 on the buses).
 - **Which track:** the title's behind the menus and in lobbies (the attract page), looping. A race
-  (and its results) plays a playlist: the map's own track and the two for any map (the owner's,
+  (and its results) plays a playlist: the map's own track and the four for any map (the owner's,
   so a map's music doesn't go stale). Downtown and Paradise have a second track of their own
   (`tokyo-dubstep`, `hawaiian-vibes`, the owner's, 2026-10-01: `MAP_TRACKS`), at the same loudness
-  as the rest (−15.9 LUFS). Never the same song twice in a row: a race starts on one the
+  as the rest (−15.9 LUFS). `relentless-pursuit` and `half-time-surge` (2026-10-02) are the third and fourth for any
+  map, their WAVs 1 dB down and 0.5 dB up to −15.9 LUFS too. Never the same song twice in a row: a race starts on one the
   last race didn't play (`racecar.lastTrack` on the device), and when a track ends another one
   follows. The title's track isn't muffled behind the menu (the synth was, under the attract race).
 - **The synth is the fallback**, for a track that can't load or play, and with `?music=0`.
