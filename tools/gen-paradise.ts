@@ -20,7 +20,7 @@
 //   bun tools/gen-paradise.ts
 
 import { writeFileSync } from 'node:fs';
-import type { BranchDef, TrackLayout } from '../src/core/content';
+import type { BranchDef, TrackLayout, WallGap } from '../src/core/content';
 import { bakeTrack } from '../src/core/track/bake';
 import { straightenSections } from '../src/core/track/validate';
 import surfaces from '../content/surfaces.json';
@@ -201,7 +201,18 @@ layout.ramps = [
 const harbour = span(sAt(150, 430), sAt(10, 430));
 const rimSpan = span(sAt(...rim(-40, 186), 28), sAt(...rim(50, 186), 40));
 const walled: [number, number][] = [harbour, span(sAt(-420, -200, 8), sAt(240, -370, 11)), rimSpan];
-layout.walls = { gaps: [...wallGaps(walled, L), { s: harbour, side: 'right' }, { s: rimSpan, side: 'right' }] };
+// The shortcuts over open ground (the Sandbar, the Beach Cut, Smugglers' Trail) have no walls
+// either: run wide and you're on the sand or in the undergrowth, as on the lap (walls there jutted
+// into the main road where a cut runs beside it). The Lava Tube keeps its walls: it's in the rock.
+const open = withBranches.splines.filter((sp) => ['sandbar', 'beach-cut', 'smugglers-trail'].includes(sp.id));
+layout.walls = {
+  gaps: [
+    ...wallGaps(walled, L),
+    { s: harbour, side: 'right' },
+    { s: rimSpan, side: 'right' },
+    ...open.map((sp): WallGap => ({ spline: sp.id, s: [0, Math.ceil(sp.length)], side: 'both' })),
+  ],
+};
 
 // ---- traffic: two-way in town; the freeway is one-way, both lanes running with the race ----
 const town: [number, number][] = [[sAt(240, 432), sAt(-60, 430)]];

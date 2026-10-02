@@ -4222,6 +4222,30 @@
      3212
     ],
     "side": "right"
+   },
+   {
+    "spline": "sandbar",
+    "s": [
+     0,
+     356
+    ],
+    "side": "both"
+   },
+   {
+    "spline": "beach-cut",
+    "s": [
+     0,
+     269
+    ],
+    "side": "both"
+   },
+   {
+    "spline": "smugglers-trail",
+    "s": [
+     0,
+     198
+    ],
+    "side": "both"
    }
   ]
  },
