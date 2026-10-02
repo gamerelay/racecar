@@ -112,6 +112,12 @@ export class Menu {
   }
 
   /** Opens on the title, or straight into a lobby (back from its race, or a reload in it). */
+  /** Opened from a short link (`?join=<link>`): into its lobby, or the title if it's gone. */
+  async openLink(link: string): Promise<void> {
+    const id = await this.backend.joinLink?.(link);
+    return this.open(id ?? null);
+  }
+
   async open(lobbyId?: string | null): Promise<void> {
     // The menu is up, so your lobby's race is over, however you left it (Back to lobby, a closed
     // tab, the title's URL): it's waiting again, or Start and the seats would refuse.
@@ -539,8 +545,10 @@ export class Menu {
       const me = lobby.seats[mine];
       this.send(lobby, { type: 'ready', ready: !(me?.kind === 'player' && me.ready) });
     });
-    this.on('lInvite', () => {
-      const link = `${location.origin}${location.pathname}?lobby=${encodeURIComponent(lobby.id)}`;
+    this.on('lInvite', async () => {
+      // The lobby's short link (gamerelay.io/<game>/<link>, which previews in chat apps), or this
+      // page's link with its code where there isn't one.
+      const link = (await this.backend.shareLink?.(lobby.id)) ?? `${location.origin}${location.pathname}?lobby=${encodeURIComponent(lobby.id)}`;
       void navigator.clipboard?.writeText(link).then(() => {
         const b = document.getElementById('lInvite');
         if (b) b.textContent = 'Copied';

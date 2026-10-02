@@ -29,8 +29,10 @@ export interface RelayLike {
   /** The server's clock (ms). */
   now(): number;
   readonly room: RoomLike | null;
-  createRoom(options: { maxPlayers?: number; tag?: string; public?: boolean }): Promise<RoomLike>;
+  createRoom(options: { maxPlayers?: number; tag?: string; public?: boolean; linkOnly?: boolean }): Promise<RoomLike>;
   joinRoom(code: string): Promise<RoomLike>;
+  /** Join the room a short link is for, by its id (`?join=<link>`), on an SDK with short links. */
+  joinLink?(link: string): Promise<RoomLike>;
   listRooms(tag?: string, options?: { includeFull?: boolean }): Promise<{ code: string; players: number; name: string | null; meta: unknown; locked: boolean }[]>;
   /** Your round trip to the server (ms). */
   ping?(): Promise<number>;
@@ -49,6 +51,8 @@ export interface RoomLike {
   readonly isHost: boolean;
   /** Listed by listRooms (`setAccess({ public })`). */
   readonly isPublic: boolean;
+  /** Joined by its short link only, not its code (an SDK with short links; older ones leave it undefined). */
+  readonly linkOnly?: boolean;
   /** `connected`: false while their connection is gone (the server holds their seat through its grace). */
   readonly players: readonly { id: string; connected?: boolean }[];
   readonly state: Record<string, unknown>;
@@ -57,7 +61,9 @@ export interface RoomLike {
   onRequest(type: string, handler: (data: unknown, from: string) => unknown): () => void;
   on(event: RoomEvent, handler: (...args: never[]) => void): () => void;
   setListing(listing: { name?: string | null; meta?: never }): Promise<void>;
-  setAccess(access: { public?: boolean }): Promise<void>;
+  setAccess(access: { public?: boolean; linkOnly?: boolean }): Promise<void>;
+  /** The room's short link (`https://gamerelay.io/<game>/<link>`), on an SDK with short links. */
+  shareLink?(): Promise<string>;
   kick(playerId: string, options?: { ban?: boolean }): Promise<void>;
   leave(): Promise<void>;
   /** A message to everyone else in the room (their `message` event). */
@@ -172,7 +178,8 @@ export class RelayBackend implements LobbyBackend {
     // would pull its old lobby's players in.
     await this.party.leave();
     const visibility = init.visibility ?? 'public';
-    const room = await relay.createRoom({ maxPlayers: SEATS, tag: TAG, public: visibility === 'public' });
+    // Invite only: nobody gets in by guessing the 4-letter code, only by the lobby's link.
+    const room = await relay.createRoom({ maxPlayers: SEATS, tag: TAG, public: visibility === 'public', linkOnly: visibility !== 'public' });
     const party = await this.party.create();
     const lobby: Lobby = { ...createLobby(room.code, { ...host, id: room.me }, { ...init, visibility }), ...(party ? { party } : {}) };
     this.wanted = room.code;
@@ -203,6 +210,31 @@ export class RelayBackend implements LobbyBackend {
     this.wanted = id;
     const room = await this.inTurn(() => this.enter(id));
     return room && this.lobbyOf(room);
+  }
+
+  /**
+   * Into the lobby a short link is for (`?join=<link>`): its id (the room's code), or null if the
+   * link's room is gone or this SDK has no short links.
+   */
+  async joinLink(link: string): Promise<string | null> {
+    const relay = await this.relayNow();
+    if (!relay.joinLink) return null;
+    const room = await this.inTurn(async () => {
+      await this.leaveRoom();
+      const r = await relay.joinLink!(link).catch(warned('joining by a link failed', null));
+      if (r) {
+        this.wanted = r.code;
+        this.attach(r);
+      }
+      return r;
+    });
+    return room?.code ?? null;
+  }
+
+  /** Lobby `id`'s short link, if you're in it and the SDK has them. */
+  async shareLink(id: string): Promise<string | null> {
+    const room = this.room?.code === id ? this.room : null;
+    return (await room?.shareLink?.().catch(warned('getting the lobby link failed', null))) ?? null;
   }
 
   /** The room for lobby `id`: the one you're in, or joined now (a reload resumes your seat). */
@@ -390,7 +422,10 @@ export class RelayBackend implements LobbyBackend {
       void room.setListing({ name, meta: meta as never }).catch(warned('updating the listing failed', undefined));
       // Against the room itself, not what we last sent: a host before us may not have got to it.
       // One that fails is tried again with the next change.
-      if (room.isPublic !== (visibility === 'public')) void room.setAccess({ public: visibility === 'public' }).catch(() => (this.listed = ''));
+      const listed = visibility === 'public';
+      // Unlisted is link-only too (on an SDK that has it: `linkOnly` is undefined on older ones).
+      const linkWrong = room.linkOnly !== undefined && room.linkOnly !== !listed;
+      if (room.isPublic !== listed || linkWrong) void room.setAccess({ public: listed, linkOnly: !listed }).catch(() => (this.listed = ''));
     };
     if (this.listingTimer) return;
     const wait = this.listingAt + LISTING_MS - Date.now();

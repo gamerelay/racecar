@@ -174,7 +174,10 @@ if (attract) {
   screens.onPreview = preview;
   screens.online = !!online;
   screens.offline = () => lobbies.offline;
-  void screens.open(params.get('lobby'));
+  // A short link sends players here with `?join=<link>` (net: GameRelay's short links); an
+  // older invite has `?lobby=<code>`.
+  const join = params.get('join');
+  void (join ? screens.openLink(join) : screens.open(params.get('lobby')));
 }
 
 /** Behind the lobby: its map and weather, and your car on the table; off the lobby, just the race. */

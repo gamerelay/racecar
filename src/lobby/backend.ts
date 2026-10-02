@@ -23,6 +23,10 @@ export interface LobbyBackend {
   away?(id: string, player: string): boolean;
   /** Online: the screens no longer want lobby `id` (a join given up on): out of it, now or when the join lands. */
   abandon?(id: string): Promise<void>;
+  /** Online: lobby `id`'s short link (`gamerelay.io/<game>/<link>`), or null. */
+  shareLink?(id: string): Promise<string | null>;
+  /** Online: into the lobby a short link is for (`?join=<link>`): its id, or null. */
+  joinLink?(link: string): Promise<string | null>;
 }
 
 /**
@@ -193,6 +197,16 @@ export class Lobbies implements LobbyBackend {
 
   async abandon(id: string): Promise<void> {
     await this.of(id)?.abandon?.(id);
+  }
+
+  async shareLink(id: string): Promise<string | null> {
+    return (await this.of(id)?.shareLink?.(id).catch(() => null)) ?? null;
+  }
+
+  /** Too slow (online), it's null, like `get`. */
+  async joinLink(link: string): Promise<string | null> {
+    if (!this.online?.joinLink) return null;
+    return (await inTime(this.online.joinLink(link), this.wait).catch(() => null)) ?? null;
   }
 
   async send(id: string, action: LobbyAction): Promise<Lobby | null> {
