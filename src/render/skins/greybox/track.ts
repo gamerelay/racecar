@@ -24,7 +24,7 @@ import {
   Vector3,
   type Object3D,
 } from 'three';
-import type { BakedSpline, Track } from '../../../core/track/bake';
+import { VERGE_DEFAULT, type BakedSpline, type Track } from '../../../core/track/bake';
 import { newHit, sampleAt } from '../../../core/track/query';
 import type { TrackVisual } from '../../skin';
 import { buildCityscape } from './cityscape';
@@ -376,7 +376,7 @@ function buildChunk(g: Geo, track: Track, sp: BakedSpline, i0: number, i1: numbe
   const A: Cross = { cx: 0, cy: 0, cz: 0, rx: 0, rz: 0, tb: 0 };
   const B: Cross = { cx: 0, cy: 0, cz: 0, rx: 0, rz: 0, tb: 0 };
   const at = (c: Cross, l: number, lift: number) => [c.cx + c.rx * l, c.cy - l * c.tb + lift, c.cz + c.rz * l] as const;
-  const shoulderColor = track.surfaces[track.surfaceIndex.get(track.layout.shoulderSurface ?? 'sidewalk') ?? 0].color;
+  const layoutVerge = track.surfaces[track.surfaceIndex.get(track.layout.shoulderSurface ?? 'sidewalk') ?? 0].color;
   const last = sp.closed ? i1 : Math.min(i1, sp.n - 1);
   for (let i = i0; i < last; i++) {
     const j = sp.closed ? (i + 1) % sp.n : i + 1;
@@ -388,6 +388,8 @@ function buildChunk(g: Geo, track: Track, sp: BakedSpline, i0: number, i1: numbe
     const sb = wb + sp.shoulder[j];
     const s = i * sp.step;
     const surf = track.surfaces[sp.surface[i]];
+    // The verge in its own surface's color where the stretch sets one (the jungle's earth, the beach's sand).
+    const shoulderColor = sp.verge[i] === VERGE_DEFAULT ? layoutVerge : track.surfaces[sp.verge[i]].color;
     // Levels (city): high roads are decks on pillars, low ones trenches, very low ones tunnels.
     const hA = A.cy - groundY;
     const hB = B.cy - groundY;

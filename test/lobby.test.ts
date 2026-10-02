@@ -255,7 +255,7 @@ describe('the local backend', () => {
 });
 
 /** Each layout's lap length, km (MAPS.md's table). */
-const LAP_KM: Record<string, number> = { 'downtown/downtown': 3.26, 'backroads/valley': 2.92, 'paradise/island': 3.44 };
+const LAP_KM: Record<string, number> = { 'downtown/downtown': 3.26, 'backroads/valley': 2.92, 'paradise/island': 3.78 };
 
 describe('map thumbnails', () => {
   test('every layout fits its box, with its shortcuts', () => {

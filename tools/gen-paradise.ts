@@ -25,17 +25,17 @@ import { straightenSections } from '../src/core/track/validate';
 import surfaces from '../content/surfaces.json';
 import { type Crest, type Node, lapPoints, onLap, r1, span, wallGaps } from './lib/lap';
 
-const node = (w: number, surface: string, shoulder: number) => (x: number, z: number, y: number, r?: number, more: Partial<Node> = {}): Node => ({ x, z, y, w, r, surface, shoulder, ...more });
+const node = (w: number, surface: string, shoulder: number, verge?: string) => (x: number, z: number, y: number, r?: number, more: Partial<Node> = {}): Node => ({ x, z, y, w, r, surface, shoulder, verge, ...more });
 /** Harbor Town and Lighthouse Point: asphalt, with a wide verge to run out onto. */
 const T = node(15, 'asphalt', 4);
 /** Coconut Coast: the wide beach road, with the beach right beside it. */
 const C = node(18.5, 'asphalt', 5);
 /** The Freeway: a deck, with a verge inside its barriers wide enough to drift out onto. */
 const F = node(18, 'asphalt', 3);
-/** Jungle Switchbacks: red earth, wide for the hairpins. */
-const J = node(17, 'red-earth', 4);
-/** Volcano Rim: lava rock. */
-const V = node(15, 'lava-rock', 3.5);
+/** Jungle Switchbacks: red earth, wide for the hairpins, between banks of undergrowth. */
+const J = node(17, 'red-earth', 4, 'undergrowth');
+/** Volcano Rim: lava rock, with ash past its edges. */
+const V = node(15, 'lava-rock', 3.5, 'ash');
 
 /** The volcano: its middle, the crater's radius, and the lip's height. */
 const VOLCANO = { x: 150, z: 60, crater: 55, h: 95, r: 330 };
@@ -109,7 +109,8 @@ const layout: TrackLayout = {
   props: [],
   takedownSpots: [],
   scenery: 'island',
-  shoulderSurface: 'sand',
+  // Off the road: the beach, firmer than the Sandbar's loose sand (it slows you, it doesn't spin you).
+  shoulderSurface: 'beach',
 };
 
 const baked = bakeTrack(layout, surfaces);

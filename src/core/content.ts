@@ -17,6 +17,8 @@ export interface TrackPoint {
   surface?: string;
   /** Run-off between the road edge and the wall, in meters (default 4). */
   shoulder?: number;
+  /** The ground past the road's edge on this stretch (a surface id; default the layout's `shoulderSurface`). */
+  verge?: string;
 }
 
 export interface SplineDef {

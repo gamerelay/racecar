@@ -1863,7 +1863,8 @@
     "width": 17.2,
     "lanes": 2,
     "shoulder": 4,
-    "surface": "red-earth"
+    "surface": "red-earth",
+    "verge": "undergrowth"
    },
    {
     "p": [
@@ -1874,7 +1875,8 @@
     "width": 17,
     "lanes": 2,
     "shoulder": 4,
-    "surface": "red-earth"
+    "surface": "red-earth",
+    "verge": "undergrowth"
    },
    {
     "p": [
@@ -1886,6 +1888,7 @@
     "lanes": 2,
     "shoulder": 4,
     "surface": "red-earth",
+    "verge": "undergrowth",
     "bank": 0.02
    },
    {
@@ -1898,6 +1901,7 @@
     "lanes": 2,
     "shoulder": 4,
     "surface": "red-earth",
+    "verge": "undergrowth",
     "bank": 0.08
    },
    {
@@ -1910,6 +1914,7 @@
     "lanes": 2,
     "shoulder": 4,
     "surface": "red-earth",
+    "verge": "undergrowth",
     "bank": 0.091
    },
    {
@@ -1922,6 +1927,7 @@
     "lanes": 2,
     "shoulder": 4,
     "surface": "red-earth",
+    "verge": "undergrowth",
     "bank": 0.097
    },
    {
@@ -1934,6 +1940,7 @@
     "lanes": 2,
     "shoulder": 4,
     "surface": "red-earth",
+    "verge": "undergrowth",
     "bank": 0.099
    },
    {
@@ -1946,6 +1953,7 @@
     "lanes": 2,
     "shoulder": 4,
     "surface": "red-earth",
+    "verge": "undergrowth",
     "bank": 0.1
    },
    {
@@ -1958,6 +1966,7 @@
     "lanes": 2,
     "shoulder": 4,
     "surface": "red-earth",
+    "verge": "undergrowth",
     "bank": 0.1
    },
    {
@@ -1970,6 +1979,7 @@
     "lanes": 2,
     "shoulder": 4,
     "surface": "red-earth",
+    "verge": "undergrowth",
     "bank": 0.1
    },
    {
@@ -1982,6 +1992,7 @@
     "lanes": 2,
     "shoulder": 4,
     "surface": "red-earth",
+    "verge": "undergrowth",
     "bank": 0.1
    },
    {
@@ -1994,6 +2005,7 @@
     "lanes": 2,
     "shoulder": 4,
     "surface": "red-earth",
+    "verge": "undergrowth",
     "bank": 0.1
    },
    {
@@ -2006,6 +2018,7 @@
     "lanes": 2,
     "shoulder": 4,
     "surface": "red-earth",
+    "verge": "undergrowth",
     "bank": 0.1
    },
    {
@@ -2018,6 +2031,7 @@
     "lanes": 2,
     "shoulder": 4,
     "surface": "red-earth",
+    "verge": "undergrowth",
     "bank": 0.1
    },
    {
@@ -2030,6 +2044,7 @@
     "lanes": 2,
     "shoulder": 4,
     "surface": "red-earth",
+    "verge": "undergrowth",
     "bank": 0.1
    },
    {
@@ -2042,6 +2057,7 @@
     "lanes": 2,
     "shoulder": 4,
     "surface": "red-earth",
+    "verge": "undergrowth",
     "bank": 0.1
    },
    {
@@ -2054,6 +2070,7 @@
     "lanes": 2,
     "shoulder": 4,
     "surface": "red-earth",
+    "verge": "undergrowth",
     "bank": 0.1
    },
    {
@@ -2066,6 +2083,7 @@
     "lanes": 2,
     "shoulder": 4,
     "surface": "red-earth",
+    "verge": "undergrowth",
     "bank": 0.1
    },
    {
@@ -2078,6 +2096,7 @@
     "lanes": 2,
     "shoulder": 4,
     "surface": "red-earth",
+    "verge": "undergrowth",
     "bank": 0.1
    },
    {
@@ -2090,6 +2109,7 @@
     "lanes": 2,
     "shoulder": 4,
     "surface": "red-earth",
+    "verge": "undergrowth",
     "bank": 0.1
    },
    {
@@ -2102,6 +2122,7 @@
     "lanes": 2,
     "shoulder": 4,
     "surface": "red-earth",
+    "verge": "undergrowth",
     "bank": 0.1
    },
    {
@@ -2114,6 +2135,7 @@
     "lanes": 2,
     "shoulder": 4,
     "surface": "red-earth",
+    "verge": "undergrowth",
     "bank": 0.099
    },
    {
@@ -2126,6 +2148,7 @@
     "lanes": 2,
     "shoulder": 4,
     "surface": "red-earth",
+    "verge": "undergrowth",
     "bank": 0.097
    },
    {
@@ -2138,6 +2161,7 @@
     "lanes": 2,
     "shoulder": 4,
     "surface": "red-earth",
+    "verge": "undergrowth",
     "bank": 0.092
    },
    {
@@ -2150,6 +2174,7 @@
     "lanes": 2,
     "shoulder": 4,
     "surface": "red-earth",
+    "verge": "undergrowth",
     "bank": 0.083
    },
    {
@@ -2162,6 +2187,7 @@
     "lanes": 2,
     "shoulder": 4,
     "surface": "red-earth",
+    "verge": "undergrowth",
     "bank": 0.017
    },
    {
@@ -2173,7 +2199,8 @@
     "width": 17,
     "lanes": 2,
     "shoulder": 4,
-    "surface": "red-earth"
+    "surface": "red-earth",
+    "verge": "undergrowth"
    },
    {
     "p": [
@@ -2184,7 +2211,8 @@
     "width": 17.4,
     "lanes": 2,
     "shoulder": 4,
-    "surface": "red-earth"
+    "surface": "red-earth",
+    "verge": "undergrowth"
    },
    {
     "p": [
@@ -2195,7 +2223,8 @@
     "width": 19.6,
     "lanes": 2,
     "shoulder": 4,
-    "surface": "red-earth"
+    "surface": "red-earth",
+    "verge": "undergrowth"
    },
    {
     "p": [
@@ -2206,7 +2235,8 @@
     "width": 19.8,
     "lanes": 2,
     "shoulder": 4,
-    "surface": "red-earth"
+    "surface": "red-earth",
+    "verge": "undergrowth"
    },
    {
     "p": [
@@ -2217,7 +2247,8 @@
     "width": 19.9,
     "lanes": 2,
     "shoulder": 4,
-    "surface": "red-earth"
+    "surface": "red-earth",
+    "verge": "undergrowth"
    },
    {
     "p": [
@@ -2228,7 +2259,8 @@
     "width": 19.8,
     "lanes": 2,
     "shoulder": 4,
-    "surface": "red-earth"
+    "surface": "red-earth",
+    "verge": "undergrowth"
    },
    {
     "p": [
@@ -2239,7 +2271,8 @@
     "width": 19.5,
     "lanes": 2,
     "shoulder": 4,
-    "surface": "red-earth"
+    "surface": "red-earth",
+    "verge": "undergrowth"
    },
    {
     "p": [
@@ -2250,7 +2283,8 @@
     "width": 17.5,
     "lanes": 2,
     "shoulder": 4,
-    "surface": "red-earth"
+    "surface": "red-earth",
+    "verge": "undergrowth"
    },
    {
     "p": [
@@ -2261,7 +2295,8 @@
     "width": 17,
     "lanes": 2,
     "shoulder": 4,
-    "surface": "red-earth"
+    "surface": "red-earth",
+    "verge": "undergrowth"
    },
    {
     "p": [
@@ -2273,6 +2308,7 @@
     "lanes": 2,
     "shoulder": 4,
     "surface": "red-earth",
+    "verge": "undergrowth",
     "bank": -0.018
    },
    {
@@ -2285,6 +2321,7 @@
     "lanes": 2,
     "shoulder": 4,
     "surface": "red-earth",
+    "verge": "undergrowth",
     "bank": -0.082
    },
    {
@@ -2297,6 +2334,7 @@
     "lanes": 2,
     "shoulder": 4,
     "surface": "red-earth",
+    "verge": "undergrowth",
     "bank": -0.092
    },
    {
@@ -2309,6 +2347,7 @@
     "lanes": 2,
     "shoulder": 4,
     "surface": "red-earth",
+    "verge": "undergrowth",
     "bank": -0.097
    },
    {
@@ -2321,6 +2360,7 @@
     "lanes": 2,
     "shoulder": 4,
     "surface": "red-earth",
+    "verge": "undergrowth",
     "bank": -0.099
    },
    {
@@ -2333,6 +2373,7 @@
     "lanes": 2,
     "shoulder": 4,
     "surface": "red-earth",
+    "verge": "undergrowth",
     "bank": -0.1
    },
    {
@@ -2345,6 +2386,7 @@
     "lanes": 2,
     "shoulder": 4,
     "surface": "red-earth",
+    "verge": "undergrowth",
     "bank": -0.1
    },
    {
@@ -2357,6 +2399,7 @@
     "lanes": 2,
     "shoulder": 4,
     "surface": "red-earth",
+    "verge": "undergrowth",
     "bank": -0.1
    },
    {
@@ -2369,6 +2412,7 @@
     "lanes": 2,
     "shoulder": 4,
     "surface": "red-earth",
+    "verge": "undergrowth",
     "bank": -0.1
    },
    {
@@ -2381,6 +2425,7 @@
     "lanes": 2,
     "shoulder": 4,
     "surface": "red-earth",
+    "verge": "undergrowth",
     "bank": -0.1
    },
    {
@@ -2393,6 +2438,7 @@
     "lanes": 2,
     "shoulder": 4,
     "surface": "red-earth",
+    "verge": "undergrowth",
     "bank": -0.1
    },
    {
@@ -2405,6 +2451,7 @@
     "lanes": 2,
     "shoulder": 4,
     "surface": "red-earth",
+    "verge": "undergrowth",
     "bank": -0.1
    },
    {
@@ -2417,6 +2464,7 @@
     "lanes": 2,
     "shoulder": 4,
     "surface": "red-earth",
+    "verge": "undergrowth",
     "bank": -0.1
    },
    {
@@ -2429,6 +2477,7 @@
     "lanes": 2,
     "shoulder": 4,
     "surface": "red-earth",
+    "verge": "undergrowth",
     "bank": -0.1
    },
    {
@@ -2441,6 +2490,7 @@
     "lanes": 2,
     "shoulder": 4,
     "surface": "red-earth",
+    "verge": "undergrowth",
     "bank": -0.1
    },
    {
@@ -2453,6 +2503,7 @@
     "lanes": 2,
     "shoulder": 4,
     "surface": "red-earth",
+    "verge": "undergrowth",
     "bank": -0.1
    },
    {
@@ -2465,6 +2516,7 @@
     "lanes": 2,
     "shoulder": 4,
     "surface": "red-earth",
+    "verge": "undergrowth",
     "bank": -0.1
    },
    {
@@ -2477,6 +2529,7 @@
     "lanes": 2,
     "shoulder": 4,
     "surface": "red-earth",
+    "verge": "undergrowth",
     "bank": -0.1
    },
    {
@@ -2489,6 +2542,7 @@
     "lanes": 2,
     "shoulder": 4,
     "surface": "red-earth",
+    "verge": "undergrowth",
     "bank": -0.099
    },
    {
@@ -2501,6 +2555,7 @@
     "lanes": 2,
     "shoulder": 4,
     "surface": "red-earth",
+    "verge": "undergrowth",
     "bank": -0.097
    },
    {
@@ -2513,6 +2568,7 @@
     "lanes": 2,
     "shoulder": 4,
     "surface": "red-earth",
+    "verge": "undergrowth",
     "bank": -0.091
    },
    {
@@ -2525,6 +2581,7 @@
     "lanes": 2,
     "shoulder": 4,
     "surface": "red-earth",
+    "verge": "undergrowth",
     "bank": -0.076
    },
    {
@@ -2537,6 +2594,7 @@
     "lanes": 2,
     "shoulder": 4,
     "surface": "red-earth",
+    "verge": "undergrowth",
     "bank": -0.05
    },
    {
@@ -2549,6 +2607,7 @@
     "lanes": 2,
     "shoulder": 3.5,
     "surface": "lava-rock",
+    "verge": "ash",
     "bank": 0.05
    },
    {
@@ -2561,6 +2620,7 @@
     "lanes": 2,
     "shoulder": 3.5,
     "surface": "lava-rock",
+    "verge": "ash",
     "bank": 0.077
    },
    {
@@ -2573,6 +2633,7 @@
     "lanes": 2,
     "shoulder": 3.5,
     "surface": "lava-rock",
+    "verge": "ash",
     "bank": 0.092
    },
    {
@@ -2585,6 +2646,7 @@
     "lanes": 2,
     "shoulder": 3.5,
     "surface": "lava-rock",
+    "verge": "ash",
     "bank": 0.098
    },
    {
@@ -2597,6 +2659,7 @@
     "lanes": 2,
     "shoulder": 3.5,
     "surface": "lava-rock",
+    "verge": "ash",
     "bank": 0.099
    },
    {
@@ -2609,6 +2672,7 @@
     "lanes": 2,
     "shoulder": 3.5,
     "surface": "lava-rock",
+    "verge": "ash",
     "bank": 0.097
    },
    {
@@ -2621,6 +2685,7 @@
     "lanes": 2,
     "shoulder": 3.5,
     "surface": "lava-rock",
+    "verge": "ash",
     "bank": 0.091
    },
    {
@@ -2633,6 +2698,7 @@
     "lanes": 2,
     "shoulder": 3.5,
     "surface": "lava-rock",
+    "verge": "ash",
     "bank": 0.079
    },
    {
@@ -2645,6 +2711,7 @@
     "lanes": 2,
     "shoulder": 3.5,
     "surface": "lava-rock",
+    "verge": "ash",
     "bank": 0.021
    },
    {
@@ -2656,7 +2723,8 @@
     "width": 15,
     "lanes": 2,
     "shoulder": 3.5,
-    "surface": "lava-rock"
+    "surface": "lava-rock",
+    "verge": "ash"
    },
    {
     "p": [
@@ -2667,7 +2735,8 @@
     "width": 15,
     "lanes": 2,
     "shoulder": 3.5,
-    "surface": "lava-rock"
+    "surface": "lava-rock",
+    "verge": "ash"
    },
    {
     "p": [
@@ -2678,7 +2747,8 @@
     "width": 15,
     "lanes": 2,
     "shoulder": 3.5,
-    "surface": "lava-rock"
+    "surface": "lava-rock",
+    "verge": "ash"
    },
    {
     "p": [
@@ -2689,7 +2759,8 @@
     "width": 15,
     "lanes": 2,
     "shoulder": 3.5,
-    "surface": "lava-rock"
+    "surface": "lava-rock",
+    "verge": "ash"
    },
    {
     "p": [
@@ -2700,7 +2771,8 @@
     "width": 15,
     "lanes": 2,
     "shoulder": 3.5,
-    "surface": "lava-rock"
+    "surface": "lava-rock",
+    "verge": "ash"
    },
    {
     "p": [
@@ -2712,6 +2784,7 @@
     "lanes": 2,
     "shoulder": 3.5,
     "surface": "lava-rock",
+    "verge": "ash",
     "bank": 0.019
    },
    {
@@ -2724,6 +2797,7 @@
     "lanes": 2,
     "shoulder": 3.5,
     "surface": "lava-rock",
+    "verge": "ash",
     "bank": 0.081
    },
    {
@@ -2736,6 +2810,7 @@
     "lanes": 2,
     "shoulder": 3.5,
     "surface": "lava-rock",
+    "verge": "ash",
     "bank": 0.091
    },
    {
@@ -2748,6 +2823,7 @@
     "lanes": 2,
     "shoulder": 3.5,
     "surface": "lava-rock",
+    "verge": "ash",
     "bank": 0.097
    },
    {
@@ -2760,6 +2836,7 @@
     "lanes": 2,
     "shoulder": 3.5,
     "surface": "lava-rock",
+    "verge": "ash",
     "bank": 0.099
    },
    {
@@ -2772,6 +2849,7 @@
     "lanes": 2,
     "shoulder": 3.5,
     "surface": "lava-rock",
+    "verge": "ash",
     "bank": 0.1
    },
    {
@@ -2784,6 +2862,7 @@
     "lanes": 2,
     "shoulder": 3.5,
     "surface": "lava-rock",
+    "verge": "ash",
     "bank": 0.1
    },
    {
@@ -2796,6 +2875,7 @@
     "lanes": 2,
     "shoulder": 3.5,
     "surface": "lava-rock",
+    "verge": "ash",
     "bank": 0.1
    },
    {
@@ -2808,6 +2888,7 @@
     "lanes": 2,
     "shoulder": 3.5,
     "surface": "lava-rock",
+    "verge": "ash",
     "bank": 0.1
    },
    {
@@ -2820,6 +2901,7 @@
     "lanes": 2,
     "shoulder": 3.5,
     "surface": "lava-rock",
+    "verge": "ash",
     "bank": 0.099
    },
    {
@@ -2832,6 +2914,7 @@
     "lanes": 2,
     "shoulder": 3.5,
     "surface": "lava-rock",
+    "verge": "ash",
     "bank": 0.097
    },
    {
@@ -2844,6 +2927,7 @@
     "lanes": 2,
     "shoulder": 3.5,
     "surface": "lava-rock",
+    "verge": "ash",
     "bank": 0.092
    },
    {
@@ -2856,6 +2940,7 @@
     "lanes": 2,
     "shoulder": 3.5,
     "surface": "lava-rock",
+    "verge": "ash",
     "bank": 0.082
    },
    {
@@ -2868,6 +2953,7 @@
     "lanes": 2,
     "shoulder": 3.5,
     "surface": "lava-rock",
+    "verge": "ash",
     "bank": 0.018
    },
    {
@@ -2880,6 +2966,7 @@
     "lanes": 2,
     "shoulder": 3.5,
     "surface": "lava-rock",
+    "verge": "ash",
     "bank": 0.018
    },
    {
@@ -2892,6 +2979,7 @@
     "lanes": 2,
     "shoulder": 3.5,
     "surface": "lava-rock",
+    "verge": "ash",
     "bank": 0.082
    },
    {
@@ -2904,6 +2992,7 @@
     "lanes": 2,
     "shoulder": 3.5,
     "surface": "lava-rock",
+    "verge": "ash",
     "bank": 0.092
    },
    {
@@ -2916,6 +3005,7 @@
     "lanes": 2,
     "shoulder": 3.5,
     "surface": "lava-rock",
+    "verge": "ash",
     "bank": 0.097
    },
    {
@@ -2928,6 +3018,7 @@
     "lanes": 2,
     "shoulder": 3.5,
     "surface": "lava-rock",
+    "verge": "ash",
     "bank": 0.099
    },
    {
@@ -2940,6 +3031,7 @@
     "lanes": 2,
     "shoulder": 3.5,
     "surface": "lava-rock",
+    "verge": "ash",
     "bank": 0.1
    },
    {
@@ -2952,6 +3044,7 @@
     "lanes": 2,
     "shoulder": 3.5,
     "surface": "lava-rock",
+    "verge": "ash",
     "bank": 0.099
    },
    {
@@ -2964,6 +3057,7 @@
     "lanes": 2,
     "shoulder": 3.5,
     "surface": "lava-rock",
+    "verge": "ash",
     "bank": 0.095
    },
    {
@@ -2976,6 +3070,7 @@
     "lanes": 2,
     "shoulder": 3.5,
     "surface": "lava-rock",
+    "verge": "ash",
     "bank": 0.087
    },
    {
@@ -2988,6 +3083,7 @@
     "lanes": 2,
     "shoulder": 3.5,
     "surface": "lava-rock",
+    "verge": "ash",
     "bank": 0.071
    },
    {
@@ -3000,6 +3096,7 @@
     "lanes": 2,
     "shoulder": 3.5,
     "surface": "lava-rock",
+    "verge": "ash",
     "bank": -0.071
    },
    {
@@ -3012,6 +3109,7 @@
     "lanes": 2,
     "shoulder": 3.5,
     "surface": "lava-rock",
+    "verge": "ash",
     "bank": -0.087
    },
    {
@@ -3024,6 +3122,7 @@
     "lanes": 2,
     "shoulder": 3.5,
     "surface": "lava-rock",
+    "verge": "ash",
     "bank": -0.095
    },
    {
@@ -3036,6 +3135,7 @@
     "lanes": 2,
     "shoulder": 3.5,
     "surface": "lava-rock",
+    "verge": "ash",
     "bank": -0.099
    },
    {
@@ -3048,6 +3148,7 @@
     "lanes": 2,
     "shoulder": 3.5,
     "surface": "lava-rock",
+    "verge": "ash",
     "bank": -0.1
    },
    {
@@ -3060,6 +3161,7 @@
     "lanes": 2,
     "shoulder": 3.5,
     "surface": "lava-rock",
+    "verge": "ash",
     "bank": -0.1
    },
    {
@@ -3072,6 +3174,7 @@
     "lanes": 2,
     "shoulder": 3.5,
     "surface": "lava-rock",
+    "verge": "ash",
     "bank": -0.1
    },
    {
@@ -3084,6 +3187,7 @@
     "lanes": 2,
     "shoulder": 3.5,
     "surface": "lava-rock",
+    "verge": "ash",
     "bank": -0.1
    },
    {
@@ -3096,6 +3200,7 @@
     "lanes": 2,
     "shoulder": 3.5,
     "surface": "lava-rock",
+    "verge": "ash",
     "bank": -0.1
    },
    {
@@ -3108,6 +3213,7 @@
     "lanes": 2,
     "shoulder": 3.5,
     "surface": "lava-rock",
+    "verge": "ash",
     "bank": -0.1
    },
    {
@@ -3120,6 +3226,7 @@
     "lanes": 2,
     "shoulder": 3.5,
     "surface": "lava-rock",
+    "verge": "ash",
     "bank": -0.099
    },
    {
@@ -3132,6 +3239,7 @@
     "lanes": 2,
     "shoulder": 3.5,
     "surface": "lava-rock",
+    "verge": "ash",
     "bank": -0.096
    },
    {
@@ -3144,6 +3252,7 @@
     "lanes": 2,
     "shoulder": 3.5,
     "surface": "lava-rock",
+    "verge": "ash",
     "bank": -0.091
    },
    {
@@ -3156,6 +3265,7 @@
     "lanes": 2,
     "shoulder": 3.5,
     "surface": "lava-rock",
+    "verge": "ash",
     "bank": -0.08
    },
    {
@@ -3168,6 +3278,7 @@
     "lanes": 2,
     "shoulder": 3.5,
     "surface": "lava-rock",
+    "verge": "ash",
     "bank": -0.021
    },
    {
@@ -3882,7 +3993,7 @@
   }
  ],
  "scenery": "island",
- "shoulderSurface": "sand",
+ "shoulderSurface": "beach",
  "traffic": {
   "density": 5,
   "lanes": [
