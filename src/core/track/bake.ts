@@ -131,9 +131,11 @@ export function bakeTrack(layout: TrackLayout, surfaces: SurfaceDef[]): Track {
   for (const r of layout.ramps ?? []) {
     const sp = pick(r.spline);
     if (!sp) continue;
-    forRange(sp, r.s, r.s + r.length, (i, s) => {
+    const back = r.back ?? 0;
+    forRange(sp, r.s, r.s + r.length + back, (i, s) => {
       const u = (s - r.s) / r.length;
-      sp.ramp[i] = Math.max(sp.ramp[i], r.height * u);
+      const h = !back ? r.height * u : u <= 1 ? r.height * u ** 1.5 : (r.height * (1 + Math.cos(Math.PI * Math.min(1, (s - r.s - r.length) / back)))) / 2;
+      sp.ramp[i] = Math.max(sp.ramp[i], h);
     });
   }
 

@@ -4,6 +4,12 @@ What changed in each release of racecar, newest first. Releases are git tags on 
 reasons behind each change are in [docs/SPEC.md](./docs/SPEC.md) under "Changed while building",
 and where things stand is [docs/HANDOFF.md](./docs/HANDOFF.md).
 
+## Unreleased
+
+- **Backroads: Logger's Leap's kicker is rounded.** It curves up from flat to the same lip and
+  height, and rolls back down behind it instead of a sheer drop (it looked like a triangle). Flat
+  out you fly about as far; slow, you roll over it rather than off its back.
+
 ## alpha-1.28: the press feel, the title's music and Logger's Leap
 
 PRs #67–#70.

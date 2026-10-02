@@ -161,7 +161,9 @@ const creekSp = withBranches.splines[3];
 layout.ramps = [
   { s: sAt(crests[0].x, crests[0].z, 52) - 12, height: 1.6, length: 12 },
   { s: sAt(crests[1].x, crests[1].z, 54) - 10, height: 1.4, length: 10 },
-  { spline: 'leap', s: Math.round(leapSp.length * 0.35), height: 2.2, length: 12 },
+  // Rounded (playtest, 2026-10-02: the straight wedge looked like a triangle): its lip where the
+  // wedge's was, the rise 3 m longer so the lip's about as steep, and a 10 m roll down behind it.
+  { spline: 'leap', s: Math.round(leapSp.length * 0.35) - 3, height: 2.2, length: 15, back: 10 },
 ];
 
 // ---- walls: the village, the bridges and the switchbacks' drops; open country elsewhere ----
