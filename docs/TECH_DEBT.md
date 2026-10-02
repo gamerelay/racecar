@@ -14,22 +14,13 @@ How to use it:
 - **Each item says roughly what it'd take** (small, medium, large) and what it would buy, so it
   can be weighed against features later.
 
-Last updated 2026-10-01 (`alpha-1.23`).
+Last updated 2026-10-01 (`alpha-1.23`, and the cleanup after it).
 
 ## Online (`src/net`, `src/lobby`)
 
 The net layer grew one module per problem during milestone 3 (cars, rivals, stepper, traffic,
 contact, join). It works and each part is tested, but some patterns repeat.
 
-- **One "untrusted number" helper.** The same `typeof v === 'number' && Number.isFinite(v)`
-  check is written five times (`net/cars.ts`, `net/contact.ts`, `net/traffic.ts`,
-  `net/rivals.ts`, `ui/setup.ts`), with different fallbacks (null, 0, clamp). A small
-  `src/net/check.ts` (`finite`, `clamped`, `int`, `oneOf`) next to `lobby/wire.ts`'s readers would
-  make every message reader look the same. *Small.*
-- **Message readers in one place.** `lobby/wire.ts` checks everything for the lobby; the race's
-  messages are checked inline (`readHit` in traffic.ts, the body of `bumped`/`tookDown` in
-  contact.ts, `handover` in rivals.ts). A `net/wire.ts` with a reader per message would make
-  "everything another player sends is checked" easy to audit. *Small to medium.*
 - **One name for a car across screens.** contact.ts names cars `p:<player id>` / `s:<seat>`
   (`carNames`); rivals.ts goes by seat, cars.ts by owner id, and join.ts holds the maps. One
   `CarNames` made in join.ts and handed to every layer would remove the parallel lookups, and
@@ -37,11 +28,6 @@ contact, join). It works and each part is tested, but some patterns repeat.
 - **One event pump for the net layers.** `NetTraffic`, `NetContact` (and telemetry) each keep a
   cursor on the sim's event queue and filter it themselves. A single after-step dispatch (event
   type → handlers) would read the queue once and make it obvious who reacts to what. *Medium.*
-- **`CarContact`'s `b` is a little code**: 0 world, 1/2 which car attacked, 3/4 the same from a
-  bump another screen sent. Named constants (or a separate `Ev.RemoteBump`) would be clearer.
-  *Small.*
-- **`syncClock` lives in cars.ts** but is the race's clock, not a car's. A `net/clock.ts` (with
-  `startDelay`, `CLOCK_SNAP`) would match SPEC §4's "shared race clock". *Small.*
 - **`RoomLike` (lobby/relay.ts) and `NetRoom` (net/cars.ts) are two views of the SDK's room**, and
   join.ts casts one to the other. One `RoomLike` that declares what both use (`define`,
   `renderTime`, `hostId`, `claim`, `emit`, `on`) would drop the cast; the cost is every test fake
@@ -56,21 +42,20 @@ contact, join). It works and each part is tested, but some patterns repeat.
 - **Net layers aren't closed.** `NetTraffic.close` and `NetContact.close` exist but nothing calls
   them, since the race page lives as long as its race. Harmless now; it matters if a race ever
   restarts in place (Race again online). *Small.*
-- **The post-race's timer is wired in main.ts** (a page timer until the page is in, then the
-  relay's tick, through `whenTick`), and the results screen only redraws in frames: a hidden tab
-  reports and runs the vote, but can't show or take a vote. Fine for people; worth knowing in
-  tests, and a candidate for the `race/online.ts` split above. *Small.*
-- **The vote's map list is "every map, in name order"** (main.ts). If maps grow past a handful,
+- **The results screen only redraws in frames:** a hidden tab reports and runs the vote (on the
+  relay's tick, `net/online.ts`), but can't show or take a vote. Fine for people; worth knowing
+  in tests. *Small.*
+- **The vote's map list is "every map, in name order"** (`OnlineRace.results`, net/online.ts). If maps grow past a handful,
   it wants a pick of three (the current one and two others, by the seed). *Small.*
 - **Positions from other screens aren't checked**, only speeds and turns. A pose near the track,
   and near where that car last was, is the next check (also in HANDOFF). *Medium.*
 
 ## The page (`src/main.ts`, `src/ui`)
 
-- **main.ts does a lot** (545 lines): setup from the URL, the sim, the renderer and audio, the
-  step loop and stepper, the net wiring, menus and pause, system keys, the editor, the dev hook.
-  Splitting out `race/loop.ts` (stepping, catch-up, `stepOnce`) and `race/online.ts` (the join,
-  the net layers) would make the next online features land somewhere other than main. *Medium.*
+- **main.ts still does a lot** (527 lines): setup from the URL, the sim, the renderer and audio,
+  the step loop, menus and pause, system keys, the editor, the dev hook. The online part is out
+  (`net/online.ts`); the step loop (`stepOnce`, the stepper, the catch-up after a hidden stretch)
+  could follow into `race/loop.ts`. *Small to medium.*
 - **The frame-side event readers** (renderer, HUD, race UI, audio, rumble, the greybox world)
   each keep their own cursor and lean on `EventQueue.skip` after a hidden stretch. Anything that
   keeps *state* from events (like the renderer's crumple and repair) needs its own catch-up
@@ -136,3 +121,14 @@ Not problems, but places where a little work would make the code easier to build
   HANDOFF's list: it would make every online item above easier to see working.
 - **A recorded online race:** each screen's events and messages to JSONL (telemetry already
   writes local events), so a desync in a playtest can be replayed and compared screen by screen.
+
+## Done
+
+What's been handled, so the list above stays the open ones.
+
+- After `alpha-1.23` (the online cleanup PR):
+  - **One untrusted-number helper:** `src/net/check.ts` (`finite`, `intIn`, `shortText`, `clamp`, `fields`), used by the race's readers.
+  - **The race's message readers in one place:** `src/net/wire.ts` (traffic hits, bumps, takedowns, the rivals' handover), next to `lobby/wire.ts`.
+  - **`CarContact`'s `b` is named:** `Contact` in `core/events.ts`.
+  - **The race's clock has its own module:** `src/net/clock.ts`.
+  - **The online wiring is out of main.ts:** `src/net/online.ts` (`OnlineRace`: the join, the net layers around each step, the post-race).

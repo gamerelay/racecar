@@ -15,9 +15,10 @@
 import { takedownCheck } from '../core/collide/cars';
 import { creditTakedown } from '../core/car/physics';
 import { TUNING as T } from '../core/car/tuning';
-import { Cause, Ev } from '../core/events';
+import { Cause, Contact, Ev } from '../core/events';
 import type { Sim } from '../core/sim';
 import type { NetRoom } from './cars';
+import { readBump, readTakedown } from './wire';
 
 export const BUMP = 'bump';
 export const TAKEDOWN = 'takedown';
@@ -27,8 +28,6 @@ export const SAME_CONTACT_S = 0.15;
 const BUMP_EVERY_S = 0.15;
 /** The most a bump changes a car's speed (m/s): the other screen's word, so capped. */
 const MAX_DV = 30;
-/** The most a contact's closing speed can be (m/s), as with poses. */
-const MAX_CLOSING = 140;
 
 /** What the cars are called on every screen, and here. */
 export interface CarNames {
@@ -49,7 +48,6 @@ export function carNames(me: number, myId: string, remote: ReadonlyMap<string, n
 /** Who to tell about a car: its player, or the host for an AI. */
 const ownerOf = (name: string): string => (name.startsWith('s:') ? 'host' : name.slice(2));
 
-const num = (v: unknown): number | null => (typeof v === 'number' && Number.isFinite(v) ? v : null);
 
 export class NetContact {
   private cursor: number;
@@ -109,8 +107,8 @@ export class NetContact {
       this.touched.set(key, seen);
     }
     this.cursor = sim.events.read(this.cursor, (e) => {
-      // b 3 or 4: a bump applied here (apply), not one to tell them about.
-      if (e.type === Ev.CarContact && e.other >= 0 && e.b < 3) {
+      // A bump applied here (apply) isn't one to tell them about.
+      if (e.type === Ev.CarContact && e.other >= 0 && (e.b === Contact.Car || e.b === Contact.Other)) {
         const na = this.names.name(e.car);
         const nb = this.names.name(e.other);
         if (!na || !nb) return;
@@ -130,8 +128,7 @@ export class NetContact {
         const im = 1 / sim.classes[c.cls[m]].mass;
         const ir = 1 / sim.classes[c.cls[r]].mass;
         const dv = ((1 + T.carRestitution) * e.a) / (im + ir) * ir;
-        // e.b: 1 car a attacked, 2 the other did.
-        const attacked = (e.b === 1 ? e.car : e.other) === m;
+        const attacked = (e.b === Contact.Car ? e.car : e.other) === m;
         this.room.emit(BUMP, { to: nr, by: nm, t: sim.time, dvx: nx * dv, dvz: nz * dv, closing: e.a, att: attacked }, { to: ownerOf(nr), echo: false });
       } else if (e.type === Ev.Wreck && e.other >= 0 && e.b !== Cause.Reset && this.mine(e.car) && !this.mine(e.other)) {
         const victim = this.names.name(e.car);
@@ -154,16 +151,13 @@ export class NetContact {
 
   /** Another screen's bump to one of your cars: held, then applied unless this screen saw it too. */
   private bumped(data: unknown, from: string): void {
-    if (!data || typeof data !== 'object') return;
-    const d = data as Record<string, unknown>;
-    const sim = this.sim;
-    if (typeof d.to !== 'string' || typeof d.by !== 'string' || !this.speaksFor(from, d.by)) return;
-    const m = this.names.index(d.to);
-    const r = this.names.index(d.by);
-    const [t, dvx, dvz, closing] = [num(d.t), num(d.dvx), num(d.dvz), num(d.closing)];
-    if (m === undefined || r === undefined || m === r || !this.mine(m) || this.mine(r) || t === null || dvx === null || dvz === null || closing === null) return;
-    if (Math.abs(t - sim.time) > 2 || this.pending.length > 64) return;
-    this.pending.push({ key: this.pair(d.to, d.by), m, r, t, dvx, dvz, closing: Math.min(MAX_CLOSING, Math.max(0, closing)), att: d.att === true });
+    const b = readBump(data);
+    if (!b || !this.speaksFor(from, b.by)) return;
+    const m = this.names.index(b.to);
+    const r = this.names.index(b.by);
+    if (m === undefined || r === undefined || !this.mine(m) || this.mine(r)) return;
+    if (Math.abs(b.t - this.sim.time) > 2 || this.pending.length > 64) return;
+    this.pending.push({ key: this.pair(b.to, b.by), m, r, t: b.t, dvx: b.dvx, dvz: b.dvz, closing: b.closing, att: b.att });
   }
 
   private apply(b: NetContact['pending'][number]): void {
@@ -181,22 +175,19 @@ export class NetContact {
     c.lastHitT[m] = sim.tick - 1;
     c.lastHitBy[r] = m;
     c.lastHitT[r] = sim.tick - 1;
-    if (b.closing > 1.5) sim.events.push(sim.tick, Ev.CarContact, m, c.x[m], c.y[m] + 0.5, c.z[m], b.closing, b.att ? 4 : 3, r);
+    if (b.closing > 1.5) sim.events.push(sim.tick, Ev.CarContact, m, c.x[m], c.y[m] + 0.5, c.z[m], b.closing, b.att ? Contact.BumpOther : Contact.BumpCar, r);
     if (b.att && dv > 0) takedownCheck(sim, r, m, b.closing, b.dvx / dv, b.dvz / dv);
   }
 
   /** Your car took one of theirs out (their screen decided it): your car's credit. */
   private tookDown(data: unknown, from: string): void {
-    if (!data || typeof data !== 'object') return;
-    const d = data as Record<string, unknown>;
+    const d = readTakedown(data);
     // The victim's screen decides its wreck: only it may say so.
-    if (typeof d.victim !== 'string' || !this.speaksFor(from, d.victim)) return;
-    const sim = this.sim;
-    const by = typeof d.by === 'string' ? this.names.index(d.by) : undefined;
-    const victim = typeof d.victim === 'string' ? this.names.index(d.victim) : undefined;
-    const t = num(d.t);
-    if (by === undefined || victim === undefined || by === victim || !this.mine(by) || this.mine(victim) || t === null || Math.abs(t - sim.time) > 2) return;
-    creditTakedown(sim, by, victim);
+    if (!d || !this.speaksFor(from, d.victim)) return;
+    const by = this.names.index(d.by);
+    const victim = this.names.index(d.victim);
+    if (by === undefined || victim === undefined || !this.mine(by) || this.mine(victim) || Math.abs(d.t - this.sim.time) > 2) return;
+    creditTakedown(this.sim, by, victim);
   }
 
   close(): void {

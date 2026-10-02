@@ -2,9 +2,11 @@ import { describe, expect, test } from 'bun:test';
 import { neutralControls } from '../src/core/controls';
 import type { Sim } from '../src/core/sim';
 import { createLobby, apply, encodeSeats, othersIn, roster, type Lobby } from '../src/lobby/lobby';
-import { CLOCK_SNAP, NetCars, predict, remoteSteer, startDelay, syncClock, type NetEntity, type NetKind, type NetRoom } from '../src/net/cars';
+import { NetCars, predict, remoteSteer, type NetEntity, type NetKind, type NetRoom } from '../src/net/cars';
+import { CLOCK_SNAP, startDelay, syncClock } from '../src/net/clock';
 import { HOLD_S, NetTraffic, readHit, RELEASE_S, TRAFFIC_HIT } from '../src/net/traffic';
 import { BUMP, carNames, NetContact, TAKEDOWN } from '../src/net/contact';
+import { MAX_CLOSING, readBump, readHandover, readTakedown } from '../src/net/wire';
 import { Ev } from '../src/core/events';
 import { NetRivals } from '../src/net/rivals';
 import { FALLBACK_MS, joinRace, type RaceJoin } from '../src/net/join';
@@ -788,9 +790,10 @@ describe('traffic hits online', () => {
   test("another screen's word is checked: a traffic car there is, a time near now, numbers", () => {
     const sim = citySim(4);
     sim.time = 40;
-    const ok = { k: 3, t: 40.1, x: 1, y: 2, z: 3, a: 1e6, b: 1 };
-    expect(readHit(ok, sim)).toEqual({ ...ok, a: 100 });
-    for (const bad of [null, 'x', { ...ok, k: -1 }, { ...ok, k: 1.5 }, { ...ok, k: sim.world.traffic.count }, { ...ok, t: 40 + HOLD_S + 1 }, { ...ok, x: NaN }, { ...ok, y: '2' }]) expect(readHit(bad, sim)).toBeNull();
+    const ok = { k: 3, t: 40.1, x: 1, y: 2, z: 3, a: 1e6, b: 1 as const };
+    const read = (d: unknown) => readHit(d, sim.world.traffic.count, sim.time, HOLD_S);
+    expect(read(ok)).toEqual({ ...ok, a: 100 });
+    for (const bad of [null, 'x', { ...ok, k: -1 }, { ...ok, k: 1.5 }, { ...ok, k: sim.world.traffic.count }, { ...ok, t: 40 + HOLD_S + 1 }, { ...ok, x: NaN }, { ...ok, y: '2' }]) expect(read(bad)).toBeNull();
   });
 });
 
@@ -943,5 +946,34 @@ describe('contact between screens', () => {
     ada.emit(BUMP, { to: 'p:bo', by: 'p:ada', t: bo.sim.time, dvx: 1e6, dvz: 0, closing: 5, att: false }, { to: 'bo' });
     later(bo);
     expect(bo.sim.cars.vx[1]).toBeCloseTo(30, 6);
+  });
+});
+
+describe("the race's messages, checked (net/wire.ts)", () => {
+  test('a bump: two different cars, numbers, the closing speed capped', () => {
+    const ok = { to: 'p:bo', by: 'p:ada', t: 3, dvx: 1, dvz: -2, closing: 1e6, att: true };
+    expect(readBump(ok)).toEqual({ ...ok, closing: MAX_CLOSING });
+    expect(readBump({ ...ok, att: 'yes' })?.att).toBe(false);
+    // A player id is up to 64 characters, so a car's name (`p:` and the id) up to 66.
+    const long = `p:${'x'.repeat(64)}`;
+    expect(readBump({ ...ok, by: long })?.by).toBe(long);
+    expect(readTakedown({ victim: long, by: 's:3', t: 1 })?.victim).toBe(long);
+    for (const bad of [null, [], { ...ok, to: '' }, { ...ok, by: 'p:bo' }, { ...ok, by: 'x'.repeat(67) }, { ...ok, dvx: Infinity }, { ...ok, t: '3' }]) expect(readBump(bad)).toBeNull();
+  });
+
+  test('a takedown: a victim, another car, a time', () => {
+    expect(readTakedown({ victim: 'p:bo', by: 's:3', t: 1 })).toEqual({ victim: 'p:bo', by: 's:3', t: 1 });
+    for (const bad of [{ victim: 'p:bo', by: 'p:bo', t: 1 }, { victim: 'p:bo', by: 's:3' }, { victim: 7, by: 's:3', t: 1 }]) expect(readTakedown(bad)).toBeNull();
+  });
+
+  test("a rival's handover: each field in its range, or this screen's", () => {
+    expect(readHandover('lastSpline', 2, 3)).toBe(2);
+    expect(readHandover('lastSpline', 3, 3)).toBeNull();
+    expect(readHandover('wreckCause', Cause.Car, 3)).toBe(Cause.Car);
+    expect(readHandover('wreckCause', 99, 3)).toBeNull();
+    expect(readHandover('boost', 5, 3)).toBe(1);
+    expect(readHandover('wreckT', -1, 3)).toBe(0);
+    expect(readHandover('wx', 1e9, 3)).toBe(1e4);
+    expect(readHandover('wx', 'x', 3)).toBeNull();
   });
 });

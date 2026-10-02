@@ -9,7 +9,7 @@
 // nobody has), every screen drives them itself, from the same grid.
 
 import type { Sim } from '../core/sim';
-import { Cause } from '../core/events';
+import { readHandover } from './wire';
 import { CAR_FIELDS, CAR_RATE, carFields, predict, predictLead, remoteSteer, TELEPORT_M, type NetEntity, type NetKind, type NetRoom } from './cars';
 
 const int = { type: 'number', precision: 1, smooth: false } as const;
@@ -41,23 +41,6 @@ export const RIVAL_FIELDS = {
   lastS: num,
   lastLat: num,
 } as const;
-
-/** The handover as the host sent it, checked: each field in its range, or left as this screen has it. */
-function handover(sim: Sim, k: (typeof HANDOVER)[number], v: unknown): number | null {
-  if (typeof v !== 'number' || !Number.isFinite(v)) return null;
-  switch (k) {
-    case 'lastSpline':
-      return Number.isInteger(v) && v >= 0 && v < sim.track.splines.length ? v : null;
-    case 'wreckCause':
-      return Number.isInteger(v) && Object.values(Cause).includes(v as never) ? v : null;
-    case 'boost':
-      return Math.max(0, Math.min(1, v));
-    case 'wreckT':
-      return Math.max(0, Math.min(60, v));
-    default:
-      return Math.max(-1e4, Math.min(1e4, v));
-  }
-}
 
 export class NetRivals {
   private kind: NetKind;
@@ -112,7 +95,7 @@ export class NetRivals {
       this.sim.setPose(i, predict(e, lead));
       this.sim.controls[i].steer = remoteSteer(e);
       for (const k of HANDOVER) {
-        const v = handover(this.sim, k, e[k]);
+        const v = readHandover(k, e[k], this.sim.track.splines.length);
         if (v !== null) c[k][i] = v;
       }
     }

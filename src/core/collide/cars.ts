@@ -4,7 +4,7 @@
 
 import { wreckCar } from '../car/physics';
 import { TUNING as T } from '../car/tuning';
-import { Cause, Ev } from '../events';
+import { Cause, Contact, Ev } from '../events';
 import type { SimState } from '../state';
 import { newContact, obbOverlap } from './obb';
 import type { SpatialGrid } from './grid';
@@ -63,8 +63,7 @@ function resolve(sim: SimState, a: number, b: number, ma: number, mb: number): v
   const tick = sim.tick;
   // Who hit whom: the one moving into the other harder is the attacker.
   const aAttacks = vna > -vnb;
-  // b: which was the attacker, 1 car a, 2 the other (3 and 4 the same, from a bump another screen sent: net/contact.ts).
-  if (closing > 1.5) sim.events.push(tick, Ev.CarContact, a, contact.x, (cars.y[a] + cars.y[b]) / 2 + 0.5, contact.z, closing, aAttacks ? 1 : 2, b);
+  if (closing > 1.5) sim.events.push(tick, Ev.CarContact, a, contact.x, (cars.y[a] + cars.y[b]) / 2 + 0.5, contact.z, closing, aAttacks ? Contact.Car : Contact.Other, b);
   cars.lastHitBy[a] = b;
   cars.lastHitT[a] = tick;
   cars.lastHitBy[b] = a;

@@ -4,6 +4,7 @@
 
 export const Ev = {
   WallHit: 1,
+  /** a = closing speed, other = the other car (-1 for traffic or a hazard), b = who attacked (`Contact`). */
   CarContact: 2,
   Wreck: 3,
   /** a = catch-up boost paid (0..1 of a bar). */
@@ -81,6 +82,12 @@ export const EV_NAMES: Record<number, string> = {
   28: 'air_boost',
   29: 'smash',
 };
+
+/**
+ * Who attacked, in `GameEvent.b` of a CarContact: not a car (`World`), the event's car or the
+ * other; and the same two for a bump another screen sent (net/contact.ts), which isn't sent back.
+ */
+export const Contact = { World: 0, Car: 1, Other: 2, BumpCar: 3, BumpOther: 4 } as const;
 
 /** Wreck causes, in `GameEvent.b` of a Wreck. */
 export const Cause = { Wall: 1, Car: 2, OutOfBounds: 3, Reset: 4, SpinOut: 5, Traffic: 6, Hazard: 7, Prop: 8 } as const;
