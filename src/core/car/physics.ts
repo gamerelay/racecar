@@ -2,6 +2,7 @@
 // an angle band and a three-stage mini-turbo, boost, real air off crests and ramps, and a wreck
 // body with aftertouch. One car per call; collisions happen after every car has moved.
 
+import type { Ground } from '../track/ground';
 import type { Controls } from '../controls';
 import { Cause, Ev } from '../events';
 import { approach, clamp, damp, lerp, sign, smoothstep, wrapAngle } from '../math';
@@ -89,7 +90,9 @@ export function stepCar(sim: SimState, i: number, c: Controls, dt: number): void
     // Longitudinal.
     let a = 0;
     if (cars.stallT[i] > 0) cars.stallT[i] -= dt;
-    else if (c.throttle > 0) a += fwd < top ? cls.accel * c.throttle * Math.max(0.08, 1 - (fwd / top) ** 2) : -(fwd - top) * 0.8;
+    // Past top speed the engine holds you back, except where the slope's pulling (snow): a steep
+    // pitch takes you past it.
+    else if (c.throttle > 0) a += fwd < top ? cls.accel * c.throttle * Math.max(0.08, 1 - (fwd / top) ** 2) : surf.slide ? 0 : -(fwd - top) * 0.8;
     if (boosting && fwd < top) a += T.boostAccel * (1 - fwd / (top * 1.05));
     if (mini) a += T.miniTurboAccel * (cars.miniStage[i] / 3 + 0.34);
     if (c.brake > 0) {
@@ -203,6 +206,16 @@ export function stepCar(sim: SimState, i: number, c: Controls, dt: number): void
     }
   }
 
+  // The slope pulls you along it (snow: SurfaceDef.slide), on the ground: downhill faster, uphill
+  // slower, down a bank's side. Grip turns the sideways part back along the heading, as in a corner.
+  const slide = surf.slide ?? 0;
+  if (slide > 0 && grounded && sim.track.ground) {
+    const g = sim.track.ground.slope(cars.x[i], cars.z[i], SLOPE);
+    const k = (T.gravity * slide * dt) / (1 + g.x * g.x + g.z * g.z);
+    vx -= g.x * k;
+    vz -= g.z * k;
+  }
+
   cars.h[i] = wrapAngle(h);
   cars.vx[i] = vx;
   cars.vz[i] = vz;
@@ -211,11 +224,26 @@ export function stepCar(sim: SimState, i: number, c: Controls, dt: number): void
   followGround(sim, i, dt);
 }
 
+/** Scratch for the ground's slope. */
+const SLOPE = { x: 0, z: 0 };
+
+/**
+ * Open ground under a car: the mean of its four wheels' (1.3 m ahead and behind, 0.8 m each side),
+ * so bumps shorter than a car (moguls) are soaked up as a suspension would, not thrown at it.
+ */
+function wheelGround(g: Ground, x: number, z: number, h: number): number {
+  const fx = Math.sin(h) * 1.3;
+  const fz = Math.cos(h) * 1.3;
+  const rx = -Math.cos(h) * 0.8;
+  const rz = Math.sin(h) * 0.8;
+  return (g.height(x + fx + rx, z + fz + rz) + g.height(x + fx - rx, z + fz - rz) + g.height(x - fx + rx, z - fz + rz) + g.height(x - fx - rx, z - fz - rz)) / 4;
+}
+
 /** Keeps a grounded car on the road, or launches it when the road falls away faster than gravity. */
 function followGround(sim: SimState, i: number, dt: number): void {
   const cars = sim.cars;
   const hit = locateCar(sim, i);
-  const ground = hit.ground;
+  const ground = sim.track.ground ? wheelGround(sim.track.ground, cars.x[i], cars.z[i], cars.h[i]) : hit.ground;
   const wasGrounded = cars.grounded[i] === 1;
   const vyBall = cars.vy[i] - T.gravity * dt;
   const yBall = cars.y[i] + vyBall * dt;
@@ -274,8 +302,17 @@ function followGround(sim: SimState, i: number, dt: number): void {
     }
   }
   const rel = cars.h[i] - Math.atan2(hit.tx, hit.tz);
-  const targetPitch = cars.grounded[i] ? -Math.atan(slope) * Math.cos(rel) + Math.atan(across) * Math.sin(rel) : cars.pitch[i];
-  const targetRoll = cars.grounded[i] ? hit.bank * Math.cos(rel) - Math.atan(across) * Math.cos(rel) : cars.roll[i];
+  let targetPitch = cars.grounded[i] ? -Math.atan(slope) * Math.cos(rel) + Math.atan(across) * Math.sin(rel) : cars.pitch[i];
+  let targetRoll = cars.grounded[i] ? hit.bank * Math.cos(rel) - Math.atan(across) * Math.cos(rel) : cars.roll[i];
+  // Open ground: the body follows its slope, along the car and across it.
+  if (sim.track.ground && cars.grounded[i]) {
+    const g = sim.track.ground.slope(cars.x[i], cars.z[i], SLOPE);
+    const fx = Math.sin(cars.h[i]);
+    const fz = Math.cos(cars.h[i]);
+    targetPitch = -Math.atan(g.x * fx + g.z * fz);
+    // Right is (-cos h, sin h): rising to the right rolls you left (negative).
+    targetRoll = -Math.atan(-g.x * fz + g.z * fx);
+  }
   cars.pitch[i] += (targetPitch - cars.pitch[i]) * damp(12, dt);
   cars.roll[i] += (targetRoll - cars.roll[i]) * damp(12, dt);
   // Remember the last good spot for respawns.
@@ -284,7 +321,8 @@ function followGround(sim: SimState, i: number, dt: number): void {
     cars.lastS[i] = hit.s;
     cars.lastLat[i] = hit.lateral;
   }
-  if (Math.abs(hit.lateral) > hit.width / 2 + hit.shoulder + T.outOfBounds || cars.y[i] < ground - 20) {
+  // Open ground's bounds are its walls: only falling through it counts.
+  if ((!sim.track.ground && Math.abs(hit.lateral) > hit.width / 2 + hit.shoulder + T.outOfBounds) || cars.y[i] < ground - 20) {
     wreckCar(sim, i, Cause.OutOfBounds, 0, 0, -1);
     // Nothing to watch: respawn after a second.
     cars.wreckT[i] = T.wreckTime - 1;

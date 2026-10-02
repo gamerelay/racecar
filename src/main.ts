@@ -39,7 +39,7 @@ import { Stepper } from './net/stepper';
 import { OnlineRace } from './net/online';
 import { roster } from './lobby/lobby';
 import { loadPlate } from './lobby/plate';
-import { CLASSES, LAYOUTS, MAPS, PAINTS, SURFACES } from './content';
+import { ALL_MAPS, CLASSES, LAYOUTS, MAPS, PAINTS, SURFACES } from './content';
 import { paletteFor, resolveLayout } from './core/content';
 
 const params = new URLSearchParams(location.search);
@@ -85,7 +85,7 @@ const run: RaceSetup = setup ?? { mode: 'race', map: resolveLayout(params.get('m
 let layoutKey = resolveLayout(run.map, LAYOUT_KEYS) ?? DEFAULT_LAYOUT;
 
 let layout: TrackLayout = structuredClone(LAYOUTS[layoutKey] ?? Object.values(LAYOUTS)[0]);
-const mapOf = (key: string) => MAPS.find((m) => key.startsWith(m.id + '/')) ?? MAPS[0];
+const mapOf = (key: string) => ALL_MAPS.find((m) => key.startsWith(m.id + '/')) ?? MAPS[0];
 let map = mapOf(layoutKey);
 
 /**

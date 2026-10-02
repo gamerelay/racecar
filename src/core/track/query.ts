@@ -108,7 +108,7 @@ export function project(sp: BakedSpline, x: number, z: number, hint: number, out
     if (Math.abs(d) < 0.01) break;
   }
   sampleAt(sp, s, out);
-  finishProjection(out, x, z);
+  finishProjection(sp, out, x, z);
   return Math.abs(out.lateral);
 }
 
@@ -131,10 +131,10 @@ export function projectGlobal(sp: BakedSpline, x: number, z: number, out: TrackH
   return project(sp, x, z, best * sp.step, out);
 }
 
-function finishProjection(out: TrackHit, x: number, z: number): void {
+function finishProjection(sp: BakedSpline, out: TrackHit, x: number, z: number): void {
   // right = (-tz, tx)
   out.lateral = (x - out.cx) * -out.tz + (z - out.cz) * out.tx;
-  out.ground = out.cy - out.lateral * Math.tan(out.bank) - flankDrop(out);
+  out.ground = sp.ground ? sp.ground.height(x, z) : out.cy - out.lateral * Math.tan(out.bank) - flankDrop(out);
 }
 
 /** How far a ramp's height has run out at the hit's lateral: past the road's edge and shoulder, over its flank. */

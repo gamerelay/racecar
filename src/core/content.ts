@@ -197,6 +197,31 @@ export interface TrackLayout {
    * solid, like pillars (the Valley's trestle). Off, a flyover spans the road beneath (the city's).
    */
   trestles?: boolean;
+  /**
+   * Open ground (docs/AVALANCHE.md): a heightfield the car drives on everywhere, in the sim and
+   * drawn, instead of the road's plane carried outward. Shaped round the main road: the road's
+   * height along it, then off it whatever `GroundDef` adds. Out of bounds is the ground's walls.
+   */
+  ground?: GroundDef;
+}
+
+/** Open ground round the main road (core/track/ground.ts). Distances are along the main road (s) and across it (lateral, + right). */
+export interface GroundDef {
+  /** Grid cell (m). */
+  cell: number;
+  /** Past this far from the main road's middle the ground rises into walls, `wallRise` m per m. */
+  wallFrom: number;
+  wallRise: number;
+  /** Bumps off the road: up to this high (m), this wide (m). */
+  rough?: { height: number; size: number };
+  /** Mogul fields: bumps `height` m high, `spacing` m apart, over s × lateral. */
+  moguls?: { s: [number, number]; lateral: [number, number]; height: number; spacing: number }[];
+  /**
+   * Canyons: a trench beside or along the road, a flat floor `floor` m wide and walls curving up
+   * `depth` m (at most about 60° at the lip), centered `lateral` m across, easing in and out over
+   * `ease` m at its ends.
+   */
+  canyons?: { s: [number, number]; lateral: number; floor: number; depth: number; ease: number }[];
 }
 
 export interface MapDef {
@@ -208,6 +233,11 @@ export interface MapDef {
   sunset?: string;
   /** What weather it gets: `clear`, `rain`, and `shower` for rain that passes (world/weather.ts). */
   weather: string[];
+  /**
+   * Not for a release (docs/AVALANCHE.md): out of the lobby, the map lists and the validator. Its
+   * layouts open from a link (`?mode=free&map=<key>`).
+   */
+  experimental?: boolean;
 }
 
 /** A race's time of day: a map with a sunset palette can be raced by day or at sunset. */
@@ -231,6 +261,12 @@ export interface SurfaceDef {
   /** How easily a drift starts (1 = asphalt). */
   looseness: number;
   offroad?: boolean;
+  /**
+   * How much the ground's slope pulls you along it (0–1, default 0): downhill faster, uphill
+   * slower, sideways down a bank. Snow's 1; the roads' are 0, so the other maps drive as tuned.
+   * Above top speed on it, the engine stops holding you back (a steep pitch takes you past it).
+   */
+  slide?: number;
   /** Greybox color. */
   color: string;
 }

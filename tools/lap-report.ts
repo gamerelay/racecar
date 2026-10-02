@@ -9,7 +9,7 @@
 //   --car rally                                   the solo lap in that class
 
 import { resolveLayout } from '../src/core/content';
-import { CLASSES as classes, LAYOUT_KEYS, layout } from './content';
+import { CLASSES as classes, EXPERIMENTAL_KEYS, LAYOUT_KEYS, layout } from './content';
 import { lapReport, zeroTo100, type LapReport } from './lap';
 
 const args = process.argv.slice(2);
@@ -24,9 +24,10 @@ if (args.includes('--help') || args.includes('-h')) {
 }
 const opts = { field: args.includes('--field') || args.includes('--chaos'), seed: Number(value('--seed') ?? 7), laps: Number(value('--laps') ?? 3), mayhem: args.includes('--chaos') ? ('chaos' as const) : ('normal' as const) };
 const named = args.find((a, k) => !a.startsWith('-') && !(k > 0 && ['--laps', '--seed', '--car'].includes(args[k - 1])));
-const only = named && (resolveLayout(named, LAYOUT_KEYS) ?? named);
+// An experimental map's layouts only when named (docs/AVALANCHE.md): never in the every-layout run.
+const only = named && (resolveLayout(named, [...LAYOUT_KEYS, ...EXPERIMENTAL_KEYS]) ?? named);
 const car = value('--car') ?? 'coupe';
-const keys = LAYOUT_KEYS.filter((key) => !only || key === only);
+const keys = only ? [...LAYOUT_KEYS, ...EXPERIMENTAL_KEYS].filter((key) => key === only) : LAYOUT_KEYS;
 if (!keys.length) {
   console.log(`No layout ${only}; there are: ${LAYOUT_KEYS.join(', ')}`);
   process.exit(1);

@@ -2,6 +2,7 @@
 // sampled every meter of arc length (center, tangent, width, height, bank, surface, walls), the
 // branches mapped onto the main spline's distance, checkpoints, zones, ramps and render chunks.
 
+import { buildGround, type Ground } from './ground';
 import type { BranchDef, SurfaceDef, TrackLayout, TrackPoint, Vec3, ZoneDef } from '../content';
 import { smoothstep } from '../math';
 import { sampleDense, type DenseSample } from './spline';
@@ -40,6 +41,8 @@ export interface BakedSpline {
   shoulder: Float64Array;
   /** Extra ground height from ramps. */
   ramp: Float64Array;
+  /** The track's open ground, if it has one (every spline's ground query reads it). */
+  ground?: Ground;
   /** Where a ramp has sides (RampDef.flank): meters past the road's edge and shoulder its height runs out over (0: none). */
   rampFlank: Float64Array;
   lanes: Uint8Array;
@@ -96,6 +99,8 @@ export interface Track {
   props: BakedProp[];
   /** A stable hash of the layout JSON, carried in reports so a replay uses the same track. */
   version: string;
+  /** Open ground (layout.ground): what the car drives on everywhere, off the roads too. */
+  ground?: Ground;
 }
 
 export function bakeTrack(layout: TrackLayout, surfaces: SurfaceDef[]): Track {
@@ -196,7 +201,10 @@ export function bakeTrack(layout: TrackLayout, surfaces: SurfaceDef[]): Track {
 
   if (layout.trestles) props.push(...supports(splines));
 
-  return { layout, splines, main, surfaces, surfaceIndex, checkpoints, props, version: layoutVersion(layout) };
+  // Open ground: shaped round the main road, and every spline's ground query reads it.
+  const ground = layout.ground ? buildGround(layout.ground, main) : undefined;
+  if (ground) for (const sp of splines) sp.ground = ground;
+  return { layout, splines, main, surfaces, surfaceIndex, checkpoints, props, version: layoutVersion(layout), ground };
 }
 
 /** A high bridge stands on a timber bent this often (m along it), on legs across it (SPEC, "Trestle legs"). */

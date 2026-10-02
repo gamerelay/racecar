@@ -249,6 +249,58 @@ Everything else carries over:
 Steps 1 and 2 decide the rest: if snow doesn't feel good, or the AI can't race it, we change the
 plan before building the mountain.
 
+## Built so far
+
+### Step 1, the slope (2026-10-02, experimental)
+
+Open it in free drive: `?mode=free&map=avalanche/slope` on the dev server. The poster scout works
+too (`poster.html?scout=avalanche/slope&s=…`).
+
+- **The ground** (`src/core/track/ground.ts`): a 2 m grid (335 × 885 points, about 0.3 s to build),
+  shaped round the main road:
+  - the road's height along it;
+  - rough snow off it (up to 1.2 m, 18 m across);
+  - a mogul field (1.1 m bumps, 7 m apart, rows offset);
+  - a canyon: a 10 m floor, 5 m deep, quarter-circle walls about 60° at the lip, easing in over
+    30 m;
+  - walls rising 0.8 m per m from 70 m out.
+
+  Every ground query reads it on a layout with `ground` (`finishProjection`), and the renderer draws
+  the same grid (`snow.ts`): the road's surface on the road, powder off it, grey rock where it's
+  steep. The roads' own decks aren't drawn on it.
+- **Slope gravity** (`SurfaceDef.slide`): snow and powder slide (1), every other surface doesn't
+  (0), so the other three maps drive exactly as before (their lap floors are unchanged). On a
+  sliding surface the engine doesn't hold you at top speed, so a steep pitch takes you past it.
+- **Wheels:** the ground under a car is the mean of its four wheels'. Through the moguls at
+  20 m/s you're airborne about a third of the time; at 30 m/s you skip across the tops, airborne
+  about four fifths of it in half-second hops.
+- **The body** follows the ground's slope along and across the car.
+- **Out of bounds** on open ground is only falling through it: the walls are the bounds.
+- **Surfaces:**
+  - `snow`, groomed: grip 0.8, a little drag, drifting charges 15% faster ("carving");
+  - `powder`: grip 0.7, drag 0.12 (it costs a little: dirt's is 0.25, grass's 0.45), off-road.
+- **The layout** (`tools/gen-avalanche.ts`, `content/maps/avalanche/`): a 3.6 km loop.
+  - The run down is about 1.4 km, 200 m of drop: a start pad, a bunny slope (12%), a steep pitch
+    (about 40%), a run-out, a short climb to a crest, a second steep pitch (about 30%), the
+    moguls, the canyon, and a gentle finish.
+  - Then an asphalt road back up, over the ridge (it doesn't slide).
+  - The `alpine` palette.
+- **Experimental:** `experimental: true` in `map.json` keeps it out of `MAPS` (the lobby, the vote,
+  the results), the validator and the every-layout lap report. `ALL_MAPS` and `EXPERIMENTAL_KEYS`
+  reach it, and the lap report runs it when it's named.
+- **The hard AI** gets round clean: 62.3 s a lap, top speed 228 km/h (past the coupe's top, down
+  the steep pitches).
+- **Tests** (`test/ground.test.ts`): the ground is the road along its middle and walls far out;
+  snow pulls you down a slope and asphalt doesn't; the canyon's profile; it's experimental; the
+  hard AI gets round.
+
+Not done yet:
+- **Snow spray:** off snow there's no dust yet (`DUST` in `renderer.ts`).
+- **Lines on the road:** the return road has no lines, since its deck isn't drawn.
+- **The ridge between the run and the road** is a cliff where their grounds meet. It's
+  out of reach behind the walls.
+- **Feel:** nothing is tuned by a drive yet. That's the owner's next step.
+
 ## Questions for the owner
 
 Answered 2026-10-02: one run, no laps; about two laps' length; steep, bunny and short uphill
