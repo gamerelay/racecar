@@ -499,6 +499,10 @@ export class GameAudio {
       case Ev.AirBoost:
         if (e.car === focus) this.chime(e.other === 1 ? [5, 12, 17, 24] : e.b > 0.9 ? [5, 12, 17] : [5, 12], 0.16);
         break;
+      case Ev.Gate:
+        // Up a step a gate in a row.
+        if (e.car === focus) this.chime([7 + Math.min(e.b, 5) * 2], 0.14);
+        break;
       case Ev.MiniTurbo:
       case Ev.DriftBoost:
         if (e.car === focus) this.chime([7, 12, 19].slice(0, e.type === Ev.MiniTurbo ? 1 + e.b : e.a > 0.25 ? 3 : 2), 0.18);

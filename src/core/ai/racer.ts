@@ -6,6 +6,7 @@
 // choice of shortcuts, and mild catch-up toward the human leader.
 
 import { TUNING as T } from '../car/tuning';
+import type { SlalomGate } from '../content';
 import type { Controls } from '../controls';
 import { clamp, smoothstep, wrapAngle } from '../math';
 import { hash01 } from '../rng';
@@ -176,6 +177,22 @@ function passRocks(sim: SimState, i: number, sp: BakedSpline, target: number, sp
   return target;
 }
 
+/** How far outside a gate (m) a hard driver will still bend its line to go through it. */
+const GATE_REACH = 5;
+
+/** `target` moved inside the next gate's flags, if one's coming up and it's within reach. */
+function intoGate(gates: readonly SlalomGate[], s: number, speed: number, target: number): number {
+  for (const g of gates) {
+    const ds = g.s - s;
+    if (ds < 0 || ds > 12 + speed * 1.4) continue;
+    const half = g.gap / 2 - 1.8;
+    const off = target - g.lateral;
+    if (Math.abs(off) > half && Math.abs(off) < half + GATE_REACH) return g.lateral + Math.sign(off) * half;
+    return target;
+  }
+  return target;
+}
+
 const look: TrackHit = newHit();
 const probe: TrackHit = newHit();
 
@@ -209,6 +226,8 @@ export function driveRacer(sim: SimState, i: number, d: RacerDriver, out: Contro
   // Lateral target: the line, nudged round anything in the way.
   const ahead = 8 + speed * skill.look;
   let target = lineAt(sp, s + ahead, line.offset);
+  // A hard driver steers for a slalom gate its line would just miss (any driver takes the ones it passes through).
+  if (d.difficulty === 2 && sp.index === 0 && track.layout.slalom) target = intoGate(track.layout.slalom, s, speed, target);
   // On a two-way road, easier drivers keep their line on their own side.
   const world = sim.world;
   // Only where that lane has traffic: an empty street's wrong side is just a road.

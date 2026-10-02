@@ -211,6 +211,7 @@ export class Hud {
       else this.pop(`${e.b > 0.9 ? 'Big air' : 'Air'} ${e.b.toFixed(1)}s${gain}`, e.b > 0.9 ? 'hot' : 's1');
     }
     if (e.type === Ev.Lap && e.car === i) this.lap(e.a, e.b);
+    if (e.type === Ev.Gate && e.car === i) this.pop(e.b >= 2 ? `Gate ×${e.b}` : 'Gate', e.b >= 5 ? 's3' : e.b >= 3 ? 's2' : 's1');
   };
 }
 

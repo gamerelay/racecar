@@ -13,7 +13,7 @@
 //   bun tools/gen-avalanche.ts
 
 import { mkdirSync, writeFileSync } from 'node:fs';
-import type { PropDef, RampDef, TrackLayout, TrackPoint } from '../src/core/content';
+import type { PropDef, RampDef, SlalomGate, TrackLayout, TrackPoint } from '../src/core/content';
 import { bakeTrack } from '../src/core/track/bake';
 import surfaces from '../content/surfaces.json';
 import { wallGaps } from './lib/lap';
@@ -145,6 +145,27 @@ layout.props = [
   rock('the long winding stretch', 480, 4, 3.5, 2.2, 22),
   rock('a canyon on the right', 200, -5, 5, 2.4, 5),
   rock('the valley', 340, 0, 5.5, 2.6, 5),
+];
+// Slalom gates (core/rules/slalom.ts) down the bunny slopes and the winding stretch: weaving left
+// and right of the line into the turn ahead, a little wider on the bunny slopes, none within 30 m of
+// a rock or in the moguls across the second bunny slope.
+const inside = (s: number) => {
+  // How far the road ahead (40 m on) lies to this point's right: the turn's inside.
+  const i = Math.round(s / baked.step);
+  const j = Math.min(baked.n - 1, i + Math.round(40 / baked.step));
+  return (baked.px[j] - baked.px[i]) * -baked.tz[i] + (baked.pz[j] - baked.pz[i]) * baked.tx[i];
+};
+const gates = (name: string, at: number[], gap: number): SlalomGate[] =>
+  at.map((from, k) => {
+    const s = stretch(name)[0] + from;
+    const room = baked.width[Math.round(s / baked.step)] / 2 - gap / 2 - 2;
+    const lateral = Math.max(-room, Math.min(room, inside(s) * 0.5 + (k % 2 ? 4 : -4)));
+    return { s, lateral: Math.round(lateral * 10) / 10, gap };
+  });
+layout.slalom = [
+  ...gates('a bunny slope', [70, 120, 170, 270, 320], 14),
+  ...gates('the long winding stretch', [50, 100, 150, 260, 310, 360, 410, 560, 610, 660], 11),
+  ...gates('a bunny slope, moguls across it', [330, 380, 430], 13),
 ];
 // The avalanche, at chaos (core/world/avalanche.ts): it breaks away 80 m above the start line 4 s
 // after the green light. At 56 m/s on a 20% slope it buries a car that's wrecked behind it (about

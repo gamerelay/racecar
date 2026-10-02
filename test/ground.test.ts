@@ -7,6 +7,7 @@ import { canyonDepth } from '../src/core/track/ground';
 import { slopeView } from '../src/render/camera';
 import { Cause, Ev } from '../src/core/events';
 import { avalancheSpeed } from '../src/core/world/avalanche';
+import { SMASH_IDS } from '../src/core/world/smash';
 import { ALL_MAPS, EXPERIMENTAL_KEYS, LAYOUT_KEYS, MAPS } from '../tools/content';
 import { CLASSES, SURFACES, layout } from './helpers';
 
@@ -228,6 +229,62 @@ describe('the camera on a slope', () => {
     expect(slopeView(6).lift).toBeGreaterThan(0);
     expect(slopeView(100).lift).toBeLessThanOrEqual(2.5);
     expect(slopeView(0)).toEqual({ look: 0, lift: 0 });
+  });
+});
+
+describe("the Slope's slalom gates", () => {
+  test('a gate is two flags 10–14 m apart on the piste, clear of the rocks; their flags are smashable', () => {
+    const track = bakeTrack(layout('avalanche/slope'), SURFACES);
+    const gates = track.layout.slalom!;
+    expect(gates.length).toBeGreaterThanOrEqual(10);
+    for (const g of gates) {
+      expect(g.gap).toBeGreaterThanOrEqual(10);
+      expect(g.gap).toBeLessThanOrEqual(14);
+      expect(Math.abs(g.lateral) + g.gap / 2).toBeLessThan(track.main.width[Math.round(g.s / track.main.step)] / 2);
+      for (const r of track.props.filter((p) => p.kind === 'rock')) expect(Math.abs(r.s - g.s)).toBeGreaterThan(30 + r.hz);
+    }
+    const sim = new Sim(track, CLASSES, SURFACES, { seed: 1 });
+    const flags = Array.from(sim.world.smash.kind).filter((k) => SMASH_IDS[k].startsWith('gate-'));
+    expect(flags.length).toBe(gates.length * 2);
+  });
+
+  test('through a gate pays boost and points, more for gates in a row; a missed one ends the streak', () => {
+    const track = bakeTrack(layout('avalanche/slope'), SURFACES);
+    const gates = track.layout.slalom!;
+    const sim = new Sim(track, CLASSES, SURFACES, { seed: 1 });
+    const i = sim.addCar({ cls: 'coupe', human: true });
+    const streaks: number[] = [];
+    let cursor = sim.events.head;
+    /** Drives car i through gate g (or `off` m wide of it). */
+    const drive = (g: number, off = 0) => {
+      sim.placeCar(i, 0, gates[g].s - 3, gates[g].lateral + off, 25);
+      for (let t = 0; t < 20; t++) sim.step([neutralControls()]);
+      cursor = sim.events.read(cursor, (e) => {
+        if (e.type === Ev.Gate && e.car === i) streaks.push(e.b);
+      });
+    };
+    sim.cars.boost[i] = 0;
+    drive(0);
+    expect(sim.cars.boost[i]).toBeGreaterThan(0);
+    drive(1);
+    drive(2, gates[2].gap);
+    drive(3);
+    expect(streaks).toEqual([1, 2, 1]);
+  });
+
+  test('the hard AI takes most of them', () => {
+    const sim = new Sim(bakeTrack(layout('avalanche/slope'), SURFACES), CLASSES, SURFACES, { seed: 1, traffic: 0, mayhem: 'off' });
+    sim.addCar({ cls: 'coupe', racer: { difficulty: 2 } });
+    sim.startRace(1, 0.1);
+    let gates = 0;
+    let cursor = sim.events.head;
+    while (!sim.cars.finished[0] && sim.tick < 60 * 200) {
+      sim.step([]);
+      cursor = sim.events.read(cursor, (e) => {
+        if (e.type === Ev.Gate) gates++;
+      });
+    }
+    expect(gates).toBeGreaterThanOrEqual(sim.track.layout.slalom!.length * 0.7);
   });
 });
 

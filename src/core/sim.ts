@@ -25,6 +25,7 @@ import { Hazards, type Mayhem } from './world/hazards';
 import { Traffic, laneActive } from './world/traffic';
 import { Smashables } from './world/smash';
 import { AVALANCHE_UNDER, Avalanche } from './world/avalanche';
+import { Slalom } from './rules/slalom';
 import { canyonAt } from './track/ground';
 import { planWeather, weatherAt, type WeatherOption, type WeatherPlan, type WeatherState } from './world/weather';
 
@@ -108,6 +109,8 @@ export class Sim implements SimState {
   /** One run's avalanche, at chaos (world/avalanche.ts), and where its front is this tick. */
   avalanche: Avalanche | null = null;
   avalancheFront = -Infinity;
+  /** Slalom gates' streaks (rules/slalom.ts), for this screen's own cars. */
+  private readonly slalom = new Slalom(MAX_CARS);
   race: RaceState = { phase: 'free', goTime: 0, laps: 3, finishedCount: 0 };
   private readonly grid = new SpatialGrid(16, 1024, MAX_CARS);
   private readonly isActive = (i: number) => this.cars.active[i] === 1;
@@ -207,6 +210,7 @@ export class Sim implements SimState {
 
   /** Puts car i in its grid slot, lap 0. */
   private gridCar(i: number): void {
+    this.slalom.reset(i);
     const c = this.cars;
     const row = Math.floor(i / 2);
     const col = i % 2 === 0 ? -1 : 1;
@@ -253,6 +257,7 @@ export class Sim implements SimState {
     c.nextCp[i] = 0;
     c.progress[i] = at.s - run.start;
     c.lapStartTime[i] = this.time;
+    this.slalom.reset(i);
   }
 
   /**
@@ -459,6 +464,7 @@ export class Sim implements SimState {
       const sMain = mainDistance(this.track, cars.spline[i], cars.s[i]);
       // Triggers sit on the main road: a car on a shortcut passing the same mapped distance is
       // somewhere else (it used to drop the Valley's sign on the cars still on the main road).
+      if (!cars.remote[i]) this.slalom.cross(this, i, ctx.prevMain[i], sMain);
       if (!cars.wreck[i] && cars.spline[i] === 0) hazards.crossTriggers(i, ctx.prevMain[i], sMain, this.time, this.events, this.tick);
       if (this.race.phase === 'racing' && !cars.finished[i] && cars.lap[i] >= this.race.laps) this.finishers[nf++] = i;
     }

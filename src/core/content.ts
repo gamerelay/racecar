@@ -209,8 +209,17 @@ export interface TrackLayout {
    * the run-out. Without it the main road is a loop and the line is s = 0.
    */
   run?: { start: number; finish: number };
+  /** Slalom gates on the main road (core/rules/slalom.ts): a pair of flags each, smashable. */
+  slalom?: SlalomGate[];
   /** One run's avalanche, at chaos (core/world/avalanche.ts). */
   avalanche?: AvalancheDef;
+}
+
+/** A slalom gate: its middle `lateral` m across the main road at `s`, its flags `gap` m apart. */
+export interface SlalomGate {
+  s: number;
+  lateral: number;
+  gap: number;
 }
 
 /** An avalanche down a run: it breaks away `behind` m above the start line, `delay` s after the green light, at about `speed` m/s on a 20% slope. */

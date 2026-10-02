@@ -29,6 +29,9 @@ export const SMASH_KINDS: readonly SmashKind[] = [
   { id: 'mailbox', r: 0.35, h: 1.3, slow: 0.98, boost: 0.03, points: 100 },
   { id: 'beach-umbrella', r: 0.6, h: 2.6, slow: 0.99, boost: 0.03, points: 100 },
   { id: 'fruit-stand', r: 1.3, h: 1.8, slow: 0.93, boost: 0.05, points: 200 },
+  // A slalom gate's flags (rules/slalom.ts), red and blue gates in turn: a missed one is knocked flat, not a wreck.
+  { id: 'gate-red', r: 0.25, h: 3.2, slow: 0.995, boost: 0.005, points: 25 },
+  { id: 'gate-blue', r: 0.25, h: 3.2, slow: 0.995, boost: 0.005, points: 25 },
 ];
 export const SMASH_IDS = SMASH_KINDS.map((k) => k.id);
 
@@ -80,6 +83,18 @@ export class Smashables {
         }
       }
     }
+    // A slalom gate's two flags, on the main road (and on open ground, on the ground).
+    (track.layout.slalom ?? []).forEach((g, n) => {
+      const kind = SMASH_IDS.indexOf(n % 2 ? 'gate-blue' : 'gate-red');
+      const at = sampleAt(track.main, g.s, hit);
+      for (const side of [-1, 1]) {
+        const lat = g.lateral + (side * g.gap) / 2;
+        const x = at.cx - at.tz * lat;
+        const z = at.cz + at.tx * lat;
+        const y = track.ground ? track.ground.height(x, z) : at.cy - lat * Math.tan(at.bank);
+        out.push({ kind, spline: 0, s: at.s, x, y, z });
+      }
+    });
     this.n = out.length;
     this.kind = Uint8Array.from(out, (p) => p.kind);
     this.spline = Uint8Array.from(out, (p) => p.spline);

@@ -47,6 +47,19 @@ const MODELS: Record<string, () => BufferGeometry> = {
       part(new ConeGeometry(1.3, 0.55, 8), 0xff2e88, 0, 2.45),
       part(new ConeGeometry(0.5, 0.25, 8), 0xffffff, 0, 2.75),
     ])!,
+  // A slalom gate's flag: a pole and a panel across it, square to the road (seen from up the slope).
+  'gate-red': () =>
+    mergeGeometries([
+      part(new CylinderGeometry(0.07, 0.08, 3.2, 6), 0xf2f2f2, 0, 1.6),
+      part(new BoxGeometry(0.06, 1.3, 1.7), 0xe8433a, 0, 2.5),
+      part(new BoxGeometry(0.07, 0.16, 1.72), 0xffffff, 0, 2.05),
+    ])!,
+  'gate-blue': () =>
+    mergeGeometries([
+      part(new CylinderGeometry(0.07, 0.08, 3.2, 6), 0xf2f2f2, 0, 1.6),
+      part(new BoxGeometry(0.06, 1.3, 1.7), 0x2f6bff, 0, 2.5),
+      part(new BoxGeometry(0.07, 0.16, 1.72), 0xffffff, 0, 2.05),
+    ])!,
   'fruit-stand': () =>
     mergeGeometries([
       part(new BoxGeometry(2.2, 0.8, 1), 0x8a5a33, 0, 0.4),

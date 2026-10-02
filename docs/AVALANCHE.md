@@ -468,6 +468,21 @@ Item 4, the avalanche, is built (2026-10-02):
   Below 54 m/s it never catches anyone, and above 58 it catches the slow cars again and again.
   The field's finishing times are within 0.5 s of chaos without it.
 
+Item 5, slalom gates, is built (2026-10-02):
+
+- **18 gates** (`layout.slalom`): five down the first bunny slope (14 m wide), ten down the winding
+  stretch (11 m), three after the moguls on the second bunny slope (13 m). Each is nudged toward
+  the inside of the turn 40 m ahead and weaves 4 m left and right of it, so the gates show the
+  fast line. None is within 30 m of a rock.
+- **Flags** are smashables (`gate-red` and `gate-blue`, gate by gate, 3.2 m tall with a panel square
+  to the road). Clipping one knocks it flat (it stands again 30 s later), never a wreck.
+- **Through a gate** (`rules/slalom.ts`): `boostFromGate` 0.04 of a bar (scaled by position, like
+  any boost you earn), and 200 points × the gates in a row, up to 5. A miss ends the streak and
+  costs nothing else. The pop says "Gate ×3", and a chime climbs a step a gate.
+- **The AI** takes a gate when its line goes through. A hard driver also bends its line into a gate
+  it would miss by up to 5 m. One run: easy and normal take 13 of 18, hard 15 (a best streak of
+  7). The hard floor is 97.75 s (98.32 without gates). The field and chaos: no wrecks.
+
 The sketches as they were:
 
 1. **It reads as a run.**
