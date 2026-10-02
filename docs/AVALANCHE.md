@@ -1,31 +1,52 @@
 # Avalanche: a plan for the first open map
 
-The fourth map, and the first built on PLAN's "Open, freeform maps" direction. Up a mountain road in
-the Swiss Alps, then down the snow, more like a snowboarding game than a road race. **It's an
-outline, not a spec.** Details will change while building; note those changes in
+The fourth map, and the first built on PLAN's "Open, freeform maps" direction: one long run down a
+mountain in the Swiss Alps, more like a snowboarding game than a road race. **Experimental:** it's
+built on its own branch and PRs marked experimental, not slated for a release, and it stays out of
+the lobby until the owner says so. **It's an outline, not a spec.** Details will change while building; note those changes in
 [SPEC.md](./SPEC.md) under "Changed while building", as usual.
 
 Started 2026-10-02. The owner's brief:
 - Try the open direction on a **new map first**, and leave the three maps we have as they are.
 - **Start small:** a simple snow surface to drive on, to find out how it feels.
-- Then **moguls**, **several winding routes down** like a real ski mountain, and **little canyons
-  that work almost like halfpipes**.
+- Then **moguls**, **winding routes** like a real ski mountain, and **little canyons that work
+  almost like halfpipes**.
 
-PLAN's [Avalanche](./PLAN.md) section has the first sketch: the road up, the routes down, snow,
-hazards and scenery. This file is how to build it.
+And the owner's answers (2026-10-02):
+- **One route down, no laps.** A race is a single run from the top to the bottom, with no road up.
+- **Long:** about as long as two laps of a course, so about 6–7 km and two minutes or so.
+- **Its shape:** some pitches steep, some a gradual bunny slope, and a few short stretches that go
+  back uphill a little.
+- **Powder:** it costs a little, because it's light. It's slower than the piste, but not a wall.
+
+PLAN's [Avalanche](./PLAN.md) section has the first sketch (it had a road up and several routes:
+both dropped). This file is how to build it.
 
 ## The idea in one paragraph
 
-There's still a track: a road winds up the mountain, and the groomed pistes are the fastest way
-down. But the whole mountainside is snow you can drive on. You can take a canyon instead of a piste,
-cut through powder (slower), ride a halfpipe wall for air, skip over moguls, or clip a jump from an
-angle. Trees, rocks, cliffs, fences and the avalanche itself are what make a bad line cost you. The
-pistes are always quickest, so the AI can race them, and players who know the mountain can find
-lines the AI doesn't.
+There's still a track: one groomed piste, top to bottom, the fastest way down. But the whole
+mountainside around it is snow you can drive on. You can cut a turn through the powder (a little
+slower), drop into a canyon beside the piste and ride its walls for air, skip over moguls, or clip a
+jump from an angle. Trees, rocks, cliffs, fences and the avalanche itself are what make a bad line
+cost you. The piste is always quickest, so the AI can race it, and players who know the mountain
+can find lines the AI doesn't.
+
+## The run
+
+About 6–7 km from the summit to the valley, in stretches like a real piste's:
+- **Steep pitches,** 25–35°, where slope gravity takes you past any car's top speed: the fast,
+  scary part, with a long run-out after each.
+- **Bunny slopes,** 5–10°, gentle and wide: drifting, carving and catching up.
+- **Short climbs,** a few meters back uphill over a ridge or a bridge between two valleys: you
+  carry speed in or lose time, and a crest at the top to jump.
+- **Canyons** beside the piste, halfpipes to ride as an alternative line, rejoining it.
+- **Mogul fields** across or beside the piste: hop the tops or go round in the powder.
+- **Jumps** you can hit from any angle (kickers with flanks, rollers, a ski jump near the end).
+- **The finish** in the valley, by the chalets, where the run-out is flat.
 
 ## What the game can't do yet
 
-Reading the code for this, there are four gaps. Each one is a step below.
+Reading the code for this, there are five gaps. Each one is a step below.
 
 1. **There's no ground off the road.** Beside a road, the physics' ground is that road's surface
    carried flat outward (`finishProjection` in `src/core/track/query.ts`). The land you see
@@ -38,11 +59,15 @@ Reading the code for this, there are four gaps. Each one is a step below.
    up the wall, slow, and come back down. Avalanche needs **slope gravity**.
 3. **Out of bounds is 25 m past a road's shoulder** (`outOfBounds` in `tuning.ts`): a wreck and a
    respawn. Here the edges are the map's: cliffs, a crevasse, the boundary fence.
-4. **Obstacles are only drawn.** The forests' trees and rocks have nothing to hit in the sim. Off
+4. **A race is laps on a closed loop.** The main spline is always closed (`bakeTrack`), and the
+   start grid, lap counting, progress, checkpoints, the AI's look-ahead and traffic all wrap round
+   it. One run, top to bottom, needs an **open main road**: a start at one end, a finish at the
+   other, one "lap".
+5. **Obstacles are only drawn.** The forests' trees and rocks have nothing to hit in the sim. Off
    the pistes, hitting things is the cost of a bad line, so they need **colliders**.
 
 Everything else carries over:
-- **Splines:** for the road up, the pistes, the AI's lines, checkpoints and progress.
+- **Splines:** for the piste, the AI's line, checkpoints and progress.
 - **Branches:** for the alternative routes.
 - **Surfaces, boost, drifting and air:** air time already pays boost, and a "Superman" (boosting
   while airborne) pays extra.
@@ -67,7 +92,7 @@ Everything else carries over:
   The same function feeds the renderer's land, so what you see is what you drive on. Building it
   keeps the content files small and lets the editor rebuild it as it does the land now.
 - **The ground query:** a layout with a ground uses it everywhere off a road's deck. On a deck
-  (the road up, bridges, a tunnel) the road wins, blended over its shoulder. In `finishProjection`
+  (a bridge, a tunnel, the start pad) the road wins, blended over its shoulder. In `finishProjection`
   that's one branch: `track.ground ? ground.height(x, z) : road plane`.
 - **Determinism:**
   - Each client simulates its own car and sends it (`src/net/cars.ts`), so tiny floating-point
@@ -114,27 +139,31 @@ Everything else carries over:
 - **Lookup:** bucketed in a grid, so a car checks only the cells around it. Hits use the props'
   wreck rules (`Cause` in `events.ts`), with small things smashable (signs, flags, snowmen).
 
-### Laps on an open map
+### One run: an open main road
 
-- **Checkpoints become gates:** a line across the whole mountain at each stage of the lap, the
-  full width, so every route passes through it. The bake already steps checkpoints past
-  branches, and gates on the snow are that, made wide.
-- **No cheating:** missing a gate doesn't count the lap. The gates stop you skipping the road up.
-- **Lap shape:** a loop. The road up (asphalt switchbacks, about 40% of the lap) and the way down
-  (about 60%), back onto the road at the valley station.
+- **`main.closed: false`** in a layout: the main spline has two ends. The race is one "lap" from
+  s = 0 to the end. The grid stands at the top (behind s = 0 means above the start: a flat start
+  pad there), and the finish is crossing the end.
+- **What has to stop wrapping:** `wrap` and `signedGap` on the main road, progress and places,
+  checkpoints, the grid's placement, the AI's look-ahead (it slows to a stop past the end), the
+  minimap (an open line, not a loop), and respawns near the ends. Traffic is off on this map.
+- **The lobby's laps** don't apply: a race on this map is one run, and the lobby says so.
+- **Checkpoints become gates:** lines across the whole mountain at stages of the run, the full
+  width, so every line down passes through them. The bake already steps checkpoints past
+  branches; gates on the snow are that, made wide.
+- **No cheating:** missing a gate doesn't count. There's nothing much to skip on a run down, but
+  a canyon or a cut mustn't skip a gate.
+- **Until then (step 1):** a loop, the run down and a plain return road back up, driven in free
+  drive. Enough to tune how snow feels.
 
 ## Gameplay ideas
 
 ### The way down
 
-- **Pistes:** wide (25–40 m), groomed (packed snow, fast), and gently banked into their turns.
-  They're the AI's lines.
-- **Routes that split and rejoin**, like a ski area's map:
-  - a blue cruiser;
-  - a red with more turns;
-  - a black that drops steeply (faster and riskier).
-
-  The routes are branches, and "mini-routes" are short branches off them.
+- **The piste:** wide (25–40 m), groomed (packed snow, fast), and gently banked into its turns.
+  It's the AI's line.
+- **One route, with lines:** a canyon or a mogul field beside it is a line, not a second route:
+  short branches where the AI should know about them, open snow where it needn't.
 - **Canyons (halfpipes):** a flat floor 8–12 m wide, with curved walls 4–6 m high, no steeper than
   about 60°. Ride a wall up: slope gravity brings you back down, and off the lip you get air.
   Air already pays boost, so a canyon pays for itself if you ride it well, and it's a slower line
@@ -142,8 +171,9 @@ Everything else carries over:
 - **Moguls:** a field of bumps, about 1 m high and 5–7 m apart, beside or across a piste. The
   wheelbase smoothing makes them a rhythm. Clip the tops at speed for small hops, or go round on
   the slower powder.
-- **Powder:** everything off the groomed snow. Slower, looser, and a big spray. A short powder cut
-  can still pay on a tight turn: "micro-cuts" on snow.
+- **Powder:** everything off the groomed snow. A little slower (it's light: a small drag, less
+  grip, not grass's), looser, and a big spray. A short powder cut can pay on a tight turn:
+  "micro-cuts" on snow.
 - **Jumps from any angle:** kickers with flanks (PR #72) and natural rollers and spines you can
   hit from different lines. One big jump near the bottom, like a ski jump you can fly off, as a
   landmark.
@@ -155,13 +185,11 @@ Everything else carries over:
   surface setting (`driftCharge` in `surfaces.json`), and it makes the way down feel like
   carving.
 
-### The way up
+### The short climbs
 
-- **The road:** asphalt switchbacks with stone walls on the drop side, a couple of tunnels and
-  snow banks, built the way Paradise's rim road is (`tools/lib/lap.ts`).
-- **Ice:** on one hairpin, in the shade.
-- **Slope gravity makes the road up slower than the way down:** about right, since the climb is
-  the "breather". Check that the slowest class (the bus) doesn't crawl.
+- **Slope gravity slows you on them:** that's the point (carry speed in, or lose time). Keep them
+  short, a few meters of height, so the slowest class (the bus) doesn't crawl.
+- **Ice:** one shaded stretch, maybe on a climb.
 
 ### Hazards and mayhem
 
@@ -170,7 +198,7 @@ Everything else carries over:
   If it catches you, you wreck. You outrun it or bail into a canyon. It's the map's name.
 - **Snowballs:** they roll down the routes and grow, like Paradise's boulders. Hit one and you
   wreck.
-- **Falling rock** on the road up.
+- **Falling rock** under the cliffs.
 - **A snowcat** grooming the piste (traffic on the snow, closed-form).
 
 ### The look and feel
@@ -188,29 +216,28 @@ Everything else carries over:
 
 ## Steps, one PR each
 
-1. **The slope** (dev only, not in the lobby yet). One straight mountainside, 600 m long, a
-   single wide piste spline for the start and progress, with:
+1. **The slope** (experimental, not in the lobby). A loop, about 1.5 km: a run down with a steep
+   pitch, a bunny slope and a short climb, and a plain return road back up. A wide piste spline
+   for progress, with:
    - the ground in the sim (`ground.ts`) and the renderer drawing the same;
    - slope gravity turned on for this layout;
    - one mogul field and one canyon;
+   - packed snow on the piste and powder off it;
    - the wheelbase smoothing;
    - plain white and grey, no scenery.
 
    Reached by URL, in free drive (`?mode=free&map=avalanche/slope`). **The owner drives it, and we tune
    how snow feels before anything else.**
-2. **The AI on the snow.** A loop: the slope, plus a flat return. Then:
+2. **The AI on the snow.** On the step 1 loop:
    - the lap report;
    - the hard AI's line and braking with gravity;
    - wreck rates;
    - whether it uses the canyon or keeps to the piste.
-3. **The mountain's shape.** The generator (`tools/gen-avalanche.ts`), with:
-   - the road up;
-   - three routes down that split and rejoin;
-   - gates across the whole mountain;
-   - bounds and cliffs;
-   - respawns.
-
-   The lap time target is about 70–90 s.
+3. **One run.** An open main road (above): the start at the top, the finish at the bottom, no
+   laps; the grid, progress, the AI and the minimap without wrapping; gates.
+   - Then the mountain's shape: the generator (`tools/gen-avalanche.ts`), 6–7 km, with the steep
+     pitches, bunny slopes, short climbs, canyons and moguls; bounds and cliffs; respawns.
+   - The target is about two minutes for the hard AI.
 4. **Snow and the look.** Packed snow, powder and ice surfaces, the spray, snowfall, the palette,
    and the camera's pitch.
 5. **Things to hit.** The colliders, a forest from the same list, rocks, fences, and slalom gates
@@ -224,11 +251,10 @@ plan before building the mountain.
 
 ## Questions for the owner
 
-- **Laps, or a run down?** A loop keeps it like the other maps (a lobby's laps and the results).
-  A point-to-point run, with a lift back up between races, would be new.
-- **How steep, and how fast?** Real pistes run about 10–35°. Too steep, and slope gravity makes
-  the way down a drag race.
-- **How much should powder cost?** It's the main lever between "open" and "the track's still the
-  fastest".
+Answered 2026-10-02: one run, no laps; about two laps' length; steep, bunny and short uphill
+stretches; powder costs a little. Still open:
+
+- **How fast on the steep pitches?** Past a car's top speed is the thrill, but too much and the
+  run's a drag race. Tune it in step 1.
 - **Slope gravity on the other maps later?** It would make Backroads' crests and Paradise's volcano
   feel more real, but it changes their tuning. Not now; worth knowing for later.
