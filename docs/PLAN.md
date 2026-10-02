@@ -244,6 +244,69 @@ race; some move, and a few you can hit.
    - what "good" numbers look like.
 8. **A checklist for a new map.**
 
+## Next up (playtest notes, 2026-10-02)
+
+- **Button click effects:** a press feel on the menus' buttons and choosers (a quick scale or
+  flash, and a click sound through the effects bus).
+- **Music on the title screen from the start:** it waits for the first click or key now (browsers
+  block sound before a gesture, `Soundtrack` in `src/audio/soundtrack.ts`). Find what can start
+  sooner (the first pointer move, a "click to start" splash), or make the wait less noticeable.
+- **Traffic fading out in front of you:** investigate. Traffic fades over `FADE` m at the ends of
+  its lanes' sections and in and out of the start grid's clear zone (`GRID_CLEAR` in
+  `src/core/world/traffic.ts`); a car vanishing just ahead is probably one of those edges, or
+  the LOD (only cars near a racer are posed).
+- **Backroads' second shortcut (Logger's Leap):** smooth its edges where it leaves and rejoins,
+  and add berms on its corners.
+- **Backroads by day:** maybe a daytime option. Backroads has only its golden-hour light (the
+  `golden` palette); Paradise's Time option is noon or sunset (`sunset` in its `map.json`, a
+  second palette), so a daytime palette for Backroads would work the same way.
+- **Smashing stuff:** more particles and sounds when you smash a prop (cones, umbrellas, crates:
+  `src/render/skins/greybox/smash.ts`, `Ev.Smash` in `audio.ts`), maybe one per kind of prop.
+
+## A pickup truck (planned)
+
+A ninth car (`content/cars/pickup.json`): a pickup truck, with an open bed behind the cab.
+- **Its character:** between the Hauler and the Mudlark. It's heavy enough to shove rivals and
+  good off the asphalt (offroad tyres, like the rally car's and the van's), but quicker than the
+  van and loose in a drift.
+- **Fits:** Backroads, and Avalanche's snow below.
+- **Body:** its own design beside the others (`src/render/skins/greybox/car/designs.ts`), with the bed open.
+  Maybe something in the bed that bounces over jumps.
+- **Balance:** within the others' ±5% on every map (`bun tools/lap-report.ts --cars`).
+
+## Avalanche (a planned fourth map)
+
+The Swiss Alps: snow, rock and a really steep mountain.
+- **Up:** a winding paved road climbs the mountain in switchbacks: hairpins, drops off the edge
+  (walls on the drop side only, as on Paradise's rim), tunnels through the rock.
+- **Down:** at the top there's no paved road down. Instead, several curvy routes run down the
+  snow. It should feel almost like a snowboarding game:
+  - smooth, rolling terrain, banked like a halfpipe in places;
+  - lots of jumps and drops: verticality is the point;
+  - mini-routes that split and rejoin all the way down, some quicker but riskier.
+  - At the bottom, the routes come back onto the road to the start.
+- **Feel:** fast and flowing on the way down, not technical. Snow slows you a little and slides
+  more, but doesn't spin you, as Paradise's beach doesn't.
+- **What it needs that the game doesn't have yet:**
+  - **Snow surfaces:** packed snow (the routes) and powder (off them, slower), with their own dust
+    (a spray of snow, `DUST` in `renderer.ts`), and maybe ice somewhere on the road up.
+  - **Wide routes with no edge.** A route down is a stretch of snow rather than a road: very wide,
+    with no walls, verges that are snow too, and its line followed loosely. The branches
+    (`BranchDef`) can be the mini-routes. Whether the AI can race open snow, rather than a road's
+    lanes, is the first thing to try: a greybox slope first, before any scenery.
+  - **Terrain that follows the routes:** the land shaped to their banks and jumps, not flat under
+    them (`terrain.ts`, as Paradise's land is shaped to its roads).
+  - **Snowfall** as weather, and a snowy palette: bright in the day, maybe dusk.
+  - **Scenery:** pines heavy with snow, rock faces, a summit station or a cable car at the top,
+    chalets at the bottom, maybe a ski jump to fly off.
+- **Hazards and mayhem:** an avalanche (snow sliding across a route), rolling snowballs, falling
+  rock on the road up.
+- **Its music:** the owner's, like the other maps'.
+- **How:** a generator like Paradise's (`tools/gen-avalanche.ts` on `tools/lib/lap.ts`), MAPS.md's
+  lessons, and the lap report to tune it. A large job, in several PRs: the greybox slope and the
+  AI on it, then the road up and the routes down, then the land, snow and scenery, then hazards
+  and tuning.
+
 ## Other ideas worth considering
 
 - **Stunt air:** a barrel roll or flat spin in the air pays extra on a clean landing, with a
