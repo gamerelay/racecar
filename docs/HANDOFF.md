@@ -8,7 +8,7 @@ building". This file is "where are we"; the spec is "what are we making".
 vote on the next map). `main` is at `fd953c7`, nine PRs past it and untagged (#49–#57, in
 CHANGELOG's "Unreleased"): short invite links, Settings and a real in-race menu, choosers and
 screen transitions, two new tracks, a codebase review's fixes, and a loading screen.
-**PR #58 (Paradise v2) is open**, waiting on a drive and a merge: "Paradise v2" below.
+**PR #58 (Paradise v2) is merged** (untagged too): "Paradise v2" below.
 Every release is in [CHANGELOG.md](../CHANGELOG.md): add to its "Unreleased" section as you go,
 and retitle that section when you tag. [PLAN.md](./PLAN.md)'s six phases are all merged (it keeps
 a pool of other ideas), how online works is [ONLINE.md](./ONLINE.md), how maps are made is
@@ -58,8 +58,8 @@ old keys still resolve). The third map is **Paradise** (`content/maps/paradise`,
   - **A loading screen** (#57): the crossed flags pulse on the dark screen between pages (in
     `index.html`, so it's up from the first paint; `src/ui/fade.ts`), at least 0.7 s, and an
     offline race waits behind it.
-- **Paradise v2** (PR #58, open): playtest feedback was "the vibe is right, but the map is a
-  little boring and hard to race". In nine commits:
+- **Paradise v2** (PR #58, merged): playtest feedback was "the vibe is right, but the map is a
+  little boring and hard to race". In thirteen commits:
   - **More swing:** deeper S-bends, sweepers 3 m wider (`driftWidth: 3`), the jungle's hairpins
     opened from 18–22 m to 37 m and more, and a bulge up the slope between them.
   - **Forgiving verges:** walls only where there's a drop, and the ground past the road is its
@@ -71,6 +71,14 @@ old keys still resolve). The third map is **Paradise** (`content/maps/paradise`,
   - **Lava:** rivers down the cone (scenery), and at chaos a soft lava rain
     (`HazardDef.mayhem`, `params.soft`).
   - **The jungle's road:** patchy laterite with worn ruts and mossy verges, and trees 10 m back.
+  - **No walls at the shortcuts** (after a drive): the Sandbar, the Beach Cut and Smugglers'
+    Trail have none (they jutted into the main road where a cut runs beside it), the Lava Tube
+    keeps them only inside the rock, and Downtown's Alley drops its Boulevard-side wall past the
+    last shop (with no wall, a car would drive through a shop: buildings don't collide).
+  - **The grid in your own lane:** where the start has two-way traffic (every map), the grid
+    lines up in the race's half, staggered (`gridOncoming` in `sim.ts`), so nobody starts facing
+    oncoming cars. Field wrecks over 16 seeds: 18/20/10 (Paradise/Downtown/Backroads) against
+    13/16/15, none at the start: noise.
   - The reasons and measurements are in SPEC "Changed while building" ("Paradise v2"), and the
     lessons (cuts only pay across a bulge; lay a hairpin as two nodes) in MAPS.md. Each piece is
     its own commit; after merging, the whole PR reverts with `git revert -m 1`.
@@ -303,7 +311,7 @@ the cone's far flanks.
   - **CORS on the Space** (GET and HEAD from any origin) stays: it lets a build read the Space's
     origin directly too, if the CDN is ever down.
 - **What's there now:** `main` at `fd953c7` (PR #57, the loading screen), updated 2026-10-02. Paradise v2
-  (PR #58) isn't on it yet: update it once that merges. Keep it the one row: update Z442EE in
+  (PR #58) isn't on it yet: update it when asked. Keep it the one row: update Z442EE in
   place rather than adding a game.
 
 ## Next, in order
@@ -356,11 +364,11 @@ the cone's far flanks.
      only fix, and that's the owner's call.
    - The repo goes public. Then milestone 3b: the neon skin on Downtown (SPEC's City), which is
      the launch. Touch controls first: phones will be much of the link's traffic.
-2. **Paradise v2 (PR #58):** drive it before merging. Do the Beach Cut and Smugglers' Trail feel
+2. **Paradise v2 (PR #58, merged):** drive it. Do the Beach Cut and Smugglers' Trail feel
    like a fair gamble? The hard AI is about even on both (−0.4 s and level). Does the dust feel
    right running wide onto the beach and the jungle's edge? It isn't checked by eye: the poster
    scout's cars stand still, so tune `DUST` in `renderer.ts` from a drive. And is the lava rain at
-   chaos enough, or too much? Then merge, and update asleepace (Z442EE).
+   chaos enough, or too much? Then update asleepace (Z442EE) when asked.
 3. **The menu plan, step 3** ([MENU.md](./MENU.md)): keyboard remapping on the Controls screen,
    hints built from the bindings, and gamepad deadzone, rumble and sensitivity.
 4. **Playtest with a controller** whenever there's a build to try: tune with F4, and press F8 on
