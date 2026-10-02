@@ -10,8 +10,8 @@ export const CAR_FIELDS = [
   'grounded', 'airT', 'superT', 'boost', 'boosting', 'miniT', 'miniStage',
   'drift', 'driftDir', 'driftT', 'driftCharge', 'driftStage', 'slip', 'driftCooldown', 'driftTight', 'driftExit', 'driftBank',
   'spinT', 'ghostT', 'resetCooldown', 'wallT', 'stuckT', 'oncomingT', 'startPress', 'stallT',
-  // the slipstream (0..1, and seconds in it), a slingshot's seconds left, and the straight-line build past top speed (0..1)
-  'draft', 'draftT', 'slingT', 'cruise',
+  // the slipstream (0..1, and seconds in it), a slingshot's seconds left, and the straight-line build past top speed (0..1, and 1 once it's popped)
+  'draft', 'draftT', 'slingT', 'cruise', 'cruiseFull',
   // wreck body
   'wreck', 'wreckT', 'wreckCause', 'rx', 'rz', 'wx', 'wy', 'wz',
   // where on the track

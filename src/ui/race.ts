@@ -5,6 +5,7 @@ import type { CarClass } from '../core/content';
 import { Ev, type GameEvent } from '../core/events';
 import type { Sim } from '../core/sim';
 import { fmt, ordinal } from './format';
+import { fitBox } from './thumb';
 import type { ResultRow } from '../lobby/lobby';
 import type { VoteView } from '../net/postrace';
 
@@ -21,7 +22,8 @@ export class RaceUi {
   /** Whether the results may appear now (not over the pause menu); checked again until they can. */
   canShow: () => boolean = () => true;
   private refreshAt = 0;
-  private bounds = { x0: 0, x1: 1, z0: 0, z1: 1 };
+  /** World (x, z) to the minimap's pixels, as the lobby's thumbnail draws it (`fitBox`). */
+  private project: (x: number, z: number) => [number, number] = (x, z) => [x, z];
   /** The roads, drawn once per track into an offscreen canvas; each frame only adds the cars. */
   private roads = document.createElement('canvas');
   private lightsN = NaN;
@@ -70,7 +72,7 @@ export class RaceUi {
       z0 = Math.min(z0, sp.pz[i]);
       z1 = Math.max(z1, sp.pz[i]);
     }
-    this.bounds = { x0, x1, z0, z1 };
+    this.project = fitBox(x0, x1, z0, z1, this.map.width, 24);
     // Secret shortcuts aren't on the map: finding them is the point.
     const paths = t.splines.filter((sp) => !sp.secret).map((sp) => {
       const p = new Path2D();
@@ -94,14 +96,6 @@ export class RaceUi {
       g.lineWidth = k === 0 ? 5 : 3;
       g.stroke(p);
     });
-  }
-
-  private project(x: number, z: number): [number, number] {
-    const { x0, x1, z0, z1 } = this.bounds;
-    const size = Math.max(x1 - x0, z1 - z0) || 1;
-    const pad = 24;
-    const k = (this.map.width - pad * 2) / size;
-    return [pad + (x - x0) * k + ((size - (x1 - x0)) * k) / 2, this.map.height - pad - (z - z0) * k - ((size - (z1 - z0)) * k) / 2];
   }
 
   update(): void {

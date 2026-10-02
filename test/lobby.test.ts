@@ -3,7 +3,7 @@ import { LocalBackend, type KeyValue } from '../src/lobby/backend';
 import { aiPlate } from '../src/lobby/plate';
 import { FILL_DIFFICULTY, SEATS, allReady, apply, canJoin, createLobby, nextVisibility, encodeSeats, legacySeats, roster, summarize, type Lobby, type Player } from '../src/lobby/lobby';
 import { raceFromLobby, readSetup, toQuery } from '../src/ui/setup';
-import { thumb } from '../src/ui/thumb';
+import { fitBox, thumb } from '../src/ui/thumb';
 import { CLASSES, LAYOUT_KEYS, layout as readLayout } from '../tools/content';
 
 // Lobbies (PLAN phase 2): the host rules, seats becoming a race's cars, the race link a lobby
@@ -258,6 +258,28 @@ describe('the local backend', () => {
 const LAP_KM: Record<string, number> = { 'downtown/downtown': 3.26, 'backroads/valley': 2.92, 'paradise/island': 3.78 };
 
 describe('map thumbnails', () => {
+  test('a lap is drawn the way it\'s driven (the thumbnail and the minimap share fitBox): Paradise, driven clockwise, is drawn clockwise', () => {
+    const pts = readLayout('paradise/island').main.points.map((q) => q.p);
+    // Driven: turning right lowers the heading (physics.ts), so a clockwise lap turns by −2π.
+    let turn = 0;
+    for (let i = 0; i < pts.length; i++) {
+      const [a, b, c] = [pts[i], pts[(i + 1) % pts.length], pts[(i + 2) % pts.length]];
+      let d = Math.atan2(c[0] - b[0], c[2] - b[2]) - Math.atan2(b[0] - a[0], b[2] - a[2]);
+      d -= Math.round(d / (2 * Math.PI)) * 2 * Math.PI;
+      turn += d;
+    }
+    expect(turn).toBeCloseTo(-2 * Math.PI, 3);
+    // Drawn: with y down the screen, a positive shoelace sum is clockwise.
+    const at = fitBox(-600, 600, -600, 600, 100, 4);
+    let area = 0;
+    for (let i = 0; i < pts.length; i++) {
+      const [ax, ay] = at(pts[i][0], pts[i][2]);
+      const [bx, by] = at(pts[(i + 1) % pts.length][0], pts[(i + 1) % pts.length][2]);
+      area += ax * by - bx * ay;
+    }
+    expect(area).toBeGreaterThan(0);
+  });
+
   test('every layout fits its box, with its shortcuts', () => {
     for (const key of LAYOUT_KEYS) {
       const layout = readLayout(key);
