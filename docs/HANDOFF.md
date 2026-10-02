@@ -4,7 +4,7 @@ Where racecar stands and what's next, for whoever picks it up (a person or a fre
 The design is [SPEC.md](./SPEC.md): decisions in §17, and what building changed in "Changed while
 building". This file is "where are we"; the spec is "what are we making".
 
-**Last updated:** 2026-10-02. The last tag is **`alpha-1.28`** (PRs #67–#70: a press flash and a
+**Last updated:** 2026-10-02 (Avalanche, experimental). The last tag is **`alpha-1.28`** (PRs #67–#70: a press flash and a
 click on the menus' buttons; the title's music from the start where the browser allows it, with a
 "press any key" hint where it doesn't; Logger's Leap smoothed and bermed, and shortcuts' mouths
 cleaner on every map; the traffic fading in front of you investigated, its fix to choose, in
@@ -12,6 +12,17 @@ PLAN). Before it, `alpha-1.27` (PRs #63–#65: PLAN's next-up notes, a pickup tr
 tech-debt pass; the mirrored minimap and two speed fixes), `alpha-1.26` (PR #62: two new tracks), `alpha-1.25` (PR #61: boost, Overdrive, the
 slipstream) and `alpha-1.24` (PRs #49–#60). It's on the hosted build ("Hosted test build"
 below).
+
+**Since alpha-1.28** (on `main`, not tagged): the Leap's kicker rounded and launchable from its
+sides (#71, #72), and PLAN's "Open, freeform maps" direction (#73).
+
+**Experimental, not for release: Avalanche** (draft PR #74, branch `avalanche-plan`, label
+`experimental`). The first open map, one run from a summit to a valley: open ground you drive on
+everywhere, slope gravity on snow, moguls, canyons, kickers, snow-capped rocks on the piste, and an
+open main road (one run, no laps). Out of the lobby and the map lists (`experimental: true`); open
+it at `?mode=free&map=avalanche/slope` with the branch checked out. Everything about it, built and
+next, is [AVALANCHE.md](./AVALANCHE.md): "Built so far", then "Next: a loose plan" (ten items, the
+owner's pick). Don't merge it to `main` or tag from it until the owner says.
 Every release is in [CHANGELOG.md](../CHANGELOG.md): add to its "Unreleased" section as you go,
 and retitle that section when you tag. [PLAN.md](./PLAN.md)'s six phases are all merged (it keeps
 a pool of other ideas), how online works is [ONLINE.md](./ONLINE.md), how maps are made is
@@ -388,8 +399,9 @@ the cone's far flanks.
    Leap are done (`alpha-1.28`; listen to the clicks, and open the title in a fresh browser
    profile to see the music hint, neither checked by ear or eye here). Left: the traffic fading
    out in front of you (investigated: choose a fix from PLAN's options), Backroads by day (a
-   maybe), and more particles and sounds when smashing props. Then the pickup truck, and Avalanche
-   (a large job: a greybox slope and the AI on it first).
+   maybe), and more particles and sounds when smashing props. Then the pickup truck. Avalanche is
+   under way on its own experimental line (PR #74, above): its next steps are AVALANCHE.md's
+   "Next: a loose plan", starting with the HUD and gates for one run and the camera's pitch.
 4. **Paradise v2 (alpha-1.24):** drive it. Do the Beach Cut and Smugglers' Trail feel
    like a fair gamble? The hard AI is about even on both (−0.4 s and level). Does the dust feel
    right running wide onto the beach and the jungle's edge? It isn't checked by eye: the poster

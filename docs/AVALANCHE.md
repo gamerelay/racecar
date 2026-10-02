@@ -427,8 +427,8 @@ lap floors haven't moved.
 3. **Snow you feel and hear.**
    - Tracks that last: skid marks on snow and powder that stay the whole race (the skids'
      ring buffer, bigger, or a second one for snow), fainter on groomed snow.
-   - Sound: a crunch on groomed snow, a hiss in powder, a thump on a mogul landing (the audio's
-     surface layer; it has one for dirt).
+   - Sound: a crunch on groomed snow, a hiss in powder, a thump on a mogul landing (beside the off-road gravel layer in
+     `src/audio/audio.ts`, which powder gets now).
    - Snowfall as weather (`weather: ['clear', 'snow']`): flakes like the rain, a little less grip
      (`weatherGrip`), and fog that closes in.
 
