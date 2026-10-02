@@ -314,6 +314,10 @@ A ninth car (`content/cars/pickup.json`): a pickup truck, with an open bed behin
 
 ## Avalanche (a planned fourth map)
 
+**The plan is [AVALANCHE.md](./AVALANCHE.md)** (2026-10-02): the first open map. It covers the
+ground in the sim, slope gravity, moguls, canyons as halfpipes and routes down, in seven steps,
+starting with a single slope to drive. The first sketch:
+
 The Swiss Alps: snow, rock and a really steep mountain.
 - **Up:** a winding paved road climbs the mountain in switchbacks: hairpins, drops off the edge
   (walls on the drop side only, as on Paradise's rim), tunnels through the rock.
