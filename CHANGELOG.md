@@ -13,6 +13,12 @@ and where things stand is [docs/HANDOFF.md](./docs/HANDOFF.md).
   and the sand where the road swings inland out of town). Lava runs down the volcano, and at chaos it
   rains small rocks on the jungle's straight and the run down off the rim. The jungle's road
   looks like earth now, and the trees stand back from the road.
+- **No walls jutting into the road at shortcuts:** Paradise's Sandbar, Beach Cut and Smugglers'
+  Trail are open to the sand and the undergrowth (the Lava Tube keeps its walls inside the rock),
+  and Downtown's Alley comes back onto the Boulevard without its wall sticking out.
+- **The grid starts in your own lane:** where the start has two-way traffic (every map, today),
+  the whole grid lines up in the race's half of the road, staggered, so nobody starts facing
+  oncoming cars.
 - **A loading screen between pages:** going into a race or back to the lobby, the crossed flags
   pulse in the middle of the dark screen until the next page has drawn (at least 0.7 s), and an
   offline race waits behind it, so its countdown starts when you can see it.
