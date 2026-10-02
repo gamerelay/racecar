@@ -178,6 +178,8 @@ export class Hud {
       this.pop('Oncoming', 'hot');
     }
     if (e.type === Ev.TrafficCheck && e.car === i) this.pop('Traffic check', 'hot');
+    if (e.type === Ev.Slingshot && e.car === i) this.pop('Slingshot!', 's2');
+    if (e.type === Ev.Overdrive && e.car === i) this.pop('Overdrive', 's1');
     // Smashing a row of cones is one pop a second, not one a cone.
     if (e.type === Ev.Smash && e.car === i && this.sim.time - this.lastSmash > 1) {
       this.lastSmash = this.sim.time;

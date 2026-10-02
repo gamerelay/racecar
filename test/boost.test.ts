@@ -35,7 +35,7 @@ describe('air boost', () => {
     const air = seen.filter((e) => e.type === Ev.AirBoost);
     expect(air.length).toBe(1);
     expect(air[0].b).toBeGreaterThan(TUNING.airMin);
-    expect(air[0].a).toBeCloseTo(TUNING.boostFromAir * air[0].b, 3);
+    expect(air[0].a).toBeCloseTo(TUNING.boostFromAir * air[0].b * TUNING.boostEarn, 3);
     expect(sim.cars.boost[i]).toBeCloseTo(air[0].a, 3);
     expect(sim.cars.score[i]).toBeGreaterThanOrEqual(Math.round(TUNING.airPoints * air[0].b));
   });
@@ -47,7 +47,7 @@ describe('air boost', () => {
     const air = seen.filter((e) => e.type === Ev.AirBoost);
     expect(air.length).toBe(1);
     expect(air[0].other).toBe(1);
-    expect(air[0].a).toBeCloseTo(TUNING.boostFromAir * air[0].b * TUNING.supermanPay, 3);
+    expect(air[0].a).toBeCloseTo(TUNING.boostFromAir * air[0].b * TUNING.supermanPay * TUNING.boostEarn, 3);
   });
 
   test("a hop shorter than airMin doesn't pay", () => {
@@ -67,7 +67,7 @@ describe('boost by position', () => {
     return sim;
   };
 
-  test('last place earns boostPlaceLast times as much from a move as a car with no scaling; the leader boostPlaceLead', () => {
+  test('last place earns boostPlaceLast times as much from a move as a car with no position scaling; the leader boostPlaceLead', () => {
     const sim = race();
     const c = sim.cars;
     const paid = (rank: number) => {
@@ -75,8 +75,8 @@ describe('boost by position', () => {
       c.boost[0] = 0;
       return earnBoost(sim, 0, 0.1);
     };
-    expect(paid(0)).toBeCloseTo(0.1 * TUNING.boostPlaceLead, 6);
-    expect(paid(3)).toBeCloseTo(0.1 * TUNING.boostPlaceLast, 6);
+    expect(paid(0)).toBeCloseTo(0.1 * TUNING.boostEarn * TUNING.boostPlaceLead, 6);
+    expect(paid(3)).toBeCloseTo(0.1 * TUNING.boostEarn * TUNING.boostPlaceLast, 6);
     expect(paid(1)).toBeGreaterThan(paid(0));
     expect(paid(2)).toBeLessThan(paid(3));
     // Never past a full meter.
@@ -85,7 +85,7 @@ describe('boost by position', () => {
     expect(c.boost[0]).toBe(1);
   });
 
-  test("ranks follow the race order, and outside a race there's no scaling", () => {
+  test("ranks follow the race order, and outside a race there's no position scaling", () => {
     const sim = race();
     const c = sim.cars;
     for (let t = 0; t < 60 * 5; t++) sim.step([]);
@@ -94,7 +94,7 @@ describe('boost by position', () => {
     const free = ringSim(1, 400, 60);
     for (let k = 0; k < 2; k++) free.addCar({ cls: 'coupe', racer: { difficulty: 1 } });
     free.cars.rank[1] = 1;
-    expect(earnBoost(free, 1, 0.1)).toBeCloseTo(0.1, 6);
+    expect(earnBoost(free, 1, 0.1)).toBeCloseTo(0.1 * TUNING.boostEarn, 6);
   });
 });
 

@@ -7,6 +7,7 @@ import { Cause, Ev } from '../events';
 import { approach, clamp, damp, lerp, sign, smoothstep, wrapAngle } from '../math';
 import type { SimState } from '../state';
 import { locateCar } from '../track/locate';
+import { signedGap } from '../track/bake';
 import { sampleAt } from '../track/query';
 import { TUNING as T } from './tuning';
 
@@ -67,11 +68,14 @@ export function stepCar(sim: SimState, i: number, c: Controls, dt: number): void
     cars.boosting[i] = wantBoost ? 1 : 0;
     sim.events.push(tick, wantBoost ? Ev.BoostStart : Ev.BoostEnd, i, cars.x[i], cars.y[i], cars.z[i]);
   }
-  if (wantBoost) cars.boost[i] = Math.max(0, cars.boost[i] - dt / cls.boostCapacity);
+  if (wantBoost) cars.boost[i] = Math.max(0, cars.boost[i] - (dt * T.boostDrain) / cls.boostCapacity);
   if (cars.miniT[i] > 0) cars.miniT[i] = Math.max(0, cars.miniT[i] - dt);
   const boosting = cars.boosting[i] === 1;
   const mini = cars.miniT[i] > 0;
-  const top = cls.topSpeed * (boosting ? T.boostTop : 1) * (mini ? T.miniTurboTop : 1);
+  slipstream(sim, i, speed, dt);
+  cruiseBuild(sim, i, c, fwd, cls.topSpeed, surf.offroad === true, dt);
+  const draft = cars.draft[i];
+  const top = cls.topSpeed * (boosting ? T.boostTop : 1) * (mini ? T.miniTurboTop : 1) * (1 + T.slipTop * draft + (cars.slingT[i] > 0 ? T.slingTop : 0)) * (1 + T.cruiseTop * cars.cruise[i]);
 
   // Spin-out: no control until it settles.
   if (cars.spinT[i] > 0) {
@@ -92,7 +96,9 @@ export function stepCar(sim: SimState, i: number, c: Controls, dt: number): void
       if (fwd > 0.5) a -= cls.brake * c.brake;
       else if (fwd > -T.reverseSpeed) a -= cls.accel * 0.5 * c.brake;
     }
-    a -= T.airDrag * fwd * Math.abs(fwd) + T.rolling * sign(fwd) * Math.min(1, Math.abs(fwd)) + surf.drag * (1 - rough) * fwd;
+    // Less drag in a slipstream only flat out near the top (closing on a car into a corner wrecked the AI).
+    const tow = c.brake === 0 && fwd > cls.topSpeed * 0.85 ? T.slipDrag * draft : 0;
+    a -= T.airDrag * (1 - tow) * fwd * Math.abs(fwd) + T.rolling * sign(fwd) * Math.min(1, Math.abs(fwd)) + surf.drag * (1 - rough) * fwd;
 
     // Drift entry.
     const drifting = cars.drift[i] === 1;
@@ -417,20 +423,81 @@ function stepWreck(sim: SimState, i: number, c: Controls, dt: number): void {
 }
 
 /**
- * Adds boost earned by a move (a drift, air, a near miss), scaled by race position (TUNING
- * boostPlaceLead…boostPlaceLast) while racing, and capped at a full meter; returns what was paid.
+ * Adds boost earned by a move (a drift, air, a near miss), times boostEarn, scaled by race position
+ * (TUNING boostPlaceLead…boostPlaceLast) while racing, and capped at a full meter; returns what was paid.
  */
 export function earnBoost(sim: SimState, i: number, amount: number): number {
   const cars = sim.cars;
-  let scale = 1;
+  let scale = T.boostEarn;
   if (sim.race.phase === 'racing' && !cars.finished[i]) {
     let n = 0;
     for (let k = 0; k < cars.count; k++) if (cars.active[k]) n++;
-    if (n > 1) scale = lerp(T.boostPlaceLead, T.boostPlaceLast, clamp(cars.rank[i] / (n - 1), 0, 1));
+    if (n > 1) scale *= lerp(T.boostPlaceLead, T.boostPlaceLast, clamp(cars.rank[i] / (n - 1), 0, 1));
   }
   const paid = Math.max(0, Math.min(amount * scale, 1 - cars.boost[i]));
   cars.boost[i] += paid;
   return paid;
+}
+
+/**
+ * The slipstream (TUNING slipRange…slingTime): whether car i is tucked in behind another, eased into
+ * `draft`; and the slingshot (`slingT`) when it pulls out to pass after slipCharge s in one. Ahead
+ * and to the side are along the road and across it (spline distance and lateral), not the car's
+ * nose: through a bend or in a drift, the car ahead is off the nose's line without anyone passing.
+ */
+function slipstream(sim: SimState, i: number, speed: number, dt: number): void {
+  const cars = sim.cars;
+  if (cars.slingT[i] > 0) cars.slingT[i] = Math.max(0, cars.slingT[i] - dt);
+  // In the air (a drift's hop, a crest), it holds: no slipstream to gain or lose up there.
+  if (cars.grounded[i] !== 1) return;
+  let tucked = false;
+  // Pulled out to the side of the car it was behind (still ahead, no longer in line): passing.
+  let beside = false;
+  if (speed > T.slipMinSpeed && cars.ghostT[i] <= 0) {
+    const sp = cars.spline[i];
+    const spline = sim.track.splines[sp];
+    for (let k = 0; k < cars.count && !tucked; k++) {
+      // Not a ghost (just respawned: nothing to hit, nor any air to push), nor on another road.
+      if (k === i || !cars.active[k] || cars.wreck[k] || cars.ghostT[k] > 0 || cars.spline[k] !== sp) continue;
+      const ahead = sp === 0 ? signedGap(cars.s[k], cars.s[i], spline.length) : cars.s[k] - cars.s[i];
+      if (ahead < -2 || ahead > T.slipRange) continue;
+      // Going the same way, and fast enough to punch a hole in the air.
+      if (cars.vx[k] * cars.vx[i] + cars.vz[k] * cars.vz[i] < T.slipMinSpeed * speed) continue;
+      // On a straight: the road runs the same way at both cars (within about 11°). Round a bend
+      // the tow does little, and the field wrecked more with it there.
+      const ja = Math.min(spline.tx.length - 1, Math.max(0, Math.round(cars.s[i] / spline.step)));
+      const jb = Math.min(spline.tx.length - 1, Math.max(0, Math.round(cars.s[k] / spline.step)));
+      if (spline.tx[ja] * spline.tx[jb] + spline.tz[ja] * spline.tz[jb] < 0.98) continue;
+      const side = Math.abs(cars.lateral[k] - cars.lateral[i]);
+      if (ahead >= 3 && side <= T.slipWidth) tucked = true;
+      else if (side <= T.slipWidth * 3) beside = true;
+    }
+  }
+  cars.draft[i] = approach(cars.draft[i], tucked ? 1 : 0, 3 * dt);
+  if (tucked) cars.draftT[i] = Math.min(T.slipCharge, cars.draftT[i] + dt);
+  else if (cars.draftT[i] > 0) {
+    // A slingshot only for pulling out to pass: falling back, or the car ahead going, gives nothing.
+    if (beside && cars.draftT[i] >= T.slipCharge) {
+      cars.slingT[i] = T.slingTime;
+      sim.events.push(sim.tick, Ev.Slingshot, i, cars.x[i], cars.y[i], cars.z[i]);
+    }
+    cars.draftT[i] = 0;
+  }
+}
+
+/** The straight-line build past top speed (TUNING cruiseAt…cruiseFade), in `cruise`. */
+function cruiseBuild(sim: SimState, i: number, c: Controls, fwd: number, classTop: number, offroad: boolean, dt: number): void {
+  const cars = sim.cars;
+  const was = cars.cruise[i];
+  // A hit: a wall (wallT), a car (lastHitT, this tick or the last), or anything else that knocked
+  // the speed down under cruiseLose of where the build starts.
+  const hit = cars.wallT[i] > 0 || (cars.lastHitT[i] > 0 && sim.tick - cars.lastHitT[i] <= 1) || (was > 0 && fwd < classTop * T.cruiseAt * T.cruiseLose);
+  const broken = hit || c.brake > 0 || cars.drift[i] === 1 || cars.spinT[i] > 0 || offroad;
+  if (broken) cars.cruise[i] = 0;
+  else if (cars.grounded[i] === 1 && c.throttle > 0.9 && Math.abs(c.steer) < T.cruiseSteer && fwd >= classTop * T.cruiseAt) {
+    cars.cruise[i] = Math.min(1, was + dt / T.cruiseBuild);
+    if (was < 1 && cars.cruise[i] >= 1) sim.events.push(sim.tick, Ev.Overdrive, i, cars.x[i], cars.y[i], cars.z[i]);
+  } else if (cars.grounded[i] === 1) cars.cruise[i] = Math.max(0, was - dt * T.cruiseFade);
 }
 
 /** Pays a wrecked car's catch-up boost (see TUNING.respawnBoost); returns how much. */
