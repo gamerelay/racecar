@@ -9,12 +9,13 @@
 import {
   AdditiveBlending,
   BoxGeometry,
-  type BufferGeometry,
+  BufferGeometry,
   CircleGeometry,
   Color,
   ConeGeometry,
   CylinderGeometry,
   DoubleSide,
+  Float32BufferAttribute,
   IcosahedronGeometry,
   Mesh,
   MeshBasicMaterial,
@@ -49,6 +50,101 @@ const TREE_GAP = 10;
 /** The Lava Tube's roof, above its road. */
 const TUBE_H = 6.5;
 const LAVA_ROCK = [0x2e2729, 0x3a3134, 0x453a3a];
+
+/** How far a lava flow keeps from a road's edge (it's scenery: never anything to drive into). */
+const LAVA_CLEAR = 24;
+
+/**
+ * Lava down the cone: up to three glowing rivers from the crater's lip, wandering downhill, each
+ * stopping well short of any road, on the flanks where the runs are longest (so they're the far
+ * flanks, seen across the island). One mesh, a scrolling shader, and a glow along each.
+ */
+function lavaFlows(
+  volcano: { x: number; z: number; crater: number; r: number },
+  land: Terrain,
+  roadGap: (x: number, z: number, reach?: number) => number,
+  kept: (x: number, z: number) => boolean,
+  rng: Rng,
+  time: { value: number },
+): Object3D[] {
+  const runs: { a: number; path: [number, number][] }[] = [];
+  for (let k = 0; k < 36; k++) {
+    const a0 = (k / 36) * Math.PI * 2;
+    const path: [number, number][] = [];
+    for (let r = volcano.crater - 4; r < volcano.r * 0.9; r += 4) {
+      // Wandering a little as it goes, like lava finding its way down.
+      const a = a0 + Math.sin(r / 23 + k) * 0.06 + Math.sin(r / 9 + k * 2) * 0.015;
+      const x = volcano.x + Math.cos(a) * r;
+      const z = volcano.z + Math.sin(a) * r;
+      if (roadGap(x, z, 40) < LAVA_CLEAR || kept(x, z)) break;
+      path.push([x, z]);
+    }
+    runs.push({ a: a0, path });
+  }
+  runs.sort((p, q) => q.path.length - p.path.length);
+  const chosen: typeof runs = [];
+  for (const run of runs) {
+    if (chosen.length >= 3 || run.path.length < 22) break;
+    if (chosen.some((c) => Math.abs(Math.atan2(Math.sin(c.a - run.a), Math.cos(c.a - run.a))) < 0.9)) continue;
+    chosen.push(run);
+  }
+  if (!chosen.length) return [];
+  const pos: number[] = [];
+  const uv: number[] = [];
+  const idx: number[] = [];
+  const glow: number[] = [];
+  for (const { path } of chosen) {
+    const base = pos.length / 3;
+    const n = path.length;
+    let along = 0;
+    for (let j = 0; j < n; j++) {
+      const [x, z] = path[j];
+      const [px, pz] = path[Math.max(0, j - 1)];
+      const [qx, qz] = path[Math.min(n - 1, j + 1)];
+      const l = Math.hypot(qx - px, qz - pz) || 1;
+      const nx = -(qz - pz) / l;
+      const nz = (qx - px) / l;
+      if (j) along += Math.hypot(x - path[j - 1][0], z - path[j - 1][1]);
+      // Wide where it spills over the lip, narrowing as it cools.
+      const half = (5 - 3.2 * (j / n)) * (1 + 0.2 * Math.sin(j * 0.7 + rng.range(0, 0.3)));
+      for (const side of [-1, 1]) {
+        const vx = x + nx * half * side;
+        const vz = z + nz * half * side;
+        pos.push(vx, land.height(vx, vz) + 0.35, vz);
+        uv.push(side < 0 ? 0 : 1, along / (n * 4));
+      }
+      if (j < n - 1) idx.push(base + j * 2, base + j * 2 + 1, base + j * 2 + 3, base + j * 2, base + j * 2 + 3, base + j * 2 + 2);
+      if (j % 5 === 2) glow.push(x, land.height(x, z) + 2, z);
+    }
+  }
+  const g = new BufferGeometry();
+  g.setAttribute('position', new Float32BufferAttribute(pos, 3));
+  g.setAttribute('uv', new Float32BufferAttribute(uv, 2));
+  g.setIndex(idx);
+  g.computeBoundingSphere();
+  const mesh = new Mesh(g, new ShaderMaterial({
+    uniforms: { uTime: time },
+    side: DoubleSide,
+    // Over the cone's slope: pulled toward the camera, so it never flickers into the land.
+    polygonOffset: true,
+    polygonOffsetFactor: -2,
+    polygonOffsetUnits: -4,
+    vertexShader: `varying vec2 vUv;void main(){vUv=uv;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);}`,
+    // Molten rock running downhill: bright streaks scrolling down the middle, a dark crust at the
+    // edges, cooling toward the end of the run.
+    fragmentShader: `uniform float uTime;varying vec2 vUv;
+      void main(){
+        float across=abs(vUv.x-0.5)*2.0;
+        float f=vUv.y*40.0-uTime*0.9;
+        float n=0.55*sin(f*1.3+vUv.x*4.0)+0.35*sin(f*2.9-vUv.x*9.0)+0.2*sin(f*6.1);
+        vec3 hot=mix(vec3(1.0,0.3,0.04),vec3(1.0,0.85,0.32),smoothstep(0.15,0.85,n)*(1.0-across));
+        vec3 col=mix(hot,vec3(0.2,0.06,0.04),smoothstep(0.5,1.0,across+0.25*n+0.35*vUv.y));
+        gl_FragColor=vec4(col*(1.0-0.35*vUv.y),1.0);
+      }`,
+  }));
+  mesh.name = 'lava-flows';
+  return [mesh, glowPoints(glow, 0xff5a14, 14)];
+}
 
 /**
  * A toon material whose instances sway in the wind, more the higher up a vertex is: `amount` per
@@ -386,6 +482,7 @@ export function buildIsland(track: Track, seed: number, land: Terrain, marks: { 
       plume.col.push(g, g * 0.97, g * 0.95);
     }
     objects.push(animatedPoints(plume.pos, plume.phase, plume.col, 'plume', 30, time));
+    objects.push(...lavaFlows(volcano, land, roadGap, kept, rng, time));
     // Boulders of black rock over the upper cone, and along the rim road's verges.
     for (let k = 0; k < 260; k++) {
       const a = rng.range(0, Math.PI * 2);
