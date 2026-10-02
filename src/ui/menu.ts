@@ -19,6 +19,7 @@ import { aiPlate, cleanPlate, plateProblem, PLATE_MAX, savePlate, typedPlate } f
 import { DEFAULT_OPTIONS, FILL_DIFFICULTY, SEATS, canJoin, nextVisibility, legacySeats, seatIndex, summarize, type Lobby, type LobbyAction, type LobbyOptions, type LobbySummary, type SeatChoice } from '../lobby/lobby';
 import { pingClass } from './format';
 import { MAX_LAPS, quickRaceSetup, raceFromLobby, randomCar, toQuery, type RaceSetup } from './setup';
+import { onOverlay, overlayUp } from './overlay';
 import { carStats } from './stats';
 import { thumb, thumbSvg } from './thumb';
 
@@ -97,6 +98,8 @@ export class Menu {
   private backing = false;
   /** A new screen is on its way in: the next paint fades it in (and from which side). */
   private entering = false;
+  /** A screen is fading out: nothing in it can be pressed. */
+  private leaving = false;
   /** The title's Settings button (main.ts opens the panel). */
   onSettings?: () => void;
 
@@ -120,6 +123,7 @@ export class Menu {
     this.root = document.createElement('div');
     this.root.id = 'menu';
     document.body.appendChild(this.root);
+    onOverlay(() => this.syncInert());
   }
 
   /** Opens on the title, or straight into a lobby (back from its race, or a reload in it). */
@@ -185,7 +189,8 @@ export class Menu {
       this.root.dataset.dir = back ? 'back' : 'fwd';
       this.root.classList.remove('entering');
       this.root.classList.add('leaving');
-      this.root.inert = true;
+      this.leaving = true;
+      this.syncInert();
       await wait(window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ? 0 : LEAVE_MS);
       // Another screen was asked for meanwhile: that one's on its way instead.
       if (this.screen !== screen) return;
@@ -284,13 +289,19 @@ export class Menu {
     }
   }
 
+  /** The menu can't be pressed while a screen fades out, nor under Settings (overlay.ts): a redraw keeps it so. */
+  private syncInert(): void {
+    this.root.inert = this.leaving || overlayUp();
+  }
+
   /** Swaps the card, keeping focus on the same control when it's still there (for the pad). */
   private paint(html: string, focus?: string): void {
     const was = document.activeElement?.id;
     this.root.innerHTML = html;
     // A new screen fades in; a screen redrawn in place (a lobby update, the list refreshing) doesn't.
     this.root.classList.remove('leaving');
-    this.root.inert = false;
+    this.leaving = false;
+    this.syncInert();
     if (this.entering) {
       this.entering = false;
       this.root.classList.remove('entering');
@@ -515,11 +526,12 @@ export class Menu {
       const online = who !== 'local';
       const visibility: Lobby['visibility'] = who === 'invite' ? 'invite' : 'public';
       const go = document.getElementById('cGo') as HTMLButtonElement;
+      const here = this.screen;
       go.disabled = true;
       const lobby = await this.backend.create(this.newcomer(online ? '' : LOCAL_ID), { name, visibility, online, options: this.readOptions() }).catch(() => null);
       go.disabled = false;
       // Back (or Esc) while it was being made: you've left, and so does the lobby.
-      if (this.screen.kind !== 'create') return void (lobby && this.backend.abandon?.(lobby.id));
+      if (this.screen !== here) return void (lobby && this.backend.abandon?.(lobby.id));
       if (lobby) void this.show({ kind: 'lobby', id: lobby.id });
       else (document.querySelector('.create .muted') as HTMLElement).textContent = "Couldn't reach the lobby server. Try again, or pick Private.";
     });
