@@ -98,6 +98,9 @@ export interface MusicMix {
   tone: number;
 }
 
+/** The music bus's level when it's on. */
+export const MUSIC_LEVEL = 0.8;
+
 export function musicMix(o: {
   /** There's a recorded track and it hasn't failed. */
   recorded: boolean;
@@ -118,7 +121,8 @@ export function musicMix(o: {
     track: o.recorded && o.on,
     synth,
     intensity: o.menu || !o.racing ? 0 : o.finalLap ? 2 : 1,
-    level: o.on ? 0.5 : 0,
+    // Up from 0.5 (playtests: the engines drowned it), with the engines down: see audio.ts.
+    level: o.on ? MUSIC_LEVEL : 0,
     tone: behind ? 1400 : o.timeScale < 0.9 ? 550 : 12000,
   };
 }

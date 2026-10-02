@@ -23,6 +23,12 @@ const HEAR = 90;
 const SETTINGS_KEY = 'racecar.audio';
 /** The recorded tracks' level into the music bus. */
 const TRACK_LEVEL = 0.8;
+/**
+ * The buses' levels. Engines were too loud for the music in playtests (2026-10-01): down from
+ * 0.55, with the music up (`musicMix`'s level), about 8 dB between them.
+ */
+const SFX_LEVEL = 0.9;
+const ENGINES_LEVEL = 0.35;
 
 export interface AudioSettings {
   muted: boolean;
@@ -143,8 +149,8 @@ export class GameAudio {
       b.connect(master);
       return b;
     };
-    const sfx = bus(0.9);
-    const engines = bus(0.55);
+    const sfx = bus(SFX_LEVEL);
+    const engines = bus(ENGINES_LEVEL);
     const musicTone = ctx.createBiquadFilter();
     musicTone.type = 'lowpass';
     musicTone.frequency.value = 12000;
@@ -246,8 +252,8 @@ export class GameAudio {
     const slow = Math.sqrt(sim.timeScale);
 
     // Engines and the world only behind a menu when there's no menu.
-    glide(g.engines.gain, f.menu ? 0 : 0.55, now, 0.2);
-    glide(g.sfx.gain, f.menu ? 0 : 0.9, now, 0.2);
+    glide(g.engines.gain, f.menu ? 0 : ENGINES_LEVEL, now, 0.2);
+    glide(g.sfx.gain, f.menu ? 0 : SFX_LEVEL, now, 0.2);
 
     // ---- the focus car ----
     const cls = sim.classes[c.cls[i]];
