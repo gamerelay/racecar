@@ -44,6 +44,8 @@ const PALM_LEAVES = [0x3f8f3a, 0x4ea03c, 0x358a44, 0x5aa83a];
 const JUNGLE = [0x2f7a3a, 0x266b34, 0x3c8a3a, 0x1f5f35, 0x4a9a3f];
 const PASTELS = [0xf4a6a0, 0x9fd9c8, 0xf6d38a, 0xa7c4f2, 0xf0b6d6, 0xfff1d6, 0xbfe3a0];
 const CANOPIES = [0xff5a5f, 0xffc93c, 0x35c9e8, 0xff8fc7, 0xffffff, 0x6fdc8c];
+/** How far from a road's verge the jungle's trees stand (bushes nearer in). */
+const TREE_GAP = 10;
 /** The Lava Tube's roof, above its road. */
 const TUBE_H = 6.5;
 const LAVA_ROCK = [0x2e2729, 0x3a3134, 0x453a3a];
@@ -132,14 +134,19 @@ export function buildIsland(track: Track, seed: number, land: Terrain, marks: { 
     z: number;
     y: number;
     half: number;
+    /** On a secret trail (the jungle closes in round it). */
+    secret: boolean;
   }
   const HC = 20;
   const hash = new Map<number, S[]>();
   const key = (a: number, b: number) => a * 73856093 + b * 19349663;
   let x0 = Infinity, x1 = -Infinity, z0 = Infinity, z1 = -Infinity;
   for (const sp of track.splines) {
+    // A secret trail over the land (not one across the sand) has the jungle close in round it.
+    const ground = track.surfaces[sp.surface[Math.floor(sp.n / 2)]].id;
+    const trail = sp.secret && ground !== 'sand' && ground !== 'beach';
     for (let i = 0; i < sp.n; i += 2) {
-      const s = { x: sp.px[i], z: sp.pz[i], y: sp.py[i], half: sp.width[i] / 2 + sp.shoulder[i] };
+      const s = { x: sp.px[i], z: sp.pz[i], y: sp.py[i], half: sp.width[i] / 2 + sp.shoulder[i], secret: trail };
       const k = key(Math.floor(s.x / HC), Math.floor(s.z / HC));
       let list = hash.get(k);
       if (!list) hash.set(k, (list = []));
@@ -153,6 +160,7 @@ export function buildIsland(track: Track, seed: number, land: Terrain, marks: { 
   /** Meters from (x, z) to the nearest road edge within ~`reach` (Infinity past it), and that road's point. */
   let nearX = 0;
   let nearZ = 0;
+  let nearSecret = false;
   const roadGap = (x: number, z: number, reach = 40) => {
     const r = Math.ceil(reach / HC);
     const cx = Math.floor(x / HC);
@@ -166,6 +174,7 @@ export function buildIsland(track: Track, seed: number, land: Terrain, marks: { 
             best = d;
             nearX = s.x;
             nearZ = s.z;
+            nearSecret = s.secret;
           }
         }
       }
@@ -508,6 +517,19 @@ export function buildIsland(track: Track, seed: number, land: Terrain, marks: { 
     }
   }
 
+  // ---- a fallen log under each ramp on a secret trail: its ends stick out of the dirt either side ----
+  const logs: Part[] = [];
+  for (const ramp of layout.ramps ?? []) {
+    const sp = track.splines.find((x) => x.id === ramp.spline);
+    if (!sp?.secret) continue;
+    const i = at(sp, ramp.s);
+    const half = sp.width[i] / 2 + sp.shoulder[i];
+    // Across the trail: the cylinder's length (local x) along the road's right, (-tz, tx).
+    const yaw = Math.atan2(-sp.tx[i], -sp.tz[i]) + 0.12;
+    logs.push({ x: sp.px[i], y: sp.py[i] + 0.25, z: sp.pz[i], yaw, sx: half * 2 + 3.5, sy: 1, sz: 1, color: 0x6b4a32 });
+    keep.push({ x: sp.px[i], z: sp.pz[i], r: half + 2.5 });
+  }
+
   // ---- trees: palms by the sea and the roads, jungle inland; umbrellas and huts on the beach ----
   const palms: Part[] = [];
   const crowns: Part[] = [];
@@ -562,7 +584,7 @@ export function buildIsland(track: Track, seed: number, land: Terrain, marks: { 
       const beach = sd < 26;
       if (beach) {
         // The beach: palms leaning out to sea (or over the road, right beside it), umbrellas.
-        if (gap < 8 && rng.next() < 0.35) {
+        if (gap < 8 && rng.next() < 0.2) {
           roadGap(px, pz, 20);
           const l = Math.hypot(nearX - px, nearZ - pz) || 1;
           palm(px, pz, [(nearX - px) / l, (nearZ - pz) / l], rng.range(0.9, 1.15));
@@ -575,13 +597,16 @@ export function buildIsland(track: Track, seed: number, land: Terrain, marks: { 
         }
         continue;
       }
-      // Inland: jungle, thickest near the switchbacks and in the clumps, thin in town.
-      if (gap < 5) {
-        if (rng.next() < 0.2) bushes.push({ x: px, y: y - 0.2, z: pz, yaw: rng.range(0, 6), sx: rng.range(1, 2), sy: rng.range(0.8, 1.4), sz: rng.range(1, 2), color: pick(JUNGLE) });
+      // Inland: jungle, thickest near the switchbacks and in the clumps, thin in town. Trees stand
+      // back from the road (the verge is somewhere to run wide onto, and the corners can be seen
+      // round), with low bushes nearer in.
+      // A secret trail is a passage through the trees: they stand right at its edge.
+      if (gap < (nearSecret ? 2.5 : TREE_GAP)) {
+        if (gap >= 4 && rng.next() < 0.12) bushes.push({ x: px, y: y - 0.2, z: pz, yaw: rng.range(0, 6), sx: rng.range(1, 2), sy: rng.range(0.8, 1.4), sz: rng.range(1, 2), color: pick(JUNGLE) });
         continue;
       }
       const dense = clump(px, pz) < 0.3;
-      if (rng.next() < (dense ? 0.25 : 0.7)) continue;
+      if (rng.next() < (dense ? 0.3 : 0.78)) continue;
       if (rng.next() < 0.25) palm(px, pz, [rng.range(-1, 1), rng.range(-1, 1)], rng.range(0.9, 1.3));
       else {
         const sc = rng.range(0.8, 1.5);
@@ -656,6 +681,12 @@ export function buildIsland(track: Track, seed: number, land: Terrain, marks: { 
   objects.push(instanced(faceted(new CylinderGeometry(0.5, 0.35, 1, 6).rotateX(Math.PI / 2)), tint, boats), instanced(unit, tint, cabins), instanced(unit, tint, masts));
   objects.push(instanced(faceted(new IcosahedronGeometry(0.62, 0).scale(1, 1, 1)), tint, tubeRock.filter((p) => p.roll !== undefined)), instanced(unit, tint, tubeRock.filter((p) => p.roll === undefined)));
   objects.push(instanced(unit, tint, ropes));
+  if (logs.length) {
+    // Across the trail on purpose: under its hump, the ends showing.
+    const log = instanced(faceted(new CylinderGeometry(0.5, 0.5, 1, 7).rotateZ(Math.PI / 2)), tint, logs);
+    log.name = 'trail-logs';
+    objects.push(log);
+  }
   if (lavaStrips.length) objects.push(instanced(unit, new MeshBasicMaterial({ color: 0xff7a1a }), lavaStrips));
   if (tubeLights.length) objects.push(glowPoints(tubeLights, 0xff7a2a, 7));
   if (torches.length) objects.push(glowPoints(torches, 0xffa040, 2.6));

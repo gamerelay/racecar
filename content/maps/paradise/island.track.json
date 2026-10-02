@@ -3973,7 +3973,8 @@
      "width": 9.5,
      "lanes": 1,
      "shoulder": 1.5,
-     "surface": "dirt"
+     "surface": "dirt",
+     "verge": "undergrowth"
     },
     {
      "p": [
@@ -3984,7 +3985,8 @@
      "width": 9.5,
      "lanes": 1,
      "shoulder": 1.5,
-     "surface": "dirt"
+     "surface": "dirt",
+     "verge": "undergrowth"
     },
     {
      "p": [
@@ -3995,7 +3997,8 @@
      "width": 9.5,
      "lanes": 1,
      "shoulder": 1.5,
-     "surface": "dirt"
+     "surface": "dirt",
+     "verge": "undergrowth"
     }
    ]
   }
@@ -4290,8 +4293,16 @@
     482
    ],
    [
-    -120,
-    490
+    -40,
+    476
+   ],
+   [
+    -150,
+    466
+   ],
+   [
+    -250,
+    470
    ],
    [
     -330,

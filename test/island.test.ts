@@ -26,7 +26,8 @@ function instances(objects: Object3D[]): Vector3[] {
   const m = new Matrix4();
   const out: Vector3[] = [];
   for (const o of objects) {
-    if (!(o instanceof InstancedMesh)) continue;
+    // The fallen logs lie across the secret trail's hump on purpose.
+    if (!(o instanceof InstancedMesh) || o.name === 'trail-logs') continue;
     for (let k = 0; k < o.count; k++) {
       o.getMatrixAt(k, m);
       out.push(new Vector3().setFromMatrixPosition(m));

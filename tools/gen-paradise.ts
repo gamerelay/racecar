@@ -157,7 +157,7 @@ const tube: BranchDef = {
 
 // ---- secret shortcuts: no sign, not on the map; short, and each a gamble of its own ----
 /** A secret cut from `from` to `to` through (x, z) points, at the main road's height beside each. */
-const secret = (id: string, from: number, to: number, lat: number, via: [number, number][], width: number, surface: string, near: [number, number]): BranchDef => ({
+const secret = (id: string, from: number, to: number, lat: number, via: [number, number][], width: number, surface: string, near: [number, number], verge?: string): BranchDef => ({
   id,
   kind: 'shortcut',
   secret: true,
@@ -167,7 +167,7 @@ const secret = (id: string, from: number, to: number, lat: number, via: [number,
     fork(from, 38, lat, -0.2, width, surface),
     ...via.map(([x, z]) => ({ p: [x, r1(yAt(near[0], near[1]) + (yAt(x, z) - yAt(near[0], near[1])) * 0.5 - 0.2), z] as [number, number, number], width, lanes: 1, shoulder: 1.5, surface })),
     fork(to, -38, lat, -0.2, width, surface),
-  ],
+  ].map((p) => (verge ? { ...p, verge } : p)),
 });
 // The Beach Cut: straight on along the beach where the road swings inland out of town, on sand.
 const beachCut = secret('beach-cut', sAt(-10, 430), sAt(-268, 428), -5, [[-150, 440]], 10, 'beach', [-150, 430]);
@@ -175,7 +175,7 @@ const beachCut = secret('beach-cut', sAt(-10, 430), sAt(-268, 428), -5, [[-150, 
 // fallen log, while the Sandbar runs round the outside of it. (A hop across a corner's inside, at
 // Lighthouse Point, saved nothing: a cut has to turn as far as the road it cuts, so one only pays
 // across a bulge the road comes back out of on the same heading, like the town's S and this one.)
-const trail = secret('smugglers-trail', sAt(-371, 157), sAt(-350, -22), -3, [[-352, 62]], 9.5, 'dirt', [-330, 60]);
+const trail = secret('smugglers-trail', sAt(-371, 157), sAt(-350, -22), -3, [[-352, 62]], 9.5, 'dirt', [-330, 60], 'undergrowth');
 
 layout.branches = [sandbar, tube, beachCut, trail];
 const withBranches = bakeTrack(layout, surfaces);
@@ -270,7 +270,10 @@ layout.terrain = {
   // The coastline, clockwise from the harbour: the bay the freeway crosses, the point at the lighthouse.
   island: [
     [120, 482],
-    [-120, 490],
+    // The beach comes in to meet the road where it swings inland out of town (the Beach Cut's sand).
+    [-40, 476],
+    [-150, 466],
+    [-250, 470],
     [-330, 486],
     [-470, 400],
     [-468, 220],
