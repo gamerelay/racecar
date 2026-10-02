@@ -244,6 +244,25 @@ race; some move, and a few you can hit.
    - what "good" numbers look like.
 8. **A checklist for a new map.**
 
+## Next up (playtest notes, 2026-10-02)
+
+- **Button click effects:** a press feel on the menus' buttons and choosers (a quick scale or
+  flash, and a click sound through the effects bus).
+- **Music on the title screen from the start:** it waits for the first click or key now (browsers
+  block sound before a gesture, `Soundtrack` in `src/audio/soundtrack.ts`). Find what can start
+  sooner (the first pointer move, a "click to start" splash), or make the wait less noticeable.
+- **Traffic fading out in front of you:** investigate. Traffic fades over `FADE` m at the ends of
+  its lanes' sections and in and out of the start grid's clear zone (`GRID_CLEAR` in
+  `src/core/world/traffic.ts`); a car vanishing just ahead is probably one of those edges, or
+  the LOD (only cars near a racer are posed).
+- **Backroads' second shortcut (Logger's Leap):** smooth its edges where it leaves and rejoins,
+  and add berms on its corners.
+- **Backroads by day:** maybe a daytime option. Backroads has only its golden-hour light (the
+  `golden` palette); Paradise's Time option is noon or sunset (`sunset` in its `map.json`, a
+  second palette), so a daytime palette for Backroads would work the same way.
+- **Smashing stuff:** more particles and sounds when you smash a prop (cones, umbrellas, crates:
+  `src/render/skins/greybox/smash.ts`, `Ev.Smash` in `audio.ts`), maybe one per kind of prop.
+
 ## Other ideas worth considering
 
 - **Stunt air:** a barrel roll or flat spin in the air pays extra on a clean landing, with a
