@@ -4,10 +4,11 @@ Where racecar stands and what's next, for whoever picks it up (a person or a fre
 The design is [SPEC.md](./SPEC.md): decisions in §17, and what building changed in "Changed while
 building". This file is "where are we"; the spec is "what are we making".
 
-**Last updated:** 2026-10-02. The last tag is **`alpha-1.24`** (PRs #49–#60: short invite
-links, Settings and a real in-race menu, choosers and screen transitions, four new tracks, a
-codebase review's fixes, a loading screen, Paradise v2, no shortcut walls jutting into the road,
-and the grid in your own lane). It's on the hosted build ("Hosted test build" below).
+**Last updated:** 2026-10-02. The last tag is **`alpha-1.25`** (PR #61: boost easier to get,
+longer and stronger; Overdrive, the top speed climbing flat out on a straight; the slipstream and
+its slingshot; the AI holding its boost while it gets round something). Before it, `alpha-1.24`
+(PRs #49–#60: Settings and a real menu, four new tracks, Paradise v2, and more). It's on the
+hosted build ("Hosted test build" below).
 Every release is in [CHANGELOG.md](../CHANGELOG.md): add to its "Unreleased" section as you go,
 and retitle that section when you tag. [PLAN.md](./PLAN.md)'s six phases are all merged (it keeps
 a pool of other ideas), how online works is [ONLINE.md](./ONLINE.md), how maps are made is
@@ -309,8 +310,8 @@ the cone's far flanks.
     the track for an hour. The proxy always sends it.
   - **CORS on the Space** (GET and HEAD from any origin) stays: it lets a build read the Space's
     origin directly too, if the CDN is ever down.
-- **What's there now:** `alpha-1.24` (PRs #49–#60), updated 2026-10-02, with its two new
-  tracks on the CDN. Keep it the one row: update Z442EE in place rather than adding a game.
+- **What's there now:** `alpha-1.25` (PR #61), updated 2026-10-02, with every track on the
+  CDN. Keep it the one row: update Z442EE in place rather than adding a game.
 
 ## Next, in order
 

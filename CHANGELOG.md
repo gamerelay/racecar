@@ -4,7 +4,9 @@ What changed in each release of racecar, newest first. Releases are git tags on 
 reasons behind each change are in [docs/SPEC.md](./docs/SPEC.md) under "Changed while building",
 and where things stand is [docs/HANDOFF.md](./docs/HANDOFF.md).
 
-## Unreleased
+## alpha-1.25: Overdrive and the slipstream
+
+PR #61.
 
 - **Boost, a little better all round:** moves pay 20% more of it, a full meter lasts a quarter
   longer, and it pushes a little harder and a little faster (a top speed 35% over the car's,
