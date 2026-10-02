@@ -4,7 +4,9 @@ What changed in each release of racecar, newest first. Releases are git tags on 
 reasons behind each change are in [docs/SPEC.md](./docs/SPEC.md) under "Changed while building",
 and where things stand is [docs/HANDOFF.md](./docs/HANDOFF.md).
 
-## Unreleased
+## alpha-1.24: Paradise reworked, Settings and a real menu
+
+PRs #49–#60.
 
 - **Two new tracks for every map:** Relentless Pursuit and Half Time Surge, in every race's
   playlist beside the map's own tracks and the other two for any map.

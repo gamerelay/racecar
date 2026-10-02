@@ -4,11 +4,10 @@ Where racecar stands and what's next, for whoever picks it up (a person or a fre
 The design is [SPEC.md](./SPEC.md): decisions in §17, and what building changed in "Changed while
 building". This file is "where are we"; the spec is "what are we making".
 
-**Last updated:** 2026-10-02. The last tag is **`alpha-1.23`** (PR #48: one results table and a
-vote on the next map). `main` is at `fd953c7`, nine PRs past it and untagged (#49–#57, in
-CHANGELOG's "Unreleased"): short invite links, Settings and a real in-race menu, choosers and
-screen transitions, two new tracks, a codebase review's fixes, and a loading screen.
-**PR #58 (Paradise v2) is merged** (untagged too): "Paradise v2" below.
+**Last updated:** 2026-10-02. The last tag is **`alpha-1.24`** (PRs #49–#60: short invite
+links, Settings and a real in-race menu, choosers and screen transitions, four new tracks, a
+codebase review's fixes, a loading screen, Paradise v2, no shortcut walls jutting into the road,
+and the grid in your own lane). It's on the hosted build ("Hosted test build" below).
 Every release is in [CHANGELOG.md](../CHANGELOG.md): add to its "Unreleased" section as you go,
 and retitle that section when you tag. [PLAN.md](./PLAN.md)'s six phases are all merged (it keeps
 a pool of other ideas), how online works is [ONLINE.md](./ONLINE.md), how maps are made is
@@ -58,7 +57,7 @@ old keys still resolve). The third map is **Paradise** (`content/maps/paradise`,
   - **A loading screen** (#57): the crossed flags pulse on the dark screen between pages (in
     `index.html`, so it's up from the first paint; `src/ui/fade.ts`), at least 0.7 s, and an
     offline race waits behind it.
-- **Paradise v2** (PR #58, merged): playtest feedback was "the vibe is right, but the map is a
+- **Paradise v2** (PR #58, in alpha-1.24): playtest feedback was "the vibe is right, but the map is a
   little boring and hard to race". In thirteen commits:
   - **More swing:** deeper S-bends, sweepers 3 m wider (`driftWidth: 3`), the jungle's hairpins
     opened from 18–22 m to 37 m and more, and a bulge up the slope between them.
@@ -295,7 +294,7 @@ the cone's far flanks.
 - **Update it** (asleepace.com repo, its `publishing-games` skill): run the sanitizer on the new
   file, then `UPDATE games SET html = … WHERE id = 'Z442EE'`. It's live at once; players get it
   when they reload. Don't run its multiplayer injection: racecar brings GameRelay's SDK.
-- **The music** (17 MB) isn't in the single file: it's on the games CDN,
+- **The music** (29 MB) isn't in the single file: it's on the games CDN,
   **https://cdn.gamerelay.io/racecar/music/** (`VITE_MUSIC_URL` in `.env.production`).
   - **The CDN** is gamerelay.io's caching proxy (its `apps/server/src/cdn.ts`; setup and
     behaviour in its `docs/INFRASTRUCTURE.md`, "Asset CDN", live since 2026-10-01). It fronts the
@@ -310,9 +309,8 @@ the cone's far flanks.
     the track for an hour. The proxy always sends it.
   - **CORS on the Space** (GET and HEAD from any origin) stays: it lets a build read the Space's
     origin directly too, if the CDN is ever down.
-- **What's there now:** `main` at `fd953c7` (PR #57, the loading screen), updated 2026-10-02. Paradise v2
-  (PR #58) isn't on it yet: update it when asked. Keep it the one row: update Z442EE in
-  place rather than adding a game.
+- **What's there now:** `alpha-1.24` (PRs #49–#60), updated 2026-10-02, with its two new
+  tracks on the CDN. Keep it the one row: update Z442EE in place rather than adding a game.
 
 ## Next, in order
 
@@ -364,11 +362,11 @@ the cone's far flanks.
      only fix, and that's the owner's call.
    - The repo goes public. Then milestone 3b: the neon skin on Downtown (SPEC's City), which is
      the launch. Touch controls first: phones will be much of the link's traffic.
-2. **Paradise v2 (PR #58, merged):** drive it. Do the Beach Cut and Smugglers' Trail feel
+2. **Paradise v2 (alpha-1.24):** drive it. Do the Beach Cut and Smugglers' Trail feel
    like a fair gamble? The hard AI is about even on both (−0.4 s and level). Does the dust feel
    right running wide onto the beach and the jungle's edge? It isn't checked by eye: the poster
    scout's cars stand still, so tune `DUST` in `renderer.ts` from a drive. And is the lava rain at
-   chaos enough, or too much? Then update asleepace (Z442EE) when asked.
+   chaos enough, or too much?
 3. **The menu plan, step 3** ([MENU.md](./MENU.md)): keyboard remapping on the Controls screen,
    hints built from the bindings, and gamepad deadzone, rumble and sensitivity.
 4. **Playtest with a controller** whenever there's a build to try: tune with F4, and press F8 on
