@@ -1676,7 +1676,9 @@ The soundtrack (owner's tracks, 2026-10-01):
   the effects and above the engines (−30 dB against −29 and −34 on the buses).
 - **Which track:** the title's behind the menus and in lobbies (the attract page), looping. A race
   (and its results) plays a playlist: the map's own track and the two for any map (the owner's,
-  so a map's music doesn't go stale). Never the same song twice in a row: a race starts on one the
+  so a map's music doesn't go stale). Downtown and Paradise have a second track of their own
+  (`tokyo-dubstep`, `hawaiian-vibes`, the owner's, 2026-10-01: `MAP_TRACKS`), at the same loudness
+  as the rest (−15.9 LUFS). Never the same song twice in a row: a race starts on one the
   last race didn't play (`racecar.lastTrack` on the device), and when a track ends another one
   follows. The title's track isn't muffled behind the menu (the synth was, under the attract race).
 - **The synth is the fallback**, for a track that can't load or play, and with `?music=0`.
