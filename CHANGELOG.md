@@ -12,6 +12,8 @@ PRs #63–#65.
   anticlockwise); it's now the same way up as the world, and as the lobby's map thumbnail.
 - **Fix:** "Overdrive" pops once per build, not again each time you ease off for a moment.
 - **Fix:** a slingshot (or Overdrive) no longer carries through a wreck.
+- Docs: what's next from the playtest, a pickup truck and Avalanche (a planned map in the Swiss
+  Alps) in PLAN.md, and a pass over the whole codebase for TECH_DEBT.md.
 
 ## alpha-1.26: an orchestra for the menus, an acoustic Backroads
 
