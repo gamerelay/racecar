@@ -29,6 +29,10 @@ const TRACK_LEVEL = 0.8;
  */
 const SFX_LEVEL = 0.9;
 const ENGINES_LEVEL = 0.35;
+/** The menus' clicks (ui/click.ts), scaled by the effects volume. */
+const UI_LEVEL = 0.5;
+/** A paused race's context runs this long for a menu click (ms), then stops again. */
+const UI_RING_MS = 250;
 
 /** The master's level, before the player's own volume. */
 const MASTER_LEVEL = 0.8;
@@ -69,6 +73,8 @@ interface Graph {
   ctx: AudioContext;
   master: GainNode;
   sfx: GainNode;
+  /** The menus' clicks: heard behind a menu and through a pause, unlike `sfx`. */
+  ui: GainNode;
   engines: GainNode;
   musicLevel: GainNode;
   musicTone: BiquadFilterNode;
@@ -100,6 +106,9 @@ export class GameAudio {
   private hidden = false;
   /** The track should be playing (as of the last frame). */
   private wantTrack = false;
+  /** A menu click rings until then (performance.now()): a paused context runs for it. */
+  private uiUntil = 0;
+  private readonly uiShot: Shot = { ctx: undefined as unknown as AudioContext, bus: undefined as unknown as AudioNode, gain: 0, pan: 0 };
   private readonly near: number[] = [];
   private readonly shot: Shot = { ctx: undefined as unknown as AudioContext, bus: undefined as unknown as AudioNode, gain: 0, pan: 0 };
 
@@ -189,6 +198,7 @@ export class GameAudio {
       ctx,
       master,
       sfx,
+      ui: bus(UI_LEVEL * this.vol.effects),
       engines,
       musicLevel,
       musicTone,
@@ -210,6 +220,8 @@ export class GameAudio {
     if (this.settings.music && !this.settings.muted) this.track?.play(true);
     this.shot.ctx = ctx;
     this.shot.bus = sfx;
+    this.uiShot.ctx = ctx;
+    this.uiShot.bus = this.g.ui;
   }
 
   /** The master's level now: M's mute, then the player's master volume. */
@@ -267,7 +279,9 @@ export class GameAudio {
     }
     // Muted, or paused, or away: nothing to hear, so nothing runs.
     const quiet = f.paused || this.hidden || this.settings.muted;
-    if (quiet !== (g.ctx.state === 'suspended')) void (quiet ? g.ctx.suspend() : g.ctx.resume());
+    // Paused, a menu click keeps the context running till it's rung out (uiSound silenced the rest).
+    const stop = quiet && !(f.paused && !this.hidden && !this.settings.muted && performance.now() < this.uiUntil);
+    if (stop !== (g.ctx.state === 'suspended')) void (stop ? g.ctx.suspend() : g.ctx.resume());
     if (quiet) {
       // A track would play on through a suspended context, unheard: it waits instead.
       this.wantTrack = false;
@@ -494,6 +508,41 @@ export class GameAudio {
       case Ev.Respawn:
         if (e.car === focus && e.a >= 0.01) this.chime([12, 19], 0.1);
         break;
+    }
+  }
+
+  /**
+   * A menu sound (ui/click.ts): a press, a softer one for Back and the like (ghost buttons), or a
+   * chooser's or slider's tick. Heard over the title and through a pause (the context runs again
+   * for it, with the race's sounds silenced till it's unpaused), never while muted.
+   */
+  uiSound(kind: 'press' | 'back' | 'tick'): void {
+    const g = this.g;
+    if (!g || this.settings.muted || this.hidden) return;
+    const now = g.ctx.currentTime;
+    if (g.ctx.state === 'suspended') {
+      // Paused: the engines, effects and music go silent before it runs, and glide back on unpausing.
+      for (const p of [g.engines.gain, g.sfx.gain, g.musicLevel.gain]) {
+        p.cancelScheduledValues(now);
+        p.value = 0;
+      }
+      void g.ctx.resume();
+    }
+    this.uiUntil = performance.now() + UI_RING_MS;
+    g.ui.gain.value = UI_LEVEL * this.vol.effects;
+    const s = this.uiShot;
+    s.gain = 1;
+    s.pan = 0;
+    const t = g.ctx.currentTime;
+    if (kind === 'tick') {
+      toneShot(s, 'triangle', 2400, 2100, 0.001, 0.035, t);
+    } else if (kind === 'back') {
+      toneShot(s, 'triangle', 660, 520, 0.002, 0.07, t);
+      noiseShot(s, 'bandpass', 1800, 900, 0.001, 0.03, 2, t);
+    } else {
+      toneShot(s, 'square', 1250, 900, 0.001, 0.045, t);
+      toneShot(s, 'triangle', 1870, 1870, 0.002, 0.08, t + 0.012);
+      noiseShot(s, 'highpass', 4000, 3000, 0.001, 0.02, 1, t);
     }
   }
 
