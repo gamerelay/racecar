@@ -40,6 +40,8 @@ export interface BakedSpline {
   shoulder: Float64Array;
   /** Extra ground height from ramps. */
   ramp: Float64Array;
+  /** Where a ramp has sides (RampDef.flank): meters past the road's edge and shoulder its height runs out over (0: none). */
+  rampFlank: Float64Array;
   lanes: Uint8Array;
   surface: Uint8Array;
   /** The surface past the road's edge (VERGE_DEFAULT: the layout's shoulderSurface). */
@@ -136,6 +138,7 @@ export function bakeTrack(layout: TrackLayout, surfaces: SurfaceDef[]): Track {
       const u = (s - r.s) / r.length;
       const h = !back ? r.height * u : u <= 1 ? r.height * u ** 1.5 : (r.height * (1 + Math.cos(Math.PI * Math.min(1, (s - r.s - r.length) / back)))) / 2;
       sp.ramp[i] = Math.max(sp.ramp[i], h);
+      if (r.flank) sp.rampFlank[i] = r.flank;
     });
   }
 
@@ -491,6 +494,7 @@ function emptySpline(id: string, index: number, closed: boolean, length: number,
     bank: f(),
     shoulder: f(),
     ramp: f(),
+    rampFlank: f(),
     lanes: u(),
     surface: u(),
     verge: u().fill(VERGE_DEFAULT),

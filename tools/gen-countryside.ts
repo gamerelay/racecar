@@ -156,6 +156,9 @@ const leapSp = withBranches.splines[2];
 const creekSp = withBranches.splines[3];
 
 // ---- jumps: kickers on the ridge and at the leap ----
+const leapKick = Math.round(leapSp.length * 0.35) - 3;
+/** How far the Leap kicker's sides run out past the road's edge (m). */
+const LEAP_FLANK = 6;
 // Each kicker ends on its crest's top, so the road falls away under you (heading south, s grows
 // as z falls).
 layout.ramps = [
@@ -163,7 +166,8 @@ layout.ramps = [
   { s: sAt(crests[1].x, crests[1].z, 54) - 10, height: 1.4, length: 10 },
   // Rounded (playtest, 2026-10-02: the straight wedge looked like a triangle): its lip where the
   // wedge's was, the rise 3 m longer so the lip's about as steep, and a 10 m roll down behind it.
-  { spline: 'leap', s: Math.round(leapSp.length * 0.35) - 3, height: 2.2, length: 15, back: 10 },
+  // Its sides are grass banks you can launch off, across the Leap (its rails open round it).
+  { spline: 'leap', s: leapKick, height: 2.2, length: 15, back: 10, flank: LEAP_FLANK },
 ];
 
 // ---- walls: the village, the bridges and the switchbacks' drops; open country elsewhere ----
@@ -181,6 +185,8 @@ layout.walls = {
     ...wallGaps(walled, L),
     { spline: 'barn', s: [0, Math.round(barnSp.length * 0.28)], side: 'right' },
     { spline: 'barn', s: [Math.round(barnSp.length * 0.7), Math.ceil(barnSp.length)], side: 'right' },
+    // No rails round the Leap's kicker: its sides are banks to launch off.
+    { spline: 'leap', s: [leapKick - 8, leapKick + 15 + 10 + 8], side: 'both' },
   ],
 };
 

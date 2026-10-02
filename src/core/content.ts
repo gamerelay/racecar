@@ -64,6 +64,12 @@ export interface RampDef {
    * wedge with a sheer back.
    */
   back?: number;
+  /**
+   * Sides you can launch off: past the road's edge (and its shoulder) the kicker's height runs out
+   * over this many meters, a grass bank, instead of standing the whole width of the world. Driven
+   * up from the side, it throws you across the road. Unset: the height is the same however far out.
+   */
+  flank?: number;
 }
 
 export interface PropDef {

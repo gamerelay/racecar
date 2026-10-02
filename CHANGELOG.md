@@ -9,6 +9,8 @@ and where things stand is [docs/HANDOFF.md](./docs/HANDOFF.md).
 - **Backroads: Logger's Leap's kicker is rounded.** It curves up from flat to the same lip and
   height, and rolls back down behind it instead of a sheer drop (it looked like a triangle). Flat
   out you fly about as far; slow, you roll over it rather than off its back.
+- **Backroads: Logger's Leap's kicker has sides.** Its rails are gone round it, and its sides are
+  grass banks: drive up one from the side and it throws you across the Leap.
 
 ## alpha-1.28: the press feel, the title's music and Logger's Leap
 
