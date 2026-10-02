@@ -8,6 +8,7 @@ import type { Sim } from '../core/sim';
 import type { LobbyBackend } from '../lobby/backend';
 import type { RelayLike } from '../lobby/relay';
 import type { RaceUi } from '../ui/race';
+import { goTo } from '../ui/fade';
 import { raceFromLobby, toQuery, type RaceSetup } from '../ui/setup';
 import { joinRace, type NetLayers } from './join';
 import { PostRace } from './postrace';
@@ -97,7 +98,7 @@ export class OnlineRace {
       // Every map, in name order.
       maps: [...maps].sort((a, b) => a.name.localeCompare(b.name)).map((m) => `${m.id}/${m.layouts[0]}`),
       now: () => serverNow(),
-      go: (l) => (location.search = toQuery(raceFromLobby(l, lobbies.youIn(l.id), l.seed!, true))),
+      go: (l) => goTo(toQuery(raceFromLobby(l, lobbies.youIn(l.id), l.seed!, true))),
     });
     // On a page timer until the race page is in, then on the relay's tick: the lobby host's page
     // runs the vote, and a hidden tab's timers slow to once a minute.

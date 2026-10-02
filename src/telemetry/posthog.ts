@@ -1,6 +1,7 @@
 // PostHog sink for playtest and production builds (SPEC §14). Anonymous: a random id kept in
 // localStorage, no names. Off unless VITE_POSTHOG_KEY is set at build time, and players can turn
-// it off (localStorage racecar.telemetry = "off"; setTelemetryOptOut is for a settings screen). At most one
+// it off (Settings → Privacy, which sets localStorage racecar.telemetry = "off"), at once: the sink checks before
+// every send. At most one
 // batched request every 10 s, plus one on page hide. Per-tick traces never go here.
 
 import type { Record } from './telemetry';
@@ -22,6 +23,14 @@ export function posthogEnabled(): boolean {
   return !!KEY && store('racecar.telemetry') !== 'off';
 }
 
+/** Whether the player turned analytics off (Settings → Privacy). */
+export function telemetryOptedOut(): boolean {
+  return store('racecar.telemetry') === 'off';
+}
+
+/** Whether this build sends analytics at all (it has a PostHog key). */
+export const posthogBuilt = !!KEY;
+
 export function setTelemetryOptOut(off: boolean): void {
   store('racecar.telemetry', off ? 'off' : 'on');
 }
@@ -34,6 +43,8 @@ export function posthogSink(session: string, build: string): (lines: Record[], b
   let last = 0;
   const send = (beacon: boolean) => {
     if (!pending.length || !KEY) return;
+    // Turned off mid-session: what's waiting is dropped, not sent.
+    if (telemetryOptedOut()) return void (pending = []);
     const batch = pending
       .filter((r) => r.t !== 'trace')
       .map((r) => {

@@ -1,6 +1,9 @@
 // Menus by controller (SPEC §13): the d-pad, stick or arrow keys move focus to the nearest
-// control in that direction, by where things are on screen; on a dropdown, left and right change
-// its value. The choice of "nearest" is pure (pickNext) so it's tested without a DOM.
+// control in that direction, by where things are on screen; on a chooser (chooser.ts), a slider or
+// a dropdown, left and right change its value. The choice of "nearest" is pure (pickNext) so it's
+// tested without a DOM.
+
+import { isChooser, stepChooser } from './chooser';
 
 export type Dir = 'up' | 'down' | 'left' | 'right';
 
@@ -46,7 +49,7 @@ function controls(root: HTMLElement): HTMLElement[] {
   return [...root.querySelectorAll<HTMLElement>(CONTROLS)].filter((el) => el.offsetParent !== null && !(el as HTMLButtonElement).disabled);
 }
 
-/** Moves focus within `root` (or changes the focused dropdown's value on left and right). */
+/** Moves focus within `root` (or changes the focused chooser's, slider's or dropdown's value on left and right). */
 export function navigate(root: HTMLElement, dir: Dir): void {
   const list = controls(root);
   if (!list.length) return;
@@ -56,6 +59,14 @@ export function navigate(root: HTMLElement, dir: Dir): void {
     return;
   }
   const el = list[at];
+  const side = dir === 'left' ? -1 : dir === 'right' ? 1 : 0;
+  if (side && isChooser(el)) return stepChooser(el, side);
+  if (side && el instanceof HTMLInputElement && el.type === 'range') {
+    if (side > 0) el.stepUp();
+    else el.stepDown();
+    el.dispatchEvent(new Event('input'));
+    return;
+  }
   if (el instanceof HTMLSelectElement && (dir === 'left' || dir === 'right')) {
     const n = el.options.length;
     el.selectedIndex = (el.selectedIndex + (dir === 'right' ? 1 : n - 1)) % n;

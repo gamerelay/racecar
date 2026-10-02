@@ -5,6 +5,7 @@
 
 import { resolveLayout, type TimeOption } from '../core/content';
 import { cleanPlate } from '../lobby/plate';
+import { goTo } from './fade';
 import { DEFAULT_OPTIONS, FILL_DIFFICULTY, encodeSeats, legacySeats, othersIn, parseSeats, seatIndex, type Difficulty, type Lobby, type Other } from '../lobby/lobby';
 
 export interface RaceSetup {
@@ -114,7 +115,7 @@ export function toQuery(s: RaceSetup): string {
 
 /** The same race again: same seed, so the same weather and traffic (the pause menu's Restart). */
 export function restart(s: RaceSetup): void {
-  location.search = toQuery(offline(s));
+  goTo(toQuery(offline(s)));
 }
 
 /** An online race's link without its online parts: a restart or another race is yours alone. */
@@ -126,7 +127,7 @@ export function offline(s: RaceSetup): RaceSetup {
 
 /** Another race with the same setup and a fresh seed (the results screen's Race again). */
 export function raceAgain(s: RaceSetup): void {
-  location.search = toQuery({ ...offline(s), seed: Math.floor(Math.random() * 1e9) });
+  goTo(toQuery({ ...offline(s), seed: Math.floor(Math.random() * 1e9) }));
 }
 
 /** Where the menu goes after a race: back to its lobby, or the title with your choices kept. */
@@ -138,7 +139,7 @@ export function menuQuery(s: RaceSetup): string {
 }
 
 export function backToSetup(s: RaceSetup): void {
-  location.search = menuQuery(s);
+  goTo(menuQuery(s));
 }
 
 /**

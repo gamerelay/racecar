@@ -158,11 +158,38 @@ from 0.5 to 0.8, about 8 dB between them (`ENGINES_LEVEL` in `audio.ts`, `MUSIC_
 | Step | What | Effort |
 | --- | --- | --- |
 | 1 | Fix the mix (engines down, music up) | Very small (done) |
-| 1b | Choosers instead of dropdowns; transitions between screens | Small to medium |
-| 2 | Settings store and panel; the in-race menu (Resume, Restart, Settings, Quit); Sound sliders; Graphics preset and settings; analytics opt-out. In the in-race menu and the main menu. | Medium |
+| 1b | Choosers instead of dropdowns; transitions between screens | Small to medium (done) |
+| 2 | Settings store and panel; the in-race menu (Resume, Restart, Settings, Quit); Sound sliders; Graphics preset and settings; analytics opt-out. In the in-race menu and the main menu. | Medium (done) |
 | 3 | Keyboard remapping, with hints from the bindings; gamepad deadzone, rumble and sensitivity | Medium |
 | 4 | Gameplay, camera and comfort, HUD options; the panel in the lobby too | Small to medium, a setting at a time |
 | 5 | Gamepad remapping | Larger |
+
+## Built (steps 1b and 2, 2026-10-01)
+
+What's in, and where it went differently from the plan above:
+
+- **Settings** (`src/settings.ts`, `src/ui/settings.ts`): the store, and one panel opened from the
+  title's Settings button and the in-race menu's. It's one scrolling card with Sound, Graphics and
+  Privacy headings, not tabs: three sections don't need them yet (tabs can come with Controls).
+- **Sound:** master, music, engines and effects sliders, scaling the levels in `audio.ts`. M and N
+  still work on top.
+- **Graphics:** Quality (Low, Medium, High; Custom once a setting under it changes, and back to a
+  preset's name if they match it again), Resolution (50% to 100%), Post effects, Outlines, Show
+  FPS. No particles setting yet: the particle count isn't a knob in the renderer. `&post=0` and
+  `&ink=0` in the URL still turn those off whatever the setting.
+- **Privacy:** Analytics on or off, only in builds that send any (a PostHog key). Off applies at
+  once (the sink checks before every send); the old `racecar.telemetry` opt-out is carried over.
+- **The in-race menu:** the "☰ Menu" button (it used to quit) and Esc open it: Resume, Restart
+  (offline), Settings, and Back to lobby or Quit, then How to play. Esc or B closes Settings first,
+  then the menu.
+- **Choosers** (`src/ui/chooser.ts`): every dropdown in the menus (the lobby's options, the seats,
+  Who can join). The left part of one goes back, the rest on; left and right step it, and sliders,
+  when focused. The map chooser is cycling only for now (the thumbnail grid is still open).
+- **Transitions:** menu screens fade and slide (forward from the right, back from the left), with
+  nothing pressable while one leaves; overlays (the menu, Settings, results) pop in; every page
+  load (a race, the menu after one) fades through the dark (`src/ui/fade.ts`). The browser's
+  reduced-motion setting makes them short fades. The "Reduce motion" setting itself comes with
+  step 4.
 
 ## Open questions
 

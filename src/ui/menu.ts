@@ -8,6 +8,8 @@
 // own lobby is in this browser, and online ones are GameRelay rooms (lobby/relay.ts).
 
 import { esc } from './html';
+import { chooser } from './chooser';
+import { goTo } from './fade';
 import type { CarClass, MapDef, PaintDef, TrackLayout } from '../core/content';
 // The crossed chequered flags (the favicon's): after the wordmark.
 import FLAGS from './icons/flags.svg?raw';
@@ -57,6 +59,11 @@ const NET_ROUTES: Record<NetRoute, [string, string]> = {
 };
 const label = (opts: [string, string][], v: string) => opts.find(([k]) => k === v)?.[1] ?? v;
 
+/** How long a screen takes to fade out before the next comes in (ms); the next fades in in CSS. */
+const LEAVE_MS = 120;
+const sameScreen = (a: Screen, b: Screen) => a.kind === b.kind && (a.kind !== 'lobby' || (b.kind === 'lobby' && a.id === b.id)) && (a.kind !== 'plate' || (b.kind === 'plate' && a.from === b.from));
+const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
 /** The car arrows' chevron (pointing right; the previous one is flipped in CSS). */
 const CHEVRON = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 3l10 9-10 9"/></svg>';
 
@@ -88,6 +95,10 @@ export class Menu {
   private sitting = false;
   /** A "back from the race" on its way. */
   private backing = false;
+  /** A new screen is on its way in: the next paint fades it in (and from which side). */
+  private entering = false;
+  /** The title's Settings button (main.ts opens the panel). */
+  onSettings?: () => void;
 
   constructor(
     private backend: LobbyBackend,
@@ -162,9 +173,24 @@ export class Menu {
     this.unsubscribe = null;
     if (this.refresh) clearInterval(this.refresh);
     this.refresh = null;
+    const was = this.screen;
     this.screen = screen;
     this.lobby = this.picked = null;
     history.replaceState(null, '', screen.kind === 'lobby' ? `?lobby=${encodeURIComponent(screen.id)}` : location.pathname);
+    // Another screen: the one up fades out first (nothing in it can be pressed meanwhile), and the
+    // new one fades in from the way you're going: back to the title (or a lobby, from the plate)
+    // comes in from the left.
+    if (this.root.childElementCount && !sameScreen(was, screen)) {
+      const back = screen.kind === 'title' || (screen.kind === 'lobby' && was.kind === 'plate');
+      this.root.dataset.dir = back ? 'back' : 'fwd';
+      this.root.classList.remove('entering');
+      this.root.classList.add('leaving');
+      this.root.inert = true;
+      await wait(window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ? 0 : LEAVE_MS);
+      // Another screen was asked for meanwhile: that one's on its way instead.
+      if (this.screen !== screen) return;
+      this.entering = true;
+    }
     // The lobby docks left for the car beside it; the other screens are cards in the middle.
     this.root.classList.toggle('dock', screen.kind === 'lobby');
     if (screen.kind !== 'lobby') this.onPreview?.(null);
@@ -257,6 +283,15 @@ export class Menu {
   private paint(html: string, focus?: string): void {
     const was = document.activeElement?.id;
     this.root.innerHTML = html;
+    // A new screen fades in; a screen redrawn in place (a lobby update, the list refreshing) doesn't.
+    this.root.classList.remove('leaving');
+    this.root.inert = false;
+    if (this.entering) {
+      this.entering = false;
+      this.root.classList.remove('entering');
+      void this.root.offsetWidth;
+      this.root.classList.add('entering');
+    }
     const el = (was && document.getElementById(was)) || (focus && document.getElementById(focus));
     // Without scrolling to it: on a phone the lobby opens at the top, with your car.
     (el as HTMLElement | null)?.focus({ preventScroll: true });
@@ -290,7 +325,7 @@ export class Menu {
           ${this.titleNote(lobbies)}
         </div>
         <button id="mCreate" class="big">Create lobby</button>
-        <div class="row"><button id="mQuick" class="ghost">Quick race</button><button id="mFree" class="ghost">Free drive</button></div>
+        <div class="row"><button id="mQuick" class="ghost">Quick race</button><button id="mFree" class="ghost">Free drive</button><button id="mSettings" class="ghost">Settings</button></div>
         <p class="muted">Every race is a lobby, and bots fill the open seats. Quick race is you and seven bots on a random map. Drift (Shift / RB) to take corners tighter; air, near misses and the oncoming lane fill boost.</p>
       </div>`,
       lobbies.length ? `lobby-${lobbies[0].id}` : 'mCreate',
@@ -300,6 +335,7 @@ export class Menu {
     this.on('mPlate', () => void this.show({ kind: 'plate' }));
     this.on('mQuick', () => this.quickRace());
     this.on('mFree', () => void this.freeDrive());
+    this.on('mSettings', () => this.onSettings?.());
   }
 
   /** The row under the lobbies: why there are no online ones, or how to get some. */
@@ -321,7 +357,7 @@ export class Menu {
 
   /** Straight into a race, no lobby: your car and seven bots, on a map picked at random, in random weather. */
   private quickRace(): void {
-    location.search = toQuery(quickRaceSetup(Object.keys(this.content.layouts), this.yours));
+    goTo(toQuery(quickRaceSetup(Object.keys(this.content.layouts), this.yours)));
   }
 
   private async freeDrive(): Promise<void> {
@@ -340,7 +376,7 @@ export class Menu {
       traffic: o.traffic ?? true,
       seed: Math.floor(Math.random() * 1e9),
     };
-    location.search = toQuery(setup);
+    goTo(toQuery(setup));
   }
 
   /** You, new to lobby `id`: a car and paint picked at random (yours to change at the turntable). */
@@ -422,8 +458,9 @@ export class Menu {
 
   // ---- create lobby ----
 
+  /** One of the options: a chooser (chooser.ts), which cycles, in place of a dropdown. */
   private sel(id: string, opts: [string, string][], value: string, disabled = false): string {
-    return `<select id="${id}"${disabled ? ' disabled' : ''}>${opts.map(([v, l]) => `<option value="${esc(v)}"${v === value ? ' selected' : ''}>${esc(l)}</option>`).join('')}</select>`;
+    return chooser(id, opts, value, disabled);
   }
 
   private optionFields(o: LobbyOptions, disabled: boolean): string {
@@ -437,7 +474,7 @@ export class Menu {
   }
 
   private readOptions(): LobbyOptions {
-    const v = (id: string) => (document.getElementById(id) as HTMLSelectElement).value;
+    const v = (id: string) => (document.getElementById(id) as HTMLButtonElement).value;
     return {
       map: v('oMap'),
       laps: Number(v('oLaps')),
@@ -465,11 +502,11 @@ export class Menu {
     );
     this.on('cBack', () => this.back());
     // Time only means something on a map with a sunset.
-    const mapSel = document.getElementById('oMap') as HTMLSelectElement | null;
-    if (mapSel) mapSel.onchange = () => ((document.getElementById('oTime') as HTMLSelectElement).disabled = !this.hasSunset(mapSel.value));
+    const mapSel = document.getElementById('oMap') as HTMLButtonElement | null;
+    if (mapSel) mapSel.onchange = () => ((document.getElementById('oTime') as HTMLButtonElement).disabled = !this.hasSunset(mapSel.value));
     this.on('cGo', async () => {
       const name = (document.getElementById('cName') as HTMLInputElement).value;
-      const who = (document.getElementById('cVis') as HTMLSelectElement).value;
+      const who = (document.getElementById('cVis') as HTMLButtonElement).value;
       const online = who !== 'local';
       const visibility: Lobby['visibility'] = who === 'invite' ? 'invite' : 'public';
       const go = document.getElementById('cGo') as HTMLButtonElement;
@@ -558,7 +595,7 @@ export class Menu {
     this.on('lLeave', () => this.send(lobby, { type: 'leave' }));
     this.on('lPlate', () => void this.show({ kind: 'plate', from: lobby.id }));
     const change = (id: string, fn: (v: string) => void) => {
-      const el = document.getElementById(id) as HTMLSelectElement | null;
+      const el = document.getElementById(id) as HTMLButtonElement | null;
       if (el) el.onchange = () => fn(el.value);
     };
     for (let k = 0; k < SEATS; k++) change(`seat-${k}`, (v) => this.send(lobby, { type: 'seat', index: k, to: v as SeatChoice }));
@@ -640,6 +677,6 @@ export class Menu {
   private go(lobby: Lobby): void {
     if (this.going) return;
     this.going = true;
-    location.search = toQuery(raceFromLobby(lobby, this.backend.youIn(lobby.id), lobby.seed ?? Math.floor(Math.random() * 1e9), lobby.id !== LOCAL_ID));
+    goTo(toQuery(raceFromLobby(lobby, this.backend.youIn(lobby.id), lobby.seed ?? Math.floor(Math.random() * 1e9), lobby.id !== LOCAL_ID)));
   }
 }
