@@ -92,20 +92,40 @@ describe('game audio', () => {
     expect(ctx.resumes).toBe(resumes + 1);
   });
 
-  test('muting before the graph exists does nothing to it, and events from then are never heard', () => {
+  test('held back by the browser, events before the first gesture are never heard, not even after it', () => {
     const sim = citySim();
     const audio = new GameAudio(sim);
-    audio.update(1 / 60, { focus: 0, camera: new PerspectiveCamera(), paused: false, menu: false });
-    expect(FakeAudioContext.all).toHaveLength(0);
-    sim.events.push(0, Ev.Hazard, -1);
-    audio.update(1 / 60, { focus: 0, camera: new PerspectiveCamera(), paused: false, menu: false });
-    browser.window.fire('keydown');
+    // Made at load, in case the browser allows it; this one doesn't.
     const ctx = FakeAudioContext.all[0];
+    expect(ctx.state).toBe('suspended');
     audio.settings.music = false;
     if (audio.settings.muted) audio.toggleMute();
+    const frame = { focus: 0, camera: new PerspectiveCamera(), paused: false, menu: false };
+    const before = ctx.made;
+    sim.events.push(0, Ev.Hazard, -1);
+    audio.update(1 / 60, frame);
+    expect(ctx.state).toBe('suspended');
+    browser.window.fire('keydown');
+    expect(ctx.state).toBe('running');
+    audio.update(1 / 60, frame);
+    expect(ctx.made - before).toBe(0);
+    expect(FakeAudioContext.all).toHaveLength(1);
+  });
+
+  test('where the browser allows sound without a gesture, it runs from the start (the title music)', () => {
+    browser.restore();
+    browser = fakeBrowser({ autoplay: true });
+    const sim = citySim();
+    const audio = new GameAudio(sim);
+    audio.settings.music = false;
+    if (audio.settings.muted) audio.toggleMute();
+    expect(audio.audible).toBe(true);
+    audio.update(1 / 60, { focus: 0, camera: new PerspectiveCamera(), paused: false, menu: false });
+    sim.events.push(0, Ev.Hazard, -1);
+    const ctx = FakeAudioContext.all[0];
     const before = ctx.made;
     audio.update(1 / 60, { focus: 0, camera: new PerspectiveCamera(), paused: false, menu: false });
-    expect(ctx.made - before).toBe(0);
+    expect(ctx.made - before).toBe(3);
   });
 });
 

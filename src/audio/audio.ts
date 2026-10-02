@@ -125,7 +125,7 @@ export class GameAudio {
     window.addEventListener('pointerup', unlock);
     // Without a gesture too, unless the browser says it won't (Firefox can tell): the title's music
     // from the start where it's allowed. Where it isn't, the context waits suspended for the first.
-    const policy = (navigator as { getAutoplayPolicy?: (t: string) => string }).getAutoplayPolicy?.('audiocontext');
+    const policy = (globalThis.navigator as { getAutoplayPolicy?: (t: string) => string } | undefined)?.getAutoplayPolicy?.('audiocontext');
     if (policy !== 'disallowed') this.start(false);
     // Every key or click after, too: a track paused (the pause menu, a hidden tab) may only start
     // again from one.
@@ -150,6 +150,8 @@ export class GameAudio {
   private start(gesture = true): void {
     if (this.g) {
       void this.g.ctx.resume();
+      // Made at load and held back till now: the track starts in the gesture, as it would have.
+      if (gesture && this.settings.music && !this.settings.muted) this.track?.play(true);
       return;
     }
     let ctx: AudioContext;
@@ -281,7 +283,9 @@ export class GameAudio {
     // Muted, or paused, or away: nothing to hear, so nothing runs.
     const quiet = f.paused || this.hidden || this.settings.muted;
     if (quiet !== (g.ctx.state === 'suspended')) void (quiet ? g.ctx.suspend() : g.ctx.resume());
-    if (quiet) {
+    // Held back by the browser (no gesture yet), or just unpaused and not running again yet: nothing
+    // is heard, and sounds made now would all play at once when it starts (its clock stands still).
+    if (quiet || g.ctx.state !== 'running') {
       // A track would play on through a suspended context, unheard: it waits instead.
       this.wantTrack = false;
       this.track?.pause();
