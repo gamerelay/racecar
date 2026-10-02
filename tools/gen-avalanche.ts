@@ -7,12 +7,13 @@
 // slam. The piste winds (a sum of slow sines), banks into its turns, and tilts a little side to
 // side between them, switching as it goes. Off it, the whole mountainside is snow to drive on
 // (layout.ground): rough powder, long swells over everything, mogul fields, canyons, kickers you
-// can hit from any angle, and walls at the edges.
+// can hit from any angle, and walls at the edges. A few snow-capped rocks and ridges stand on the
+// piste itself, to go round.
 //
 //   bun tools/gen-avalanche.ts
 
 import { mkdirSync, writeFileSync } from 'node:fs';
-import type { RampDef, TrackLayout, TrackPoint } from '../src/core/content';
+import type { PropDef, RampDef, TrackLayout, TrackPoint } from '../src/core/content';
 import { bakeTrack } from '../src/core/track/bake';
 import surfaces from '../content/surfaces.json';
 import { wallGaps } from './lib/lap';
@@ -121,6 +122,21 @@ layout.walls = { gaps: wallGaps([], L) };
 // Kickers with flanks, hit from any angle: on the top of two climbs, and one in the valley.
 const kicker = (s: number, height: number): RampDef => ({ s, height, length: 14, back: 10, flank: 8 });
 layout.ramps = [kicker(stretch('a climb to a crest')[1] - 30, 1.8), kicker(stretch('a climb to a kicker')[1] - 25, 2.4), kicker(stretch('the valley')[0] + 120, 1.5)];
+// Snow-capped rocks and ridges on the piste, not many: go round left or right, or crash. A rock is
+// a solid prop (size: across, high, along); a ridge is a long one. None on a kicker's approach or
+// landing, in the moguls across the piste, or near the grid and the finish.
+const rock = (name: string, from: number, lateral: number, across: number, high: number, along: number): PropDef => ({ kind: 'rock', s: stretch(name)[0] + from, lateral, size: [across, high, along] });
+layout.props = [
+  rock('a bunny slope', 220, 0, 5, 2.4, 5),
+  rock('its run-out', 120, -12, 4.5, 2.2, 4.5),
+  rock('its run-out', 128, 11, 4, 2, 4),
+  rock('rollers, moguls on the right', 200, 3, 3.5, 2, 18),
+  rock("the wall's run-out", 150, 6, 6, 3, 6),
+  rock('the long winding stretch', 200, 0, 5, 2.6, 5.5),
+  rock('the long winding stretch', 480, 4, 3.5, 2.2, 22),
+  rock('a canyon on the right', 200, -5, 5, 2.4, 5),
+  rock('the valley', 340, 0, 5.5, 2.6, 5),
+];
 const rollers = stretch('rollers, moguls on the right');
 const across = stretch('a bunny slope, moguls across it');
 layout.ground = {

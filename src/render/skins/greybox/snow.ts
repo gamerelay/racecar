@@ -4,8 +4,9 @@
 // asphalt on a road), the verge's past it (powder), and grey rock where it's too steep for snow to
 // sit (a canyon's lip, the walls at the edges). A road that isn't snow gets its lines painted on.
 
-import { BufferAttribute, BufferGeometry, Color, Float32BufferAttribute, Mesh, type Object3D } from 'three';
+import { BufferAttribute, BufferGeometry, Color, Float32BufferAttribute, IcosahedronGeometry, Mesh, type Object3D } from 'three';
 import type { Track } from '../../../core/track/bake';
+import { hash01 } from '../../../core/rng';
 import { toon } from './toon';
 
 /** Steeper than this (rise per meter), it's rock. */
@@ -85,7 +86,68 @@ export function buildSnow(track: Track): Object3D[] {
   }
   const lines = roadLines(track);
   if (lines) out.push(lines);
+  const rocks = buildRocks(track);
+  if (rocks) out.push(rocks);
   return out;
+}
+
+const CAP = new Color('#f7fbff');
+const STONE = new Color('#4e5563');
+const STONE_DARK = new Color('#3b404b');
+
+/**
+ * Rocks on the piste (solid props of kind `rock`): lumpy, snow-capped, half buried. Each fills its
+ * collider (a box hx × hz across and along, 2 hy high): a little wider than the box's middle, as
+ * high as its top, so what you see is what you hit.
+ */
+function buildRocks(track: Track): Mesh | null {
+  const rocks = track.props.filter((p) => p.kind === 'rock');
+  if (!rocks.length) return null;
+  const pos: number[] = [];
+  const col: number[] = [];
+  const unit = new IcosahedronGeometry(1, 1);
+  const u = unit.getAttribute('position');
+  const c = new Color();
+  rocks.forEach((p, r) => {
+    const cos = Math.cos(p.heading);
+    const sin = Math.sin(p.heading);
+    // A rock's own lumps: each direction pushed in or out a little (the same on every screen).
+    const lump = (x: number, y: number, z: number) => 0.82 + 0.3 * hash01(53 + r, Math.round(x * 3) * 7 + Math.round(z * 3), Math.round(y * 3));
+    for (let k = 0; k < u.count; k += 3) {
+      const tri: [number, number, number][] = [];
+      for (let v = 0; v < 3; v++) {
+        const x = u.getX(k + v);
+        const y = u.getY(k + v);
+        const z = u.getZ(k + v);
+        const m = lump(x, y, z);
+        // Across (x) and along (z) the road, turned to its heading (a rotation, so the faces keep facing out).
+        const ax = x * p.hx * 1.2 * m;
+        const az = z * p.hz * 1.2 * m;
+        tri.push([p.x + ax * cos + az * sin, p.y + p.hy * 0.5 + Math.max(-0.6, y) * p.hy * 1.5 * m, p.z - ax * sin + az * cos]);
+      }
+      // Snow where it can sit (a face within about 35° of flat), rock on the steep sides, darker
+      // where they overhang.
+      const [a, b, d] = tri;
+      const ux = b[0] - a[0], uy = b[1] - a[1], uz = b[2] - a[2];
+      const vx = d[0] - a[0], vy = d[1] - a[1], vz = d[2] - a[2];
+      const nx = uy * vz - uz * vy, ny = uz * vx - ux * vz, nz = ux * vy - uy * vx;
+      const up = ny / (Math.hypot(nx, ny, nz) || 1);
+      c.copy(up > 0.82 ? CAP : up > -0.05 ? STONE : STONE_DARK);
+      for (const [x, y, z] of tri) {
+        pos.push(x, y, z);
+        col.push(c.r, c.g, c.b);
+      }
+    }
+  });
+  unit.dispose();
+  const geo = new BufferGeometry();
+  geo.setAttribute('position', new Float32BufferAttribute(pos, 3));
+  geo.setAttribute('color', new Float32BufferAttribute(col, 3));
+  geo.computeVertexNormals();
+  geo.computeBoundingSphere();
+  const mesh = new Mesh(geo, toon({ vertexColors: true }));
+  mesh.matrixAutoUpdate = false;
+  return mesh;
 }
 
 /**

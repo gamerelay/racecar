@@ -3353,7 +3353,98 @@
   }
  ],
  "checkpoints": "auto",
- "props": [],
+ "props": [
+  {
+   "kind": "rock",
+   "s": 313,
+   "lateral": 0,
+   "size": [
+    5,
+    2.4,
+    5
+   ]
+  },
+  {
+   "kind": "rock",
+   "s": 919,
+   "lateral": -12,
+   "size": [
+    4.5,
+    2.2,
+    4.5
+   ]
+  },
+  {
+   "kind": "rock",
+   "s": 927,
+   "lateral": 11,
+   "size": [
+    4,
+    2,
+    4
+   ]
+  },
+  {
+   "kind": "rock",
+   "s": 1745,
+   "lateral": 3,
+   "size": [
+    3.5,
+    2,
+    18
+   ]
+  },
+  {
+   "kind": "rock",
+   "s": 2815,
+   "lateral": 6,
+   "size": [
+    6,
+    3,
+    6
+   ]
+  },
+  {
+   "kind": "rock",
+   "s": 3332,
+   "lateral": 0,
+   "size": [
+    5,
+    2.6,
+    5.5
+   ]
+  },
+  {
+   "kind": "rock",
+   "s": 3612,
+   "lateral": 4,
+   "size": [
+    3.5,
+    2.2,
+    22
+   ]
+  },
+  {
+   "kind": "rock",
+   "s": 4971,
+   "lateral": -5,
+   "size": [
+    5,
+    2.4,
+    5
+   ]
+  },
+  {
+   "kind": "rock",
+   "s": 5971,
+   "lateral": 0,
+   "size": [
+    5.5,
+    2.6,
+    5
+   ]
+  }
+ ],
  "takedownSpots": [],
  "scenery": "snow",
  "shoulderSurface": "powder",

@@ -114,13 +114,22 @@ export function racingLine(track: Track, sp: BakedSpline): Line {
  * is how the AI ended up across a traffic lane.
  */
 const PROP_CLEAR = 2.1;
+const PROP_CLEAR_OPEN = 1.5;
+const HOLD_OPEN = 30;
+/** Heading into the slope's sideways pull (rad per unit of cross slope). */
+const UPHILL_AIM = 0.5;
+const SLOPE = { x: 0, z: 0 };
 const PROP_EASE = 40;
 function threadProps(track: Track, sp: BakedSpline, offset: Float64Array, at: (i: number) => number): void {
   const mine = track.props.filter((p) => p.solid && p.spline === sp.index);
   if (!mine.length) return;
   const n = sp.n;
   const reach = 12;
-  const clear = (lat: number, s: number) => mine.every((p) => Math.abs(p.s - s) > reach || Math.abs(p.lateral - lat) > Math.max(p.hx, p.hz) + PROP_CLEAR);
+  // On open ground (rocks on a piste, taken flat out over swells) the line keeps further off.
+  const margin = PROP_CLEAR + (track.ground ? PROP_CLEAR_OPEN : 0);
+  // How far across a prop reaches: a rock on a piste is set along it (a ridge's hz is its length).
+  const across = (p: (typeof mine)[number]) => (track.ground ? p.hx : Math.max(p.hx, p.hz));
+  const clear = (lat: number, s: number) => mine.every((p) => Math.abs(p.s - s) > Math.max(reach, p.hz) || Math.abs(p.lateral - lat) > across(p) + margin);
   const shift = new Float64Array(n);
   const weight = new Float64Array(n);
   const ease = Math.round(PROP_EASE / sp.step);
@@ -132,9 +141,13 @@ function threadProps(track: Track, sp: BakedSpline, offset: Float64Array, at: (i
     let best = NaN;
     for (let lat = -edge; lat <= edge; lat += 0.25) if (clear(lat, p.s) && !(Math.abs(lat - offset[j]) >= Math.abs(best - offset[j]))) best = lat;
     if (Number.isNaN(best)) continue;
-    for (let d = -ease; d <= ease; d++) {
+    // On open ground, flat out at a rock: clear of it well before (the whole shift by HOLD_OPEN m
+    // short of it, held past it), eased in over twice as long.
+    const hold = track.ground ? Math.round((p.hz + HOLD_OPEN) / sp.step) : 0;
+    const span = track.ground ? ease * 2 : ease;
+    for (let d = -span - hold; d <= span + hold; d++) {
       const i = at(j + d);
-      const w = 1 - smoothstep(0, ease, Math.abs(d));
+      const w = 1 - smoothstep(0, span, Math.abs(d) - hold);
       if (w > weight[i]) {
         weight[i] = w;
         shift[i] = best - offset[j];
@@ -142,6 +155,25 @@ function threadProps(track: Track, sp: BakedSpline, offset: Float64Array, at: (i
     }
   }
   for (let i = 0; i < n; i++) offset[i] += shift[i] * weight[i];
+}
+
+/**
+ * Open ground: off the line (round another car) with a rock ahead, back to the line only on the
+ * side of the rock you're on. Heading back diagonally is how a car met it head on.
+ */
+function passRocks(sim: SimState, i: number, sp: BakedSpline, target: number, speed: number): number {
+  const c = sim.cars;
+  const lat = c.lateral[i];
+  for (const p of sim.track.props) {
+    if (!p.solid || p.spline !== sp.index) continue;
+    const ds = p.s - c.s[i];
+    if (ds < -p.hz || ds > p.hz + 10 + speed * 1.6) continue;
+    const reach = p.hx + PROP_CLEAR + PROP_CLEAR_OPEN;
+    const side = Math.sign(lat - p.lateral) || 1;
+    // The target beyond the rock from here, or on it: keep to this side.
+    if ((target - p.lateral) * side < reach) target = p.lateral + side * reach;
+  }
+  return target;
 }
 
 const look: TrackHit = newHit();
@@ -195,6 +227,7 @@ export function driveRacer(sim: SimState, i: number, d: RacerDriver, out: Contro
     target = c.aiLat[i];
   }
   target = avoid(sim, i, sp, s, target, speed, skill, lineTarget);
+  if (track.ground) target = passRocks(sim, i, sp, target, speed);
   if (aiDebug) aiDebug[i] = { line: lineTarget, target, tTarget: lastT, cap: avoidCap, cand: Array.from(candTime) };
 
   // Path tracking (a Stanley-style controller) rather than pure pursuit: pure pursuit aims at a point
@@ -210,7 +243,15 @@ export function driveRacer(sim: SimState, i: number, d: RacerDriver, out: Contro
   const curv = wrapAngle(Math.atan2(probe.tx, probe.tz) - pathH) / 6;
   // Sideways error from where we want to be (positive: we're right of the target).
   const cross = (c.x[i] - look.cx) * -look.tz + (c.z[i] - look.cz) * look.tx - target;
-  const want = pathH + Math.atan2(1.6 * cross, speed + 4);
+  let want = pathH + Math.atan2(1.6 * cross, speed + 4);
+  // On sliding snow the slope pulls you sideways down every bank and swell, and the line drifts a
+  // few meters downhill of where it should be (into a rock): aim up the slope against it.
+  if (track.ground && sim.surfaces[c.surface[i]].slide && c.grounded[i]) {
+    const g = track.ground.slope(c.x[i], c.z[i], SLOPE);
+    // The rise per meter to the car's right (right is (-cos h, sin h)); rising right, it pulls you left.
+    const rising = -g.x * Math.cos(c.h[i]) + g.z * Math.sin(c.h[i]);
+    want -= clamp(rising * UPHILL_AIM, -0.15, 0.15);
+  }
   const err = wrapAngle(want - c.h[i]);
   const f = speed / T.steerFalloff;
   const maxYaw = (cls.turn * Math.min(1, speed / 6)) / (1 + f * f * 0.9);
@@ -349,7 +390,7 @@ function avoid(sim: SimState, i: number, sp: BakedSpline, s: number, target: num
   for (let q = 0; q < props.length; q++) {
     const pr = props[q];
     if (!pr.solid || pr.spline !== sp.index) continue;
-    mark(pr.lateral, Math.max(pr.hx, pr.hz), sp.closed ? signedGap(pr.s, s, sp.length) : pr.s - s, 0);
+    mark(pr.lateral, sim.track.ground ? pr.hx : Math.max(pr.hx, pr.hz), sp.closed ? signedGap(pr.s, s, sp.length) : pr.s - s, 0);
   }
   for (let j = 0; j < c.count; j++) {
     if (j === i || !c.active[j] || c.spline[j] !== c.spline[i]) continue;

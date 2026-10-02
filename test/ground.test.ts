@@ -164,6 +164,40 @@ describe("Avalanche's Slope", () => {
   });
 });
 
+describe("the Slope's rocks", () => {
+  test('a few snow-capped rocks and ridges stand on the piste, solid, on the ground', () => {
+    const track = bakeTrack(layout('avalanche/slope'), SURFACES);
+    const rocks = track.props.filter((p) => p.kind === 'rock');
+    expect(rocks.length).toBeGreaterThanOrEqual(5);
+    expect(rocks.length).toBeLessThanOrEqual(12);
+    for (const r of rocks) {
+      expect(r.solid).toBe(true);
+      // On the piste, and standing on the ground (not on the road's line under a swell).
+      expect(Math.abs(r.lateral)).toBeLessThan(track.main.width[Math.round(r.s / track.main.step)] / 2);
+      expect(Math.abs(r.y - track.ground!.height(r.x, r.z))).toBeLessThan(1e-6);
+    }
+    // At least one ridge: a long one, to go round.
+    expect(rocks.some((r) => r.hz > 3 * r.hx)).toBe(true);
+  });
+
+  test('driven straight at, a rock wrecks you', () => {
+    const track = bakeTrack(layout('avalanche/slope'), SURFACES);
+    const r = track.props.find((p) => p.kind === 'rock')!;
+    const sim = new Sim(track, CLASSES, SURFACES, { seed: 1 });
+    const i = sim.addCar({ cls: 'coupe', human: true });
+    sim.placeCar(i, 0, r.s - 60, r.lateral, 30);
+    let wrecked = false;
+    for (let t = 0; t < 60 * 5 && !wrecked; t++) {
+      const c = neutralControls();
+      c.throttle = 1;
+      sim.step([c]);
+      wrecked = sim.cars.wreck[i] === 1;
+    }
+    expect(wrecked).toBe(true);
+    expect(Math.abs(sim.cars.s[i] - r.s)).toBeLessThan(r.hz + 4);
+  });
+});
+
 describe('one run (layout.run)', () => {
   /** A straight run down a 10% grade: 1,400 m, the start at 60, the finish 200 m from the end. */
   const straight = (): TrackLayout => ({

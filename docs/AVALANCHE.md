@@ -372,6 +372,35 @@ Not done yet:
   coarser mesh ("Looking ahead") are for a wider mountain.
 - **Gates** across the whole mountain: nothing to skip yet, the checkpoints are enough.
 
+### Rocks on the piste (2026-10-02, experimental, stacked on step 3)
+
+The owner's ask after driving the run: a few snow-capped rocks and ridges in the middle of the
+piste, to go round left or right, or crash. The first of step 5's "things to hit".
+
+- **Nine of them** (`tools/gen-avalanche.ts`): seven rocks (4–6 m across, 2–3 m high) and two
+  ridges (3.5 m across, 18 and 22 m long), on the bunny slopes, the run-outs, the rollers, the
+  winding stretch, beside a canyon and in the valley. None on a kicker's approach or landing,
+  in the moguls across the piste, or near the grid and the finish. The ridge in the rollers leaves
+  the clean way round on the left; the right goes through the moguls.
+- **Solid props** (`kind: 'rock'`, on the road with a `lateral`), as the city's pillars are: a
+  hard hit wrecks you, a glancing one bounces you off. On open ground a prop stands on the ground,
+  not the road's line under it, and you can jump one (its top is 2 × its half height).
+- **Drawn** (`snow.ts`): lumpy, half buried, filling their colliders; snow on the faces flat enough
+  to hold it, dark rock on the steep sides.
+- **The AI**, on open ground only (the other maps' lines and lap floors are unchanged):
+  - its line round a rock is clear of it well before (by 30 m) and held past it, eased in over
+    80 m, and keeps 1.5 m further off;
+  - a rock's width is its size across the piste (a ridge's length doesn't push the line into the
+    moguls);
+  - off the line, round another car, it goes back to the line only on the side of the rock it's on;
+  - it aims a little up the slope against the snow's sideways pull (before, it ran 3 m downhill of
+    its line on the banks and swells, into a rock).
+- **Measured:** the hard coupe gets down clean in 98.3 s. A field of eight in normal and chaos
+  hits no rocks: one car-on-car takedown a race. (The field runs the same on every seed: no
+  traffic or weather here to vary it.)
+- **Tests:** a few rocks, solid, on the piste and on the ground, a ridge among them; driven straight
+  at, one wrecks you.
+
 ## Questions for the owner
 
 Answered 2026-10-02: one run, no laps; about two laps' length; steep, bunny and short uphill
