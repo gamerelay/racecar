@@ -398,8 +398,12 @@ svg.thumb .cut { stroke: var(--sun); stroke-width: 1.5; stroke-dasharray: 3 2; }
 .card input[type='range']:focus-visible::-moz-range-track { border-color: var(--cyan); box-shadow: 0 0 0 2px var(--cyan); }
 
 /* ---- the in-race menu ---- */
-#pause .pauseButtons { margin: 4px 0 18px; }
-#pause .pauseButtons button { margin: 0; }
+/* Buttons stacked full width at the bottom of a card, as the lobby's are. */
+.card .row.stack { display: grid; gap: 14px; margin: 20px 0 0; }
+.card .row.stack button { width: 100%; margin: 0; padding: 10px 16px; white-space: nowrap; }
+.card.pauseCard dl { margin-bottom: 0; }
+#controls { position: fixed; inset: 0; z-index: 14; display: none; place-items: center; background: rgba(13, 6, 32, 0.7); overflow: auto; padding: 16px; }
+#controls.on { display: grid; }
 #fps { position: fixed; z-index: 3; left: calc(env(safe-area-inset-left, 0px) + 10px); bottom: calc(env(safe-area-inset-bottom, 0px) + 8px); font: 700 12px ui-monospace, monospace; color: var(--muted); text-shadow: 1px 1px 0 var(--outline); display: none; pointer-events: none; }
 #fps.on { display: block; }
 
@@ -412,7 +416,7 @@ svg.thumb .cut { stroke: var(--sun); stroke-width: 1.5; stroke-dasharray: 3 2; }
 #menu.entering[data-dir='back'] > * { animation-name: screenInBack; }
 @keyframes screenIn { from { opacity: 0; transform: translateX(18px); } }
 @keyframes screenInBack { from { opacity: 0; transform: translateX(-18px); } }
-#pause.on > .card, #settings.on > .card, #results.on > .card { animation: popIn 0.16s ease-out both; }
+#pause.on > .card, #settings.on > .card, #controls.on > .card, #results.on > .card { animation: popIn 0.16s ease-out both; }
 @keyframes popIn { from { opacity: 0; transform: scale(0.96); } }
 #pageFade { position: fixed; inset: 0; z-index: 50; background: var(--bg); pointer-events: none; opacity: 0; transition: opacity 0.18s ease-in; }
 #pageFade.in { animation: pageIn 0.35s ease-out both; }
@@ -421,7 +425,7 @@ svg.thumb .cut { stroke: var(--sun); stroke-width: 1.5; stroke-dasharray: 3 2; }
 @media (prefers-reduced-motion: reduce) {
   #menu.leaving > *, #menu.leaving[data-dir='back'] > * { transform: none; }
   #menu.entering > *, #menu.entering[data-dir='back'] > * { animation: fadeOnly 0.1s ease-out both; }
-  #pause.on > .card, #settings.on > .card, #results.on > .card { animation: fadeOnly 0.1s ease-out both; }
+  #pause.on > .card, #settings.on > .card, #controls.on > .card, #results.on > .card { animation: fadeOnly 0.1s ease-out both; }
   #pageFade { transition-duration: 0.06s; }
   #pageFade.in { animation-duration: 0.12s; }
   .chooser.nudge-r .cv, .chooser.nudge-l .cv { animation: none; }
