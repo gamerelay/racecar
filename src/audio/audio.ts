@@ -101,6 +101,8 @@ export class GameAudio {
   private hidden = false;
   /** The track should be playing (as of the last frame). */
   private wantTrack = false;
+  /** The context has run: resuming it from a frame can work (after a pause, a hidden tab). */
+  private ran = false;
   private readonly near: number[] = [];
   private readonly shot: Shot = { ctx: undefined as unknown as AudioContext, bus: undefined as unknown as AudioNode, gain: 0, pan: 0 };
 
@@ -282,14 +284,24 @@ export class GameAudio {
     }
     // Muted, or paused, or away: nothing to hear, so nothing runs.
     const quiet = f.paused || this.hidden || this.settings.muted;
-    if (quiet !== (g.ctx.state === 'suspended')) void (quiet ? g.ctx.suspend() : g.ctx.resume());
-    // Held back by the browser (no gesture yet), or just unpaused and not running again yet: nothing
-    // is heard, and sounds made now would all play at once when it starts (its clock stands still).
-    if (quiet || g.ctx.state !== 'running') {
+    if (g.ctx.state === 'running') this.ran = true;
+    // Resumed only once it can start: it has run before (a pause, a hidden tab), or there's been a
+    // gesture. Held back by the browser, a resume a frame would just pile up, never settling.
+    const canResume = this.ran || (globalThis.navigator as { userActivation?: { hasBeenActive: boolean } } | undefined)?.userActivation?.hasBeenActive !== false;
+    if (quiet && g.ctx.state === 'running') void g.ctx.suspend();
+    else if (!quiet && g.ctx.state === 'suspended' && canResume) void g.ctx.resume();
+    if (quiet) {
       // A track would play on through a suspended context, unheard: it waits instead.
       this.wantTrack = false;
       this.track?.pause();
       // What happened meanwhile isn't heard later (online, the race goes on while muted or paused).
+      this.cursor = this.sim.events.head;
+      return;
+    }
+    // Held back by the browser (no gesture yet), or resuming and not running yet: nothing is heard,
+    // and sounds made now would all play at once when it starts (its clock stands still). The track
+    // is left alone: a gesture may just have started it, in the resume's wait.
+    if (g.ctx.state !== 'running') {
       this.cursor = this.sim.events.head;
       return;
     }

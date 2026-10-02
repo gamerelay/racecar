@@ -51,6 +51,8 @@ export class FakeAudioContext {
    * nothing. A key press or click on the fake window ends it (fakeBrowser).
    */
   static blocked = false;
+  /** A resume takes a while (a real one's audio thread starts a few ms later): it doesn't switch to running at once. */
+  static lag = false;
   currentTime = 0;
   readonly sampleRate = 8;
   state: 'running' | 'suspended' = 'running';
@@ -94,7 +96,7 @@ export class FakeAudioContext {
   }
   resume() {
     this.resumes++;
-    if (!FakeAudioContext.blocked) this.state = 'running';
+    if (!FakeAudioContext.blocked && !FakeAudioContext.lag) this.state = 'running';
     return Promise.resolve();
   }
   /** Sounds made so far (oscillators and noise), for counting what one frame added. */
@@ -135,6 +137,7 @@ export function fakeBrowser({ autoplay = false } = {}): { window: FakeTarget; do
   FakeAudioContext.all = [];
   // Like most browsers on a first visit: no sound till a gesture, unless `autoplay`.
   FakeAudioContext.blocked = !autoplay;
+  FakeAudioContext.lag = false;
   return {
     window: win,
     document: doc,
