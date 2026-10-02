@@ -246,8 +246,9 @@ race; some move, and a few you can hit.
 
 ## Next up (playtest notes, 2026-10-02)
 
-- **Button click effects:** a press feel on the menus' buttons and choosers (a quick scale or
-  flash, and a click sound through the effects bus).
+- **Button click effects** (done, 2026-10-02, `src/ui/click.ts`): a flash and a dip on every
+  menu button, by any device, and a click on a bus of its own (`ui` in `audio.ts`, at the effects
+  volume) rather than the effects bus, which is silent behind the title and stopped in a pause.
 - **Music on the title screen from the start** (done, 2026-10-02): the audio starts at load
   (`GameAudio`'s constructor), which plays where the browser allows it. Where it doesn't, the
   first key or click starts it as before, and a hint on the title says so. A pointer move isn't a

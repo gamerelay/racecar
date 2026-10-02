@@ -378,6 +378,17 @@ svg.thumb .cut { stroke: var(--sun); stroke-width: 1.5; stroke-dasharray: 3 2; }
 @keyframes nudgeR { from { transform: translateX(-6px); opacity: 0.4; } }
 @keyframes nudgeL { from { transform: translateX(6px); opacity: 0.4; } }
 
+/* A press (ui/click.ts), by pointer, key or pad: a flash and a dip. `scale` and `filter` leave each
+   button's own `transform` (its hover lift, its :active drop) alone. */
+.card button.pressed, #quit.pressed { animation: pressFx 0.16s ease-out; }
+.card button.chooser.pressed { animation-name: pressFxSmall; }
+@keyframes pressFx { 30% { scale: 0.95; filter: brightness(1.35); } }
+@keyframes pressFxSmall { 30% { scale: 0.98; filter: brightness(1.25); } }
+@media (prefers-reduced-motion: reduce) {
+  @keyframes pressFx { 30% { filter: brightness(1.35); } }
+  @keyframes pressFxSmall { 30% { filter: brightness(1.25); } }
+}
+
 /* ---- Settings (ui/settings.ts), over everything ---- */
 #settings { position: fixed; inset: 0; z-index: 14; display: none; place-items: center; background: rgba(13, 6, 32, 0.7); overflow: auto; padding: 16px; }
 #settings.on { display: grid; }

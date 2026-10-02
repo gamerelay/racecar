@@ -25,6 +25,7 @@ import { Hud } from './ui/hud';
 import { RaceUi } from './ui/race';
 import { accept, navigate } from './ui/nav';
 import { installChoosers } from './ui/chooser';
+import { installClicks } from './ui/click';
 import { fadeIn, ready, veiled } from './ui/fade';
 import { SettingsPanel } from './ui/settings';
 import { ControlsPanel } from './ui/controls';
@@ -159,6 +160,8 @@ const track = playlist
     })
   : null;
 const audio = new GameAudio(sim, track, attract);
+// The menus' buttons, choosers and sliders click (ui/click.ts).
+installClicks((kind) => audio.uiSound(kind));
 // The title's music waits for a first key or click where the browser won't start it by itself:
 // a hint says so, if it hasn't started a moment in (where it's allowed, it never shows).
 if (attract && track) {
