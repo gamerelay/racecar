@@ -954,7 +954,11 @@ describe("the race's messages, checked (net/wire.ts)", () => {
     const ok = { to: 'p:bo', by: 'p:ada', t: 3, dvx: 1, dvz: -2, closing: 1e6, att: true };
     expect(readBump(ok)).toEqual({ ...ok, closing: MAX_CLOSING });
     expect(readBump({ ...ok, att: 'yes' })?.att).toBe(false);
-    for (const bad of [null, [], { ...ok, to: '' }, { ...ok, by: 'p:bo' }, { ...ok, by: 'x'.repeat(65) }, { ...ok, dvx: Infinity }, { ...ok, t: '3' }]) expect(readBump(bad)).toBeNull();
+    // A player id is up to 64 characters, so a car's name (`p:` and the id) up to 66.
+    const long = `p:${'x'.repeat(64)}`;
+    expect(readBump({ ...ok, by: long })?.by).toBe(long);
+    expect(readTakedown({ victim: long, by: 's:3', t: 1 })?.victim).toBe(long);
+    for (const bad of [null, [], { ...ok, to: '' }, { ...ok, by: 'p:bo' }, { ...ok, by: 'x'.repeat(67) }, { ...ok, dvx: Infinity }, { ...ok, t: '3' }]) expect(readBump(bad)).toBeNull();
   });
 
   test('a takedown: a victim, another car, a time', () => {

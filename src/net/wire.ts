@@ -31,6 +31,9 @@ export function readHit(data: unknown, count: number, now: number, within: numbe
   return { k, t, x, y, z, a: clamp(a, 0, 100), b: d.b === 1 ? 1 : 0 };
 }
 
+/** A car's name: `p:` and a player id (GameRelay's are up to 64 characters), or `s:` and a seat. */
+export const CAR_NAME_MAX = 2 + 64;
+
 /** The most a contact's closing speed can be (m/s), as with poses. */
 export const MAX_CLOSING = 140;
 
@@ -51,7 +54,7 @@ export interface Bump {
 export function readBump(data: unknown): Bump | null {
   const d = fields(data);
   if (!d) return null;
-  const [to, by] = [shortText(d.to), shortText(d.by)];
+  const [to, by] = [shortText(d.to, CAR_NAME_MAX), shortText(d.by, CAR_NAME_MAX)];
   const [t, dvx, dvz, closing] = [finite(d.t), finite(d.dvx), finite(d.dvz), finite(d.closing)];
   if (!to || !by || to === by || t === null || dvx === null || dvz === null || closing === null) return null;
   return { to, by, t, dvx, dvz, closing: clamp(closing, 0, MAX_CLOSING), att: d.att === true };
@@ -67,7 +70,7 @@ export interface Takedown {
 export function readTakedown(data: unknown): Takedown | null {
   const d = fields(data);
   if (!d) return null;
-  const [victim, by, t] = [shortText(d.victim), shortText(d.by), finite(d.t)];
+  const [victim, by, t] = [shortText(d.victim, CAR_NAME_MAX), shortText(d.by, CAR_NAME_MAX), finite(d.t)];
   return victim && by && victim !== by && t !== null ? { victim, by, t } : null;
 }
 
