@@ -136,7 +136,7 @@ body.boosting #gFill { stroke: var(--sun); }
 .card.setup { max-width: 640px; }
 .card.setup .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 10px 14px; margin: 0 0 16px; }
 .card.setup label { display: grid; gap: 4px; font-weight: 700; font-size: 13px; color: var(--muted); }
-.card.setup select { width: 100%; }
+.card.setup .chooser { width: 100%; }
 .card .muted { color: var(--muted); font-size: 13px; line-height: 1.5; margin: 12px 0 0; }
 .card button.ghost { background: transparent; color: var(--ink); border-color: var(--ink); box-shadow: 5px 5px 0 var(--outline); }
 .card button.ghost:hover { border-color: var(--cyan); color: var(--cyan); box-shadow: 6px 6px 0 var(--outline); }
@@ -226,16 +226,16 @@ svg.thumb .cut { stroke: var(--sun); stroke-width: 1.5; stroke-dasharray: 3 2; }
 .seats tbody tr:last-child td { border-bottom: 0; }
 /* Every row the same: seat controls one width, all controls one height. */
 .seats td:nth-child(2) { width: 170px; white-space: nowrap; }
-.seats td:nth-child(2) select { width: 150px; }
+.seats td:nth-child(2) .chooser { width: 150px; }
 .seats td:nth-child(2) .plate { min-width: 96px; text-align: center; }
-.card .seats select { height: 36px; box-sizing: border-box; }
+.card .seats .chooser { height: 36px; box-sizing: border-box; }
 .seats .plate { padding: 0 8px; height: 26px; line-height: 22px; box-sizing: border-box; }
 .seats td:first-child { color: var(--muted); width: 18px; padding-right: 4px; font-variant-numeric: tabular-nums; }
 .seats tr.me td { color: var(--sun); }
 .seats tr.closed td { color: rgba(216, 198, 242, 0.45); }
 .seats .car { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
 .seats .car .muted { margin: 0; font-size: 12px; }
-.seats select { padding: 5px 28px 5px 8px; font-size: 13px; }
+.card .seats button.chooser { padding: 5px 8px; font-size: 13px; }
 .seats .tag { font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; line-height: 1; color: var(--outline); background: var(--sun); padding: 3px 5px; margin-left: 6px; vertical-align: middle; }
 .seats .ready { color: #7cff6b; }
 /* Still in the lobby's race (online): back when their lobby screen opens. */
@@ -265,7 +265,7 @@ svg.thumb .cut { stroke: var(--sun); stroke-width: 1.5; stroke-dasharray: 3 2; }
   .seats td:nth-child(4), .seats th:nth-child(4) { display: none; }
   .seats td { padding: 0 6px; }
   .seats td:nth-child(2) { width: auto; }
-  .seats td:nth-child(2) select { width: 116px; }
+  .seats td:nth-child(2) .chooser { width: 116px; }
   .card .sub span + span::before { margin: 0 8px; }
 }
 
@@ -298,7 +298,7 @@ svg.thumb .cut { stroke: var(--sun); stroke-width: 1.5; stroke-dasharray: 3 2; }
 #menu.dock .card.lobby > .row { margin: auto 0 0; padding-top: clamp(12px, 2vh, 20px); display: grid; gap: 14px; }
 #menu.dock .card.lobby > .row button { width: 100%; margin: 0; padding: 10px 16px; white-space: nowrap; }
 #menu.dock .seats td:nth-child(2) { width: 150px; }
-#menu.dock .seats td:nth-child(2) select { width: 132px; }
+#menu.dock .seats td:nth-child(2) .chooser { width: 132px; }
 
 /* The race's options: the host's to set, a summary for everyone else. */
 #menu.dock .mapCard { position: absolute; top: 24px; right: 24px; width: var(--opts); max-width: none; margin: 0; padding: 14px 16px 16px; display: grid; grid-template-columns: auto 1fr; gap: 12px 14px; align-items: center; background: rgba(18, 8, 38, 0.86); box-shadow: 6px 6px 0 var(--outline); }
@@ -307,7 +307,7 @@ svg.thumb .cut { stroke: var(--sun); stroke-width: 1.5; stroke-dasharray: 3 2; }
 .mapCard small { color: var(--muted); font-size: 13px; }
 .mapCard .opts { grid-column: 1 / -1; display: grid; grid-template-columns: 1fr 1fr; gap: 10px 12px; }
 .mapCard label { display: grid; gap: 4px; font-weight: 700; font-size: 12px; color: var(--muted); }
-.card.mapCard select { width: 100%; padding-top: 5px; padding-bottom: 5px; font-size: 14px; }
+.card.mapCard button.chooser { width: 100%; padding-top: 5px; padding-bottom: 5px; font-size: 14px; }
 #menu.dock .mapCard.mini { width: auto; max-width: 320px; padding: 10px 14px; gap: 6px 12px; }
 .mapCard .optLine { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 5px; margin: 0; }
 .mapCard .optLine span { font-size: 12px; font-weight: 700; color: var(--ink); background: rgba(10, 4, 20, 0.7); border: 1px solid rgba(216, 198, 242, 0.45); padding: 2px 7px; white-space: nowrap; }
@@ -358,3 +358,72 @@ svg.thumb .cut { stroke: var(--sun); stroke-width: 1.5; stroke-dasharray: 3 2; }
   #menu.dock .card.lobby { position: static; width: 100%; flex: none; overflow: visible; border-width: 3px; box-shadow: 8px 8px 0 var(--outline); }
   #menu.dock .card.lobby > .row { flex-wrap: wrap; }
 }
+
+/* ---- choosers (ui/chooser.ts): ‹ value ›, in place of dropdowns ---- */
+.card button.chooser { display: flex; align-items: center; gap: 6px; font: 700 15px var(--ui); color: var(--ink); background: rgba(10, 4, 20, 0.85); border: 2px solid var(--ink); border-radius: 0; box-shadow: 3px 3px 0 var(--outline); padding: 7px 8px; margin: 0; text-align: center; min-width: 0; }
+.card button.chooser:hover { transform: none; border-color: var(--cyan); box-shadow: 3px 3px 0 var(--outline); }
+.card button.chooser:active { transform: translate(1px, 1px); box-shadow: 2px 2px 0 var(--outline); }
+.card button.chooser:focus-visible { outline: none; border-color: var(--cyan); box-shadow: 0 0 0 3px var(--cyan); }
+.chooser .cv { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.chooser .cn { color: var(--muted); font-size: 11px; font-variant-numeric: tabular-nums; }
+/* The seats' column is narrow: the name matters more than where it is in the list. */
+.seats .chooser .cn { display: none; }
+.chooser i { font-style: normal; font-family: var(--display); font-size: 18px; line-height: 1; color: var(--cyan); padding: 0 2px; }
+.chooser:hover i, .chooser:focus-visible i { color: var(--sun); }
+.card button.chooser:disabled { opacity: 0.7; cursor: default; border-color: rgba(216, 198, 242, 0.4); }
+.chooser:disabled i { visibility: hidden; }
+.chooser.nudge-r .cv { animation: nudgeR 0.14s ease-out; }
+.chooser.nudge-l .cv { animation: nudgeL 0.14s ease-out; }
+@keyframes nudgeR { from { transform: translateX(-6px); opacity: 0.4; } }
+@keyframes nudgeL { from { transform: translateX(6px); opacity: 0.4; } }
+
+/* ---- Settings (ui/settings.ts), over everything ---- */
+#settings { position: fixed; inset: 0; z-index: 14; display: none; place-items: center; background: rgba(13, 6, 32, 0.7); overflow: auto; padding: 16px; }
+#settings.on { display: grid; }
+.card.settings h2 { margin-top: 18px; }
+.card.settings .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px 14px; }
+.card.settings label { display: grid; gap: 4px; font-weight: 700; font-size: 13px; color: var(--muted); }
+.card.settings .chooser { width: 100%; }
+.card.settings .row { margin: 18px 0 0; }
+.sliders { display: grid; gap: 8px; }
+.card.settings label.slider { grid-template-columns: 84px 1fr 34px; align-items: center; gap: 12px; }
+.slider b { color: var(--ink); text-align: right; font-variant-numeric: tabular-nums; }
+.card input[type='range'] { -webkit-appearance: none; appearance: none; width: 100%; height: 26px; padding: 0; border: 0; box-shadow: none; background: transparent; cursor: pointer; }
+.card input[type='range']::-webkit-slider-runnable-track { height: 8px; background: rgba(10, 4, 20, 0.85); border: 2px solid var(--ink); }
+.card input[type='range']::-moz-range-track { height: 8px; background: rgba(10, 4, 20, 0.85); border: 2px solid var(--ink); }
+.card input[type='range']::-webkit-slider-thumb { -webkit-appearance: none; width: 16px; height: 22px; margin-top: -9px; background: var(--sun); border: 2px solid var(--outline); box-shadow: 2px 2px 0 var(--pink); }
+.card input[type='range']::-moz-range-thumb { width: 14px; height: 20px; border-radius: 0; background: var(--sun); border: 2px solid var(--outline); box-shadow: 2px 2px 0 var(--pink); }
+.card input[type='range']:focus { box-shadow: none; }
+.card input[type='range']:focus-visible::-webkit-slider-runnable-track { border-color: var(--cyan); box-shadow: 0 0 0 2px var(--cyan); }
+.card input[type='range']:focus-visible::-moz-range-track { border-color: var(--cyan); box-shadow: 0 0 0 2px var(--cyan); }
+
+/* ---- the in-race menu ---- */
+#pause .pauseButtons { margin: 4px 0 18px; }
+#pause .pauseButtons button { margin: 0; }
+#fps { position: fixed; z-index: 3; left: calc(env(safe-area-inset-left, 0px) + 10px); bottom: calc(env(safe-area-inset-bottom, 0px) + 8px); font: 700 12px ui-monospace, monospace; color: var(--muted); text-shadow: 1px 1px 0 var(--outline); display: none; pointer-events: none; }
+#fps.on { display: block; }
+
+/* ---- transitions (docs/MENU.md): screens fade, overlays pop, pages come up out of the dark ---- */
+#menu { transition: opacity 0.12s ease-in; }
+#menu.leaving { opacity: 0; }
+#menu.leaving > * { transition: transform 0.12s ease-in; transform: translateX(-14px); }
+#menu.leaving[data-dir='back'] > * { transform: translateX(14px); }
+#menu.entering > * { animation: screenIn 0.18s ease-out both; }
+#menu.entering[data-dir='back'] > * { animation-name: screenInBack; }
+@keyframes screenIn { from { opacity: 0; transform: translateX(18px); } }
+@keyframes screenInBack { from { opacity: 0; transform: translateX(-18px); } }
+#pause.on > .card, #settings.on > .card, #results.on > .card { animation: popIn 0.16s ease-out both; }
+@keyframes popIn { from { opacity: 0; transform: scale(0.96); } }
+#pageFade { position: fixed; inset: 0; z-index: 50; background: var(--bg); pointer-events: none; opacity: 0; transition: opacity 0.18s ease-in; }
+#pageFade.in { animation: pageIn 0.35s ease-out both; }
+#pageFade.out { opacity: 1; animation: none; }
+@keyframes pageIn { from { opacity: 1; } to { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) {
+  #menu.leaving > *, #menu.leaving[data-dir='back'] > * { transform: none; }
+  #menu.entering > *, #menu.entering[data-dir='back'] > * { animation: fadeOnly 0.1s ease-out both; }
+  #pause.on > .card, #settings.on > .card, #results.on > .card { animation: fadeOnly 0.1s ease-out both; }
+  #pageFade { transition-duration: 0.06s; }
+  #pageFade.in { animation-duration: 0.12s; }
+  .chooser.nudge-r .cv, .chooser.nudge-l .cv { animation: none; }
+}
+@keyframes fadeOnly { from { opacity: 0; } }

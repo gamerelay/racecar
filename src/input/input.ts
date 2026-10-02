@@ -203,5 +203,7 @@ export class Input {
 /** Keys for a text field (and a dropdown outside the menus: in them, arrows move between controls). */
 function isTyping(e: KeyboardEvent, menuOpen: boolean): boolean {
   const t = e.target as HTMLElement | null;
-  return !!t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || (t.tagName === 'SELECT' && !menuOpen) || t.isContentEditable);
+  // A slider or a checkbox isn't typing: the menu's keys move it, and Esc still backs out.
+  const typed = t?.tagName === 'INPUT' && !['range', 'checkbox'].includes((t as HTMLInputElement).type);
+  return !!t && (typed || t.tagName === 'TEXTAREA' || (t.tagName === 'SELECT' && !menuOpen) || t.isContentEditable);
 }

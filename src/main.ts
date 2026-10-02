@@ -17,13 +17,17 @@ import { bakeTrack } from './core/track/bake';
 import { Input } from './input/input';
 import { GameRenderer } from './render/renderer';
 import { GreyboxSkin } from './render/skins/greybox';
-import { posthogEnabled, posthogSink } from './telemetry/posthog';
+import { posthogBuilt, posthogEnabled, posthogSink, setTelemetryOptOut, telemetryOptedOut } from './telemetry/posthog';
 import { Telemetry } from './telemetry/telemetry';
 import { GameAudio } from './audio/audio';
 import { playlistFor, Soundtrack } from './audio/soundtrack';
 import { Hud } from './ui/hud';
 import { RaceUi } from './ui/race';
 import { accept, navigate } from './ui/nav';
+import { installChoosers } from './ui/chooser';
+import { fadeIn } from './ui/fade';
+import { SettingsPanel } from './ui/settings';
+import { SettingsStore } from './settings';
 import { backToSetup, raceAgain, readChoices, readSetup, restart, type RaceSetup } from './ui/setup';
 import { Menu, type Preview } from './ui/menu';
 import { GameRelay } from '@gamerelay/sdk';
@@ -46,6 +50,13 @@ function storage(): Storage | null {
   }
 }
 let screens: Menu | undefined;
+// The page comes up out of the dark (every race and menu is a page load: ui/fade.ts).
+fadeIn();
+installChoosers();
+/** The player's settings (sound, graphics, privacy), on this device. */
+const settings = new SettingsStore(storage());
+// Analytics turned off before there were settings (racecar.telemetry): still off.
+if (telemetryOptedOut() && settings.get().analytics) settings.set({ analytics: false });
 const BUILD = `${import.meta.env.MODE}-${__BUILD_TIME__}`;
 // Only cars and paints that exist: a stale or hand-edited link falls back instead of crashing.
 const LAYOUT_KEYS = Object.keys(LAYOUTS);
@@ -113,8 +124,10 @@ if (!onlineRace && run.lobby && run.lobby !== LOCAL_ID && online) void online.ge
 
 const input = new Input();
 const renderer = new GameRenderer(document.getElementById('stage')!, new GreyboxSkin(), sim, PAINTS, paletteFor(map, run.time, run.seed), {
-  post: params.get('post') !== '0',
-  outline: params.get('ink') !== '0',
+  // The settings' graphics, unless the URL turns one off (&post=0, &ink=0).
+  post: params.get('post') !== '0' && settings.get().graphics.post,
+  outline: params.get('ink') !== '0' && settings.get().graphics.outline,
+  pixelRatio: Math.min(window.devicePixelRatio || 1, 2) * settings.get().graphics.resolution,
   // Every car's plate says its driver's name, over the map's region.
   plates: names.map((text) => ({ text, region: map.name, map: map.id })),
 });
@@ -143,6 +156,17 @@ const track = playlist
     })
   : null;
 const audio = new GameAudio(sim, track, attract);
+// The frame rate, top left, when Settings → Show FPS is on.
+document.body.insertAdjacentHTML('beforeend', '<div id="fps" aria-hidden="true"></div>');
+const fpsEl = document.getElementById('fps')!;
+// Settings apply as they change: the volumes, the graphics, analytics.
+settings.onChange((s) => {
+  audio.setVolumes(s.volume);
+  renderer.setQuality({ resolution: s.graphics.resolution, post: params.get('post') !== '0' && s.graphics.post, outline: params.get('ink') !== '0' && s.graphics.outline });
+  fpsEl.classList.toggle('on', s.graphics.fps);
+  setTelemetryOptOut(!s.analytics);
+});
+const settingsPanel = new SettingsPanel(settings, posthogBuilt);
 const raceUi = new RaceUi(sim, CLASSES, names, specs.map((x) => PAINTS[(x.paint ?? 0) % PAINTS.length].color));
 raceUi.onAgain = () => raceAgain(run);
 raceUi.onSetup = () => backToSetup(run);
@@ -160,9 +184,10 @@ if (you >= 0) {
 // Behind the menu there are no results; with the pause menu up they wait.
 raceUi.resultsOn = !attract;
 raceUi.canShow = () => !paused;
-// Quit to the main menu from anywhere in a race. Not focusable, so Space (boost) can't press it.
-document.body.insertAdjacentHTML('beforeend', '<button id="quit" tabindex="-1" title="Quit to the main menu">✕ Menu</button>');
-document.getElementById('quit')!.onclick = () => backToSetup(run);
+// The in-race menu (Resume, Restart, Settings, Quit), from anywhere in a race, as Esc opens it. Not
+// focusable, so Space (boost) can't press it.
+document.body.insertAdjacentHTML('beforeend', '<button id="quit" tabindex="-1" title="Menu (Esc)">☰ Menu</button>');
+document.getElementById('quit')!.onclick = () => setPaused(!paused);
 /** The weather the race behind the menu was last given (a lobby's own, once one is up). */
 let weatherShown = run.weather;
 /** And its time of day. */
@@ -172,6 +197,7 @@ if (attract) {
   // Back from a race (Main menu, Change setup): its choices are the defaults.
   screens = new Menu(lobbies, { maps: MAPS, layouts: LAYOUTS, classes: CLASSES, paints: PAINTS }, readChoices(params, layoutKey, known), plate, storage());
   screens.onPreview = preview;
+  screens.onSettings = () => settingsPanel.open(document.getElementById('mSettings'));
   screens.online = !!online;
   screens.offline = () => lobbies.offline;
   // A short link sends players here with `?join=<link>` (net: GameRelay's short links); an
@@ -324,15 +350,16 @@ function frame(now: number): void {
     hud.update();
     raceUi.update();
     rumble();
+    if (fpsEl.classList.contains('on') && sim.tick % 15 === 0) fpsEl.textContent = `${renderer.fps.toFixed(0)} fps`;
     if (hud.debugOn) hud.debugText = `fps ${renderer.fps.toFixed(0)}  draws ${renderer.drawCalls}\ntick ${sim.tick}  scale ${sim.timeScale.toFixed(2)}\ns ${sim.cars.s[me].toFixed(1)} lat ${sim.cars.lateral[me].toFixed(2)} spline ${sim.cars.spline[me]}\nslip ${sim.cars.slip[me].toFixed(2)} charge ${sim.cars.driftCharge[me].toFixed(2)}\nsurface ${SURFACES[sim.cars.surface[me]]?.id}  input ${input.lastDevice}\nlayout ${sim.track.layout.id} ${sim.track.version}  ${(sim.track.main.length / 1000).toFixed(2)} km`;
     telemetry.frame(dt * 1000, renderer.fps, renderer.drawCalls);
   }
 }
 requestAnimationFrame(frame);
 
-/** The menu on screen, if any: the F8 form, the pause menu, results, or the title and lobbies. */
+/** The menu on screen, if any: Settings (over the rest), the F8 form, the pause menu, results, or the title and lobbies. */
 function openMenu(): HTMLElement | null {
-  return document.querySelector<HTMLElement>('#reportForm, #pause.on, #results.on, #menu');
+  return document.querySelector<HTMLElement>('#settings.on') ?? document.querySelector<HTMLElement>('#reportForm, #pause.on, #results.on, #menu');
 }
 
 // Switching away mid-race pauses it (not behind the menu, not once you're in the results). Not
@@ -356,6 +383,8 @@ input.on((a) => {
     return;
   }
   if (a === 'accept') return void (menu && accept(menu));
+  // Settings are over everything: back (Esc, B) closes them, to the menu they were opened from.
+  if ((a === 'back' || a === 'pause') && settingsPanel.isOpen) return settingsPanel.close();
   // The F8 form owns the controls while it's up: back closes it, nothing else gets through.
   if (closeReport) return void (a === 'back' && closeReport());
   if (a === 'back') return void (paused ? setPaused(false) : screens?.back());
@@ -376,17 +405,20 @@ function setPaused(on: boolean): void {
   // Nothing to pause behind the menu, and the results screen has its own buttons.
   if (attract || (on && raceUi.shown)) return;
   paused = on;
+  if (!on && settingsPanel.isOpen) settingsPanel.close();
   let el = document.getElementById('pause');
   if (!el) {
     document.body.insertAdjacentHTML(
       'beforeend',
       `<div id="pause"><div class="card"><h1>${onlineRace ? 'Menu' : 'Paused'}</h1>${onlineRace ? '<p class="muted">The race goes on without you: your car coasts until you resume.</p>' : ''}
+        <div class="row pauseButtons"><button id="pResume">Resume</button>${onlineRace ? '' : '<button id="pRestart" class="ghost">Restart</button>'}<button id="pSettings" class="ghost">Settings</button><button id="pSetup" class="ghost">${run.lobby ? 'Back to lobby' : 'Quit'}</button></div>
+        <h2>How to play</h2>
         <dl><dt>Drive</dt><dd>WASD / arrows, or a gamepad (RT, LT, stick)</dd><dt>Drift</dt><dd>hold Shift (RB) while steering: steer in to tighten, out to widen: a quicker way round a corner</dd><dt>Boost</dt><dd>Space (A): fills from air, near misses, the oncoming lane in traffic, checking traffic and takedowns</dd><dt>Takedowns</dt><dd>ram a rival hard, boost into them, or shove them into a wall, a pillar or traffic</dd><dt>Traffic</dt><dd>boost into the back of a small car to check it out of the way; don't hit anything head on</dd><dt>Start</dt><dd>hit the throttle just before GO for a perfect start; too early and you stall</dd><dt>Sound</dt><dd>M mutes everything, N toggles the music</dd><dt>Felt wrong?</dt><dd>F8 (Select+Start) saves the last 30 s with a note</dd></dl>
-        <p class="keys" id="keys">${hud.keys}</p>
-        <button id="pResume">Resume</button>${onlineRace ? '' : '<button id="pRestart">Restart</button>'}<button id="pSetup" class="ghost">${run.lobby ? 'Back to lobby' : 'Main menu'}</button></div></div>`,
+        <p class="keys" id="keys">${hud.keys}</p></div></div>`,
     );
     el = document.getElementById('pause')!;
     document.getElementById('pResume')!.onclick = () => setPaused(false);
+    document.getElementById('pSettings')!.onclick = () => settingsPanel.open(document.getElementById('pSettings'));
     // A race everyone's in can't be restarted for one of them.
     const again = document.getElementById('pRestart');
     if (again) again.onclick = () => restart(run);
