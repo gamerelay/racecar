@@ -6,6 +6,8 @@ and where things stand is [docs/HANDOFF.md](./docs/HANDOFF.md).
 
 ## Unreleased
 
+- **Fix:** clicking in the lobby (a seat, Ready, a car or paint) no longer plays the whole screen's
+  fade-in again; only a change of screen does.
 - **Settings** (title → Settings, or the in-race menu): volume sliders (master, music, engines,
   effects), graphics (a Low / Medium / High preset, resolution, post effects, outlines, an FPS
   counter) and an analytics opt-out, kept on this device and applied as they change.
