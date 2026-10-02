@@ -4,7 +4,7 @@ import { doppler, ENGINE_SOUNDS, engineHz, engineSound, gearbox, musicMix, MUSIC
 import { CLASSES } from './helpers';
 import { existsSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
-import { ANY_MAP, pickTrack, playlistFor, Soundtrack, TRACKS, trackUrl, type TrackName } from '../src/audio/soundtrack';
+import { ANY_MAP, MAP_TRACKS, pickTrack, playlistFor, Soundtrack, TRACKS, trackUrl } from '../src/audio/soundtrack';
 import { MAPS } from '../tools/content';
 
 // The sound model is pure (the Web Audio graph isn't testable in Bun): gears, pitch, where a sound
@@ -73,8 +73,13 @@ describe('audio model', () => {
 describe('the soundtrack', () => {
   test("the title's track behind the menus; in a race the map's own and the two for any map; a file for every one", () => {
     expect(playlistFor('downtown', true)).toEqual(['title']);
-    for (const m of MAPS) expect(playlistFor(m.id, false)).toEqual([m.id as TrackName, ...ANY_MAP]);
+    // Every map has its own (named after it, first), and every track is someone's.
+    for (const m of MAPS) expect(playlistFor(m.id, false)).toEqual([m.id as (typeof TRACKS)[number], ...MAP_TRACKS[m.id]!.slice(1), ...ANY_MAP]);
+    expect(playlistFor('downtown', false)).toEqual(['downtown', 'tokyo-dubstep', ...ANY_MAP]);
+    expect(playlistFor('paradise', false)).toEqual(['paradise', 'hawaiian-vibes', ...ANY_MAP]);
+    expect(new Set(['title', ...Object.values(MAP_TRACKS).flat(), ...ANY_MAP])).toEqual(new Set(TRACKS));
     expect(playlistFor('volcano', false)).toEqual([...ANY_MAP]);
+    expect(playlistFor('constructor', false)).toEqual([...ANY_MAP]);
     for (const name of TRACKS) expect(existsSync(join(import.meta.dir, '..', 'public', 'music', `${name}.m4a`))).toBe(true);
   });
 
@@ -82,7 +87,7 @@ describe('the soundtrack', () => {
     const list = playlistFor('paradise', false);
     for (const last of list) for (const r of [0, 0.34, 0.67, 0.999]) expect(pickTrack(list, last, () => r)).not.toBe(last);
     // Every other track comes up.
-    expect(new Set([0, 0.5, 0.99].map((r) => pickTrack(list, 'paradise', () => r)))).toEqual(new Set(ANY_MAP));
+    expect(new Set([0, 0.3, 0.6, 0.99].map((r) => pickTrack(list, 'paradise', () => r)))).toEqual(new Set(['hawaiian-vibes', ...ANY_MAP]));
     // A playlist of one (the title's) is that one.
     expect(pickTrack(['title'], 'title')).toBe('title');
   });

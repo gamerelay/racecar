@@ -1,20 +1,25 @@
 // The recorded soundtrack: the title's track behind the menus, and in a race a playlist of the
-// map's own track and the two that go anywhere, so the same song never plays twice in a row (from
+// map's own tracks and the two that go anywhere, so the same song never plays twice in a row (from
 // one race to the next either). A streamed <audio> element played through the music bus (so N, M,
 // the slow-mo duck and the level all apply to it). A track that can't load (not hosted where the
 // page is, say) falls back to the synth music (music.ts), the same as before there were tracks.
 
-/** The tracks, by name: `title`, each map's id, and the two any race may play. */
-export const TRACKS = ['title', 'downtown', 'backroads', 'paradise', 'finish-line', 'final-sprint'] as const;
+/** The tracks, by name: `title`, each map's own, and the two any race may play. */
+export const TRACKS = ['title', 'downtown', 'tokyo-dubstep', 'backroads', 'paradise', 'hawaiian-vibes', 'finish-line', 'final-sprint'] as const;
 export type TrackName = (typeof TRACKS)[number];
 /** Tracks for any map's race. */
 export const ANY_MAP: readonly TrackName[] = ['finish-line', 'final-sprint'];
+/** Each map's own tracks: the city has the Tokyo dubstep too, the island the Hawaiian one (2026-10-01). */
+export const MAP_TRACKS: Readonly<Record<string, readonly TrackName[]>> = {
+  downtown: ['downtown', 'tokyo-dubstep'],
+  backroads: ['backroads'],
+  paradise: ['paradise', 'hawaiian-vibes'],
+};
 
 /** The page's playlist: the title's alone behind the menus (attract mode), else the map's own and the two for any map. */
 export function playlistFor(mapId: string, attract: boolean): TrackName[] {
   if (attract) return ['title'];
-  const own = (TRACKS as readonly string[]).includes(mapId) && !ANY_MAP.includes(mapId as TrackName) && mapId !== 'title' ? [mapId as TrackName] : [];
-  return [...own, ...ANY_MAP];
+  return [...(Object.hasOwn(MAP_TRACKS, mapId) ? MAP_TRACKS[mapId] : []), ...ANY_MAP];
 }
 
 /** A track from the playlist other than `last` (unless it's the only one). */

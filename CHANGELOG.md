@@ -15,10 +15,12 @@ and where things stand is [docs/HANDOFF.md](./docs/HANDOFF.md).
   click, a tap, the arrows or the d-pad.
 - **Transitions:** menu screens fade and slide, overlays pop in, and races fade in and out
   through the dark (shorter with reduced motion).
+- Two new tracks: a Tokyo dubstep one for Downtown, and a Hawaiian one for Paradise, in those
+  maps' playlists beside their own track and the two for any map.
 - The mix: engines quieter and the music louder (about 8 dB between them), from playtests.
 - docs/MENU.md: the plan for a real in-game menu and settings (sound, graphics, controls with
   remapping, comfort, HUD, privacy), choosers instead of dropdowns, and transitions between screens.
-- Short invite links: Copy invite link copies `https://gamerelay.io/racecar/<link>`, which
+- Short invite links: Copy invite link copies `https://play.gamerelay.io/racecar/<link>`, which
   previews in chat apps with the lobby's name and the cover art and opens the game straight into
   the lobby (`?join=<link>`). An Invite only lobby is now link-only: its code doesn't get anyone
   in, so nobody joins by guessing one (a player who had a seat still comes back). SDK 0.1.0-alpha.5.
