@@ -27,12 +27,12 @@ old keys still resolve). The third map is **Paradise** (`content/maps/paradise`,
    lobbies, also run the gamerelay.io repo's server (`bun run dev` there, :8787), then use two tabs.
 2. Read this file, then [ONLINE.md](./ONLINE.md) (how lobbies, hosts, parties and players work),
    SPEC §17 and the milestone 3 notes under "Changed while building".
-3. The platform side is ready: SDK `0.1.0-alpha.4` has everything racecar uses (host controls,
+3. The platform side is ready: SDK `0.1.0-alpha.5` has everything racecar uses (host controls,
    listings, parties, `lanRoute`), and the `racecar` instance has parties and Direct connections
    on (see "GameRelay side" below).
 4. Before changing anything: `bun test && bun run typecheck && bun tools/validate.ts --ai`. All
    three are green on `main`. Branch off `main`, one PR per change, with CI, then
-   `/code-review` on the PR.
+   `/code-review` with the PR's full URL. Merge, tag and deploy only when the owner asks.
 
 ## Where things stand
 
@@ -45,20 +45,33 @@ old keys still resolve). The third map is **Paradise** (`content/maps/paradise`,
   racing, shared traffic, bumps and takedown credit (PRs #46 and #47, `alpha-1.22`), and one
   results table with a vote on the next race (PR #48, `alpha-1.23`). What's left is the milestone 3 list under "Next,
   in order".
-- **Since `alpha-1.23`** (PRs #49–#57, merged 2026-10-02, untagged):
+- **Released 2026-10-02** (`alpha-1.24` to `alpha-1.27`, PRs #49–#65; CHANGELOG has each):
   - **Short invite links** (#50): `https://play.gamerelay.io/racecar/<link>`, previewed in chat
     apps; an Invite only lobby is link-only (SDK `0.1.0-alpha.5`).
   - **Menus and settings** (#51, #52, #54, [MENU.md](./MENU.md) steps 1–2): the mix (engines down,
     music up), one settings store and panel (sound sliders, a graphics preset, an analytics
     opt-out), a real in-race menu with a Controls screen, choosers instead of `<select>`s, and
     screen transitions.
-  - **Two more tracks** (#53): Tokyo dubstep for Downtown, Hawaiian for Paradise.
   - **A codebase review** (#49, #55, #56): the online race code tidied, the clock tower's flicker
     and other z-fighting fixed, fixes across the menus, audio and online, 61 more tests, and
-    clicks in the lobby no longer replaying its fade-in. Its leftovers are in TECH_DEBT.md.
+    clicks in the lobby no longer replaying its fade-in.
   - **A loading screen** (#57): the crossed flags pulse on the dark screen between pages (in
     `index.html`, so it's up from the first paint; `src/ui/fade.ts`), at least 0.7 s, and an
     offline race waits behind it.
+  - **Paradise v2** (#58), below, and **no fence jutting into the road** at Backroads' Barn (#59).
+  - **Six new tracks** (#53, #60, #62): Tokyo dubstep (Downtown), Hawaiian (Paradise), an acoustic
+    one (Backroads), Relentless Pursuit and Half Time Surge (any map), and Pursuit Orchestra behind
+    the menus (`TITLE_TRACKS`, taking turns with the title's own). Twelve in all, 35 MB on the CDN.
+  - **Boost, Overdrive and the slipstream** (#61, SPEC "Changed while building"): boost easier to
+    earn (`boostEarn` 1.2), a quarter longer (`boostDrain` 0.8) and stronger (`boostAccel` 18.5,
+    `boostTop` 1.35); Overdrive, the top speed climbing 6% over 5 s flat out and clean on a
+    straight (`cruise*`); the slipstream behind a car on a straight (+5% top, less drag) and its
+    slingshot for pulling out to pass (+10% for 1.5 s, `slip*`, `sling*`). The AI uses all of it,
+    and holds its boost while it gets round something.
+  - **Docs** (#63, #64): PLAN's "Next up" from the playtest, a pickup truck and Avalanche (a
+    planned Alps map); a tech-debt pass over the whole codebase (TECH_DEBT.md, 33 items).
+  - **Fixes** (#65): the minimap was the track's mirror image (now `fitBox`, shared with the
+    thumbnail), Overdrive re-popped, a slingshot survived a wreck.
 - **Paradise v2** (PR #58, in alpha-1.24): playtest feedback was "the vibe is right, but the map is a
   little boring and hard to race". In thirteen commits:
   - **More swing:** deeper S-bends, sweepers 3 m wider (`driftWidth: 3`), the jungle's hairpins
@@ -191,8 +204,8 @@ old keys still resolve). The third map is **Paradise** (`content/maps/paradise`,
 | | Downtown | Backroads (Valley) | Paradise (Island) |
 |---|---|---|---|
 | Lap length | 3.26 km | 2.92 km | 3.80 km (3.44 before PR #58) |
-| AI lap floor (hard, empty track) | 58.6 s | 63.4 s | 71.9 s (66.8 s) |
-| Wrecks per 8-AI race (`lap-report --field --seed N`) | 1.0, 16 seeds (0.88 on seeds 1–8) | 1.13, 16 seeds (0.88 on seeds 1–8) | 0.8 with the hazards, 16 seeds; 1.4 at chaos (`--chaos`) (~1.2 before) |
+| AI lap floor (hard, empty track) | 57.9 s (58.6 before PR #61's boost) | 62.9 s (63.4) | 71.5 s (71.9; 66.8 before PR #58) |
+| Wrecks per 8-AI race (`lap-report --field`, 16 seeds) | 1.3; 2.0 at chaos (`--chaos`) | 0.6; 0.8 at chaos | 1.5, the tests' limit (1.1 before PR #61); 1.7 at chaos |
 | Draw calls | ~90–415 | ~65–330 | ~35–150 for the world; ~350 in the chase view with the field on screen (mostly cars) |
 | Scenery build (per editor edit) | ~200 ms | ~150 ms | ~600 ms (land and scenery, measured in bun) |
 
@@ -364,14 +377,23 @@ the cone's far flanks.
      only fix, and that's the owner's call.
    - The repo goes public. Then milestone 3b: the neon skin on Downtown (SPEC's City), which is
      the launch. Touch controls first: phones will be much of the link's traffic.
-2. **Paradise v2 (alpha-1.24):** drive it. Do the Beach Cut and Smugglers' Trail feel
+2. **Drive the new feel (alpha-1.25):** boost, Overdrive and the slipstream are tuned against the
+   AI only. Does boost now feel worth chasing? Does Overdrive's 6% read on a straight, and the
+   "Slingshot!" when you pull out from behind a rival? The numbers are all in the F4 panel.
+   Paradise's field is at 1.5 wrecks a race over 16 seeds, the field tests' limit, so a change
+   that adds speed there has to give some back.
+3. **PLAN.md's "Next up"** (from the playtest): button click effects, the title's music from the
+   start, traffic fading out in front of you, Logger's Leap's edges and berms, Backroads by day,
+   and more particles and sounds when smashing props. Then the pickup truck, and Avalanche (a
+   large job: a greybox slope and the AI on it first).
+4. **Paradise v2 (alpha-1.24):** drive it. Do the Beach Cut and Smugglers' Trail feel
    like a fair gamble? The hard AI is about even on both (−0.4 s and level). Does the dust feel
    right running wide onto the beach and the jungle's edge? It isn't checked by eye: the poster
    scout's cars stand still, so tune `DUST` in `renderer.ts` from a drive. And is the lava rain at
    chaos enough, or too much?
-3. **The menu plan, step 3** ([MENU.md](./MENU.md)): keyboard remapping on the Controls screen,
+5. **The menu plan, step 3** ([MENU.md](./MENU.md)): keyboard remapping on the Controls screen,
    hints built from the bindings, and gamepad deadzone, rumble and sensitivity.
-4. **Playtest with a controller** whenever there's a build to try: tune with F4, and press F8 on
+6. **Playtest with a controller** whenever there's a build to try: tune with F4, and press F8 on
    anything odd. Still open: whether ~1 wreck a race on Downtown is too tame (add denser traffic
    on the straights rather than sections in corners), and whether each car's drift carry feels
    right (`driftExit*`, `boostFromDrift`).
