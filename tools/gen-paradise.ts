@@ -203,14 +203,18 @@ const rimSpan = span(sAt(...rim(-40, 186), 28), sAt(...rim(50, 186), 40));
 const walled: [number, number][] = [harbour, span(sAt(-420, -200, 8), sAt(240, -370, 11)), rimSpan];
 // The shortcuts over open ground (the Sandbar, the Beach Cut, Smugglers' Trail) have no walls
 // either: run wide and you're on the sand or in the undergrowth, as on the lap (walls there jutted
-// into the main road where a cut runs beside it). The Lava Tube keeps its walls: it's in the rock.
+// into the main road where a cut runs beside it). The Lava Tube keeps its walls only inside the
+// rock (the skin's tunnel runs from 0.22 to 0.78 of it): its approaches are open too.
 const open = withBranches.splines.filter((sp) => ['sandbar', 'beach-cut', 'smugglers-trail'].includes(sp.id));
+const tubeSp = withBranches.splines.find((sp) => sp.id === 'lava-tube')!;
 layout.walls = {
   gaps: [
     ...wallGaps(walled, L),
     { s: harbour, side: 'right' },
     { s: rimSpan, side: 'right' },
     ...open.map((sp): WallGap => ({ spline: sp.id, s: [0, Math.ceil(sp.length)], side: 'both' })),
+    { spline: 'lava-tube', s: [0, Math.floor(tubeSp.length * 0.22)], side: 'both' },
+    { spline: 'lava-tube', s: [Math.ceil(tubeSp.length * 0.78), Math.ceil(tubeSp.length)], side: 'both' },
   ],
 };
 

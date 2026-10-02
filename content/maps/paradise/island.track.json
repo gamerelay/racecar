@@ -4246,6 +4246,22 @@
      198
     ],
     "side": "both"
+   },
+   {
+    "spline": "lava-tube",
+    "s": [
+     0,
+     62
+    ],
+    "side": "both"
+   },
+   {
+    "spline": "lava-tube",
+    "s": [
+     221,
+     284
+    ],
+    "side": "both"
    }
   ]
  },
