@@ -88,6 +88,13 @@ editor edits are for trying things and get overwritten.
   means one every 1/8 lap, stepped past the shortcuts.
 - **The AI takes them** by skill (`SKILL.shortcut`). Check with the lap report that a hard lap
   takes every one clean.
+- **Secret ones** (`secret: true`): no sign, not on the minimap or the thumbnail, and the AI
+  takes them seldom. Short, and close to even for the AI, so they reward knowing the line. A cut
+  only pays across a bulge the road comes back out of on the same heading (an S); across a
+  corner it has to turn as far as the road does, in less room. Fork one where no signed shortcut
+  is open: inside another's span, the AIs on that one never see it.
+- **Corners as two nodes:** a hairpin from one node turning 150° gets filleted into a far tighter
+  arc than its radius (the tangent's clamped to the legs). Lay it as two nodes of about 90°.
 
 ## Traffic, hazards and props
 
@@ -120,7 +127,10 @@ editor edits are for trying things and get overwritten.
 - **Instanced:** one draw per kind of thing. Budget about 400 draw calls at worst (Downtown peaks
   near 415 with detailed traffic around).
 - **Clear of the road:** scenery keeps off every road's footprint and verge (`roadGap`) and off
-  the water.
+  the water. Trees stand well back (Paradise's 10 m), so a drift that runs wide has somewhere to
+  go and corners can be seen round; a secret trail is the exception, with trees right at its edge.
+- **The verge is ground:** a stretch's `verge` surface (beach, undergrowth, ash) is drawn in its
+  color and slows you without spinning you, so running wide costs time, not the race.
 - **Landmarks:** one per section, distinct in silhouette, in the layout (`landmarks`, from the
   generator). A few move (a windmill, a whale), and some show the race (the clock tower's race
   time, the billboard's leader).
@@ -152,9 +162,9 @@ Good numbers today:
 
 | | Target | Downtown | Backroads | Paradise |
 |---|---|---|---|---|
-| Lap length | 2.9–3.8 km | 3.26 km | 2.92 km | 3.44 km |
-| Hard-AI lap floor | 70–100 s (SPEC) | 58.6 s | 63.4 s | 66.8 s |
-| AI wrecks per 8-car race | ≤ 1.5 | 1.0 (16 seeds) | 1.1 (16 seeds) | ~1.2 with its hazards (0.5 without) |
+| Lap length | 2.9–3.8 km | 3.26 km | 2.92 km | 3.80 km |
+| Hard-AI lap floor | 70–100 s (SPEC) | 58.6 s | 63.4 s | 71.9 s |
+| AI wrecks per 8-car race | ≤ 1.5 | 1.0 (16 seeds) | 1.1 (16 seeds) | 0.8 with its hazards (16 seeds; 1.4 at chaos) |
 | AI resets | ~0 | rare | ≤ 1 in 6 races | none in 8 |
 
 Tests hold what matters for each map: land below every road, bridges detected, a hard lap that

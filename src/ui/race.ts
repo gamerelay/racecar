@@ -71,7 +71,8 @@ export class RaceUi {
       z1 = Math.max(z1, sp.pz[i]);
     }
     this.bounds = { x0, x1, z0, z1 };
-    const paths = t.splines.map((sp) => {
+    // Secret shortcuts aren't on the map: finding them is the point.
+    const paths = t.splines.filter((sp) => !sp.secret).map((sp) => {
       const p = new Path2D();
       for (let i = 0; i < sp.n; i += 4) {
         const [x, y] = this.project(sp.px[i], sp.pz[i]);

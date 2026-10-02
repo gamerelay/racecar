@@ -2067,3 +2067,44 @@ Review fixes (PR #48):
 - **The post-race runs on the relay's tick** once the page is in its room, like the race: on a
   page timer, a lobby host whose tab had been hidden a while (Chrome slows those to once a minute)
   left everyone on "Next race…" for up to a minute.
+
+Paradise v2 (after playtest: "the vibe is right, but the map is a little boring and hard to
+race"; each change is its own commit, so any one can be reverted):
+
+- **More swing:** deeper S-bends out of town and over the headland, and the rim swinging in and
+  out round the cone. The jungle's hairpins are two corners each instead of one node turning 150°
+  (the generator fillets one big turn into a much tighter arc than its radius: they were 18 and
+  22 m, now nothing on the lap is under 37 m), and between them the road bulges up the slope and
+  back. Sweepers are 3 m wider than the road round them (`driftWidth`), against 1.5 m on the
+  other maps. 3.80 km, floor 71.9 s (was 3.44 km, 66.8 s).
+- **Forgiving off the road:** wider verges, the harbour front's and the rim's walls on the drop's
+  side only, and the ground past the road is the stretch's own (`TrackPoint.verge`): the beach
+  (firmer than the Sandbar's loose sand), undergrowth through the jungle, ash on the rim. Each
+  slows you without spinning you. The out-of-bounds line stays 25 m past the verge: past it the
+  land leaves the road's plane, which the car drives on.
+- **Secret shortcuts** (`BranchDef.secret`): no sign, not on the minimap or the thumbnail, and the
+  AI takes one at 0.35× its usual rate, so now and then a rival vanishes into the trees. The
+  Beach Cut runs along the sand where the road swings inland out of town; Smugglers' Trail runs
+  straight on through the jungle across the bulge, over a fallen log (a jump across the bend).
+  Each is close to even for the hard AI (−0.4 s, and dead even): a gamble, faster with a clean
+  line. The trail first ran inside the headland's S, where it was nearly never taken: it left
+  inside the Sandbar's span, and a hard AI takes the Sandbar 85% of the time. A secret now leaves
+  where no signed shortcut is open (tested). A hop across the inside of
+  Lighthouse Point was tried and dropped: a cut has to turn as far as the road it cuts, so across
+  a corner it hugged the kerb and saved nothing. Cuts pay across a bulge the road comes back out
+  of on the same heading.
+- **Lava:** three rivers down the cone's far flanks (scenery, clear of every road). At chaos,
+  lava rain (`HazardDef.mayhem`: a hazard can be one mayhem's alone): small rocks you hop over
+  (`soft`), over the top of the jungle's bulge (the trail skips it) and the run down off the rim.
+  1.4 wrecks a race at chaos; on the jungle's last leg, where the field lines up for the Lava
+  Tube, 2.1.
+- **The jungle's road:** a darker laterite in patches, ruts a shade darker that wander and wear
+  away, earth kerbs and mossy verges (the flat terracotta, cream verges and unbroken ruts read as
+  orange plastic). Trees stand 10 m back from the roads, bushes nearer in, and fewer palms lean
+  over them.
+- **Two bombs an eruption** on the rim (three cost 0.5–0.8 hazard wrecks a race on the new rim, two
+  0.44). The field wrecks 0.8 times a race over 16 seeds (was about 1.2).
+- **Dust by ground** (`DUST` in renderer.ts): a pale spray off the sand and beach, leaves and
+  clods off the undergrowth and grass, a grey haze off the ash, dust the color of the earth, and a
+  puff the moment you run off the road at speed. The other maps' dirt, grass and sidewalks throw
+  what they did.

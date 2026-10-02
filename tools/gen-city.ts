@@ -117,6 +117,9 @@ const alley: BranchDef = {
 layout.branches = [alley];
 const alleySp = bakeTrack(layout, surfaces).splines[1];
 layout.ramps = [{ spline: 'alley', s: Math.round(alleySp.length * 0.5), height: 1.2, length: 10 }];
+// The Alley's wall on the Boulevard's side stops where it comes back in beside it: it jutted into
+// the main road there. (Its walls stay where shops line it: cars don't hit the buildings.)
+layout.walls = { gaps: [{ spline: 'alley', s: [Math.round(alleySp.length * 0.76), Math.ceil(alleySp.length)], side: 'right' }] };
 
 // The colonnade: the Skyway's pillars stand in the Boulevard's median. Shove a rival into one.
 const under = sAt(0, 250, 0);

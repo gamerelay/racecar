@@ -24,7 +24,8 @@ import {
   Vector3,
   type Object3D,
 } from 'three';
-import type { BakedSpline, Track } from '../../../core/track/bake';
+import { hash01 } from '../../../core/rng';
+import { VERGE_DEFAULT, type BakedSpline, type Track } from '../../../core/track/bake';
 import { newHit, sampleAt } from '../../../core/track/query';
 import type { TrackVisual } from '../../skin';
 import { buildCityscape } from './cityscape';
@@ -372,11 +373,19 @@ export function deckMask(sp: BakedSpline, groundY: number): Uint8Array {
 /** How roads look off the city grid: timber and earth, land under them rather than a flat ground. */
 type Style = { country: false } | { country: true; floor: (x: number, z: number) => number; island: boolean };
 
+const ruts = new Map<string, number>();
+/** A rut's color: the road's own, darker. */
+function rutColor(color: string): number {
+  let c = ruts.get(color);
+  if (c === undefined) ruts.set(color, (c = new Color(color).multiplyScalar(0.78).getHex()));
+  return c;
+}
+
 function buildChunk(g: Geo, track: Track, sp: BakedSpline, i0: number, i1: number, groundY: number, levels: boolean, deck: Uint8Array, style: Style): void {
   const A: Cross = { cx: 0, cy: 0, cz: 0, rx: 0, rz: 0, tb: 0 };
   const B: Cross = { cx: 0, cy: 0, cz: 0, rx: 0, rz: 0, tb: 0 };
   const at = (c: Cross, l: number, lift: number) => [c.cx + c.rx * l, c.cy - l * c.tb + lift, c.cz + c.rz * l] as const;
-  const shoulderColor = track.surfaces[track.surfaceIndex.get(track.layout.shoulderSurface ?? 'sidewalk') ?? 0].color;
+  const layoutVerge = track.surfaces[track.surfaceIndex.get(track.layout.shoulderSurface ?? 'sidewalk') ?? 0].color;
   const last = sp.closed ? i1 : Math.min(i1, sp.n - 1);
   for (let i = i0; i < last; i++) {
     const j = sp.closed ? (i + 1) % sp.n : i + 1;
@@ -388,6 +397,8 @@ function buildChunk(g: Geo, track: Track, sp: BakedSpline, i0: number, i1: numbe
     const sb = wb + sp.shoulder[j];
     const s = i * sp.step;
     const surf = track.surfaces[sp.surface[i]];
+    // The verge in its own surface's color where the stretch sets one (the jungle's earth, the beach's sand).
+    const shoulderColor = sp.verge[i] === VERGE_DEFAULT ? layoutVerge : track.surfaces[sp.verge[i]].color;
     // Levels (city): high roads are decks on pillars, low ones trenches, very low ones tunnels.
     const hA = A.cy - groundY;
     const hB = B.cy - groundY;
@@ -404,7 +415,25 @@ function buildChunk(g: Geo, track: Track, sp: BakedSpline, i0: number, i1: numbe
     let q = at(A, wa, 0);
     let r = at(B, wa, 0);
     let t = at(B, -wa, 0);
-    g.quad(q[0], q[1], q[2], p[0], p[1], p[2], t[0], t[1], t[2], r[0], r[1], r[2], surf.color);
+    // The island's earth roads are packed laterite in patches, not one flat color: three strips
+    // across, each a little lighter or darker every few meters.
+    const earth = style.country && style.island && surf.offroad;
+    if (earth) {
+      const shade = g.shade;
+      for (let k = 0; k < 3; k++) {
+        const l0 = -wa + (2 * wa * k) / 3;
+        const l1 = -wa + (2 * wa * (k + 1)) / 3;
+        const m0 = -wb + (2 * wb * k) / 3;
+        const m1 = -wb + (2 * wb * (k + 1)) / 3;
+        g.shade = shade * (0.93 + 0.12 * hash01(sp.index, Math.floor(s / 3.5) * 3 + k, 71));
+        p = at(A, l0, 0);
+        q = at(A, l1, 0);
+        r = at(B, m1, 0);
+        t = at(B, m0, 0);
+        g.quad(q[0], q[1], q[2], p[0], p[1], p[2], t[0], t[1], t[2], r[0], r[1], r[2], surf.color);
+      }
+      g.shade = shade;
+    } else g.quad(q[0], q[1], q[2], p[0], p[1], p[2], t[0], t[1], t[2], r[0], r[1], r[2], surf.color);
 
     // Shoulders (sidewalks) with a curb step, both sides. Where another road runs through a
     // side (a branch's mouth), it's open: flush with the road and paved like it, no curb.
@@ -423,7 +452,7 @@ function buildChunk(g: Geo, track: Track, sp: BakedSpline, i0: number, i1: numbe
       if (side < 0) g.quad(inA[0], inA[1], inA[2], outA[0], outA[1], outA[2], outB[0], outB[1], outB[2], inB[0], inB[1], inB[2], color);
       else g.quad(outA[0], outA[1], outA[2], inA[0], inA[1], inA[2], inB[0], inB[1], inB[2], outB[0], outB[1], outB[2], color);
       // Curb face, striped red and white on corners of the lap for speed (a grass verge in the country).
-      const stripe = concrete ? (bridge ? '#a39a88' : '#c9b27e') : style.country ? (bridge ? '#5e4630' : '#4d5f32') : Math.floor(s / 4) % 2 === 0 ? '#e0d6f0' : '#c43a5a';
+      const stripe = concrete ? (bridge ? '#a39a88' : earth ? '#5c4030' : '#c9b27e') : style.country ? (bridge ? '#5e4630' : '#4d5f32') : Math.floor(s / 4) % 2 === 0 ? '#e0d6f0' : '#c43a5a';
       if (side < 0) g.quad(curbA[0], curbA[1], curbA[2], inA[0], inA[1], inA[2], inB[0], inB[1], inB[2], curbB[0], curbB[1], curbB[2], stripe);
       else g.quad(inA[0], inA[1], inA[2], curbA[0], curbA[1], curbA[2], curbB[0], curbB[1], curbB[2], inB[0], inB[1], inB[2], stripe);
 
@@ -513,13 +542,25 @@ function buildChunk(g: Geo, track: Track, sp: BakedSpline, i0: number, i1: numbe
     const lanes = sp.lanes[i] || 2;
     // Clear of the asphalt as far off as the depth buffer allows (closer flickers on long straights), under the skids (skids.ts).
     const lift = 0.035;
-    const line = (l0: number, l1: number, color: string) => {
+    const line = (l0: number, l1: number, color: number | string) => {
       p = at(A, l0, lift);
       q = at(A, l1, lift);
       r = at(B, l1, lift);
       t = at(B, l0, lift);
       g.quad(q[0], q[1], q[2], p[0], p[1], p[2], t[0], t[1], t[2], r[0], r[1], r[2], color);
     };
+    if (earth) {
+      // The island's earth: ruts a shade darker than the road, wandering a little and worn away
+      // in places (straight, unbroken ones read as stripes painted on).
+      const lw = (2 * wa) / lanes;
+      const rut = rutColor(surf.color);
+      for (let k = 0; k < lanes; k++) {
+        const mid = -wa + lw * (k + 0.5) + Math.sin(s / 13 + k * 2.1) * 0.35;
+        if (hash01(sp.index, Math.floor(s / 5.5) * 4 + k * 2, 72) > 0.22) line(mid - 1.1, mid - 0.65, rut);
+        if (hash01(sp.index, Math.floor(s / 4.5) * 4 + k * 2 + 1, 72) > 0.22) line(mid + 0.65, mid + 1.1, rut);
+      }
+      continue;
+    }
     if (surf.offroad) {
       // Dirt: two worn ruts per lane.
       const lw = (2 * wa) / lanes;

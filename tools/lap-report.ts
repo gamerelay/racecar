@@ -4,7 +4,7 @@
 //
 //   bun tools/lap-report.ts                       every layout
 //   bun tools/lap-report.ts downtown              one (a map id or a map/layout key)
-//   --laps 3  --field (8 AI with traffic and hazards, as a race)  --seed 7  --json
+//   --laps 3  --field (8 AI with traffic and hazards, as a race)  --chaos (the field at chaos)  --seed 7  --json
 //   --cars                                        every class's hard lap floor per layout (balance)
 //   --car rally                                   the solo lap in that class
 
@@ -19,10 +19,10 @@ const value = (flag: string): string | undefined => {
   return k >= 0 && k + 1 < args.length && !args[k + 1].startsWith('--') ? args[k + 1] : undefined;
 };
 if (args.includes('--help') || args.includes('-h')) {
-  console.log('bun tools/lap-report.ts [map/layout] [--laps N] [--field] [--seed N] [--json] [--cars] [--car id]');
+  console.log('bun tools/lap-report.ts [map/layout] [--laps N] [--field] [--chaos] [--seed N] [--json] [--cars] [--car id]');
   process.exit(0);
 }
-const opts = { field: args.includes('--field'), seed: Number(value('--seed') ?? 7), laps: Number(value('--laps') ?? 3) };
+const opts = { field: args.includes('--field') || args.includes('--chaos'), seed: Number(value('--seed') ?? 7), laps: Number(value('--laps') ?? 3), mayhem: args.includes('--chaos') ? ('chaos' as const) : ('normal' as const) };
 const named = args.find((a, k) => !a.startsWith('-') && !(k > 0 && ['--laps', '--seed', '--car'].includes(args[k - 1])));
 const only = named && (resolveLayout(named, LAYOUT_KEYS) ?? named);
 const car = value('--car') ?? 'coupe';

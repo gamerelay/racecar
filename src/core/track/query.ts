@@ -2,7 +2,7 @@
 // what surface is it, is there a wall. Results go into a caller-owned `TrackHit` so nothing
 // allocates in the tick.
 
-import { wrap, type BakedSpline, type Track } from './bake';
+import { VERGE_DEFAULT, wrap, type BakedSpline, type Track } from './bake';
 
 export interface TrackHit {
   spline: number;
@@ -21,6 +21,8 @@ export interface TrackHit {
   /** Ground height at (s, lateral), ramps and bank included. */
   ground: number;
   surface: number;
+  /** The surface past the road's edge (VERGE_DEFAULT: the layout's shoulderSurface). */
+  verge: number;
   wallL: boolean;
   wallR: boolean;
 }
@@ -39,6 +41,7 @@ export const newHit = (): TrackHit => ({
   bank: 0,
   ground: 0,
   surface: 0,
+  verge: VERGE_DEFAULT,
   wallL: true,
   wallR: true,
 });
@@ -76,6 +79,7 @@ export function sampleAt(sp: BakedSpline, s: number, out: TrackHit): TrackHit {
   out.bank = sp.bank[i0] * g + sp.bank[i1] * f;
   const near = f < 0.5 ? i0 : i1;
   out.surface = sp.surface[near];
+  out.verge = sp.verge[near];
   out.wallL = sp.wallL[near] === 1;
   out.wallR = sp.wallR[near] === 1;
   out.lateral = 0;
@@ -128,7 +132,8 @@ function finishProjection(out: TrackHit, x: number, z: number): void {
 
 /**
  * Surface under (spline, s, lateral): dynamic zones first (not in milestone 1), then authored zones,
- * then the road's own surface on the asphalt and the shoulder's beyond it.
+ * then the road's own surface on the asphalt and the verge's beyond it (the stretch's own, or the
+ * layout's shoulder surface).
  */
 export function surfaceAt(track: Track, hit: TrackHit, wet: boolean, shoulderSurface: number): number {
   const sp = track.splines[hit.spline];
@@ -139,6 +144,6 @@ export function surfaceAt(track: Track, hit: TrackHit, wet: boolean, shoulderSur
     const inS = z.s0 <= z.s1 ? hit.s >= z.s0 && hit.s <= z.s1 : hit.s >= z.s0 || hit.s <= z.s1;
     if (inS && hit.lateral >= z.l0 && hit.lateral <= z.l1) return z.surface;
   }
-  if (Math.abs(hit.lateral) > hit.width / 2) return shoulderSurface;
+  if (Math.abs(hit.lateral) > hit.width / 2) return hit.verge === VERGE_DEFAULT ? shoulderSurface : hit.verge;
   return hit.surface;
 }

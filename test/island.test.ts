@@ -1,5 +1,5 @@
 import { beforeAll, describe, expect, test } from 'bun:test';
-import { InstancedMesh, Matrix4, Vector3, type Object3D } from 'three';
+import { InstancedMesh, Matrix4, Vector3, type Mesh, type Object3D } from 'three';
 import { bakeTrack } from '../src/core/track/bake';
 import { PALETTES } from '../src/render/skins/greybox/palettes';
 import { buildTerrain } from '../src/render/skins/greybox/terrain';
@@ -26,7 +26,8 @@ function instances(objects: Object3D[]): Vector3[] {
   const m = new Matrix4();
   const out: Vector3[] = [];
   for (const o of objects) {
-    if (!(o instanceof InstancedMesh)) continue;
+    // The fallen logs lie across the secret trail's hump on purpose.
+    if (!(o instanceof InstancedMesh) || o.name === 'trail-logs') continue;
     for (let k = 0; k < o.count; k++) {
       o.getMatrixAt(k, m);
       out.push(new Vector3().setFromMatrixPosition(m));
@@ -79,6 +80,24 @@ describe('Paradise scenery', () => {
       if (hit) onRoad++;
     }
     expect(onRoad).toBe(0);
+  });
+
+  test('lava runs down the volcano from its lip, and stops well short of every road', async () => {
+    const island = await build(1);
+    const flows = island.objects.find((o) => o.name === 'lava-flows') as Mesh | undefined;
+    expect(flows).toBeDefined();
+    const pos = flows!.geometry.getAttribute('position');
+    const v = track.layout.terrain!.volcano!;
+    let nearLip = false;
+    for (let k = 0; k < pos.count; k++) {
+      const x = pos.getX(k);
+      const z = pos.getZ(k);
+      if (Math.hypot(x - v.x, z - v.z) < v.crater + 6) nearLip = true;
+      for (const sp of track.splines) {
+        for (let i = 0; i < sp.n; i += 3) expect(Math.hypot(sp.px[i] - x, sp.pz[i] - z) - sp.width[i] / 2 - sp.shoulder[i]).toBeGreaterThan(12);
+      }
+    }
+    expect(nearLip).toBe(true);
   });
 
   test('the same island every race with the same seed', async () => {

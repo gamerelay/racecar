@@ -42,10 +42,14 @@ export interface BakedSpline {
   ramp: Float64Array;
   lanes: Uint8Array;
   surface: Uint8Array;
+  /** The surface past the road's edge (VERGE_DEFAULT: the layout's shoulderSurface). */
+  verge: Uint8Array;
   /** 1 where there's a wall on that side. */
   wallL: Uint8Array;
   wallR: Uint8Array;
   zones: BakedZone[];
+  /** A secret shortcut (BranchDef.secret): unsigned, off the map, and the AI seldom takes it. */
+  secret: boolean;
   /** For branches: the main-spline distances it leaves and rejoins at. */
   mainFrom: number;
   mainTo: number;
@@ -274,6 +278,8 @@ function bakeSpline(id: string, index: number, pts: TrackPoint[], closed: boolea
     sp.shoulder[i] = (p0.shoulder ?? DEFAULT_SHOULDER) + ((p1.shoulder ?? DEFAULT_SHOULDER) - (p0.shoulder ?? DEFAULT_SHOULDER)) * t;
     sp.lanes[i] = (t < 0.5 ? p0.lanes : p1.lanes) ?? 2;
     sp.surface[i] = surfaceIndex.get((t < 0.5 ? p0.surface : p1.surface) ?? 'asphalt') ?? 0;
+    const verge = t < 0.5 ? p0.verge : p1.verge;
+    sp.verge[i] = verge === undefined ? VERGE_DEFAULT : (surfaceIndex.get(verge) ?? VERGE_DEFAULT);
     sp.wallL[i] = 1;
     sp.wallR[i] = 1;
   }
@@ -291,6 +297,9 @@ function bakeSpline(id: string, index: number, pts: TrackPoint[], closed: boolea
   sp.chunks.push(closed ? n : n - 1);
   return sp;
 }
+
+/** A sample's verge when its points set none: the layout's `shoulderSurface`. */
+export const VERGE_DEFAULT = 255;
 
 /** How far along the main road a branch runs beside it before turning off (and before rejoining). */
 const SLIP = 24;
@@ -315,6 +324,7 @@ function bakeBranch(b: BranchDef, index: number, main: BakedSpline, surfaceIndex
   ];
   const sp = bakeSpline(b.id, index, pts, false, surfaceIndex, before, after);
   sp.mainFrom = wrap(b.from, main.length);
+  sp.secret = b.secret === true;
   sp.mainTo = wrap(b.to, main.length);
   return sp;
 }
@@ -470,9 +480,11 @@ function emptySpline(id: string, index: number, closed: boolean, length: number,
     ramp: f(),
     lanes: u(),
     surface: u(),
+    verge: u().fill(VERGE_DEFAULT),
     wallL: u(),
     wallR: u(),
     zones: [],
+    secret: false,
     mainFrom: 0,
     mainTo: 0,
     openL: u(),

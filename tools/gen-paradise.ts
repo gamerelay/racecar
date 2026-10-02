@@ -6,7 +6,8 @@
 //                      (the Sandbar shortcut runs straight on along the waterline, on loose sand)
 //   the Freeway        a ramp up to a deck 10–14 m over the bay, one long banked sweep round the
 //                      north shore with traffic, the whole island in view
-//   Jungle Switchbacks down off the deck into the jungle: wide hairpins on red earth
+//   Jungle Switchbacks down off the deck into the jungle: wide hairpins on red earth, and a bulge up
+//                      the slope between them (Smugglers' Trail, a secret, jumps across it)
 //   Volcano Rim        the climb round the cone's flank on black lava rock, over crests (the Lava
 //                      Tube shortcut cuts through the shoulder), and a jump off the rim
 //   Lighthouse Point   the descent past the lighthouse onto the cliff road, and a flowing S home
@@ -19,23 +20,23 @@
 //   bun tools/gen-paradise.ts
 
 import { writeFileSync } from 'node:fs';
-import type { BranchDef, TrackLayout } from '../src/core/content';
+import type { BranchDef, TrackLayout, WallGap } from '../src/core/content';
 import { bakeTrack } from '../src/core/track/bake';
 import { straightenSections } from '../src/core/track/validate';
 import surfaces from '../content/surfaces.json';
 import { type Crest, type Node, lapPoints, onLap, r1, span, wallGaps } from './lib/lap';
 
-const node = (w: number, surface: string, shoulder: number) => (x: number, z: number, y: number, r?: number, more: Partial<Node> = {}): Node => ({ x, z, y, w, r, surface, shoulder, ...more });
-/** Harbor Town and Lighthouse Point: asphalt. */
-const T = node(15, 'asphalt', 3);
-/** Coconut Coast: the wide beach road. */
-const C = node(18.5, 'asphalt', 3);
-/** The Freeway: a deck, with a narrow verge inside its barriers. */
-const F = node(18, 'asphalt', 1.5);
-/** Jungle Switchbacks: red earth, wide for hairpins. */
-const J = node(15, 'red-earth', 2.5);
-/** Volcano Rim: lava rock. */
-const V = node(15, 'lava-rock', 2.5);
+const node = (w: number, surface: string, shoulder: number, verge?: string) => (x: number, z: number, y: number, r?: number, more: Partial<Node> = {}): Node => ({ x, z, y, w, r, surface, shoulder, verge, ...more });
+/** Harbor Town and Lighthouse Point: asphalt, with a wide verge to run out onto. */
+const T = node(15, 'asphalt', 4);
+/** Coconut Coast: the wide beach road, with the beach right beside it. */
+const C = node(18.5, 'asphalt', 5);
+/** The Freeway: a deck, with a verge inside its barriers wide enough to drift out onto. */
+const F = node(18, 'asphalt', 3);
+/** Jungle Switchbacks: red earth, wide for the hairpins, between banks of undergrowth. */
+const J = node(17, 'red-earth', 4, 'undergrowth');
+/** Volcano Rim: lava rock, with ash past its edges. */
+const V = node(15, 'lava-rock', 3.5, 'ash');
 
 /** The volcano: its middle, the crater's radius, and the lip's height. */
 const VOLCANO = { x: 150, z: 60, crater: 55, h: 95, r: 330 };
@@ -46,36 +47,43 @@ const rim = (deg: number, radius: number): [number, number] => {
 };
 
 const nodes: Node[] = [
-  // Harbor Town: the line on the harbour front heading west, then a flowing S out of town.
+  // Harbor Town: the line on the harbour front heading west, then a deep S out of town.
   T(160, 430, 2),
-  T(-30, 430, 2, 80),
-  T(-150, 392, 2.5, 75),
-  T(-280, 420, 2.5, 60),
-  // Coconut Coast: north up the west shore, long sweepers round the headland.
-  C(-420, 300, 3, 110),
-  C(-410, 170, 3.5, 90),
-  C(-300, 45, 5, 80),
-  C(-420, -90, 4, 90),
+  T(-30, 430, 2.6, 80),
+  T(-150, 348, 2.5, 60),
+  T(-275, 434, 2.5, 55),
+  // Coconut Coast: north up the west shore, then an S over the headland and back to the water.
+  C(-425, 300, 3, 90),
+  C(-405, 185, 3.5, 70),
+  C(-290, 92, 5, 60),
+  C(-335, -8, 5, 60),
+  C(-430, -95, 4, 80),
   // The Freeway: up the ramp and round the bay on the deck.
   F(-440, -235, 9, 130),
   F(-260, -410, 12.5, 150),
   F(0, -440, 13, 170),
   F(215, -385, 11, 120),
-  // Jungle Switchbacks: off the deck, then two wide hairpins.
-  J(395, -330, 7, 28),
-  J(250, -300, 9, 70, { bank: 0 }),
-  J(75, -262, 11, 28),
-  J(215, -205, 13, 70, { bank: 0 }),
-  // Volcano Rim: round the cone's flank, clockwise, climbing.
+  // Jungle Switchbacks: off the deck and down the slope in two open hairpins (each two corners,
+  // so its radius holds: one node turning 150° gets filleted into a much tighter arc).
+  J(415, -372, 8, 50),
+  J(444, -290, 9, 50),
+  // Between them, a bulge up the slope and back (Smugglers' Trail jumps straight across its inside).
+  J(372, -262, 9.5, 55),
+  J(326, -306, 10, 45),
+  J(236, -306, 10.5, 45),
+  J(120, -250, 11, 50),
+  J(126, -152, 12, 50),
+  // Volcano Rim: round the cone's flank, clockwise, climbing, swinging in and out.
   V(...rim(-72, 215), 17, 70),
-  V(...rim(-45, 190), 24, 120),
-  V(...rim(-12, 212), 32, 110),
-  V(...rim(28, 210), 38, 110),
-  V(...rim(62, 190), 40, 110),
-  // Lighthouse Point: down off the rim (a jump), round the point and along the cliff, and the S into town.
+  V(...rim(-45, 194), 24, 90),
+  V(...rim(-12, 218), 32, 80),
+  V(...rim(28, 204), 38, 80),
+  V(...rim(62, 190), 40, 90),
+  // Lighthouse Point: down off the rim (a jump), round the point in two corners, along the cliff, and the S into town.
   T(335, 330, 24, 70),
-  T(445, 405, 15, 55),
-  T(330, 468, 8, 70),
+  T(428, 374, 15, 60),
+  T(422, 452, 10, 60),
+  T(330, 472, 6, 70),
   T(240, 432, 3, 80),
 ];
 
@@ -90,7 +98,8 @@ function xz([x, z]: [number, number]) {
   return { x, z };
 }
 
-const pts = lapPoints(nodes, crests);
+// Sweepers 3 m wider than the road around them, for drifting (the other maps' 1.5 m felt narrow here).
+const pts = lapPoints(nodes, crests, { driftWidth: 3 });
 
 const layout: TrackLayout = {
   id: 'paradise-island',
@@ -104,7 +113,8 @@ const layout: TrackLayout = {
   props: [],
   takedownSpots: [],
   scenery: 'island',
-  shoulderSurface: 'sand',
+  // Off the road: the beach, firmer than the Sandbar's loose sand (it slows you, it doesn't spin you).
+  shoulderSurface: 'beach',
 };
 
 const baked = bakeTrack(layout, surfaces);
@@ -148,23 +158,65 @@ const tube: BranchDef = {
     fork(tubeTo, -26, 7, 0.2, 11, 'lava-rock'),
   ],
 };
-layout.branches = [sandbar, tube];
+
+// ---- secret shortcuts: no sign, not on the map; short, and each a gamble of its own ----
+/** A secret cut from `from` to `to` through (x, z) points, at the main road's height beside each. */
+const secret = (id: string, from: number, to: number, lat: number, via: [number, number][], width: number, surface: string, near: [number, number], verge?: string, along = 38): BranchDef => ({
+  id,
+  kind: 'shortcut',
+  secret: true,
+  from,
+  to,
+  points: [
+    fork(from, along, lat, -0.2, width, surface),
+    ...via.map(([x, z]) => ({ p: [x, r1(yAt(near[0], near[1]) + (yAt(x, z) - yAt(near[0], near[1])) * 0.5 - 0.2), z] as [number, number, number], width, lanes: 1, shoulder: 1.5, surface })),
+    fork(to, -along, lat, -0.2, width, surface),
+  ].map((p) => (verge ? { ...p, verge } : p)),
+});
+// The Beach Cut: straight on along the beach where the road swings inland out of town, on sand.
+const beachCut = secret('beach-cut', sAt(-10, 430), sAt(-268, 428), -5, [[-150, 440]], 10, 'beach', [-150, 430]);
+// Smugglers' Trail: straight on through the jungle where the road bulges up the slope between
+// the hairpins, and over a fallen log: a jump across the bend. (A hop across a corner's inside,
+// at Lighthouse Point, saved nothing: a cut has to turn as far as the road it cuts, so one only
+// pays across a bulge the road comes back out of on the same heading. Inside the headland's S
+// it was nearly never taken: it left inside the Sandbar's span, and a hard AI takes the Sandbar.)
+const trail = secret('smugglers-trail', sAt(380, -268, 9.5), sAt(190, -266, 11), -5, [[284, -272]], 9.5, 'dirt', [296, -300], 'undergrowth', 14);
+
+layout.branches = [sandbar, tube, beachCut, trail];
 const withBranches = bakeTrack(layout, surfaces);
 const sandSp = withBranches.splines[1];
+const trailSp = withBranches.splines.find((sp) => sp.id === 'smugglers-trail')!;
 
-// ---- jumps: a dune on the Sandbar, and the kicker off the rim ----
+// ---- jumps: a dune on the Sandbar, the kicker off the rim, and the log on Smugglers' Trail ----
 layout.ramps = [
   { spline: 'sandbar', s: Math.round(sandSp.length * 0.45), height: 1.6, length: 11 },
   { s: sAt(305, 300, 30) - 12, height: 1.6, length: 12 },
+  { spline: 'smugglers-trail', s: Math.round(trailSp.length * 0.45), height: 1.7, length: 9 },
 ];
 
 // ---- walls: the harbour front, the freeway deck, the rim's drop; open beach and jungle elsewhere ----
-const walled: [number, number][] = [
-  span(sAt(150, 430), sAt(-110, 400)), // the harbour front
-  span(sAt(-420, -200, 8), sAt(240, -370, 11)), // the freeway
-  span(sAt(...rim(-40, 186), 28), sAt(...rim(50, 186), 40)), // the rim
-];
-layout.walls = { gaps: wallGaps(walled, L) };
+// The harbour front and the rim have a wall on the drop's side only (the sea on the left, the
+// rim's edge on the left: the cone is on the right); the inland side runs out onto the land.
+// (It stops before the Beach Cut leaves it, so the cut's mouth is open.)
+const harbour = span(sAt(150, 430), sAt(10, 430));
+const rimSpan = span(sAt(...rim(-40, 186), 28), sAt(...rim(50, 186), 40));
+const walled: [number, number][] = [harbour, span(sAt(-420, -200, 8), sAt(240, -370, 11)), rimSpan];
+// The shortcuts over open ground (the Sandbar, the Beach Cut, Smugglers' Trail) have no walls
+// either: run wide and you're on the sand or in the undergrowth, as on the lap (walls there jutted
+// into the main road where a cut runs beside it). The Lava Tube keeps its walls only inside the
+// rock (the skin's tunnel runs from 0.22 to 0.78 of it): its approaches are open too.
+const open = withBranches.splines.filter((sp) => ['sandbar', 'beach-cut', 'smugglers-trail'].includes(sp.id));
+const tubeSp = withBranches.splines.find((sp) => sp.id === 'lava-tube')!;
+layout.walls = {
+  gaps: [
+    ...wallGaps(walled, L),
+    { s: harbour, side: 'right' },
+    { s: rimSpan, side: 'right' },
+    ...open.map((sp): WallGap => ({ spline: sp.id, s: [0, Math.ceil(sp.length)], side: 'both' })),
+    { spline: 'lava-tube', s: [0, Math.floor(tubeSp.length * 0.22)], side: 'both' },
+    { spline: 'lava-tube', s: [Math.ceil(tubeSp.length * 0.78), Math.ceil(tubeSp.length)], side: 'both' },
+  ],
+};
 
 // ---- traffic: two-way in town; the freeway is one-way, both lanes running with the race ----
 const town: [number, number][] = [[sAt(240, 432), sAt(-60, 430)]];
@@ -185,10 +237,17 @@ layout.traffic = {
 };
 // Placed by sweeping the field report (MAPS.md): bombs on the rim's last stretch before the
 // jump, where the Lava Tube skips them (0.13 hazard wrecks a race here against 0.5–1.25 further
-// up the rim), and coconuts on the beach road before the Sandbar, which hop you but never wreck.
+// up the rim; on the swinging rim of v2, two a time: 0.44 over 16 seeds, against 0.5–0.8 for three
+// or further up), and coconuts on the beach road before the Sandbar, which hop you but never wreck.
 layout.hazards = [
-  { use: 'volcano-bombs', s: [sAt(...rim(0, 210), 35), sAt(...rim(33, 210), 35)], params: { every: 45 } },
-  { use: 'coconuts', s: 560 },
+  { use: 'volcano-bombs', s: [sAt(...rim(0, 210), 35), sAt(...rim(33, 210), 35)], params: { every: 45, bombs: 2 } },
+  { use: 'coconuts', s: sAt(-372, 346) },
+  // Chaos only: lava rain, small glowing rocks thrown far that you hop over (they cost a little
+  // speed, never a wreck), over the top of the jungle's bulge (Smugglers' Trail skips it) and the
+  // run down off the rim. By the field report at chaos: 1.4 wrecks a race; on the jungle's last leg,
+  // where the field lines up for the Lava Tube, it was 2.1.
+  { use: 'volcano-bombs', s: [sAt(326, -306), sAt(236, -306)], params: { every: 30, bombs: 4, size: 0.5, soft: 1 }, mayhem: 'chaos' },
+  { use: 'volcano-bombs', s: [sAt(300, 310, 26), sAt(380, 352, 19)], params: { every: 34, bombs: 4, size: 0.5, soft: 1 }, mayhem: 'chaos' },
 ];
 // Landmarks (PLAN phase 6; the lighthouse is the island's own scenery, and its beam shows through a
 // shower): a wreck in the shallows off Coconut Coast and a whale breaching beyond it; a surf shack
@@ -201,20 +260,21 @@ layout.hazards = [
     return Math.round(Math.atan2(a[0] - b[0], a[2] - b[2]) * 1000) / 1000;
   };
   const tiki = fork(tubeFrom, -4, 20, 0, 1).p;
-  const shack = fork(620, 0, -30, 0, 1).p;
+  const shackS = sAt(-406, 298);
+  const shack = fork(shackS, 0, -30, 0, 1).p;
   layout.landmarks = [
     { kind: 'shipwreck', at: [-490, 180], rot: 0.5, r: 14, params: { scale: 1.6 } },
     { kind: 'whale', at: [-600, 120], r: 0, params: { every: 80, scale: 1.5 } },
-    { kind: 'surf-shack', at: [shack[0], shack[2]], rot: Math.round((facing(620) - Math.PI / 2) * 1000) / 1000, r: 8 },
+    { kind: 'surf-shack', at: [shack[0], shack[2]], rot: Math.round((facing(shackS) - Math.PI / 2) * 1000) / 1000, r: 8 },
     { kind: 'tiki-head', at: [tiki[0], tiki[2]], rot: facing(tubeFrom), r: 5, params: { scale: 1.3 } },
     { kind: 'seaplanes', at: [40, -392], r: 0, params: { radius: 160, alt: 55 } },
   ];
 }
 // Smashables: beach umbrellas on the coast road's sea side, fruit stands through Harbor Town.
 layout.smashables = [
-  { kind: 'beach-umbrella', s: [620, 800], every: 16, side: -1 },
+  { kind: 'beach-umbrella', s: [sAt(-372, 346), sAt(-412, 236)], every: 14, side: -1 },
   { kind: 'fruit-stand', s: [30, 170], every: 45 },
-  { kind: 'fruit-stand', s: [3360, 3425], every: 60, side: 1 },
+  { kind: 'fruit-stand', s: [sAt(241, 434), sAt(176, 430)], every: 60, side: 1 },
 ];
 layout.takedownSpots = [
   { s: sAt(0, -440, 13), name: 'The Freeway' },
@@ -236,7 +296,10 @@ layout.terrain = {
   // The coastline, clockwise from the harbour: the bay the freeway crosses, the point at the lighthouse.
   island: [
     [120, 482],
-    [-120, 490],
+    // The beach comes in to meet the road where it swings inland out of town (the Beach Cut's sand).
+    [-40, 476],
+    [-150, 466],
+    [-250, 470],
     [-330, 486],
     [-470, 400],
     [-468, 220],

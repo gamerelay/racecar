@@ -22,7 +22,7 @@ import { mainDistance, type Track } from './track/bake';
 import { locateCar } from './track/locate';
 import { newHit, projectGlobal, sampleAt } from './track/query';
 import { Hazards, type Mayhem } from './world/hazards';
-import { Traffic } from './world/traffic';
+import { Traffic, laneActive } from './world/traffic';
 import { Smashables } from './world/smash';
 import { planWeather, weatherAt, type WeatherOption, type WeatherPlan, type WeatherState } from './world/weather';
 
@@ -200,8 +200,17 @@ export class Sim implements SimState {
     const row = Math.floor(i / 2);
     const col = i % 2 === 0 ? -1 : 1;
     const main = this.track.main;
-    const at = sampleAt(main, main.length - 10 - row * 9, this.hitA);
-    this.placeCar(i, 0, at.s, col * at.width * 0.22);
+    if (this.gridOncoming()) {
+      // Two-way traffic at the start: the whole grid is in the race's own half of the road, the
+      // two columns staggered (half a row apart) to fit side by side, so nobody starts facing
+      // oncoming cars.
+      const at = sampleAt(main, main.length - 10 - row * 9 - (col > 0 ? 4.5 : 0), this.hitA);
+      this.placeCar(i, 0, at.s, at.width * (col < 0 ? 0.12 : 0.36));
+    } else {
+      const at = sampleAt(main, main.length - 10 - row * 9, this.hitA);
+      this.placeCar(i, 0, at.s, col * at.width * 0.22);
+    }
+    const at = this.hitA;
     c.lap[i] = 0;
     c.nextCp[i] = 0;
     c.progress[i] = at.s - main.length;
@@ -216,6 +225,12 @@ export class Sim implements SimState {
     c.wrecks[i] = 0;
     c.bestLap[i] = 0;
     c.lastLap[i] = 0;
+  }
+
+  /** Whether an oncoming traffic lane runs over the grid or just past the line. */
+  private gridOncoming(): boolean {
+    const L = this.track.main.length;
+    return (this.track.layout.traffic?.lanes ?? []).some((l) => l.dir < 0 && [L - 50, L - 10, 0, 30].some((s) => laneActive(l, s)));
   }
 
   /** Puts everyone back on the grid and starts a countdown: the lights go green in `seconds`. */

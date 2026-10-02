@@ -2,6 +2,10 @@ import { describe, expect, test } from 'bun:test';
 import { Ev } from '../src/core/events';
 import { Sim } from '../src/core/sim';
 import { bakeTrack, wrap } from '../src/core/track/bake';
+import { newHit, sampleAt, surfaceAt } from '../src/core/track/query';
+import { Hazards, Piece, Solid } from '../src/core/world/hazards';
+import { Traffic } from '../src/core/world/traffic';
+import { thumb } from '../src/ui/thumb';
 import { validateLayout } from '../src/core/track/validate';
 import { PALETTES } from '../src/render/skins/greybox/palettes';
 import { buildTerrain, coneHeight, loopDist } from '../src/render/skins/greybox/terrain';
@@ -129,7 +133,88 @@ describe('Paradise (Island)', () => {
     }
     expect(wrecks).toBe(0);
     expect(air.filter((a) => a > 0.5).length).toBeGreaterThanOrEqual(2);
-    expect([...took].sort()).toEqual(['lava-tube', 'sandbar']);
+    expect(took).toContain('lava-tube');
+    expect(took).toContain('sandbar');
+  });
+
+  test('off the road is the ground beside it: the beach, undergrowth in the jungle, ash on the rim', () => {
+    const shoulder = track.surfaceIndex.get(island.shoulderSurface!)!;
+    const hit = newHit();
+    /** The surface just past the right edge of the main road at its sample nearest (x, z). */
+    const verge = (x: number, z: number, y?: number) => {
+      sampleAt(main, nearest(x, z, y) * main.step, hit);
+      hit.lateral = hit.width / 2 + 1.5;
+      return SURFACES[surfaceAt(track, hit, false, shoulder)].id;
+    };
+    expect(island.shoulderSurface).toBe('beach');
+    expect(verge(-410, 170)).toBe('beach');
+    expect(verge(290, -235)).toBe('undergrowth');
+    expect(verge(150 + Math.cos(-0.2) * 218, 60 + Math.sin(-0.2) * 218, 32)).toBe('ash');
+    // Each slows you without spinning you: grippier and less loose than the Sandbar's loose sand.
+    const sand = SURFACES.find((x) => x.id === 'sand')!;
+    for (const id of ['beach', 'undergrowth', 'ash']) {
+      const v = SURFACES.find((x) => x.id === id)!;
+      expect(v.offroad).toBe(true);
+      expect(v.grip).toBeGreaterThan(sand.grip);
+      expect(v.looseness).toBeLessThan(sand.looseness);
+      expect(v.drag).toBeGreaterThan(0);
+    }
+  });
+
+  test('the corners are open: nothing on the lap is tighter than 35 m (the old hairpins were 18 and 22 m)', () => {
+    const half = Math.round(12 / main.step);
+    let tightest = Infinity;
+    for (let i = 0; i < main.n; i++) {
+      const a = (i - half + main.n) % main.n;
+      const b = (i + half) % main.n;
+      const t = Math.abs(wrap(Math.atan2(main.tx[b], main.tz[b]) - Math.atan2(main.tx[a], main.tz[a]) + Math.PI, Math.PI * 2) - Math.PI);
+      tightest = Math.min(tightest, (2 * half * main.step) / Math.max(t, 1e-6));
+    }
+    expect(tightest).toBeGreaterThan(35);
+  });
+
+  test('the secret shortcuts: unsigned, off the thumbnail, and a hard AI that takes one drives it clean', () => {
+    const secret = track.splines.filter((sp) => sp.secret).map((sp) => sp.id);
+    expect(secret.sort()).toEqual(['beach-cut', 'smugglers-trail']);
+    expect(thumb(island).branches.length).toBe(island.branches!.length - secret.length);
+    // Seldom taken, so over a few seeds: each is taken, and nobody wrecks on one. Each leaves where
+    // no signed shortcut is open (inside one's span, a hard AI on it never sees the secret).
+    for (const sp of track.splines.filter((x) => x.secret))
+      for (const o of track.splines.filter((x) => x.index > 0 && !x.secret)) expect(wrap(sp.mainFrom - o.mainFrom, main.length) < wrap(o.mainTo - o.mainFrom, main.length), `${sp.id} inside ${o.id}`).toBe(false);
+    const plain = track;
+    const took = new Set<string>();
+    for (let seed = 1; seed <= 16 && took.size < secret.length; seed++) {
+      const sim = new Sim(plain, CLASSES, SURFACES, { seed });
+      const i = sim.addCar({ cls: 'coupe', racer: { difficulty: 2 } });
+      let cursor = sim.events.head;
+      for (let t = 0; t < 60 * 80; t++) {
+        sim.step([]);
+        const sp = plain.splines[sim.cars.spline[i]];
+        if (sp.secret) took.add(sp.id);
+        cursor = sim.events.read(cursor, (e) => {
+          if (e.car === i && e.type === Ev.Wreck) expect(sp.secret, `wrecked on ${sp.id}, seed ${seed}`).toBe(false);
+        });
+      }
+    }
+    expect([...took].sort()).toEqual(secret.sort());
+  }, 30_000);
+
+  test('lava rain falls at chaos only, and its rocks are bumps, not wrecks', () => {
+    const rain = (mayhem: 'normal' | 'chaos') => new Hazards(track, new Traffic(track, 5), 5, mayhem).defs.filter((d) => d.params?.soft);
+    expect(rain('normal')).toEqual([]);
+    expect(rain('chaos').length).toBe(2);
+    const hz = new Hazards(track, new Traffic(track, 5), 5, 'chaos');
+    const d = hz.defs.findIndex((x) => x.params?.soft);
+    const o = hz.occurrences.find((x) => x.def === d && x.t0 > 30)!;
+    hz.update(o.t0 + 1, { push() {} } as never, 0);
+    let rocks = 0;
+    for (let p = 0; p < hz.pieces; p++) {
+      if (hz.pOcc[p] !== o.id || hz.pType[p] !== Piece.Bomb) continue;
+      rocks++;
+      expect(hz.pSolid[p]).toBe(Solid.Bump);
+      expect(hz.pWreck[p]).toBe(Infinity);
+    }
+    expect(rocks).toBe(4);
   });
 
   test('the tropic palette grades the image vivid; the other maps stay as rendered', () => {

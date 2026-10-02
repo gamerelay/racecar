@@ -584,7 +584,16 @@
   }
  ],
  "walls": {
-  "gaps": []
+  "gaps": [
+   {
+    "spline": "alley",
+    "s": [
+     145,
+     192
+    ],
+    "side": "right"
+   }
+  ]
  },
  "ramps": [
   {

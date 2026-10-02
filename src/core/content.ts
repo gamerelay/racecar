@@ -17,6 +17,8 @@ export interface TrackPoint {
   surface?: string;
   /** Run-off between the road edge and the wall, in meters (default 4). */
   shoulder?: number;
+  /** The ground past the road's edge on this stretch (a surface id; default the layout's `shoulderSurface`). */
+  verge?: string;
 }
 
 export interface SplineDef {
@@ -29,6 +31,8 @@ export interface BranchDef extends SplineDef {
   from: number;
   to: number;
   kind: 'shortcut' | 'alternate';
+  /** A secret one: no sign at its mouth, and not on the minimap or the map's thumbnail. */
+  secret?: boolean;
 }
 
 export interface ZoneDef {
@@ -90,6 +94,8 @@ export interface HazardDef {
   side?: -1 | 1;
   /** Kind-specific numbers (mean interval, lifetime…). */
   params?: Record<string, number>;
+  /** Only at this mayhem (the island's lava rain is chaos's alone); at every level but off by default. */
+  mayhem?: 'normal' | 'chaos';
 }
 
 /**

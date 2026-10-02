@@ -5,30 +5,14 @@
 import type { Controls } from '../controls';
 import { clamp, wrapAngle } from '../math';
 import type { SimState } from '../state';
-import { sampleAt, type TrackHit } from '../track/query';
+import { newHit, sampleAt, type TrackHit } from '../track/query';
 
 export interface FollowDriver {
   lane: number;
   speed: number;
 }
 
-const look: TrackHit = {
-  spline: 0,
-  s: 0,
-  lateral: 0,
-  cx: 0,
-  cy: 0,
-  cz: 0,
-  tx: 0,
-  tz: 1,
-  width: 10,
-  shoulder: 4,
-  bank: 0,
-  ground: 0,
-  surface: 0,
-  wallL: true,
-  wallR: true,
-};
+const look: TrackHit = newHit();
 
 export function driveFollow(sim: SimState, i: number, d: FollowDriver, out: Controls): Controls {
   const cars = sim.cars;

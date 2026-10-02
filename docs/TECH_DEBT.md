@@ -136,6 +136,17 @@ From the two code reviews of the art work (moved from HANDOFF; none of it is a b
   `post.ts`'s `invZ`/`carAt`. *Small per surface, medium for a global fix.*
 - **A class with no mass** would make `cars.ts`'s `sqrt(mVic / mAtt)` NaN; the content validator
   doesn't check mass. *Small.*
+- **Dust lives in the renderer, the ground in content** (PR #58): `DUST` in `renderer.ts` is
+  keyed by surface id, with a fallback to dirt, so a new surface in `surfaces.json` silently
+  throws dirt. A `dust` block (or a style name) on the surface would keep the two together.
+  *Small.*
+- **The island's earth styling keys off `surf.offroad`** (`earth` in `track.ts`: patchy deck,
+  wandering ruts, earth kerbs), and Smugglers' Trail's "jungle closes in" keys off a secret
+  branch's surface not being sand. Both are rules of thumb that a new surface could trip; a
+  look on the surface (or the branch) would say it. *Small.*
+- **`roadGap` in `island.ts` reports its nearest road through closure variables**
+  (`nearX`, `nearZ`, `nearSecret`), read straight after each call. A returned record would be
+  harder to misuse. *Small.*
 
 ## Performance
 
@@ -165,6 +176,11 @@ are the known costs that grow with content:
   online with 8 cars, traffic hits and bumps on the wire. *Small.*
 
 ## Tooling
+
+- **Paradise's generator places secret cuts by hand-picked points** (`secret()` in
+  `gen-paradise.ts`), and any change to a node near one moves its mouths. The lap had to be
+  re-plotted (top-down, by a scratch script) after each change to see them. A `tools/plot.ts`
+  that draws a layout's splines, distances and tight corners to an SVG would save that. *Small.*
 
 - **No linter.** tsc's `noUnusedLocals`/`noUnusedParameters` are the only lint, and they don't
   see unused exports: about 70 exports are only used in their own file (this review removed the
