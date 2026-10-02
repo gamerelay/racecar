@@ -8,7 +8,8 @@ import { Cause, Ev } from '../events';
 import { approach, clamp, damp, lerp, sign, smoothstep, wrapAngle } from '../math';
 import type { SimState } from '../state';
 import { locateCar } from '../track/locate';
-import { signedGap } from '../track/bake';
+import { mainDistance, signedGap } from '../track/bake';
+import { AVALANCHE_AHEAD, AVALANCHE_LINE } from '../world/avalanche';
 import { sampleAt } from '../track/query';
 import { TUNING as T } from './tuning';
 
@@ -576,6 +577,13 @@ function catchUp(sim: SimState, i: number): number {
 
 export function respawn(sim: SimState, i: number): void {
   const cars = sim.cars;
+  // Ahead of an avalanche, not back under it (world/avalanche.ts).
+  const ahead = sim.avalancheFront + AVALANCHE_AHEAD;
+  if (ahead > -Infinity && mainDistance(sim.track, cars.lastSpline[i], cars.lastS[i]) < ahead) {
+    cars.lastSpline[i] = 0;
+    cars.lastS[i] = Math.min(ahead, (sim.track.run?.finish ?? sim.track.main.length) - AVALANCHE_LINE);
+    cars.lastLat[i] = 0;
+  }
   const sp = sim.track.splines[cars.lastSpline[i]];
   const at = sampleAt(sp, cars.lastS[i], sim.hitA);
   const half = at.width / 2 - 2;

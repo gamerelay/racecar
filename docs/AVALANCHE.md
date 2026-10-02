@@ -445,6 +445,29 @@ Item 3 is built too (2026-10-02):
 - The lap report takes `--weather rain` (snow where the map snows). In snow: 99.47 s, clean. The
   snowy field and chaos: no wrecks.
 
+Item 4, the avalanche, is built (2026-10-02):
+
+- **Closed-form in time** (`core/world/avalanche.ts`), so it's in the same place on every screen.
+  Its front breaks away 80 m above the start line 4 s after the green light. It goes down the main
+  road at `56 × (0.7 + 1.5 × grade)` m/s (clamped to 0.5–1.9×), from a table of arrival times
+  built once. It runs out 50 m above the finish line, so a car ahead of it can always finish.
+  It's only at chaos, only while racing, and only on a layout with `avalanche` (Avalanche's
+  generator sets `{ behind: 80, delay: 4, speed: 56 }`).
+- **Buried:** each tick, a car of this screen's behind the front is wrecked (`Cause.Hazard`,
+  thrown down the slope). Its respawn moves it 60 m ahead of the front, and never within 15 m of
+  the finish. One run's progress counts the checkpoints a respawn like that skips. Any other
+  respawn still counts nothing.
+- **A canyon is a way out:** more than 4 m down in a canyon (`canyonAt` in `ground.ts`), and not
+  in the air over it, a car is under the avalanche.
+- **Drawn** as a churning band of unlit white blobs across the piste and 35 m past each edge,
+  with a translucent powder cloud billowing over and ahead of it. **Heard** as a low rumble from
+  500 m behind you, louder as it closes. The HUD shows "Avalanche! 120 m" within 300 m, pulsing
+  faster within 100 m, and a burial pops "Buried!".
+- **Tuned:** in the chaos field it buries one car a race. That's a car just taken down behind it,
+  which is the design: wreck and it gets you. The bus at the back stays clear on a clean run.
+  Below 54 m/s it never catches anyone, and above 58 it catches the slow cars again and again.
+  The field's finishing times are within 0.5 s of chaos without it.
+
 The sketches as they were:
 
 1. **It reads as a run.**

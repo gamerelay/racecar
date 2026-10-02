@@ -146,6 +146,10 @@ layout.props = [
   rock('a canyon on the right', 200, -5, 5, 2.4, 5),
   rock('the valley', 340, 0, 5.5, 2.6, 5),
 ];
+// The avalanche, at chaos (core/world/avalanche.ts): it breaks away 80 m above the start line 4 s
+// after the green light. At 56 m/s on a 20% slope it buries a car that's wrecked behind it (about
+// one a race in the lap report's chaos field) and not the bus at the back on a clean run.
+layout.avalanche = { behind: 80, delay: 4, speed: 56 };
 const rollers = stretch('rollers, moguls on the right');
 const across = stretch('a bunny slope, moguls across it');
 layout.ground = {

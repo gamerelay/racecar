@@ -209,6 +209,15 @@ export interface TrackLayout {
    * the run-out. Without it the main road is a loop and the line is s = 0.
    */
   run?: { start: number; finish: number };
+  /** One run's avalanche, at chaos (core/world/avalanche.ts). */
+  avalanche?: AvalancheDef;
+}
+
+/** An avalanche down a run: it breaks away `behind` m above the start line, `delay` s after the green light, at about `speed` m/s on a 20% slope. */
+export interface AvalancheDef {
+  behind: number;
+  delay: number;
+  speed: number;
 }
 
 /** Open ground round the main road (core/track/ground.ts). Distances are along the main road (s) and across it (lateral, + right). */

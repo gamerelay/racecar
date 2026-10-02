@@ -53,8 +53,9 @@ function runProgress(sim: SimState, i: number, run: { start: number; finish: num
   const sMain = mainDistance(sim.track, cars.spline[i], cars.s[i]);
   const prevS = cars.progress[i] + run.start;
   let n = cars.nextCp[i];
-  // Only forward, and a short step (a respawn isn't a crossing).
-  const ahead = sMain > prevS && sMain - prevS < 60;
+  // Only forward, and a short step (a respawn isn't a crossing), but for a respawn ahead of an
+  // avalanche: what it skipped counts (it never puts you past the finish).
+  const ahead = sMain > prevS && (sMain - prevS < 60 || sim.avalancheFront > -Infinity);
   while (ahead && n < cps.length && prevS < cps[n] && sMain >= cps[n]) {
     sim.events.push(sim.tick, Ev.Checkpoint, i, cars.x[i], cars.y[i], cars.z[i], n, cars.lap[i]);
     n++;

@@ -5,6 +5,8 @@ import { Sim } from '../src/core/sim';
 import { bakeTrack } from '../src/core/track/bake';
 import { canyonDepth } from '../src/core/track/ground';
 import { slopeView } from '../src/render/camera';
+import { Cause, Ev } from '../src/core/events';
+import { avalancheSpeed } from '../src/core/world/avalanche';
 import { ALL_MAPS, EXPERIMENTAL_KEYS, LAYOUT_KEYS, MAPS } from '../tools/content';
 import { CLASSES, SURFACES, layout } from './helpers';
 
@@ -226,6 +228,77 @@ describe('the camera on a slope', () => {
     expect(slopeView(6).lift).toBeGreaterThan(0);
     expect(slopeView(100).lift).toBeLessThanOrEqual(2.5);
     expect(slopeView(0)).toEqual({ look: 0, lift: 0 });
+  });
+});
+
+describe("the Slope's avalanche", () => {
+  const race = (mayhem: 'normal' | 'chaos') => {
+    const sim = new Sim(bakeTrack(layout('avalanche/slope'), SURFACES), CLASSES, SURFACES, { seed: 1, mayhem });
+    const i = sim.addCar({ cls: 'coupe', human: true });
+    sim.startRace(1, 0.1);
+    return { sim, i };
+  };
+  /** Steps `sim` `seconds` with car `i` standing still (no throttle). */
+  const wait = (sim: Sim, seconds: number) => {
+    for (let t = 0; t < seconds * 60; t++) sim.step([neutralControls()]);
+  };
+
+  test('comes only at chaos, after the green light, down the run, faster on a pitch than on a flat', () => {
+    expect(race('normal').sim.avalanche).toBeNull();
+    const { sim } = race('chaos');
+    const av = sim.avalanche!;
+    expect(av.front(0)).toBe(-Infinity);
+    let last = -Infinity;
+    for (let u = av.delay; u < av.delay + 200; u += 1) {
+      const f = av.front(u);
+      expect(f).toBeGreaterThanOrEqual(last);
+      last = f;
+    }
+    // It runs out short of the finish.
+    expect(last).toBeLessThan(sim.track.run!.finish);
+    // Steeper is faster.
+    expect(avalancheSpeed(56, 0.7)).toBeGreaterThan(avalancheSpeed(56, 0.05));
+  });
+
+  test('buries a car standing on the piste, and it respawns ahead of it', () => {
+    const { sim, i } = race('chaos');
+    let buried = false;
+    let cursor = sim.events.head;
+    for (let t = 0; t < 60 * 20 && !buried; t++) {
+      sim.step([neutralControls()]);
+      cursor = sim.events.read(cursor, (e) => {
+        if (e.type === Ev.Wreck && e.car === i && e.b === Cause.Hazard) buried = true;
+      });
+    }
+    expect(buried).toBe(true);
+    wait(sim, 4);
+    expect(sim.cars.wreck[i]).toBe(0);
+    expect(sim.cars.s[i]).toBeGreaterThan(sim.avalancheFront);
+  });
+
+  test("a car down in a canyon is under it, and isn't buried", () => {
+    const { sim, i } = race('chaos');
+    const track = sim.track;
+    const canyon = track.layout.ground!.canyons![0];
+    const s = (canyon.s[0] + canyon.s[1]) / 2;
+    // Hold the car on the canyon's floor while the avalanche goes over.
+    const k = Math.round(s / track.main.step);
+    const x = track.main.px[k] - track.main.tz[k] * canyon.lateral;
+    const z = track.main.pz[k] + track.main.tx[k] * canyon.lateral;
+    const av = sim.avalanche!;
+    let u = av.delay;
+    while (av.front(u) < s + 50) u += 0.5;
+    let wrecked = false;
+    for (let t = 0; t < u * 60; t++) {
+      sim.placeCar(i, 0, s, canyon.lateral, 0);
+      sim.cars.x[i] = x;
+      sim.cars.z[i] = z;
+      sim.cars.y[i] = track.ground!.height(x, z) + 0.5;
+      sim.step([neutralControls()]);
+      if (sim.cars.wreck[i] && sim.cars.wreckCause[i] === Cause.Hazard) wrecked = true;
+    }
+    expect(sim.avalancheFront).toBeGreaterThan(s);
+    expect(wrecked).toBe(false);
   });
 });
 

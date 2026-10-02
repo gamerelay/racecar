@@ -2,7 +2,7 @@
 // (points, chain, and the mini-turbo stage when that's on), pops for moments, and a debug panel (F2).
 
 import { TUNING } from '../core/car/tuning';
-import { Ev, type GameEvent } from '../core/events';
+import { Cause, Ev, type GameEvent } from '../core/events';
 import { MPH } from '../core/math';
 import { positions } from '../core/rules/progress';
 import type { Sim } from '../core/sim';
@@ -29,6 +29,8 @@ function style(id: string, prop: 'transform' | 'strokeDasharray', v: string): vo
   $(id).style[prop] = v;
 }
 const transform = (id: string, v: string) => style(id, 'transform', v);
+/** The avalanche's warning shows within this far behind you (m). */
+const AVALANCHE_WARN = 300;
 
 // The speedometer: a 270° arc from bottom left, clockwise, round to bottom right.
 const R = 64;
@@ -66,6 +68,7 @@ export class Hud {
       <div class="hud" id="meterWrap"><label>Boost</label><div id="meter"><div id="meterBank"></div><div id="meterFill"></div></div></div>
       <div class="hud" id="speedo"><svg viewBox="0 0 160 160" aria-hidden="true"><g id="gTicks"></g><circle class="track" cx="80" cy="80" r="${R}" pathLength="100"/><circle id="gBoost" cx="80" cy="80" r="${R}" pathLength="100"/><circle id="gFill" cx="80" cy="80" r="${R}" pathLength="100"/></svg><span id="spd">0</span><small>mph</small></div>
       <div class="hud stat" id="posBadge"><small>Pos</small><b id="pos">1/1</b></div>
+      <div class="hud" id="avalanche" role="status"></div>
       <div class="hud" id="debug"></div>`,
     );
   }
@@ -135,6 +138,11 @@ export class Hud {
     $('statLap').classList.toggle('final', racing && laps > 1 && c.lap[i] + 1 >= laps && !c.finished[i]);
     text('time', c.finished[i] ? fmt(c.finishTime[i]) : racing ? fmt(Math.max(0, this.sim.time - this.sim.race.goTime)) : fmt(this.sim.time - c.lapStartTime[i]));
     text('best', c.bestLap[i] ? fmt(c.bestLap[i]) : '–');
+    // The avalanche behind you: how far, once it's within a few hundred meters.
+    const gap = run && this.sim.avalancheFront > -Infinity && !c.finished[i] && !c.wreck[i] ? c.progress[i] + run.start - this.sim.avalancheFront : Infinity;
+    $('avalanche').classList.toggle('on', gap < AVALANCHE_WARN);
+    $('avalanche').classList.toggle('near', gap < AVALANCHE_WARN / 3);
+    if (gap < AVALANCHE_WARN) text('avalanche', `Avalanche! ${Math.max(0, Math.round(gap / 10) * 10)} m`);
     const score = Math.floor(c.score[i]);
     if (score !== this.shownScore) text('score', (this.shownScore = score).toLocaleString());
     const mph = Math.hypot(c.vx[i], c.vz[i]) * MPH;
@@ -177,7 +185,7 @@ export class Hud {
     if (e.type === Ev.ChainLost && e.car === i) this.pop(`Chain lost ×${e.b}`, 'bad');
     if (e.type === Ev.DriftBoost && e.car === i) this.pop(`Powerglide +${Math.round(e.a * 100)}%`, e.a > 0.25 ? 's2' : 's1');
     if (e.type === Ev.MiniTurbo && e.car === i) this.pop(['', 'Mini-turbo', 'Super turbo', 'Ultra turbo'][e.b] + '!', `s${e.b}`);
-    if (e.type === Ev.Wreck && e.car === i && e.other < 0) this.pop(e.b === 4 ? 'Reset' : 'Wrecked', 'bad');
+    if (e.type === Ev.Wreck && e.car === i && e.other < 0) this.pop(e.b === Cause.Reset ? 'Reset' : e.b === Cause.Hazard && this.sim.avalanche ? 'Buried!' : 'Wrecked', 'bad');
     if (e.type === Ev.Takedown && e.car === i) this.pop(e.b ? 'Revenge!' : 'Takedown!', 'big');
     if (e.type === Ev.NearMiss && e.car === i) this.pop(e.b ? 'Oncoming near miss' : 'Near miss', e.b ? 'hot' : '');
     // Weaving in and out of the oncoming lane restarts the streak; one pop per few seconds is enough.

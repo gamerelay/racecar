@@ -1,6 +1,7 @@
-// Game audio (SPEC §13): the focus car's engine, tyres, gravel, snow, wind and boost as continuous voices;
-// the three nearest rivals' engines, panned and Doppler-shifted; one-shots from sim events (hits,
-// wrecks, landings, boost, chimes, near-miss horns, hazard alerts, the countdown); and the music:
+// Game audio (SPEC §13): the focus car's engine, tyres, gravel, snow, wind, boost and an avalanche's
+// rumble as continuous voices; the three nearest rivals' engines, panned and Doppler-shifted;
+// one-shots from sim events (hits, wrecks, landings, boost, chimes, near-miss horns, hazard alerts,
+// the countdown); and the music:
 // the recorded soundtrack (soundtrack.ts), or the synth (music.ts) where there's no track. The rest
 // is synthesized (synth.ts). All presentation: it reads the sim and never writes to it.
 //
@@ -89,6 +90,8 @@ interface Graph {
   hiss: NoiseVoice;
   wind: NoiseVoice;
   roar: NoiseVoice;
+  /** The avalanche, a low rumble that grows as it closes on you. */
+  rumble: NoiseVoice;
   horn: Out;
   rivals: EngineVoice[];
   music: Music;
@@ -225,6 +228,7 @@ export class GameAudio {
       hiss: new NoiseVoice(ctx, sfx, 'bandpass', 5200, 0.6),
       wind: new NoiseVoice(ctx, sfx, 'lowpass', 500, 0.5),
       roar: new NoiseVoice(ctx, sfx, 'bandpass', 220, 1.2),
+      rumble: new NoiseVoice(ctx, sfx, 'lowpass', 110, 0.8),
       horn,
       rivals: Array.from({ length: RIVALS }, () => new EngineVoice(ctx, engines)),
       music: new Music(ctx, musicLevel),
@@ -377,6 +381,10 @@ export class GameAudio {
     glide(g.wind.filter.frequency, 350 + speed * 22, now);
     g.wind.out.set(clamp((speed - 8) / 60, 0, 1) ** 2 * 0.3, 0, now, 0.2);
     g.roar.out.set(boosting && !wrecked ? 0.32 : 0, 0, now, 0.08);
+    // The avalanche: from 500 m behind you, louder as it closes (and on top of you, loudest).
+    const run = sim.track.run;
+    const gap = run && sim.avalancheFront > -Infinity && !c.finished[i] ? c.progress[i] + run.start - sim.avalancheFront : Infinity;
+    g.rumble.out.set(f.menu ? 0 : clamp(1 - gap / 500, 0, 1) ** 1.5 * 0.7, 0, now, 0.25);
     g.horn.set(ctl.horn && !f.menu ? 0.12 : 0, 0, now, 0.02);
 
     // ---- rivals: the nearest few engines ----

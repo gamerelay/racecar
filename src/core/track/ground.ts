@@ -73,6 +73,17 @@ export function canyonDepth(d: number, floor: number, depth: number): number {
   return depth - (r - Math.sqrt(r * r - x * x));
 }
 
+/** How far down in a canyon `s` m along the main road and `lat` m across it is (0: in none). */
+export function canyonAt(def: GroundDef, s: number, lat: number): number {
+  let h = 0;
+  for (const c of def.canyons ?? []) {
+    if (s < c.s[0] || s > c.s[1]) continue;
+    const ease = smooth(0, c.ease, Math.min(s - c.s[0], c.s[1] - s));
+    h += canyonDepth(Math.abs(lat - c.lateral), c.floor, c.depth * ease);
+  }
+  return h;
+}
+
 /** What `def` adds to the road's height at `s` m along the main road and `lat` m across it (road half width `half`, shoulder `shoulder`). */
 export function groundShape(def: GroundDef, s: number, lat: number, half: number, shoulder: number, x: number, z: number): number {
   const a = Math.abs(lat);
@@ -90,11 +101,7 @@ export function groundShape(def: GroundDef, s: number, lat: number, half: number
     const bv = 0.5 - 0.5 * Math.cos((2 * Math.PI * (lat + off)) / m.spacing);
     h += m.height * bu * bv * fade;
   }
-  for (const c of def.canyons ?? []) {
-    if (s < c.s[0] || s > c.s[1]) continue;
-    const ease = smooth(0, c.ease, Math.min(s - c.s[0], c.s[1] - s));
-    h -= canyonDepth(Math.abs(lat - c.lateral), c.floor, c.depth * ease);
-  }
+  h -= canyonAt(def, s, lat);
   if (a > def.wallFrom) h += (a - def.wallFrom) * def.wallRise;
   return h;
 }

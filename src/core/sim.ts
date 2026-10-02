@@ -4,7 +4,7 @@
 
 import { driveFollow, type FollowDriver } from './ai/follow';
 import { driveRacer, type RacerDriver } from './ai/racer';
-import { stepCar } from './car/physics';
+import { stepCar, wreckCar } from './car/physics';
 import { createCarPool, restoreCars, snapshotCars, type CarPool } from './car/pool';
 import { TUNING } from './car/tuning';
 import { collideCars } from './collide/cars';
@@ -24,6 +24,8 @@ import { newHit, projectGlobal, sampleAt } from './track/query';
 import { Hazards, type Mayhem } from './world/hazards';
 import { Traffic, laneActive } from './world/traffic';
 import { Smashables } from './world/smash';
+import { AVALANCHE_UNDER, Avalanche } from './world/avalanche';
+import { canyonAt } from './track/ground';
 import { planWeather, weatherAt, type WeatherOption, type WeatherPlan, type WeatherState } from './world/weather';
 
 export const TICK_RATE = 60;
@@ -103,6 +105,9 @@ export class Sim implements SimState {
   weatherPlan: WeatherPlan;
   readonly weatherState: WeatherState = { wetness: 0, grip: 1, wet: false, visibility: 1 };
   world: { traffic: Traffic; hazards: Hazards; smash: Smashables };
+  /** One run's avalanche, at chaos (world/avalanche.ts), and where its front is this tick. */
+  avalanche: Avalanche | null = null;
+  avalancheFront = -Infinity;
   race: RaceState = { phase: 'free', goTime: 0, laps: 3, finishedCount: 0 };
   private readonly grid = new SpatialGrid(16, 1024, MAX_CARS);
   private readonly isActive = (i: number) => this.cars.active[i] === 1;
@@ -134,6 +139,8 @@ export class Sim implements SimState {
   }
 
   private buildWorld(track: Track): { traffic: Traffic; hazards: Hazards; smash: Smashables } {
+    const def = track.layout.avalanche;
+    this.avalanche = def && track.run && this.options.mayhem === 'chaos' ? new Avalanche(track, def) : null;
     const traffic = new Traffic(track, this.seed, this.options.traffic ?? 1);
     return { traffic, hazards: new Hazards(track, traffic, this.seed, this.options.mayhem ?? 'normal'), smash: new Smashables(track) };
   }
@@ -246,6 +253,27 @@ export class Sim implements SimState {
     c.nextCp[i] = 0;
     c.progress[i] = at.s - run.start;
     c.lapStartTime[i] = this.time;
+  }
+
+  /**
+   * The avalanche buries every car of this screen's it has reached (its main-road distance behind
+   * the front), unless it's down in a canyon. Respawns put them ahead of it.
+   */
+  private bury(): void {
+    const cars = this.cars;
+    const main = this.track.main;
+    for (let i = 0; i < cars.count; i++) {
+      if (!cars.active[i] || cars.remote[i] || cars.wreck[i] || cars.finished[i]) continue;
+      const sMain = mainDistance(this.track, cars.spline[i], cars.s[i]);
+      if (sMain >= this.avalancheFront) continue;
+      const at = sampleAt(main, sMain, this.hitA);
+      // Down in a canyon (and not in the air over it), it goes over you.
+      const ground = this.track.ground;
+      const lat = (cars.x[i] - at.cx) * -at.tz + (cars.z[i] - at.cz) * at.tx;
+      if (ground && canyonAt(this.track.layout.ground!, sMain, lat) > AVALANCHE_UNDER && cars.y[i] < ground.height(cars.x[i], cars.z[i]) + 3) continue;
+      // Thrown down the slope with it.
+      wreckCar(this, i, Cause.Hazard, at.tx * 10, at.tz * 10, -1);
+    }
   }
 
   /** Whether an oncoming traffic lane runs over the grid or just past the line. */
@@ -419,6 +447,8 @@ export class Sim implements SimState {
     // Against another player's car too: yours takes its share of the bump (theirs, on their screen).
     collideCars(this, this.grid);
     for (let i = 0; i < cars.count; i++) if (!cars.remote[i]) collideWorld(this, i, ctx);
+    this.avalancheFront = this.avalanche && this.race.phase === 'racing' ? this.avalanche.front(this.time - this.race.goTime) : -Infinity;
+    if (this.avalancheFront > -Infinity) this.bury();
     // System 12: rules.
     let nf = 0;
     for (let i = 0; i < cars.count; i++) {

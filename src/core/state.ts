@@ -40,6 +40,8 @@ export interface SimState {
   wet: boolean;
   wetness: number;
   world?: { traffic: Traffic; hazards: Hazards; smash: Smashables };
+  /** The avalanche's front down the main road (world/avalanche.ts); -Infinity when there's none coming. */
+  avalancheFront: number;
   race: RaceState;
   /** Surface index used beyond the road edge. */
   readonly shoulderSurface: number;

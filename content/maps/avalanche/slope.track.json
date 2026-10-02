@@ -3492,6 +3492,11 @@
   "start": 70,
   "finish": 6002
  },
+ "avalanche": {
+  "behind": 80,
+  "delay": 4,
+  "speed": 56
+ },
  "ground": {
   "cell": 2.5,
   "wallFrom": 80,
