@@ -15,13 +15,18 @@ const strip = (ramp: TrackLayout['ramps']): TrackLayout => ({
   name: 'Strip',
   main: { points: [0, 1, 2, 3, 4].map((k) => ({ p: [0, 0, k * 200] as [number, number, number], width: 16 })) },
   ramps: ramp,
+  // Open both sides, so a car can come at the kicker from out on the grass.
+  walls: { gaps: [{ s: [0, 800], side: 'both' }] },
 });
 const WEDGE = [{ s: 300, height: 2.2, length: 12 }];
 const ROUND = [{ s: 297, height: 2.2, length: 15, back: 10 }];
 const FLANKED = [{ s: 297, height: 2.2, length: 15, back: 10, flank: 6 }];
 
-/** A car driven straight across the road at `speed` m/s, from 26 m out, at the kicker's top: its first air time (s). */
-function across(ramps: TrackLayout['ramps'], speed: number): number {
+/**
+ * A car driven straight across the road at `speed` m/s, from 26 m out, at the kicker's top: its
+ * first air time (s), and its body's most nose-up pitch on the ground (negative is nose up).
+ */
+function across(ramps: TrackLayout['ramps'], speed: number): { air: number; noseUp: number } {
   const sim = new Sim(bakeTrack(strip(ramps), SURFACES), CLASSES, SURFACES, { seed: 1 });
   const i = sim.addCar({ cls: 'coupe', human: true });
   const c = sim.cars;
@@ -32,14 +37,16 @@ function across(ramps: TrackLayout['ramps'], speed: number): number {
   c.vz[i] = 0;
   c.y[i] = 0;
   let air = 0;
+  let noseUp = 0;
   let cursor = sim.events.head;
   for (let t = 0; t < 60 * 4 && !air; t++) {
     sim.step([{ ...neutralControls(), throttle: 1 }]);
+    if (c.grounded[i]) noseUp = Math.min(noseUp, c.pitch[i]);
     cursor = sim.events.read(cursor, (e) => {
       if (e.type === Ev.Land && e.car === i) air = e.a;
     });
   }
-  return air;
+  return { air, noseUp };
 }
 
 /** A car flat out at `speed` m/s over the kicker: its first air time (s) and how high it got over the road. */
@@ -72,8 +79,11 @@ describe('kickers', () => {
     project(sp, -15, 312, 312, hit);
     expect(hit.ground).toBeCloseTo(sp.ramp[Math.round(312 / sp.step)] / 2, 1);
     // From the side at 25 m/s: up one bank, across, and off the other. Across a flat road, no air.
-    expect(across(FLANKED, 25)).toBeGreaterThan(0.3);
-    expect(across([], 25)).toBe(0);
+    const up = across(FLANKED, 25);
+    expect(up.air).toBeGreaterThan(0.3);
+    expect(across([], 25).air).toBe(0);
+    // Its body tips back up the bank (about 20°), rather than staying level and cutting into it.
+    expect(up.noseUp).toBeLessThan(-0.2);
   });
 
   test('a rounded one has no step: the ground rolls up and back down', () => {
