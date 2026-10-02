@@ -4,8 +4,9 @@
 // the recorded soundtrack (soundtrack.ts), or the synth (music.ts) where there's no track. The rest
 // is synthesized (synth.ts). All presentation: it reads the sim and never writes to it.
 //
-// Browsers only start audio after a gesture, so the context is made on the first key or click (a
-// tap's release).
+// Browsers mostly start audio only after a gesture: the context is made at once in case this one
+// allows it (a site the player's been on a lot, or one allowed sound), and resumed on the first key
+// or click (a tap's release) if not.
 // Paused or hidden, it suspends. M mutes, N toggles music; both are remembered on this device.
 
 import { Vector3, type PerspectiveCamera } from 'three';
@@ -109,6 +110,8 @@ export class GameAudio {
   /** A menu click rings until then (performance.now()): a paused context runs for it. */
   private uiUntil = 0;
   private readonly uiShot: Shot = { ctx: undefined as unknown as AudioContext, bus: undefined as unknown as AudioNode, gain: 0, pan: 0 };
+  /** The context has run: resuming it from a frame can work (after a pause, a hidden tab). */
+  private ran = false;
   private readonly near: number[] = [];
   private readonly shot: Shot = { ctx: undefined as unknown as AudioContext, bus: undefined as unknown as AudioNode, gain: 0, pan: 0 };
 
@@ -131,6 +134,10 @@ export class GameAudio {
     // touch's `pointerdown`.
     window.addEventListener('keydown', unlock);
     window.addEventListener('pointerup', unlock);
+    // Without a gesture too, unless the browser says it won't (Firefox can tell): the title's music
+    // from the start where it's allowed. Where it isn't, the context waits suspended for the first.
+    const policy = (globalThis.navigator as { getAutoplayPolicy?: (t: string) => string } | undefined)?.getAutoplayPolicy?.('audiocontext');
+    if (policy !== 'disallowed') this.start(false);
     // Every key or click after, too: a track paused (the pause menu, a hidden tab) may only start
     // again from one.
     const again = () => this.g && this.wantTrack && this.track?.play(true);
@@ -147,10 +154,15 @@ export class GameAudio {
     });
   }
 
-  /** Makes the graph (first gesture) and resumes the context. */
-  private start(): void {
+  /**
+   * Makes the graph and resumes the context. `gesture`: from a key or click (the page's load
+   * otherwise, where a refused play is just "not yet", not one of the refusals that give up on it).
+   */
+  private start(gesture = true): void {
     if (this.g) {
       void this.g.ctx.resume();
+      // Made at load and held back till now: the track starts in the gesture, as it would have.
+      if (gesture && this.settings.music && !this.settings.muted) this.track?.play(true);
       return;
     }
     let ctx: AudioContext;
@@ -217,11 +229,16 @@ export class GameAudio {
     this.g.trackLevel.connect(musicLevel);
     this.track?.connect(ctx, this.g.trackLevel);
     // In the gesture itself: the only time some browsers start media.
-    if (this.settings.music && !this.settings.muted) this.track?.play(true);
+    if (this.settings.music && !this.settings.muted) this.track?.play(gesture);
     this.shot.ctx = ctx;
     this.shot.bus = sfx;
     this.uiShot.ctx = ctx;
     this.uiShot.bus = this.g.ui;
+  }
+
+  /** Whether anything can be heard yet: the context is running (the browser allowed it, or a gesture did). */
+  get audible(): boolean {
+    return this.g?.ctx.state === 'running';
   }
 
   /** The master's level now: M's mute, then the player's master volume. */
@@ -281,7 +298,12 @@ export class GameAudio {
     const quiet = f.paused || this.hidden || this.settings.muted;
     // Paused, a menu click keeps the context running till it's rung out, with only the click heard.
     const stop = quiet && !(f.paused && !this.hidden && !this.settings.muted && performance.now() < this.uiUntil);
-    if (stop !== (g.ctx.state === 'suspended')) void (stop ? g.ctx.suspend() : g.ctx.resume());
+    if (g.ctx.state === 'running') this.ran = true;
+    // Resumed only once it can start: it has run before (a pause, a hidden tab), or there's been a
+    // gesture. Held back by the browser, a resume a frame would just pile up, never settling.
+    const canResume = this.ran || (globalThis.navigator as { userActivation?: { hasBeenActive: boolean } } | undefined)?.userActivation?.hasBeenActive !== false;
+    if (stop && g.ctx.state === 'running') void g.ctx.suspend();
+    else if (!stop && g.ctx.state === 'suspended' && canResume) void g.ctx.resume();
     if (quiet) {
       // A track would play on through a suspended context, unheard: it waits instead.
       this.wantTrack = false;
@@ -290,6 +312,13 @@ export class GameAudio {
       // the ☰ Menu button, with everything still up). Unpaused, they glide back.
       if (!stop) this.silenceRace();
       // What happened meanwhile isn't heard later (online, the race goes on while muted or paused).
+      this.cursor = this.sim.events.head;
+      return;
+    }
+    // Held back by the browser (no gesture yet), or resuming and not running yet: nothing is heard,
+    // and sounds made now would all play at once when it starts (its clock stands still). The track
+    // is left alone: a gesture may just have started it, in the resume's wait.
+    if (g.ctx.state !== 'running') {
       this.cursor = this.sim.events.head;
       return;
     }

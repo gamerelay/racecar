@@ -3,6 +3,7 @@ import { PerspectiveCamera } from 'three';
 import { GameAudio, type AudioFrame } from '../src/audio/audio';
 import { Music } from '../src/audio/music';
 import { note } from '../src/audio/synth';
+import type { Soundtrack } from '../src/audio/soundtrack';
 import { Ev } from '../src/core/events';
 import { fakeBrowser, FakeAudioContext, type FakeTarget } from './fake-audio';
 import { citySim } from './helpers';
@@ -92,20 +93,73 @@ describe('game audio', () => {
     expect(ctx.resumes).toBe(resumes + 1);
   });
 
-  test('muting before the graph exists does nothing to it, and events from then are never heard', () => {
+  test('held back by the browser, events before the first gesture are never heard, not even after it', () => {
     const sim = citySim();
     const audio = new GameAudio(sim);
-    audio.update(1 / 60, { focus: 0, camera: new PerspectiveCamera(), paused: false, menu: false });
-    expect(FakeAudioContext.all).toHaveLength(0);
-    sim.events.push(0, Ev.Hazard, -1);
-    audio.update(1 / 60, { focus: 0, camera: new PerspectiveCamera(), paused: false, menu: false });
-    browser.window.fire('keydown');
+    // Made at load, in case the browser allows it; this one doesn't.
     const ctx = FakeAudioContext.all[0];
+    expect(ctx.state).toBe('suspended');
     audio.settings.music = false;
     if (audio.settings.muted) audio.toggleMute();
+    const frame = { focus: 0, camera: new PerspectiveCamera(), paused: false, menu: false };
+    const before = ctx.made;
+    sim.events.push(0, Ev.Hazard, -1);
+    audio.update(1 / 60, frame);
+    expect(ctx.state).toBe('suspended');
+    browser.window.fire('keydown');
+    expect(ctx.state).toBe('running');
+    audio.update(1 / 60, frame);
+    expect(ctx.made - before).toBe(0);
+    expect(FakeAudioContext.all).toHaveLength(1);
+  });
+
+  test('a frame while the first gesture\'s resume is still settling leaves the track it started playing', () => {
+    let pauses = 0;
+    let plays = 0;
+    const track = { failed: false, connect() {}, play: () => plays++, pause: () => pauses++ };
+    const audio = new GameAudio(citySim(), track as unknown as Soundtrack, true);
+    if (audio.settings.muted) audio.toggleMute();
+    audio.settings.music = true;
+    browser.window.fire('keydown');
+    expect(plays).toBeGreaterThan(0);
+    // The context hasn't switched to running yet (a real one takes a few ms).
+    FakeAudioContext.all[0].state = 'suspended';
+    FakeAudioContext.lag = true;
+    audio.update(1 / 60, { focus: 0, camera: new PerspectiveCamera(), paused: false, menu: true });
+    expect(pauses).toBe(0);
+  });
+
+  test('held back by the browser, frames don\'t keep asking to resume (they\'d never settle)', () => {
+    const nav = globalThis.navigator as unknown as Record<string, unknown>;
+    const was = Object.getOwnPropertyDescriptor(nav, 'userActivation');
+    Object.defineProperty(nav, 'userActivation', { value: { hasBeenActive: false }, configurable: true });
+    try {
+      const audio = new GameAudio(citySim());
+      if (audio.settings.muted) audio.toggleMute();
+      const ctx = FakeAudioContext.all[0];
+      const before = ctx.resumes;
+      for (let k = 0; k < 30; k++) audio.update(1 / 60, { focus: 0, camera: new PerspectiveCamera(), paused: false, menu: true });
+      expect(ctx.resumes - before).toBe(0);
+    } finally {
+      if (was) Object.defineProperty(nav, 'userActivation', was);
+      else delete nav.userActivation;
+    }
+  });
+
+  test('where the browser allows sound without a gesture, it runs from the start (the title music)', () => {
+    browser.restore();
+    browser = fakeBrowser({ autoplay: true });
+    const sim = citySim();
+    const audio = new GameAudio(sim);
+    audio.settings.music = false;
+    if (audio.settings.muted) audio.toggleMute();
+    expect(audio.audible).toBe(true);
+    audio.update(1 / 60, { focus: 0, camera: new PerspectiveCamera(), paused: false, menu: false });
+    sim.events.push(0, Ev.Hazard, -1);
+    const ctx = FakeAudioContext.all[0];
     const before = ctx.made;
     audio.update(1 / 60, { focus: 0, camera: new PerspectiveCamera(), paused: false, menu: false });
-    expect(ctx.made - before).toBe(0);
+    expect(ctx.made - before).toBe(3);
   });
 });
 

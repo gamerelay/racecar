@@ -9,6 +9,9 @@ and where things stand is [docs/HANDOFF.md](./docs/HANDOFF.md).
 - **Menus:** buttons flash and dip when pressed, by mouse, touch, key or gamepad, with a click
   (a softer one for Back and Cancel); choosers and sliders tick as they move. The clicks follow the
   effects volume, are heard over the title and in the pause menu, and stay silent when muted.
+- **Title music from the start** where the browser allows it (a site you've played on a lot, or
+  one you've allowed sound on). Where it doesn't, a "Press any key for music" hint (or "Tap for
+  music") shows on the title until the first key or click.
 
 ## alpha-1.27: the minimap the right way round
 

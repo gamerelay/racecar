@@ -46,6 +46,13 @@ export class FakeNode {
 export class FakeAudioContext {
   /** Every context made, newest last. */
   static all: FakeAudioContext[] = [];
+  /**
+   * The browser holds sound back (no gesture yet): a context starts suspended, and resuming it does
+   * nothing. A key press or click on the fake window ends it (fakeBrowser).
+   */
+  static blocked = false;
+  /** A resume takes a while (a real one's audio thread starts a few ms later): it doesn't switch to running at once. */
+  static lag = false;
   currentTime = 0;
   readonly sampleRate = 8;
   state: 'running' | 'suspended' = 'running';
@@ -55,6 +62,7 @@ export class FakeAudioContext {
   resumes = 0;
   constructor() {
     FakeAudioContext.all.push(this);
+    if (FakeAudioContext.blocked) this.state = 'suspended';
   }
   createGain() {
     return new FakeNode('gain');
@@ -88,7 +96,7 @@ export class FakeAudioContext {
   }
   resume() {
     this.resumes++;
-    this.state = 'running';
+    if (!FakeAudioContext.blocked && !FakeAudioContext.lag) this.state = 'running';
     return Promise.resolve();
   }
   /** Sounds made so far (oscillators and noise), for counting what one frame added. */
@@ -108,6 +116,8 @@ export class FakeTarget {
     this.listeners.set(type, (this.listeners.get(type) ?? []).filter((f) => f !== fn));
   }
   fire(type: string, e?: unknown) {
+    // A gesture: the browser lets sound start (the listeners run in it).
+    if (type === 'keydown' || type === 'pointerup') FakeAudioContext.blocked = false;
     for (const fn of this.listeners.get(type) ?? []) fn(e);
   }
 }
@@ -116,7 +126,7 @@ export class FakeTarget {
  * Puts `window`, `document` and `AudioContext` on the global object for a test, and returns a
  * function that takes them away again (other test files share the process).
  */
-export function fakeBrowser(): { window: FakeTarget; document: FakeTarget; restore: () => void } {
+export function fakeBrowser({ autoplay = false } = {}): { window: FakeTarget; document: FakeTarget; restore: () => void } {
   const g = globalThis as Record<string, unknown>;
   const before = { window: g.window, document: g.document, AudioContext: g.AudioContext };
   const win = new FakeTarget();
@@ -125,6 +135,9 @@ export function fakeBrowser(): { window: FakeTarget; document: FakeTarget; resto
   g.document = doc;
   g.AudioContext = FakeAudioContext;
   FakeAudioContext.all = [];
+  // Like most browsers on a first visit: no sound till a gesture, unless `autoplay`.
+  FakeAudioContext.blocked = !autoplay;
+  FakeAudioContext.lag = false;
   return {
     window: win,
     document: doc,
