@@ -1,6 +1,6 @@
 import { describe, expect, spyOn, test } from 'bun:test';
 import { CLASS_ORDER } from '../src/core/content';
-import { doppler, ENGINE_SOUNDS, engineHz, engineSound, gearbox, musicMix, spatial } from '../src/audio/model';
+import { doppler, ENGINE_SOUNDS, engineHz, engineSound, gearbox, musicMix, MUSIC_LEVEL, spatial } from '../src/audio/model';
 import { CLASSES } from './helpers';
 import { existsSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
@@ -339,7 +339,7 @@ describe('the music mix', () => {
   const base = { recorded: true, on: true, menu: false, titleTrack: false, racing: true, finalLap: false, timeScale: 1 };
 
   test('a recorded track plays instead of the synth; without one (or failed), the synth', () => {
-    expect(musicMix(base)).toMatchObject({ track: true, synth: false, level: 0.5, tone: 12000 });
+    expect(musicMix(base)).toMatchObject({ track: true, synth: false, level: MUSIC_LEVEL, tone: 12000 });
     expect(musicMix({ ...base, recorded: false })).toMatchObject({ track: false, synth: true, intensity: 1 });
   });
 

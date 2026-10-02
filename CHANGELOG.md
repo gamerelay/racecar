@@ -6,6 +6,9 @@ and where things stand is [docs/HANDOFF.md](./docs/HANDOFF.md).
 
 ## Unreleased
 
+- The mix: engines quieter and the music louder (about 8 dB between them), from playtests.
+- docs/MENU.md: the plan for a real in-game menu and settings (sound, graphics, controls with
+  remapping, comfort, HUD, privacy), choosers instead of dropdowns, and transitions between screens.
 - Short invite links: Copy invite link copies `https://gamerelay.io/racecar/<link>`, which
   previews in chat apps with the lobby's name and the cover art and opens the game straight into
   the lobby (`?join=<link>`). An Invite only lobby is now link-only: its code doesn't get anyone
