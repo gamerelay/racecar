@@ -102,6 +102,47 @@ const BANK_RUN = 7;
 
 /** How far a branch's deck sits under the main road's where they overlap, so the main road's shows. */
 const SINK = 0.05;
+/** And each of its deck's points over the main road or its verge, under that point of the main road's. */
+const UNDER = 0.06;
+
+/**
+ * For a branch: holds a point of its deck that's over the main road (or its verge) under the main
+ * road's surface there, so the main road shows and the branch's edge stops along the main road's.
+ * A branch is the main road's ground only along its middle (joinBranch, bake.ts): crossing it at
+ * an angle, or on a bend, the edges of its flat deck come up through the main road in a sawtooth.
+ * `i` is the branch sample the point belongs to.
+ */
+function underMain(main: BakedSpline, sp: BakedSpline): ((x: number, y: number, z: number, i: number) => number) | null {
+  if (sp.index === 0) return null;
+  // The main road's sample nearest each overlapping branch sample (in 3D: not a road above or below).
+  const near = new Int32Array(sp.n).fill(-1);
+  for (let i = 0; i < sp.n; i++) {
+    if (sp.merge[i] <= 0) continue;
+    let best = -1;
+    let bestD = Infinity;
+    for (let k = 0; k < main.n; k++) {
+      const d = (main.px[k] - sp.px[i]) ** 2 + (main.py[k] - sp.py[i]) ** 2 * 4 + (main.pz[k] - sp.pz[i]) ** 2;
+      if (d < bestD) {
+        bestD = d;
+        best = k;
+      }
+    }
+    near[i] = best;
+  }
+  return (x, y, z, i) => {
+    const k = near[i];
+    if (k < 0) return y;
+    const rx = -main.tz[k];
+    const rz = main.tx[k];
+    const lat = (x - main.px[k]) * rx + (z - main.pz[k]) * rz;
+    if (Math.abs(lat) > main.width[k] / 2 + main.shoulder[k]) return y;
+    const along = (x - main.px[k]) * main.tx[k] + (z - main.pz[k]) * main.tz[k];
+    const k1 = (k + 1) % main.n;
+    const slope = (main.py[k1] + main.ramp[k1] - main.py[k] - main.ramp[k]) / main.step;
+    const ground = main.py[k] + main.ramp[k] + along * slope - lat * Math.tan(main.bank[k]);
+    return Math.min(y, ground - UNDER);
+  };
+}
 
 function cross(sp: BakedSpline, i: number, out: Cross): Cross {
   out.cx = sp.px[i];
@@ -139,9 +180,10 @@ export function buildTrackVisual(track: Track, palette: Palette, seed: number): 
 
   for (const sp of track.splines) {
     const deck = land ? land.deck[sp.index] : deckMask(sp, groundY);
+    const under = underMain(track.main, sp);
     for (let k = 0; k < sp.chunks.length - 1; k++) {
       const g = new Geo();
-      buildChunk(g, track, sp, sp.chunks[k], sp.chunks[k + 1], groundY, city, deck, style);
+      buildChunk(g, track, sp, sp.chunks[k], sp.chunks[k + 1], groundY, city, deck, style, under);
       const mesh = new Mesh(g.build(), road);
       mesh.matrixAutoUpdate = false;
       chunks.push(mesh);
@@ -381,16 +423,26 @@ function rutColor(color: string): number {
   return c;
 }
 
-function buildChunk(g: Geo, track: Track, sp: BakedSpline, i0: number, i1: number, groundY: number, levels: boolean, deck: Uint8Array, style: Style): void {
+function buildChunk(g: Geo, track: Track, sp: BakedSpline, i0: number, i1: number, groundY: number, levels: boolean, deck: Uint8Array, style: Style, under: ReturnType<typeof underMain>): void {
   const A: Cross = { cx: 0, cy: 0, cz: 0, rx: 0, rz: 0, tb: 0 };
   const B: Cross = { cx: 0, cy: 0, cz: 0, rx: 0, rz: 0, tb: 0 };
-  const at = (c: Cross, l: number, lift: number) => [c.cx + c.rx * l, c.cy - l * c.tb + lift, c.cz + c.rz * l] as const;
+  // The samples A and B are (a branch's points over the main road go under it).
+  let ia = 0;
+  let ib = 0;
+  const at = (c: Cross, l: number, lift: number) => {
+    const x = c.cx + c.rx * l;
+    const z = c.cz + c.rz * l;
+    const y = c.cy - l * c.tb + lift;
+    return [x, under ? under(x, y, z, c === A ? ia : ib) : y, z] as const;
+  };
   const layoutVerge = track.surfaces[track.surfaceIndex.get(track.layout.shoulderSurface ?? 'sidewalk') ?? 0].color;
   const last = sp.closed ? i1 : Math.min(i1, sp.n - 1);
   for (let i = i0; i < last; i++) {
     const j = sp.closed ? (i + 1) % sp.n : i + 1;
     cross(sp, i, A);
     cross(sp, j, B);
+    ia = i;
+    ib = j;
     const wa = sp.width[i] / 2;
     const wb = sp.width[j] / 2;
     const sa = wa + sp.shoulder[i];

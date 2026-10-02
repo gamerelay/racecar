@@ -3111,7 +3111,7 @@
    "id": "leap",
    "kind": "shortcut",
    "from": 1464,
-   "to": 1630,
+   "to": 1650,
    "points": [
     {
      "p": [
@@ -3130,21 +3130,23 @@
       50.9,
       -126
      ],
-     "width": 10,
+     "width": 11,
      "lanes": 1,
-     "shoulder": 1.5,
-     "surface": "dirt"
+     "shoulder": 2,
+     "surface": "dirt",
+     "bank": -0.18
     },
     {
      "p": [
-      380,
-      45.7,
-      -145
+      378,
+      47.2,
+      -140
      ],
      "width": 11,
      "lanes": 1,
      "shoulder": 2,
-     "surface": "dirt"
+     "surface": "dirt",
+     "bank": -0.12
     }
    ]
   },
@@ -3308,7 +3310,7 @@
   },
   {
    "spline": "leap",
-   "s": 44,
+   "s": 51,
    "height": 2.2,
    "length": 12
   }

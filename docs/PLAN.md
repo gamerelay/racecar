@@ -279,8 +279,22 @@ race; some move, and a few you can hit.
     3. **A shorter fade** (`FADE` 45 m → about 10 m): one line, but close to a pop.
 
     1 where there's room and 2 for Downtown is probably the mix.
-- **Backroads' second shortcut (Logger's Leap):** smooth its edges where it leaves and rejoins,
-  and add berms on its corners.
+- **Backroads' second shortcut (Logger's Leap)** (done, 2026-10-02):
+  - **Its edges:** where a branch overlaps the main road, each point of its deck is held under the
+    main road's (`underMain`, greybox `track.ts`), so it stops along the main road's edge instead
+    of coming up through it in a sawtooth. The main road's verge opens across the whole of a
+    branch's deck where it crosses at an angle, not just round its middle (`joinBranch`), which
+    removed a grass stripe through the Leap's fork.
+  - **Its shape:** it rejoins 20 m further on, where the Descent's heading matches its own. Before,
+    it kinked through an 18 m off-camber left onto the corner's exit.
+  - **Berms:** the run down to the Descent is banked into the left (about 0.17 rad where it's
+    clear of the ridge road).
+  - **What didn't work:** a branch is the main road's ground while it overlaps it, so its fork can't
+    be banked without pulling clear of the ridge road first. Forking wider or turning sooner to do
+    that added 3–5 car-to-car wrecks per 16 races at the fork: the outside car of two side by side
+    isn't on the branch yet as the inside one turns in. So the fork is as it was.
+  - **Measured** (16 seeds): the field had 9 wrecks (10 before), chaos 9 (13 before), none at the
+    Leap either way; the lap floor is 62.88 s (62.82–62.9).
 - **Backroads by day:** maybe a daytime option. Backroads has only its golden-hour light (the
   `golden` palette); Paradise's Time option is noon or sunset (`sunset` in its `map.json`, a
   second palette), so a daytime palette for Backroads would work the same way.

@@ -380,10 +380,21 @@ function joinBranch(main: BakedSpline, sp: BakedSpline): void {
       const flip = sp.tx[i] * main.tx[k] + sp.tz[i] * main.tz[k] < 0 ? -1 : 1;
       if (Math.abs(lat - bh * flip) < verge) sp.openL[i] = 1;
       if (Math.abs(lat + bh * flip) < verge) sp.openR[i] = 1;
-      // The main road's verge on the branch's side, where the branch's deck crosses it.
+      // The main road's verge, wherever the branch's deck crosses it: across the deck a meter at a
+      // time, as crossing at an angle it's over the verge beside other main-road samples than the
+      // middle's (opened only round the middle, the verge's grass showed through in a stripe).
       if (Math.abs(lat) + bh > mh && Math.abs(lat) - bh < verge) {
-        const open = lat < 0 ? main.openL : main.openR;
-        for (let d = -2; d <= 2; d++) open[(k + d + main.n) % main.n] = 1;
+        const brx = -sp.tz[i];
+        const brz = sp.tx[i];
+        for (let l = -bh; l <= bh + 1e-6; l += Math.min(1, bh)) {
+          const x = sp.px[i] + brx * l;
+          const z = sp.pz[i] + brz * l;
+          const m = nearestSample(main, x, z, k * main.step, 15);
+          const ml = (x - main.px[m]) * -main.tz[m] + (z - main.pz[m]) * main.tx[m];
+          if (Math.abs(ml) < mh - 0.5 || Math.abs(ml) > verge + 0.5) continue;
+          const open = ml < 0 ? main.openL : main.openR;
+          for (let d = -2; d <= 2; d++) open[(m + d + main.n) % main.n] = 1;
+        }
       }
     }
   }
@@ -392,10 +403,10 @@ function joinBranch(main: BakedSpline, sp: BakedSpline): void {
 /** How far (m) a branch's ground fades from the main road's to its own once it's clear of it. */
 const JOIN_FADE = 20;
 
-/** The main-road sample nearest (x, z), searched within 60 m of main distance `hint`. */
-function nearestSample(main: BakedSpline, x: number, z: number, hint: number): number {
+/** The main-road sample nearest (x, z), searched within `within` m (default 60) of main distance `hint`. */
+function nearestSample(main: BakedSpline, x: number, z: number, hint: number, within = 60): number {
   const i0 = sampleIndex(main, hint);
-  const reach = Math.round(60 / main.step);
+  const reach = Math.round(within / main.step);
   let best = i0;
   let bestD = Infinity;
   for (let d = -reach; d <= reach; d++) {

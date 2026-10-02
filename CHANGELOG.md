@@ -12,6 +12,11 @@ and where things stand is [docs/HANDOFF.md](./docs/HANDOFF.md).
 - **Title music from the start** where the browser allows it (a site you've played on a lot, or
   one you've allowed sound on). Where it doesn't, a "Press any key for music" hint (or "Tap for
   music") shows on the title until the first key or click.
+- **Backroads: Logger's Leap smoothed and bermed.** Its dirt no longer comes up through the
+  Descent's asphalt in a sawtooth where it rejoins. It now rejoins further on, where the Descent
+  heads its way, instead of kinking through a tight off-camber left. Its run down to the Descent
+  is banked into the turn. On every map, the main road's verge no longer shows through a
+  shortcut's mouth in a stripe.
 
 ## alpha-1.27: the minimap the right way round
 

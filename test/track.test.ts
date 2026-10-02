@@ -64,6 +64,50 @@ describe('shortcut junctions', () => {
     });
   }
 
+  for (const key of MAPS) {
+    test(`${key}: wherever a shortcut's deck crosses the main road's verge, the verge is open (no grass through it)`, () => {
+      // Opened only round the branch's middle, a branch crossing at an angle had the verge's grass
+      // across its deck in a stripe (the Leap's fork).
+      const track = bakeTrack(layout(key), SURFACES);
+      const main = track.main;
+      const hit = newHit();
+      let checked = 0;
+      for (const sp of track.splines.slice(1)) {
+        for (let i = 0; i < sp.n; i++) {
+          if (sp.merge[i] <= 0) continue;
+          const bh = sp.width[i] / 2;
+          for (let l = -bh; l <= bh; l += 1) {
+            const x = sp.px[i] - sp.tz[i] * l;
+            const z = sp.pz[i] + sp.tx[i] * l;
+            projectGlobal(main, x, z, hit, sp.py[i]);
+            const mh = hit.width / 2;
+            // Well inside the verge's band (not on its edges, where a sample either way decides it).
+            if (Math.abs(hit.lateral) < mh + 0.75 || Math.abs(hit.lateral) > mh + hit.shoulder - 0.75) continue;
+            const k = Math.round(hit.s / main.step) % main.n;
+            const open = hit.lateral < 0 ? main.openL : main.openR;
+            expect(open[k]).toBe(1);
+            checked++;
+          }
+        }
+      }
+      expect(checked).toBeGreaterThan(0);
+    });
+  }
+
+  test("Logger's Leap: a bermed left on its own ground, and it rejoins without a kink", () => {
+    const track = bakeTrack(layout('backroads/valley'), SURFACES);
+    const leap = track.splines.find((sp) => sp.id === 'leap')!;
+    // Banked into the left (negative) where it's pulled clear of the ridge road.
+    let berm = 0;
+    for (let i = 0; i < leap.n; i++) if (leap.merge[i] < 0.1) berm = Math.min(berm, leap.bank[i]);
+    expect(berm).toBeLessThan(-0.12);
+    // Its last 40 m: no bend tighter than 25 m (it kinked through 18 m, off-camber, onto the Descent).
+    const half = 3;
+    for (let i = leap.n - Math.round(40 / leap.step); i < leap.n - half; i++) {
+      expect(Math.abs(turnAt(leap, i, half))).toBeLessThan((2 * half * leap.step) / 25);
+    }
+  });
+
   test('the baker adds a slip road: a shortcut forks off along the main road, not at its first point', () => {
     const strip: TrackLayout = {
       id: 'strip',
