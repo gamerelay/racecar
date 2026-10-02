@@ -402,8 +402,8 @@ Bugs and gameplay gaps. Refactors, duplication, performance and tooling go in
   - The police car's lights always flash; a siren and a pursuit mode would suit it.
   - A wrecked car sitting on its wheels loses its shadow too (it goes with `onRoad`).
   - Unused surfaces (`ice`, `oil`, `lava-crust`, `boost-pad`) wait for a map that uses them.
-  - Downtown's and the Valley's lap floors (58.6, 63.4 s) are under SPEC's 70–100 s target;
-    Paradise's is in it with PR #58 (71.9 s). Validate warns only under 55 s.
+  - Downtown's and the Valley's lap floors (57.9, 62.9 s since alpha-1.25's boost) are under
+    SPEC's 70–100 s target; Paradise's is in it (71.5 s). Validate warns only under 55 s.
   - Paradise's lap is at the top of MAPS.md's length target (3.80 km, the test's bound is
     3.8): anything that lengthens it has to give some back elsewhere.
   - The AI takes a secret shortcut but drives it no better than a signed one: the Beach Cut costs
@@ -413,6 +413,23 @@ Bugs and gameplay gaps. Refactors, duplication, performance and tooling go in
     need to leave the land alone over its middle and draw portals.
   - The falling sign's and log truck's markers use the road's centre height, like the bombs did
     before; on a banked stretch their rings would sink. Neither sits on a steep bank today.
+- **Found in the tech-debt pass (2026-10-02), not fixed yet:**
+  - A slingshot survives a wreck: `respawn` (`car/physics.ts`) doesn't clear `slingT`, `draft`,
+    `draftT` or `cruise`, and a wrecked car's `stepCar` returns before they count down, so a car
+    wrecked mid-slingshot comes back with what's left of its +10%. (`placeCar` clears them; the
+    respawn's own list doesn't.)
+  - "Overdrive" can pop and chime over and over on one straight: one tick under the throttle or
+    steering limit fades `cruise` just under 1, and it's back at 1 (and fires again) 0.04 s
+    later. It wants hysteresis in the sim (fire again only once it's fallen under, say, 0.5).
+  - The minimap is the track's mirror image (a lap driven clockwise goes round it anticlockwise):
+    `race.ts`'s `project` puts larger z up the screen with x to the right; the lobby's thumbnail
+    (z down) is the right way round. (Fixed in PR #65.)
+  - A spurious run-off dust puff: `lastSurface` (renderer.ts) is only updated for cars in effects
+    range and not wrecked, so a car that left the road out of range (or wrecked) and comes back
+    still off it puffs as if it had just run off.
+  - Maybe: the island's lava flows, crater pool and waterfall are `ShaderMaterial`s with no fog,
+    so in rain (fog much nearer) they may stand out against fogged land. The lava may be meant
+    to glow through; the waterfall probably isn't. Check in the browser.
 - **Controls:**
   - Touch controls: phones can't drive yet.
 
