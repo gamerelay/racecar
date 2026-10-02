@@ -6,8 +6,8 @@ and where things stand is [docs/HANDOFF.md](./docs/HANDOFF.md).
 
 ## Unreleased
 
-- **A new track for every map:** Relentless Pursuit, in every race's playlist beside the map's
-  own tracks and the other two for any map.
+- **Two new tracks for every map:** Relentless Pursuit and Half Time Surge, in every race's
+  playlist beside the map's own tracks and the other two for any map.
 - **Paradise, reworked:** deeper S-bends and wider sweepers to drift through, the jungle's
   hairpins opened up, and off the road is the beach, undergrowth or ash, which slows you rather
   than spinning you, with dust, sand or leaves thrown up as you run onto it. Two secret

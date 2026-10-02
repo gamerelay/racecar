@@ -1,14 +1,14 @@
 // The recorded soundtrack: the title's track behind the menus, and in a race a playlist of the
-// map's own tracks and the three that go anywhere, so the same song never plays twice in a row (from
+// map's own tracks and the four that go anywhere, so the same song never plays twice in a row (from
 // one race to the next either). A streamed <audio> element played through the music bus (so N, M,
 // the slow-mo duck and the level all apply to it). A track that can't load (not hosted where the
 // page is, say) falls back to the synth music (music.ts), the same as before there were tracks.
 
-/** The tracks, by name: `title`, each map's own, and the three any race may play. */
-export const TRACKS = ['title', 'downtown', 'tokyo-dubstep', 'backroads', 'paradise', 'hawaiian-vibes', 'finish-line', 'final-sprint', 'relentless-pursuit'] as const;
+/** The tracks, by name: `title`, each map's own, and the four any race may play. */
+export const TRACKS = ['title', 'downtown', 'tokyo-dubstep', 'backroads', 'paradise', 'hawaiian-vibes', 'finish-line', 'final-sprint', 'relentless-pursuit', 'half-time-surge'] as const;
 export type TrackName = (typeof TRACKS)[number];
-/** Tracks for any map's race (`relentless-pursuit`, the owner's, 2026-10-02). */
-export const ANY_MAP: readonly TrackName[] = ['finish-line', 'final-sprint', 'relentless-pursuit'];
+/** Tracks for any map's race (`relentless-pursuit` and `half-time-surge`, the owner's, 2026-10-02). */
+export const ANY_MAP: readonly TrackName[] = ['finish-line', 'final-sprint', 'relentless-pursuit', 'half-time-surge'];
 /** Each map's own tracks: the city has the Tokyo dubstep too, the island the Hawaiian one (2026-10-01). */
 export const MAP_TRACKS: Readonly<Record<string, readonly TrackName[]>> = {
   downtown: ['downtown', 'tokyo-dubstep'],
@@ -16,7 +16,7 @@ export const MAP_TRACKS: Readonly<Record<string, readonly TrackName[]>> = {
   paradise: ['paradise', 'hawaiian-vibes'],
 };
 
-/** The page's playlist: the title's alone behind the menus (attract mode), else the map's own and the three for any map. */
+/** The page's playlist: the title's alone behind the menus (attract mode), else the map's own and the four for any map. */
 export function playlistFor(mapId: string, attract: boolean): TrackName[] {
   if (attract) return ['title'];
   return [...(Object.hasOwn(MAP_TRACKS, mapId) ? MAP_TRACKS[mapId] : []), ...ANY_MAP];
