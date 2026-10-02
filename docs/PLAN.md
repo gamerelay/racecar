@@ -253,10 +253,32 @@ race; some move, and a few you can hit.
   (`GameAudio`'s constructor), which plays where the browser allows it. Where it doesn't, the
   first key or click starts it as before, and a hint on the title says so. A pointer move isn't a
   gesture to browsers, and a "click to start" splash would block the title, so neither was used.
-- **Traffic fading out in front of you:** investigate. Traffic fades over `FADE` m at the ends of
-  its lanes' sections and in and out of the start grid's clear zone (`GRID_CLEAR` in
-  `src/core/world/traffic.ts`); a car vanishing just ahead is probably one of those edges, or
-  the LOD (only cars near a racer are posed).
+- **Traffic fading out in front of you** (investigated 2026-10-02; the fix is still to choose):
+  - **The cause:** the ends of the lanes' sections. Traffic only runs on some stretches:
+    - Downtown: the Boulevard, the Skyway, the Underpass;
+    - Backroads: two stretches;
+    - Paradise: the town and two freeway stretches.
+
+    At a stretch's end a car dissolves in its lane over `FADE` (45 m) of road (`visibility` in
+    `src/core/world/traffic.ts`). At 14–24 m/s that's 2–3 s, and you're doing about 50, so cars
+    ahead going your way fade out right in front of you, out in the open.
+  - **It's a ghost while it fades:** only a fully visible car is solid, so you drive through a
+    half-faded one.
+  - **Not the cause:** the LOD and the draw distance (500 m). The renderer draws every car with any
+    visibility near the camera, whatever the sim's pool holds.
+  - **The fix can't depend on the player:** traffic is a function of the seed and the race time,
+    the same for everyone online, so a car can't wait till you look away.
+  - **The options:**
+    1. **Turn off the road** (recommended): over the fade, a car drifts sideways off the edge onto
+       the shoulder (still a function of its distance along the road), and dissolves out there. It
+       fits Backroads and Paradise, which have open ground beside the road. Downtown's walled
+       streets need stretches that end at a side street or a gap.
+    2. **Hide the ends:** move each stretch's end into a tunnel, behind a crest or round a blind
+       corner (generator edits). It limits where traffic can go, and the wreck numbers need
+       measuring again (`bun tools/lap-report.ts <map> --field`, 16 seeds).
+    3. **A shorter fade** (`FADE` 45 m → about 10 m): one line, but close to a pop.
+
+    1 where there's room and 2 for Downtown is probably the mix.
 - **Backroads' second shortcut (Logger's Leap):** smooth its edges where it leaves and rejoins,
   and add berms on its corners.
 - **Backroads by day:** maybe a daytime option. Backroads has only its golden-hour light (the
