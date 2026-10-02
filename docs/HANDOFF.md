@@ -4,7 +4,11 @@ Where racecar stands and what's next, for whoever picks it up (a person or a fre
 The design is [SPEC.md](./SPEC.md): decisions in §17, and what building changed in "Changed while
 building". This file is "where are we"; the spec is "what are we making".
 
-**Last updated:** 2026-10-01. `main` is tagged **`alpha-1.23`** (PR #48: one results table and a vote on the next map, then straight into the next race; `alpha-1.22` was PRs #46 and #47: the online race on `relay.tick`, and traffic, bumps and takedown credit across screens).
+**Last updated:** 2026-10-02. The last tag is **`alpha-1.23`** (PR #48: one results table and a
+vote on the next map). `main` is at `fd953c7`, nine PRs past it and untagged (#49–#57, in
+CHANGELOG's "Unreleased"): short invite links, Settings and a real in-race menu, choosers and
+screen transitions, two new tracks, a codebase review's fixes, and a loading screen.
+**PR #58 (Paradise v2) is open**, waiting on a drive and a merge: "Paradise v2" below.
 Every release is in [CHANGELOG.md](../CHANGELOG.md): add to its "Unreleased" section as you go,
 and retitle that section when you tag. [PLAN.md](./PLAN.md)'s six phases are all merged (it keeps
 a pool of other ideas), how online works is [ONLINE.md](./ONLINE.md), how maps are made is
@@ -40,6 +44,36 @@ old keys still resolve). The third map is **Paradise** (`content/maps/paradise`,
   racing, shared traffic, bumps and takedown credit (PRs #46 and #47, `alpha-1.22`), and one
   results table with a vote on the next race (PR #48, `alpha-1.23`). What's left is the milestone 3 list under "Next,
   in order".
+- **Since `alpha-1.23`** (PRs #49–#57, merged 2026-10-02, untagged):
+  - **Short invite links** (#50): `https://play.gamerelay.io/racecar/<link>`, previewed in chat
+    apps; an Invite only lobby is link-only (SDK `0.1.0-alpha.5`).
+  - **Menus and settings** (#51, #52, #54, [MENU.md](./MENU.md) steps 1–2): the mix (engines down,
+    music up), one settings store and panel (sound sliders, a graphics preset, an analytics
+    opt-out), a real in-race menu with a Controls screen, choosers instead of `<select>`s, and
+    screen transitions.
+  - **Two more tracks** (#53): Tokyo dubstep for Downtown, Hawaiian for Paradise.
+  - **A codebase review** (#49, #55, #56): the online race code tidied, the clock tower's flicker
+    and other z-fighting fixed, fixes across the menus, audio and online, 61 more tests, and
+    clicks in the lobby no longer replaying its fade-in. Its leftovers are in TECH_DEBT.md.
+  - **A loading screen** (#57): the crossed flags pulse on the dark screen between pages (in
+    `index.html`, so it's up from the first paint; `src/ui/fade.ts`), at least 0.7 s, and an
+    offline race waits behind it.
+- **Paradise v2** (PR #58, open): playtest feedback was "the vibe is right, but the map is a
+  little boring and hard to race". In nine commits:
+  - **More swing:** deeper S-bends, sweepers 3 m wider (`driftWidth: 3`), the jungle's hairpins
+    opened from 18–22 m to 37 m and more, and a bulge up the slope between them.
+  - **Forgiving verges:** walls only where there's a drop, and the ground past the road is its
+    own surface (`TrackPoint.verge`: `beach`, `undergrowth`, `ash`), which slows you without
+    spinning you and throws up its own dust (`DUST` in `renderer.ts`).
+  - **Secret shortcuts** (`BranchDef.secret`): the Beach Cut and Smugglers' Trail (a jump across
+    the jungle's bulge, over a log). No sign, not on the minimap or thumbnail, and the AI takes
+    them at 0.35× its usual rate.
+  - **Lava:** rivers down the cone (scenery), and at chaos a soft lava rain
+    (`HazardDef.mayhem`, `params.soft`).
+  - **The jungle's road:** patchy laterite with worn ruts and mossy verges, and trees 10 m back.
+  - The reasons and measurements are in SPEC "Changed while building" ("Paradise v2"), and the
+    lessons (cuts only pay across a bulge; lay a hairpin as two nodes) in MAPS.md. Each piece is
+    its own commit; after merging, the whole PR reverts with `git revert -m 1`.
 - **What exists, by area** (details in "What's built" below and in SPEC "Changed while
   building"):
   - **Maps:** Downtown, Backroads and Paradise, each with landmarks and smashables, traffic,
@@ -114,13 +148,19 @@ old keys still resolve). The third map is **Paradise** (`content/maps/paradise`,
     - Dirt roads have ruts and timber guardrails, and cars throw dust on dirt and clods off grass.
   - **Paradise** (`island.ts`, `terrain.ts`, `track.ts`): the island's land, sea and volcano
     (`terrain.island`/`sea`/`volcano`), beaches and waves, palms and jungle, the Freeway on
-    pillars over the bay, and a colour grade in the post pass.
+    pillars over the bay, and a colour grade in the post pass. With PR #58: lava rivers down the
+    cone (`lavaFlows`), the jungle road's laterite and ruts (`earth` in `track.ts`), verges in
+    their own surface's colour, and a fallen log under Smugglers' Trail's hump.
   - **Landmarks and smashables** (`landmarks.ts`, `smash.ts`): built from layout data, a few
     instanced draws each.
 - **UI** (`src/ui`): the title screen with the lobby list, Create lobby, the lobby with a car
   select (your car on a turntable, `src/render/showroom.ts`, with stat bars) and the plate
   editor (`menu.ts`), all over a live AI race on the lobby's map. Then the HUD, countdown lights,
   results table and minimap. A race's whole setup lives in the URL (`setup.ts`).
+  - **Settings and menus** ([MENU.md](./MENU.md)): the settings store (`src/settings.ts`) and
+    panel (`settings.ts`), the in-race menu and Controls screen (`controls.ts`), both on one
+    `Overlay` base (`overlay.ts`: inert behind, focus back on close), choosers (`chooser.ts`),
+    and the loading screen between pages (`fade.ts`, with its markup and logo in `index.html`).
 - **Lobbies** (`src/lobby`): the lobby model and its host rules (`lobby.ts`, one `apply`), your
   own lobby in localStorage or a GameRelay room (`backend.ts`, `relay.ts`), the P2P party
   (`party.ts`), pings and Away (`presence.ts`), checking what other players send (`wire.ts`), and
@@ -141,9 +181,9 @@ old keys still resolve). The third map is **Paradise** (`content/maps/paradise`,
 
 | | Downtown | Backroads (Valley) | Paradise (Island) |
 |---|---|---|---|
-| Lap length | 3.26 km | 2.92 km | 3.44 km |
-| AI lap floor (hard, empty track) | 58.6 s | 63.4 s | 66.8 s |
-| Wrecks per 8-AI race (`lap-report --field --seed N`) | 1.0, 16 seeds (0.88 on seeds 1–8) | 1.13, 16 seeds (0.88 on seeds 1–8) | ~1.2 with the hazards, 16 seeds (0.5 without) |
+| Lap length | 3.26 km | 2.92 km | 3.80 km (3.44 before PR #58) |
+| AI lap floor (hard, empty track) | 58.6 s | 63.4 s | 71.9 s (66.8 s) |
+| Wrecks per 8-AI race (`lap-report --field --seed N`) | 1.0, 16 seeds (0.88 on seeds 1–8) | 1.13, 16 seeds (0.88 on seeds 1–8) | 0.8 with the hazards, 16 seeds; 1.4 at chaos (`--chaos`) (~1.2 before) |
 | Draw calls | ~90–415 | ~65–330 | ~35–150 for the world; ~350 in the chase view with the field on screen (mostly cars) |
 | Scenery build (per editor edit) | ~200 ms | ~150 ms | ~600 ms (land and scenery, measured in bun) |
 
@@ -184,26 +224,31 @@ editor.
 
 `tools/gen-countryside.ts` generates it; the river's course is `terrain` in the layout.
 
-### The Paradise lap (Island), in order
+### The Paradise lap (Island v2, PR #58), in order
 
-Clockwise round a tropical island, the volcano in the middle and the sea all round.
+Clockwise round a tropical island, the volcano in the middle and the sea all round. Lava runs down
+the cone's far flanks.
 
 - **Harbor Town:** the start on the harbour front, two-way traffic, pastel houses both sides,
-  the tiki bar on the sand and the pier with fishing boats. A flowing S out of town.
-- **Coconut Coast:** the wide beach road (18.5 m, 20 in the sweepers) up the west shore, palms
-  leaning over it, round a headland inland. The **Sandbar** runs straight on along the
+  the tiki bar on the sand and the pier with fishing boats. A deep S out of town, and the
+  **Beach Cut** (secret) runs straight on along the sand inside it.
+- **Coconut Coast:** the wide beach road (18.5 m, more in the sweepers) up the west shore, then an
+  S over the headland and back to the water. The **Sandbar** runs straight on along the
   waterline on loose sand, with a dune to jump and wet sand (`shore`) at the water's edge.
   Coconuts drop off the palms before it.
 - **The Freeway:** up a ramp to a deck 10–14 m over the bay, one long banked sweep round the
   north shore on concrete pillars. It's one-way, both lanes with the race, and the traffic
   keeps to the straights either side of its bend.
-- **Jungle Switchbacks:** off the deck into the jungle, two wide hairpins on red earth, under a
-  rope bridge, past a waterfall.
-- **Volcano Rim:** the climb round the cone's flank on lava rock, over the shoulder's crest. The
-  **Lava Tube** cuts through inside it, roofed with rock and lit by lava. Volcano bombs land on
-  the rim road's last stretch, which the tube skips.
-- **Lighthouse Point:** a jump off the rim, the lighthouse on its point, the cliff road, and the
-  S back into town.
+- **Jungle Switchbacks:** off the deck into the jungle on red earth: an open hairpin, a bulge up
+  the slope and back, and a second hairpin, under a rope bridge, past a waterfall.
+  **Smugglers' Trail** (secret) jumps straight across the bulge over a fallen log. At chaos,
+  lava rain falls over the bulge's top.
+- **Volcano Rim:** the climb round the cone's flank on lava rock, swinging in and out, over the
+  shoulder's crest, with ash past its edges. The **Lava Tube** cuts through inside it, roofed with
+  rock and lit by lava. Volcano bombs (two at a time) land on the rim road's last stretch, which
+  the tube skips.
+- **Lighthouse Point:** a jump off the rim (lava rain on the way down, at chaos), the lighthouse on
+  its point, round it in two corners, the cliff road, and the S back into town.
 
 `tools/gen-paradise.ts` generates it on `tools/lib/lap.ts`; the coastline, sea and volcano are
 `terrain` in the layout, and the dressing is `island.ts`.
@@ -257,8 +302,9 @@ Clockwise round a tropical island, the volcano in the middle and the sea all rou
     the track for an hour. The proxy always sends it.
   - **CORS on the Space** (GET and HEAD from any origin) stays: it lets a build read the Space's
     origin directly too, if the CDN is ever down.
-- **What's there now:** `main` at `alpha-1.23` (the vote on the next race, on top of `alpha-1.22`'s online fixes), updated 2026-10-01. Keep it the
-  one row: update Z442EE in place rather than adding a game.
+- **What's there now:** `main` at `fd953c7` (PR #57, the loading screen), updated 2026-10-02. Paradise v2
+  (PR #58) isn't on it yet: update it once that merges. Keep it the one row: update Z442EE in
+  place rather than adding a game.
 
 ## Next, in order
 
@@ -310,7 +356,14 @@ Clockwise round a tropical island, the volcano in the middle and the sea all rou
      only fix, and that's the owner's call.
    - The repo goes public. Then milestone 3b: the neon skin on Downtown (SPEC's City), which is
      the launch. Touch controls first: phones will be much of the link's traffic.
-2. **Playtest with a controller** whenever there's a build to try: tune with F4, and press F8 on
+2. **Paradise v2 (PR #58):** drive it before merging. Do the Beach Cut and Smugglers' Trail feel
+   like a fair gamble? The hard AI is about even on both (−0.4 s and level). Does the dust feel
+   right running wide onto the beach and the jungle's edge? It isn't checked by eye: the poster
+   scout's cars stand still, so tune `DUST` in `renderer.ts` from a drive. And is the lava rain at
+   chaos enough, or too much? Then merge, and update asleepace (Z442EE).
+3. **The menu plan, step 3** ([MENU.md](./MENU.md)): keyboard remapping on the Controls screen,
+   hints built from the bindings, and gamepad deadzone, rumble and sensitivity.
+4. **Playtest with a controller** whenever there's a build to try: tune with F4, and press F8 on
    anything odd. Still open: whether ~1 wreck a race on Downtown is too tame (add denser traffic
    on the straights rather than sections in corners), and whether each car's drift carry feels
    right (`driftExit*`, `boostFromDrift`).
@@ -343,7 +396,11 @@ Bugs and gameplay gaps. Refactors, duplication, performance and tooling go in
   - A wrecked car sitting on its wheels loses its shadow too (it goes with `onRoad`).
   - Unused surfaces (`ice`, `oil`, `lava-crust`, `boost-pad`) wait for a map that uses them.
   - Downtown's and the Valley's lap floors (58.6, 63.4 s) are under SPEC's 70–100 s target;
-    Paradise's (66.8 s) is close. Validate warns only under 55 s.
+    Paradise's is in it with PR #58 (71.9 s). Validate warns only under 55 s.
+  - Paradise's lap is at the top of MAPS.md's length target (3.80 km, the test's bound is
+    3.8): anything that lengthens it has to give some back elsewhere.
+  - The AI takes a secret shortcut but drives it no better than a signed one: the Beach Cut costs
+    the hard AI 0.4 s. A player who knows the line beats that; whether rivals should is open.
   - The land over the Lava Tube is still cut open (every road caps the land below it), so the
     tube reads as a roofed cutting, not a tunnel under the cone. A branch that's a tunnel would
     need to leave the land alone over its middle and draw portals.
@@ -372,6 +429,13 @@ Bugs and gameplay gaps. Refactors, duplication, performance and tooling go in
   `about:blank`.
 - **After `/code-review`,** check the repo is still on your branch: a review once left it on a
   detached HEAD.
+- **Looking at a spot without driving there:** `poster.html?scout=paradise/island&s=2350,2500`
+  draws a car at each distance from a chase camera, and works in a hidden tab. `&spline=N` is
+  a branch (by its index in the baked track), and `&side=-30&ahead=2&up=6` turns the camera to
+  look across the road (the volcano from town, say).
+- **Measuring a layout change:** `bun tools/lap-report.ts paradise --field --seed N` (or
+  `--chaos`), summed over 16 seeds as MAPS.md says. Section times on lap 1 show what a shortcut
+  costs the AI, when it took one.
 - **URL flags:** `&ink=0`, `&post=0`, `&trace=1`. A race's whole setup, weather included, lives in
   the query string.
 - **Checks worth running after track or AI changes:**
