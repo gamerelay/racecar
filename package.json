@@ -15,7 +15,7 @@
     "build:single": "bun tools/build-single.ts"
   },
   "dependencies": {
-    "@gamerelay/sdk": "0.1.0-alpha.4",
+    "@gamerelay/sdk": "0.1.0-alpha.5",
     "three": "0.186.0"
   },
   "devDependencies": {

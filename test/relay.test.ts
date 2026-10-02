@@ -39,6 +39,8 @@ class FakeRoom {
   members: FakeClient[] = [];
   listing: { name?: string | null; meta?: unknown } = {};
   public = true;
+  /** A short link's room: its code doesn't get newcomers in. */
+  linkOnly = false;
   constructor(
     readonly hub: Hub,
     readonly code: string,
@@ -80,6 +82,13 @@ class FakeClient implements RoomLike {
   get isPublic() {
     return this.room.public;
   }
+  get linkOnly() {
+    return this.room.linkOnly;
+  }
+  /** The room's short link, as the SDK's (`gamerelay.io/<game>/<link>`): the link is its code backwards and padded. */
+  async shareLink(): Promise<string> {
+    return `https://gamerelay.io/racer/${linkOf(this.room.code)}`;
+  }
   get players() {
     return this.room.members.map((m) => ({ id: m.id, connected: m.connected }));
   }
@@ -110,12 +119,13 @@ class FakeClient implements RoomLike {
   async setListing(listing: { name?: string | null; meta?: never }): Promise<void> {
     this.room.listing = structuredClone(listing);
   }
-  async setAccess(access: { public?: boolean }): Promise<void> {
+  async setAccess(access: { public?: boolean; linkOnly?: boolean }): Promise<void> {
     if (this.room.hub.failAccess > 0) {
       this.room.hub.failAccess--;
       throw new Error('rate_limited');
     }
     if (access.public !== undefined) this.room.public = access.public;
+    if (access.linkOnly !== undefined) this.room.linkOnly = access.linkOnly;
   }
   send(data: never): void {
     for (const m of this.room.members) if (m !== this) m.fire('message', structuredClone(data), this.me);
@@ -173,10 +183,11 @@ class FakeRelay implements RelayLike {
     readonly hub: Hub,
     readonly playerId: string,
   ) {}
-  async createRoom(o: { public?: boolean }): Promise<RoomLike> {
+  async createRoom(o: { public?: boolean; linkOnly?: boolean }): Promise<RoomLike> {
     const room = new FakeRoom(this.hub, this.hub.code());
     this.hub.made.push({ code: room.code, party: [...this.hub.parties].find(([, m]) => m.has(this.playerId))?.[0] });
     room.public = o.public ?? true;
+    room.linkOnly = o.linkOnly ?? false;
     this.hub.rooms.set(room.code, room);
     return this.enter(room);
   }
@@ -190,7 +201,14 @@ class FakeRelay implements RelayLike {
       back.connected = true;
       return (this.room = back);
     }
+    // A link-only room: its code finds nothing for a newcomer, as for a wrong one.
+    if (room.linkOnly) throw new Error('not_found');
     return this.enter(room);
+  }
+  async joinLink(link: string): Promise<RoomLike> {
+    const room = [...this.hub.rooms.values()].find((r) => linkOf(r.code) === link);
+    if (!room) throw new Error('not_found');
+    return room.members.find((m) => m.id === this.playerId) ?? this.enter(room);
   }
   private enter(room: FakeRoom): FakeClient {
     const c = new FakeClient(room, this.playerId);
@@ -204,6 +222,8 @@ class FakeRelay implements RelayLike {
 }
 
 const player = (name: string) => ({ id: '', name, car: 'coupe', paint: 0 });
+/** A fake room's short-link id (11 characters, from its code). */
+const linkOf = (code: string) => code.split('').reverse().join('').padEnd(11, 'x');
 const settle = () => new Promise((r) => setTimeout(r, 0));
 
 function players(hub: Hub, ...ids: string[]) {
@@ -786,5 +806,51 @@ describe('the SDK host role moving, and who is away', () => {
     expect(membersOf(hub, mine.id)).toEqual(['bo']);
     expect(membersOf(hub, x.id)).toEqual(['ada']);
     void cy;
+  });
+});
+
+describe('short links (GameRelay)', () => {
+  test("an Invite only lobby's room is link-only: its code doesn't get a stranger in, its link does", async () => {
+    const hub = new Hub();
+    const [ada, bo, cy] = players(hub, 'ada', 'bo', 'cy');
+    const lobby = await ada.backend.create(player('ADA'), { visibility: 'invite' });
+    const room = hub.rooms.get(lobby.id)!;
+    expect([room.public, room.linkOnly]).toEqual([false, true]);
+    // A guess at the code: nothing.
+    expect(await bo.backend.get(lobby.id)).toBeNull();
+    // The link: in, and the lobby's the same (its id is the room's code).
+    const link = await ada.backend.shareLink(lobby.id);
+    expect(link).toBe(`https://gamerelay.io/racer/${linkOf(lobby.id)}`);
+    expect(await cy.backend.joinLink(linkOf(lobby.id))).toBe(lobby.id);
+    expect((await cy.backend.get(lobby.id))?.id).toBe(lobby.id);
+    // A Public one isn't: listed, and its code works.
+    const open = await bo.backend.create(player('BO'), { visibility: 'public' });
+    expect([hub.rooms.get(open.id)!.public, hub.rooms.get(open.id)!.linkOnly]).toEqual([true, false]);
+    // A link whose room is gone: null.
+    expect(await cy.backend.joinLink('nothingxxxx')).toBeNull();
+  });
+
+  test('changing who can join keeps link-only with it: Public opens the code, Invite only closes it again', async () => {
+    const hub = new Hub();
+    const [ada] = players(hub, 'ada');
+    const lobby = await ada.backend.create(player('ADA'), { visibility: 'invite' });
+    const room = hub.rooms.get(lobby.id)!;
+    await ada.backend.send(lobby.id, { type: 'options', visibility: 'public' });
+    await new Promise((r) => setTimeout(r, 1100));
+    expect([room.public, room.linkOnly]).toEqual([true, false]);
+    await ada.backend.send(lobby.id, { type: 'options', visibility: 'invite' });
+    await new Promise((r) => setTimeout(r, 1100));
+    expect([room.public, room.linkOnly]).toEqual([false, true]);
+  });
+
+  test('an SDK without short links: no link to share, no join by one (the page falls back to ?lobby=)', async () => {
+    const hub = new Hub();
+    const relay = new FakeRelay(hub, 'ada');
+    (relay as { joinLink?: unknown }).joinLink = undefined;
+    const backend = new RelayBackend(async () => relay);
+    const lobby = await backend.create(player('ADA'), { visibility: 'public' });
+    (relay.room as { shareLink?: unknown }).shareLink = undefined;
+    expect(await backend.shareLink(lobby.id)).toBeNull();
+    expect(await backend.joinLink('whateverxxx')).toBeNull();
   });
 });

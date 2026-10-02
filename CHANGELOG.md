@@ -6,6 +6,10 @@ and where things stand is [docs/HANDOFF.md](./docs/HANDOFF.md).
 
 ## Unreleased
 
+- Short invite links: Copy invite link copies `https://gamerelay.io/racecar/<link>`, which
+  previews in chat apps with the lobby's name and the cover art and opens the game straight into
+  the lobby (`?join=<link>`). An Invite only lobby is now link-only: its code doesn't get anyone
+  in, so nobody joins by guessing one (a player who had a seat still comes back). SDK 0.1.0-alpha.5.
 - Internal: the race's online code tidied (one place for its message checks and its clock, and
   the race page's online part out of main.ts: `src/net/online.ts`). No change in play.
 
