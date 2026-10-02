@@ -20,7 +20,7 @@ function store(key: string, value?: string): string | null {
 }
 
 export function posthogEnabled(): boolean {
-  return !!KEY && store('racecar.telemetry') !== 'off';
+  return !!KEY && !telemetryOptedOut();
 }
 
 /** Off for this page whatever storage says: blocked storage can't keep the choice, and it still holds. */

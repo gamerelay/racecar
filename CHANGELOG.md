@@ -45,6 +45,8 @@ and where things stand is [docs/HANDOFF.md](./docs/HANDOFF.md).
       copying a code link that can't get anyone in.
     - The race page stops pinging the room every 3 s.
     - A plate the menu would refuse, sent by a modified page, shows as a stock plate.
+  - **Tests:** 61 more, for the fixes above and code that had none (the audio's events, the
+    music, the lobby's messages, the input, the spline, the settings). 391 in all.
 - Internal: the race's online code tidied (one place for its message checks and its clock, and
   the race page's online part out of main.ts: `src/net/online.ts`). No change in play.
 

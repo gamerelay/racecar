@@ -174,11 +174,11 @@ are the known costs that grow with content:
 - **Tests that fail on the old code are checked by hand** (stash, run, restore). A note in the PR
   template, or a script that runs a test file against `main`'s source, would make it routine.
   *Small.*
-- **Test gaps in pure logic:** no tests import `telemetry/telemetry.ts` (the record mapping, the
-  inputs window, `report()`), `telemetry/posthog.ts` (the throttle, the opt-out), `net/check.ts`,
-  `audio/music.ts` (step and chord indexing), the audio's event handling (it needs a fake
-  AudioContext; this review's mute bug lived there), `core/track/spline.ts`, `locate.ts`, the
-  `core/collide` modules (only through the sim), or `input/input.ts`. *Small each.*
+- **Test gaps in pure logic:** still untested: `telemetry/telemetry.ts` (the record mapping, the
+  inputs window, `report()`), PostHog's throttle and send path (its key is read when the module
+  loads), and the `core/collide` modules (only through the sim). The renderer's surfaces (the
+  z-fighting gaps) aren't checked either: the landmarks draw on a canvas, so a test needs a fake
+  2D context. *Small each.*
 - **The suite takes ~20 s,** 7 s of it the relay tests' sleeps (above), then the map tests
   (2.5 to 3 s each, building their worlds). *Small to medium.*
 - **Two copies of `env()`** in `tools/publish-assets.ts` and `tools/lib/s3.ts`; the dev
@@ -208,6 +208,11 @@ What's been handled, so the list above stays the open ones.
   - **Unused exports removed:** `forwardX`, `forwardZ`, `headingOf`, `KMH` (`core/math.ts`),
     `HAZARD_KINDS`.
   - **Lit signs share one material** (`lit` in `landmarks.ts`, with polygon offset).
+  - **Tests for what had none:** the audio's event handling and the music sequencer (on a fake
+    Web Audio, `test/fake-audio.ts`), `net/check.ts`, the lobby's wire readers, PostHog's
+    opt-out, the spline and `locateCar`, the keyboard input, and more of the settings and
+    choosers (61 tests). One found a bug: a stored quality of `constructor` or `toString` passed
+    as a preset (`in` instead of `Object.hasOwn`).
   - Fixed along the way (CHANGELOG): the audio burst after a mute, the menu's stale screens after
     an await, the overlay order under the F8 form, F6 against the settings, the opt-out with
     blocked storage, slow short-link joins, Invite only's code fallback, the race page's pings,
