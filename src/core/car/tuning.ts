@@ -14,8 +14,11 @@ export const TUNING = {
   rolling: 0.25,
   reverseSpeed: 9,
 
-  boostAccel: 16,
-  boostTop: 1.3,
+  /** Boost's push and its top speed over the class's (playtest 2026-10-02: 16 and 1.3 felt weak). */
+  boostAccel: 18.5,
+  boostTop: 1.35,
+  /** A full meter lasts the class's boostCapacity / boostDrain seconds (it was 1: it ran out too fast). */
+  boostDrain: 0.8,
   /** Drift charge and the release mini-turbo. Off: a drift is only a way round a corner (playtest). */
   miniTurbo: false,
   miniTurboAccel: 20,
@@ -90,7 +93,9 @@ export const TUNING = {
   /**
    * Boost earned from moves (drifts, air, near misses, oncoming, checks) is scaled by race
    * position, from this for the leader to boostPlaceLast for last place: a little help to catch up.
+   * All of it is boostEarn times what each move says (playtest 2026-10-02: too hard to get).
    */
+  boostEarn: 1.2,
   boostPlaceLead: 0.9,
   boostPlaceLast: 1.35,
   nearMissGap: 1.4,

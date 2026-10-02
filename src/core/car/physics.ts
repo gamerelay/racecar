@@ -67,7 +67,7 @@ export function stepCar(sim: SimState, i: number, c: Controls, dt: number): void
     cars.boosting[i] = wantBoost ? 1 : 0;
     sim.events.push(tick, wantBoost ? Ev.BoostStart : Ev.BoostEnd, i, cars.x[i], cars.y[i], cars.z[i]);
   }
-  if (wantBoost) cars.boost[i] = Math.max(0, cars.boost[i] - dt / cls.boostCapacity);
+  if (wantBoost) cars.boost[i] = Math.max(0, cars.boost[i] - (dt * T.boostDrain) / cls.boostCapacity);
   if (cars.miniT[i] > 0) cars.miniT[i] = Math.max(0, cars.miniT[i] - dt);
   const boosting = cars.boosting[i] === 1;
   const mini = cars.miniT[i] > 0;
@@ -417,16 +417,16 @@ function stepWreck(sim: SimState, i: number, c: Controls, dt: number): void {
 }
 
 /**
- * Adds boost earned by a move (a drift, air, a near miss), scaled by race position (TUNING
- * boostPlaceLead…boostPlaceLast) while racing, and capped at a full meter; returns what was paid.
+ * Adds boost earned by a move (a drift, air, a near miss), times boostEarn, scaled by race position
+ * (TUNING boostPlaceLead…boostPlaceLast) while racing, and capped at a full meter; returns what was paid.
  */
 export function earnBoost(sim: SimState, i: number, amount: number): number {
   const cars = sim.cars;
-  let scale = 1;
+  let scale = T.boostEarn;
   if (sim.race.phase === 'racing' && !cars.finished[i]) {
     let n = 0;
     for (let k = 0; k < cars.count; k++) if (cars.active[k]) n++;
-    if (n > 1) scale = lerp(T.boostPlaceLead, T.boostPlaceLast, clamp(cars.rank[i] / (n - 1), 0, 1));
+    if (n > 1) scale *= lerp(T.boostPlaceLead, T.boostPlaceLast, clamp(cars.rank[i] / (n - 1), 0, 1));
   }
   const paid = Math.max(0, Math.min(amount * scale, 1 - cars.boost[i]));
   cars.boost[i] += paid;

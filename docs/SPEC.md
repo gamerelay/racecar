@@ -2109,3 +2109,14 @@ race"; each change is its own commit, so any one can be reverted):
   clods off the undergrowth and grass, a grey haze off the ash, dust the color of the earth, and a
   puff the moment you run off the road at speed. The other maps' dirt, grass and sidewalks throw
   what they did.
+
+Boost, after a playtest (2026-10-02: "too hard to get, runs out too fast and doesn't boost that
+much"), a small step on each, not an overcorrection:
+
+- **Easier to get:** every move pays `boostEarn` (1.2) times what it did, before the position
+  scaling (0.9 for the leader to 1.35 for last, as before).
+- **Lasts longer:** a full meter lasts the class's `boostCapacity` / `boostDrain` (0.8) seconds,
+  a quarter longer (the coupe's 3.4 s is 4.25 s).
+- **Pushes harder:** `boostAccel` 16 → 18.5 and `boostTop` 1.3 → 1.35. The hard AI's lap floors
+  fall 0.35–0.75 s (Downtown 58.25 s, Backroads 63.0 s, Paradise 71.35 s); field wrecks over 16
+  seeds 18/12/9 (Paradise/Downtown/Backroads, against 18/20/10); classes within ±4.9% (±4.4%).

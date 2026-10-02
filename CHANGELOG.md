@@ -4,6 +4,12 @@ What changed in each release of racecar, newest first. Releases are git tags on 
 reasons behind each change are in [docs/SPEC.md](./docs/SPEC.md) under "Changed while building",
 and where things stand is [docs/HANDOFF.md](./docs/HANDOFF.md).
 
+## Unreleased
+
+- **Boost, a little better all round:** moves pay 20% more of it, a full meter lasts a quarter
+  longer, and it pushes a little harder and a little faster (a top speed 35% over the car's,
+  from 30%).
+
 ## alpha-1.24: Paradise reworked, Settings and a real menu
 
 PRs #49–#60.
