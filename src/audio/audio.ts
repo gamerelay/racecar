@@ -30,6 +30,17 @@ const TRACK_LEVEL = 0.8;
 const SFX_LEVEL = 0.9;
 const ENGINES_LEVEL = 0.35;
 
+/** The master's level, before the player's own volume. */
+const MASTER_LEVEL = 0.8;
+
+/** The player's volumes (settings.ts), 0 to 1 each: they scale the levels above. */
+export interface Volumes {
+  master: number;
+  music: number;
+  engines: number;
+  effects: number;
+}
+
 export interface AudioSettings {
   muted: boolean;
   music: boolean;
@@ -77,6 +88,8 @@ interface Graph {
 
 export class GameAudio {
   readonly settings = loadSettings();
+  /** The player's volumes (the Settings panel); `setVolumes` changes them. */
+  private vol: Volumes = { master: 1, music: 1, engines: 1, effects: 1 };
   private g?: Graph;
   private cursor: number;
   private readonly gear: Gear = { gear: 0, rpm: 0 };
@@ -138,7 +151,7 @@ export class GameAudio {
       return;
     }
     const master = ctx.createGain();
-    master.gain.value = this.settings.muted ? 0 : 0.8;
+    master.gain.value = this.masterLevel();
     const comp = ctx.createDynamicsCompressor();
     comp.threshold.value = -14;
     comp.ratio.value = 4;
@@ -199,14 +212,29 @@ export class GameAudio {
     this.shot.bus = sfx;
   }
 
+  /** The master's level now: M's mute, then the player's master volume. */
+  private masterLevel(): number {
+    return this.settings.muted ? 0 : MASTER_LEVEL * this.vol.master;
+  }
+
+  /** The master and the music's own way out (which skips the compressor) follow M and the master volume. */
+  private applyMaster(): void {
+    if (!this.g) return;
+    glide(this.g.master.gain, this.masterLevel(), this.g.ctx.currentTime, 0.05);
+    glide(this.g.musicOut.gain, this.masterLevel(), this.g.ctx.currentTime, 0.05);
+  }
+
+  /** The player's volumes (the Settings panel): the master at once, the buses from the next frame. */
+  setVolumes(v: Volumes): void {
+    this.vol = { ...v };
+    this.applyMaster();
+  }
+
   /** M: everything on or off. Returns whether it's now muted. */
   toggleMute(): boolean {
     this.settings.muted = !this.settings.muted;
     this.save();
-    if (this.g) {
-      glide(this.g.master.gain, this.settings.muted ? 0 : 0.8, this.g.ctx.currentTime, 0.05);
-      glide(this.g.musicOut.gain, this.settings.muted ? 0 : 0.8, this.g.ctx.currentTime, 0.05);
-    }
+    this.applyMaster();
     return this.settings.muted;
   }
 
@@ -252,8 +280,8 @@ export class GameAudio {
     const slow = Math.sqrt(sim.timeScale);
 
     // Engines and the world only behind a menu when there's no menu.
-    glide(g.engines.gain, f.menu ? 0 : ENGINES_LEVEL, now, 0.2);
-    glide(g.sfx.gain, f.menu ? 0 : SFX_LEVEL, now, 0.2);
+    glide(g.engines.gain, f.menu ? 0 : ENGINES_LEVEL * this.vol.engines, now, 0.2);
+    glide(g.sfx.gain, f.menu ? 0 : SFX_LEVEL * this.vol.effects, now, 0.2);
 
     // ---- the focus car ----
     const cls = sim.classes[c.cls[i]];
@@ -332,7 +360,7 @@ export class GameAudio {
     else this.track?.pause();
     g.music.intensity = mix.intensity as Intensity;
     if (mix.synth) g.music.update();
-    glide(g.musicLevel.gain, mix.level, now, 0.3);
+    glide(g.musicLevel.gain, mix.level * this.vol.music, now, 0.3);
     glide(g.musicTone.frequency, mix.tone, now, 0.15);
   }
 

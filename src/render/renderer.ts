@@ -191,6 +191,22 @@ export class GameRenderer {
     }
   }
 
+  /**
+   * The Settings panel's graphics, at once: `resolution` is a share of the screen's own pixel
+   * ratio (at most 2×). Antialiasing is fixed when the renderer is made (it's on only without the
+   * post pass), so turning post effects off mid-race leaves it without until the next race.
+   */
+  setQuality(q: { resolution: number; post: boolean; outline: boolean }): void {
+    const ratio = Math.min(window.devicePixelRatio || 1, 2) * q.resolution;
+    this.opts.post = q.post;
+    this.opts.outline = q.outline;
+    if (ratio !== this.opts.pixelRatio) {
+      this.opts.pixelRatio = ratio;
+      this.renderer.setPixelRatio(ratio);
+      this.resize();
+    }
+  }
+
   resize(): void {
     const w = window.innerWidth;
     const h = window.innerHeight;
