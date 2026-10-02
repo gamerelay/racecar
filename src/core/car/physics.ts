@@ -496,8 +496,14 @@ function cruiseBuild(sim: SimState, i: number, c: Controls, fwd: number, classTo
   if (broken) cars.cruise[i] = 0;
   else if (cars.grounded[i] === 1 && c.throttle > 0.9 && Math.abs(c.steer) < T.cruiseSteer && fwd >= classTop * T.cruiseAt) {
     cars.cruise[i] = Math.min(1, was + dt / T.cruiseBuild);
-    if (was < 1 && cars.cruise[i] >= 1) sim.events.push(sim.tick, Ev.Overdrive, i, cars.x[i], cars.y[i], cars.z[i]);
+    // Once per build: a tick of easing off dips it just under 1, and it shouldn't pop again.
+    if (cars.cruise[i] >= 1 && !cars.cruiseFull[i]) {
+      cars.cruiseFull[i] = 1;
+      sim.events.push(sim.tick, Ev.Overdrive, i, cars.x[i], cars.y[i], cars.z[i]);
+    }
   } else if (cars.grounded[i] === 1) cars.cruise[i] = Math.max(0, was - dt * T.cruiseFade);
+  // It pops again only after it's fallen to half (or ended).
+  if (cars.cruise[i] < 0.5) cars.cruiseFull[i] = 0;
 }
 
 /** Pays a wrecked car's catch-up boost (see TUNING.respawnBoost); returns how much. */
@@ -538,6 +544,8 @@ export function respawn(sim: SimState, i: number): void {
   cars.yaw[i] = 0;
   cars.rx[i] = cars.rz[i] = 0;
   cars.wx[i] = cars.wy[i] = cars.wz[i] = 0;
+  // No slipstream, slingshot or Overdrive carried through a wreck (placeCar clears them too).
+  cars.draft[i] = cars.draftT[i] = cars.slingT[i] = cars.cruise[i] = cars.cruiseFull[i] = 0;
   cars.pitch[i] = cars.roll[i] = 0;
   cars.wreck[i] = 0;
   cars.wreckT[i] = 0;

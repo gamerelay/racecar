@@ -4,6 +4,7 @@ import { neutralControls, type Controls } from '../src/core/controls';
 import { Ev } from '../src/core/events';
 import type { Sim } from '../src/core/sim';
 import { sampleAt, newHit } from '../src/core/track/query';
+import { respawn } from '../src/core/car/physics';
 import { ringSim } from './helpers';
 
 // Past the class's top speed: the straight-line build (flat out and clean), and the slipstream
@@ -50,6 +51,31 @@ describe('the straight-line build', () => {
     expect(speed()).toBeGreaterThan(flat * 1.04);
     sim.step([drive(sim, i, 0, { throttle: 0, brake: 1 })]);
     expect(sim.cars.cruise[i]).toBe(0);
+  });
+
+  test('Overdrive pops once per build: easing off for a tick and back on doesn\'t pop it again', () => {
+    const sim = track();
+    const i = sim.addCar({ cls: 'coupe', human: true });
+    sim.placeCar(i, 0, 100, 0, 60);
+    let pops = 0;
+    let cursor = sim.events.head;
+    const run = (ticks: number, extra: (t: number) => Partial<Controls> = () => ({})) => {
+      for (let t = 0; t < ticks; t++) {
+        sim.step([drive(sim, i, 0, extra(t))]);
+        cursor = sim.events.read(cursor, (e) => {
+          if (e.type === Ev.Overdrive && e.car === i) pops++;
+        });
+      }
+    };
+    run(60 * 10);
+    expect(pops).toBe(1);
+    // A tick off the throttle every half second: it dips under 1 and comes back, one pop.
+    run(60 * 4, (t) => (t % 30 === 0 ? { throttle: 0.5 } : {}));
+    expect(pops).toBe(1);
+    // Ended (a touch of brake) and built again: a second pop.
+    run(1, () => ({ brake: 0.01 }));
+    run(60 * 10);
+    expect(pops).toBe(2);
   });
 
   test('no build off the throttle', () => {
@@ -126,5 +152,22 @@ describe('the slipstream', () => {
       drafted = Math.max(drafted, sim.cars.draft[b]);
     }
     expect(drafted).toBe(0);
+  });
+});
+
+describe('through a wreck', () => {
+  test('a respawn clears the slipstream, the slingshot and Overdrive', () => {
+    const sim = track();
+    const i = sim.addCar({ cls: 'coupe', human: true });
+    sim.placeCar(i, 0, 100, 0, 60);
+    sim.step([drive(sim, i)]);
+    const c = sim.cars;
+    c.draft[i] = 1;
+    c.draftT[i] = 1;
+    c.slingT[i] = 1;
+    c.cruise[i] = 1;
+    c.cruiseFull[i] = 1;
+    respawn(sim, i);
+    expect([c.draft[i], c.draftT[i], c.slingT[i], c.cruise[i], c.cruiseFull[i]]).toEqual([0, 0, 0, 0, 0]);
   });
 });
