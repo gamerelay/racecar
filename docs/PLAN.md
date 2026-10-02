@@ -345,6 +345,59 @@ The Swiss Alps: snow, rock and a really steep mountain.
   AI on it, then the road up and the routes down, then the land, snow and scenery, then hazards
   and tuning.
 
+## Open, freeform maps (a direction, 2026-10-02)
+
+Not planned work yet: the direction the owner wants the maps to grow in, after driving Logger's
+Leap's new kicker. Shortcuts are fun, but the maps can be less linear. There's still a track, and
+it's the fastest way round, but the player gets more freedom, with things to hit, hazards,
+obstacles and penalties to keep it a race.
+
+### Where it started (`alpha-1.28`, PRs #70–#72)
+
+- **Logger's Leap's kicker** is rounded (`RampDef.back`) and its sides are grass banks you can
+  launch off (`RampDef.flank`). Driven up from the side, it throws you across the shortcut.
+- **Its rails are open** round the kicker.
+- **Shortcut mouths are cleaner**, so a road meeting a road reads as one surface.
+
+### Steps toward it, smallest first
+
+1. **Micro-cuts:** small corner cuts, a few meters to a few tens, over the verge or a gap in a
+   hedge. Cheaper than a shortcut, so no branch: open ground beside the road the field can take.
+2. **Fewer walls:** open more of the lap (`layout.walls.gaps`), with the ground past the road
+   slower (grass, mud, sand: the verge's surface) rather than walled off. Cutting a field is
+   allowed, it just costs.
+3. **Jumps you can hit from any angle:** more kickers with flanks, mounds, crests across open
+   ground; landing zones that work from more than one line.
+4. **A fully open map:** the track's the fastest line, the rest is open country with obstacles
+   (trees, rocks, fences, water), hazards and slow ground. Avalanche's way down is the natural
+   first one (PLAN's "Avalanche": snowboard-like mini-routes).
+
+### What the code assumes now (what an open map has to change)
+
+- **No ground of its own in the sim.** Off the road the physics' ground is the road's plane
+  carried on outward (`finishProjection` in `query.ts`): the land the renderer draws
+  (`terrain.ts`) isn't in the sim, so past the grass banks a car drives on air or under the
+  hills. Steps 1–3 work within a bank's reach of a road; step 4 needs a heightfield in the sim,
+  the same one the renderer draws (deterministic: built from the layout and seed, so online is
+  unaffected).
+- **Out of bounds** is 25 m past the road's shoulder (`outOfBounds` in `tuning.ts`): a wreck and
+  a respawn. An open map needs bounds of its own (the map's edge, water, cliffs) instead.
+- **Which road you're on** is the one you're most inside (`locateCar`), searched only near a
+  branch's ends. Between roads, far from both, it's the nearest; with open ground everywhere,
+  "on no road" needs to be a state.
+- **Laps and cheating:** checkpoints every eighth of the lap (bake) stop huge cuts; an open map
+  needs gates that every route has to pass, and wide enough for the free lines.
+- **The AI** drives splines (its racing line, shortcuts as branches). It can stay on the track,
+  which is the fast way; to use micro-cuts it needs them as cheap branches or a "cut here" hint.
+- **A branch is flat on the main road** where they overlap (`joinBranch`): it takes the main
+  road's ground and bank. That's why the Leap's fork couldn't be bermed: free-form ground
+  between roads would lift that.
+- **Pairs of AI at forks:** of two side by side, the outside one isn't on a branch yet when the
+  inside one turns in, and they collide (measured on the Leap: PLAN "Next up"). Wider mouths, or
+  the AI checking beside it before turning in, before there are many more forks.
+- **Measure each step:** `bun tools/lap-report.ts <map> --field` (and `--chaos`), 16 seeds, for
+  wrecks and where; the lap floor for whether a cut is too good.
+
 ## Other ideas worth considering
 
 - **Stunt air:** a barrel roll or flat spin in the air pays extra on a clean landing, with a
