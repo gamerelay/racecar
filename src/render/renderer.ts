@@ -45,6 +45,36 @@ export interface RenderOptions {
 /** A smashed prop's burst, in its colour. */
 const SMASH_BURST: Record<string, number> = { cone: 0xff7a1a, 'newspaper-box': 0x3a86ff, 'hay-bale': 0xe2c36a, mailbox: 0xb8bcc4, 'beach-umbrella': 0xff2e88, 'fruit-stand': 0xffd23f };
 
+/** What a ground throws up under a car: per meter per second of speed, a puff on running onto it, how it flies. */
+interface Dust {
+  rate: number;
+  puff: number;
+  colors: number[];
+  /** Thrown back at this fraction of the car's speed, and this much sideways. */
+  kick: number;
+  spread: number;
+  y: number;
+  /** Up: at least [0], plus up to [1] more. Likewise its life (s). */
+  up: [number, number];
+  life: [number, number];
+  gravity: number;
+  drag: number;
+}
+const DUST: Record<string, Dust> = {
+  // A low cloud that hangs behind.
+  dirt: { rate: 0.55, puff: 6, colors: [0xb39670, 0x9c7f5a], kick: 0.08, spread: 2.5, y: 0.35, up: [0.6, 1.4], life: [1.2, 0.8], gravity: -1.2, drag: 2.2 },
+  'red-earth': { rate: 0.55, puff: 6, colors: [0xa0704c, 0x8a5f40, 0xb8865c], kick: 0.08, spread: 2.5, y: 0.35, up: [0.6, 1.4], life: [1.2, 0.8], gravity: -1.2, drag: 2.2 },
+  // Clods and leaves, thrown up and falling back.
+  grass: { rate: 0.25, puff: 8, colors: [0x4d6a2e], kick: 0.2, spread: 2, y: 0.2, up: [2, 2], life: [0.5, 0], gravity: 22, drag: 0.5 },
+  undergrowth: { rate: 0.32, puff: 10, colors: [0x4d6a2e, 0x6a8a34, 0x5a4630], kick: 0.2, spread: 2.5, y: 0.25, up: [2, 2.5], life: [0.55, 0.25], gravity: 20, drag: 0.6 },
+  // A spray of sand, kicked high, that falls fast; a little haze with it.
+  sand: { rate: 0.6, puff: 14, colors: [0xe8d8a8, 0xd8c08a, 0xf2e6c4], kick: 0.18, spread: 3, y: 0.25, up: [2.2, 2.6], life: [0.55, 0.35], gravity: 16, drag: 0.9 },
+  beach: { rate: 0.5, puff: 14, colors: [0xe8d8a8, 0xd8c08a, 0xf2e6c4], kick: 0.18, spread: 3, y: 0.25, up: [2.2, 2.6], life: [0.55, 0.35], gravity: 16, drag: 0.9 },
+  shore: { rate: 0.6, puff: 14, colors: [0xcfe4e8, 0xe8d8a8], kick: 0.2, spread: 3, y: 0.2, up: [2.6, 2.4], life: [0.45, 0.3], gravity: 18, drag: 0.8 },
+  // Ash: a grey haze that rises a little and lingers.
+  ash: { rate: 0.5, puff: 10, colors: [0x8a8288, 0x6f686e], kick: 0.06, spread: 3, y: 0.4, up: [0.8, 1.4], life: [1.6, 1], gravity: -0.8, drag: 2.4 },
+};
+
 export class GameRenderer {
   readonly renderer: WebGLRenderer;
   readonly scene = new Scene();
@@ -59,6 +89,8 @@ export class GameRenderer {
   private scenicS = -1;
   private readonly visuals: CarVisual[] = [];
   private readonly spin: number[] = [];
+  /** Each car's surface last frame (a puff of dust as it runs off the road). */
+  private readonly lastSurface: number[] = [];
   private trackVisual: TrackVisual;
   private worldVisual: WorldVisual;
   private cursor = 0;
@@ -427,21 +459,26 @@ export class GameRenderer {
     const rz = fx;
     const cls = this.sim.classes[c.cls[i]];
     const back = cls.size[1] - 0.6;
-    // Off the asphalt: a dust trail on dirt (thicker in a slide), clods thrown up off the grass.
+    // Off the asphalt: what the ground throws up (DUST: dust off dirt, a spray of sand, leaves and
+    // clods, a haze of ash), thicker in a slide, and a puff the moment you run off the road.
     const surf = this.sim.surfaces[c.surface[i]];
+    const was = this.lastSurface[i];
+    this.lastSurface[i] = c.surface[i];
     if (surf?.offroad && c.grounded[i] && speed > 6) {
+      const d = DUST[surf.id] ?? DUST.dirt;
       const sliding = c.drift[i] === 1 || Math.abs(c.slip[i]) > 0.15;
-      const grass = surf.id === 'grass';
-      const rate = (grass ? 0.25 : 0.55) * speed * (sliding ? 2.2 : 1);
+      const ranOff = was !== undefined && was !== c.surface[i] && !this.sim.surfaces[was]?.offroad && speed > 14;
+      const rate = d.rate * speed * (sliding ? 2.2 : 1);
       for (let s = -1; s <= 1; s += 2) {
-        const n = emits(rate, dt);
+        const n = emits(rate, dt) + (ranOff ? Math.round(d.puff * Math.min(1.6, speed / 25)) : 0);
         if (!n) continue;
         const wx = x - fx * back + rx * s * cls.size[0];
         const wz = z - fz * back + rz * s * cls.size[0];
-        const kick = speed * (grass ? 0.2 : 0.08);
-        for (let e = 0; e < n; e++)
-          if (grass) this.fx.emit(wx, y + 0.2, wz, -fx * kick + (Math.random() - 0.5) * 2, 2 + Math.random() * 2, -fz * kick + (Math.random() - 0.5) * 2, 0.5, 0x4d6a2e, 22, 0.5);
-          else this.fx.emit(wx, y + 0.35, wz, -fx * kick + (Math.random() - 0.5) * 2.5, 0.6 + Math.random() * 1.4, -fz * kick + (Math.random() - 0.5) * 2.5, 1.2 + Math.random() * 0.8, Math.random() < 0.5 ? 0xb39670 : 0x9c7f5a, -1.2, 2.2);
+        const kick = speed * d.kick;
+        for (let e = 0; e < n; e++) {
+          const color = d.colors[Math.floor(Math.random() * d.colors.length)];
+          this.fx.emit(wx, y + d.y, wz, -fx * kick + (Math.random() - 0.5) * d.spread, d.up[0] + Math.random() * d.up[1], -fz * kick + (Math.random() - 0.5) * d.spread, d.life[0] + Math.random() * d.life[1], color, d.gravity, d.drag);
+        }
       }
     }
     // Tire smoke while drifting, and while the slide carries on after it.

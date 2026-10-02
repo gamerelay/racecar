@@ -91,7 +91,8 @@ editor edits are for trying things and get overwritten.
 - **Secret ones** (`secret: true`): no sign, not on the minimap or the thumbnail, and the AI
   takes them seldom. Short, and close to even for the AI, so they reward knowing the line. A cut
   only pays across a bulge the road comes back out of on the same heading (an S); across a
-  corner it has to turn as far as the road does, in less room.
+  corner it has to turn as far as the road does, in less room. Fork one where no signed shortcut
+  is open: inside another's span, the AIs on that one never see it.
 - **Corners as two nodes:** a hairpin from one node turning 150° gets filleted into a far tighter
   arc than its radius (the tangent's clamped to the legs). Lay it as two nodes of about 90°.
 
@@ -161,9 +162,9 @@ Good numbers today:
 
 | | Target | Downtown | Backroads | Paradise |
 |---|---|---|---|---|
-| Lap length | 2.9–3.8 km | 3.26 km | 2.92 km | 3.79 km |
-| Hard-AI lap floor | 70–100 s (SPEC) | 58.6 s | 63.4 s | 71.6 s |
-| AI wrecks per 8-car race | ≤ 1.5 | 1.0 (16 seeds) | 1.1 (16 seeds) | 0.7 with its hazards (16 seeds; 1.4 at chaos) |
+| Lap length | 2.9–3.8 km | 3.26 km | 2.92 km | 3.80 km |
+| Hard-AI lap floor | 70–100 s (SPEC) | 58.6 s | 63.4 s | 71.9 s |
+| AI wrecks per 8-car race | ≤ 1.5 | 1.0 (16 seeds) | 1.1 (16 seeds) | 0.8 with its hazards (16 seeds; 1.4 at chaos) |
 | AI resets | ~0 | rare | ≤ 1 in 6 races | none in 8 |
 
 Tests hold what matters for each map: land below every road, bridges detected, a hard lap that

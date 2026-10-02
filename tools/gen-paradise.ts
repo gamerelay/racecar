@@ -6,7 +6,8 @@
 //                      (the Sandbar shortcut runs straight on along the waterline, on loose sand)
 //   the Freeway        a ramp up to a deck 10–14 m over the bay, one long banked sweep round the
 //                      north shore with traffic, the whole island in view
-//   Jungle Switchbacks down off the deck into the jungle: wide hairpins on red earth
+//   Jungle Switchbacks down off the deck into the jungle: wide hairpins on red earth, and a bulge up
+//                      the slope between them (Smugglers' Trail, a secret, jumps across it)
 //   Volcano Rim        the climb round the cone's flank on black lava rock, over crests (the Lava
 //                      Tube shortcut cuts through the shoulder), and a jump off the rim
 //   Lighthouse Point   the descent past the lighthouse onto the cliff road, and a flowing S home
@@ -64,11 +65,14 @@ const nodes: Node[] = [
   F(215, -385, 11, 120),
   // Jungle Switchbacks: off the deck and down the slope in two open hairpins (each two corners,
   // so its radius holds: one node turning 150° gets filleted into a much tighter arc).
-  J(425, -372, 8, 50),
-  J(452, -278, 9, 50),
-  J(290, -232, 10, 70, { bank: 0 }),
-  J(128, -246, 11, 50),
-  J(134, -150, 12, 50),
+  J(415, -372, 8, 50),
+  J(444, -290, 9, 50),
+  // Between them, a bulge up the slope and back (Smugglers' Trail jumps straight across its inside).
+  J(372, -262, 9.5, 55),
+  J(326, -306, 10, 45),
+  J(236, -306, 10.5, 45),
+  J(120, -250, 11, 50),
+  J(126, -152, 12, 50),
   // Volcano Rim: round the cone's flank, clockwise, climbing, swinging in and out.
   V(...rim(-72, 215), 17, 70),
   V(...rim(-45, 194), 24, 90),
@@ -77,8 +81,8 @@ const nodes: Node[] = [
   V(...rim(62, 190), 40, 90),
   // Lighthouse Point: down off the rim (a jump), round the point in two corners, along the cliff, and the S into town.
   T(335, 330, 24, 70),
-  T(440, 372, 15, 60),
-  T(432, 455, 10, 60),
+  T(428, 374, 15, 60),
+  T(422, 452, 10, 60),
   T(330, 472, 6, 70),
   T(240, 432, 3, 80),
 ];
@@ -157,25 +161,26 @@ const tube: BranchDef = {
 
 // ---- secret shortcuts: no sign, not on the map; short, and each a gamble of its own ----
 /** A secret cut from `from` to `to` through (x, z) points, at the main road's height beside each. */
-const secret = (id: string, from: number, to: number, lat: number, via: [number, number][], width: number, surface: string, near: [number, number], verge?: string): BranchDef => ({
+const secret = (id: string, from: number, to: number, lat: number, via: [number, number][], width: number, surface: string, near: [number, number], verge?: string, along = 38): BranchDef => ({
   id,
   kind: 'shortcut',
   secret: true,
   from,
   to,
   points: [
-    fork(from, 38, lat, -0.2, width, surface),
+    fork(from, along, lat, -0.2, width, surface),
     ...via.map(([x, z]) => ({ p: [x, r1(yAt(near[0], near[1]) + (yAt(x, z) - yAt(near[0], near[1])) * 0.5 - 0.2), z] as [number, number, number], width, lanes: 1, shoulder: 1.5, surface })),
-    fork(to, -38, lat, -0.2, width, surface),
+    fork(to, -along, lat, -0.2, width, surface),
   ].map((p) => (verge ? { ...p, verge } : p)),
 });
 // The Beach Cut: straight on along the beach where the road swings inland out of town, on sand.
 const beachCut = secret('beach-cut', sAt(-10, 430), sAt(-268, 428), -5, [[-150, 440]], 10, 'beach', [-150, 430]);
-// Smugglers' Trail: through the palms across the inside of the headland's S, on dirt and over a
-// fallen log, while the Sandbar runs round the outside of it. (A hop across a corner's inside, at
-// Lighthouse Point, saved nothing: a cut has to turn as far as the road it cuts, so one only pays
-// across a bulge the road comes back out of on the same heading, like the town's S and this one.)
-const trail = secret('smugglers-trail', sAt(-371, 157), sAt(-350, -22), -3, [[-352, 62]], 9.5, 'dirt', [-330, 60], 'undergrowth');
+// Smugglers' Trail: straight on through the jungle where the road bulges up the slope between
+// the hairpins, and over a fallen log: a jump across the bend. (A hop across a corner's inside,
+// at Lighthouse Point, saved nothing: a cut has to turn as far as the road it cuts, so one only
+// pays across a bulge the road comes back out of on the same heading. Inside the headland's S
+// it was nearly never taken: it left inside the Sandbar's span, and a hard AI takes the Sandbar.)
+const trail = secret('smugglers-trail', sAt(380, -268, 9.5), sAt(190, -266, 11), -5, [[284, -272]], 9.5, 'dirt', [296, -300], 'undergrowth', 14);
 
 layout.branches = [sandbar, tube, beachCut, trail];
 const withBranches = bakeTrack(layout, surfaces);
@@ -186,7 +191,7 @@ const trailSp = withBranches.splines.find((sp) => sp.id === 'smugglers-trail')!;
 layout.ramps = [
   { spline: 'sandbar', s: Math.round(sandSp.length * 0.45), height: 1.6, length: 11 },
   { s: sAt(305, 300, 30) - 12, height: 1.6, length: 12 },
-  { spline: 'smugglers-trail', s: Math.round(trailSp.length * 0.45), height: 1.3, length: 8 },
+  { spline: 'smugglers-trail', s: Math.round(trailSp.length * 0.45), height: 1.7, length: 9 },
 ];
 
 // ---- walls: the harbour front, the freeway deck, the rim's drop; open beach and jungle elsewhere ----
@@ -223,10 +228,10 @@ layout.hazards = [
   { use: 'volcano-bombs', s: [sAt(...rim(0, 210), 35), sAt(...rim(33, 210), 35)], params: { every: 45, bombs: 2 } },
   { use: 'coconuts', s: sAt(-372, 346) },
   // Chaos only: lava rain, small glowing rocks thrown far that you hop over (they cost a little
-  // speed, never a wreck), on the jungle's straight between its hairpins and the run down off the
-  // rim (by the field report at chaos: 1.6 wrecks a race against 1.25 without; on the jungle's last
-  // leg, where the field lines up for the Lava Tube, it was 2.1).
-  { use: 'volcano-bombs', s: [sAt(375, -256), sAt(280, -233)], params: { every: 30, bombs: 4, size: 0.5, soft: 1 }, mayhem: 'chaos' },
+  // speed, never a wreck), over the top of the jungle's bulge (Smugglers' Trail skips it) and the
+  // run down off the rim. By the field report at chaos: 1.4 wrecks a race; on the jungle's last leg,
+  // where the field lines up for the Lava Tube, it was 2.1.
+  { use: 'volcano-bombs', s: [sAt(326, -306), sAt(236, -306)], params: { every: 30, bombs: 4, size: 0.5, soft: 1 }, mayhem: 'chaos' },
   { use: 'volcano-bombs', s: [sAt(300, 310, 26), sAt(380, 352, 19)], params: { every: 34, bombs: 4, size: 0.5, soft: 1 }, mayhem: 'chaos' },
 ];
 // Landmarks (PLAN phase 6; the lighthouse is the island's own scenery, and its beam shows through a

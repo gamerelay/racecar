@@ -177,9 +177,11 @@ describe('Paradise (Island)', () => {
     const secret = track.splines.filter((sp) => sp.secret).map((sp) => sp.id);
     expect(secret.sort()).toEqual(['beach-cut', 'smugglers-trail']);
     expect(thumb(island).branches.length).toBe(island.branches!.length - secret.length);
-    // Seldom taken, so over a few seeds: each is taken, and nobody wrecks on one. (Without the
-    // Sandbar: Smugglers' Trail leaves inside its span, and a hard AI nearly always takes the Sandbar.)
-    const plain = bakeTrack({ ...island, branches: island.branches!.filter((b) => b.id !== 'sandbar'), ramps: island.ramps!.filter((r) => r.spline !== 'sandbar'), zones: island.zones!.filter((z) => z.spline !== 'sandbar') }, SURFACES);
+    // Seldom taken, so over a few seeds: each is taken, and nobody wrecks on one. Each leaves where
+    // no signed shortcut is open (inside one's span, a hard AI on it never sees the secret).
+    for (const sp of track.splines.filter((x) => x.secret))
+      for (const o of track.splines.filter((x) => x.index > 0 && !x.secret)) expect(wrap(sp.mainFrom - o.mainFrom, main.length) < wrap(o.mainTo - o.mainFrom, main.length), `${sp.id} inside ${o.id}`).toBe(false);
+    const plain = track;
     const took = new Set<string>();
     for (let seed = 1; seed <= 16 && took.size < secret.length; seed++) {
       const sim = new Sim(plain, CLASSES, SURFACES, { seed });
