@@ -606,10 +606,11 @@ export function buildIsland(track: Track, seed: number, land: Terrain, marks: { 
     objects.push(animatedPoints(pos, phase, col, 'gull', 0.9, time));
   }
 
-  // ---- signs at the shortcuts, facing the drivers coming up to them ----
+  // ---- signs at the shortcuts, facing the drivers coming up to them (not the secret ones) ----
   {
     const names: Record<string, string> = { sandbar: 'SANDBAR', 'lava-tube': 'LAVA TUBE' };
     for (const sp of track.splines.slice(1)) {
+      if (sp.secret) continue;
       const i = at(main, (sp.mainFrom - 25 + L) % L);
       const side = branchSide(main, sp);
       const off = main.width[i] / 2 + main.shoulder[i] + 2;

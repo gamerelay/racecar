@@ -266,7 +266,7 @@ describe('map thumbnails', () => {
       expect(Math.min(...nums)).toBeGreaterThanOrEqual(4 - 0.05);
       expect(Math.max(...nums)).toBeLessThanOrEqual(60 + 0.05);
       expect(t.main.endsWith('Z')).toBe(true);
-      expect(t.branches.length).toBe(layout.branches?.length ?? 0);
+      expect(t.branches.length).toBe((layout.branches ?? []).filter((b) => !b.secret).length);
       // Within 3% of the map's lap length in MAPS.md (control points cut the corners a little).
       const km = LAP_KM[key];
       expect(km, `${key}: add its lap length to LAP_KM`).toBeDefined();

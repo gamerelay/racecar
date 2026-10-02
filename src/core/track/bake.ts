@@ -48,6 +48,8 @@ export interface BakedSpline {
   wallL: Uint8Array;
   wallR: Uint8Array;
   zones: BakedZone[];
+  /** A secret shortcut (BranchDef.secret): unsigned, off the map, and the AI seldom takes it. */
+  secret: boolean;
   /** For branches: the main-spline distances it leaves and rejoins at. */
   mainFrom: number;
   mainTo: number;
@@ -322,6 +324,7 @@ function bakeBranch(b: BranchDef, index: number, main: BakedSpline, surfaceIndex
   ];
   const sp = bakeSpline(b.id, index, pts, false, surfaceIndex, before, after);
   sp.mainFrom = wrap(b.from, main.length);
+  sp.secret = b.secret === true;
   sp.mainTo = wrap(b.to, main.length);
   return sp;
 }
@@ -481,6 +484,7 @@ function emptySpline(id: string, index: number, closed: boolean, length: number,
     wallL: u(),
     wallR: u(),
     zones: [],
+    secret: false,
     mainFrom: 0,
     mainTo: 0,
     openL: u(),

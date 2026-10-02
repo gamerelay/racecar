@@ -20,6 +20,9 @@ export interface RacerDriver {
   difficulty: Difficulty;
 }
 
+/** How much less often the AI takes a secret shortcut than a signed one. */
+const SECRET_TAKE = 0.35;
+
 const SKILL = [
   { pace: 0.84, brake: 18, shortcut: 0.15, look: 0.5, boost: false, catchup: 1, ownSide: 12 },
   { pace: 0.93, brake: 22, shortcut: 0.5, look: 0.45, boost: true, catchup: 0.8, ownSide: 6 },
@@ -159,7 +162,8 @@ export function driveRacer(sim: SimState, i: number, d: RacerDriver, out: Contro
       // Approaching the branch, or just past its start but not yet more on it than on the main road.
       const past = wrap(s - br.mainFrom, L);
       const toFrom = past < 60 ? -past : wrap(br.mainFrom - s, L);
-      if (toFrom < 70 && hash01(sim.seed, i * 131 + b, c.lap[i]) < skill.shortcut) {
+      // A secret one, seldom: now and then a rival vanishes into the trees, and you learn it's there.
+      if (toFrom < 70 && hash01(sim.seed, i * 131 + b, c.lap[i]) < skill.shortcut * (br.secret ? SECRET_TAKE : 1)) {
         sp = br;
         s = -toFrom;
         break;

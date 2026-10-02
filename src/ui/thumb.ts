@@ -7,7 +7,7 @@ import type { TrackLayout } from '../core/content';
 export interface Thumb {
   /** The main lap, closed. */
   main: string;
-  /** Each shortcut or alternate. */
+  /** Each shortcut or alternate (not the secret ones). */
   branches: string[];
   /** The lap's length through its control points, in km (a touch under the baked length). */
   km: number;
@@ -37,7 +37,7 @@ export function thumb(layout: TrackLayout, size = 64, pad = 4): Thumb {
     const b = pts[(i + 1) % pts.length].p;
     m += Math.hypot(b[0] - a[0], b[2] - a[2]);
   }
-  return { main: path(pts, true), branches: (layout.branches ?? []).map((b) => path(b.points, false)), km: m / 1000 };
+  return { main: path(pts, true), branches: (layout.branches ?? []).filter((b) => !b.secret).map((b) => path(b.points, false)), km: m / 1000 };
 }
 
 /** The thumbnail as an `<svg>`. */

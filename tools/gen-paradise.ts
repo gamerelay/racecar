@@ -48,8 +48,8 @@ const rim = (deg: number, radius: number): [number, number] => {
 const nodes: Node[] = [
   // Harbor Town: the line on the harbour front heading west, then a deep S out of town.
   T(160, 430, 2),
-  T(-30, 430, 2, 80),
-  T(-150, 372, 2.5, 60),
+  T(-30, 430, 2.6, 80),
+  T(-150, 348, 2.5, 60),
   T(-275, 434, 2.5, 55),
   // Coconut Coast: north up the west shore, then an S over the headland and back to the water.
   C(-425, 300, 3, 90),
@@ -154,20 +154,46 @@ const tube: BranchDef = {
     fork(tubeTo, -26, 7, 0.2, 11, 'lava-rock'),
   ],
 };
-layout.branches = [sandbar, tube];
+
+// ---- secret shortcuts: no sign, not on the map; short, and each a gamble of its own ----
+/** A secret cut from `from` to `to` through (x, z) points, at the main road's height beside each. */
+const secret = (id: string, from: number, to: number, lat: number, via: [number, number][], width: number, surface: string, near: [number, number]): BranchDef => ({
+  id,
+  kind: 'shortcut',
+  secret: true,
+  from,
+  to,
+  points: [
+    fork(from, 38, lat, -0.2, width, surface),
+    ...via.map(([x, z]) => ({ p: [x, r1(yAt(near[0], near[1]) + (yAt(x, z) - yAt(near[0], near[1])) * 0.5 - 0.2), z] as [number, number, number], width, lanes: 1, shoulder: 1.5, surface })),
+    fork(to, -38, lat, -0.2, width, surface),
+  ],
+});
+// The Beach Cut: straight on along the beach where the road swings inland out of town, on sand.
+const beachCut = secret('beach-cut', sAt(-10, 430), sAt(-268, 428), -5, [[-150, 440]], 10, 'beach', [-150, 430]);
+// Smugglers' Trail: through the palms across the inside of the headland's S, on dirt and over a
+// fallen log, while the Sandbar runs round the outside of it. (A hop across a corner's inside, at
+// Lighthouse Point, saved nothing: a cut has to turn as far as the road it cuts, so one only pays
+// across a bulge the road comes back out of on the same heading, like the town's S and this one.)
+const trail = secret('smugglers-trail', sAt(-371, 157), sAt(-350, -22), -3, [[-352, 62]], 9.5, 'dirt', [-330, 60]);
+
+layout.branches = [sandbar, tube, beachCut, trail];
 const withBranches = bakeTrack(layout, surfaces);
 const sandSp = withBranches.splines[1];
+const trailSp = withBranches.splines.find((sp) => sp.id === 'smugglers-trail')!;
 
-// ---- jumps: a dune on the Sandbar, and the kicker off the rim ----
+// ---- jumps: a dune on the Sandbar, the kicker off the rim, and the log on Smugglers' Trail ----
 layout.ramps = [
   { spline: 'sandbar', s: Math.round(sandSp.length * 0.45), height: 1.6, length: 11 },
   { s: sAt(305, 300, 30) - 12, height: 1.6, length: 12 },
+  { spline: 'smugglers-trail', s: Math.round(trailSp.length * 0.45), height: 1.3, length: 8 },
 ];
 
 // ---- walls: the harbour front, the freeway deck, the rim's drop; open beach and jungle elsewhere ----
 // The harbour front and the rim have a wall on the drop's side only (the sea on the left, the
 // rim's edge on the left: the cone is on the right); the inland side runs out onto the land.
-const harbour = span(sAt(150, 430), sAt(-110, 400));
+// (It stops before the Beach Cut leaves it, so the cut's mouth is open.)
+const harbour = span(sAt(150, 430), sAt(10, 430));
 const rimSpan = span(sAt(...rim(-40, 186), 28), sAt(...rim(50, 186), 40));
 const walled: [number, number][] = [harbour, span(sAt(-420, -200, 8), sAt(240, -370, 11)), rimSpan];
 layout.walls = { gaps: [...wallGaps(walled, L), { s: harbour, side: 'right' }, { s: rimSpan, side: 'right' }] };
@@ -191,9 +217,10 @@ layout.traffic = {
 };
 // Placed by sweeping the field report (MAPS.md): bombs on the rim's last stretch before the
 // jump, where the Lava Tube skips them (0.13 hazard wrecks a race here against 0.5–1.25 further
-// up the rim), and coconuts on the beach road before the Sandbar, which hop you but never wreck.
+// up the rim; on the swinging rim of v2, two a time: 0.44 over 16 seeds, against 0.5–0.8 for three
+// or further up), and coconuts on the beach road before the Sandbar, which hop you but never wreck.
 layout.hazards = [
-  { use: 'volcano-bombs', s: [sAt(...rim(0, 210), 35), sAt(...rim(33, 210), 35)], params: { every: 45 } },
+  { use: 'volcano-bombs', s: [sAt(...rim(0, 210), 35), sAt(...rim(33, 210), 35)], params: { every: 45, bombs: 2 } },
   { use: 'coconuts', s: sAt(-372, 346) },
 ];
 // Landmarks (PLAN phase 6; the lighthouse is the island's own scenery, and its beam shows through a
@@ -219,7 +246,7 @@ layout.hazards = [
 }
 // Smashables: beach umbrellas on the coast road's sea side, fruit stands through Harbor Town.
 layout.smashables = [
-  { kind: 'beach-umbrella', s: [sAt(-406, 298), sAt(-400, 200)], every: 16, side: -1 },
+  { kind: 'beach-umbrella', s: [sAt(-372, 346), sAt(-412, 236)], every: 14, side: -1 },
   { kind: 'fruit-stand', s: [30, 170], every: 45 },
   { kind: 'fruit-stand', s: [sAt(241, 434), sAt(176, 430)], every: 60, side: 1 },
 ];

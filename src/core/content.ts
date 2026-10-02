@@ -31,6 +31,8 @@ export interface BranchDef extends SplineDef {
   from: number;
   to: number;
   kind: 'shortcut' | 'alternate';
+  /** A secret one: no sign at its mouth, and not on the minimap or the map's thumbnail. */
+  secret?: boolean;
 }
 
 export interface ZoneDef {

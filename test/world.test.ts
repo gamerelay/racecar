@@ -215,19 +215,20 @@ describe('hazards', () => {
     expect(def).toBeGreaterThanOrEqual(0);
     const [s0, s1] = a.defs[def].s as [number, number];
     const showers = a.occurrences.filter((o) => o.def === def);
+    const bombs = a.defs[def].params?.bombs ?? 3;
     // Every screen has the same showers at the same moments (online, nothing to send).
     expect(showers.map((o) => [o.t0, o.seed])).toEqual(b.occurrences.filter((o) => o.def === def).map((o) => [o.t0, o.seed]));
     const o = showers.find((x) => x.t0 > 30 && x.t0 < 300)!;
     // In the air: rings on the road where each will land, and not solid yet.
     a.update(o.t0 - 1, quiet, 0);
-    expect(a.markers).toBeGreaterThanOrEqual(3);
+    expect(a.markers).toBeGreaterThanOrEqual(bombs);
     const flying = piecesOf(a, Piece.Bomb);
-    expect(flying.length).toBe(3);
+    expect(flying.length).toBe(bombs);
     for (const [, , , solid] of flying) expect(solid).toBe(Solid.None);
     // Down: solid, on the road inside the range, and gone when they've cooled.
     a.update(o.t0 + 2, quiet, 0);
     const down = piecesOf(a, Piece.Bomb);
-    expect(down.length).toBe(3);
+    expect(down.length).toBe(bombs);
     const hit = { s: 0 } as { s: number };
     for (const [x, y, z, solid, s] of down) {
       expect(solid).toBe(Solid.Hard);
