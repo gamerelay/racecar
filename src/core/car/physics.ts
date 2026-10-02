@@ -7,6 +7,7 @@ import { Cause, Ev } from '../events';
 import { approach, clamp, damp, lerp, sign, smoothstep, wrapAngle } from '../math';
 import type { SimState } from '../state';
 import { locateCar } from '../track/locate';
+import { signedGap } from '../track/bake';
 import { sampleAt } from '../track/query';
 import { TUNING as T } from './tuning';
 
@@ -71,7 +72,7 @@ export function stepCar(sim: SimState, i: number, c: Controls, dt: number): void
   if (cars.miniT[i] > 0) cars.miniT[i] = Math.max(0, cars.miniT[i] - dt);
   const boosting = cars.boosting[i] === 1;
   const mini = cars.miniT[i] > 0;
-  slipstream(sim, i, fx, fz, speed, dt);
+  slipstream(sim, i, speed, dt);
   cruiseBuild(sim, i, c, fwd, cls.topSpeed, surf.offroad === true, dt);
   const draft = cars.draft[i];
   const top = cls.topSpeed * (boosting ? T.boostTop : 1) * (mini ? T.miniTurboTop : 1) * (1 + T.slipTop * draft + (cars.slingT[i] > 0 ? T.slingTop : 0)) * (1 + T.cruiseTop * cars.cruise[i]);
@@ -439,30 +440,40 @@ export function earnBoost(sim: SimState, i: number, amount: number): number {
 }
 
 /**
- * The slipstream (TUNING slipRange…slipBoost): whether car i is tucked in behind another, eased into
- * `draft`; and the slingshot (`slingT`) when it pulls out to pass after slipCharge s in one.
+ * The slipstream (TUNING slipRange…slingTime): whether car i is tucked in behind another, eased into
+ * `draft`; and the slingshot (`slingT`) when it pulls out to pass after slipCharge s in one. Ahead
+ * and to the side are along the road and across it (spline distance and lateral), not the car's
+ * nose: through a bend or in a drift, the car ahead is off the nose's line without anyone passing.
  */
-function slipstream(sim: SimState, i: number, fx: number, fz: number, speed: number, dt: number): void {
+function slipstream(sim: SimState, i: number, speed: number, dt: number): void {
   const cars = sim.cars;
+  if (cars.slingT[i] > 0) cars.slingT[i] = Math.max(0, cars.slingT[i] - dt);
+  // In the air (a drift's hop, a crest), it holds: no slipstream to gain or lose up there.
+  if (cars.grounded[i] !== 1) return;
   let tucked = false;
   // Pulled out to the side of the car it was behind (still ahead, no longer in line): passing.
   let beside = false;
-  if (cars.grounded[i] === 1 && speed > T.slipMinSpeed) {
+  if (speed > T.slipMinSpeed && cars.ghostT[i] <= 0) {
+    const sp = cars.spline[i];
+    const spline = sim.track.splines[sp];
     for (let k = 0; k < cars.count && !tucked; k++) {
-      if (k === i || !cars.active[k] || cars.wreck[k]) continue;
-      const dx = cars.x[k] - cars.x[i];
-      const dz = cars.z[k] - cars.z[i];
-      const ahead = dx * fx + dz * fz;
+      // Not a ghost (just respawned: nothing to hit, nor any air to push), nor on another road.
+      if (k === i || !cars.active[k] || cars.wreck[k] || cars.ghostT[k] > 0 || cars.spline[k] !== sp) continue;
+      const ahead = sp === 0 ? signedGap(cars.s[k], cars.s[i], spline.length) : cars.s[k] - cars.s[i];
       if (ahead < -2 || ahead > T.slipRange) continue;
       // Going the same way, and fast enough to punch a hole in the air.
-      if (cars.vx[k] * fx + cars.vz[k] * fz < T.slipMinSpeed) continue;
-      const side = Math.abs(dx * fz - dz * fx);
+      if (cars.vx[k] * cars.vx[i] + cars.vz[k] * cars.vz[i] < T.slipMinSpeed * speed) continue;
+      // On a straight: the road runs the same way at both cars (within about 11°). Round a bend
+      // the tow does little, and the field wrecked more with it there.
+      const ja = Math.min(spline.tx.length - 1, Math.max(0, Math.round(cars.s[i] / spline.step)));
+      const jb = Math.min(spline.tx.length - 1, Math.max(0, Math.round(cars.s[k] / spline.step)));
+      if (spline.tx[ja] * spline.tx[jb] + spline.tz[ja] * spline.tz[jb] < 0.98) continue;
+      const side = Math.abs(cars.lateral[k] - cars.lateral[i]);
       if (ahead >= 3 && side <= T.slipWidth) tucked = true;
       else if (side <= T.slipWidth * 3) beside = true;
     }
   }
   cars.draft[i] = approach(cars.draft[i], tucked ? 1 : 0, 3 * dt);
-  if (cars.slingT[i] > 0) cars.slingT[i] = Math.max(0, cars.slingT[i] - dt);
   if (tucked) cars.draftT[i] = Math.min(T.slipCharge, cars.draftT[i] + dt);
   else if (cars.draftT[i] > 0) {
     // A slingshot only for pulling out to pass: falling back, or the car ahead going, gives nothing.

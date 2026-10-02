@@ -2130,8 +2130,10 @@ being far behind after a crash was hard to come back from):
   full). A brake, a drift, a spin, leaving the road, a wall or a car ends it at once; easing off or
   steering lets it fade over 2 s. It stacks with boost. 8% put the field at 1.5 wrecks a race on
   Paradise, the tests' limit; 6% is about where it was.
-- **The slipstream** (`draft`, TUNING `slip*`, `sling*`): within 25 m behind another car and 2.2 m
-  of its line, both over 20 m/s, the top speed is 5% higher and, flat out near the top, the air
+- **The slipstream** (`draft`, TUNING `slip*`, `sling*`): within 25 m behind another car along
+  the road and 2.2 m of its line across it (spline distance and lateral: the nose's line put the
+  car ahead off to the side in a bend or a drift, which read as a pass), on a straight (the road
+  within about 11° at both cars), both over 20 m/s and neither a ghost, the top speed is 5% higher and, flat out near the top, the air
   drag 40% lower. Held 1.2 s, pulling out to pass is a **slingshot**: 10% over the class's top for
   1.5 s. It's what other racers use to let the pack fight while whoever's behind closes in, and
   it's the same for everyone online (where the cars are, not a hidden help).
@@ -2143,5 +2145,6 @@ being far behind after a crash was hard to come back from):
   became wrecks.
 - **Measured** (with the boost change above): the hard AI's lap floors are Downtown 57.9 s,
   Backroads 62.9 s, Paradise 71.5 s (from 58.6, 63.5 and 72.1 this morning). The field over 16
-  seeds: 21/14/15 wrecks (Paradise/Downtown/Backroads; 18/20/10 before today), and at chaos
-  30/33/19 (26/32/11). Classes within ±4.8%.
+  seeds: 24/21/10 wrecks (Paradise/Downtown/Backroads; 18/20/10 before today), and at chaos
+  27/32/13 (26/32/11). Classes within ±4.8%. In the air (a drift's hop, a crest) the slipstream
+  holds rather than resetting.

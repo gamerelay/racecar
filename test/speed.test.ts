@@ -23,8 +23,8 @@ function drive(sim: Sim, i: number, lat = 0, extra: Partial<Controls> = {}): Con
   return { ...neutralControls(), throttle: 1, steer: Math.max(-1, Math.min(1, -err * 3)), ...extra };
 }
 
-function track() {
-  return ringSim(1, 3000, 40);
+function track(radius = 3000) {
+  return ringSim(1, radius, 40);
 }
 
 describe('the straight-line build', () => {
@@ -63,19 +63,20 @@ describe('the straight-line build', () => {
 
 describe('the slipstream', () => {
   /** Two cars flat out in line, the second 12 m behind; `out` from when the follower pulls out. */
-  function pair(out: number) {
-    const sim = track();
+  function pair(out: number, radius = 3000, cap = 55, gap = 12) {
+    const sim = track(radius);
     const a = sim.addCar({ cls: 'coupe', human: true });
     const b = sim.addCar({ cls: 'coupe', human: true });
-    sim.placeCar(a, 0, 112, 0, 50);
-    sim.placeCar(b, 0, 100, 0, 50);
+    sim.placeCar(a, 0, 100 + gap, 0, Math.min(50, cap));
+    sim.placeCar(b, 0, 100, 0, Math.min(50, cap));
     const seen: number[] = [];
     let drafted = 0;
     let cursor = sim.events.head;
     for (let t = 0; t < 60 * 4; t++) {
       // The leader holds a little under top speed, so the follower can't just drive away.
-      const lead = drive(sim, a, 0, { throttle: Math.hypot(sim.cars.vx[a], sim.cars.vz[a]) < 55 ? 1 : 0 });
-      sim.step([lead, drive(sim, b, t >= out ? 6 : 0)]);
+      const lead = drive(sim, a, 0, { throttle: Math.hypot(sim.cars.vx[a], sim.cars.vz[a]) < cap ? 1 : 0 });
+      const follow = drive(sim, b, t >= out ? 6 : 0, radius < 3000 ? { throttle: Math.hypot(sim.cars.vx[b], sim.cars.vz[b]) < cap ? 1 : 0 } : {});
+      sim.step([lead, follow]);
       drafted = Math.max(drafted, sim.cars.draft[b]);
       cursor = sim.events.read(cursor, (e) => {
         if (e.type === Ev.Slingshot) seen.push(e.car);
@@ -99,5 +100,31 @@ describe('the slipstream', () => {
 
   test('pulling out too soon is no slingshot', () => {
     expect(pair(Math.floor(60 * TUNING.slipCharge * 0.5)).seen).toEqual([]);
+  });
+
+  test('following a car round a bend is no slingshot (the car ahead is off the nose, not passed)', () => {
+    // 21 m behind on a 400 m radius (3° of road between them), the car ahead is about 0.6 m off
+    // the follower's nose; on a 70 m one (17°, past the straight's 11°) there's no slipstream at all.
+    const wide = pair(Infinity, 400, 45, 21);
+    expect(wide.drafted).toBeGreaterThan(0.95);
+    expect(wide.seen).toEqual([]);
+    const tight = pair(Infinity, 70, 24, 21);
+    expect(tight.drafted).toBe(0);
+    expect(tight.seen).toEqual([]);
+  });
+
+  test('a ghost (just respawned) gives no slipstream', () => {
+    const sim = track();
+    const a = sim.addCar({ cls: 'coupe', human: true });
+    const b = sim.addCar({ cls: 'coupe', human: true });
+    sim.placeCar(a, 0, 112, 0, 50);
+    sim.placeCar(b, 0, 100, 0, 50);
+    let drafted = 0;
+    for (let t = 0; t < 60; t++) {
+      sim.cars.ghostT[a] = 1;
+      sim.step([drive(sim, a), drive(sim, b)]);
+      drafted = Math.max(drafted, sim.cars.draft[b]);
+    }
+    expect(drafted).toBe(0);
   });
 });
