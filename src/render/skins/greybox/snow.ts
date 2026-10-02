@@ -117,10 +117,12 @@ function roadLines(track: Track): Mesh | null {
     p(j, l0);
   };
   const last = main.closed ? main.n : main.n - 1;
+  // The finish line (a loop's is its start too); one run's start line, as checkered.
+  const lines = track.run ? [track.run.start, track.run.finish] : [0];
   for (let i = 0; i < last; i++) {
     const s = i * main.step;
     const wa = main.width[i] / 2;
-    if (s < 4) {
+    if (lines.some((at) => s >= at && s < at + 4)) {
       const cells = 12;
       for (let k = 0; k < cells; k++) quad(i, -wa + (k * 2 * wa) / cells, -wa + ((k + 1) * 2 * wa) / cells, (k + Math.floor(s)) % 2 === 0 ? white : black);
       continue;

@@ -337,6 +337,41 @@ Not done yet:
 - **Respawns** put you back on the piste where you left it, facing down it. Out of bounds
   in a canyon or up a wall needs no more than that.
 
+### Step 3, one run (2026-10-02, experimental, stacked on step 1)
+
+Brought forward on the owner's drive: the map is one run, summit to valley, with more verticality
+and uneven ground. Open it as before, `?mode=free&map=avalanche/slope`.
+
+- **An open main road** (`layout.run: { start, finish }`): the main spline isn't closed, the grid
+  stands behind `start` at the top, and crossing `finish` after every checkpoint is the run's one
+  "lap" (`runProgress` in `rules/progress.ts`). A race on it is one run, whatever the lobby asks
+  for. Past the finish is a 220 m run-out; the AI plans to stop by the road's end. In free drive,
+  4 s past the finish you're back at the top for another run, your best kept.
+- **Checkpoints** sit evenly between the start and the finish; nothing wraps.
+- **The run** (`tools/gen-avalanche.ts`): 6.2 km, 1,225 m of drop, in 19 stretches: a start pad, bunny
+  slopes, five steep pitches (45%, 55%, a 70% wall, 50%, 40%), three short climbs to crests, a
+  long winding stretch, the valley and a run-out. Grades are smoothed where they meet, so crests
+  throw you. The piste winds (30–42 m wide, narrower on the steepest), banks into its turns, and
+  tilts a little side to side between them, switching as it goes.
+- **The ground:** swells over everything, the piste too (1.4 m, 45 m across: small tilts you feel);
+  rougher powder (2.6 m); two mogul fields (one beside the piste, one across it); two canyons (one
+  each side); walls from 80 m out. A 2.5 m grid, 0.48 million points, about 0.6 s to build.
+- **Kickers** with flanks on the top of two climbs and in the valley. Their height now runs out
+  past the piste's edge on the ground (8 m unless set): before, a kicker on open ground stood as a
+  ridge across the whole mountain.
+- **The AI:** the hard coupe gets down clean in 97 s (268 km/h at the fastest). A full field of
+  eight, normal and chaos, gets down clean, every class between 93 and 107 s.
+- **Tests:** it's one run (open, 6 km and 1,000 m of drop or more, the grid behind the start); a
+  race is one run and finishes at the line; free drive starts you again at the top; the kicker's
+  height runs out off the piste; the AI gets down clean.
+
+Not done yet:
+- **The HUD** still says "Lap 1/1": it could say "Run" and show the distance to the bottom.
+- **The camera uphill** (the owner's note, above) and the camera's pitch down a steep run (step 4).
+- **The ground's size:** fine at 6 km (0.48 million points). The corridor and the far tiles'
+  coarser mesh ("Looking ahead") are for a wider mountain.
+- **Gates** across the whole mountain: nothing to skip yet, the checkpoints are enough.
+
 ## Questions for the owner
 
 Answered 2026-10-02: one run, no laps; about two laps' length; steep, bunny and short uphill

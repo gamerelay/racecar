@@ -63,7 +63,7 @@ describe('open ground', () => {
 });
 
 describe("Avalanche's Slope", () => {
-  test('its ground has no cliffs: nowhere does it step more than 3 m between neighbours 2 m apart', () => {
+  test("its ground has no cliffs: nowhere steeper than a canyon's lip (60°) between neighbours", () => {
     const g = bakeTrack(layout('avalanche/slope'), SURFACES).ground!;
     let worst = 0;
     for (let gz = 0; gz < g.nz - 1; gz++) {
@@ -72,11 +72,12 @@ describe("Avalanche's Slope", () => {
         worst = Math.max(worst, Math.abs(g.h[k + 1] - g.h[k]), Math.abs(g.h[k + g.nx] - g.h[k]));
       }
     }
-    expect(worst).toBeLessThan(3);
+    expect(worst / g.cell).toBeLessThan(Math.tan((60 * Math.PI) / 180));
   });
 
   test("a car driven up the walls goes out of bounds, it doesn't drive off the map", () => {
-    const track = bakeTrack(layout('avalanche/slope'), SURFACES);
+    const l = layout('avalanche/slope');
+    const track = bakeTrack(l, SURFACES);
     const sim = new Sim(track, CLASSES, SURFACES, { seed: 1 });
     const i = sim.addCar({ cls: 'coupe', human: true });
     sim.placeCar(i, 0, 700, 0, 25);
@@ -95,7 +96,7 @@ describe("Avalanche's Slope", () => {
     const m = track.main;
     const k = Math.round(700 / m.step);
     const lat = (sim.cars.x[i] - m.px[k]) * -m.tz[k] + (sim.cars.z[i] - m.pz[k]) * m.tx[k];
-    expect(Math.abs(lat)).toBeLessThan(100);
+    expect(Math.abs(lat)).toBeLessThan(l.ground!.wallFrom + (l.ground!.wallOut ?? 25) + 5);
   });
 
   test('is experimental: out of the maps the game, the validator and the lap report run', () => {
@@ -115,10 +116,98 @@ describe("Avalanche's Slope", () => {
     expect(l.ground!.canyons!.length).toBeGreaterThan(0);
   });
 
-  test('the hard AI gets round it clean', async () => {
+  test('the hard AI gets down it clean, in one run', async () => {
     const { lapReport } = await import('../tools/lap');
-    const r = lapReport('avalanche/slope', layout('avalanche/slope'), 'coupe', { laps: 2 });
+    // However many laps are asked for, a run is one.
+    const r = lapReport('avalanche/slope', layout('avalanche/slope'), 'coupe', { laps: 3 });
     expect(r.finished).toBe(true);
+    expect(r.laps.length).toBe(1);
     expect(r.wrecks).toEqual([]);
+  });
+
+  test('is one run: the main road open, about 6 km and 1,000 m of drop or more, the grid at the top', () => {
+    const l = layout('avalanche/slope');
+    const track = bakeTrack(l, SURFACES);
+    const m = track.main;
+    expect(m.closed).toBe(false);
+    expect(m.length).toBeGreaterThan(5500);
+    expect(m.py[0] - m.py[m.n - 1]).toBeGreaterThan(1000);
+    const run = track.run!;
+    expect(run.start).toBeGreaterThan(40);
+    // Past the finish, a run-out to stop in.
+    expect(m.length - run.finish).toBeGreaterThan(150);
+    // The checkpoints between the start and the finish, in order.
+    expect(track.checkpoints.every((c, k) => c > run.start && c < run.finish && (k === 0 || c > track.checkpoints[k - 1]))).toBe(true);
+    const sim = new Sim(track, CLASSES, SURFACES, { seed: 1 });
+    for (let k = 0; k < 8; k++) sim.addCar({ cls: 'coupe', human: k === 0 });
+    // The whole grid behind the start, on the road.
+    for (let k = 0; k < 8; k++) {
+      expect(sim.cars.s[k]).toBeLessThan(run.start);
+      expect(sim.cars.s[k]).toBeGreaterThan(0);
+    }
+  });
+
+  test("a kicker's height runs out past the piste's edge: a bump on it, not a ridge across the mountain", () => {
+    const l = layout('avalanche/slope');
+    const track = bakeTrack(l, SURFACES);
+    const g = track.ground!;
+    const m = track.main;
+    const r = l.ramps![0];
+    const k = Math.round((r.s + r.length) / m.step);
+    const at = (lat: number) => g.height(m.px[k] - m.tz[k] * lat, m.pz[k] + m.tx[k] * lat);
+    const flat = (lat: number) => at(lat) - (m.py[k] - lat * Math.tan(m.bank[k]));
+    // At the lip, on the piste, it stands its height (give or take the swells).
+    expect(flat(0)).toBeGreaterThan(r.height - 1);
+    // 25 m past the piste's edge it's gone.
+    const out = m.width[k] / 2 + m.shoulder[k] + 25;
+    expect(at(-out) - g.height(m.px[k - 40] - m.tz[k - 40] * -out, m.pz[k - 40] + m.tx[k - 40] * -out)).toBeLessThan(r.height);
+  });
+});
+
+describe('one run (layout.run)', () => {
+  /** A straight run down a 10% grade: 1,400 m, the start at 60, the finish 200 m from the end. */
+  const straight = (): TrackLayout => ({
+    id: 'run',
+    name: 'Run',
+    main: { points: [0, 1, 2, 3, 4, 5, 6, 7].map((k) => ({ p: [0, -k * 20, k * 200] as [number, number, number], width: 30, surface: 'snow' })) },
+    ground: { cell: 2, wallFrom: 60, wallRise: 0.8 },
+    shoulderSurface: 'powder',
+    run: { start: 60, finish: 1200 },
+  });
+
+  test('a race is one run: crossing the finish, past the checkpoints, finishes it', () => {
+    const track = bakeTrack(straight(), SURFACES);
+    const sim = new Sim(track, CLASSES, SURFACES, { seed: 1 });
+    const i = sim.addCar({ cls: 'coupe', human: true });
+    sim.startRace(3, 0);
+    expect(sim.race.laps).toBe(1);
+    let t = 0;
+    for (; t < 60 * 120 && !sim.cars.finished[i]; t++) {
+      const c = neutralControls();
+      c.throttle = 1;
+      sim.step([c]);
+    }
+    expect(sim.cars.finished[i]).toBe(1);
+    expect(sim.cars.nextCp[i]).toBe(track.checkpoints.length);
+    expect(sim.cars.s[i]).toBeGreaterThan(1200);
+    expect(sim.cars.s[i]).toBeLessThan(1250);
+  });
+
+  test('in free drive, a few seconds past the finish you start again at the top, your best run kept', () => {
+    const track = bakeTrack(straight(), SURFACES);
+    const sim = new Sim(track, CLASSES, SURFACES, { seed: 1 });
+    const i = sim.addCar({ cls: 'coupe', human: true });
+    sim.placeCar(i, 0, 1150, 0, 30);
+    // As if it had come down the run: every checkpoint passed.
+    sim.cars.nextCp[i] = track.checkpoints.length;
+    sim.cars.progress[i] = 1150 - 60;
+    let back = false;
+    for (let t = 0; t < 60 * 10 && !back; t++) {
+      sim.step([neutralControls()]);
+      back = sim.cars.s[i] < 100;
+    }
+    expect(back).toBe(true);
+    expect(sim.cars.lap[i]).toBe(0);
+    expect(sim.cars.bestLap[i]).toBeGreaterThan(0);
   });
 });

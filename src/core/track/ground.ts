@@ -46,7 +46,7 @@ const smooth = (e0: number, e1: number, x: number) => {
 };
 
 /** Smooth value noise, 0–1, at (x, z) in cells of `size` m (seeded by the grid, so the same everywhere). */
-function noise(x: number, z: number, size: number): number {
+function noise(x: number, z: number, size: number, seed = 91): number {
   const u = x / size;
   const v = z / size;
   const i = Math.floor(u);
@@ -55,10 +55,10 @@ function noise(x: number, z: number, size: number): number {
   const fv = v - j;
   const su = fu * fu * (3 - 2 * fu);
   const sv = fv * fv * (3 - 2 * fv);
-  const a = hash01(91, i, j);
-  const b = hash01(91, i + 1, j);
-  const c = hash01(91, i, j + 1);
-  const d = hash01(91, i + 1, j + 1);
+  const a = hash01(seed, i, j);
+  const b = hash01(seed, i + 1, j);
+  const c = hash01(seed, i, j + 1);
+  const d = hash01(seed, i + 1, j + 1);
   return a + (b - a) * su + (c - a) * sv + (a - b - c + d) * su * sv;
 }
 
@@ -77,6 +77,8 @@ export function canyonDepth(d: number, floor: number, depth: number): number {
 export function groundShape(def: GroundDef, s: number, lat: number, half: number, shoulder: number, x: number, z: number): number {
   const a = Math.abs(lat);
   let h = 0;
+  // Swell: long, low rolls everywhere, the piste too (it tilts you a little, side to side).
+  if (def.swell) h += def.swell.height * (noise(x, z, def.swell.size, 37) - 0.5);
   if (def.rough) h += def.rough.height * noise(x, z, def.rough.size) * smooth(half + shoulder, half + shoulder + ROUGH_IN, a);
   for (const m of def.moguls ?? []) {
     if (s < m.s[0] || s > m.s[1] || lat < m.lateral[0] || lat > m.lateral[1]) continue;
@@ -159,8 +161,16 @@ export function buildGround(def: GroundDef, main: BakedSpline): Ground {
     const j = main.closed ? (i + 1) % main.n : Math.min(main.n - 1, i + 1);
     const along = (x - main.px[i]) * main.tx[i] + (z - main.pz[i]) * main.tz[i];
     const lat = (x - main.px[i]) * -main.tz[i] + (z - main.pz[i]) * main.tx[i];
-    const rise = (main.py[j] + main.ramp[j] - main.py[i] - main.ramp[i]) / main.step;
-    return main.py[i] + main.ramp[i] + along * rise - lat * Math.tan(main.bank[i]);
+    const rise = (main.py[j] - main.py[i]) / main.step;
+    // A kicker's height runs out past the road's edge over its flank (RampDef.flank; 8 m unset),
+    // so it's a bump on the piste, not a ridge across the mountain.
+    let ramp = 0;
+    if (main.ramp[i] > 0 || main.ramp[j] > 0) {
+      const over = Math.abs(lat) - main.width[i] / 2 - main.shoulder[i];
+      const fade = over <= 0 ? 1 : Math.max(0, 1 - over / (main.rampFlank[i] || 8));
+      ramp = (main.ramp[i] + ((main.ramp[j] - main.ramp[i]) * along) / main.step) * fade;
+    }
+    return main.py[i] + ramp + along * rise - lat * Math.tan(main.bank[i]);
   };
 
   // The land between the roads, on a coarse grid: the road's height on the road, and off it relaxed

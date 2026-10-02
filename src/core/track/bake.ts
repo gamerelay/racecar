@@ -94,8 +94,10 @@ export interface Track {
   main: BakedSpline;
   surfaces: SurfaceDef[];
   surfaceIndex: Map<string, number>;
-  /** Main-spline distances of the checkpoints, in order; the finish line is s = 0. */
+  /** Main-spline distances of the checkpoints, in order; the finish line is s = 0 (or the run's finish). */
   checkpoints: number[];
+  /** One run (layout.run): the main road is open, the race from `start` to `finish` on it. */
+  run?: { start: number; finish: number };
   props: BakedProp[];
   /** A stable hash of the layout JSON, carried in reports so a replay uses the same track. */
   version: string;
@@ -105,7 +107,7 @@ export interface Track {
 
 export function bakeTrack(layout: TrackLayout, surfaces: SurfaceDef[]): Track {
   const surfaceIndex = new Map(surfaces.map((s, i) => [s.id, i]));
-  const main = bakeSpline(layout.id, 0, layout.main.points, true, surfaceIndex);
+  const main = bakeSpline(layout.id, 0, layout.main.points, !layout.run, surfaceIndex);
   const splines = [main];
   for (const b of layout.branches ?? []) splines.push(bakeBranch(b, splines.length, main, surfaceIndex));
 
@@ -157,8 +159,14 @@ export function bakeTrack(layout: TrackLayout, surfaces: SurfaceDef[]): Track {
   // A checkpoint on the line itself would be taken just after the lap counts, halving the laps:
   // the line is the lap, so drop any within 20 m of it.
   const listed = Array.isArray(layout.checkpoints) ? layout.checkpoints.map((c) => (c >= 0 && c < L ? c : wrap(c, L))).filter((c) => c > 20 && c < L - 20).sort((a, b) => a - b) : [];
+  // One run: the finish isn't the start, and nothing wraps.
+  const run = layout.run && { start: Math.max(0, layout.run.start), finish: Math.min(L, layout.run.finish) };
+  if (run) {
+    const listedRun = Array.isArray(layout.checkpoints) ? layout.checkpoints.filter((c) => c > run.start + 20 && c < run.finish - 20).sort((a, b) => a - b) : [];
+    checkpoints = listedRun.length ? listedRun : Array.from({ length: 7 }, (_, k) => run.start + ((k + 1) * (run.finish - run.start)) / 8);
+  }
   // None listed (or none left): auto. Progress needs at least one, or it's a lap out half the lap.
-  if (listed.length) checkpoints = listed;
+  else if (listed.length) checkpoints = listed;
   else {
     // Every 1/8 of the lap, stepped past any shortcut's span so no branch can skip one.
     checkpoints = Array.from({ length: 7 }, (_, k) => {
@@ -204,7 +212,7 @@ export function bakeTrack(layout: TrackLayout, surfaces: SurfaceDef[]): Track {
   // Open ground: shaped round the main road, and every spline's ground query reads it.
   const ground = layout.ground ? buildGround(layout.ground, main) : undefined;
   if (ground) for (const sp of splines) sp.ground = ground;
-  return { layout, splines, main, surfaces, surfaceIndex, checkpoints, props, version: layoutVersion(layout), ground };
+  return { layout, splines, main, surfaces, surfaceIndex, checkpoints, props, version: layoutVersion(layout), ground, run };
 }
 
 /** A high bridge stands on a timber bent this often (m along it), on legs across it (SPEC, "Trestle legs"). */

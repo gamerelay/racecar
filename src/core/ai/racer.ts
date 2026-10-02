@@ -97,6 +97,8 @@ export function racingLine(track: Track, sp: BakedSpline): Line {
   // Crests: don't fly off a drop into a corner. (Air is fine; the braking pass handles the rest.)
   // Braking: work backwards so every corner is reachable from the one before.
   const brake = 22;
+  // An open road (one run) ends: stop by its end, in the run-out past the finish.
+  if (!sp.closed && sp.index === 0) speed[n - 1] = 0;
   for (let pass = 0; pass < (sp.closed ? 2 : 1); pass++) {
     for (let i = n - 2; i >= 0; i--) speed[i] = Math.min(speed[i], Math.sqrt(speed[i + 1] ** 2 + 2 * brake * sp.step));
     if (sp.closed) speed[n - 1] = Math.min(speed[n - 1], Math.sqrt(speed[0] ** 2 + 2 * brake * sp.step));

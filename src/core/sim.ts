@@ -74,6 +74,9 @@ export interface RemotePose {
   ghost: boolean;
 }
 
+/** One run, in free drive: this long (s) past the finish, you're back at the top. */
+const RUN_AGAIN = 4;
+
 export class Sim implements SimState {
   track: Track;
   readonly cars: CarPool;
@@ -167,7 +170,8 @@ export class Sim implements SimState {
    */
   private finish(n: number): void {
     const cars = this.cars;
-    const line = this.race.laps * this.track.main.length;
+    const run = this.track.run;
+    const line = run ? run.finish - run.start : this.race.laps * this.track.main.length;
     for (let k = 0; k < n; k++) {
       const i = this.finishers[k];
       this.crossedAgo[k] = (cars.progress[i] - line) / Math.max(1, Math.hypot(cars.vx[i], cars.vz[i]));
@@ -200,7 +204,12 @@ export class Sim implements SimState {
     const row = Math.floor(i / 2);
     const col = i % 2 === 0 ? -1 : 1;
     const main = this.track.main;
-    if (this.gridOncoming()) {
+    const run = this.track.run;
+    if (run) {
+      // One run: the grid behind the start, at the top.
+      const at = sampleAt(main, run.start - 10 - row * 9, this.hitA);
+      this.placeCar(i, 0, at.s, col * at.width * 0.22);
+    } else if (this.gridOncoming()) {
       // Two-way traffic at the start: the whole grid is in the race's own half of the road, the
       // two columns staggered (half a row apart) to fit side by side, so nobody starts facing
       // oncoming cars.
@@ -213,7 +222,7 @@ export class Sim implements SimState {
     const at = this.hitA;
     c.lap[i] = 0;
     c.nextCp[i] = 0;
-    c.progress[i] = at.s - main.length;
+    c.progress[i] = at.s - (run ? run.start : main.length);
     c.lapStartTime[i] = this.time;
     c.boost[i] = TUNING.startBoost;
     c.finished[i] = 0;
@@ -227,6 +236,18 @@ export class Sim implements SimState {
     c.lastLap[i] = 0;
   }
 
+  /** Back to the top of the run (free drive), its times kept. */
+  private runAgain(i: number): void {
+    const run = this.track.run!;
+    const at = sampleAt(this.track.main, run.start - 10, this.hitA);
+    this.placeCar(i, 0, at.s, 0);
+    const c = this.cars;
+    c.lap[i] = 0;
+    c.nextCp[i] = 0;
+    c.progress[i] = at.s - run.start;
+    c.lapStartTime[i] = this.time;
+  }
+
   /** Whether an oncoming traffic lane runs over the grid or just past the line. */
   private gridOncoming(): boolean {
     const L = this.track.main.length;
@@ -237,7 +258,8 @@ export class Sim implements SimState {
   startRace(laps: number, seconds = 3): void {
     for (let i = 0; i < this.cars.count; i++) if (this.cars.active[i]) this.gridCar(i);
     // At least a lap (0 would finish everyone on the first tick), and no slow-mo left running.
-    this.race = { phase: 'countdown', goTime: this.time + seconds, laps: Math.max(1, Math.floor(laps) || 1), finishedCount: 0 };
+    // One run is one "lap", whatever the lobby asked for.
+    this.race = { phase: 'countdown', goTime: this.time + seconds, laps: this.track.run ? 1 : Math.max(1, Math.floor(laps) || 1), finishedCount: 0 };
     this.timeScale = 1;
   }
 
@@ -397,6 +419,8 @@ export class Sim implements SimState {
     for (let i = 0; i < cars.count; i++) {
       if (!cars.active[i]) continue;
       updateProgress(this, i);
+      // One run, in free drive: a few seconds past the finish, back to the top for another.
+      if (this.track.run && this.race.phase === 'free' && !cars.remote[i] && cars.lap[i] > 0 && this.time - cars.lapStartTime[i] > RUN_AGAIN) this.runAgain(i);
       const sMain = mainDistance(this.track, cars.spline[i], cars.s[i]);
       // Triggers sit on the main road: a car on a shortcut passing the same mapped distance is
       // somewhere else (it used to drop the Valley's sign on the cars still on the main road).

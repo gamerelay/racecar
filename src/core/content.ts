@@ -203,6 +203,12 @@ export interface TrackLayout {
    * height along it, then off it whatever `GroundDef` adds. Out of bounds is the ground's walls.
    */
   ground?: GroundDef;
+  /**
+   * One run, not laps (docs/AVALANCHE.md): the main road is open, top to bottom, and a race is one
+   * run from `start` to `finish` (m along it). The grid stands behind `start`; past `finish` is
+   * the run-out. Without it the main road is a loop and the line is s = 0.
+   */
+  run?: { start: number; finish: number };
 }
 
 /** Open ground round the main road (core/track/ground.ts). Distances are along the main road (s) and across it (lateral, + right). */
@@ -214,6 +220,8 @@ export interface GroundDef {
   wallRise: number;
   /** How far up the walls (m past `wallFrom`) is still in bounds: past it, out of bounds (default 25). */
   wallOut?: number;
+  /** Long, low rolls everywhere, the road too: this high (m, peak to trough), this wide (m). */
+  swell?: { height: number; size: number };
   /** Bumps off the road: up to this high (m), this wide (m). */
   rough?: { height: number; size: number };
   /** Mogul fields: bumps `height` m high, `spacing` m apart, over s × lateral. */
