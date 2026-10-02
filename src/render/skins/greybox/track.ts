@@ -560,7 +560,16 @@ function buildChunk(g: Geo, track: Track, sp: BakedSpline, i0: number, i1: numbe
           const p = at(c, side * (edge + run), 0);
           return [p[0], style.floor(p[0], p[2]) - 0.15, p[2]];
         };
-        g.face(baseA, baseB, foot(B, sb, baseB), foot(A, sa, baseA), shoulderColor);
+        // A kicker with sides (RampDef.flank): its bank first, down to the road's own height as the
+        // physics has it (flankDrop), then the usual bank on down to the land.
+        const fa = sp.ramp[i] > 0 ? sp.rampFlank[i] : 0;
+        const fb = sp.ramp[j] > 0 ? sp.rampFlank[j] : 0;
+        if (fa > 0 || fb > 0) {
+          const flankA = at(A, side * (sa + fa), -sp.ramp[i]);
+          const flankB = at(B, side * (sb + fb), -sp.ramp[j]);
+          g.face(baseA, baseB, flankB, flankA, shoulderColor);
+          if (flankA[1] > style.floor(flankA[0], flankA[2]) + 0.2) g.face(flankA, flankB, foot(B, sb + fb, flankB), foot(A, sa + fa, flankA), shoulderColor);
+        } else g.face(baseA, baseB, foot(B, sb, baseB), foot(A, sa, baseA), shoulderColor);
       } else if (baseA[1] > lowA + 0.2) {
         // No wall: the shoulder's edge drops to the ground (or the deck's underside).
         g.face(baseA, baseB, [baseB[0], lowB, baseB[2]], [baseA[0], lowA, baseA[2]], concrete ? '#a39a88' : style.country ? (bridge ? '#4a3626' : '#6b553b') : embankment(levels && !bridge && hA > 1.2, s));

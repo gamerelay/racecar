@@ -3294,6 +3294,14 @@
      236
     ],
     "side": "right"
+   },
+   {
+    "spline": "leap",
+    "s": [
+     40,
+     81
+    ],
+    "side": "both"
    }
   ]
  },
@@ -3313,7 +3321,8 @@
    "s": 48,
    "height": 2.2,
    "length": 15,
-   "back": 10
+   "back": 10,
+   "flank": 6
   }
  ],
  "checkpoints": "auto",

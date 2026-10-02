@@ -20,6 +20,9 @@ export interface TrackHit {
   bank: number;
   /** Ground height at (s, lateral), ramps and bank included. */
   ground: number;
+  /** The ramp's height at s (in `cy`), and how far past the road's edge its sides run out (0: never). */
+  ramp: number;
+  rampFlank: number;
   surface: number;
   /** The surface past the road's edge (VERGE_DEFAULT: the layout's shoulderSurface). */
   verge: number;
@@ -40,6 +43,8 @@ export const newHit = (): TrackHit => ({
   shoulder: 4,
   bank: 0,
   ground: 0,
+  ramp: 0,
+  rampFlank: 0,
   surface: 0,
   verge: VERGE_DEFAULT,
   wallL: true,
@@ -67,7 +72,8 @@ export function sampleAt(sp: BakedSpline, s: number, out: TrackHit): TrackHit {
   out.spline = sp.index;
   out.s = s;
   out.cx = sp.px[i0] * g + sp.px[i1] * f;
-  out.cy = sp.py[i0] * g + sp.py[i1] * f + (sp.ramp[i0] * g + sp.ramp[i1] * f);
+  out.ramp = sp.ramp[i0] * g + sp.ramp[i1] * f;
+  out.cy = sp.py[i0] * g + sp.py[i1] * f + out.ramp;
   out.cz = sp.pz[i0] * g + sp.pz[i1] * f;
   let tx = sp.tx[i0] * g + sp.tx[i1] * f;
   let tz = sp.tz[i0] * g + sp.tz[i1] * f;
@@ -82,6 +88,7 @@ export function sampleAt(sp: BakedSpline, s: number, out: TrackHit): TrackHit {
   out.verge = sp.verge[near];
   out.wallL = sp.wallL[near] === 1;
   out.wallR = sp.wallR[near] === 1;
+  out.rampFlank = Math.max(sp.rampFlank[i0], sp.rampFlank[i1]);
   out.lateral = 0;
   out.ground = out.cy;
   return out;
@@ -127,7 +134,14 @@ export function projectGlobal(sp: BakedSpline, x: number, z: number, out: TrackH
 function finishProjection(out: TrackHit, x: number, z: number): void {
   // right = (-tz, tx)
   out.lateral = (x - out.cx) * -out.tz + (z - out.cz) * out.tx;
-  out.ground = out.cy - out.lateral * Math.tan(out.bank);
+  out.ground = out.cy - out.lateral * Math.tan(out.bank) - flankDrop(out);
+}
+
+/** How far a ramp's height has run out at the hit's lateral: past the road's edge and shoulder, over its flank. */
+export function flankDrop(hit: TrackHit): number {
+  if (hit.rampFlank <= 0 || hit.ramp <= 0) return 0;
+  const over = Math.abs(hit.lateral) - hit.width / 2 - hit.shoulder;
+  return over <= 0 ? 0 : hit.ramp * Math.min(1, over / hit.rampFlank);
 }
 
 /**

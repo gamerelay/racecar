@@ -255,10 +255,27 @@ function followGround(sim: SimState, i: number, dt: number): void {
   sampleAt(sp, hit.s + 2, ahead);
   const aheadY = ahead.cy;
   sampleAt(sp, hit.s - 2, ahead);
-  const slope = (aheadY - ahead.cy) / 4;
+  let slope = (aheadY - ahead.cy) / 4;
+  // On a kicker's bank (RampDef.flank) the ground slopes across the road, and rises along it by
+  // less than the road's middle does: the body follows that ground, not the middle's.
+  let across = 0;
+  if (hit.rampFlank > 0 && hit.ramp > 0) {
+    const over = Math.abs(hit.lateral) - hit.width / 2 - hit.shoulder;
+    if (over > 0 && over < hit.rampFlank) {
+      const ramp0 = ahead.ramp;
+      sampleAt(sp, hit.s + 2, ahead);
+      slope -= ((ahead.ramp - ramp0) / 4) * (over / hit.rampFlank);
+      // The ground's rise per meter to the right.
+      across = (-Math.sign(hit.lateral) * hit.ramp) / hit.rampFlank;
+    } else if (over >= hit.rampFlank) {
+      const ramp0 = ahead.ramp;
+      sampleAt(sp, hit.s + 2, ahead);
+      slope -= (ahead.ramp - ramp0) / 4;
+    }
+  }
   const rel = cars.h[i] - Math.atan2(hit.tx, hit.tz);
-  const targetPitch = cars.grounded[i] ? -Math.atan(slope) * Math.cos(rel) : cars.pitch[i];
-  const targetRoll = cars.grounded[i] ? hit.bank * Math.cos(rel) : cars.roll[i];
+  const targetPitch = cars.grounded[i] ? -Math.atan(slope) * Math.cos(rel) + Math.atan(across) * Math.sin(rel) : cars.pitch[i];
+  const targetRoll = cars.grounded[i] ? hit.bank * Math.cos(rel) - Math.atan(across) * Math.cos(rel) : cars.roll[i];
   cars.pitch[i] += (targetPitch - cars.pitch[i]) * damp(12, dt);
   cars.roll[i] += (targetRoll - cars.roll[i]) * damp(12, dt);
   // Remember the last good spot for respawns.
