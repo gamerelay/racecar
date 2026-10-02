@@ -63,6 +63,41 @@ describe('open ground', () => {
 });
 
 describe("Avalanche's Slope", () => {
+  test('its ground has no cliffs: nowhere does it step more than 3 m between neighbours 2 m apart', () => {
+    const g = bakeTrack(layout('avalanche/slope'), SURFACES).ground!;
+    let worst = 0;
+    for (let gz = 0; gz < g.nz - 1; gz++) {
+      for (let gx = 0; gx < g.nx - 1; gx++) {
+        const k = gz * g.nx + gx;
+        worst = Math.max(worst, Math.abs(g.h[k + 1] - g.h[k]), Math.abs(g.h[k + g.nx] - g.h[k]));
+      }
+    }
+    expect(worst).toBeLessThan(3);
+  });
+
+  test("a car driven up the walls goes out of bounds, it doesn't drive off the map", () => {
+    const track = bakeTrack(layout('avalanche/slope'), SURFACES);
+    const sim = new Sim(track, CLASSES, SURFACES, { seed: 1 });
+    const i = sim.addCar({ cls: 'coupe', human: true });
+    sim.placeCar(i, 0, 700, 0, 25);
+    // Turned square to the piste, flat out at the wall on its right.
+    sim.cars.h[i] += Math.PI / 2;
+    sim.cars.vx[i] = Math.sin(sim.cars.h[i]) * 25;
+    sim.cars.vz[i] = Math.cos(sim.cars.h[i]) * 25;
+    let wrecked = false;
+    for (let t = 0; t < 60 * 15 && !wrecked; t++) {
+      const c = neutralControls();
+      c.throttle = 1;
+      sim.step([c]);
+      wrecked = sim.cars.wreck[i] === 1;
+    }
+    expect(wrecked).toBe(true);
+    const m = track.main;
+    const k = Math.round(700 / m.step);
+    const lat = (sim.cars.x[i] - m.px[k]) * -m.tz[k] + (sim.cars.z[i] - m.pz[k]) * m.tx[k];
+    expect(Math.abs(lat)).toBeLessThan(100);
+  });
+
   test('is experimental: out of the maps the game, the validator and the lap report run', () => {
     expect(ALL_MAPS.find((m) => m.id === 'avalanche')?.experimental).toBe(true);
     expect(MAPS.some((m) => m.id === 'avalanche')).toBe(false);

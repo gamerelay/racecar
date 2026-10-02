@@ -321,8 +321,9 @@ function followGround(sim: SimState, i: number, dt: number): void {
     cars.lastS[i] = hit.s;
     cars.lastLat[i] = hit.lateral;
   }
-  // Open ground's bounds are its walls: only falling through it counts.
-  if ((!sim.track.ground && Math.abs(hit.lateral) > hit.width / 2 + hit.shoulder + T.outOfBounds) || cars.y[i] < ground - 20) {
+  // Open ground's bounds are its walls: up past their foot (Ground.outside), not off the road.
+  const out = sim.track.ground ? sim.track.ground.outside(cars.x[i], cars.z[i]) : Math.abs(hit.lateral) > hit.width / 2 + hit.shoulder + T.outOfBounds;
+  if (out || cars.y[i] < ground - 20) {
     wreckCar(sim, i, Cause.OutOfBounds, 0, 0, -1);
     // Nothing to watch: respawn after a second.
     cars.wreckT[i] = T.wreckTime - 1;

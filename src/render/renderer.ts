@@ -59,6 +59,8 @@ interface Dust {
   life: [number, number];
   gravity: number;
   drag: number;
+  /** Only in a slide or a drift (groomed snow: on the road, a carve throws it up, cruising doesn't). */
+  sliding?: boolean;
 }
 const DUST: Record<string, Dust> = {
   // A low cloud that hangs behind.
@@ -73,6 +75,10 @@ const DUST: Record<string, Dust> = {
   shore: { rate: 0.6, puff: 14, colors: [0xcfe4e8, 0xe8d8a8], kick: 0.2, spread: 3, y: 0.2, up: [2.6, 2.4], life: [0.45, 0.3], gravity: 18, drag: 0.8 },
   // Ash: a grey haze that rises a little and lingers.
   ash: { rate: 0.5, puff: 10, colors: [0x8a8288, 0x6f686e], kick: 0.06, spread: 3, y: 0.4, up: [0.8, 1.4], life: [1.6, 1], gravity: -0.8, drag: 2.4 },
+  // Powder: a big white spray, thrown high, falling slowly, a fine mist with it. Groomed snow: a
+  // smaller one off a carve.
+  powder: { rate: 0.9, puff: 22, colors: [0xffffff, 0xf2f7fc, 0xdde8f4], kick: 0.22, spread: 4, y: 0.3, up: [2.6, 3.2], life: [0.7, 0.6], gravity: 7, drag: 1.4 },
+  snow: { rate: 0.45, puff: 0, colors: [0xffffff, 0xe6eef7], kick: 0.16, spread: 3, y: 0.2, up: [1.6, 2], life: [0.5, 0.4], gravity: 9, drag: 1.6, sliding: true },
 };
 
 export class GameRenderer {
@@ -464,9 +470,9 @@ export class GameRenderer {
     const surf = this.sim.surfaces[c.surface[i]];
     const was = this.lastSurface[i];
     this.lastSurface[i] = c.surface[i];
-    if (surf?.offroad && c.grounded[i] && speed > 6) {
-      const d = DUST[surf.id] ?? DUST.dirt;
-      const sliding = c.drift[i] === 1 || Math.abs(c.slip[i]) > 0.15;
+    const d = surf && (DUST[surf.id] ?? (surf.offroad ? DUST.dirt : undefined));
+    const sliding = c.drift[i] === 1 || Math.abs(c.slip[i]) > 0.15;
+    if (d && (!d.sliding || sliding) && c.grounded[i] && speed > 6) {
       const ranOff = was !== undefined && was !== c.surface[i] && !this.sim.surfaces[was]?.offroad && speed > 14;
       const rate = d.rate * speed * (sliding ? 2.2 : 1);
       for (let s = -1; s <= 1; s += 2) {

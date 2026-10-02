@@ -1,8 +1,9 @@
 // Open ground (docs/AVALANCHE.md): a heightfield the car drives on everywhere, the same one the
-// renderer draws, for a layout with `ground`. Built once from the main road: each grid point takes
-// the road's height at the nearest point of it (its slope and bank carried across), then whatever
-// the layout adds by where the point is along and across the road: rough snow off the road, mogul
-// fields, canyons, and walls rising at the edges (they're the map's bounds).
+// renderer draws, for a layout with `ground`. Built once from the main road: on the road and its
+// shoulder, the road's own height; off it, the land between the roads (relaxed smooth, so two
+// stretches meet in a slope, not a cliff); then whatever the layout adds by where the point is
+// along and across the road: rough snow off the road, mogul fields, canyons, and walls rising at the
+// edges. Up the walls past `wallOut` is out of bounds.
 //
 // Pure arithmetic from the layout, so every screen builds the same ground.
 
@@ -23,16 +24,21 @@ export interface Ground {
   readonly nz: number;
   readonly h: Float32Array;
   readonly lateral: Float32Array;
-  /** Per point, the main road's sample nearest it (-1: none in reach). */
+  /** Per point, the main road's sample nearest it. */
   readonly near: Int32Array;
+  /** Past the climbable foot of the walls (GroundDef.wallOut), or off the grid: out of bounds. */
+  outside(x: number, z: number): boolean;
 }
 
 /** Off the road, the rough snow comes in over this many meters past the shoulder. */
 const ROUGH_IN = 10;
 /** Mogul fields and canyons ease in at their edges over this many meters. */
 const EDGE = 6;
-/** Where nothing of the road is within reach (the grid's far corners), the ground stands this high above the road's lowest. */
-const BEYOND = 200;
+/** Past the walls' foot (`wallFrom`), this far up them is in bounds by default (GroundDef.wallOut). */
+const WALL_OUT = 25;
+/** The land between the roads is relaxed on a grid this coarse (m), this many passes. */
+const BASE_CELL = 8;
+const RELAX = 300;
 
 const smooth = (e0: number, e1: number, x: number) => {
   const t = Math.min(1, Math.max(0, (x - e0) / (e1 - e0)));
@@ -91,77 +97,134 @@ export function groundShape(def: GroundDef, s: number, lat: number, half: number
   return h;
 }
 
+/** The nearest of `main`'s samples to a point, bucketed `B` m: a ring search out from the point's bucket. */
+function sampleSearch(main: BakedSpline, x0: number, z0: number, w: number, d: number, B: number) {
+  const bx = Math.ceil(w / B);
+  const bz = Math.ceil(d / B);
+  const buckets: number[][] = Array.from({ length: bx * bz }, () => []);
+  for (let i = 0; i < main.n; i++) buckets[Math.floor((main.pz[i] - z0) / B) * bx + Math.floor((main.px[i] - x0) / B)].push(i);
+  const reach = Math.max(bx, bz);
+  const found = { i: 0, d: Infinity };
+  return (x: number, z: number) => {
+    const cx = Math.floor((x - x0) / B);
+    const cz = Math.floor((z - z0) / B);
+    let best = -1;
+    let bestD = Infinity;
+    // Out in rings of buckets until one has a sample nearer than the next ring could.
+    for (let r = 0; r <= reach && ((r - 1) * B) ** 2 < bestD; r++) {
+      for (let dz = -r; dz <= r; dz++) {
+        for (let dx = -r; dx <= r; dx++) {
+          if (Math.max(Math.abs(dx), Math.abs(dz)) !== r) continue;
+          const ux = cx + dx;
+          const uz = cz + dz;
+          if (ux < 0 || uz < 0 || ux >= bx || uz >= bz) continue;
+          for (const i of buckets[uz * bx + ux]) {
+            const e = (main.px[i] - x) ** 2 + (main.pz[i] - z) ** 2;
+            if (e < bestD) {
+              bestD = e;
+              best = i;
+            }
+          }
+        }
+      }
+    }
+    found.i = best;
+    found.d = Math.sqrt(bestD);
+    return found;
+  };
+}
+
 /** The ground for `def` round `main`. */
 export function buildGround(def: GroundDef, main: BakedSpline): Ground {
-  // The main road's samples, bucketed, for the nearest one to each grid point.
-  const B = 24;
   let minX = Infinity;
   let maxX = -Infinity;
   let minZ = Infinity;
   let maxZ = -Infinity;
-  let minY = Infinity;
   for (let i = 0; i < main.n; i++) {
     minX = Math.min(minX, main.px[i]);
     maxX = Math.max(maxX, main.px[i]);
     minZ = Math.min(minZ, main.pz[i]);
     maxZ = Math.max(maxZ, main.pz[i]);
-    minY = Math.min(minY, main.py[i]);
   }
-  const margin = def.wallFrom + 40;
+  const wallOut = def.wallOut ?? WALL_OUT;
+  const margin = def.wallFrom + wallOut + 20;
   const cell = def.cell;
   const x0 = Math.floor((minX - margin) / cell) * cell;
   const z0 = Math.floor((minZ - margin) / cell) * cell;
   const nx = Math.ceil((maxX + margin - x0) / cell) + 1;
   const nz = Math.ceil((maxZ + margin - z0) / cell) + 1;
-  const bx = Math.ceil((nx * cell) / B);
-  const bz = Math.ceil((nz * cell) / B);
-  const buckets: number[][] = Array.from({ length: bx * bz }, () => []);
-  for (let i = 0; i < main.n; i++) buckets[Math.floor((main.pz[i] - z0) / B) * bx + Math.floor((main.px[i] - x0) / B)].push(i);
+  const nearest = sampleSearch(main, x0, z0, nx * cell, nz * cell, 24);
+  /** The road's plane at (x, z) as sample `i` carries it out (its slope along, its bank across). */
+  const plane = (i: number, x: number, z: number) => {
+    const j = main.closed ? (i + 1) % main.n : Math.min(main.n - 1, i + 1);
+    const along = (x - main.px[i]) * main.tx[i] + (z - main.pz[i]) * main.tz[i];
+    const lat = (x - main.px[i]) * -main.tz[i] + (z - main.pz[i]) * main.tx[i];
+    const rise = (main.py[j] + main.ramp[j] - main.py[i] - main.ramp[i]) / main.step;
+    return main.py[i] + main.ramp[i] + along * rise - lat * Math.tan(main.bank[i]);
+  };
+
+  // The land between the roads, on a coarse grid: the road's height on the road, and off it relaxed
+  // smooth from the road's plane carried out. Carried out alone, the plane jumps where two stretches
+  // are equally near (the ridge between the run and the road back, inside a switchback); relaxed,
+  // they meet in a slope.
+  const C = BASE_CELL;
+  const cnx = Math.ceil(((nx - 1) * cell) / C) + 1;
+  const cnz = Math.ceil(((nz - 1) * cell) / C) + 1;
+  const base = new Float32Array(cnx * cnz);
+  const fixed = new Uint8Array(cnx * cnz);
+  for (let cz = 0; cz < cnz; cz++) {
+    for (let cx = 0; cx < cnx; cx++) {
+      const x = x0 + cx * C;
+      const z = z0 + cz * C;
+      const a = nearest(x, z);
+      base[cz * cnx + cx] = plane(a.i, x, z);
+      fixed[cz * cnx + cx] = a.d < main.width[a.i] / 2 + main.shoulder[a.i] ? 1 : 0;
+    }
+  }
+  for (let it = 0; it < RELAX; it++) {
+    for (let cz = 0; cz < cnz; cz++) {
+      for (let cx = 0; cx < cnx; cx++) {
+        const k = cz * cnx + cx;
+        if (fixed[k]) continue;
+        // Gauss–Seidel, the grid's edges mirrored.
+        const l = base[k - (cx > 0 ? 1 : 0)];
+        const r = base[k + (cx < cnx - 1 ? 1 : 0)];
+        const u = base[k - (cz > 0 ? cnx : 0)];
+        const d = base[k + (cz < cnz - 1 ? cnx : 0)];
+        base[k] = (l + r + u + d) / 4;
+      }
+    }
+  }
+  const land = (x: number, z: number) => {
+    const u = Math.min(cnx - 1.001, Math.max(0, (x - x0) / C));
+    const v = Math.min(cnz - 1.001, Math.max(0, (z - z0) / C));
+    const gx = Math.floor(u);
+    const gz = Math.floor(v);
+    const fu = u - gx;
+    const fv = v - gz;
+    const k = gz * cnx + gx;
+    return base[k] + (base[k + 1] - base[k]) * fu + (base[k + cnx] - base[k]) * fv + (base[k] - base[k + 1] - base[k + cnx] + base[k + cnx + 1]) * fu * fv;
+  };
 
   const h = new Float32Array(nx * nz);
   const lateral = new Float32Array(nx * nz);
-  const near = new Int32Array(nx * nz).fill(-1);
-  const reach = Math.ceil(margin / B) + 1;
+  const near = new Int32Array(nx * nz);
   for (let gz = 0; gz < nz; gz++) {
     for (let gx = 0; gx < nx; gx++) {
       const x = x0 + gx * cell;
       const z = z0 + gz * cell;
-      const cx = Math.floor((x - x0) / B);
-      const cz = Math.floor((z - z0) / B);
-      let best = -1;
-      let bestD = Infinity;
-      // Out in rings of buckets until one has a sample nearer than the next ring could.
-      for (let r = 0; r <= reach && (best < 0 || bestD > ((r - 1) * B) ** 2); r++) {
-        for (let dz = -r; dz <= r; dz++) {
-          for (let dx = -r; dx <= r; dx++) {
-            if (Math.max(Math.abs(dx), Math.abs(dz)) !== r) continue;
-            const ux = cx + dx;
-            const uz = cz + dz;
-            if (ux < 0 || uz < 0 || ux >= bx || uz >= bz) continue;
-            for (const i of buckets[uz * bx + ux]) {
-              const d = (main.px[i] - x) ** 2 + (main.pz[i] - z) ** 2;
-              if (d < bestD) {
-                bestD = d;
-                best = i;
-              }
-            }
-          }
-        }
-      }
       const g = gz * nx + gx;
-      if (best < 0) {
-        h[g] = minY + BEYOND;
-        lateral[g] = 1e4;
-        continue;
-      }
-      const i = best;
-      const j = main.closed ? (i + 1) % main.n : Math.min(main.n - 1, i + 1);
+      const { i, d } = nearest(x, z);
       const along = (x - main.px[i]) * main.tx[i] + (z - main.pz[i]) * main.tz[i];
       const lat = (x - main.px[i]) * -main.tz[i] + (z - main.pz[i]) * main.tx[i];
-      const rise = (main.py[j] + main.ramp[j] - main.py[i] - main.ramp[i]) / main.step;
-      const road = main.py[i] + main.ramp[i] + along * rise - lat * Math.tan(main.bank[i]);
-      h[g] = road + groundShape(def, i * main.step + along, lat, main.width[i] / 2, main.shoulder[i], x, z);
-      lateral[g] = lat;
+      // On the road and its shoulder, the road exactly; out through the rough snow, the land.
+      const half = main.width[i] / 2;
+      const edge = half + main.shoulder[i];
+      const road = plane(i, x, z);
+      const y = road + (land(x, z) - road) * smooth(edge, edge + ROUGH_IN, d);
+      // What the layout adds, by the distance across (not the lateral: that jumps between stretches).
+      h[g] = y + groundShape(def, i * main.step + along, lat < 0 ? -d : d, half, main.shoulder[i], x, z);
+      lateral[g] = lat < 0 ? -d : d;
       near[g] = i;
     }
   }
@@ -176,6 +239,12 @@ export function buildGround(def: GroundDef, main: BakedSpline): Ground {
     h,
     lateral,
     near,
+    outside(x, z) {
+      const gx = Math.round((x - x0) / cell);
+      const gz = Math.round((z - z0) / cell);
+      if (gx < 0 || gz < 0 || gx >= nx || gz >= nz) return true;
+      return Math.abs(lateral[gz * nx + gx]) > def.wallFrom + wallOut;
+    },
     height(x, z) {
       const u = (x - x0) / cell;
       const v = (z - z0) / cell;

@@ -256,9 +256,13 @@ plan before building the mountain.
 Open it in free drive: `?mode=free&map=avalanche/slope` on the dev server. The poster scout works
 too (`poster.html?scout=avalanche/slope&s=…`).
 
-- **The ground** (`src/core/track/ground.ts`): a 2 m grid (335 × 885 points, about 0.3 s to build),
+- **The ground** (`src/core/track/ground.ts`): a 2 m grid (340 × 890 points, about 0.2 s to build),
   shaped round the main road:
-  - the road's height along it;
+  - the road's own height on the road and its shoulder;
+  - off it, the land between the roads: the road's plane carried out, then relaxed smooth on an
+    8 m grid (300 passes), blended in across the rough snow. Carried out alone, the plane jumped
+    where two stretches were equally near: cliffs up to 136 m on the ridge between the run and the
+    road back. Relaxed, nowhere steps more than 2.5 m between points 2 m apart;
   - rough snow off it (up to 1.2 m, 18 m across);
   - a mogul field (1.1 m bumps, 7 m apart, rows offset);
   - a canyon: a 10 m floor, 5 m deep, quarter-circle walls about 60° at the lip, easing in over
@@ -266,8 +270,13 @@ too (`poster.html?scout=avalanche/slope&s=…`).
   - walls rising 0.8 m per m from 70 m out.
 
   Every ground query reads it on a layout with `ground` (`finishProjection`), and the renderer draws
-  the same grid (`snow.ts`): the road's surface on the road, powder off it, grey rock where it's
-  steep. The roads' own decks aren't drawn on it.
+  the same grid (`snow.ts`) in 128 m tiles the camera culls: the road's surface on the road, powder
+  off it, grey rock where it's steep. The roads' own decks aren't drawn on it; a road that isn't
+  snow has its lines painted on the ground (edges, a dashed yellow middle), and the finish is
+  checkered across the piste.
+- **Bounds:** 25 m up the walls past their foot (`GroundDef.wallOut`, `Ground.outside`) is out of
+  bounds, a wreck and a respawn on the piste. Before that, a car flat out climbed the walls and
+  drove off the grid onto flat ground forever (550 m out in a test).
 - **Slope gravity** (`SurfaceDef.slide`): snow and powder slide (1), every other surface doesn't
   (0), so the other three maps drive exactly as before (their lap floors are unchanged). On a
   sliding surface the engine doesn't hold you at top speed, so a steep pitch takes you past it.
@@ -275,7 +284,6 @@ too (`poster.html?scout=avalanche/slope&s=…`).
   20 m/s you're airborne about a third of the time; at 30 m/s you skip across the tops, airborne
   about four fifths of it in half-second hops.
 - **The body** follows the ground's slope along and across the car.
-- **Out of bounds** on open ground is only falling through it: the walls are the bounds.
 - **Surfaces:**
   - `snow`, groomed: grip 0.8, a little drag, drifting charges 15% faster ("carving");
   - `powder`: grip 0.7, drag 0.12 (it costs a little: dirt's is 0.25, grass's 0.45), off-road.
@@ -288,6 +296,8 @@ too (`poster.html?scout=avalanche/slope&s=…`).
 - **Experimental:** `experimental: true` in `map.json` keeps it out of `MAPS` (the lobby, the vote,
   the results), the validator and the every-layout lap report. `ALL_MAPS` and `EXPERIMENTAL_KEYS`
   reach it, and the lap report runs it when it's named.
+- **Snow spray** (`DUST` in `renderer.ts`): powder throws a big white spray, and a burst as you
+  run into it; groomed snow throws a smaller one only in a carve or a slide.
 - **The hard AI** gets round clean: 62.3 s a lap, top speed 228 km/h (past the coupe's top, down
   the steep pitches).
 - **Tests** (`test/ground.test.ts`): the ground is the road along its middle and walls far out;
@@ -295,11 +305,27 @@ too (`poster.html?scout=avalanche/slope&s=…`).
   hard AI gets round.
 
 Not done yet:
-- **Snow spray:** off snow there's no dust yet (`DUST` in `renderer.ts`).
-- **Lines on the road:** the return road has no lines, since its deck isn't drawn.
-- **The ridge between the run and the road** is a cliff where their grounds meet. It's
-  out of reach behind the walls.
-- **Feel:** nothing is tuned by a drive yet. That's the owner's next step.
+- **Feel:** nothing is tuned by a drive yet. That's the owner's next step. Each of these is one
+  number: how hard snow pulls (`slide`), powder's cost (its `drag`), the moguls' height and spacing,
+  the canyon's depth, how steep the pitches are (the generator's heights).
+
+### Looking ahead (from step 1's review)
+
+- **A 6–7 km run's ground.** The grid covers the road's bounding box. A run zigzagging down a
+  1.5 × 3 km mountain at 2 m is about 1.1 million points: about 13 MB of arrays and some 260
+  tiles, too much to draw at once and slow to build (about 0.7 s). For step 3: keep the 2 m grid
+  only in tiles that come within the walls' reach of the road (a corridor, about a third of the
+  box), draw a coarse 8 m mesh beyond, and draw far tiles coarser (a level of detail per tile).
+  The tiles are already the unit for that.
+- **One run (step 3)** needs nothing new from the ground: it reads `main.closed`, and the land's
+  relaxation fills the ground between a switchback's legs as it does the ridge now. A layout's
+  switchbacks can come within the walls of each other, and the ground between them is then
+  drivable snow, a cut. Gates (step 3) are what stop a cut from skipping the run.
+- **The AI (step 2):** its speed plan is about curvature. Downhill it has more speed than it
+  planned, and it's clean today only because the piste is wide. Plan the braking with the slope
+  in it before the run gets steeper or narrower.
+- **Respawns** put you back on the piste where you left it, facing down it. Out of bounds
+  in a canyon or up a wall needs no more than that.
 
 ## Questions for the owner
 

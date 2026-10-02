@@ -212,6 +212,8 @@ export interface GroundDef {
   /** Past this far from the main road's middle the ground rises into walls, `wallRise` m per m. */
   wallFrom: number;
   wallRise: number;
+  /** How far up the walls (m past `wallFrom`) is still in bounds: past it, out of bounds (default 25). */
+  wallOut?: number;
   /** Bumps off the road: up to this high (m), this wide (m). */
   rough?: { height: number; size: number };
   /** Mogul fields: bumps `height` m high, `spacing` m apart, over s × lateral. */
