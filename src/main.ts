@@ -25,7 +25,7 @@ import { Hud } from './ui/hud';
 import { RaceUi } from './ui/race';
 import { accept, navigate } from './ui/nav';
 import { installChoosers } from './ui/chooser';
-import { fadeIn } from './ui/fade';
+import { fadeIn, ready, veiled } from './ui/fade';
 import { SettingsPanel } from './ui/settings';
 import { ControlsPanel } from './ui/controls';
 import { SettingsStore } from './settings';
@@ -51,8 +51,10 @@ function storage(): Storage | null {
   }
 }
 let screens: Menu | undefined;
-// The page comes up out of the dark (every race and menu is a page load: ui/fade.ts).
+// The page comes up out of the loading screen once it has drawn (every race and menu is a page load: ui/fade.ts).
 fadeIn();
+/** Frames drawn: the loading screen lifts after the second (the first compiles the shaders). */
+let drawn = 0;
 installChoosers();
 /** The player's settings (sound, graphics, privacy), on this device. */
 const settings = new SettingsStore(storage());
@@ -318,7 +320,8 @@ function frame(now: number): void {
   input.menuOpen = !!openMenu();
   if (paused) input.pollMenu();
   // An online race doesn't stop for your pause menu: the others are still driving (yours coasts).
-  const stepping = (!paused || onlineRace) && !editorOpen;
+  // Offline, the race waits behind the loading screen, so you see its countdown from the start.
+  const stepping = (!paused || onlineRace) && !editorOpen && (onlineRace || !veiled());
   if (stepping) {
     if (paused) Object.assign(controls, neutralControls());
     else input.poll(controls, dt);
@@ -338,6 +341,7 @@ function frame(now: number): void {
     const stage = renderer.showroom.visible ? document.querySelector<HTMLElement>('#menu .stage') : null;
     if (stage) renderer.showroom.frame(stage.getBoundingClientRect(), window.innerWidth, window.innerHeight);
     renderer.frame(alpha, dt, steer, braking);
+    if (++drawn === 2) ready();
     if (attract) {
       // Follow whoever leads.
       let lead = 0;

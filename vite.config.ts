@@ -4,7 +4,7 @@
 //   POST /__editor/save  {path, layout}    → writes a layout under content/maps (the editor)
 //   POST /__poster/save  {name, data}      → writes a PNG or JPEG (a data URL) into marketing/ (poster.html)
 
-import { appendFileSync, mkdirSync, writeFileSync } from 'node:fs';
+import { appendFileSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve, sep } from 'node:path';
 import type { IncomingMessage } from 'node:http';
 import { defineConfig, type Plugin } from 'vite';
@@ -73,8 +73,16 @@ function devEndpoints(): Plugin {
   };
 }
 
+/** The crossed chequered flags (src/ui/icons/flags.svg) into index.html's loading screen, in dev and every build. */
+function loadingLogo(): Plugin {
+  return {
+    name: 'racecar-loading-logo',
+    transformIndexHtml: (html) => html.replace('<!--flags-->', () => readFileSync(join(root, 'src/ui/icons/flags.svg'), 'utf8').trim()),
+  };
+}
+
 export default defineConfig({
-  plugins: [devEndpoints()],
+  plugins: [devEndpoints(), loadingLogo()],
   define: { __BUILD_TIME__: JSON.stringify(Date.now().toString(36)) },
   server: { port: 5178, watch: { ignored: ['**/telemetry/**', '**/marketing/**'] } },
   build: {

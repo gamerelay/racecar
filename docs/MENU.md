@@ -192,7 +192,9 @@ What's in, and where it went differently from the plan above:
   when focused. The map chooser is cycling only for now (the thumbnail grid is still open).
 - **Transitions:** menu screens fade and slide (forward from the right, back from the left), with
   nothing pressable while one leaves; overlays (the menu, Settings, results) pop in; every page
-  load (a race, the menu after one) fades through the dark (`src/ui/fade.ts`). The browser's
+  load (a race, the menu after one) fades through the dark (`src/ui/fade.ts`), with the crossed
+  flags pulsing in the middle (in `index.html`, so it's up from the first paint) until the page has
+  drawn twice, for 0.7 s at least and 5 s at most; an offline race waits behind it. The browser's
   reduced-motion setting makes them short fades. The "Reduce motion" setting itself comes with
   step 4.
 
