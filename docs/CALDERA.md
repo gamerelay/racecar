@@ -42,6 +42,11 @@ Started 2026-10-03, from the owner's brief:
 6. **Easy for an LLM to drive.** Everything you'd check by playing can also be checked from the
    command line, with text output (and `--json`): place a car, run it, read what happened, render
    a picture. See "Developer tools" below.
+7. **Move fast, refactor freely.** Racecar is a side project with one user, so old code, layouts,
+   generators and links get reworked to fit the engine, with no compatibility layers. What's kept
+   is the effect: each map plays the same, its lap floors hold, and online stays in sync.
+   **Desktop only:** mobile isn't supported, so budgets (frame time, triangles, draw calls) are
+   for desktop GPUs, and input is keyboard and gamepad.
 
 ## The core idea: pieces
 
@@ -115,6 +120,7 @@ Kept out on purpose, so the engine stays small and deterministic:
 - **No ground that changes mid-race**: craters and landslides are out. The eruption is an
   event that wrecks cars, not lava that reshapes the land.
 - **No streaming**: a map is built at load and fits in memory. Maps of a few km² are fine.
+- **No mobile**: desktop browsers only.
 - **No general physics engine**: the car model stays our own, so it stays deterministic.
 
 ## Developer tools (for people and LLMs)
