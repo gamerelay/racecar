@@ -121,7 +121,8 @@ const legs: [typeof A, typeof A][] = [
 ];
 /**
  * The main road's ground beside (x, z) (its plane carried out sideways), and how far the tube's
- * edge there is past the main road's verge (m), searched along the main road near `s`.
+ * edge there is past the main road's verge (m), searched along the main road near `s`. (`clear`
+ * is joinBranch's test, bake.ts: at 0 or less the bake holds the tube to that ground.)
  */
 const beside = (x: number, z: number, s: number) => {
   let k = 0;

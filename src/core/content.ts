@@ -37,7 +37,8 @@ export interface BranchDef extends SplineDef {
    * Whose heights it has where it leaves and rejoins: by default the bake pulls it onto the main
    * road's ground, fading to its own over JOIN_FADE m as it pulls clear (bake.ts joinBranch).
    * 'own': its heights are as authored, held to the main road's ground only where it's on the main
-   * road or its verge, so whatever authors it (a generator) says exactly what it drives.
+   * road or its verge, so whatever authors it (a generator) says exactly what it drives. It must
+   * meet the main road's ground where it leaves the verge, or that's a step. Its bank still fades.
    */
   heights?: 'own';
 }
