@@ -11,8 +11,9 @@ golden fingerprints, the allocation test on the open maps, `tools/drive.ts`, `to
 `tools/shot.ts` and `window.__rc.dev`, over `src/dev/`. **Step 0b, the sim's own math**, is merged (PR #84):
 see "Same math in every browser"; one fingerprint file for every platform. **Step 1a, the move
 onto pieces**, and **1b, portals**, are merged (#85, #86; fingerprints identical), and **1c,
-branches own their heights** (#87; Paradise Open re-recorded, its drive the same). Next: step 1d, one surface
-function. HANDOFF has the detail.
+branches own their heights** (#87; Paradise Open re-recorded, its drive the same). **1d, one
+surface function**, is built (the coast's sand drives as sand). Next: step 2, feature modules.
+HANDOFF has the detail.
 
 **Reading it:** "Principles" and "The core idea: pieces" are the design; "Build order" and "How
 to work on it" are what to do; the rest is reference (moving things, routes, a worked example,
@@ -583,8 +584,8 @@ For each change, in this order:
 ## Build order
 
 Each step ships on its own. The existing maps keep their lap floors (the best AI lap, in
-seconds: Downtown 57.9, Backroads 62.82, Avalanche 93.07, Paradise 71.52, Paradise Open 68.07, as
-of 2026-10-03), unless a step means to change a map (the coast's sand driving as sand, a lava
+seconds: Downtown 57.9, Backroads 62.82, Avalanche 93.07, Paradise 71.52, Paradise Open 68.10 (68.07 before step 1d's
+sand), as of 2026-10-03), unless a step means to change a map (the coast's sand driving as sand, a lava
 stream across a route): then the new floor is recorded, with why.
 
 0. **A safety net and tools first** (built, PR #83), and **0b, the sim's own math** (built, PR #84), so
@@ -645,7 +646,9 @@ stream across a route): then the new floor is recorded, with why.
      the generator writes the tube's profile as it wants it. Within 8 cm of before; the lap floor
      and the field unchanged.
    - **1d, one surface function** for drawing and driving. The coast's sand drives as sand
-     (decided): fingerprints and Paradise Open's floor re-recorded.
+     (decided): fingerprints and Paradise Open's floor re-recorded. *Built:* `ground.kind` per
+     grid point (`ground/surface.ts`), coloured by the renderer and driven by `surfaceAt`;
+     Paradise Open 68.10 s (was 68.07).
 
    Clears most of TECH_DEBT's "Open ground and Paradise Open".
 2. **Feature modules**: the volcano, coast, beaches, moguls, canyons and the avalanche as

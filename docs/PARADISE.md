@@ -363,7 +363,8 @@ lighter on the cone.
 - **The look (#80, the owner's call):** a lot of black lava rock on the cone (grey ash streaks, or
   less of it?), and the grass still a bit bright.
 
-**Numbers** (best AI lap, solo hard coupe): Paradise Open 68.07 s with the jump (67.68 s with the
+**Numbers** (best AI lap, solo hard coupe): Paradise Open 68.07 s with the jump (68.10 s since
+the coast's sand drives as sand, CALDERA's step 1d) (67.68 s with the
 tube before it, 70.03 s without the tube, 71.52 s for today's Paradise); the field's wrecks at 0 a
 race (2026-10-03). Every other map's floor is unchanged: Downtown 57.9, Backroads 62.82, Avalanche
 93.07. `bun test`: 493 pass.

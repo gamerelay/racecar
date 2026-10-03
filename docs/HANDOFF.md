@@ -6,7 +6,7 @@ building". This file is "where are we"; the spec is "what are we making".
 
 **Last updated:** 2026-10-03 (Paradise Open merged in #81, untagged; the plan for the engine,
 [CALDERA.md](./CALDERA.md), merged in #82; steps 0 and 0b merged in #83 and #84; 1a, 1b and 1c in
-PRs #85, #86 and #87, merged; next is 1d; see "Next: Caldera" below). Before that, `alpha-1.30`: Avalanche's snow and rumble quieter. The last tag is **`alpha-1.30`** (PR #77: the snow under the wheels and the avalanche's rumble about 4.5 dB down, the owner's ask). Before it, **`alpha-1.29`** (PRs #71–#74): **Avalanche**, the first open map, one 6.1 km run down a mountain (#74), and the Leap's kicker rounded and launchable from its sides (#71, #72), and PLAN's "Open, freeform maps" direction (#73).
+PRs #85, #86 and #87, merged; 1d in PR #88, awaiting the owner's merge; next is step 2; see "Next: Caldera" below). Before that, `alpha-1.30`: Avalanche's snow and rumble quieter. The last tag is **`alpha-1.30`** (PR #77: the snow under the wheels and the avalanche's rumble about 4.5 dB down, the owner's ask). Before it, **`alpha-1.29`** (PRs #71–#74): **Avalanche**, the first open map, one 6.1 km run down a mountain (#74), and the Leap's kicker rounded and launchable from its sides (#71, #72), and PLAN's "Open, freeform maps" direction (#73).
 Before it, `alpha-1.28` (PRs #67–#70: a press flash and a click on the menus' buttons; the title's
 music from the start; Logger's Leap smoothed and bermed), `alpha-1.27` (PRs #63–#65), `alpha-1.26`
 (PR #62: two new tracks), `alpha-1.25` (PR #61: boost, Overdrive, the slipstream) and `alpha-1.24`
@@ -69,13 +69,19 @@ Paradise Open's fingerprints re-recorded, the rest identical.
 (GitHub doesn't retarget when gh deletes the branch). Instead: merge the bottom PR without
 deleting its branch, `gh pr edit <next> --base main`, then delete the branch.
 
-**Next: step 1d, one surface function** for drawing and driving: the coast's sand drives as sand
-(decided). Fingerprints and Paradise Open's lap floor re-recorded. Follow CALDERA's "How to work on
-it". Where to start: TECH_DEBT's "Off-road surfaces are per main-road sample, not per side or per
-point" (the sand painted by the coast drives as the stretch's verge unless it's in a beach,
-`GroundDef.beaches`, which `surfaceAt` checks by side). What's drawn and what's driven should come
-from one function of (x, z). The generator reproduces the committed JSON exactly (`bun
-tools/gen-paradise-open.ts`, then `git diff`).
+**Step 1d, one surface function, is built** (PR #88, branch `caldera-surface`, 2026-10-03; awaiting
+the owner's merge). `ground.kind` per grid point (`core/track/ground/surface.ts`: road, a branch's
+road, sand, wet sand, verge) is what `snow.ts` colours and what `surfaceAt` drives off the asphalt
+(it takes the car's x and z now: the point rebuilt from a far projection drifted). The coast's sand
+drives as `sand`, the water's edge as `shore`, the beaches as drawn. Paradise Open 68.07 → 68.10 s,
+the field 28 wrecks in 40 seeds (27 before); only Paradise Open's fingerprints moved. That's step 1
+done.
+
+**Next: step 2, feature modules** (CALDERA's "Build order"): the volcano, coast, beaches, moguls,
+canyons and the avalanche as modules over pieces, placed in world space or along a named street,
+not by the main road; overrides with them; then the first new module, a lava stream. Read CALDERA's
+"A feature, end to end" first. It's big: split it into PRs (a module interface and one existing
+feature moved onto it, fingerprints identical, would be a good first).
 
 **Working notes (2026-10-03):**
 - One PR per step, a fresh reviewer at the end (it found real bugs every time: in 0b, 1a and 1b),

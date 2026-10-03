@@ -64,6 +64,6 @@ export function locateCar(sim: SimState, i: number): TrackHit {
   cars.s[i] = cur.s;
   cars.lateral[i] = cur.lateral;
   cars.junctionFree[i] = free;
-  cars.surface[i] = surfaceAt(track, cur, sim.wet, sim.shoulderSurface);
+  cars.surface[i] = surfaceAt(track, cur, cars.x[i], cars.z[i], sim.wet, sim.shoulderSurface);
   return cur;
 }
