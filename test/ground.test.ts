@@ -88,9 +88,10 @@ describe("Avalanche's Slope", () => {
     expect(worst / g.cell).toBeLessThan(Math.tan((60 * Math.PI) / 180));
   });
 
-  test("a car driven up the walls goes out of bounds, it doesn't drive off the map", () => {
+  test('all the drawn ground is in bounds: a car driven up the walls is only out of bounds where the ground ends', () => {
     const l = layout('avalanche/slope');
-    const track = bakeTrack(l, SURFACES);
+    const track = slope();
+    const g = track.ground!;
     const sim = new Sim(track, CLASSES, SURFACES, { seed: 1 });
     const i = sim.addCar({ cls: 'coupe', human: true });
     sim.placeCar(i, 0, 700, 0, 25);
@@ -99,19 +100,24 @@ describe("Avalanche's Slope", () => {
     sim.cars.vx[i] = Math.sin(sim.cars.h[i]) * 25;
     sim.cars.vz[i] = Math.cos(sim.cars.h[i]) * 25;
     let wrecked = false;
-    for (let t = 0; t < 60 * 15 && !wrecked; t++) {
+    let furthest = 0;
+    for (let t = 0; t < 60 * 20 && !wrecked; t++) {
       const c = neutralControls();
       c.throttle = 1;
       sim.step([c]);
+      const gx = Math.round((sim.cars.x[i] - g.x0) / g.cell);
+      const gz = Math.round((sim.cars.z[i] - g.z0) / g.cell);
+      if (gx >= 0 && gz >= 0 && gx < g.nx && gz < g.nz) furthest = Math.max(furthest, Math.abs(g.lateral[gz * g.nx + gx]));
       wrecked = sim.cars.wreck[i] === 1;
     }
-    expect(wrecked).toBe(true);
-    const m = track.main;
-    const k = Math.round(700 / m.step);
-    const lat = (sim.cars.x[i] - m.px[k]) * -m.tz[k] + (sim.cars.z[i] - m.pz[k]) * m.tx[k];
-    // At the walls' top (20 m past wallOut, where they're drawn to), not at their foot.
-    expect(Math.abs(lat)).toBeGreaterThan(l.ground!.wallFrom + (l.ground!.wallOut ?? 25) + 15);
-    expect(Math.abs(lat)).toBeLessThan(l.ground!.wallFrom + (l.ground!.wallOut ?? 25) + 25);
+    // Up past where the old line was (wallOut), and out of bounds only at the grid's edge.
+    expect(furthest).toBeGreaterThan(l.ground!.wallFrom + (l.ground!.wallOut ?? 25) + 10);
+    if (wrecked) {
+      expect(sim.cars.wreckCause[i]).toBe(Cause.OutOfBounds);
+      const gx = (sim.cars.x[i] - g.x0) / g.cell;
+      const gz = (sim.cars.z[i] - g.z0) / g.cell;
+      expect(Math.min(gx, gz, g.nx - 1 - gx, g.nz - 1 - gz)).toBeLessThan(3);
+    }
   });
 
   test('is experimental: out of the maps the game, the validator and the lap report run', () => {

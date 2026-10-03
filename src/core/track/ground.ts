@@ -3,7 +3,8 @@
 // shoulder, the road's own height; off it, the land between the roads (relaxed smooth, so two
 // stretches meet in a slope, not a cliff); then whatever the layout adds by where the point is
 // along and across the road: rough snow off the road, mogul fields, canyons, and walls rising at the
-// edges, drawn `wallOut` + 20 m up them. Out of bounds is their top (CLIMB m past `wallOut`).
+// edges. All of it is yours to drive, ridges and mountainsides too: out of bounds is only off the
+// grid, where the ground ends.
 //
 // Pure arithmetic from the layout, so every screen builds the same ground.
 
@@ -26,7 +27,7 @@ export interface Ground {
   readonly lateral: Float32Array;
   /** Per point, the main road's sample nearest it. */
   readonly near: Int32Array;
-  /** Near the top of the walls (CLIMB m past GroundDef.wallOut), or off the grid: out of bounds. */
+  /** Off the grid, where the ground ends: out of bounds (anywhere drawn is in bounds). */
   outside(x: number, z: number): boolean;
 }
 
@@ -34,13 +35,8 @@ export interface Ground {
 const ROUGH_IN = 10;
 /** Mogul fields and canyons ease in at their edges over this many meters. */
 const EDGE = 6;
-/** Past the walls' foot (`wallFrom`), this far up them is in bounds by default (GroundDef.wallOut). */
+/** Past the walls' foot (`wallFrom`), the grid reaches this far up them, and 20 m more, at its narrowest (GroundDef.wallOut). */
 const WALL_OUT = 25;
-/**
- * Out of bounds is this far past `wallOut`: where the walls are drawn to, their top. All of them is
- * yours to drift up at speed and come back down, or launch off (the owner's ask).
- */
-const CLIMB = 20;
 /** The land between the roads is relaxed on a grid this coarse (m), this many passes. */
 const BASE_CELL = 8;
 const RELAX = 300;
@@ -264,8 +260,9 @@ export function buildGround(def: GroundDef, main: BakedSpline): Ground {
     outside(x, z) {
       const gx = Math.round((x - x0) / cell);
       const gz = Math.round((z - z0) / cell);
-      if (gx < 0 || gz < 0 || gx >= nx || gz >= nz) return true;
-      return Math.abs(lateral[gz * nx + gx]) > def.wallFrom + wallOut + CLIMB;
+      // (The owner: an invisible wall up a slope, with snow drawn on past it, was no fun. A ridge
+      // between two stretches, a mountainside: drive it, jump off it.)
+      return gx < 1 || gz < 1 || gx >= nx - 1 || gz >= nz - 1;
     },
     height(x, z) {
       const u = (x - x0) / cell;

@@ -412,8 +412,13 @@ lap floors haven't moved.
 ### The feel first
 
 **Out of bounds moved up the walls (2026-10-02).** The owner drove up the slopes and crashed into
-nothing, well short of the top: out of bounds was 25 m up the walls (`wallOut`). It's now 20 m
-further (`CLIMB` in `ground.ts`), at the walls' drawn top, and it doesn't count in the air. (A rock cliff there was tried first,
+nothing, well short of the top: out of bounds was 25 m up the walls (`wallOut`), measured across
+from the nearest road. That made 60% of the drawn ground, every ridge between two stretches and
+every mountainside, an invisible wall. Now all of the drawn ground is in bounds. Out of bounds is
+only off the grid, where the ground visibly ends (or falling 20 m below it), and not in the air.
+A jump ahead now counts the checkpoints it skips (`runProgress`), so leaping a ridge onto a later
+stretch is a shortcut you earn, not a run you can't finish. The AI never leaves the piste, so its
+times are unchanged. (A rock cliff there was tried first,
 but it made the walls look too tall and jagged, so it was reverted. The slopes look as they were.)
 
 Items 1 and 2 are built (2026-10-02, on PR #74):

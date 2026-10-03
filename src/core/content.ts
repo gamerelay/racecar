@@ -252,7 +252,7 @@ export interface GroundDef {
   /** Past this far from the main road's middle the ground rises into walls, `wallRise` m per m. */
   wallFrom: number;
   wallRise: number;
-  /** How far up the walls (m past `wallFrom`) is still in bounds: past it, out of bounds (default 25). */
+  /** How far up the walls (m past `wallFrom`) the ground is drawn, plus 20 m, at its narrowest (default 25). All of it is in bounds. */
   wallOut?: number;
   /** Long, low rolls everywhere, the road too: this high (m, peak to trough), this wide (m). */
   swell?: { height: number; size: number };
