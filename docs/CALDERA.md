@@ -658,7 +658,7 @@ stream across a route): then the new floor is recorded, with why.
    today's one-offs are looked at. The first new modules: **lava streams** (see "A feature, end
    to end"; the static stream from the volcano toward the reef is the first), then the eruption
    and a lava flow onto a road.
-   - **2a, the interface** (built): `core/track/features/`, a `Feature` with optional `shape`,
+   - **2a, the interface** (merged, #89): `core/track/features/`, a `Feature` with optional `shape`,
      `surface`, `hazard` (and `coast`) hooks the ground runs in order; the volcano and the coast
      moved onto it, the fingerprints identical. `ground.hazard(x, y, z)` replaces `inLava`. The
      skin still colours the volcano from the layout (a `draw` hook comes with the lava stream,
