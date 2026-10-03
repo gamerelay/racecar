@@ -2,6 +2,7 @@ import { describe, expect, setDefaultTimeout, test } from 'bun:test';
 import type { TrackLayout } from '../src/core/content';
 import { neutralControls } from '../src/core/controls';
 import { Sim } from '../src/core/sim';
+import { wreckCar } from '../src/core/car/physics';
 import { bakeTrack } from '../src/core/track/bake';
 import { canyonAt, canyonDepth } from '../src/core/track/ground';
 import { buildPines } from '../src/core/track/pines';
@@ -518,6 +519,24 @@ describe("the Slope's avalanche", () => {
     expect(sim.cars.s[i] - sim.avalancheFront).toBeGreaterThan(AVALANCHE_AHEAD - 20);
   });
 
+  test('a car that has finished and wrecks in the run-out comes back where it was, not above the finish', () => {
+    const { sim, i } = race('chaos');
+    const run = sim.track.run!;
+    // Long enough for the avalanche to have stopped above the line.
+    const av = sim.avalanche!;
+    let u = av.delay;
+    while (av.front(u) < run.finish - 60) u += 1;
+    for (let t = 0; t < (u + 1) * 60; t++) {
+      sim.placeCar(i, 0, run.finish + 60, 0, 0);
+      sim.step([neutralControls()]);
+    }
+    sim.cars.finished[i] = 1;
+    wreckCar(sim, i, Cause.Prop, 0, 0, -1);
+    for (let t = 0; t < 60 * 6 && sim.cars.wreck[i]; t++) sim.step([neutralControls()]);
+    expect(sim.cars.wreck[i]).toBe(0);
+    expect(sim.cars.s[i]).toBeGreaterThan(run.finish);
+  });
+
   test("a car down in a canyon is under it, and isn't buried", () => {
     const { sim, i } = race('chaos');
     const track = sim.track;
@@ -603,5 +622,24 @@ describe('one run (layout.run)', () => {
     expect(back).toBe(true);
     expect(sim.cars.lap[i]).toBe(0);
     expect(sim.cars.bestLap[i]).toBeGreaterThan(0);
+  });
+
+  test('two cars finishing together start their next runs in their own slots, not on each other', () => {
+    const track = bakeTrack(straight(), SURFACES);
+    const sim = new Sim(track, CLASSES, SURFACES, { seed: 1 });
+    const a = sim.addCar({ cls: 'coupe', human: true });
+    const b = sim.addCar({ cls: 'coupe', racer: { difficulty: 0 } });
+    for (const i of [a, b]) {
+      sim.placeCar(i, 0, 1150, i === a ? -3 : 3, 30);
+      sim.cars.nextCp[i] = track.checkpoints.length;
+      sim.cars.progress[i] = 1150 - 60;
+    }
+    let back = false;
+    for (let t = 0; t < 60 * 10 && !back; t++) {
+      sim.step([neutralControls()]);
+      back = sim.cars.s[a] < 100 && sim.cars.s[b] < 100;
+    }
+    expect(back).toBe(true);
+    expect(Math.hypot(sim.cars.x[a] - sim.cars.x[b], sim.cars.z[a] - sim.cars.z[b])).toBeGreaterThan(4);
   });
 });

@@ -578,9 +578,10 @@ function catchUp(sim: SimState, i: number): number {
 
 export function respawn(sim: SimState, i: number): void {
   const cars = sim.cars;
-  // Ahead of an avalanche, not back under it (world/avalanche.ts).
+  // Ahead of an avalanche, not back under it (world/avalanche.ts). Not once you've finished: it
+  // stops above the line, and that put a car wrecked in the run-out back above the finish.
   const ahead = sim.avalancheFront + AVALANCHE_AHEAD;
-  if (ahead > -Infinity && mainDistance(sim.track, cars.lastSpline[i], cars.lastS[i]) < ahead) {
+  if (ahead > -Infinity && !cars.finished[i] && mainDistance(sim.track, cars.lastSpline[i], cars.lastS[i]) < ahead) {
     cars.lastSpline[i] = 0;
     cars.lastS[i] = Math.min(ahead, (sim.track.run?.finish ?? sim.track.main.length) - AVALANCHE_LINE);
     cars.lastLat[i] = 0;

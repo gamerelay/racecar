@@ -247,11 +247,11 @@ export class Sim implements SimState {
     c.lastLap[i] = 0;
   }
 
-  /** Back to the top of the run (free drive), its times kept. */
+  /** Back to the top of the run (free drive), its times kept: in its own grid slot, so two cars finishing together don't land on each other. */
   private runAgain(i: number): void {
     const run = this.track.run!;
-    const at = sampleAt(this.track.main, run.start - 10, this.hitA);
-    this.placeCar(i, 0, at.s, 0);
+    const at = sampleAt(this.track.main, run.start - 10 - Math.floor(i / 2) * 9, this.hitA);
+    this.placeCar(i, 0, at.s, (i % 2 === 0 ? -1 : 1) * at.width * 0.22);
     const c = this.cars;
     c.lap[i] = 0;
     c.nextCp[i] = 0;
