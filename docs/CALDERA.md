@@ -6,6 +6,10 @@ where tubes, gaps and rock faces were first needed, hence the name). **It's a di
 spec.** Details will change while building; note those changes in [SPEC.md](./SPEC.md) under
 "Changed while building", as usual.
 
+**Status (2026-10-03):** nothing built yet; step 0 (the safety net and tools) is next. A
+task-by-task plan for steps 0–2 is drafted in the owner's working tree
+(`docs/superpowers/plans/2026-10-03-open-world-engine.md`, not committed).
+
 Started 2026-10-03, from the owner's brief:
 - One engine for every racecar map: open ground, cities, and whatever comes next. **For racecar
   only**, not a general-purpose engine.
@@ -33,7 +37,8 @@ Started 2026-10-03, from the owner's brief:
    with the road graph, and modules shouldn't go with it.
 4. **Online first.** Online play follows SPEC §4's sync categories: your car is yours (its pose
    sent 30 times a second), the host runs the AI, and **the world is a pure function of the seed
-   and the race clock**, so nothing about it is sent. Every engine feature has to fit one of them:
+   and the race clock**, so nothing about it is sent. Every engine feature has to fit one of the
+   categories (and things the host runs, like the AI, are SPEC's H; see "Things that move"):
    - **The world (D):** pieces, moving pieces (a drawbridge's angle at t), spreading hazards (a
      lava flow, the avalanche, the eruption): closed-form functions of time, not integrated, so
      float differences between browsers can't build up. Randomness comes from the seed's streams.
@@ -73,7 +78,8 @@ Caldera replaces them with one layer. A **piece** is anything you can drive on:
 - an optional **ceiling**: then it's **enclosed** (a tunnel, a mall, the inside of the volcano);
 - a **surface** tag (tarmac, tile, sand, snow) and a **look** (drawn as road, as rock, or
   invisible);
-- an optional **motion**: a transform as a function of the race clock.
+- an optional **motion**: a transform over time, and who decides it (a formula of the race
+  clock, a kick, the host: see "Things that move").
 
 The terrain heightfield is the default piece under everything. Pieces are built once at load
 from the layout and put in a spatial index, so a query only checks the pieces near it.
@@ -82,22 +88,22 @@ Pieces are **the only way** to add a surface. Once they exist, `GroundDef`'s `de
 `branchDecks` and `branchGaps` are deleted (the layouts and generators say the same things as
 pieces), so the type itself leaves no room for a fourth special case.
 
-Everything asks one question, **cast down from (x, y, z)**, and gets back:
+The main question is **cast down from (x, y, z)**, and it gets back:
 - the floor's height and slope there, and its surface;
 - the ceiling over it, if it's enclosed (the point's **space**: open air, inside a tube, or in
   the rock);
 - any **hazard** there (lava, deep water);
 - which piece it is (and where along it).
 
+And two more, from the same index: **the walls near a point** (for the physics to bounce off,
+breakable or not), and **a line between two points** (is it clear: the camera's view of the car,
+an AI's line of sight). Remote cars use the cast too, to sit on the right floor between poses.
+
 **What's drawn is what's driven:** the surface comes from one function of the point, used by
 both the physics and the renderer. Today they disagree: off-road surfaces go by the nearest
 main-road sample and side, so sand painted along the coast drives as grass. With one function,
 patches of mud or sand can be any shape, and the coast's sand drives as sand (the one gameplay
 change in the clean-up).
-
-And two more, from the same index: **the walls near a point** (for the physics to bounce off,
-breakable or not), and **a line between two points** (is it clear: the camera's view of the car,
-an AI's line of sight). Remote cars use the cast too, to sit on the right floor between poses.
 
 Where a piece goes into the ground (a tunnel's mouth, a mall's door), it gets a **portal**: the
 ground cut to the piece's own outline (not whole grid squares) and stitched to its rim, with a
@@ -229,6 +235,7 @@ separate from the gameplay.
   an LLM can see it.
 - **Golden replays.** Record a few human runs (the jump, a tunnel, a shortcut) once, replay them
   in the tests, and compare where they end: catches changes to the feel that AI lap floors miss.
+  (Step 0's golden fingerprints are the scripted version of this.)
 - **Heatmaps from telemetry.** Wrecks, respawns and air plotted on the map's top-down image
   (`tools/map.ts`): where players actually struggle.
 - **Same math in every browser.** `Math.sin`, `Math.exp` and the like aren't required to give
@@ -263,7 +270,7 @@ What the engine struggles with now, and the build step that lifts it (if any):
 | The ground, off-road surfaces and out of bounds are measured from the main road | `ground.ts` places every point by its nearest main-road sample | Steps 2 and 6 |
 | No road network: one loop plus branches, progress by distance along the main road | Branches leave and rejoin the main road; checkpoints are main-road distances | Step 6 (the road graph) |
 | Indoors looks and sounds like outdoors | One light for everything; the camera only knows the Lava Tube | Step 3 |
-| Nothing moves but the avalanche and traffic | No moving surfaces | Step 4 |
+| Nothing you drive on moves (only the avalanche, traffic and hazards do) | No moving surfaces | Step 4 |
 | Only small round props break (smashables), placed in rows along a road | `smash.ts` touches a radius and places by the main road | Steps 2 and 3 (breakable walls, placed in world space) |
 | Big air is hard: the road lifts a car at most 8 m/s | The vertical speed cap keeps cars on the road over bumps | Tuning per feature (the jump's kicker was sized by a sweep) |
 | The car is one body with a heading: no wheels leaving the ground one by one, no rolling over, no stacking | Our own simple car model | Not planned |
@@ -352,8 +359,10 @@ stepping frames one at a time, not with `advance()`.
 
 ## Build order
 
-Each step ships on its own, and the existing maps keep their lap floors throughout (Downtown
-57.9, Backroads 62.82, Avalanche 93.07, Paradise 71.52, Paradise Open 68.07, as of 2026-10-03).
+Each step ships on its own. The existing maps keep their lap floors (the best AI lap, in
+seconds: Downtown 57.9, Backroads 62.82, Avalanche 93.07, Paradise 71.52, Paradise Open 68.07, as
+of 2026-10-03), unless a step means to change a map (the coast's sand driving as sand, a lava
+stream across a route): then the new floor is recorded, with why.
 
 0. **A safety net and tools first.** **Golden fingerprints** for each open map: a hash of its
    ground (heights, surfaces, decks) and of a fixed 40 s drive. Clean-up steps must leave them
@@ -362,8 +371,8 @@ Each step ships on its own, and the existing maps keep their lap floors througho
    every step below gets tested with them.
 1. **The pieces layer and its queries**, with the Lava Tube moved onto it first: it has every
    hard case (a tube, a gap, a kicker, mouths, the camera). Its mouths become portals (the
-   shroud goes). Done when the tube plays the same,
-   the lap floors don't move, the three special cases in `ground.ts`, `camera.ts` and
+   shroud goes). Done when the tube plays the same, the lap floors don't move, the three
+   special cases in `ground.ts`, `camera.ts` and
    `physics.ts` are gone, and so are `GroundDef`'s `decks`, `branchDecks` and `branchGaps` (the
    layouts and generators moved to pieces). On the way: `ground.ts` (692 lines, six jobs) split
    into a `ground/` folder, the helpers copied across five files (the lateral projection,
@@ -391,4 +400,6 @@ Each step ships on its own, and the existing maps keep their lap floors througho
 
 - [AVALANCHE.md](./AVALANCHE.md) and [PARADISE.md](./PARADISE.md): the two open maps it grew from.
 - [TECH_DEBT.md](./TECH_DEBT.md), "Open ground and Paradise Open": what step 1 cleans up.
-- [SPEC.md](./SPEC.md) §14: telemetry and reports.
+- [SPEC.md](./SPEC.md) §4: the sync categories (D, T, H, L) every feature has to fit; §11:
+  "Platform asks"; §14: telemetry and reports.
+- [ONLINE.md](./ONLINE.md): how online play is put together, file by file.
