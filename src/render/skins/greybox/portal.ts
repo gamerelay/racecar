@@ -27,6 +27,28 @@ const BISECT = 10;
 /** How far each way along the tube a mouth's arch reaches (tube.ts): past a tube's open end the cut goes on this far, inside it. */
 export const ARCH_DEPTH = 1.5;
 
+/**
+ * Which samples of `sp` start a stretch of tube (1): an enclosed piece (a floor and a ceiling) at
+ * it, a floor at the next sample, and the ground over its road. tube.ts builds walls on these and
+ * the cut follows them, so the two can't disagree. Null if `sp` has none.
+ */
+export function tubeSegments(track: Track, sp: BakedSpline): Uint8Array | null {
+  const g = track.ground;
+  const at = g?.pieces.at(sp.index);
+  const floors = g?.pieces.floors(sp.index);
+  if (!g || !at || !floors || sp === track.main) return null;
+  const seg = new Uint8Array(sp.n);
+  let any = false;
+  for (let k = 0; k + 1 < sp.n; k++) {
+    const p = at[k] >= 0 ? g.pieces.list[at[k]] : undefined;
+    if (p && p.ceiling > 0 && floors[k + 1] === 1 && g.height(sp.px[k], sp.pz[k]) > sp.py[k] - 0.5) {
+      seg[k] = 1;
+      any = true;
+    }
+  }
+  return any ? seg : null;
+}
+
 /** The ceiling of the enclosed piece at sample `k` of `sp` (TUBE_H if none says): what its walls and its arch are built to. */
 export function tubeCeiling(track: Track, sp: BakedSpline, k: number): number {
   const g = track.ground!;
@@ -59,21 +81,11 @@ export function buildPortals(track: Track): Portals | null {
   // ground over it: what tube.ts builds walls on), and each one's ceiling.
   const tubes: { sp: BakedSpline; seg: Uint8Array; ceiling: Float64Array }[] = [];
   for (const sp of track.splines) {
-    const at = g.pieces.at(sp.index);
-    if (!at || sp === track.main) continue;
-    const seg = new Uint8Array(sp.n);
+    const seg = tubeSegments(track, sp);
+    if (!seg) continue;
     const ceiling = new Float64Array(sp.n);
-    let any = false;
-    const covered = (k: number) => g.height(sp.px[k], sp.pz[k]) > sp.py[k] - 0.5;
     for (let k = 0; k < sp.n; k++) ceiling[k] = tubeCeiling(track, sp, k);
-    for (let k = 0; k + 1 < sp.n; k++) {
-      const p = at[k] >= 0 ? g.pieces.list[at[k]] : undefined;
-      if (p && p.ceiling > 0 && at[k + 1] >= 0 && covered(k)) {
-        seg[k] = 1;
-        any = true;
-      }
-    }
-    if (any) tubes.push({ sp, seg, ceiling });
+    tubes.push({ sp, seg, ceiling });
   }
   if (!tubes.length) return null;
   // Each tube's open ends: its first ring (the tube runs on, +1, from it) and its last.
@@ -137,12 +149,19 @@ export function buildPortals(track: Track): Portals | null {
     if (k0 >= 0 && k0 + 1 < sp.n && seg[k0]) f = fRoad = Math.min(1, Math.max(0, a >= 0 ? a / sp.step : 1 + a / sp.step));
     else {
       // Just past a tube's open end (inside its arch), the end's outline carried out: the ground
-      // standing in front of the opening is cut too.
-      const end = ends.find((n) => {
-        const t = tubes[n.t];
-        const b = along(t.sp, n.k, x, z);
-        return n.dir < 0 ? b < 0 && b > -ARCH_DEPTH : b > 0 && b < ARCH_DEPTH;
-      });
+      // standing in front of the opening is cut too. The nearest end whose arch the point's in,
+      // along it and across it (another tube's end may be in line with the point, further off).
+      let end: (typeof ends)[number] | undefined;
+      let endD = Infinity;
+      for (const n of ends) {
+        const t = tubes[n.t].sp;
+        const b = along(t, n.k, x, z);
+        if (!(n.dir < 0 ? b < 0 && b > -ARCH_DEPTH : b > 0 && b < ARCH_DEPTH)) continue;
+        const l = Math.abs(across(t, n.k, x, z));
+        if (l > t.width[n.k] / 2 + t.shoulder[n.k] + 3 || l >= endD) continue;
+        end = n;
+        endD = l;
+      }
       if (!end) return Infinity;
       ({ sp, seg, ceiling } = tubes[end.t]);
       const b = along(sp, end.k, x, z);

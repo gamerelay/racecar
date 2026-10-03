@@ -10,7 +10,7 @@ import { DoubleSide, Mesh, type Object3D } from 'three';
 import { hash01 } from '../../../core/rng';
 import type { BakedSpline, Track } from '../../../core/track/bake';
 import { OUTLINE_POINTS, outlineAt } from '../../../core/track/ground';
-import { ARCH_DEPTH, tubeCeiling } from './portal';
+import { ARCH_DEPTH, tubeCeiling, tubeSegments } from './portal';
 import { glowPoints } from './scenery';
 import { Geo } from './track';
 import { toon } from './toon';
@@ -34,15 +34,16 @@ export function buildTubes(track: Track): Object3D[] {
     const decks = g.pieces.floors(sp.index);
     if (!decks || sp === track.main) continue;
     const surface = track.surfaces[sp.surface[0]].color;
-    // A tunnel where the ground's over its road, a bridge where it's fallen away.
-    const coveredAt = (k: number) => k >= 0 && k < sp.n && decks[k] === 1 && g.height(sp.px[k], sp.pz[k]) > sp.py[k] - 0.5;
+    // A tunnel where an enclosed piece has the ground over its road, a bridge where it's fallen
+    // away (or the piece is open: it has no ceiling).
+    const seg = tubeSegments(track, sp);
     const ceiling = (k: number) => tubeCeiling(track, sp, k);
     /** Whether the tube's walls run from sample k to the next (as portal.ts cuts the ground for them). */
-    const walled = (k: number) => k >= 0 && k + 1 < sp.n && decks[k + 1] === 1 && coveredAt(k);
+    const walled = (k: number) => k >= 0 && !!seg?.[k];
     for (let i = 0; i + 1 < sp.n; i++) {
       if (!decks[i] || !decks[i + 1]) continue;
       const j = i + 1;
-      const covered = coveredAt(i);
+      const covered = walled(i);
       const rock = ROCK[Math.floor(hash01(sp.index, i >> 2, 7) * ROCK.length)];
       // (Up a kicker where there's one: the jump's, on the bridge.)
       const p = (k: number, l: number, up: number) => [sp.px[k] - sp.tz[k] * l, sp.py[k] + sp.ramp[k] - l * Math.tan(sp.bank[k]) + up, sp.pz[k] + sp.tx[k] * l];

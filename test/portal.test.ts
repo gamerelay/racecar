@@ -4,7 +4,7 @@
 import { describe, expect, test } from 'bun:test';
 import { bakeTrack } from '../src/core/track/bake';
 import { OUTLINE_POINTS, outlineAt } from '../src/core/track/ground';
-import { ARCH_DEPTH, buildPortals, tubeCeiling, VERTEX } from '../src/render/skins/greybox/portal';
+import { ARCH_DEPTH, buildPortals, tubeCeiling, tubeSegments, VERTEX } from '../src/render/skins/greybox/portal';
 import { SURFACES, layout } from './helpers';
 
 const track = bakeTrack(layout('paradise-open/open'), SURFACES);
@@ -25,6 +25,16 @@ const cellsNear = () => {
 describe('portals', () => {
   test('a map without tunnels has none', () => {
     expect(buildPortals(bakeTrack(layout('avalanche/slope'), SURFACES))).toBeNull();
+  });
+
+  test('a piece with a floor and no ceiling is no tunnel: no walls, no cut (they agree)', () => {
+    // (tube.ts builds walls where tubeSegments says, and the cut follows the same.)
+    const open = layout('paradise-open/open');
+    for (const p of open.pieces!) delete p.ceiling;
+    const t = bakeTrack(open, SURFACES);
+    for (const sp of t.splines) expect(tubeSegments(t, sp)).toBeNull();
+    expect(buildPortals(t)).toBeNull();
+    expect(tubeSegments(track, track.splines.find((sp) => sp.id === 'lava-tube')!)).not.toBeNull();
   });
 
   test('the cells it leaves whole never reach inside the tube (a 5 × 5 over each)', () => {
