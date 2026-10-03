@@ -63,7 +63,9 @@ share:
 
 - **The race's clock.** Green is at `startAt` on the server's clock, and each screen's race time
   follows the server's from then (`syncClock`, net/clock.ts): traffic, weather, hazards and
-  smashables are functions of it, so they're the same everywhere.
+  smashables are functions of it, so they're the same everywhere (where smashables stand and
+  when they stand again; who breaks one is each screen's own, since a screen collides only its
+  own cars).
 - **Traffic hits** (net/traffic.ts). A hit happens only where the hitting car is driven, so that
   screen claims the traffic car, and the winner says when: every screen wrecks it from then.
 - **Bumps** (net/contact.ts). Your car touching another screen's: you push yours, and tell its

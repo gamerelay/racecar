@@ -35,7 +35,7 @@ on the next map, and you race again. No menus between you and the next race.
    rooms and relays and measure what players actually feel (§14).
 4. **Open-source example.** `gamerelay/racecar`, MIT, readable, small. Someone should be able to
    read `src/net/` in an evening and learn how to build a multiplayer game on GameRelay.
-5. **Fast and small.** 60 fps on a mid laptop and a 2021 phone; lobby on screen in under 2 s,
+5. **Fast and small.** 60 fps on a mid laptop (phones: dropped 2026-10-03, desktop only); lobby on screen in under 2 s,
    first race in under 3 s. Budgets in §15 are enforced in CI, not hoped for.
 
 Not goals (v1): realistic driving sim, a career, tuning sheets, native apps, anti-cheat for
@@ -212,7 +212,7 @@ Every piece of game data is in exactly one of these:
 | **O** | Things a player owns: their car, their fired items | GameRelay entity, player-owned, 30 Hz | ~40 B × 30/s per car |
 | **H** | Things the host runs: AI rivals | GameRelay entity, `owner: 'host'` (migrates with the host) | same |
 | **D** | The deterministic world: traffic, scheduled and random hazards, weather, item box spawns | Pure function of `(seed, raceTime)`; nothing sent | 0 |
-| **T** | Triggers: someone set something off, or hit a traffic car | `room.claim(key)` decides who; the winner emits the event with a start time ~250 ms in the future on the server clock; everyone, the winner included, runs it from then | one claim + one event |
+| **T** | Triggers: someone set something off, or hit a traffic car | It happens at once on the screen of the car that did it; that screen claims it (`room.claim(key)`), the winner's time is shared, and every screen runs it from then (one that also hit it but lost the claim takes the winner's time). **Changed:** it was a start time ~250 ms ahead; see `net/traffic.ts` | one claim + one event |
 | **E** | Moments: bumps, wrecks, takedowns, laps, finishes, horns | `room.emit` | tiny, rare |
 | **S** | Race facts: phase, map, options, ready, results, votes, session points | `room.state`, host-written, timers for phases | rare |
 | **L** | Local only: particles, camera, debris after a wreck, audio | never sent | 0 |
@@ -674,7 +674,7 @@ and photo mode in single player only.
     (`vibrationActuator`), Xbox / PlayStation / Switch prompts.
   - Keyboard (WASD/arrows, Space boost, Shift drift, E item) with steering smoothing.
   - Touch: tilt or on-screen buttons, auto-accelerate option.
-- **Mobile, without costing desktop.** Phones get additions, never a smaller desktop game:
+- **Mobile, without costing desktop.** **Dropped (2026-10-03): desktop only.** It was: phones get additions, never a smaller desktop game:
   a touch layer, the low quality tier, a HUD layout for small screens. No gameplay, map or
   effect is cut or simplified for everyone to suit phones; if something can't run on a phone,
   the phone gets a lighter version of it. Phones are tested every milestone, but desktop with
@@ -730,7 +730,7 @@ directly and the team can query. One module, `src/telemetry/`, three destination
 
 | Budget | Target |
 |---|---|
-| Frame | 60 fps mid laptop (integrated GPU), 60 fps 2021 phone at medium, 8 cars + traffic on screen |
+| Frame | 60 fps mid laptop (integrated GPU), 8 cars + traffic on screen (the 2021 phone at medium was dropped 2026-10-03: desktop only) |
 | Draw calls | < 250 per frame |
 | Sim tick | < 2 ms for 8 cars + nearby traffic + hazards; zero allocation after warm-up |
 | JS | < 200 KB gzipped game code, Three.js separate; menus load before Three.js |
@@ -793,7 +793,7 @@ What we've settled, so nobody re-argues it. Changing one is fine; say so here.
 | Maps | **Changed** (was City, Countryside, then Volcano, Harbor, Alpine): Downtown, Backroads and Paradise (the island took Volcano's slot); Harbor and Alpine later |
 | Cars | **Changed** (was 4 in v1): 8 classes (coupe, muscle, hatch, van, sedan, rally, bus, police; `CLASS_ORDER`), several paint coats each (color + finish) |
 | Laps | **Changed** (was 3): 2 by default (`DEFAULT_OPTIONS`), 1–5 |
-| Mobile | supported as long as it takes nothing from desktop (§13) |
+| Mobile | **Changed (2026-10-03):** not supported, desktop only (racecar is a side project with one user). It was: supported as long as it takes nothing from desktop (§13) |
 | Hosting | `racecar.gamerelay.io`, static files, is still the intended home. **Changed for now:** the test build is at https://asleepace.com/games/Z442EE, one HTML file from `bun run build:single` |
 | GameRelay account | racecar is a normal instance on a paid plan (dogfooding billing and limits); bots run on a separate instance so load tests don't eat players' capacity |
 | Launch | after 3b: online City race with the neon skin. The repo is public from 3, but promoted at 3b |
@@ -1610,7 +1610,9 @@ Landmarks, part 3: Paradise (PLAN phase 6):
 
 Smashables (PLAN phase 6):
 
-- **Sim pieces, like hazard pieces** (`core/world/smash.ts`), so they're the same online.
+- **Sim pieces, like hazard pieces** (`core/world/smash.ts`): where they stand and when they stand
+  again are the same online. Who breaks one is each screen's own (a screen collides only its own
+  cars, so another player's car goes through them on yours); fine, since they never block anyone.
   - Where they stand comes from the layout: `smashables` rows give a kind, a stretch of road, a
     spacing and a side.
   - Each stands on the verge, a little under halfway to the wall, with a seeded jitter along the
@@ -2151,3 +2153,12 @@ being far behind after a crash was hard to come back from):
   seeds: 24/21/10 wrecks (Paradise/Downtown/Backroads; 18/20/10 before today), and at chaos
   27/32/13 (26/32/11). Classes within ±4.8%. In the air (a drift's hop, a crest) the slipstream
   holds rather than resetting.
+
+Caldera, the engine (2026-10-03; the plan is docs/CALDERA.md):
+
+- **Desktop only.** Mobile is dropped (Goals, §13, §15, §17 marked): racecar is a side project
+  with one user, and phones were constraining designs for no one.
+- **Triggers happen at once on the hitter's screen** (§4's T): the claim's winner shares the
+  hit's time and every screen runs it from then. §4 said "a start time ~250 ms ahead"; traffic
+  hits never worked that way (`net/traffic.ts`), and a breakable wall can't wait 250 ms.
+- **Smashables break per screen**, not "the same online": each screen collides only its own cars.
