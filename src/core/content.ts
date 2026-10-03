@@ -33,6 +33,13 @@ export interface BranchDef extends SplineDef {
   kind: 'shortcut' | 'alternate';
   /** A secret one: no sign at its mouth, and not on the minimap or the map's thumbnail. */
   secret?: boolean;
+  /**
+   * Whose heights it has where it leaves and rejoins: by default the bake pulls it onto the main
+   * road's ground, fading to its own over JOIN_FADE m as it pulls clear (bake.ts joinBranch).
+   * 'own': its heights are as authored, held to the main road's ground only where it's on the main
+   * road or its verge, so whatever authors it (a generator) says exactly what it drives.
+   */
+  heights?: 'own';
 }
 
 export interface ZoneDef {

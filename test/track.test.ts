@@ -94,6 +94,38 @@ describe('shortcut junctions', () => {
     });
   }
 
+  test('a branch with its own heights keeps them: held to the main road only on it, no fade', () => {
+    // (BranchDef.heights, docs/CALDERA.md step 1c.) Where the default bake fades a branch onto the
+    // main road's ground, its own-heights twin is as authored: the default is that, pulled by its
+    // merge toward the ground. Where it's on the main road or its verge, both are the ground.
+    for (const key of ['downtown/downtown', 'backroads/valley']) {
+      const base = layout(key);
+      const mine = structuredClone(base);
+      for (const b of mine.branches!) b.heights = 'own';
+      const def = bakeTrack(base, SURFACES);
+      const own = bakeTrack(mine, SURFACES);
+      const hit = newHit();
+      for (let k = 1; k < def.splines.length; k++) {
+        const d = def.splines[k];
+        const o = own.splines[k];
+        let faded = 0;
+        for (let i = 0; i < d.n; i++) {
+          const w = d.merge[i];
+          if (w <= 0) continue;
+          if (w >= 1) {
+            expect(o.py[i]).toBeCloseTo(d.py[i], 6);
+            continue;
+          }
+          projectGlobal(def.main, d.px[i], d.pz[i], hit, d.py[i]);
+          expect(Math.abs(o.py[i] + (hit.ground - o.py[i]) * w - d.py[i])).toBeLessThan(0.08);
+          faded = Math.max(faded, Math.abs(o.py[i] - d.py[i]));
+        }
+        // The fade moved it, somewhere: the twin isn't the same road.
+        expect(faded).toBeGreaterThan(0.5);
+      }
+    }
+  });
+
   test("Logger's Leap: a bermed left on its own ground, and it rejoins without a kink", () => {
     const track = bakeTrack(layout('backroads/valley'), SURFACES);
     const leap = track.splines.find((sp) => sp.id === 'leap')!;

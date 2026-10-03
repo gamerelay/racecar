@@ -2173,4 +2173,12 @@ Caldera, the engine (2026-10-03; the plan is docs/CALDERA.md):
 - **Layouts say pieces** (CALDERA's step 1a): `pieces` (`PieceDef`) instead of `GroundDef`'s
   `decks`, `branchDecks` and `branchGaps`, and what's under a point is one query,
   `ground.cast`. Nothing drives differently (the fingerprints are identical).
+- **A branch can own its heights** (CALDERA's step 1c): `BranchDef.heights: 'own'` keeps the
+  heights as authored, held to the main road's ground only where the branch is on the main road
+  or its verge, with no fade. The bake used to pull every branch onto the main road's ground over
+  JOIN_FADE m, so Paradise Open's generator authored the Lava Tube's heights backwards through that
+  pull (copying its formula). Now the generator writes the profile it wants and the tube says
+  `'own'`. The tube comes out within 8 cm of before (by its exit); the drives through it, the lap
+  floor (68.07 s) and the field (27 wrecks in 40 seeds, against 26) are the same. Paradise Open's
+  fingerprints were re-recorded; every other map's are identical.
 - **Smashables break per screen**, not "the same online": each screen collides only its own cars.
