@@ -168,7 +168,7 @@ describe('Paradise Open (docs/PARADISE.md)', () => {
     expect(drift(2395, -0.8, 1)).toBeLessThan(drift(2395, -0.8, 0) - 0.5);
   });
 
-  test('the Freeway is a deck over the bay, no walls on it', () => {
+  test('the Freeway is a deck over the bay, its rails on, and open off it', () => {
     const track = bakeTrack(layout('paradise-open/open'), SURFACES);
     const g = track.ground!;
     const m = track.main;
@@ -176,6 +176,43 @@ describe('Paradise Open (docs/PARADISE.md)', () => {
     expect(g.deckSample[i]).toBe(1);
     expect(g.deck(m.px[i], m.pz[i])).toBeCloseTo(m.py[i], 0);
     expect(g.height(m.px[i], m.pz[i])).toBeLessThan(g.sea! - 3);
-    expect(m.wallL[i] + m.wallR[i]).toBe(0);
+    expect(m.wallL[i] + m.wallR[i]).toBe(2);
+    const off = Math.round(2300 / m.step);
+    expect(m.wallL[off] + m.wallR[off]).toBe(0);
+  });
+
+  test('steering into a rail keeps you on the bridge', () => {
+    const track = bakeTrack(layout('paradise-open/open'), SURFACES);
+    const sim = new Sim(track, CLASSES, SURFACES, { seed: 1, traffic: 0, mayhem: 'off' });
+    const i = sim.addCar({ cls: 'coupe', human: true });
+    sim.placeCar(i, 0, 1600, 6, 25);
+    const c = { ...neutralControls(), throttle: 0.5, steer: 0.7 };
+    let low = Infinity;
+    for (let t = 0; t < 120; t++) {
+      sim.step([c]);
+      low = Math.min(low, sim.cars.y[i]);
+    }
+    expect(low).toBeGreaterThan(track.main.py[Math.round(1600 / track.main.step)] - 1);
+  });
+
+  test('a car on the sand outside a rail stays outside it', () => {
+    const track = bakeTrack(layout('paradise-open/open'), SURFACES);
+    const m = track.main;
+    const sim = new Sim(track, CLASSES, SURFACES, { seed: 1, traffic: 0, mayhem: 'off' });
+    const i = sim.addCar({ cls: 'coupe', human: true });
+    // Beside the deck's start, where the ground's still up by the road, heading in alongside it.
+    sim.placeCar(i, 0, 1190, 17, 15);
+    const c = { ...neutralControls(), throttle: 1, steer: -0.5 };
+    let inside = false;
+    let closest = Infinity;
+    for (let t = 0; t < 150; t++) {
+      sim.step([c]);
+      const s = sim.cars.s[i];
+      if (s > 1205 && s < 2050 && Math.abs(sim.cars.lateral[i]) < m.width[Math.round(s / m.step)] / 2) inside = true;
+      if (s > 1205) closest = Math.min(closest, sim.cars.lateral[i]);
+    }
+    expect(inside).toBe(false);
+    // It got to the rail (12 m out, the car's reach past it), not just short of it.
+    expect(closest).toBeLessThan(14.6);
   });
 });

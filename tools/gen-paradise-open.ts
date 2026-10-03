@@ -1,7 +1,6 @@
 // Generator for Paradise Open (docs/PARADISE.md), step 0: a road over the ground. Today's island
 // lap, as open ground (docs/AVALANCHE.md's heightfield) instead of a road between walls, with the
-// Freeway as a deck over the bay: no barriers, so you can drive off it into the water (deep water
-// respawns you). The routes, the coast and the volcano come in the next steps; this is the deck,
+// Freeway as a deck over the bay, its rails on (deep water under it respawns you). The routes, the coast and the volcano come in the next steps; this is the deck,
 // tried on the bridge it's for.
 //
 // Experimental (map.json), so it's out of the lobby: open it from a link,
@@ -61,7 +60,13 @@ const layout: TrackLayout = {
   branches: [],
   zones: (src.zones ?? []).filter((z) => !z.spline),
   ramps: (src.ramps ?? []).filter((r) => !r.spline),
-  walls: { gaps: [{ s: [0, length], side: 'both' }] },
+  // Open everywhere but the Freeway, which has its rails (the owner: rails on the bridge).
+  walls: {
+    gaps: [
+      { s: [0, FREEWAY[0]], side: 'both' },
+      { s: [FREEWAY[1], length], side: 'both' },
+    ],
+  },
   // The island's dressing stands on its own terrain; it comes back on this ground in step 8.
   landmarks: [],
   scenery: undefined,
