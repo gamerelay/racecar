@@ -113,15 +113,56 @@ street it's on from the pieces query, not from the main road. Then:
 This is the biggest change, and the one that unlocks a city. So before building it, a cop chase
 on Downtown as it is (step 5 in "Build order") checks that the mode is worth it.
 
-## What it won't do
+## Limitations
+
+### By design
 
 Kept out on purpose, so the engine stays small and deterministic:
-- **No upside-down driving**: gravity is always down, so no loops or wall rides.
+- **No upside-down driving**: gravity is always down, so no loops, wall rides or half-pipes.
 - **No ground that changes mid-race**: craters and landslides are out. The eruption is an
   event that wrecks cars, not lava that reshapes the land.
 - **No streaming**: a map is built at load and fits in memory. Maps of a few km² are fine.
 - **No mobile**: desktop browsers only.
 - **No general physics engine**: the car model stays our own, so it stays deterministic.
+
+### Hard today
+
+What the engine struggles with now, and the build step that lifts it (if any):
+
+| Limit | Why | Lifted by |
+|---|---|---|
+| Every new surface (a deck, a tube, a gap, a kicker) is custom code in the ground, the physics and the camera | No shared surface layer; three places answer "what's under me" | Step 1 (pieces) |
+| One height per point of land: no overhangs, arches or caves in the ground itself | The ground is a heightfield | Step 1 (pieces over the ground) |
+| The ground, off-road surfaces and out of bounds are measured from the main road | `ground.ts` places every point by its nearest main-road sample | Steps 2 and 6 |
+| No road network: one loop plus branches, progress by distance along the main road | Branches leave and rejoin the main road; checkpoints are main-road distances | Step 6 (the road graph) |
+| Indoors looks and sounds like outdoors | One light for everything; the camera only knows the Lava Tube | Step 3 |
+| Nothing moves but the avalanche and traffic | No moving surfaces | Step 4 |
+| Big air is hard: the road lifts a car at most 8 m/s | The vertical speed cap keeps cars on the road over bumps | Tuning per feature (the jump's kicker was sized by a sweep) |
+| The car is one body with a heading: no wheels leaving the ground one by one, no rolling over, no stacking | Our own simple car model | Not planned |
+| Every screen simulates every car: CPU grows with the car count, and anything that touches physics must stay deterministic | Online lockstep | Not planned (8 cars is the target) |
+| Deep water is just out of bounds: no wading physics, boats or tides | No water in the sim | Not planned |
+| The AI follows racing lines on the roads: it can't cut across open ground or plan a route | Lines are per spline | Step 7 (pathfinding over the graph) |
+| Features are authored in generator scripts, which sometimes work around the bake (the tube's ends) | No editor for ground features; the bake pulls branches toward the main road | Steps 1–2 (pieces own their heights) |
+
+### Size and performance (measured 2026-10-03)
+
+On an M5 Max at full Retina resolution (3456 × 1994), dev build:
+
+| | Paradise Open | Avalanche |
+|---|---|---|
+| Open ground | 1.36 × 1.40 km, 2.5 m cells, 0.31 M points | 0.72 × 5.70 km, 0.66 M points |
+| Triangles drawn per frame | ~720 k | ~180 k |
+| Triangles in the scene | 1.4 M | 2.2 M |
+| Draw calls per frame | 139 | 203 |
+| Geometry memory | 42 MB | 81 MB |
+| CPU time per frame | 7.7 ms | 5.5 ms |
+
+Everything is built at load and drawn at full detail (no level of detail): a tree 2 km away
+costs as much as one beside you. Fog ends at 2.3 km and the camera draws to 3 km. Most of
+Paradise Open's triangles are its palms (two instanced meshes of 885). The first limits to hit
+as maps grow: scenery (fix with lower-detail models at a distance or billboards), resolution on
+weaker laptops (cap the pixel ratio), then world size past roughly 5–10 km² (streaming, which is
+out by design). The sim's cost is small: the heightfield is a few MB and its queries are cheap.
 
 ## Developer tools (for people and LLMs)
 
