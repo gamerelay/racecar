@@ -8,7 +8,9 @@ spec.** Details will change while building; note those changes in [SPEC.md](./SP
 
 **Status (2026-10-03):** nothing built yet; step 0 (the safety net and tools) is next. A
 task-by-task plan for steps 0–2 is drafted in the owner's working tree
-(`docs/superpowers/plans/2026-10-03-open-world-engine.md`, not committed).
+(`docs/superpowers/plans/2026-10-03-open-world-engine.md`, not committed). This doc refers to
+PARADISE.md, the shroud over the Lava Tube and TECH_DEBT's "Open ground and Paradise Open", which
+arrive with PR #81: merge this after it.
 
 Started 2026-10-03, from the owner's brief:
 - One engine for every racecar map: open ground, cities, and whatever comes next. **For racecar
@@ -26,30 +28,35 @@ Started 2026-10-03, from the owner's brief:
    you see is the ground you drive on. When the sim and the picture disagree (a wall that isn't
    drawn, a slope drawn where the road is), the sim wins and the picture gets fixed.
 2. **Flexible.** A race isn't always laps of one loop. The engine supports a loop with shortcuts
-   (Paradise), a one-way run (Avalanche), and routes through a network with no track at all (a cop
-   chase through a city). Game modes decide what "progress" and "winning" mean; the engine only
-   says where a car is and what it's on.
+   (Paradise), a one-way run (Avalanche), and routes through a network of streets (a city). Game
+   modes decide what "progress" and "winning" mean; the engine only says where a car is and what
+   it's on. (A cop chase is one such mode, a concept for now, not a requirement.)
 3. **Modular.** Each feature (a volcano, a coast, moguls, a drawbridge, an avalanche, an eruption)
    is a module with a small set of hooks: shape the ground, add pieces, give the surface, step in
    the sim, draw itself. A map is a road network plus a list of features. Adding one means writing
    a module, not editing `buildGround`, the physics and the camera. A module places itself in
    world space, or along a street it names, **never by the main road**: the main road goes away
    with the road graph, and modules shouldn't go with it.
-4. **Online first.** Online play follows SPEC §4's sync categories: your car is yours (its pose
-   sent 30 times a second), the host runs the AI, and **the world is a pure function of the seed
-   and the race clock**, so nothing about it is sent. Every engine feature has to fit one of the
-   categories (and things the host runs, like the AI, are SPEC's H; see "Things that move"):
-   - **The world (D):** pieces, moving pieces (a drawbridge's angle at t), spreading hazards (a
-     lava flow, the avalanche, the eruption): closed-form functions of time, not integrated, so
-     float differences between browsers can't build up. Randomness comes from the seed's streams.
+4. **Online first.** Online play follows SPEC §4's sync categories. The ones that matter to the
+   engine:
+   - **Your car (O)** is yours: your screen steps its physics and sends its pose 30 times a
+     second. Other players' cars are those poses on your screen.
+   - **The world (D)** is a pure function of the seed and the race clock, so nothing about it is
+     sent: pieces, moving pieces (a drawbridge's angle at t), spreading hazards (a lava flow, the
+     avalanche, the eruption). Closed-form functions of time, not integrated, so float
+     differences between browsers can't build up. Randomness comes from the seed's streams.
    - **Triggers (T):** something a car sets off that changes the world for everyone, like
-     breaking a wall open: one screen claims it (`room.claim`) and everyone runs it from a start
-     time a moment ahead, as traffic hits do.
+     breaking a wall open. It happens at once on the screen of the car that did it (each screen
+     collides only its own cars); that screen claims it (`room.claim`), and the winner's time is
+     shared, so every screen runs it from then and a screen that also hit it but lost the claim
+     takes the winner's time. That's how traffic hits work (`net/traffic.ts`).
+   - **The host (H)** runs the AI, sent as entities; see "Things that move" for other host-run
+     things. **Moments (E)**, like bumps and wrecks, are sent as events (`net/contact.ts`).
    - **Local (L):** particles, light, sound, debris, the camera: free to differ.
 
    Inside the sim, plain float math in a fixed order: no physics engine, no `Math.random`, no
-   render state leaking in. That keeps the world agreeing online, and replays (F8 reports) and
-   tests exact.
+   render state leaking in, and **no allocation per tick** (SPEC §15). That keeps the world
+   agreeing online, and replays (F8 reports) and tests exact in the same JavaScript engine.
 5. **Telemetry built in.** The sim already emits events (wrecks, laps, air, drifts) and the dev
    server logs them. Every new feature should emit its own (entered a piece, jumped a gap, hit by
    the eruption), so playtests and tuning questions can be answered from the data.
@@ -59,8 +66,8 @@ Started 2026-10-03, from the owner's brief:
 7. **Move fast, refactor freely.** Racecar is a side project with one user, so old code, layouts,
    generators and links get reworked to fit the engine, with no compatibility layers. What's kept
    is the effect: each map plays the same, its lap floors hold, and online stays in sync.
-   **Desktop only:** mobile isn't supported, so budgets (frame time, triangles, draw calls) are
-   for desktop GPUs, and input is keyboard and gamepad.
+   **Desktop only** (decided 2026-10-03, in SPEC "Changed while building"): mobile isn't
+   supported, so budgets are for a desktop or laptop, and input is keyboard and gamepad.
 
 ## The core idea: pieces
 
@@ -74,19 +81,24 @@ Caldera replaces them with one layer. A **piece** is anything you can drive on:
 
 - a **floor** following a curve (its width, bank and height along it);
 - optional **walls** on either side, which can be **breakable** (a shop window: solid until a
-  car hits it fast enough, then gone; online, the break is a claimed trigger, see "Online first");
+  car hits it fast enough, then gone; online, the break is a trigger, see "Online first");
 - an optional **ceiling**: then it's **enclosed** (a tunnel, a mall, the inside of the volcano);
 - a **surface** tag (tarmac, tile, sand, snow) and a **look** (drawn as road, as rock, or
   invisible);
 - an optional **motion**: a transform over time, and who decides it (a formula of the race
-  clock, a kick, the host: see "Things that move").
+  clock, a kick, the host: see "Things that move");
+- an optional **camera hint** (below).
 
 The terrain heightfield is the default piece under everything. Pieces are built once at load
-from the layout and put in a spatial index, so a query only checks the pieces near it.
+from the layout and put in a spatial index, so a query only checks the pieces near it. The sim
+already has one for things that move, `SpatialGrid` (`core/collide/grid.ts`, SPEC §9), and the
+deck sample buckets in `ground.ts` are another; pieces get a static grid of the same kind.
 
 Pieces are **the only way** to add a surface. Once they exist, `GroundDef`'s `decks`,
 `branchDecks` and `branchGaps` are deleted (the layouts and generators say the same things as
 pieces), so the type itself leaves no room for a fourth special case.
+
+### The queries
 
 The main question is **cast down from (x, y, z)**, and it gets back:
 - the floor's height and slope there, and its surface;
@@ -99,11 +111,41 @@ And two more, from the same index: **the walls near a point** (for the physics t
 breakable or not), and **a line between two points** (is it clear: the camera's view of the car,
 an AI's line of sight). Remote cars use the cast too, to sit on the right floor between poses.
 
+The cast runs for every wheel of every car each tick, and 16 times a frame for the camera's line
+of sight, so **queries write into a scratch result the caller owns** (as `newHit` and
+`sim.hitA` do today) and allocate nothing.
+
 **What's drawn is what's driven:** the surface comes from one function of the point, used by
 both the physics and the renderer. Today they disagree: off-road surfaces go by the nearest
 main-road sample and side, so sand painted along the coast drives as grass. With one function,
-patches of mud or sand can be any shape, and the coast's sand drives as sand (the one gameplay
-change in the clean-up).
+patches of mud or sand can be any shape, and the coast's sand drives as sand (see "Open
+questions").
+
+The rule stays the one we have: **a car is on the highest floor at or below it.** The physics
+uses the cast for driving and landing; the camera uses it to stay under a ceiling and out of the
+rock; respawns use it to find a floor; the renderer uses "enclosed" to switch to indoor light.
+
+### Where a car is, meanwhile
+
+Today a car also knows where it is by road: `cars.spline`, `cars.s` and `cars.lateral`, found by
+`core/track/locate.ts` (which road it's more inside of, near a junction). A lot hangs off that:
+the road-edge walls (`collide/walls.ts`, by lateral distance on the car's spline), smashables (hit
+only from their own spline), progress (`mainDistance`), the AI's racing line, respawns.
+
+Pieces come in **beside** that, not instead of it. Through steps 1–5 a car has both: the cast
+says what it's on (floor, ceiling, hazard, piece), and the spline position still drives walls,
+progress and the AI. The road-edge walls stay rails on splines; pieces' walls are the new ones
+(a tube's, a mall's, a breakable). **Step 6 (the road graph)** is where `locate` and the
+road-edge walls move onto pieces and streets, and the spline position goes.
+
+### Camera hints
+
+Decided (2026-10-03): **automatic by default, a hint where it's tricky.** The camera works things
+out from the queries (stay under the ceiling, keep the car in sight, look at the road ahead), and
+a piece or an area can carry a hint that overrides it there: a distance, a height, a look-at
+point (the landing past a jump). Most pieces need none.
+
+### Portals
 
 Where a piece goes into the ground (a tunnel's mouth, a mall's door), it gets a **portal**: the
 ground cut to the piece's own outline (not whole grid squares) and stitched to its rim, with a
@@ -111,11 +153,7 @@ frame of rock or a doorway over the seam. Every tunnel and entrance then meets t
 with no per-map fix. (Today's Lava Tube has a stopgap: a shroud of rock over the tube where the
 slope's cut open, so no sky shows through.)
 
-The rule stays the one we have: **a car is on the highest floor at or below it.** The physics
-uses the query for driving and landing; the camera uses it to stay under a ceiling and out of the
-rock; respawns use it to find a floor; the renderer uses "enclosed" to switch to indoor light.
-
-How the owner's list falls out of it:
+### What the owner's list becomes
 
 | Wanted | As pieces |
 |---|---|
@@ -123,26 +161,81 @@ How the owner's list falls out of it:
 | **Invisible tubes** | An enclosed piece with an invisible look: it holds the car and the camera inside, and the scenery around it is decoration. |
 | **Indoor moments** | Enclosed pieces. Inside, the camera stays under the ceiling, the light and fog switch to indoor, the sound gets reverb. A mall is enclosed pieces plus its scenery, with breakable windows to crash through. |
 | **Drawbridges** | A piece with a motion: its angle at time t is a formula. A car on it rides it; a car arriving while it's up jumps the gap or hits the edge. |
-| **Breakable walls** | A wall that breaks when hit hard enough, grown from today's smashables (`core/world/smash.ts`: where each stands comes from the layout, when it broke is state saved in snapshots, the shatter is the renderer's). Smashables break on each screen by themselves (they never block anyone); a wall changes where you can drive, so its break is claimed online. It can stay broken for the race: a shortcut you made. |
+| **Breakable walls** | A wall that breaks when hit hard enough, grown from today's smashables (`core/world/smash.ts`: where each stands comes from the layout, when it broke is state saved in snapshots, the shatter is the renderer's). Each says whether it **stays broken for the race** (a shortcut you made) or **stands again** after a time (as smashables do, 30 s). Smashables break on each screen by itself (remote cars don't smash things, and they never block anyone); a wall changes where you can drive, so its break is a trigger online. |
 | **Hazards that spread** | A lava flow down the volcano onto a road, the avalanche: a path from the layout, how far along it is a formula of the race clock (and the seed, for which flank and when). A car in it wrecks. A crust that cools into something to drive on is a piece that appears at a set time. |
-| **Cities and chases** | Streets are pieces joined at junctions: a graph (below). |
+| **Cities** | Streets are pieces joined at junctions: a graph (below). |
+
+### The types, sketched
+
+Names and shapes to start from, not final:
+
+```ts
+/** Anything you can drive on: a strip along a curve. */
+interface Piece {
+  id: string;
+  curve: Curve;                   // along it: position, tangent, width, bank, height
+  surface: SurfaceId;
+  look: 'road' | 'rock' | 'invisible' | string;
+  walls?: { left?: WallDef; right?: WallDef };
+  ceiling?: number;               // height over the floor: enclosed
+  motion?: Motion;                // see "Things that move"
+  camera?: CameraHint;            // overrides the automatic camera here
+}
+
+interface WallDef { height: number; breakable?: { speed: number; regrow?: number } } // regrow: s, or never
+
+/** What a cast down from a point found. Filled in place: the caller owns it. */
+interface Cast {
+  y: number; slopeX: number; slopeZ: number;
+  surface: SurfaceId;
+  space: 'open' | 'enclosed' | 'rock';
+  ceiling: number;                // NaN when open
+  hazard: 'none' | 'lava' | 'water';
+  piece: number;                  // -1 for the terrain
+  along: number;                  // m along the piece
+}
+
+interface World {
+  cast(x: number, y: number, z: number, out: Cast): Cast;
+  walls(x: number, z: number, r: number, out: WallHits): WallHits;
+  clear(x0: number, y0: number, z0: number, x1: number, y1: number, z1: number): boolean;
+}
+
+/** A map feature: a volcano, a lava stream, a drawbridge. Each hook is optional. */
+interface Feature {
+  shape?(g: GroundBuilder): void;            // carve or raise the heightfield, at load
+  pieces?(add: (p: Piece) => void): void;    // at load
+  surface?(x: number, z: number): SurfaceId | undefined;
+  hazard?(x: number, y: number, z: number, t: number): Hazard | undefined;
+  step?(sim: Sim): void;                     // per tick, no allocation
+  draw?(skin: SkinContext): Object3D[];      // the renderer's part, kept out of core/
+}
+
+/** Who decides where a moving thing is (see "Things that move"). */
+type Motion =
+  | { by: 'world'; at(t: number, out: Pose): Pose }
+  | { by: 'kick'; rest: Pose }                // its path comes from the claimed hit
+  | { by: 'host' }
+  | { by: 'relay' };
+```
 
 ## Things that move: who decides
 
 Not built yet, but the engine leaves room for it. Every moving thing in the world (a piece, a
-prop, a hazard) says **who decides where it is**, and nothing else in the engine cares which:
-the physics collides with it, the renderer draws it, snapshots save it, the same way for all.
+prop, a hazard) says **who decides where it is**. The rest of the engine reads it the same way
+whichever it is: its pose at a tick, its collision shape, its state in snapshots. What differs is
+**what happens when a car hits it**, which depends on who decides.
 
-| Authority | Who moves it | Online cost | For |
-|---|---|---|---|
-| **World** (today) | A formula of the seed and the race clock (SPEC §4's D) | Nothing sent | Drawbridges, the avalanche, lava, traffic |
-| **Kick** | A hit is claimed (T), then a canned path from the hit's time, speed and angle, the same formula on every screen | One claim and one event per hit | A barrel or a cone sent flying, a gate knocked off its hinges |
-| **Host** | The host's page steps it and sends it as an entity, like the AI (H) | An entity's updates while it moves | Something shoved for a while: a ball, a car on a trailer |
-| **Relay** (later) | A Resonance node near the players steps it, if Resonance ever runs game code | The same as a host entity, with less lag and no host leaving | The same, when it matters |
+| Authority | Who moves it | When a car hits it | Online cost | For |
+|---|---|---|---|---|
+| **World** (today) | A formula of the seed and the race clock (SPEC §4's D) | Nothing moves it: the car bounces or wrecks | Nothing sent | Drawbridges, the avalanche, lava, traffic |
+| **Kick** | A canned path from the hit's time, speed and angle, the same formula on every screen | The hit is a trigger (T): at once on the hitter's screen, the winner's hit shared | One claim and one event per hit | A barrel or a cone sent flying, a gate knocked off its hinges |
+| **Host** | The host's page steps it and sends it as an entity, like the AI (H) | A non-host car's contact goes to the host, the way `net/contact.ts` sends bumps: a round trip of lag for the pusher | An entity's updates while it moves | Something shoved for a while: a ball, a car on a trailer |
+| **Relay** (later) | A Resonance node near the players steps it, if Resonance ever runs game code | Like Host, with less lag | Like Host, and no host leaving | The same, when it matters |
 
 What keeps that room open, from the start:
-- **One interface for moving things:** its pose at a tick, its collision shape, its state for
-  snapshots. A drawbridge (world) and a ball (host) are the same to the rest of the engine.
+- **One interface for moving things:** pose at a tick, collision shape, snapshot state. A
+  drawbridge (world) and a ball (host) look the same to the physics, the renderer and snapshots.
 - **Kicks are formulas from the hit:** where the thing is at t is a closed-form function of the
   hit's time, position, speed and angle (a ballistic arc, a bounce or two, then rest), so the
   claimed event is all that's sent.
@@ -160,20 +253,46 @@ surfaces and out of bounds are all measured along and across the main road, and 
 distance along it.
 
 Caldera makes roads a **graph**: streets (splines) joined at **junctions**. A car knows which
-street it's on from the pieces query, not from the main road. Then:
+street it's on from the pieces, not from the main road. Then:
 - **A race is a route**: an ordered list of checkpoints through the graph. Today's loops are
   routes; Avalanche's run is a route with no lap. This builds on what's there: the bake already
   makes checkpoints (`Track.checkpoints`) and `rules/progress.ts` already counts laps, runs and
   positions by them. What changes is that a checkpoint becomes a gate on a street, where today
   it's a distance along the main road.
-- **A mode can ignore routes**: a cop chase needs only where the cars are and the street graph
-  (for the cops' pathfinding and for respawns: "the nearest street").
+- **A mode can ignore routes**: a chase needs only where the cars are and the street graph
+  (for the AI's pathfinding and for respawns: "the nearest street").
 - **The ground stops depending on the main road**: features say where they are in world space
   or along a named street (the volcano already does; feature modules are written that way from
   the start, see "Modular").
 
-This is the biggest change, and the one that unlocks a city. So before building it, a cop chase
-on Downtown as it is (step 5 in "Build order") checks that the mode is worth it.
+This is the biggest change. It's what a city map needs (and any map whose routes cross and
+rejoin freely), and it would carry a chase mode. A quick chase mode on Downtown as it is (step
+5 in "Build order") is a cheap way to find out how much that matters before building it.
+
+## A feature, end to end: lava streams
+
+The first new feature module (step 2), and the template for the rest. The owner wants a static
+stream from the volcano toward the reef: a barrier to drive round, or a risky line to jump.
+
+1. **In the layout:** `features: [{ kind: 'lava-stream', path: [[x, z], …], width: 8,
+   depth: 3 }]`. In world space, not by the main road.
+2. **`shape`:** carves a channel along the path into the heightfield at load: `depth` m down,
+   its banks eased out over a few meters.
+3. **`pieces`:** where a road crosses the channel, the road over it becomes a short deck piece
+   (a bridge), so it doesn't dip into the lava.
+4. **`hazard`:** a point in the channel below the lava's level is lava. A car whose cast says
+   lava wrecks, as in the crater's lake today. (A `Lava` wreck cause, beside `Hazard` and
+   `OutOfBounds` in `core/events.ts`, would let telemetry tell lava from the rest.)
+5. **`surface`:** the banks are rock.
+6. **`draw`:** a glowing ribbon along the channel's floor, the banks darker, glow points along
+   it (as the tube's gap has).
+7. **Telemetry:** wrecks in it carry the cause and where, so `tools/map.ts` shows them.
+8. **Proved by:**
+   - `tools/probe.ts` at a point in the channel says `hazard: lava`; on the bridge, the bridge;
+   - `tools/drive.ts` across the bridge flat out survives, and into the channel wrecks;
+   - `tools/shot.ts` of the crossing looks right (glow, banks, bridge);
+   - the fingerprints change on purpose (re-recorded), the lap floor too if the stream crosses
+     a route (re-recorded, with why), and every other map's stay identical.
 
 ## Tricks from the industry
 
@@ -181,17 +300,14 @@ Common practice in racing and open-world games, and where each fits here. Some w
 
 **Already doing:** a fixed 60 Hz step with the picture interpolated between steps
 (`renderer.frame(alpha, …)`); a world that's a function of time and seed (SPEC §4); splines as
-the source of roads; instancing for scenery; fog to hide the draw distance; a greybox skin
-separate from the gameplay.
+the source of roads; instancing for scenery; a uniform grid for things that move; fog to hide the
+draw distance; a greybox skin separate from the gameplay.
 
 **The world and its surfaces**
 - **Seams get a frame, not perfect geometry.** Games rarely stitch terrain to tunnels exactly:
   a rock frame, a doorway or a "skirt" (a strip hanging under a mesh's edge, as terrain tiles
   use between levels of detail) covers the join. The portal is this; the Lava Tube's shroud is
   the same trick.
-- **A uniform grid (spatial hash) for lookups.** For a world that's mostly flat and a few km
-  across, a grid of buckets beats a tree: simple, fast, and the same on every screen. The deck
-  sample buckets in `ground.ts` are one already; the pieces' index should be the same.
 - **Junctions as their own pieces.** Road tools (Unreal's, Houdini's) build each street from
   its spline and each junction as a separate patch the streets end at. Streets stay simple
   strips; the patch handles the corners, the kerbs and the sharing of surfaces.
@@ -200,10 +316,7 @@ separate from the gameplay.
   newest one far enough back from the hazard. That replaces per-feature rules like `pastGap`.
 
 **Camera, light and sound**
-- **Camera hints on the world.** Instead of the camera working out where it is, areas carry
-  hints: in this tunnel, sit lower and closer; on this jump, look at the landing. Pieces can
-  carry them (an enclosed piece's own camera distance and height), which removes most camera
-  special cases.
+- **Camera hints on the world**, over an automatic camera: see "Camera hints" above.
 - **Volumes for light, fog and reverb, blended at their edges.** Entering an enclosed piece
   fades to its light and its reverb over a second, not at a hard line.
 - **Portal culling indoors.** Deep inside a mall or a tube, the outside isn't drawn (you can
@@ -225,7 +338,8 @@ separate from the gameplay.
 - **Pursuit AI uses "last known position."** Chase games (Need for Speed's police, for one) have
   cops head for where they last saw you, search when they lose you, and call in roadblocks or
   spike strips ahead on your likely route. With a road graph, cutting you off is a path search
-  to a junction ahead of you. "Heat" levels raise the pressure over time.
+  to a junction ahead of you. "Heat" levels raise the pressure over time. (If a chase mode is
+  built, the cops are AI.)
 - **Catch-up, honestly.** Most arcade racers help the cars at the back (rubber banding). Boost by
   position already does this; for a chase, cops faster when far behind keeps it tense.
 
@@ -239,11 +353,10 @@ separate from the gameplay.
 - **Heatmaps from telemetry.** Wrecks, respawns and air plotted on the map's top-down image
   (`tools/map.ts`): where players actually struggle.
 - **Same math in every browser.** `Math.sin`, `Math.exp` and the like aren't required to give
-  the same last digit in every JavaScript engine (Chrome's V8, Safari's and Bun's
-  JavaScriptCore, Firefox's SpiderMonkey). The world tolerates that (it's closed-form, nothing
-  builds up), but a replay re-run in Bun of a race played in Chrome could drift over a long
-  window. If `tools/replay.ts` ever reports a mismatch, the fix is our own `sin`/`cos`/`exp` in
-  `core/math.ts` for the sim.
+  the same last digit in every JavaScript engine. SPEC already records it: an F8 report from
+  Chrome replayed in Bun ended 1.6 cm off after 30 s, while the same engine is exact. The world
+  tolerates it (it's closed-form, nothing builds up). If replays need to be exact across
+  engines, the fix is our own `sin`/`cos`/`exp` in `core/math.ts` for the sim.
 
 ## Limitations
 
@@ -253,7 +366,7 @@ Kept out on purpose, so the engine stays small and deterministic:
 - **No upside-down driving**: gravity is always down, so no loops, wall rides or half-pipes.
 - **No sculpting the terrain mid-race**: the heightfield is fixed at load, so a crater dug
   wherever a car crashes is out. Anything else that changes during a race is a hazard, a piece
-  or a breakable, driven by the race clock, the seed or a claimed crash (a lava flow, the
+  or a breakable, driven by the race clock, the seed or a claimed hit (a lava flow, the
   avalanche, a drawbridge, a cooling crust, a smashed window), so every screen agrees.
 - **No streaming**: a map is built at load and fits in memory. Maps of a few km² are fine.
 - **No mobile**: desktop browsers only.
@@ -267,18 +380,33 @@ What the engine struggles with now, and the build step that lifts it (if any):
 |---|---|---|
 | Every new surface (a deck, a tube, a gap, a kicker) is custom code in the ground, the physics and the camera | No shared surface layer; three places answer "what's under me" | Step 1 (pieces) |
 | One height per point of land: no overhangs, arches or caves in the ground itself | The ground is a heightfield | Step 1 (pieces over the ground) |
-| The ground, off-road surfaces and out of bounds are measured from the main road | `ground.ts` places every point by its nearest main-road sample | Steps 2 and 6 |
+| The ground, off-road surfaces and out of bounds are measured from the main road | `ground.ts` places every point by its nearest main-road sample | Steps 1d and 2 (surfaces, then features), then 6 |
 | No road network: one loop plus branches, progress by distance along the main road | Branches leave and rejoin the main road; checkpoints are main-road distances | Step 6 (the road graph) |
 | Indoors looks and sounds like outdoors | One light for everything; the camera only knows the Lava Tube | Step 3 |
 | Nothing you drive on moves (only the avalanche, traffic and hazards do) | No moving surfaces | Step 4 |
-| Only small round props break (smashables), placed in rows along a road | `smash.ts` touches a radius and places by the main road | Steps 2 and 3 (breakable walls, placed in world space) |
+| Only small round props break (smashables), in rows along a road | `smash.ts` touches a radius, and a prop is hit only from its own spline | Step 3 (breakable walls, placed in world space) |
 | Big air is hard: the road lifts a car at most 8 m/s | The vertical speed cap keeps cars on the road over bumps | Tuning per feature (the jump's kicker was sized by a sweep) |
 | The car is one body with a heading: no wheels leaving the ground one by one, no rolling over, no stacking | Our own simple car model | Not planned |
 | Contact between players' cars is approximate online: another player's car is a pose 30 times a second, and a bump is agreed between the two screens (`net/contact.ts`) | Each player owns their car | Not planned (it's the right trade for 8 players) |
-| Nothing in the world can be pushed by a car | Online, not the engine: offline the sim could push things exactly, but online each screen sees other players' cars only as poses, so each would push a thing a little differently and they'd drift apart (SPEC §4) | Room left for it: a **kick**, a **host** entity, or later a **relay**-run one (see "Things that move: who decides") |
+| Nothing in the world can be pushed by a car | Online, not the engine: offline the sim could push things exactly, but online each screen sees other players' cars only as poses, so each would push a thing a little differently and they'd drift apart (SPEC §4) | Room left for it: a **kick**, a **host** entity, or later a **relay**-run one (see "Things that move") |
 | Deep water is just out of bounds: no wading physics, boats or tides | No water in the sim | Not planned |
 | The AI follows racing lines on the roads: it can't cut across open ground or plan a route | Lines are per spline | Step 7 (pathfinding over the graph) |
-| Features are authored in generator scripts, which sometimes work around the bake (the tube's ends) | No editor for ground features; the bake pulls branches toward the main road | Steps 1–2 (pieces own their heights) |
+| Features are authored in generator scripts, which sometimes work around the bake (the tube's ends) | No editor for ground features; the bake pulls branches toward the main road | Step 1c (branches own their heights), then 2 |
+
+### Performance budgets
+
+SPEC §15's budgets, for desktop now that phones are out:
+
+| Budget | Target |
+|---|---|
+| Frame | 60 fps on a mid laptop with an integrated GPU, at 1080p, 8 cars and traffic on screen |
+| Draw calls | under 250 a frame |
+| Triangles drawn | under 1 M a frame (proposed: Paradise Open draws ~720 k) |
+| Sim tick | under 2 ms for 8 cars, traffic and hazards; no allocation after warm-up |
+
+The perf tool checks against these. The numbers below were measured on a much faster machine,
+so they show the shape of the cost, not whether a mid laptop holds 60 fps: that wants measuring
+on one.
 
 ### Size and performance (measured 2026-10-03)
 
@@ -316,12 +444,14 @@ What exists today:
 - `bun tools/validate.ts`: checks every layout (and `--ai` lap floors).
 - `bun tools/replay.ts`: re-runs an F8 report headless, tick by tick.
 - `bun tools/telemetry.ts`: summarizes local telemetry (laps, wrecks, air, frame times).
-- `bun tools/poster.ts --url 'poster.html?scout=<map>&s=<m>'`: a screenshot of any spot, in
-  headless Chrome.
-- `?spawn=<m>`: start a free-mode car that far along the main road.
+- `bun tools/poster.ts --url 'poster.html?scout=<map>/<layout>&s=<m>'`: a screenshot of any
+  spot, in headless Chrome.
+- `?spawn=<m>` (dev): start your car, offline, that far along the main road.
 - `window.__rc`: the sim, the renderer and `advance()`.
 
 What to add (roughly in order of use):
+- **Golden fingerprints** (step 0): for each open map, a hash of its ground (heights, surfaces,
+  decks) and of a fixed 40 s drive. Identical to the last bit means nothing changed.
 - **`tools/drive.ts`**: place a car (map, class, spot or piece, speed, heading), give it inputs
   (held, scripted, or the AI), run N seconds headless, and print a trace (where, on what piece,
   speed, air, wrecks) and a summary. Most of the one-off scripts written while building the Lava
@@ -331,8 +461,8 @@ What to add (roughly in order of use):
 - **`tools/shot.ts`**: render a picture of any spot (map, position or distance, camera: chase,
   top-down, orbit, free; time; weather) to a PNG, headless. Built on poster.ts. With `--drive`,
   shots along a `drive` run (frames every second): a visual check of a jump or a tunnel.
-- **`tools/probe.ts`**: what's at a point: the ground height, the pieces above and below, the
-  surface, enclosed or not, the nearest street. The first thing to check when something feels
+- **`tools/probe.ts`**: what's at a point: the cast (floor, space, hazard, surface, piece), the
+  pieces above and below, the nearest street. The first thing to check when something feels
   wrong at a spot.
 - **`tools/map.ts`**: a top-down image of a whole map (the ground's heights and surfaces,
   pieces by kind, gaps, lava, trees, routes, checkpoints, the AI's racing line, and where cars
@@ -346,8 +476,11 @@ What to add (roughly in order of use):
   numbers at the end. Widen it to every map (pieces, moving pieces and features included), a
   hash of the whole sim state, compared every tick, so a mismatch names the tick it started.
   Replays, the AI reports and the world agreeing online all depend on it.
-- **Perf numbers from the command line**: triangles, draw calls, frame time for a map at a spot
-  (what `renderer.info` gives in the browser, headless).
+- **The allocation test on an open map:** "stepping does not allocate after warm-up"
+  (`test/core.test.ts`) runs only on Downtown; run it on Paradise Open and Avalanche too, since
+  the cast is where new allocation would hide.
+- **Perf numbers from the command line**: triangles, draw calls, frame time and sim time for a
+  map at a spot (what `renderer.info` gives in the browser, headless), against the budgets.
 - **`window.__rc` made stable and documented**: `place`, `step(ticks)` (stepping the camera
   properly: `advance()` renders 30 frames per call, which skews its smoothing), `probe`,
   `shot()` (a data URL), `state()`. A background tab doesn't run `requestAnimationFrame`, so
@@ -357,6 +490,26 @@ Lessons from building the Lava Tube that these tools encode: test the sim headle
 the truth); sweep, don't guess (the jump's numbers came from a sweep); and check the camera by
 stepping frames one at a time, not with `advance()`.
 
+## How to work on it
+
+For each change, in this order:
+
+1. **Say what it means to change.** A clean-up changes nothing; a feature changes a map on
+   purpose. Write which, in the PR.
+2. **Before:** the fingerprints and lap floors are green on `main`.
+3. **While building:** `drive` and `probe` for behaviour (headless first: the sim is the truth),
+   `sweep` for anything tuned, `shot` for how it looks, one frame at a time for the camera.
+4. **After:**
+   - `bun test`, `bun run typecheck`, `bun tools/validate.ts`;
+   - fingerprints identical for a clean-up; for a feature, re-recorded, and only for the maps it
+     meant to change;
+   - lap floors (`bun tools/lap-report.ts <map>`) unchanged, or re-recorded here with why;
+   - the field's wrecks (`--field`) no worse;
+   - on an open map, the allocation test.
+5. **Write it down:** CHANGELOG's "Unreleased", the map's doc (PARADISE.md, AVALANCHE.md),
+   SPEC's "Changed while building" for anything that changes a rule, and this doc's status and
+   build order.
+
 ## Build order
 
 Each step ships on its own. The existing maps keep their lap floors (the best AI lap, in
@@ -364,42 +517,72 @@ seconds: Downtown 57.9, Backroads 62.82, Avalanche 93.07, Paradise 71.52, Paradi
 of 2026-10-03), unless a step means to change a map (the coast's sand driving as sand, a lava
 stream across a route): then the new floor is recorded, with why.
 
-0. **A safety net and tools first.** **Golden fingerprints** for each open map: a hash of its
-   ground (heights, surfaces, decks) and of a fixed 40 s drive. Clean-up steps must leave them
-   identical to the last bit (any change at all fails a test, so refactors can move fast); steps
-   that mean to change the game update them on purpose. Then `drive`, `probe` and `shot`, since
-   every step below gets tested with them.
+0. **A safety net and tools first.** The golden fingerprints for each open map, and the
+   allocation test on them. Clean-up steps must leave the fingerprints identical to the last
+   bit (any change at all fails a test, so refactors can move fast); steps that mean to change
+   the game re-record them on purpose. Then `drive`, `probe` and `shot`, since every step below
+   gets tested with them.
 1. **The pieces layer and its queries**, with the Lava Tube moved onto it first: it has every
-   hard case (a tube, a gap, a kicker, mouths, the camera). Its mouths become portals (the
-   shroud goes). Done when the tube plays the same, the lap floors don't move, the three
-   special cases in `ground.ts`, `camera.ts` and
-   `physics.ts` are gone, and so are `GroundDef`'s `decks`, `branchDecks` and `branchGaps` (the
-   layouts and generators moved to pieces). On the way: `ground.ts` (692 lines, six jobs) split
-   into a `ground/` folder, the helpers copied across five files (the lateral projection,
-   `smooth`) given one home, branches owning their own heights (so the generator stops working
-   backwards from the bake), and one surface function for drawing and driving. Clears most of
-   TECH_DEBT's "Open ground and Paradise Open".
-2. **Feature modules**: the volcano, coast, beaches, moguls, canyons, decks and the avalanche as
+   hard case (a tube, a gap, a kicker, mouths, the camera). In four parts, so each can be
+   checked on its own:
+   - **1a, the move (changes nothing):** `ground.ts` (692 lines, six jobs) split into a
+     `ground/` folder, the helpers copied across five files (the lateral projection, `smooth`)
+     given one home, and the decks, the tube and the gap moved onto pieces, with the minimum of
+     the "shape the ground" hook that decks need (they also shape the land under them: `floor`,
+     `ease`, `reach`). The three special cases in `ground.ts`, `camera.ts` and `physics.ts` go,
+     and so do `GroundDef`'s `decks`, `branchDecks` and `branchGaps`. **The fingerprints stay
+     identical**, which means reproducing today's tolerances exactly (`DECK_CATCH`,
+     `DECK_SLACK`, the sinking check in `meetFace`).
+   - **1b, portals:** the tube's mouths cut to its outline and stitched; the shroud goes.
+     Changes the ground: fingerprints re-recorded.
+   - **1c, branches own their heights:** the generator stops working backwards from the bake.
+     The tube should drive the same: fingerprints re-recorded, lap floors checked.
+   - **1d, one surface function** for drawing and driving. The coast's sand drives as sand
+     (see "Open questions"): fingerprints and Paradise Open's floor re-recorded.
+
+   Clears most of TECH_DEBT's "Open ground and Paradise Open".
+2. **Feature modules**: the volcano, coast, beaches, moguls, canyons and the avalanche as
    modules over pieces, each placed in world space or along a named street, not by the main road
-   (moguls and canyons are by the main road today, so they move). The first new ones: **lava
-   streams** (a channel cut into the ground, lava you wreck in if you drive down into it, roads
-   bridging over it; the static stream from the volcano toward the reef is the first), then the
-   eruption and a lava flow onto a road.
-3. **Enclosed spaces done properly**: the camera under the ceiling, indoor light and fog, reverb,
-   and breakable walls (smashables grown into wall panels, placed in world space, their break a
-   claimed trigger online). Then a short indoor stretch on a map: a mall to cut through.
+   (moguls and canyons are by the main road today, so they move), and the rest of decks' ground
+   shaping. The first new ones: **lava streams** (see "A feature, end to end"; the static stream
+   from the volcano toward the reef is the first), then the eruption and a lava flow onto a road.
+3. **Enclosed spaces done properly**: the camera under the ceiling (with hints where it's
+   tricky), indoor light and fog, reverb, and breakable walls (smashables grown into wall
+   panels, placed in world space, staying broken or standing again as each says, their break a
+   trigger online). Then a short indoor stretch on a map: a mall to cut through.
 4. **Moving pieces**: a drawbridge.
-5. **A cop chase on Downtown as it is**: the mode only (roles, busted, escape, a timer), with
-   cops that chase along the track. A playtest: if the chase is fun, the road graph is worth
-   building; if not, we've saved the biggest step.
+5. **A quick chase mode on Downtown as it is** (optional): the mode only (roles, busted,
+   escape, a timer), with AI cops that chase along the track. A cheap playtest of whether a
+   chase is fun, before the road graph.
 6. **The road graph and routes**: streets, junctions, and checkpoints as gates on streets (the
-   bake's checkpoints and `rules/progress.ts` carried over); today's maps as routes.
-7. **The cop chase in a city**: a city map, cops pathfinding over the graph.
+   bake's checkpoints and `rules/progress.ts` carried over); `locate` and the road-edge walls
+   move onto pieces and streets, and the spline position goes; today's maps as routes.
+7. **A city map**, and if the chase is wanted, the chase in it: AI cops pathfinding over the
+   graph.
+
+## Decisions
+
+The owner's, 2026-10-03:
+- **For racecar only**, not a general-purpose engine. The name: Caldera.
+- **Refactor freely**: old code, layouts and generators get reworked; the effect is what's kept.
+- **Desktop only.** Mobile is dropped (SPEC "Changed while building").
+- **Camera hints: automatic by default**, a manual hint only where it's tricky.
+- **A chase mode is a concept**, not a requirement; if built, the cops are AI and it's a game
+  mode.
+- **Breakables choose**: stay broken for the race, or stand again after a time.
+- **Room for pushable things** (kicks, host entities, later Resonance relays), not built now.
+
+## Open questions
+
+- **The coast's sand (step 1d).** Today the sand painted along the coast drives as grass (the
+  faster off-road surface), except the beach from town to the bridge. With one surface function
+  it drives as sand, so cutting along the shore costs a little time and Paradise Open's floor may
+  move. Or paint less sand, so the coast looks like what it drives as. Owner's call.
 
 ## See also
 
 - [AVALANCHE.md](./AVALANCHE.md) and [PARADISE.md](./PARADISE.md): the two open maps it grew from.
 - [TECH_DEBT.md](./TECH_DEBT.md), "Open ground and Paradise Open": what step 1 cleans up.
-- [SPEC.md](./SPEC.md) §4: the sync categories (D, T, H, L) every feature has to fit; §11:
-  "Platform asks"; §14: telemetry and reports.
+- [SPEC.md](./SPEC.md) §4: the sync categories every feature has to fit; §9: the spatial index;
+  §11: "Platform asks"; §14: telemetry and reports; §15: performance budgets.
 - [ONLINE.md](./ONLINE.md): how online play is put together, file by file.
