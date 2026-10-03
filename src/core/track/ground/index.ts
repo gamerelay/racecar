@@ -22,10 +22,12 @@ import type { BakedSpline } from '../bake';
 import { shapeBranches } from './branches';
 import { buildLand } from './land';
 import { DECK_CATCH, definePieces, floorQuery, type Pieces } from './pieces';
+import { groundKinds } from './surface';
 
-export { DECK_CATCH, type Piece, type Pieces } from './pieces';
+export { DECK_CATCH, DECK_SLACK, type Piece, type Pieces } from './pieces';
 export { canyonAt, canyonDepth, groundShape, noise } from './shape';
 export { OUTLINE_POINTS, outlineAt } from './outline';
+export { KIND_BEACH, KIND_BRANCH, KIND_ROAD, KIND_SAND, KIND_SHORE, KIND_VERGE, surfaceNoise } from './surface';
 
 /** A beach's ends (GroundDef.beaches) fade in over this many meters. */
 export const BEACH_FADE = 40;
@@ -75,6 +77,10 @@ export interface Ground {
   readonly onBranch: Uint8Array;
   /** Per grid point on a branch's road, its surface. */
   readonly branchSurface: Uint8Array;
+  /** Per grid point, what the ground is (ground/surface.ts, a KIND_*): what's drawn there and what's driven. */
+  readonly kind: Uint8Array;
+  /** What the ground is at (x, z) (its nearest grid point's kind), -1 off the grid. */
+  kindAt(x: number, z: number): number;
   /** Per grid point, 1 where the slope comes down into a tunnel's space at its mouth (no trees there; the drawing cuts the ground to the tunnel's own outline: render's portal.ts). */
   readonly hole: Uint8Array;
   /** The sea's level (GroundDef.sea), if the ground has one. */
@@ -120,6 +126,7 @@ export function buildGround(def: GroundDef, main: BakedSpline, branches: BakedSp
       beach[i] = side * smooth(0, BEACH_FADE, Math.min(d, len - d));
     }
   }
+  const kind = groundKinds(def, land, main, { onBranch, branchSurface, hole }, pieces, beach);
   const sea = def.sea ?? 0;
   const volcano = def.volcano;
   const at = (gx: number, gz: number) => h[Math.min(nz - 1, Math.max(0, gz)) * nx + Math.min(nx - 1, Math.max(0, gx))];
@@ -137,6 +144,12 @@ export function buildGround(def: GroundDef, main: BakedSpline, branches: BakedSp
     beach,
     onBranch,
     branchSurface,
+    kind,
+    kindAt(x, z) {
+      const gx = Math.round((x - x0) / cell);
+      const gz = Math.round((z - z0) / cell);
+      return gx < 0 || gz < 0 || gx >= nx || gz >= nz ? -1 : kind[gz * nx + gx];
+    },
     hole,
     sea: def.sea,
     face: def.face,

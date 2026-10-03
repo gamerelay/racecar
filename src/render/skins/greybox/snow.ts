@@ -9,7 +9,7 @@ import { BufferAttribute, BufferGeometry, Color, ConeGeometry, CylinderGeometry,
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { smoothstep } from '../../../core/math';
 import { VERGE_DEFAULT, type Track } from '../../../core/track/bake';
-import { noise } from '../../../core/track/ground';
+import { KIND_BEACH, KIND_BRANCH, KIND_ROAD, KIND_SAND, KIND_SHORE, noise, surfaceNoise } from '../../../core/track/ground';
 import { TREE_PINE } from '../../../core/track/pines';
 import { hash01 } from '../../../core/rng';
 import { buildPortals, VERTEX } from './portal';
@@ -52,12 +52,10 @@ export function buildSnow(track: Track, green?: Color): Object3D[] {
   // (The palette's grass, softened toward the forest: on its own it's a lawn.)
   const grass = green?.clone().lerp(FOREST, 0.3);
   const g = track.ground!;
-  const decks = g.pieces.floors(track.main.index);
   const main = track.main;
   const { nx, nz, cell, x0, z0, h, lateral, near } = g;
   const isle = !!track.layout.ground?.coast;
   const volcano = track.layout.ground?.volcano;
-  const sea = g.sea ?? 0;
   const grass2 = grass?.clone().offsetHSL(0.03, 0.05, 0.04);
   const vergeColor = new Color(track.surfaces[track.surfaceIndex.get(track.layout.shoulderSurface ?? 'powder') ?? 0].color);
   const surfaceColors = track.surfaces.map((s) => new Color(s.color));
@@ -86,30 +84,29 @@ export function buildSnow(track: Track, green?: Color): Object3D[] {
           // Normals from the whole grid, so tiles meet without a seam in the shading.
           const hx = (at(gx + 1, gz) - at(gx - 1, gz)) / (2 * cell);
           const hz = (at(gx, gz + 1) - at(gx, gz - 1)) / (2 * cell);
-          const n = 1 / Math.hypot(hx, 1, hz);
-          nor[o] = -hx * n;
-          nor[o + 1] = n;
-          nor[o + 2] = -hz * n;
+          const len = 1 / Math.hypot(hx, 1, hz);
+          nor[o] = -hx * len;
+          nor[o + 1] = len;
+          nor[o + 2] = -hz * len;
           const i = near[k];
-          // (Under a deck it's the ground, not the road: the road's up on the deck.)
-          const road = (Math.abs(lateral[k]) <= main.width[i] / 2 && !decks?.[i]) || g.onBranch[k] === 2;
-          // Off it, the stretch's own verge (the volcano's ash, the jungle's undergrowth), else the layout's.
-          // (A branch's road is its own surface.)
-          c.copy(g.onBranch[k] === 2 ? surfaceColors[g.branchSurface[k]] : road ? surfaceColors[main.surface[i]] : main.verge[i] === VERGE_DEFAULT ? vergeColor : surfaceColors[main.verge[i]]);
+          // What the ground is (core's ground/surface.ts, the same the cars drive on): a road's own
+          // surface; sand and wet sand; else the stretch's own verge (the volcano's ash, the jungle's
+          // undergrowth), else the layout's.
+          const kind = g.kind[k];
+          const road = kind === KIND_ROAD || kind === KIND_BRANCH;
+          c.copy(kind === KIND_BRANCH ? surfaceColors[g.branchSurface[k]] : road ? surfaceColors[main.surface[i]] : main.verge[i] === VERGE_DEFAULT ? vergeColor : surfaceColors[main.verge[i]]);
           const steep = Math.hypot(hx, hz);
-          if (isle && !road && g.onBranch[k] !== 2) {
-            const x = pos[o];
-            const z = pos[o + 2];
-            // Smooth noise, so the edges between them wander instead of stepping cell by cell.
-            const n = noise(x, z, 23, 7);
+          const x = pos[o];
+          const z = pos[o + 2];
+          // Smooth noise, so the edges between them wander instead of stepping cell by cell.
+          const n = surfaceNoise(x, z);
+          if (kind === KIND_SHORE) c.copy(SAND_WET);
+          else if (kind === KIND_SAND) c.copy(SAND);
+          // (A beach's sand a little damper in patches.)
+          else if (kind === KIND_BEACH) c.copy(SAND).lerp(SAND_WET, 0.25 * smoothstep(0, 1, (n - 0.5) * 3));
+          if (isle && !road && kind !== KIND_SHORE && kind !== KIND_SAND && kind !== KIND_BEACH) {
             const off = Math.abs(lateral[k]) - main.width[i] / 2;
-            const beach = g.beach[i];
-            if (h[k] < sea + 0.4) c.copy(SAND_WET);
-            else if (g.coast(x, z) < 12 + 12 * n && h[k] < sea + 4) c.copy(SAND);
-            // A beach (GroundDef.beaches): sand from the road down to the sea on its side, with
-            // grass tufts by the road, wandering in at its ends.
-            else if (beach * lateral[k] > 0 && Math.abs(beach) > 0.2 + 0.6 * n && !(off < 3 + 4 * n && n > 0.6)) c.copy(SAND).lerp(SAND_WET, 0.25 * smoothstep(0, 1, (n - 0.5) * 3));
-            else if (grass) {
+            if (grass) {
               // Inland of the beach, the island's green, darkening into forest away from the roads;
               // a stretch's own verge (the volcano's ash, the jungle's undergrowth) by its road,
               // fading into it over a wandering edge rather than filling the ground to where the

@@ -144,7 +144,7 @@ describe('Paradise (Island)', () => {
     const verge = (x: number, z: number, y?: number) => {
       sampleAt(main, nearest(x, z, y) * main.step, hit);
       hit.lateral = hit.width / 2 + 1.5;
-      return SURFACES[surfaceAt(track, hit, false, shoulder)].id;
+      return SURFACES[surfaceAt(track, hit, hit.cx - hit.tz * hit.lateral, hit.cy, hit.cz + hit.tx * hit.lateral, false, shoulder)].id;
     };
     expect(island.shoulderSurface).toBe('beach');
     expect(verge(-410, 170)).toBe('beach');

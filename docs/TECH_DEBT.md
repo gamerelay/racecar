@@ -299,10 +299,9 @@ shared `lateralOf`").
 - **`snow.ts` draws every open ground**, Paradise's island too: its colours (sand, beach, grass,
   the verges, the volcano's rock), and its roads laid over the ground. Rename it (`openGround.ts`),
   and move the island's colouring next to `openIsland.ts`. *Small.*
-- **Off-road surfaces are per main-road sample, not per side or per point.** The sand painted by
-  the coast drives as the stretch's verge (grass) unless it's in a beach (`GroundDef.beaches`,
-  which `surfaceAt` checks by side). What's drawn and what's driven should come from one
-  function of (x, z). *Medium.*
+- **The verge off the sand is still the road's** (`surfaceAt` takes it from the nearest road's
+  sample, the drawing from the main road's nearest the grid point): the two can differ beside a
+  branch. The volcano's rock is a colour over the verge (ash), not a surface. *Small.*
 - **Wrapping past the line is inconsistent:** beaches wrap (`s[0] > s[1]`); pieces (`definePieces`,
   `runIn`, `pull`) don't, so a piece across s = 0 can't be said (the validator rejects `s[0] > s[1]`). The generator's
   `beside` doesn't wrap either (fine at 2,685 and 3,255 m). *Small.*

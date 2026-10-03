@@ -2,7 +2,7 @@
 // an angle band and a three-stage mini-turbo, boost, real air off crests and ramps, and a wreck
 // body with aftertouch. One car per call; collisions happen after every car has moved.
 
-import { DECK_CATCH, newCast, type Ground } from '../track/ground';
+import { DECK_CATCH, DECK_SLACK, newCast, type Ground } from '../track/ground';
 import type { Controls } from '../controls';
 import { Cause, Ev } from '../events';
 import { approach, atan, atan2, clamp, cos, damp, hypot, lerp, pow, sign, sin, smoothstep, sq, wrapAngle } from '../math';
@@ -287,8 +287,6 @@ function meetFace(sim: SimState, g: Ground, i: number): void {
 /** Scratch for the ground's slope. */
 const SLOPE = { x: 0, z: 0 };
 
-/** A wheel past a deck's edge, with the car's middle still on it, still stands on the deck's plane this far out (m). */
-const DECK_SLACK = 2;
 /** Under the sea's level by more than this (m), on the ground, is deep water: out of bounds. */
 const WADE = 0.8;
 
