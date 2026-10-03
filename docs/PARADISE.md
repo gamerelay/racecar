@@ -434,6 +434,20 @@ beach from town to the Freeway (#80, #81). See "Built so far" above.
   to keep races fair (see HANDOFF). The road over the ground (the bridge here, the Valley's
   Trestle on Backroads) is the piece to solve first; once that works, the rest follows.
 
+## The owner's answers (2026-10-03)
+
+- **Open feels right:** "way more immersive and fun", and "even crashing and going off into some
+  random part of the map feels fun": it keeps the player in the experience. So: respawn only on a
+  real hazard (deep water, lava); off the road should slow you down, not stop you; and every part
+  of the island should be worth ending up in.
+- **One PR:** keep iterating on #81 while it's experimental, no new stacks.
+- **The bridge is done:** the Freeway deck over the bay is the half-moon bridge (step 3). Keep it.
+- **A static lava stream** down the mountain toward the reef, besides the eruption: without it
+  you can cross the volcano from the village to the far side too easily. It's a barrier to drive
+  round, or a risky line to jump.
+- **Engine first:** before the remaining steps, the tools to build open worlds: easier testing,
+  faster code, and pieces other maps can reuse (most maps are moving to open ground).
+
 ## Questions for the owner
 
 Answered above. Still open:
