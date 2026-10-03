@@ -3,14 +3,15 @@
 // to the last bit. A clean-up changes nothing, so these hold; a change meant to move a map
 // re-records them with `bun tools/fingerprint.ts --update`, and says so in its PR.
 //
-// Floats differ in their last bits between platforms, so a platform with no recording (CI's
-// Linux, until it's committed) skips the check and prints its fingerprints to record.
+// Floats differ in their last bits between platforms, so a platform with no recording skips the
+// check. Any platform that misses or mismatches prints its fresh fingerprints, so CI's can be
+// written back from its log: `bun tools/fingerprint.ts --from-ci`.
 
 import { describe, expect, test } from 'bun:test';
 import { fingerprint, groundHash, type Fingerprint } from '../src/dev/fingerprint';
 import { Hasher, hashOf } from '../src/dev/hash';
 import { bakeTrack } from '../src/core/track/bake';
-import { GOLDEN_KEYS, PLATFORM, moved, readGolden } from '../tools/fingerprint';
+import { FRESH_MARK, GOLDEN_KEYS, PLATFORM, moved, readGolden } from '../tools/fingerprint';
 import { CLASSES, SURFACES, layout } from './helpers';
 
 /** A layout's fingerprint takes a second or two here, longer on CI's machines. */
@@ -20,6 +21,7 @@ describe('golden fingerprints', () => {
   const golden = readGolden();
   const recorded = Object.keys(golden).length > 0;
   const fresh: Record<string, Fingerprint> = {};
+  let differs = !recorded;
   for (const key of GOLDEN_KEYS)
     test(
       `${key} is as recorded`,
@@ -28,14 +30,16 @@ describe('golden fingerprints', () => {
         fresh[key] = now;
         if (!recorded) return;
         // An empty list means nothing moved; otherwise it names what did.
-        expect(moved(golden[key], now)).toEqual([]);
+        const parts = moved(golden[key], now);
+        if (parts.length) differs = true;
+        expect(parts).toEqual([]);
       },
       SLOW,
     );
-  test('this platform has a recording (or prints one to commit)', () => {
-    if (recorded) return;
-    console.log(`No fingerprints recorded for ${PLATFORM}. To record them, save this as test/golden/fingerprints.${PLATFORM}.json:`);
-    console.log(JSON.stringify(fresh, null, 1));
+  test('a platform without its recording, or off it, prints its fingerprints', () => {
+    if (!differs) return;
+    console.log(`${FRESH_MARK} ${PLATFORM} (save as test/golden/fingerprints.${PLATFORM}.json, or run \`bun tools/fingerprint.ts --from-ci\`):`);
+    console.log(JSON.stringify(fresh));
   });
 
   const open = layout('paradise-open/open');

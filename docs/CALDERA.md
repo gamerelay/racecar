@@ -505,7 +505,10 @@ Built in step 0 (`src/dev/`, shared by the tools and `window.__rc.dev`):
   and over a grid, so step 1a can change how the ground is stored and keep them identical.
   **One recording per platform** (`test/golden/fingerprints.<platform>-<arch>.json`): floats
   differ in their last bits between macOS and Linux (`Math.sin` and the rest). A platform with
-  none (CI's Linux, first time) skips the check and prints its fingerprints to commit.
+  none skips the check; one that misses or is off prints its fresh fingerprints. **A change
+  meant to move a map** re-records both: `--update` here (the Mac's), push, and when CI fails on
+  Linux's, `bun tools/fingerprint.ts --from-ci` writes them from its log; check the diff names
+  only the maps meant to move, then push again.
 - **`bun tools/drive.ts <map> …`**: place a car (`--road id --s m --lat m`, or `--at x,z[,y]`;
   `--kmh`, `--class`, `--reverse`), give it inputs (`--ai`, or held `--throttle --brake --steer
   --boost --drift`), run it (`--seconds`, `--every`), and get a trace (where, on what, speed, air,
