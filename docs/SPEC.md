@@ -2170,4 +2170,7 @@ Caldera, the engine (2026-10-03; the plan is docs/CALDERA.md):
   so replays are exact across browsers and CI can't drift. Each function is within an ulp of
   Math's (tan 3; pow a few more for big powers): after 60 s of an 8-car field the cars are picometres from where they were, the lap
   floors and the field's results (5 seeds per map) are unchanged to the tenth.
+- **Layouts say pieces** (CALDERA's step 1a): `pieces` (`PieceDef`) instead of `GroundDef`'s
+  `decks`, `branchDecks` and `branchGaps`, and what's under a point is one query,
+  `ground.cast`. Nothing drives differently (the fingerprints are identical).
 - **Smashables break per screen**, not "the same online": each screen collides only its own cars.

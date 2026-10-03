@@ -4,6 +4,7 @@
 // when something feels wrong at a spot. Dev only: plain objects, allocating freely.
 
 import type { Track } from '../core/track/bake';
+import { newCast, type Space } from '../core/track/ground';
 import { newHit, projectGlobal, surfaceAt, type TrackHit } from '../core/track/query';
 
 export interface RoadSpot {
@@ -36,10 +37,12 @@ export interface Probe {
     height: number;
     grade: [number, number];
     stand: number;
-    /** 'deck' when what it stands on is a deck (a bridge, a tunnel's road), else 'ground'. */
-    on: 'deck' | 'ground';
-    /** The highest deck over the point, if any (a car on the ground under it is under a bridge or over a tunnel). */
-    deck: number | null;
+    /** The piece it stands on, by id (a bridge, a tunnel's road), else 'ground'. */
+    on: string;
+    /** Where a car at `y` is: open air, inside an enclosed piece (a tunnel), or in the rock. */
+    space: Space;
+    /** The highest piece floor over the point, if any (a car on the ground under it is under a bridge or over a tunnel). */
+    floor: number | null;
     /** The slope's opened here (a tunnel's mouth), the main road's beach side (-1, 1, 0), meters inland, in the lava. */
     hole: boolean;
     beach: number;
@@ -86,17 +89,18 @@ export function probe(track: Track, x: number, z: number, y?: number): Probe {
   const gz = Math.round((z - g.z0) / g.cell);
   const k = gx >= 0 && gz >= 0 && gx < g.nx && gz < g.nz ? gz * g.nx + gx : -1;
   const slope = g.slope(x, z, { x: 0, z: 0 });
-  const under = g.deckUnder(x, z, yy);
-  const deck = g.deck(x, z);
+  const cast = g.cast(x, yy, z, newCast());
+  const floor = g.pieceFloor(x, z);
   const coast = g.coast(x, z);
   const nearMain = k >= 0 ? g.near[k] : -1;
   out.ground = {
     inside: !g.outside(x, z),
     height: g.height(x, z),
     grade: [slope.x * 100, slope.z * 100],
-    stand: g.top(x, z, yy),
-    on: under === under ? 'deck' : 'ground',
-    deck: deck === deck ? deck : null,
+    stand: cast.floor,
+    on: cast.piece >= 0 ? g.pieces.list[cast.piece].id : 'ground',
+    space: cast.space,
+    floor: floor === floor ? floor : null,
     hole: k >= 0 && g.hole[k] === 1,
     beach: nearMain >= 0 ? Math.sign(g.beach[nearMain]) : 0,
     coast: Number.isFinite(coast) ? coast : null,
@@ -116,7 +120,7 @@ export function describeProbe(p: Probe): string {
   const g = p.ground;
   if (g) {
     lines.push(`ground: ${f(g.height)} m, grade ${f(g.grade[0], 1)}% / ${f(g.grade[1], 1)}% (x / z)${g.inside ? '' : ', OUT OF BOUNDS'}`);
-    lines.push(`stands on: ${g.on} at ${f(g.stand)} m${g.deck !== null ? `; highest deck here ${f(g.deck)} m` : ''}`);
+    lines.push(`stands on: ${g.on} at ${f(g.stand)} m, in ${g.space === 'enclosed' ? 'an enclosed piece' : g.space === 'rock' ? 'THE ROCK' : 'the open'}${g.floor !== null ? `; highest piece floor here ${f(g.floor)} m` : ''}`);
     const flags = [g.hole && "a tunnel's mouth (the slope's open)", g.lava && 'IN THE LAVA', g.beach && `beach (${g.beach < 0 ? 'left' : 'right'} of the main road)`, g.coast !== null && `${f(g.coast, 0)} m inland`].filter(Boolean);
     if (flags.length) lines.push(flags.join('; '));
   }

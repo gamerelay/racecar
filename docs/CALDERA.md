@@ -9,8 +9,8 @@ spec.** Details will change while building; note those changes in [SPEC.md](./SP
 **Status (2026-10-03):** reviewed and agreed (PR #82, merged). **Step 0 is built and merged** (PR #83): the
 golden fingerprints, the allocation test on the open maps, `tools/drive.ts`, `tools/probe.ts`,
 `tools/shot.ts` and `window.__rc.dev`, over `src/dev/`. **Step 0b, the sim's own math**, is merged (PR #84):
-see "Same math in every browser"; one fingerprint file for every platform. Next: step
-1a. HANDOFF has the detail.
+see "Same math in every browser"; one fingerprint file for every platform. **Step 1a, the move
+onto pieces**, is built (fingerprints identical). Next: step 1b, portals. HANDOFF has the detail.
 
 **Reading it:** "Principles" and "The core idea: pieces" are the design; "Build order" and "How
 to work on it" are what to do; the rest is reference (moving things, routes, a worked example,
@@ -592,7 +592,7 @@ stream across a route): then the new floor is recorded, with why.
 1. **The pieces layer and its queries**, with the Lava Tube moved onto it first: it has every
    hard case (a tube, a gap, a kicker, mouths, the camera). In four parts, so each can be
    checked on its own:
-   - **1a, the move (changes nothing):** `ground.ts` (692 lines, six jobs) split into a
+   - **1a, the move (changes nothing)** (built): `ground.ts` (692 lines, six jobs) split into a
      `ground/` folder, the helpers copied across five files (the lateral projection, `smooth`)
      given one home, and the decks, the tube and the gap moved onto pieces, with the minimum of
      the "shape the ground" hook that decks need (they also shape the land under them: `floor`,
@@ -600,6 +600,29 @@ stream across a route): then the new floor is recorded, with why.
      and so do `GroundDef`'s `decks`, `branchDecks` and `branchGaps`. **The fingerprints stay
      identical**, which means reproducing today's tolerances exactly (`DECK_CATCH`,
      `DECK_SLACK`, the sinking check in `meetFace`).
+
+     **Built** (2026-10-03), fingerprints identical on every layout:
+     - `TrackLayout.pieces` (`PieceDef`): a piece carries a stretch of a road (`road`, `s`); a floor
+       or none (`floor: false`, a gap); `ceiling` makes it enclosed; `under` is the shaping hook
+       (main road only for now). Paradise Open has four: `freeway`, `lava-tube-in`, `lava-jump`
+       and `lava-tube-out`. `validate` checks them.
+     - `core/track/ground/`: `land.ts`, `shape.ts`, `branches.ts`, `pieces.ts`, `plane.ts`,
+       `search.ts` and `index.ts`. `track/frame.ts` holds `along` and `across`. `smooth` is
+       `math.ts`'s `smoothstep` everywhere (the ground, the island, the pines, the renderers, the
+       generator).
+     - **One question, `ground.cast(x, y, z, out)`**: what a point stands on (`floor`, `piece`),
+       the ground, the piece floor under it (`over`) and its `ceiling`, and its `space` (open,
+       enclosed, rock). `deckUnder` is gone; physics (`meetFace`, the wheels, the landing catch),
+       the camera (`cameraFloor`, `clearView`, `slopeRise`) and the tools all ask the cast.
+       `pieceFloor` (was `deck`) is the floor query with slack; `top` and `topSlope` stay. The
+       sinking check stays in `meetFace` (a rule of the physics, now in terms of the cast).
+     - Not yet, by design: pieces are still found by their road (the ground grid's nearest
+       main-road sample, a branch's floor samples bucketed), not a spatial grid of their own, and
+       they have no `look` or camera hint (the renderer still knows a tube from a deck by its road).
+       Both come when pieces get their own curves.
+     - One small camera change: the camera's "inside a tube" rule now holds only under an
+       enclosed piece's ceiling, not 6 m over any deck, so behind a car on the Freeway with the
+       camera in a slope beside the road, it now pulls in (a rare spot, and the camera only).
    - **1b, portals:** the tube's mouths cut to its outline and stitched; the shroud goes.
      Changes the ground: fingerprints re-recorded.
    - **1c, branches own their heights:** the generator stops working backwards from the bake.

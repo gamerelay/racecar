@@ -1,0 +1,208 @@
+// Open ground (docs/AVALANCHE.md): a heightfield the car drives on everywhere, the same one the
+// renderer draws, for a layout with `ground`, and the pieces over and under it (docs/CALDERA.md,
+// "The core idea: pieces"): decks, tunnels, gaps. All of it is yours to drive, ridges and
+// mountainsides too: out of bounds is only off the grid, where the ground ends.
+//
+// What's under a point is one question, `cast`: the highest floor at or below it (a piece's or the
+// ground), which piece, the ground, and the space it's in (open, inside an enclosed piece, or in the
+// rock). The physics, the camera and the tools all ask it.
+//
+//   land.ts      the heightfield: the road, the land between, the volcano, the coast
+//   shape.ts     what the layout adds off the road: swell, rough, moguls, canyons, walls
+//   branches.ts  the branches' cuttings, and the tunnels' mouths opened in the slope
+//   pieces.ts    the pieces: which samples they carry, how they shape the ground, their floors
+//   plane.ts     a road's plane carried out from a sample
+//   search.ts    the main road's sample nearest a point
+//
+// Pure arithmetic from the layout, so every screen builds the same ground.
+
+import type { GroundDef, PieceDef } from '../../content';
+import { smoothstep as smooth, sq } from '../../math';
+import type { BakedSpline } from '../bake';
+import { shapeBranches } from './branches';
+import { buildLand } from './land';
+import { DECK_CATCH, definePieces, floorQuery, type Pieces } from './pieces';
+
+export { DECK_CATCH, type Piece, type Pieces } from './pieces';
+export { canyonAt, canyonDepth, groundShape, noise } from './shape';
+
+/** A beach's ends (GroundDef.beaches) fade in over this many meters. */
+export const BEACH_FADE = 40;
+/** A tunnel's usual ceiling over its road (m): the Lava Tube's (PieceDef.ceiling). */
+export const TUBE_H = 7;
+
+/** Where a point is: open air, inside an enclosed piece (under its ceiling), or in the rock. */
+export type Space = 'open' | 'enclosed' | 'rock';
+
+/** What a cast down from a point found (Ground.cast). Filled in place: the caller owns it. */
+export interface Cast {
+  /** What something there stands on: the highest floor at or below it, a piece's or the ground's. */
+  floor: number;
+  /** The piece it stands on (its index in `pieces.list`), -1 for the ground. */
+  piece: number;
+  /** The ground's height there. */
+  ground: number;
+  /** The floor of a piece there at or below the point (by DECK_CATCH), stood on or not (NaN: none): a tunnel's road under a car on the slope over it. */
+  over: number;
+  /** That piece's ceiling (its height, m), NaN if it's open or there's none. */
+  ceiling: number;
+  space: Space;
+}
+
+export const newCast = (): Cast => ({ floor: 0, piece: -1, ground: 0, over: NaN, ceiling: NaN, space: 'open' });
+
+export interface Ground {
+  /** The ground's height at (x, z), bilinear between grid points. */
+  height(x: number, z: number): number;
+  /** Its slope at (x, z): the rise per meter along x and along z, into `out`. */
+  slope(x: number, z: number, out: { x: number; z: number }): { x: number; z: number };
+  /** The grid, for drawing it: heights and, per point, how far across the main road it lies (m, + right). */
+  readonly x0: number;
+  readonly z0: number;
+  readonly cell: number;
+  readonly nx: number;
+  readonly nz: number;
+  readonly h: Float32Array;
+  readonly lateral: Float32Array;
+  /** Per point, the main road's sample nearest it. */
+  readonly near: Int32Array;
+  /** Off the grid, where the ground ends: out of bounds (anywhere drawn is in bounds). */
+  outside(x: number, z: number): boolean;
+  /** The pieces (decks, tunnels, gaps), and which road samples they carry. */
+  readonly pieces: Pieces;
+  /** Per grid point: 2 on a branch's road, 1 on its verge (and a little past: no trees), 0 off it. */
+  readonly onBranch: Uint8Array;
+  /** Per grid point on a branch's road, its surface. */
+  readonly branchSurface: Uint8Array;
+  /** Per grid point, 1 where the ground is left out of the drawing: a tunnel's mouth, opened in the slope. */
+  readonly hole: Uint8Array;
+  /** The sea's level (GroundDef.sea), if the ground has one. */
+  readonly sea?: number;
+  /** Steeper than this is a rock face (GroundDef.face), if the ground has them. */
+  readonly face?: number;
+  /**
+   * Per main-road sample, its beach (GroundDef.beaches): which side (-1 left, 1 right) times how
+   * far in from the beach's ends (0 to 1 over BEACH_FADE m); 0 with none.
+   */
+  readonly beach: Float32Array;
+  /** Signed distance to the coast (GroundDef.coast), positive inland; Infinity with none. */
+  coast(x: number, z: number): number;
+  /** Whether (x, z) at height `y` is down in the volcano's lava lake (GroundDef.volcano). */
+  inLava(x: number, z: number, y: number): boolean;
+  /**
+   * A piece's floor at (x, z): its road's plane, if the point is over one, within `slack` m past
+   * its edges (the road and its shoulder); the highest at or below `y` (by DECK_CATCH), if there's
+   * more than one. NaN if there's none.
+   */
+  pieceFloor(x: number, z: number, slack?: number, y?: number): number;
+  /** What's under (x, y, z) (y Infinity: from the sky), into `out`: see Cast. */
+  cast(x: number, y: number, z: number, out: Cast): Cast;
+  /** What's under (x, z) for something at height `y`: the highest floor at or below it (unset: the highest), else the ground. */
+  top(x: number, z: number, y?: number): number;
+  /** The slope of `top` at (x, z) for something at height `y`, into `out`. */
+  topSlope(x: number, z: number, y: number, out: { x: number; z: number }): { x: number; z: number };
+}
+
+/** The ground for `def` round `main`, its `branches` and the layout's `pieces`. */
+export function buildGround(def: GroundDef, main: BakedSpline, branches: BakedSpline[] = [], pieceDefs: readonly PieceDef[] = []): Ground {
+  const pieces = definePieces(pieceDefs, [main, ...branches]);
+  const land = buildLand(def, main, pieces);
+  const { x0, z0, cell, nx, nz, h } = land;
+  const { onBranch, branchSurface, hole } = shapeBranches(land, main, branches, pieces);
+  const floors = floorQuery(pieces, main, branches, land);
+  const beach = new Float32Array(main.n);
+  for (const b of def.beaches ?? []) {
+    const len = (((b.s[1] - b.s[0]) % main.length) + main.length) % main.length;
+    const side = b.side === 'left' ? -1 : 1;
+    for (let d = 0; d <= len; d += main.step) {
+      const i = Math.round((((b.s[0] + d) % main.length) + main.length) % main.length / main.step) % main.n;
+      beach[i] = side * smooth(0, BEACH_FADE, Math.min(d, len - d));
+    }
+  }
+  const sea = def.sea ?? 0;
+  const volcano = def.volcano;
+  const at = (gx: number, gz: number) => h[Math.min(nz - 1, Math.max(0, gz)) * nx + Math.min(nx - 1, Math.max(0, gx))];
+  const scratch = newCast();
+  return {
+    x0,
+    z0,
+    cell,
+    nx,
+    nz,
+    h,
+    lateral: land.lateral,
+    near: land.near,
+    pieces,
+    beach,
+    onBranch,
+    branchSurface,
+    hole,
+    sea: def.sea,
+    face: def.face,
+    coast: land.coast,
+    inLava(x, z, y) {
+      return !!volcano && sq(x - volcano.x) + sq(z - volcano.z) < sq(volcano.crater) && y < sea + volcano.lava + 0.3;
+    },
+    pieceFloor: floors.floor,
+    cast(x, y, z, out) {
+      const d = floors.floor(x, z, 0, y);
+      const p = floors.found();
+      const gh = this.height(x, z);
+      out.ground = gh;
+      out.over = d;
+      out.ceiling = d === d ? d + pieces.list[p].ceiling : NaN;
+      // A piece's floor is what it stands on over the ground (a bridge); under the ground by more
+      // than a hard landing (a tunnel's roof over the car), too; and under it by less (a tunnel's
+      // mouth, its slope rising off the road) for a car on the floor, within a hard landing of it:
+      // the slope over the mouth rises off the road, and riding it carried cars up into the rock.
+      const on = d === d && (d >= gh || gh > y + DECK_CATCH || (y !== Infinity && Math.abs(y - d) <= DECK_CATCH));
+      out.floor = on ? d : gh;
+      out.piece = on ? p : -1;
+      out.space = y > d && y < out.ceiling ? 'enclosed' : y < gh ? 'rock' : 'open';
+      return out;
+    },
+    top(x, z, y = Infinity) {
+      return this.cast(x, y, z, scratch).floor;
+    },
+    topSlope(x, z, y, out) {
+      const c = this.cast(x, y, z, scratch);
+      if (c.piece < 0) return this.slope(x, z, out);
+      const d = c.floor;
+      // The floor's own plane, a little past its edge if need be.
+      const e = cell / 2;
+      const on = (px: number, pz: number) => {
+        const v = floors.floor(px, pz, e + 1, d + DECK_CATCH);
+        return v === v ? v : d;
+      };
+      out.x = (on(x + e, z) - on(x - e, z)) / (2 * e);
+      out.z = (on(x, z + e) - on(x, z - e)) / (2 * e);
+      return out;
+    },
+    outside(x, z) {
+      const gx = Math.round((x - x0) / cell);
+      const gz = Math.round((z - z0) / cell);
+      // (The owner: an invisible wall up a slope, with snow drawn on past it, was no fun. A ridge
+      // between two stretches, a mountainside: drive it, jump off it.)
+      return gx < 1 || gz < 1 || gx >= nx - 1 || gz >= nz - 1;
+    },
+    height(x, z) {
+      const u = (x - x0) / cell;
+      const v = (z - z0) / cell;
+      const gx = Math.floor(u);
+      const gz = Math.floor(v);
+      const fu = u - gx;
+      const fv = v - gz;
+      const a = at(gx, gz);
+      const b = at(gx + 1, gz);
+      const c = at(gx, gz + 1);
+      const d = at(gx + 1, gz + 1);
+      return a + (b - a) * fu + (c - a) * fv + (a - b - c + d) * fu * fv;
+    },
+    slope(x, z, out) {
+      const e = cell / 2;
+      out.x = (this.height(x + e, z) - this.height(x - e, z)) / (2 * e);
+      out.z = (this.height(x, z + e) - this.height(x, z - e)) / (2 * e);
+      return out;
+    },
+  };
+}

@@ -288,21 +288,14 @@ From the two code reviews of the art work (moved from HANDOFF; none of it is a b
   (`landmarks.ts`) do the same (anisotropy 4, redraw when the fonts are ready). One, so a fake 2D
   context for tests stubs one place. *Small.*
 
-## Open ground and Paradise Open (`core/track/ground.ts`, the open-ground renderers)
+## Open ground and Paradise Open (`core/track/ground/`, the open-ground renderers)
 
 From a review of the Paradise Open work (PRs #79–#81, 2026-10-03). It all works and is tested;
-this is about shape.
+this is about shape. Caldera's step 1a cleared three: `buildGround` is split (`ground/`), what's
+under a point is one query (`ground.cast`), and the lateral projection and `smooth` have one home
+each (`track/frame.ts`, `math.ts`'s `smoothstep`; `query.ts`'s own projections remain, see "A
+shared `lateralOf`").
 
-- **Split `buildGround`** (`ground.ts`, ~400 lines, six jobs): the heightfield, the coast and the
-  volcano, the branches' shaping, the tunnels' mouths (`hole`), the deck sample index (buckets)
-  and the deck queries (`branchDeckAt`, `deck`, `deckUnder`, `top`, `topSlope`). The index and
-  the queries are a module of their own. *Medium.*
-- **"Which surface is under/ahead of me" has grown special cases in three places:** `deckUnder`
-  (a tunnel's mouth, within a hard landing), `slopeRise`/`clearView`/`cameraFloor` in
-  `render/camera.ts` (a tunnel's road ahead, a gap's far side, the tube's space), and
-  `meetFace` in `physics.ts` (sinking into the slope over a tunnel). One shared notion on
-  `Ground` (the space a point is in: open air, a tube, under the rock) would replace them.
-  *Medium.*
 - **`snow.ts` draws every open ground**, Paradise's island too: its colours (sand, beach, grass,
   the verges, the volcano's rock), and its roads laid over the ground. Rename it (`openGround.ts`),
   and move the island's colouring next to `openIsland.ts`. *Small.*
@@ -315,12 +308,9 @@ this is about shape.
   wanted). It copies the pull's formula (`JOIN_FADE`, the verge, the smooth), so a change to
   `joinBranch` quietly breaks the tube's ends. Better: a branch that says it authors its own
   heights, and `joinBranch` leaves them. *Medium.*
-- **Wrapping past the line is inconsistent:** beaches wrap (`s[0] > s[1]`); decks (`fillSpan`,
-  `deckRunIn`, `deckPull`) don't, so a deck across s = 0 would do nothing. The generator's
+- **Wrapping past the line is inconsistent:** beaches wrap (`s[0] > s[1]`); pieces (`definePieces`,
+  `runIn`, `pull`) don't, so a deck across s = 0 would do nothing. The generator's
   `beside` doesn't wrap either (fine at 2,685 and 3,255 m). *Small.*
-- **Copies:** the lateral projection `(x - px) * -tz + (z - pz) * tx` six-plus times in
-  `ground.ts` (see "A shared `lateralOf`" above), and `smooth` in `ground.ts`, `island.ts`,
-  `pines.ts`, `snow.ts` (`smooth01`) and the generator. *Small.*
 - **`pastGap` (respawns) finds the jump's kicker by its ramp heights** (`sp.ramp`). A gap with no
   kicker, or a kicker not at a gap, would surprise it. A gap could carry its run-up. *Small.*
 - **`physics.ts` and `collide/walls.ts` import each other** (`hitFace`), and `walls.ts`'s

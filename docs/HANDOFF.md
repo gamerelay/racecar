@@ -42,8 +42,15 @@ across browsers and CI can't drift. The feel is unchanged: after 60 s of an 8-ca
 are picometres from where they were; lap floors and the field's results (5 seeds per map) match to
 the tenth. `--from-ci` and the per-platform files are gone.
 
-**Next: step 1a**, the move onto pieces, with the fingerprints identical (CALDERA's "Build
-order"). Follow its "How to work on it".
+**Step 1a, the move onto pieces, is built** (branch `caldera-pieces`, 2026-10-03), the
+fingerprints identical on every layout. Layouts say `pieces` (`PieceDef`: a stretch of a road
+with a floor or none, a ceiling, and how the ground falls away under it) instead of `GroundDef`'s
+`decks`, `branchDecks` and `branchGaps`; `ground.ts` is a `ground/` folder; what's under a point is
+one query, `ground.cast(x, y, z, out)`, which physics, the camera and the tools ask. CALDERA's
+build order has what's in it and what isn't yet.
+
+**Next: step 1b, portals** (the tube's mouths cut to its outline and stitched, the shroud gone;
+fingerprints re-recorded on purpose). Follow CALDERA's "How to work on it".
 
 **Avalanche** (merged in #74, out of experimental on the owner's word): open ground you drive on
 everywhere, slope gravity on snow, moguls, canyons, kickers, rocks, 18 slalom gates, about 650

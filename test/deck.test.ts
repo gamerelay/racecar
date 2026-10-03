@@ -3,7 +3,7 @@ import type { TrackLayout } from '../src/core/content';
 import { neutralControls } from '../src/core/controls';
 import { Sim } from '../src/core/sim';
 import { bakeTrack } from '../src/core/track/bake';
-import { DECK_CATCH, TUBE_H } from '../src/core/track/ground';
+import { DECK_CATCH, TUBE_H, newCast } from '../src/core/track/ground';
 import { validateLayout } from '../src/core/track/validate';
 import { cameraFloor, clearView, slopeRise } from '../src/render/camera';
 import { TUNING } from '../src/core/car/tuning';
@@ -22,7 +22,8 @@ function bridge(): TrackLayout {
     main: { points: [0, 1, 2, 3, 4, 5].map((k) => ({ p: [0, 10, k * 200] as [number, number, number], width: 16, shoulder: 3, surface: 'asphalt' })) },
     walls: { gaps: [{ s: [0, 1000], side: 'both' }] },
     run: { start: 50, finish: 800 },
-    ground: { cell: 2, wallFrom: 120, wallRise: 0.3, decks: [{ s: [300, 700], floor: -6, ease: 60, reach: 30 }], sea: 0 },
+    pieces: [{ id: 'bridge', s: [300, 700], under: { floor: -6, ease: 60, reach: 30 } }],
+    ground: { cell: 2, wallFrom: 120, wallRise: 0.3, sea: 0 },
     shoulderSurface: 'beach',
   };
 }
@@ -33,12 +34,12 @@ describe('a road over the ground', () => {
 
   test('under the deck the ground is the floor, the deck is the road, and past its edge there is none', () => {
     expect(g.height(0, 500)).toBeCloseTo(-6, 0);
-    expect(g.deck(0, 500)).toBeCloseTo(10, 1);
+    expect(g.pieceFloor(0, 500)).toBeCloseTo(10, 1);
     // The road's half width and its shoulder: 11 m out is on it, 12 m isn't.
-    expect(g.deck(10.5, 500)).toBeCloseTo(10, 1);
-    expect(Number.isNaN(g.deck(12, 500))).toBe(true);
+    expect(g.pieceFloor(10.5, 500)).toBeCloseTo(10, 1);
+    expect(Number.isNaN(g.pieceFloor(12, 500))).toBe(true);
     // Off the deck's span, none: the road is the ground there.
-    expect(Number.isNaN(g.deck(0, 150))).toBe(true);
+    expect(Number.isNaN(g.pieceFloor(0, 150))).toBe(true);
     expect(g.height(0, 150)).toBeCloseTo(10, 0);
     // What's under: the deck from above, the ground from under it.
     expect(g.top(0, 500)).toBeCloseTo(10, 1);
@@ -95,7 +96,7 @@ describe('a road over the ground', () => {
     for (const z of [300, 700]) {
       for (const x of [-10, -5, 0, 5, 10]) {
         const before = gr.height(x, z === 300 ? z - 0.5 : z + 0.5);
-        const deck = gr.deck(x, z === 300 ? z + 0.5 : z - 0.5);
+        const deck = gr.pieceFloor(x, z === 300 ? z + 0.5 : z - 0.5);
         expect(Math.abs(before - deck)).toBeLessThan(0.15);
       }
     }
@@ -174,8 +175,8 @@ describe('Paradise Open (docs/PARADISE.md)', () => {
     const g = track.ground!;
     const m = track.main;
     const i = Math.round(1600 / m.step);
-    expect(g.deckSample[i]).toBe(1);
-    expect(g.deck(m.px[i], m.pz[i])).toBeCloseTo(m.py[i], 0);
+    expect(g.pieces.floors(m.index)![i]).toBe(1);
+    expect(g.pieceFloor(m.px[i], m.pz[i])).toBeCloseTo(m.py[i], 0);
     expect(g.height(m.px[i], m.pz[i])).toBeLessThan(g.sea! - 3);
     expect(m.wallL[i] + m.wallR[i]).toBe(2);
     const off = Math.round(2300 / m.step);
@@ -226,7 +227,7 @@ describe('Paradise Open: the island (docs/PARADISE.md)', () => {
 
   test('the road keeps its own height, off it the coast falls into the sea', () => {
     let worst = 0;
-    for (let i = 0; i < m.n; i += 4) if (!g.deckSample[i]) worst = Math.max(worst, Math.abs(g.height(m.px[i], m.pz[i]) - m.py[i]));
+    for (let i = 0; i < m.n; i += 4) if (!g.pieces.floors(m.index)![i]) worst = Math.max(worst, Math.abs(g.height(m.px[i], m.pz[i]) - m.py[i]));
     // (The swell rolls the road a little: the same as before the island.)
     expect(worst).toBeLessThan(1.5);
     // Well out past the coast, deep water; well inland, dry land.
@@ -306,7 +307,7 @@ describe('Paradise Open: the Lava Tube (docs/PARADISE.md)', () => {
   const g = track.ground!;
   const tube = track.splines.find((s) => s.id === 'lava-tube')!;
   const v = track.layout.ground!.volcano!;
-  const decks = g.branchDeck.get(tube.index)!;
+  const decks = g.pieces.floors(tube.index)!;
   /** Its samples by what's round them: under the volcano (a tunnel) or over the shaft (the bridge). */
   const tunnel: number[] = [];
   const bridge: number[] = [];
@@ -405,7 +406,7 @@ describe('Paradise Open: the Lava Tube, after review', () => {
   const track = bakeTrack(layout('paradise-open/open'), SURFACES);
   const g = track.ground!;
   const tube = track.splines.find((s) => s.id === 'lava-tube')!;
-  const decks = g.branchDeck.get(tube.index)!;
+  const decks = g.pieces.floors(tube.index)!;
 
   test('a car drives into the tunnel on its road, not up the rock rising off it at the mouth', () => {
     const sim = new Sim(track, CLASSES, SURFACES, { seed: 1, traffic: 0, mayhem: 'off' });
@@ -494,7 +495,7 @@ describe('Paradise Open: the Lava Tube, the camera through it', () => {
 
   test('at a tunnel\'s mouth, the camera keeps its height over the road, not over the slope rising off it', () => {
     // (It rode that slope up, 7 m over the car, as the car went in.)
-    const decks = g.branchDeck.get(tube.index)!;
+    const decks = g.pieces.floors(tube.index)!;
     let checked = 0;
     for (let i = 0; i < tube.n; i++) {
       const y = tube.py[i] + 2;
@@ -527,7 +528,7 @@ describe('Paradise Open: the Lava Tube, the camera through it', () => {
         const h = Math.atan2(tube.tx[i], tube.tz[i]) + turn;
         const cam = { x: tube.px[i] - Math.sin(h) * 6, y: tube.py[i] + 2.5, z: tube.pz[i] - Math.cos(h) * 6 };
         clearView(g, tube.px[i], tube.py[i], tube.pz[i], cam);
-        const d = g.deck(cam.x, cam.z, 0, cam.y);
+        const d = g.pieceFloor(cam.x, cam.z, 0, cam.y);
         expect(d === d && cam.y > d && cam.y < d + TUBE_H).toBe(true);
         checked++;
       }
@@ -558,7 +559,7 @@ describe('Paradise Open: the Lava Tube\'s jump over the lava', () => {
   const v = lay.ground!.volcano!;
   const kicker = lay.ramps!.find((r) => r.spline === 'lava-tube')!;
   const lip = kicker.s + kicker.length;
-  const [gapFrom, gapTo] = lay.ground!.branchGaps!.find((b) => b.spline === 'lava-tube')!.s;
+  const [gapFrom, gapTo] = lay.pieces!.find((p) => p.road === 'lava-tube' && p.floor === false)!.s;
   /** A car of `cls` at `kmh` just before the kicker, flat out: over, or down in the lava. */
   const jump = (cls: string, kmh: number) => {
     const sim = new Sim(track, CLASSES, SURFACES, { seed: 1, traffic: 0, mayhem: 'off' });
@@ -578,7 +579,7 @@ describe('Paradise Open: the Lava Tube\'s jump over the lava', () => {
     for (let s = gapFrom + 3; s < gapTo - 3; s += 2) {
       const i = Math.round(s / tube.step);
       expect(Math.hypot(tube.px[i] - v.x, tube.pz[i] - v.z)).toBeLessThan(v.crater - 10);
-      expect(g.deck(tube.px[i], tube.pz[i])).toBeNaN();
+      expect(g.pieceFloor(tube.px[i], tube.pz[i])).toBeNaN();
       expect(g.inLava(tube.px[i], tube.pz[i], g.height(tube.px[i], tube.pz[i]))).toBe(true);
     }
   });
@@ -607,7 +608,7 @@ describe('Paradise Open: the Lava Tube\'s jump over the lava', () => {
     expect(sim.cars.wreck[c]).toBe(0);
     expect(sim.cars.spline[c]).toBe(tube.index);
     expect(sim.cars.s[c]).toBeGreaterThan(gapTo);
-    expect(g.deck(sim.cars.x[c], sim.cars.z[c])).toBeCloseTo(sim.cars.y[c], 0);
+    expect(g.pieceFloor(sim.cars.x[c], sim.cars.z[c])).toBeCloseTo(sim.cars.y[c], 0);
   });
 
   test('lining up the jump, the camera looks across the gap, not down into the lava', () => {
@@ -666,7 +667,7 @@ describe('Paradise Open, after review (2026-10-03)', () => {
   test('a wreck in the tunnel before the jump respawns you there, not past the jump; one on its kicker, past it', () => {
     const lay = track.layout;
     const kicker = lay.ramps!.find((r) => r.spline === 'lava-tube')!;
-    const gapTo = lay.ground!.branchGaps![0].s[1];
+    const gapTo = lay.pieces!.find((p) => p.floor === false)!.s[1];
     const respawnAt = (s: number) => {
       const sim = new Sim(track, CLASSES, SURFACES, { seed: 1, traffic: 0, mayhem: 'off' });
       const c = sim.addCar({ cls: 'coupe', human: true });
@@ -677,5 +678,72 @@ describe('Paradise Open, after review (2026-10-03)', () => {
     };
     expect(respawnAt(kicker.s - 50)).toBeLessThan(kicker.s);
     expect(respawnAt(kicker.s + 4)).toBeGreaterThan(gapTo);
+  });
+});
+
+describe('pieces and the cast (docs/CALDERA.md, step 1a)', () => {
+  const track = bakeTrack(layout('paradise-open/open'), SURFACES);
+  const g = track.ground!;
+  const tube = track.splines.find((s) => s.id === 'lava-tube')!;
+  const piece = (id: string) => g.pieces.list.findIndex((p) => p.id === id);
+  const c = newCast();
+
+  test("the layout's pieces: the Freeway, the tube's two tunnels and the jump's gap between them", () => {
+    expect(g.pieces.list.map((p) => [p.id, p.floor, p.ceiling])).toEqual([
+      ['freeway', true, NaN],
+      ['lava-tube-in', true, TUBE_H],
+      ['lava-jump', false, NaN],
+      ['lava-tube-out', true, TUBE_H],
+    ]);
+  });
+
+  test('in the tube: on its floor, enclosed under its ceiling, the volcano over it; on the slope over it, the open; in the rock beside it, the rock', () => {
+    const i = Math.round(120 / tube.step);
+    const [x, y, z] = [tube.px[i], tube.py[i], tube.pz[i]];
+    g.cast(x, y + 1, z, c);
+    expect(c.piece).toBe(piece('lava-tube-in'));
+    expect(c.floor).toBeCloseTo(y, 1);
+    expect(c.space).toBe('enclosed');
+    expect(c.ceiling).toBeCloseTo(y + TUBE_H, 1);
+    expect(c.ground).toBeGreaterThan(y + TUBE_H);
+    g.cast(x, c.ground + 1, z, c);
+    expect(c.piece).toBe(-1);
+    expect(c.space).toBe('open');
+    expect(c.over).toBeCloseTo(y, 1);
+    // 3 m over the ceiling, under the slope: in the rock.
+    g.cast(x, y + TUBE_H + 3, z, c);
+    expect(c.space).toBe('rock');
+  });
+
+  test('on the Freeway: its floor from above, the bay from under it', () => {
+    const m = track.main;
+    const i = Math.round(1600 / m.step);
+    g.cast(m.px[i], m.py[i] + 0.5, m.pz[i], c);
+    expect(c.piece).toBe(piece('freeway'));
+    expect(c.space).toBe('open');
+    g.cast(m.px[i], m.py[i] - DECK_CATCH - 1, m.pz[i], c);
+    expect(c.piece).toBe(-1);
+    expect(c.floor).toBe(c.ground);
+  });
+
+  test('over the gap there is no floor: down to the lava', () => {
+    const p = g.pieces.list[piece('lava-jump')];
+    const i = Math.round((p.s[0] + p.s[1]) / 2 / tube.step);
+    expect(g.pieceFloor(tube.px[i], tube.pz[i])).toBeNaN();
+    expect(g.pieces.gaps(tube.index)![i]).toBe(1);
+    // What a car there stands on is the shaft's floor, 6 m down.
+    expect(g.top(tube.px[i], tube.pz[i], tube.py[i])).toBe(g.height(tube.px[i], tube.pz[i]));
+    expect(g.height(tube.px[i], tube.pz[i])).toBeLessThan(tube.py[i] - 5);
+  });
+
+  test('the validator checks them', () => {
+    const lay = layout('paradise-open/open');
+    lay.pieces!.push({ id: 'freeway', s: [0, 10] }, { id: 'a', road: 'nope', s: [0, 10] }, { id: 'b', road: 'lava-tube', s: [10, 20], under: { floor: 0, ease: 1, reach: 1 } }, { id: 'c', s: [5, 1], floor: false, ceiling: 3 });
+    const errors = validateLayout(lay, SURFACES, CLASSES).filter((p) => p.level === 'error').map((p) => p.message);
+    expect(errors.some((m) => m.includes('another piece'))).toBe(true);
+    expect(errors.some((m) => m.includes('no branch "nope"'))).toBe(true);
+    expect(errors.some((m) => m.includes('main road only'))).toBe(true);
+    expect(errors.some((m) => m.includes("isn't a stretch"))).toBe(true);
+    expect(errors.some((m) => m.includes('a ceiling needs a floor'))).toBe(true);
   });
 });

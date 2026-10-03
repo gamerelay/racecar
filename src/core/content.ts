@@ -165,6 +165,8 @@ export interface TrackLayout {
   zones?: ZoneDef[];
   walls?: { gaps?: WallGap[] };
   ramps?: RampDef[];
+  /** Surfaces off the ground (docs/CALDERA.md, "The core idea: pieces"): decks, tunnels, gaps. Needs `ground`. */
+  pieces?: PieceDef[];
   /** 'auto' = every 1/8 of the main spline, or a list of main distances. */
   checkpoints?: 'auto' | number[];
   /** Traffic lanes on the main spline; density is cars per km per lane. */
@@ -247,7 +249,39 @@ export interface PinesDef {
   glade: number;
 }
 
-/** Open ground round the main road (core/track/ground.ts). Distances are along the main road (s) and across it (lateral, + right). */
+/**
+ * A piece (docs/CALDERA.md, "The core idea: pieces"): something to drive on that isn't the ground,
+ * and the only way to add one. Until the road graph (step 6) a piece carries a stretch of a road
+ * (its floor is the road's own plane there); later it gets its own curve.
+ *
+ * - A **deck**: a floor (the default). Over the ground it's a bridge (the Freeway over the bay);
+ *   under it, with a ceiling, a tunnel (the Lava Tube through the volcano). A car is on the
+ *   highest floor at or below it, and off a floor's edge it falls to whatever's under it.
+ * - A **gap**: `floor: false`, no road at all (the Lava Tube's jump): off the end of the road is
+ *   down to whatever's there.
+ *
+ * Either way the road doesn't shape the ground under it (the ground stays as it is), unless the
+ * piece says how with `under`.
+ */
+export interface PieceDef {
+  id: string;
+  /** The road it carries: a branch's id, or the main road (unset). */
+  road?: string;
+  /** From and to, m along that road. */
+  s: [number, number];
+  /** Whether it has a floor (default true); false is a gap. */
+  floor?: boolean;
+  /** Enclosed: a ceiling this high (m) over its floor, a tunnel's (the camera stays under it, and where the ground is between the floor and it, the slope's opened at its mouth). */
+  ceiling?: number;
+  /**
+   * The ground under it falls to `floor` (its height, m), easing in over `ease` m from each end and
+   * back up over `reach` m past the piece's edges (the bay under the Freeway). The main road only,
+   * for now: there the ground is the road's, so it has to be told to fall away.
+   */
+  under?: { floor: number; ease: number; reach: number };
+}
+
+/** Open ground round the main road (core/track/ground). Distances are along the main road (s) and across it (lateral, + right). */
 export interface GroundDef {
   /** Grid cell (m). */
   cell: number;
@@ -270,25 +304,6 @@ export interface GroundDef {
    * `ease` m at its ends.
    */
   canyons?: { s: [number, number]; lateral: number; floor: number; depth: number; ease: number }[];
-  /**
-   * Roads over the ground (docs/PARADISE.md, step 0): stretches of the main road that are a deck
-   * (a bridge), with the ground under them, not the road. Under a deck the ground falls to `floor`
-   * (its height, m), easing in over `ease` m from each end and back up over `reach` m past the
-   * deck's edges. On the deck a car drives on it; over its edge, it falls to the ground below.
-   */
-  decks?: { s: [number, number]; floor: number; ease: number; reach: number }[];
-  /**
-   * A branch's decks (docs/PARADISE.md, the Lava Tube): stretches of a branch whose road isn't the
-   * ground. The ground there stays as it is: over the road it's a tunnel (the road under the
-   * ground), under it a bridge. A car drives on the highest surface at or below it.
-   */
-  branchDecks?: { spline: string; s: [number, number] }[];
-  /**
-   * Stretches of a branch with no road at all (the Lava Tube's jump): the ground stays as it is
-   * under them, as under a deck, and there's no deck to land on. Off the end of the road, over the
-   * gap, is down to whatever's there.
-   */
-  branchGaps?: { spline: string; s: [number, number] }[];
   /**
    * Beaches along the main road (Paradise Open: town to the Freeway): off its `side` from `s[0]` to
    * `s[1]` m (wrapping past the line if `s[0]` is the larger), the ground between the road and the

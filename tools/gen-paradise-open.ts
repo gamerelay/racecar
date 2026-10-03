@@ -14,6 +14,8 @@ import { writeFileSync, mkdirSync } from 'node:fs';
 import type { TrackLayout } from '../src/core/content';
 import { bakeTrack, JOIN_FADE } from '../src/core/track/bake';
 import { newHit, projectGlobal, sampleAt } from '../src/core/track/query';
+import { smoothstep } from '../src/core/math';
+import { across } from '../src/core/track/frame';
 import { TUBE_H } from '../src/core/track/ground';
 import surfaces from '../content/surfaces.json';
 import island from '../content/maps/paradise/island.track.json';
@@ -32,14 +34,10 @@ const BANKS: { s: [number, number]; bank: number; ease: [number, number] }[] = [
   { s: [2190, 2345], bank: 0.25, ease: [50, 29] },
   { s: [2395, 2500], bank: -0.25, ease: [21, 40] },
 ];
-const smooth = (t: number) => {
-  const u = Math.min(1, Math.max(0, t));
-  return u * u * (3 - 2 * u);
-};
 const bankAt = (s: number): number | undefined => {
   for (const b of BANKS) {
     if (s < b.s[0] - b.ease[0] || s > b.s[1] + b.ease[1]) continue;
-    return b.bank * (s < b.s[0] ? smooth((s - b.s[0] + b.ease[0]) / b.ease[0]) : s > b.s[1] ? smooth((b.s[1] + b.ease[1] - s) / b.ease[1]) : 1);
+    return b.bank * (s < b.s[0] ? smoothstep(0, 1, (s - b.s[0] + b.ease[0]) / b.ease[0]) : s > b.s[1] ? smoothstep(0, 1, (b.s[1] + b.ease[1] - s) / b.ease[1]) : 1);
   }
   return undefined;
 };
@@ -82,7 +80,7 @@ const DESCENT: [number, number] = [3250, 3420];
 const yAt = (s: number) => sampleAt(baked.main, s, newHit()).cy;
 const descent = (s: number) => {
   const t = (s - DESCENT[0]) / (DESCENT[1] - DESCENT[0]);
-  return yAt(DESCENT[0]) + (yAt(DESCENT[1]) - yAt(DESCENT[0])) * smooth(t);
+  return yAt(DESCENT[0]) + (yAt(DESCENT[1]) - yAt(DESCENT[0])) * smoothstep(0, 1, t);
 };
 const hit = newHit();
 for (const p of src.main.points) {
@@ -133,9 +131,9 @@ const beside = (x: number, z: number, s: number) => {
     const d = (main.px[i] - x) ** 2 + (main.pz[i] - z) ** 2;
     if (d < best) [best, k] = [d, i];
   }
-  const lat = (x - main.px[k]) * -main.tz[k] + (z - main.pz[k]) * main.tx[k];
+  const lat = across(main, k, x, z);
   const verge = main.width[k] / 2 + main.shoulder[k];
-  const w = 1 - smooth((Math.abs(lat) - verge - TUBE.width / 2) / JOIN_FADE);
+  const w = 1 - smoothstep(0, 1, (Math.abs(lat) - verge - TUBE.width / 2) / JOIN_FADE);
   return { y: main.py[k] - lat * Math.tan(main.bank[k]), w };
 };
 /** Where the bake's pull is at least this, the tube is the main road's ground (no say of its own). */
@@ -201,6 +199,8 @@ const layout: TrackLayout = {
   landmarks: (src.landmarks ?? []).filter((m) => ['shipwreck', 'whale', 'seaplanes'].includes(m.kind)),
   scenery: undefined,
   terrain: undefined,
+  // The Freeway: a deck over the bay, the ground falling away to the sea bed under it.
+  pieces: [{ id: 'freeway', s: FREEWAY, under: { floor: -6, ease: 80, reach: 90 } }],
   ground: {
     cell: 2.5,
     // No walls: the island's coast is its edge, and past it deep water (a respawn).
@@ -208,7 +208,6 @@ const layout: TrackLayout = {
     wallRise: 0,
     swell: { height: 1, size: 60 },
     rough: { height: 0.8, size: 18 },
-    decks: [{ s: FREEWAY, floor: -6, ease: 80, reach: 90 }],
     sea: island.terrain.sea,
     coast: island.terrain.island as [number, number][],
     volcano: VOLCANO,
@@ -261,11 +260,12 @@ for (let i = 0, best = Infinity; i < tube.n; i++) {
 const lip = Math.round(mid - JUMP.gap / 2);
 const far = Math.round(mid + JUMP.gap / 2);
 layout.ramps = [...(layout.ramps ?? []), { spline: 'lava-tube', s: lip - JUMP.kicker, length: JUMP.kicker, height: JUMP.lift }];
-layout.ground!.branchDecks = [
-  { spline: 'lava-tube', s: [Math.round(portalIn - 6), lip] },
-  { spline: 'lava-tube', s: [far, Math.round(portalOut + 6)] },
+layout.pieces = [
+  ...(layout.pieces ?? []),
+  { id: 'lava-tube-in', road: 'lava-tube', s: [Math.round(portalIn - 6), lip], ceiling: TUBE_H },
+  { id: 'lava-jump', road: 'lava-tube', s: [lip, far], floor: false },
+  { id: 'lava-tube-out', road: 'lava-tube', s: [far, Math.round(portalOut + 6)], ceiling: TUBE_H },
 ];
-layout.ground!.branchGaps = [{ spline: 'lava-tube', s: [lip, far] }];
 
 
 mkdirSync(DIR, { recursive: true });

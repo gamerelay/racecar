@@ -1,4 +1,4 @@
-// A branch's decks on open ground (core/track/ground.ts, GroundDef.branchDecks): the Lava Tube
+// A branch's pieces on open ground (core/track/ground, PieceDef): the Lava Tube
 // (docs/PARADISE.md). Where the ground is over its road it's a tunnel: a rock tube round the road,
 // the ground's own slope opened at its mouths (Ground.hole), a rough arch framing each, and lava
 // glowing in the cracks along its walls. Where the ground falls away under it (the volcano's shaft)
@@ -31,8 +31,8 @@ export function buildTubes(track: Track): Object3D[] {
   const geo = new Geo();
   const glow: number[] = [];
   for (const sp of track.splines) {
-    const decks = g.branchDeck.get(sp.index);
-    if (!decks) continue;
+    const decks = g.pieces.floors(sp.index);
+    if (!decks || sp === track.main) continue;
     const surface = track.surfaces[sp.surface[0]].color;
     // A tunnel where the ground's over its road, a bridge where it's fallen away.
     const coveredAt = (k: number) => k >= 0 && k < sp.n && decks[k] === 1 && g.height(sp.px[k], sp.pz[k]) > sp.py[k] - 0.5;
@@ -133,7 +133,7 @@ export function buildTubes(track: Track): Object3D[] {
   // A gap in a bridge (the jump): lava light along both its edges, under the road's lip, so it shows
   // coming up to it (dark rock over dark lava, it didn't).
   for (const sp of track.splines) {
-    const gaps = g.branchGap.get(sp.index);
+    const gaps = g.pieces.gaps(sp.index);
     if (!gaps) continue;
     for (let i = 1; i < sp.n; i++) {
       if (gaps[i] === gaps[i - 1]) continue;
