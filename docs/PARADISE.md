@@ -381,6 +381,12 @@ In about this order:
 4. **Balance:** whether the AI should miss the jump sometimes (it never does), and the floor.
 5. **The rest of the steps below:** the routes from the sketch, the half-moon bridge, real mud,
    Harbor Town with colliders.
+   - **A Sandbar-style beach road** (the owner, 2026-10-03), like the original Paradise's
+     Sandbar: a branch across the beach on the packed `beach` surface (grip 0.80, drag 0.20)
+     through the soft `sand` around it (0.64, 0.30), so it looks sandy but is the fast line, and
+     drifting off it costs. Painted a little darker and damper than the loose sand, with faint
+     ruts or an edge, so the line reads at speed. Once the coast's sand drives as sand (CALDERA
+     step 1d, agreed), the road has to be `beach` or cutting off it would cost nothing.
 6. **Merge:** #81, everything in one (the 2026-10-03 work has had its review).
 
 ## Steps
@@ -449,6 +455,8 @@ beach from town to the Freeway (#80, #81). See "Built so far" above.
   round, or a risky line to jump.
 - **Engine first:** before the remaining steps, the tools to build open worlds: easier testing,
   faster code, and pieces other maps can reuse (most maps are moving to open ground).
+- **The coast's sand drives as sand** once one function decides what's drawn and what's driven
+  (CALDERA step 1d): fine by the owner. Paradise Open's floor may move; record it.
 
 ## Questions for the owner
 
