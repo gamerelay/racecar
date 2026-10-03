@@ -3875,8 +3875,8 @@
  ],
  "avalanche": {
   "behind": 80,
-  "delay": 4,
-  "speed": 56
+  "delay": 7,
+  "speed": 65
  },
  "ground": {
   "cell": 2.5,

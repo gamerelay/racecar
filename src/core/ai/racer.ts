@@ -6,7 +6,7 @@
 // choice of shortcuts, and mild catch-up toward the human leader.
 
 import { TUNING as T } from '../car/tuning';
-import type { SlalomGate } from '../content';
+import type { SlalomGate, TrackLayout } from '../content';
 import type { Controls } from '../controls';
 import { clamp, smoothstep, wrapAngle } from '../math';
 import { hash01 } from '../rng';
@@ -23,6 +23,15 @@ export interface RacerDriver {
 
 /** How much less often the AI takes a secret shortcut than a signed one. */
 const SECRET_TAKE = 0.35;
+/** How much less often it rides a canyon (open ground) than takes a signed shortcut. */
+const CANYON_TAKE = 0.5;
+/**
+ * Onto a canyon's floor over this far, by where its walls start to rise (cutting in late, over a
+ * rim, flies you across it); and out up its side over this far, before its floor rises at the end
+ * (that's a kicker: down the wall after the first canyon it threw cars 35 m up, into the pines).
+ */
+const CANYON_IN = 250;
+const CANYON_OUT = 180;
 
 const SKILL = [
   { pace: 0.84, brake: 18, shortcut: 0.15, look: 0.5, boost: false, catchup: 1, ownSide: 12 },
@@ -38,6 +47,8 @@ interface Line {
 }
 
 const lines = new WeakMap<Track, Map<number, Line>>();
+/** The least braking (m/s²) the AI plans on, however steep the slope it's braking down. */
+const BRAKE_LEFT = 8;
 
 /** Fastest speed at which a car with steering `turn` can hold a corner of radius R (the yaw model in physics.ts). */
 function cornerSpeed(radius: number, turn: number): number {
@@ -96,13 +107,21 @@ export function racingLine(track: Track, sp: BakedSpline): Line {
   // The line is wider than the centerline on a wide road; on a narrow one there's no room to widen it.
   for (let i = 0; i < n; i++) speed[i] = cornerSpeed((1 + clamp((sp.width[i] - 8) / 30, 0, 0.3)) / Math.max(1e-4, Math.abs(k[i])), 2.4);
   // Crests: don't fly off a drop into a corner. (Air is fine; the braking pass handles the rest.)
-  // Braking: work backwards so every corner is reachable from the one before.
-  const brake = 22;
+  // Braking: work backwards so every corner is reachable from the one before. On sliding snow the
+  // slope takes some of the brakes downhill (and adds to them uphill): plan with what's left.
+  const brake = new Float64Array(n).fill(22);
+  if (track.ground) {
+    for (let i = 0; i < n; i++) {
+      const slide = track.surfaces[sp.surface[i]].slide ?? 0;
+      const drop = (sp.py[at(i - 2)] - sp.py[at(i + 2)]) / (4 * sp.step);
+      if (slide > 0) brake[i] = clamp(22 - T.gravity * slide * drop, BRAKE_LEFT, 30);
+    }
+  }
   // An open road (one run) ends: stop by its end, in the run-out past the finish.
   if (!sp.closed && sp.index === 0) speed[n - 1] = 0;
   for (let pass = 0; pass < (sp.closed ? 2 : 1); pass++) {
-    for (let i = n - 2; i >= 0; i--) speed[i] = Math.min(speed[i], Math.sqrt(speed[i + 1] ** 2 + 2 * brake * sp.step));
-    if (sp.closed) speed[n - 1] = Math.min(speed[n - 1], Math.sqrt(speed[0] ** 2 + 2 * brake * sp.step));
+    for (let i = n - 2; i >= 0; i--) speed[i] = Math.min(speed[i], Math.sqrt(speed[i + 1] ** 2 + 2 * brake[i] * sp.step));
+    if (sp.closed) speed[n - 1] = Math.min(speed[n - 1], Math.sqrt(speed[0] ** 2 + 2 * brake[n - 1] * sp.step));
   }
   const line = { offset, speed };
   perTrack.set(sp.index, line);
@@ -177,6 +196,27 @@ function passRocks(sim: SimState, i: number, sp: BakedSpline, target: number, sp
   return target;
 }
 
+type Canyon = NonNullable<NonNullable<TrackLayout['ground']>['canyons']>[number];
+const canyonOut = { lateral: 0, floor: 0, w: 0 };
+
+/**
+ * Whether car `i` rides a canyon at `s` m down the main road (a seeded choice per car and canyon,
+ * as often as `take` allows), and how far into it: w from 0 (the line) to 1 (the canyon's floor).
+ */
+function canyonLine(sim: SimState, i: number, canyons: readonly Canyon[], s: number, take: number): typeof canyonOut | null {
+  for (let k = 0; k < canyons.length; k++) {
+    const cy = canyons[k];
+    const out = cy.s[1] - cy.ease;
+    if (s < cy.s[0] - CANYON_IN || s > out) continue;
+    if (hash01(sim.seed, i * 131 + 977 + k, sim.cars.lap[i]) >= take * CANYON_TAKE) return null;
+    canyonOut.lateral = cy.lateral;
+    canyonOut.floor = cy.floor;
+    canyonOut.w = Math.min(smoothstep(cy.s[0] - CANYON_IN, cy.s[0], s), 1 - smoothstep(out - CANYON_OUT, out, s));
+    return canyonOut;
+  }
+  return null;
+}
+
 /** How far outside a gate (m) a hard driver will still bend its line to go through it. */
 const GATE_REACH = 5;
 
@@ -238,6 +278,9 @@ export function driveRacer(sim: SimState, i: number, d: RacerDriver, out: Contro
       if (lane.dir < 0 && laneActive(lane, here)) target = lane.pos < 0 ? Math.max(target, skill.ownSide > 8 ? 1 : -0.5) : Math.min(target, skill.ownSide > 8 ? -1 : 0.5);
     }
   }
+  // Down a canyon's floor, now and then (open ground): out to it, along it and back.
+  const canyon = sp.index === 0 && track.layout.ground?.canyons ? canyonLine(sim, i, track.layout.ground.canyons, s + ahead, skill.shortcut) : null;
+  if (canyon) target += (canyon.lateral - target) * canyon.w;
   const lineTarget = target;
   // Holding a line round something: keep it until the hold runs out.
   // (World time, like the physics: slow-mo slows these too.)
@@ -245,7 +288,9 @@ export function driveRacer(sim: SimState, i: number, d: RacerDriver, out: Contro
     c.aiHold[i] -= sim.dt * sim.timeScale;
     target = c.aiLat[i];
   }
-  target = avoid(sim, i, sp, s, target, speed, skill, lineTarget);
+  // Round anything in the way: across the road, or across the canyon's floor when it's there.
+  const inCanyon = canyon && canyon.w > 0.5 ? canyon : null;
+  target = avoid(sim, i, sp, s, target, speed, skill, lineTarget, inCanyon?.lateral ?? 0, inCanyon ? inCanyon.floor / 2 - 1.4 : undefined);
   if (track.ground) target = passRocks(sim, i, sp, target, speed);
   if (aiDebug) aiDebug[i] = { line: lineTarget, target, tTarget: lastT, cap: avoidCap, cand: Array.from(candTime) };
 
@@ -284,14 +329,20 @@ export function driveRacer(sim: SimState, i: number, d: RacerDriver, out: Contro
   // Getting round something ahead in its line (a car, traffic, a hazard).
   const avoiding = avoidCap < v;
   if (avoiding) v = avoidCap;
-  // As fast as the car can go: boosting, in a slipstream, and the straight-line build too.
-  v = Math.min(v, cls.topSpeed * (c.boosting[i] ? T.boostTop : 1) * (1 + T.slipTop * c.draft[i] + (c.slingT[i] > 0 ? T.slingTop : 0)) * (1 + T.cruiseTop * c.cruise[i]));
-  v *= catchup(sim, i, skill.catchup);
-  // Surfaces: slower on loose or wet ground.
-  const grip = sim.surfaces[c.surface[i]].grip * sim.weatherGrip;
-  if (grip < 0.95) v *= 0.75 + 0.25 * grip;
+  // As fast as the car can go: boosting, in a slipstream, and the straight-line build too. Down
+  // sliding snow the slope takes it past that: let it, and brake only for what's ahead.
+  const surf = sim.surfaces[c.surface[i]];
+  const sliding = !!surf.slide && c.grounded[i] === 1;
+  const top = cls.topSpeed * (c.boosting[i] ? T.boostTop : 1) * (1 + T.slipTop * c.draft[i] + (c.slingT[i] > 0 ? T.slingTop : 0)) * (1 + T.cruiseTop * c.cruise[i]);
+  let vb = sliding ? v : Math.min(v, top);
+  v = Math.min(v, top);
+  // Catch-up, and slower on loose or wet ground.
+  const grip = surf.grip * sim.weatherGrip;
+  const k = catchup(sim, i, skill.catchup) * (grip < 0.95 ? 0.75 + 0.25 * grip : 1);
+  v *= k;
+  vb *= k;
   out.throttle = speed < v - 1 ? 1 : speed < v + 1 ? 0.35 : 0;
-  out.brake = speed > v + 2.5 ? clamp((speed - v) / 8, 0.2, 1) : 0;
+  out.brake = speed > vb + 2.5 ? clamp((speed - vb) / 8, 0.2, 1) : 0;
   out.drift = false;
 
   // Boost on long fast stretches.
@@ -364,15 +415,15 @@ function mark(lat: number, hw: number, ds: number, v: number): void {
  * and near where we are, on our own side of the road unless we're good. If no line has more time
  * than the one we're on, brake to stay behind what's there.
  */
-function avoid(sim: SimState, i: number, sp: BakedSpline, s: number, target: number, speed: number, skill: (typeof SKILL)[number], line: number): number {
+function avoid(sim: SimState, i: number, sp: BakedSpline, s: number, target: number, speed: number, skill: (typeof SKILL)[number], line: number, mid = 0, across?: number): number {
   const c = sim.cars;
   const world = sim.world;
   const L = sim.track.main.length;
-  const half = sampleAt(sp, s + 20, probe).width / 2 - 1.4;
+  const half = across ?? sampleAt(sp, s + 20, probe).width / 2 - 1.4;
   const me = sim.classes[c.cls[i]].size[0];
   const n = CANDIDATES.length;
   for (let k = 0; k < n; k++) {
-    candLat[k] = CANDIDATES[k] * half;
+    candLat[k] = mid + CANDIDATES[k] * half;
     candTime[k] = HORIZON;
   }
   mk.speed = speed;

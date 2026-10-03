@@ -53,11 +53,13 @@ can find lines the AI doesn't.
   - Slalom gates.
   - Pines.
   - The ski jump.
-- **Next:** 8 (the AI downhill), 9 (a phone), 10 (the release, the owner's call).
+- **Next:** 9 (a phone), 10 (the release, the owner's call). Item 8 (the AI downhill) is built.
 - **Numbers:**
-  - The hard coupe's floor is 100.03 s clear and 101.23 s in snow.
+  - The hard coupe's floor is 93.07 s clear and 93.6 s in snow (100.03 s before item 8: the AI
+    braked to hold its top speed down the pitches).
   - The field: one car-on-car takedown and no other wrecks. At chaos the avalanche buries that
-    car, about one a race.
+    car, about one a race. Since item 8: no wrecks in the field, and at chaos the avalanche buries
+    the last car about 1.4 times a race over 16 seeds, most of them near the bottom.
   - The other maps' floors are unchanged: Backroads 62.82 s, Downtown 57.9 s, Paradise 71.52 s.
 
 ## Philosophy
@@ -188,9 +190,12 @@ building, by measurement or by the philosophy above.
 - **Closed-form in time, at chaos only** (build, per the plan). Its front's distance down the road
   is a function of race time, faster on the pitches, so there's nothing to sync. It runs out 50 m
   above the finish, so you can always finish ahead of it. Where: `core/world/avalanche.ts`.
-- **It catches the wrecked, not the slow** (build, measured). At 56 m/s it buries about one car a
-  race, one that was just taken down behind it. Below 54 it never catches anyone, and above 58 it
-  catches the slow cars again and again. A buried car respawns 60 m ahead of it.
+- **It catches the slowest, now and then, late** (item 8, measured over 16 seeds). It's at
+  `{delay: 7, speed: 65}`, with a buried car respawned 150 m ahead. That buries the last car about
+  1.4 times a race, mostly in the last kilometer. At 66 it's 3.6 a race; at 63 with the old 60 m
+  respawn it caught the bus 15 times in one race. A car stopped dead 60 m ahead can't outrun it,
+  so it was buried again the moment it was back. 150 m gives it a start. (Before item 8 it was
+  56 m/s with a 4 s delay, and it only ever caught a car that had just been taken down.)
 - **A canyon is a way out** (plan): more than 4 m down in a canyon, it goes over you.
 
 ### Process
@@ -224,7 +229,9 @@ building, by measurement or by the philosophy above.
   - The walls: `cell` 2.5, `wallFrom` 80, `wallRise` 0.9.
   - The ground's texture: `swell` 1.4 m / 45 m, `rough` 2.6 m / 22 m.
   - The pines: `density` 0.06.
-  - The avalanche: `{behind: 80, delay: 4, speed: 56}`.
+  - The avalanche: `{behind: 80, delay: 7, speed: 65}`, and `AVALANCHE_AHEAD` 150 m.
+  - The AI: `CANYON_TAKE` 0.5 (of its shortcut chance), `CANYON_IN` 250 m, `CANYON_OUT` 180 m, and
+    `BRAKE_LEFT` 8 m/s² (the least braking it plans on down a pitch).
   - The gates: `boostFromGate` 0.04 and `gatePoints` 200 in `tuning.ts`.
   - The camera: 0.6 of the rise to the look point, a lift of a quarter of it up to 2.5 m.
   - Snow's grip: 0.1 off at full snowfall.
@@ -241,8 +248,8 @@ building, by measurement or by the philosophy above.
 - **Ridge shortcuts:** with all the ground in bounds and forward jumps counting checkpoints, a
   player can leap ridges the AI never takes. That's in the spirit of the map, but watch it once
   people race it: if one becomes the only way to win, wall it with trees or rock.
-- **The AI on a steep run** (item 8): its speed plan is about corners and doesn't know the slope.
-  It's clean now, but narrower or steeper stretches need it.
+- **The AI's corner speeds don't know the bank** (item 8 left it): its plan is about the radius
+  alone. The piste is wide and clean, so it hasn't mattered.
 - **The validator doesn't know `layout.run`:** it assumes a loop. That's for item 10.
 - **The lap report's field plays out the same on every seed** (no traffic or weather on this map
   to vary it), so its "one burial a race" is one race, repeated.
@@ -814,13 +821,40 @@ The sketches as they were:
 
 ### Before it could ship
 
-8. **The AI downhill** (the plan's step 2).
+8. **The AI downhill** (the plan's step 2). **Built (2026-10-02),** see below.
    - Its speed plan is about corners; downhill it carries more speed than it planned. Plan the
      braking with the slope in it (the braking pass's `brake` less the downhill pull), and the
      corner speeds with the bank.
    - Sometimes take a canyon line (as a branch the AI knows, at a skill-based chance, like
      shortcuts), so a canyon's a real alternative and you see rivals ride it.
    - Then narrower and steeper stretches are safe to build.
+   **Built (2026-10-02, in PR #74).**
+   - **Measured first:** the AI never ran faster than its plan. It ran slower: it braked to hold
+     its car's top speed downhill, where a player lets the slope carry them on (its top was
+     239 km/h, a player's about 280).
+   - **Down sliding snow it lets the slope take it** past its top speed, and brakes only for
+     what's ahead (`driveRacer`).
+   - **The braking pass has the slope in it:** per sample, 22 m/s² less the downhill pull
+     (`gravity × slide × drop`), at least 8 (`BRAKE_LEFT`), up to 30 on a climb (`racingLine`).
+     Only on a layout with a ground, so the other maps' plans are the same to the bit.
+   - **The canyons are a line it knows:** a seeded choice per car and canyon, at half its
+     shortcut chance (hard about 4 in 10, easy 1 in 13). It eases onto the floor over 250 m,
+     reaching it where the walls start to rise. It leaves up the side over 180 m, before the floor
+     rises at the end. On the floor its avoidance picks lines across the floor, not the piste.
+     Two bugs found on the way:
+     - Cutting in late, a car jumped the rim and flew across into the pines.
+     - The first canyon's end is a kicker onto the wall, 6 m up in 40 m. Riding out of it at
+       240 km/h threw cars 35 m up, off the bend and into the trees. A player still can.
+   - **The avalanche re-tuned:** with the AI faster it caught no one. See "Decisions".
+   - **Numbers:**
+     - The floor is 93.07 s (93.6 s in snow).
+     - The field is clean.
+     - At chaos, 1.4 burials a race (16 seeds), and about 3 canyon riders in 8.
+     - Over 16 chaos races: 2 car-on-car wrecks, none into the mountain.
+     - The other maps' floors are unchanged.
+   - **Left:** corner speeds with the bank in them (it hasn't mattered on a piste this wide), and
+     ridge shortcuts (the AI never jumps a ridge).
+
 9. **On a phone.**
    - Measure: the ground's build (0.6 s on a desktop), its draw (0.48 million points in 128 m
      tiles), the rocks and the snow spray, on a mid-range phone.

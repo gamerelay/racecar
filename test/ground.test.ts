@@ -8,7 +8,8 @@ import { buildPines } from '../src/core/track/pines';
 import { newHit, projectGlobal, sampleAt } from '../src/core/track/query';
 import { slopeView } from '../src/render/camera';
 import { Cause, Ev } from '../src/core/events';
-import { avalancheSpeed } from '../src/core/world/avalanche';
+import { AVALANCHE_AHEAD, avalancheSpeed } from '../src/core/world/avalanche';
+import { racingLine } from '../src/core/ai/racer';
 import { SMASH_IDS } from '../src/core/world/smash';
 import { ALL_MAPS, EXPERIMENTAL_KEYS, LAYOUT_KEYS, MAPS } from '../tools/content';
 import { CLASSES, SURFACES, layout } from './helpers';
@@ -144,6 +145,49 @@ describe("Avalanche's Slope", () => {
     expect(r.finished).toBe(true);
     expect(r.laps.length).toBe(1);
     expect(r.wrecks).toEqual([]);
+    // Down the pitches it lets the slope take it past the car's top speed, as a player does.
+    expect(r.topKmh).toBeGreaterThan(CLASSES.find((c) => c.id === 'coupe')!.topSpeed * 3.6 + 20);
+  });
+
+  test("the AI's braking knows the slope: down sliding snow it plans to brake sooner", () => {
+    // The same run with snow that doesn't slide: its plan brakes as if on the flat.
+    const flat = bakeTrack(layout('avalanche/slope'), SURFACES.map((f) => ({ ...f, slide: undefined })));
+    const a = racingLine(slope(), slope().main).speed;
+    const b = racingLine(flat, flat.main).speed;
+    // (Up a climb the slope helps the brakes, and it can brake later.)
+    let sooner = 0;
+    let later = 0;
+    for (let k = 0; k < a.length; k++) {
+      if (a[k] < b[k] - 3) sooner++;
+      if (a[k] > b[k] + 3) later++;
+    }
+    expect(sooner).toBeGreaterThan(100);
+    expect(sooner).toBeGreaterThan(later * 3);
+  });
+
+  test('the AI rides a canyon now and then (in early, out up its side before its end), and clean', () => {
+    const def = layout('avalanche/slope').ground!;
+    let riders = 0;
+    for (let seed = 1; seed <= 3; seed++) {
+      const sim = new Sim(slope(), CLASSES, SURFACES, { seed, slowmo: 'wreck', traffic: 1 });
+      for (let k = 0; k < 8; k++) sim.addCar({ cls: CLASSES[k % CLASSES.length].id, racer: { difficulty: (k % 3) as 0 | 1 | 2 } });
+      sim.startRace(1, 0.1);
+      const c = sim.cars;
+      const rode = new Array(8).fill(false);
+      let cursor = sim.events.head;
+      while (sim.tick < 60 * 150 && sim.race.finishedCount < 8) {
+        sim.step([]);
+        for (let i = 0; i < 8; i++) if (c.spline[i] === 0 && canyonAt(def, c.s[i], c.lateral[i]) > 4) rode[i] = true;
+        cursor = sim.events.read(cursor, (e) => {
+          // Into nothing on the mountain (a pine, a rock, a canyon's wall).
+          if (e.type === Ev.Wreck) expect(e.b).not.toBe(Cause.Prop);
+        });
+      }
+      expect(sim.race.finishedCount).toBe(8);
+      riders += rode.filter(Boolean).length;
+    }
+    expect(riders).toBeGreaterThan(2);
+    expect(riders).toBeLessThan(16);
   });
 
   test('is one run: the main road open, about 6 km and 1,000 m of drop or more, the grid at the top', () => {
@@ -407,10 +451,6 @@ describe("the Slope's avalanche", () => {
     sim.startRace(1, 0.1);
     return { sim, i };
   };
-  /** Steps `sim` `seconds` with car `i` standing still (no throttle). */
-  const wait = (sim: Sim, seconds: number) => {
-    for (let t = 0; t < seconds * 60; t++) sim.step([neutralControls()]);
-  };
 
   test('comes only at chaos, after the green light, down the run, faster on a pitch than on a flat', () => {
     expect(race('normal').sim.avalanche).toBeNull();
@@ -440,9 +480,10 @@ describe("the Slope's avalanche", () => {
       });
     }
     expect(buried).toBe(true);
-    wait(sim, 4);
+    for (let t = 0; t < 60 * 6 && sim.cars.wreck[i]; t++) sim.step([neutralControls()]);
     expect(sim.cars.wreck[i]).toBe(0);
-    expect(sim.cars.s[i]).toBeGreaterThan(sim.avalancheFront);
+    // Far enough ahead to get going: not buried again the moment it's back.
+    expect(sim.cars.s[i] - sim.avalancheFront).toBeGreaterThan(AVALANCHE_AHEAD - 20);
   });
 
   test("a car down in a canyon is under it, and isn't buried", () => {

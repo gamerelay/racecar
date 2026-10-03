@@ -13,7 +13,7 @@ import type { Track } from '../track/bake';
 /** Down in a canyon this deep (m), on its floor or low on its walls, a car is under the avalanche: safe. */
 export const AVALANCHE_UNDER = 4;
 /** A buried car respawns this far ahead of the front (m), and never closer to the finish than AVALANCHE_LINE. */
-export const AVALANCHE_AHEAD = 60;
+export const AVALANCHE_AHEAD = 150;
 export const AVALANCHE_LINE = 15;
 /** It stops this far above the finish line (m). */
 export const AVALANCHE_STOP = 50;
