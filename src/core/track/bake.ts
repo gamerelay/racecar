@@ -213,11 +213,11 @@ export function bakeTrack(layout: TrackLayout, surfaces: SurfaceDef[]): Track {
   if (layout.trestles) props.push(...supports(splines));
 
   // Open ground: shaped round the main road, and every spline's ground query reads it.
-  const ground = layout.ground ? buildGround(layout.ground, main) : undefined;
+  const ground = layout.ground ? buildGround(layout.ground, main, splines.slice(1)) : undefined;
   if (ground) for (const sp of splines) sp.ground = ground;
-  // On open ground a prop stands on it (a rock on a swell), not on the road's line beneath.
-  if (ground) for (const p of props) p.y = ground.height(p.x, p.z);
-  const pines = ground && layout.ground!.pines ? buildPines(layout.ground!.pines, layout, main, ground) : undefined;
+  // On open ground a prop stands on it (a rock on a swell, or a deck), not on the road's line beneath.
+  if (ground) for (const p of props) p.y = ground.top(p.x, p.z);
+  const pines = ground && layout.ground!.pines ? buildPines(layout.ground!.pines, layout, main, ground, (i) => surfaces[main.verge[i] === VERGE_DEFAULT ? (surfaceIndex.get(layout.shoulderSurface ?? '') ?? 0) : main.verge[i]].id) : undefined;
   return { layout, splines, main, surfaces, surfaceIndex, checkpoints, props, version: layoutVersion(layout), ground, pines, run };
 }
 
@@ -428,7 +428,7 @@ function joinBranch(main: BakedSpline, sp: BakedSpline): void {
 }
 
 /** How far (m) a branch's ground fades from the main road's to its own once it's clear of it. */
-const JOIN_FADE = 20;
+export const JOIN_FADE = 20;
 
 /** The main-road sample nearest (x, z), searched within `within` m (default 60) of main distance `hint`. */
 function nearestSample(main: BakedSpline, x: number, z: number, hint: number, within = 60): number {

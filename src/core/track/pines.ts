@@ -3,6 +3,10 @@
 // into a list the sim collides with and the renderer draws: what you see is what you hit. Thin by
 // the piste and thick up the walls, in glades, and never on the piste or its edge, in a canyon or
 // its mouth, in a mogul field, or beside a kicker.
+//
+// On an island (`kind: 'tropic'`, docs/PARADISE.md) the same list is palms along the coast and
+// jungle trees inland: thickest by the jungle's roads, sparse on the volcano's ash and never up
+// its bare top or in its crater, and nothing in the sea.
 
 import type { PinesDef, TrackLayout } from '../content';
 import { hash01 } from '../rng';
@@ -21,18 +25,31 @@ export interface Pines {
   readonly r: Float32Array;
   /** How tall it stands (m). */
   readonly h: Float32Array;
+  /** What it is: TREE_PINE, TREE_PALM or TREE_JUNGLE. */
+  readonly kind: Uint8Array;
   /** Calls `fn` with every tree within the grid cells round (x, z). */
   near(x: number, z: number, fn: (k: number) => void): void;
 }
+
+export const TREE_PINE = 0;
+export const TREE_PALM = 1;
+export const TREE_JUNGLE = 2;
+/** Within this far (m) of the coast an island's trees are palms. */
+const PALM_COAST = 70;
+/** On an island, how thick the trees grow by the verge of the road they're nearest: the jungle's thickest. */
+const TROPIC_THICK: Record<string, number> = { undergrowth: 1.7, 'red-earth': 1.7, beach: 0.55, sand: 0.4, ash: 0.25 };
 
 const smooth = (e0: number, e1: number, v: number) => {
   const t = Math.min(1, Math.max(0, (v - e0) / (e1 - e0)));
   return t * t * (3 - 2 * t);
 };
 
-export function buildPines(def: PinesDef, layout: TrackLayout, main: BakedSpline, ground: Ground): Pines {
+export function buildPines(def: PinesDef, layout: TrackLayout, main: BakedSpline, ground: Ground, verge?: (i: number) => string): Pines {
   const g = layout.ground!;
-  const out: [number, number, number, number, number][] = [];
+  const out: [number, number, number, number, number, number][] = [];
+  const tropic = def.kind === 'tropic';
+  const sea = g.sea ?? 0;
+  const v = g.volcano;
   const span = g.wallFrom + (g.wallOut ?? 25) - 4;
   const step = def.spacing;
   const x1 = ground.x0 + (ground.nx - 1) * ground.cell;
@@ -45,6 +62,8 @@ export function buildPines(def: PinesDef, layout: TrackLayout, main: BakedSpline
       const gx = Math.round((x - ground.x0) / ground.cell);
       const gz = Math.round((z - ground.z0) / ground.cell);
       const k = gz * ground.nx + gx;
+      // Not on a branch or its verge, nor in a tunnel's mouth.
+      if (ground.onBranch[k] || ground.hole[k]) continue;
       const lat = ground.lateral[k];
       const i = ground.near[k];
       const s = i * main.step;
@@ -52,11 +71,23 @@ export function buildPines(def: PinesDef, layout: TrackLayout, main: BakedSpline
       const d = Math.abs(lat) - half;
       if (d < def.clear || Math.abs(lat) > span || s < 10 || s > main.length - 10) continue;
       if (blocked(layout, s, lat, d)) continue;
+      const y = ground.height(x, z);
+      let thick = 1;
+      let kind = TREE_PINE;
+      if (tropic) {
+        // Nothing in the sea or on the wet sand; nothing up the volcano's bare top or in its crater.
+        if (y < sea + 0.8) continue;
+        if (v && Math.hypot(x - v.x, z - v.z) < v.r * 0.62) continue;
+        thick = TROPIC_THICK[verge?.(i) ?? ''] ?? 1;
+        // (Palms on a beach too, however far it runs back from the water: GroundDef.beaches.)
+        kind = ground.coast(x, z) < PALM_COAST || ground.beach[i] * lat > 0 ? TREE_PALM : TREE_JUNGLE;
+      }
       // Thicker away from the piste and up the walls, and in glades, not an even carpet.
-      const p = def.density * smooth(def.clear, def.clear + def.thicken, d) ** 0.7 * (0.35 + 0.9 * noise(x, z, def.glade, def.seed));
+      const p = def.density * thick * smooth(def.clear, def.clear + def.thicken, d) ** 0.7 * (0.35 + 0.9 * noise(x, z, def.glade, def.seed));
       if (hash01(def.seed + 1, ix, iz) >= p) continue;
       const h = 7 + 7 * hash01(def.seed + 2, ix, iz);
-      out.push([x, ground.height(x, z), z, 0.9 + 0.04 * h, h]);
+      // A palm's collider is its slim trunk; a jungle tree's and a pine's, the trunk and low branches.
+      out.push([x, y, z, kind === TREE_PALM ? 0.5 : 0.9 + 0.04 * h, h, kind]);
     }
   }
   const n = out.length;
@@ -82,6 +113,7 @@ export function buildPines(def: PinesDef, layout: TrackLayout, main: BakedSpline
     z,
     r: pick(3),
     h: pick(4),
+    kind: Uint8Array.from(out, (t) => t[5]),
     near(px, pz, fn) {
       const cx = Math.floor((px - gx0) / CELL);
       const cz = Math.floor((pz - gz0) / CELL);

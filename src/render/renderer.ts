@@ -9,7 +9,7 @@ import { clamp, damp, wrapAngle } from '../core/math';
 import type { Sim } from '../core/sim';
 import { newHit, project, sampleAt } from '../core/track/query';
 import { Particles } from './fx';
-import { chaseOffset, GROUND_CLEAR, lookBackOffset, slopeView, type ChaseOffset } from './camera';
+import { cameraFloor, chaseOffset, clearView, GROUND_CLEAR, lookBackOffset, slopeRise, slopeView, type ChaseOffset } from './camera';
 import { InkPass } from './ink';
 import { PostPass } from './post';
 import { Showroom } from './showroom';
@@ -440,15 +440,17 @@ export class GameRenderer {
         if (ground) {
           // The ground a look-distance and two ahead, against the ground under the car (not the car:
           // in the air off a kicker the view stays on the slope).
-          const at = (d: number) => ground.height(car.x + fx * d, car.z + fz * d);
-          const rise = (at(o.ahead) + at(o.ahead * 2)) / 2 - at(0);
+          const rise = slopeRise(ground, car.x, car.y, car.z, fx, fz, o.ahead);
           this.slopeRise += (rise - this.slopeRise) * damp(3, dt);
           const v = slopeView(this.slopeRise);
           height += v.lift;
           lookUp += v.look;
         }
         this.camPos.y += (car.y + height - this.camPos.y) * damp(5, dt);
-        if (ground) this.camPos.y = Math.max(this.camPos.y, ground.height(this.camPos.x, this.camPos.z) + GROUND_CLEAR);
+        if (ground) {
+          clearView(ground, car.x, car.y, car.z, this.camPos);
+          this.camPos.y = Math.max(this.camPos.y, cameraFloor(ground, this.camPos.x, this.camPos.y, this.camPos.z) + GROUND_CLEAR);
+        }
         cam.position.copy(this.camPos);
         this.look.set(car.x + fx * o.ahead, car.y + lookUp, car.z + fz * o.ahead);
       }

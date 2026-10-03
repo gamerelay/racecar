@@ -119,6 +119,9 @@ export function racingLine(track: Track, sp: BakedSpline): Line {
   }
   // An open road (one run) ends: stop by its end, in the run-out past the finish.
   if (!sp.closed && sp.index === 0) speed[n - 1] = 0;
+  // A branch rejoins the main road at what the main road's line allows there, so its braking sees
+  // a corner just past the rejoin (out of the Lava Tube flat out, into the rim road's bend).
+  if (sp.index > 0) speed[n - 1] = Math.min(speed[n - 1], lineAt(track.main, sp.mainTo, racingLine(track, track.main).speed));
   for (let pass = 0; pass < (sp.closed ? 2 : 1); pass++) {
     for (let i = n - 2; i >= 0; i--) speed[i] = Math.min(speed[i], Math.sqrt(speed[i + 1] ** 2 + 2 * brake[i] * sp.step));
     if (sp.closed) speed[n - 1] = Math.min(speed[n - 1], Math.sqrt(speed[0] ** 2 + 2 * brake[n - 1] * sp.step));

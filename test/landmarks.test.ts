@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'bun:test';
 import { LANDMARK_KINDS, type TrackLayout } from '../src/core/content';
 import { validateLayout } from '../src/core/track/validate';
-import { clockText, landmarkKeeps } from '../src/render/skins/greybox/landmarks';
+import { clockText, landmarkKeeps, landmarkSea } from '../src/render/skins/greybox/landmarks';
 import { CLASSES, DOWNTOWN, SURFACES, layout } from './helpers';
 
 // Landmarks (PLAN phase 6): scenery placed by the layout. The validator keeps roads off them, the
@@ -35,6 +35,14 @@ describe('landmarks', () => {
     const tube = island.branches!.find((b) => b.id === 'lava-tube')!;
     const mouth = tube.points[0].p;
     expect(Math.hypot(tiki.at[0] - mouth[0], tiki.at[1] - mouth[2])).toBeLessThan(40);
+  });
+
+  test('Paradise Open\'s at sea stand by its sea (open ground keeps it in ground.sea), not on the sea bed', () => {
+    const open = layout('paradise-open/open');
+    expect(open.terrain).toBeUndefined();
+    expect(landmarkSea(open)).toBe(open.ground!.sea);
+    expect(landmarkSea(layout('paradise/island'))).toBe(0);
+    expect(landmarkSea(DOWNTOWN)).toBeUndefined();
   });
 
   test('the validator refuses one on the road, and a kind it doesn\'t know', () => {

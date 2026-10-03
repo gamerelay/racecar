@@ -6,6 +6,56 @@ and where things stand is [docs/HANDOFF.md](./docs/HANDOFF.md).
 
 ## Unreleased
 
+- **A road over the ground** (docs/PARADISE.md, step 0): a deck on open ground, the main road over
+  the ground beneath it. On the deck you drive on it; over its edge you fall to whatever is below.
+  The sea (`ground.sea`) is drawn, and deep water is out of bounds: you respawn on the road.
+- **Paradise Open, experimental** (`?mode=free&map=paradise-open/open`, out of the lobby): today's
+  island lap as open ground, the Freeway a deck over the bay with its rails. Off the Freeway,
+  the right-hander into the jungle and the left-hander after it are banked steeply (14°) into
+  themselves, to drift into. The coast, the routes and the volcano come next.
+- **Paradise Open is an island:** today's coastline round it (a beach, and deep water past it,
+  a respawn), the Freeway over a real bay, and the volcano in the middle: a 95 m cone with its
+  crater, the lava lake in it (down in it is a wreck) and the plume. About 2,400 trees, palms along
+  the coast and jungle inland, every one solid (what you see is what you hit).
+- **The Lava Tube is back, through the volcano** (the owner): off the rim road where it turns
+  round the cone, a tunnel in through its flank, out over the lava in its crater (now a shaft, the
+  lava lake at its foot) on a jagged rock bridge with no rails, and a tunnel out the other side.
+  About 90 m shorter than the road round, and about 2 s a lap for a hard rival who takes it.
+- **Branches on open ground:** a shortcut shapes the ground (its own height, cut into a slope),
+  and its decks are tunnels or bridges: a car is on the highest surface at or below it. The rim
+  road's descent off the volcano is smoothed (out of the tube flat out, its crest threw cars).
+- **The AI brakes for what's past a shortcut's end:** its line rejoins the main road at what the
+  main road allows there.
+- **Off the road on open ground, slopes pull you** (`TUNING.offroadSlope`): the volcano's ash holds
+  you back climbing and runs you down it. Roads keep the arcade's free climbs, snow is unchanged.
+- **Rails on open ground are two-sided:** a car outside one (on the sand by a bridge's ramp) is
+  kept outside, not snapped onto the road, and a car down under a bridge never meets its rails.
+- **Banked turns hold you in, on open ground** (`TUNING.bankHold`): off snow, a banked road bends
+  your path toward its low side, so a drift through a banked turn leans on the bank instead of
+  running wide. Lapped maps are unchanged.
+- **Jump the lava** (the owner: the tube was "a bit too overpowered"): the tube now crosses the
+  shaft straight, and its bridge is broken by a 40 m gap over the lava, a kicker with red and white
+  chevrons up to it. Every car needs about 150 km/h off the lip; flat out they all have 175+. A miss
+  is a lava wreck, and you're back past the gap. Gaps in a branch's road are `ground.branchGaps`.
+- **The camera through the tube:** it looks at the tunnel's road, not the rock over a mouth or the
+  climb out; across the gap it holds the bridge's level; it never sits in the rock (the black
+  screen) or rides the slope up over a mouth (the hiccup going in).
+- **The tube's ends are smooth:** no more launch onto the rim road out of the exit, nor a float
+  going in. The rock boxes over its mouths are arches set in the slope.
+- **No sky through the volcano at the tube's mouths:** where the slope's cut open round a mouth,
+  a shroud of rock over the tube follows the slope (or the tube's outline, where the slope is
+  lower), so the cut squares no longer show the mountain's hollow inside and the sky past it.
+- **Rock faces** (`ground.face`): ground steeper than a car can climb is a wall, so off line at a
+  mouth you bounce off the volcano (or wreck) instead of being thrown up over it. Not on Avalanche.
+- **Landing short of a bridge's edge** lands you on it, instead of throwing you up off it.
+- **A beach from Harbor Town to the Freeway** (`ground.beaches`): sand from the road down to the
+  sea, drawn and driven, with palms. **The roads are laid crisp over the ground** with no
+  markings, the ash fades off its roads, and the volcano's ground is in mixed tones.
+- **Fixes from review:** a car flat out up the slope over a mouth could sink through it into the
+  tunnel; a reversing car was pushed up a banked road; a wreck in the tunnel respawned you past the
+  jump.
+- **Dev:** `?spawn=<m>` starts your car that far along the main road (local races only).
+
 ## alpha-1.30: quieter snow
 
 PR #77.

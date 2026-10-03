@@ -109,6 +109,9 @@ for (const s of specs) sim.addCar(s);
 const me = Math.max(0, you);
 // Online, the countdown holds until the connection says when green is (`run.at`, the server's clock).
 if (run.mode === 'race') sim.startRace(run.laps, attract ? 1 : onlineRace ? 30 : 4);
+// Dev: ?spawn=<m> starts your car that far along the main road (to test one spot, e.g. the Lava Tube).
+const spawn = Number(params.get('spawn') ?? NaN);
+if (import.meta.env.DEV && Number.isFinite(spawn) && you >= 0 && !onlineRace) sim.placeCar(me, 0, spawn, 0, 0);
 /** Online (net/online.ts): the lobby's room, the net layers around each step, and after the race the vote. */
 const live = onlineRace
   ? new OnlineRace({

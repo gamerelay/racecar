@@ -33,6 +33,8 @@ import { buildForest } from './forest';
 import { buildIsland } from './island';
 import { buildLandmarks, landmarkCircles, landmarkKeeps } from './landmarks';
 import { buildSnow } from './snow';
+import { buildOpenIsland } from './openIsland';
+import { buildTubes } from './tube';
 import { buildTerrain } from './terrain';
 import { boxes, type Box } from './scenery';
 import { disposeTree } from './dispose';
@@ -60,7 +62,7 @@ const RAIL_TOP = 1.25;
 /** The island's concrete barrier, above the curb. */
 const ISLAND_BARRIER = 0.85;
 
-class Geo {
+export class Geo {
   pos: number[] = [];
   col: number[] = [];
   idx: number[] = [];
@@ -191,6 +193,28 @@ export function buildTrackVisual(track: Track, palette: Palette, seed: number): 
       chunks.push(mesh);
     }
   }
+  // A deck over open ground (GroundDef.decks) is drawn as a road: the island's concrete bridge,
+  // its edges open (no barrier: drive off it), on pillars down into the water.
+  const decks: Object3D[] = [];
+  if (track.ground) {
+    const ground = track.ground;
+    const main = track.main;
+    const style: Style = { country: true, floor: (x, z) => ground.height(x, z), island: true };
+    for (let i = 0; i < main.n; i++) {
+      if (!ground.deckSample[i]) continue;
+      let j = i;
+      while (j + 1 < main.n && ground.deckSample[j + 1]) j++;
+      const g = new Geo();
+      buildChunk(g, track, main, i, j, groundY, false, ground.deckSample, style, null);
+      const mesh = new Mesh(g.build(), road);
+      mesh.matrixAutoUpdate = false;
+      chunks.push(mesh);
+      i = j;
+    }
+    const sea = ground.sea;
+    const { pillars, caps } = deckPillars(main, ground.deckSample, (x, z) => ground.height(x, z) - 0.5, (x, z) => sea === undefined || ground.height(x, z) > sea, 0xd9d0bd, 0xbdb3a0);
+    if (pillars.length) decks.push(boxes(pillars, toon()), boxes(caps, toon()));
+  }
 
   // The city lays its own ground (streets, with holes where a trench runs); the country has its land.
   // Anything else gets a plain plane.
@@ -202,7 +226,9 @@ export function buildTrackVisual(track: Track, palette: Palette, seed: number): 
     ground.matrixAutoUpdate = false;
     return ground;
   };
-  const extras: Object3D[] = track.ground ? buildSnow(track) : city ? [] : land ? [...land.objects] : [plainGround()];
+  // An island on open ground (docs/PARADISE.md): its sea, its crater, its trees.
+  const isle = track.ground && (track.ground.sea !== undefined || track.pines) ? buildOpenIsland(track, palette, seed) : null;
+  const extras: Object3D[] = track.ground ? [...buildSnow(track, track.layout.ground?.coast ? new Color(palette.ground) : undefined), ...decks, ...buildTubes(track), ...(isle?.objects ?? [])] : city ? [] : land ? [...land.objects] : [plainGround()];
   const wet = puddles(track);
   if (wet) extras.push(wet);
   // Solid props on the road (the pillars): tall striped boxes. The Trestle's legs are the forest's.
@@ -247,8 +273,11 @@ export function buildTrackVisual(track: Track, palette: Palette, seed: number): 
     };
   }
 
-  // Landmarks, on the city's streets or the land.
-  const marks = buildLandmarks(track.layout, land ? land.height : () => groundY);
+  if (isle) update = (t) => isle.update(t);
+
+  // Landmarks, on the city's streets, the land or the open ground.
+  const ground = track.ground;
+  const marks = buildLandmarks(track.layout, land ? land.height : ground ? (x, z) => ground.top(x, z) : () => groundY);
   extras.push(...marks.objects);
   const scenery = update;
   update = (t, dt, cam, live) => {
@@ -263,7 +292,7 @@ export function buildTrackVisual(track: Track, palette: Palette, seed: number): 
     debug,
     update,
     roof: roofMap(track, groundY, city, land ? (sp) => land.deck[sp.index] : (sp) => deckMask(sp, groundY), covers),
-    water: !!land?.objects.length && (!!track.layout.terrain?.river || !!land.sea),
+    water: (!!land?.objects.length && (!!track.layout.terrain?.river || !!land.sea)) || track.ground?.sea !== undefined,
     dispose() {
       for (const c of chunks) (c as Mesh).geometry.dispose();
       road.dispose();

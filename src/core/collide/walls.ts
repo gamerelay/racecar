@@ -19,17 +19,39 @@ export function collideWalls(sim: SimState, i: number): void {
   const wall = hit.width / 2 + hit.shoulder;
   // Lateral measured fresh: the car moved since it was located this tick.
   const lat = (cars.x[i] - hit.cx) * -hit.tz + (cars.z[i] - hit.cz) * hit.tx;
+  // Only when grounded-ish: flying well above the wall top (1.2 m) clears it, and on open ground
+  // a car well under it (down in the bay under a bridge's rail) never meets it.
+  if (cars.y[i] > hit.cy + 1.2 + 0.5) return;
+  if (sim.track.ground && cars.y[i] < hit.cy - 2) return;
   let side = 0;
+  // On open ground a wall is a rail with ground past it too (a bridge's, near its ends): a car that
+  // was outside it last tick stays outside, pushed back out. On a lap, past a wall is out of bounds.
+  const was = sim.track.ground ? (cars.px[i] - hit.cx) * -hit.tz + (cars.pz[i] - hit.cz) * hit.tx : 0;
+  if (sim.track.ground && Math.abs(was) > wall) {
+    const out = was > 0 ? 1 : -1;
+    if (!(out > 0 ? hit.wallR : hit.wallL) || Math.abs(lat) - reach >= wall) return;
+    const depth = wall - (Math.abs(lat) - reach);
+    // Pushed out: away from the road.
+    bounce(sim, i, -hit.tz * -out, hit.tx * -out, depth, reach, out);
+    return;
+  }
   if (lat + reach > wall && hit.wallR) side = 1;
   else if (lat - reach < -wall && hit.wallL) side = -1;
   if (side === 0) return;
-  // Only when grounded-ish: flying well above the wall top (1.2 m) clears it.
-  if (cars.y[i] > hit.cy + 1.2 + 0.5) return;
 
   const depth = side > 0 ? lat + reach - wall : -wall - (lat - reach);
   // Outward direction (toward the wall), world space: side · right, right = (-tz, tx).
-  const ox = -hit.tz * side;
-  const oz = hit.tx * side;
+  bounce(sim, i, -hit.tz * side, hit.tx * side, depth, reach, side);
+}
+
+/** A car meeting a rock face on open ground, into it along (ox, oz) (physics.ts meetFace): a wall. */
+export function hitFace(sim: SimState, i: number, ox: number, oz: number): void {
+  bounce(sim, i, ox, oz, 0, sim.classes[sim.cars.cls[i]].size[1], 0);
+}
+
+/** A car `depth` m into a wall it's moving into along (ox, oz): out of it, bounced and scraped, maybe wrecked. */
+function bounce(sim: SimState, i: number, ox: number, oz: number, depth: number, reach: number, side: number): void {
+  const cars = sim.cars;
   cars.x[i] -= ox * depth;
   cars.z[i] -= oz * depth;
   const vOut = cars.vx[i] * ox + cars.vz[i] * oz;

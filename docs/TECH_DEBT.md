@@ -14,8 +14,9 @@ How to use it:
 - **Each item says roughly what it'd take** (small, medium, large) and what it would buy, so it
   can be weighed against features later.
 
-Last updated 2026-10-02 (a quick pass over the whole codebase after alpha-1.26: the sim, the
-rendering and the page; its bugs went to HANDOFF's "Smaller follow-ups").
+Last updated 2026-10-03 ("Open ground and Paradise Open", from a review of PRs #79–#81). Before
+that, 2026-10-02: a quick pass over the whole codebase after alpha-1.26 (the sim, the rendering
+and the page; its bugs went to HANDOFF's "Smaller follow-ups").
 
 ## Online (`src/net`, `src/lobby`)
 
@@ -286,6 +287,53 @@ From the two code reviews of the art work (moved from HANDOFF; none of it is a b
 - **Two canvas-texture helpers:** `canvas` (`scenery.ts`) and `liveCanvas`/`staticCanvas`
   (`landmarks.ts`) do the same (anisotropy 4, redraw when the fonts are ready). One, so a fake 2D
   context for tests stubs one place. *Small.*
+
+## Open ground and Paradise Open (`core/track/ground.ts`, the open-ground renderers)
+
+From a review of the Paradise Open work (PRs #79–#81, 2026-10-03). It all works and is tested;
+this is about shape.
+
+- **Split `buildGround`** (`ground.ts`, ~400 lines, six jobs): the heightfield, the coast and the
+  volcano, the branches' shaping, the tunnels' mouths (`hole`), the deck sample index (buckets)
+  and the deck queries (`branchDeckAt`, `deck`, `deckUnder`, `top`, `topSlope`). The index and
+  the queries are a module of their own. *Medium.*
+- **"Which surface is under/ahead of me" has grown special cases in three places:** `deckUnder`
+  (a tunnel's mouth, within a hard landing), `slopeRise`/`clearView`/`cameraFloor` in
+  `render/camera.ts` (a tunnel's road ahead, a gap's far side, the tube's space), and
+  `meetFace` in `physics.ts` (sinking into the slope over a tunnel). One shared notion on
+  `Ground` (the space a point is in: open air, a tube, under the rock) would replace them.
+  *Medium.*
+- **`snow.ts` draws every open ground**, Paradise's island too: its colours (sand, beach, grass,
+  the verges, the volcano's rock), and its roads laid over the ground. Rename it (`openGround.ts`),
+  and move the island's colouring next to `openIsland.ts`. *Small.*
+- **Off-road surfaces are per main-road sample, not per side or per point.** The sand painted by
+  the coast drives as the stretch's verge (grass) unless it's in a beach (`GroundDef.beaches`,
+  which `surfaceAt` checks by side). What's drawn and what's driven should come from one
+  function of (x, z). *Medium.*
+- **The generator inverts the bake's join** (`gen-paradise-open.ts`'s `beside`/`LAND`: the tube's
+  heights are authored so that `joinBranch`'s pull toward the main road gives the profile
+  wanted). It copies the pull's formula (`JOIN_FADE`, the verge, the smooth), so a change to
+  `joinBranch` quietly breaks the tube's ends. Better: a branch that says it authors its own
+  heights, and `joinBranch` leaves them. *Medium.*
+- **Wrapping past the line is inconsistent:** beaches wrap (`s[0] > s[1]`); decks (`fillSpan`,
+  `deckRunIn`, `deckPull`) don't, so a deck across s = 0 would do nothing. The generator's
+  `beside` doesn't wrap either (fine at 2,685 and 3,255 m). *Small.*
+- **Copies:** the lateral projection `(x - px) * -tz + (z - pz) * tx` six-plus times in
+  `ground.ts` (see "A shared `lateralOf`" above), and `smooth` in `ground.ts`, `island.ts`,
+  `pines.ts`, `snow.ts` (`smooth01`) and the generator. *Small.*
+- **`pastGap` (respawns) finds the jump's kicker by its ramp heights** (`sp.ramp`). A gap with no
+  kicker, or a kicker not at a gap, would surprise it. A gap could carry its run-up. *Small.*
+- **`physics.ts` and `collide/walls.ts` import each other** (`hitFace`), and `walls.ts`'s
+  `bounce` takes `reach` and `side` only to place the hit's event. *Small.*
+- **`buildOpenIsland` also runs on Avalanche** (`sea !== undefined || track.pines`), coming out
+  empty, and `track.ts`'s `if (isle) update = ...` replaces any `update` before it. *Small.*
+- **`finishProjection` calls `top(x, z, cy + 0.5)` with the road's height**, not the car's: an
+  extra deck query on every projection, for a value only the skid marks read. *Small.*
+- **`terrain.ts` re-exports `coneHeight` and `loopDist`** from `core/track/island.ts`; import
+  them from there. And `bake.ts`'s `buildPines` verge callback is a dense inline expression
+  (a named helper). *Small.*
+- **Paradise Open's tests live in `deck.test.ts`** (~700 lines: decks, the island, the tube, the
+  jump). A `paradise-open.test.ts` of their own. *Small.*
 
 ## Performance
 

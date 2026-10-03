@@ -237,6 +237,8 @@ export interface AvalancheDef {
  * m and up the walls, in glades (noise `glade` m wide), from `seed`.
  */
 export interface PinesDef {
+  /** What grows (default `pine`, snow-laden): `tropic` is palms along the coast and jungle inland (docs/PARADISE.md). */
+  kind?: 'pine' | 'tropic';
   seed: number;
   spacing: number;
   clear: number;
@@ -268,6 +270,51 @@ export interface GroundDef {
    * `ease` m at its ends.
    */
   canyons?: { s: [number, number]; lateral: number; floor: number; depth: number; ease: number }[];
+  /**
+   * Roads over the ground (docs/PARADISE.md, step 0): stretches of the main road that are a deck
+   * (a bridge), with the ground under them, not the road. Under a deck the ground falls to `floor`
+   * (its height, m), easing in over `ease` m from each end and back up over `reach` m past the
+   * deck's edges. On the deck a car drives on it; over its edge, it falls to the ground below.
+   */
+  decks?: { s: [number, number]; floor: number; ease: number; reach: number }[];
+  /**
+   * A branch's decks (docs/PARADISE.md, the Lava Tube): stretches of a branch whose road isn't the
+   * ground. The ground there stays as it is: over the road it's a tunnel (the road under the
+   * ground), under it a bridge. A car drives on the highest surface at or below it.
+   */
+  branchDecks?: { spline: string; s: [number, number] }[];
+  /**
+   * Stretches of a branch with no road at all (the Lava Tube's jump): the ground stays as it is
+   * under them, as under a deck, and there's no deck to land on. Off the end of the road, over the
+   * gap, is down to whatever's there.
+   */
+  branchGaps?: { spline: string; s: [number, number] }[];
+  /**
+   * Beaches along the main road (Paradise Open: town to the Freeway): off its `side` from `s[0]` to
+   * `s[1]` m (wrapping past the line if `s[0]` is the larger), the ground between the road and the
+   * sea is sand, drawn and driven. Its ends fade over BEACH_FADE m.
+   */
+  beaches?: { s: [number, number]; side: 'left' | 'right' }[];
+  /** The sea's level (m): water is drawn to it, and a car on the ground under it deeper than wading is in deep water (out of bounds). */
+  sea?: number;
+  /**
+   * An island (docs/PARADISE.md): its coastline, a closed [x, z] loop with the sea outside it (set
+   * `sea`). Off the roads, past it the ground falls away under the sea; along it, a beach.
+   */
+  coast?: [number, number][];
+  /**
+   * A volcano (core/track/island.ts's cone): its middle, the crater's radius, the lip's height over
+   * the sea, its foot's radius. Off the roads the ground rises over it; in the crater a lava lake
+   * `lava` m over the sea, and down in that is a wreck. With `pit`, the crater is a shaft, its
+   * walls falling nearly sheer to a floor `pit` m over the sea.
+   */
+  volcano?: { x: number; z: number; crater: number; h: number; r: number; lava: number; pit?: number };
+  /**
+   * Ground rising steeper than this (rise over run) is a rock face: a car meets it as a wall instead
+   * of being lifted up it (the volcano's faces round the Lava Tube's mouths). Unset: every slope is
+   * driven up (Avalanche's snow walls).
+   */
+  face?: number;
 }
 
 export interface MapDef {

@@ -134,7 +134,7 @@ export function projectGlobal(sp: BakedSpline, x: number, z: number, out: TrackH
 function finishProjection(sp: BakedSpline, out: TrackHit, x: number, z: number): void {
   // right = (-tz, tx)
   out.lateral = (x - out.cx) * -out.tz + (z - out.cz) * out.tx;
-  out.ground = sp.ground ? sp.ground.height(x, z) : out.cy - out.lateral * Math.tan(out.bank) - flankDrop(out);
+  out.ground = sp.ground ? sp.ground.top(x, z, out.cy + 0.5) : out.cy - out.lateral * Math.tan(out.bank) - flankDrop(out);
 }
 
 /** How far a ramp's height has run out at the hit's lateral: past the road's edge and shoulder, over its flank. */
@@ -158,6 +158,11 @@ export function surfaceAt(track: Track, hit: TrackHit, wet: boolean, shoulderSur
     const inS = z.s0 <= z.s1 ? hit.s >= z.s0 && hit.s <= z.s1 : hit.s >= z.s0 || hit.s <= z.s1;
     if (inS && hit.lateral >= z.l0 && hit.lateral <= z.l1) return z.surface;
   }
-  if (Math.abs(hit.lateral) > hit.width / 2) return hit.verge === VERGE_DEFAULT ? shoulderSurface : hit.verge;
+  if (Math.abs(hit.lateral) > hit.width / 2) {
+    // On a beach's side of the main road (GroundDef.beaches), sand down to the sea.
+    const b = hit.spline === 0 ? track.ground?.beach[Math.round(hit.s / sp.step) % sp.n] : 0;
+    if (b && b * hit.lateral > 0 && Math.abs(b) >= 0.5) return track.surfaceIndex.get('sand') ?? hit.surface;
+    return hit.verge === VERGE_DEFAULT ? shoulderSurface : hit.verge;
+  }
   return hit.surface;
 }

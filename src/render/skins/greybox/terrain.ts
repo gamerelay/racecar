@@ -11,6 +11,7 @@
 
 import { BufferAttribute, BufferGeometry, Color, DoubleSide, Float32BufferAttribute, Mesh, NoBlending, ShaderMaterial, UniformsLib, UniformsUtils, type Object3D } from 'three';
 import type { Track } from '../../../core/track/bake';
+import { coneHeight, curve, loopDist } from '../../../core/track/island';
 import { toon } from './toon';
 import type { Palette } from './palettes';
 
@@ -81,53 +82,8 @@ function polyDist(poly: [number, number][], x: number, z: number): number {
   return best;
 }
 
-/** Signed distance from (x, z) to a closed loop: positive inside it. */
-export function loopDist(loop: [number, number][], x: number, z: number): number {
-  let best = Infinity;
-  let inside = false;
-  for (let k = 0, j = loop.length - 1; k < loop.length; j = k++) {
-    const [ax, az] = loop[j];
-    const [bx, bz] = loop[k];
-    const dx = bx - ax;
-    const dz = bz - az;
-    const t = Math.max(0, Math.min(1, ((x - ax) * dx + (z - az) * dz) / (dx * dx + dz * dz || 1)));
-    best = Math.min(best, Math.hypot(x - ax - dx * t, z - az - dz * t));
-    if (az > z !== bz > z && x < ax + ((z - az) * dx) / dz) inside = !inside;
-  }
-  return inside ? best : -best;
-}
-
-type Volcano = NonNullable<NonNullable<Track['layout']['terrain']>['volcano']>;
-
-/** A volcano's cone above the sea at (x, z): steepening to the lip, a bowl in the crater. */
-export function coneHeight(v: Volcano, x: number, z: number): number {
-  const rr = Math.hypot(x - v.x, z - v.z);
-  if (rr >= v.r) return 0;
-  const u = Math.min(1, (v.r - rr) / (v.r - v.crater));
-  const lip = 4 * Math.exp(-(((rr - v.crater) / 9) ** 2));
-  return v.h * u ** 1.6 + lip - (rr < v.crater ? 26 * smooth(v.crater, v.crater * 0.35, rr) : 0);
-}
-
-/** A polyline smoothed into a curve (Catmull-Rom), every few meters. */
-function curve(poly: [number, number][], step = 6): [number, number][] {
-  const out: [number, number][] = [];
-  for (let k = 0; k + 1 < poly.length; k++) {
-    const p0 = poly[Math.max(0, k - 1)];
-    const p1 = poly[k];
-    const p2 = poly[k + 1];
-    const p3 = poly[Math.min(poly.length - 1, k + 2)];
-    const n = Math.max(2, Math.ceil(Math.hypot(p2[0] - p1[0], p2[1] - p1[1]) / step));
-    for (let j = 0; j < n; j++) {
-      const t = j / n;
-      const t2 = t * t;
-      const t3 = t2 * t;
-      const f = (a: number, b: number, c: number, d: number) => 0.5 * (2 * b + (-a + c) * t + (2 * a - 5 * b + 4 * c - d) * t2 + (-a + 3 * b - 3 * c + d) * t3);
-      out.push([f(p0[0], p1[0], p2[0], p3[0]), f(p0[1], p1[1], p2[1], p3[1])]);
-    }
-  }
-  out.push(poly[poly.length - 1]);
-  return out;
-}
+// (The island's shapes live in the core, so open ground builds the same island: core/track/island.ts.)
+export { coneHeight, loopDist };
 
 export function buildTerrain(track: Track, palette: Palette, seed: number): Terrain {
   const spec = track.layout.terrain ?? {};
@@ -445,16 +401,16 @@ const SEA_CELL = 12;
  * the sand, deep blue further out, foam on the waterline), inside one big plane out to the horizon.
  * Its alpha is cleared like the river's, so the post pass mirrors the sky and the island in it.
  */
-function sea(y: number, gx0: number, gz0: number, nx: number, nz: number, h: Float32Array, time: { value: number }, light: number): Mesh {
+export function sea(y: number, gx0: number, gz0: number, nx: number, nz: number, h: Float32Array, time: { value: number }, light: number, cell = CELL): Mesh {
   const pos: number[] = [];
   const depth: number[] = [];
   const idx: number[] = [];
-  const step = Math.round(SEA_CELL / CELL);
+  const step = Math.max(1, Math.round(SEA_CELL / cell));
   const cols = Math.floor((nx - 1) / step) + 1;
   const rows = Math.floor((nz - 1) / step) + 1;
   for (let j = 0; j < rows; j++) {
     for (let i = 0; i < cols; i++) {
-      pos.push(gx0 + i * step * CELL, y, gz0 + j * step * CELL);
+      pos.push(gx0 + i * step * cell, y, gz0 + j * step * cell);
       // The edge of the grid is deep, so it meets the plane round it seamlessly.
       const edge = i === 0 || j === 0 || i === cols - 1 || j === rows - 1;
       depth.push(edge ? SEA_BED : y - h[j * step * nx + i * step]);
@@ -471,8 +427,8 @@ function sea(y: number, gx0: number, gz0: number, nx: number, nz: number, h: Flo
   // The open sea round the grid: a ring of four quads out to SEA_REACH.
   const x0 = gx0;
   const z0 = gz0;
-  const x1 = gx0 + (cols - 1) * step * CELL;
-  const z1 = gz0 + (rows - 1) * step * CELL;
+  const x1 = gx0 + (cols - 1) * step * cell;
+  const z1 = gz0 + (rows - 1) * step * cell;
   const R = SEA_REACH;
   const ring = (ax: number, az: number, bx: number, bz: number) => {
     const base = pos.length / 3;
