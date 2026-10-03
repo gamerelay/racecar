@@ -98,8 +98,8 @@ export interface Ground {
   coast(x: number, z: number): number;
   /** The features shaping it (track/features), in order. */
   readonly features: readonly Feature[];
-  /** What's dangerous at (x, y, z): a feature's say (the volcano's lava lake), else 'none'. */
-  hazard(x: number, y: number, z: number): Hazard;
+  /** What's dangerous at (x, y, z) at time `t` (s; default 0): a feature's say (the volcano's lava lake), else 'none'. */
+  hazard(x: number, y: number, z: number, t?: number): Hazard;
   /**
    * A piece's floor at (x, z): its road's plane, if the point is over one, within `slack` m past
    * its edges (the road and its shoulder); the highest at or below `y` (by DECK_CATCH), if there's
@@ -160,9 +160,9 @@ export function buildGround(def: GroundDef, main: BakedSpline, branches: BakedSp
     face: def.face,
     features,
     coast: coastOf ? coastOf.coast! : () => Infinity,
-    hazard(x, y, z) {
+    hazard(x, y, z, t = 0) {
       for (const f of hazards) {
-        const h = f.hazard!(x, y, z);
+        const h = f.hazard!(x, y, z, t);
         if (h !== 'none') return h;
       }
       return 'none';

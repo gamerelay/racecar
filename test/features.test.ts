@@ -23,14 +23,23 @@ describe('feature modules', () => {
     expect(open.hazard(v.x + v.crater + 5, sea, v.z)).toBe('none');
   });
 
-  test("the coast says where its sand is, and how far in from it a point is", () => {
+  test('the coast says where its sand is: low ground within a wandering 12–24 m of it', () => {
     const [coast] = groundFeatures(layout('paradise-open/open').ground!).filter((f) => f.kind === 'coast');
     const sea = open.sea ?? 0;
-    // Out at sea it's negative, and the ground's coast is the feature's.
-    expect(open.coast(5000, 5000)).toBeLessThan(0);
+    // The ground's coast is the feature's.
     expect(coast.coast!(5000, 5000)).toBe(open.coast(5000, 5000));
-    expect(coast.surface!(5000, 5000, sea + 0.1, 0.5)).toBe(KIND_SHORE);
-    expect(coast.surface!(5000, 5000, sea + 2, 0.5)).toBe(KIND_SAND);
-    expect(coast.surface!(5000, 5000, sea + 8, 0.5)).toBe(-1);
+    expect(open.coast(5000, 5000)).toBeLessThan(0);
+    // Points on the island 5 m and 40 m in from the coast (found along a line in from the sea).
+    const inland = (want: number) => {
+      for (let x = -900; x < 900; x += 0.5) if (open.coast(x, 0) >= want) return x;
+      throw new Error('no coast');
+    };
+    const near = inland(5);
+    const far = inland(40);
+    expect(coast.surface!(near, 0, sea + 0.1, 0.5)).toBe(KIND_SHORE);
+    expect(coast.surface!(near, 0, sea + 2, 0)).toBe(KIND_SAND);
+    // 40 m in is past the wandering edge whatever the noise; and high ground is never sand.
+    expect(coast.surface!(far, 0, sea + 2, 1)).toBe(-1);
+    expect(coast.surface!(near, 0, sea + 8, 0.5)).toBe(-1);
   });
 });

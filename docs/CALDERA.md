@@ -662,7 +662,9 @@ stream across a route): then the new floor is recorded, with why.
      `surface`, `hazard` (and `coast`) hooks the ground runs in order; the volcano and the coast
      moved onto it, the fingerprints identical. `ground.hazard(x, y, z)` replaces `inLava`. The
      skin still colours the volcano from the layout (a `draw` hook comes with the lava stream,
-     which needs one).
+     which needs one). `shape` gets where a point is by the main road (s, lateral, edge, the
+     deck run-in); `hazard` gets the time. Open for 2d: `surface` returns a ground kind, so the
+     stream's rock banks add a kind, or it becomes a surface id.
    - **2b, by-road features into world space:** moguls, canyons, beaches (and the avalanche,
      which follows a canyon) placed in world space or along a named road. They change where they
      are by a little, so Avalanche's and Paradise Open's fingerprints are re-recorded.

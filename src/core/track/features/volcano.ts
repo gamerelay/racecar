@@ -22,6 +22,7 @@ export function volcanoFeature(v: NonNullable<GroundDef['volcano']>, sea: number
       return cone > y || pit ? y + (cone - y) * smooth(p.edge, p.edge + CONE_IN, p.d) : y;
     },
     hazard(x, y, z) {
+      // (Still: its lake doesn't rise or fall. An eruption would use the time.)
       return sq(x - v.x) + sq(z - v.z) < sq(v.crater) && y < sea + v.lava + LAVA_SKIN ? 'lava' : 'none';
     },
   };

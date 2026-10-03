@@ -79,7 +79,7 @@ done.
 
 **Step 2a, feature modules' interface, is built** (PR #89, branch `caldera-modules`, 2026-10-03;
 awaiting the owner's merge). `core/track/features/`: a `Feature` (kind, and optional `shape`,
-`surface`, `hazard`, `coast` hooks) that the ground runs in the layout's order. The volcano and
+`surface`, `hazard`, `coast` hooks) that the ground runs in order. The volcano and
 the coast moved onto it (`volcano.ts`, `coast.ts`), and `ground.hazard(x, y, z)` replaced
 `inLava`. A clean-up: every fingerprint identical.
 
