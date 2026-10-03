@@ -39,7 +39,7 @@ export function canyonDepth(d: number, floor: number, depth: number): number {
 
 /**
  * What `def` adds to the road's height at `p` (its swell and rough), with what the features add
- * (`risers`, in order: mogul fields, canyons), and the walls rising at its edges.
+ * (`risers`, in order: mogul fields, canyons, uneven stretches), and the walls rising at its edges.
  */
 export function groundShape(def: GroundDef, p: ShapePoint, risers: readonly Feature[]): number {
   const { x, z, d: a, half, shoulder } = p;
