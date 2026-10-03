@@ -34,8 +34,10 @@ Started 2026-10-03, from the owner's brief:
 4. **Online first.** Every screen runs the same sim at 60 Hz and must agree. Everything the sim
    reads comes from the layout, the seed, the race clock and the inputs: plain float math in a
    fixed order, no physics engine, no `Math.random`, no render state leaking in. Moving things
-   (a drawbridge, an avalanche, an eruption) are formulas of the race clock, so they need no
-   networking at all. Cosmetic things (particles, light, sound) are free to differ.
+   (a drawbridge, an avalanche, an eruption, a lava flow) are formulas of the race clock and the
+   seed, so they need no networking at all. Things a car breaks (a window, a fruit stand) are sim
+   state: every screen runs the same crash, so every screen breaks the same thing on the same
+   tick. Cosmetic things (particles, light, sound) are free to differ.
 5. **Telemetry built in.** The sim already emits events (wrecks, laps, air, drifts) and the dev
    server logs them. Every new feature should emit its own (entered a piece, jumped a gap, hit by
    the eruption), so playtests and tuning questions can be answered from the data.
@@ -59,7 +61,8 @@ in `ground.ts`, `slopeRise`/`clearView`/`cameraFloor` in `render/camera.ts`, `me
 Caldera replaces them with one layer. A **piece** is anything you can drive on:
 
 - a **floor** following a curve (its width, bank and height along it);
-- optional **walls** on either side;
+- optional **walls** on either side, which can be **breakable** (a shop window: solid until a
+  car hits it fast enough, then gone, and when it broke is sim state);
 - an optional **ceiling**: then it's **enclosed** (a tunnel, a mall, the inside of the volcano);
 - a **surface** tag (tarmac, tile, sand, snow) and a **look** (drawn as road, as rock, or
   invisible);
@@ -87,8 +90,10 @@ How the owner's list falls out of it:
 |---|---|
 | **Overhangs** | A piece over the ground, drawn as rock or as a ledge. |
 | **Invisible tubes** | An enclosed piece with an invisible look: it holds the car and the camera inside, and the scenery around it is decoration. |
-| **Indoor moments** | Enclosed pieces. Inside, the camera stays under the ceiling, the light and fog switch to indoor, the sound gets reverb. A mall is enclosed pieces plus its scenery. |
+| **Indoor moments** | Enclosed pieces. Inside, the camera stays under the ceiling, the light and fog switch to indoor, the sound gets reverb. A mall is enclosed pieces plus its scenery, with breakable windows to crash through. |
 | **Drawbridges** | A piece with a motion: its angle at time t is a formula. A car on it rides it; a car arriving while it's up jumps the gap or hits the edge. |
+| **Breakable walls** | A wall that breaks when hit hard enough, like today's smashables (`core/world/smash.ts`: where each stands comes from the layout, when it broke is state saved in snapshots, the shatter is the renderer's from the event). It can stay broken for the race: a shortcut you made. |
+| **Hazards that spread** | A lava flow down the volcano onto a road, the avalanche: a path from the layout, how far along it is a formula of the race clock (and the seed, for which flank and when). A car in it wrecks. A crust that cools into something to drive on is a piece that appears at a set time. |
 | **Cities and chases** | Streets are pieces joined at junctions: a graph (below). |
 
 ## Routes: a graph, not a loop
@@ -119,8 +124,10 @@ on Downtown as it is (step 5 in "Build order") checks that the mode is worth it.
 
 Kept out on purpose, so the engine stays small and deterministic:
 - **No upside-down driving**: gravity is always down, so no loops, wall rides or half-pipes.
-- **No ground that changes mid-race**: craters and landslides are out. The eruption is an
-  event that wrecks cars, not lava that reshapes the land.
+- **No sculpting the terrain mid-race**: the heightfield is fixed at load, so a crater dug
+  wherever a car crashes is out. Anything else that changes during a race is a hazard, a piece
+  or a breakable, driven by the race clock, the seed or a crash in the sim (a lava flow, the
+  avalanche, a drawbridge, a cooling crust, a smashed window), so every screen agrees.
 - **No streaming**: a map is built at load and fits in memory. Maps of a few km² are fine.
 - **No mobile**: desktop browsers only.
 - **No general physics engine**: the car model stays our own, so it stays deterministic.
@@ -137,6 +144,7 @@ What the engine struggles with now, and the build step that lifts it (if any):
 | No road network: one loop plus branches, progress by distance along the main road | Branches leave and rejoin the main road; checkpoints are main-road distances | Step 6 (the road graph) |
 | Indoors looks and sounds like outdoors | One light for everything; the camera only knows the Lava Tube | Step 3 |
 | Nothing moves but the avalanche and traffic | No moving surfaces | Step 4 |
+| Only small round props break (smashables), placed in rows along a road | `smash.ts` touches a radius and places by the main road | Steps 2 and 3 (breakable walls, placed in world space) |
 | Big air is hard: the road lifts a car at most 8 m/s | The vertical speed cap keeps cars on the road over bumps | Tuning per feature (the jump's kicker was sized by a sweep) |
 | The car is one body with a heading: no wheels leaving the ground one by one, no rolling over, no stacking | Our own simple car model | Not planned |
 | Every screen simulates every car: CPU grows with the car count, and anything that touches physics must stay deterministic | Online lockstep | Not planned (8 cars is the target) |
@@ -231,10 +239,11 @@ Each step ships on its own, and the existing maps keep their lap floors througho
    Open".
 2. **Feature modules**: the volcano, coast, beaches, moguls, canyons, decks and the avalanche as
    modules over pieces, each placed in world space or along a named street, not by the main road
-   (moguls and canyons are by the main road today, so they move). The eruption is the first new
-   one.
-3. **Enclosed spaces done properly**: the camera under the ceiling, indoor light and fog, reverb.
-   Then a short indoor stretch on a map.
+   (moguls and canyons are by the main road today, so they move). The eruption (and a lava flow
+   onto a road) is the first new one.
+3. **Enclosed spaces done properly**: the camera under the ceiling, indoor light and fog, reverb,
+   and breakable walls (smashables grown into wall panels, placed in world space). Then a short
+   indoor stretch on a map: a mall to cut through.
 4. **Moving pieces**: a drawbridge.
 5. **A cop chase on Downtown as it is**: the mode only (roles, busted, escape, a timer), with
    cops that chase along the track. A playtest: if the chase is fun, the road graph is worth
