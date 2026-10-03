@@ -1,4 +1,4 @@
-// Generator for Avalanche's Slope (experimental, docs/AVALANCHE.md): one run down a mountain, top
+// Generator for Avalanche's Slope (docs/AVALANCHE.md): one run down a mountain, top
 // to bottom, about 6 km and 1,200 m of drop. No laps: the main road is open (layout.run), the grid
 // at the summit, the finish in the valley, a run-out past it.
 //
@@ -221,7 +221,7 @@ mkdirSync(dir, { recursive: true });
 writeFileSync(new URL('slope.track.json', dir), JSON.stringify(layout, null, 1) + '\n');
 writeFileSync(
   new URL('map.json', dir),
-  JSON.stringify({ id: 'avalanche', name: 'Avalanche', layouts: ['slope'], palette: 'alpine', weather: ['clear', 'snow'], experimental: true }) + '\n',
+  JSON.stringify({ id: 'avalanche', name: 'Avalanche', layouts: ['slope'], palette: 'alpine', weather: ['clear', 'snow'] }) + '\n',
 );
 const drop = points[0].p[1] - points[points.length - 1].p[1];
 console.log(`slope: one run, ${(L / 1000).toFixed(2)} km, ${drop.toFixed(0)} m of drop, ${points.length} points; start ${layout.run.start} m, finish ${layout.run.finish} m`);

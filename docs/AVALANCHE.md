@@ -1,9 +1,9 @@
 # Avalanche: a plan for the first open map
 
 The fourth map, and the first built on PLAN's "Open, freeform maps" direction: one long run down a
-mountain in the Swiss Alps, more like a snowboarding game than a road race. **Experimental:** it's
-built on its own branch and PRs marked experimental, not slated for a release, and it stays out of
-the lobby until the owner says so. **It's an outline, not a spec.** Details will change while building; note those changes in
+mountain in the Swiss Alps, more like a snowboarding game than a road race. **A map now:** built
+as an experiment on its own branch (PR #74), it came out of experimental on the owner's word
+(2026-10-02): it's in the lobby, the vote and quick race. **It's an outline, not a spec.** Details will change while building; note those changes in
 [SPEC.md](./SPEC.md) under "Changed while building", as usual.
 
 **Where things stand:** "Status at a glance" below. Why it is the way it is: "Philosophy" and
@@ -36,8 +36,9 @@ can find lines the AI doesn't.
 
 ## Status at a glance (2026-10-02)
 
-- **Where it lives:** draft PR #74, branch `avalanche-plan`, label `experimental`. It isn't merged
-  or tagged, and it isn't in the lobby (`experimental: true` in `map.json`). Open it at
+- **Where it lives:** PR #74, branch `avalanche-plan`. Out of experimental (the owner,
+  2026-10-02): in the lobby, the vote, quick race, the validator and the lap report. It isn't
+  merged or tagged yet. Open it at
   `?mode=free&map=avalanche/slope`, or race it at
   `?mode=race&map=avalanche/slope&mayhem=chaos&weather=rain` (chaos for the avalanche, "rain" for
   snowfall).
@@ -53,7 +54,8 @@ can find lines the AI doesn't.
   - Slalom gates.
   - Pines.
   - The ski jump.
-- **Next:** a drive on a real phone, then the owner's half of 10 (music, `experimental` off). Items 8 (the AI
+- **Next:** a `/code-review` of #74, then the merge and a tag (the owner's call). The owner drove it
+  ("it feels good"). Phones aren't a target for this map (below). Items 8 (the AI
   downhill) and 9 (lighter for a phone: a 4–5× faster bake, a third of the triangles) are built.
 - **Numbers:**
   - The hard coupe's floor is 93.07 s clear and 93.6 s in snow (100.03 s before item 8: the AI
@@ -241,9 +243,9 @@ building, by measurement or by the philosophy above.
 
 - **Not heard yet:** the snow crunch and hiss, the avalanche's rumble and the gate chime were all
   built without listening. They're worth a race with the sound up.
-- **Not measured on a phone:** item 9 made the bake 4–5× faster (2.0–2.4 s to 0.4–0.5 s on a
-  desktop) and the draw about a third of the triangles. A phone is the real test, and no one has
-  driven it on one yet.
+- **Phones aren't a target** (the owner, 2026-10-02: it isn't enjoyable to play on one). Item 9
+  still made the bake 4–5× faster and the draw a third of the triangles, which helps every
+  screen.
 - **The world's outer edge:** on the outside of some stretches the drawn ground ends 130–150 m out,
   and flying off it respawns you. A quarter-pipe or a wider world would change the slopes' look, so
   it's left as it is (owner).
@@ -901,6 +903,11 @@ The sketches as they were:
       bar across the road at the finish.
     - **Left, the owner's:** the map's music (their own track), the attract mode and the map vote
       (worth a look once it's in the lobby), then taking `experimental: true` off.
+    - **Done (2026-10-02, the owner):**
+      - `experimental` is off. The tests that list the maps now include it.
+      - The music: it races to the four tracks for any map, the generic ones; it has none of its
+        own. (The old synth the owner heard was a test tab's `&music=0`, not the map.)
+      - A race from a lobby-style link starts clean.
 
 ### Later
 

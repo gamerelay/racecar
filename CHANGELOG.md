@@ -6,6 +6,20 @@ and where things stand is [docs/HANDOFF.md](./docs/HANDOFF.md).
 
 ## Unreleased
 
+- **A new map: Avalanche.** The first open map: one 6.1 km run from a summit to a valley, no laps.
+  - All the mountainside you can see is yours to drive. Snow pulls you down the slopes, and
+    there are no invisible walls: ridges are yours to jump.
+  - On the way down:
+    - Steep pitches, bunny slopes and short climbs.
+    - Moguls and two canyons.
+    - Kickers and nine snow-capped rocks.
+    - 18 slalom gates that pay boost and points.
+    - About 650 solid pines.
+    - A ski jump with distance lines.
+  - It snows, and your tracks stay in the snow. At chaos, an avalanche comes down behind the
+    field and buries whoever it catches, unless they're down in a canyon.
+  - The AI rides the canyons too.
+  - It races to the four tracks for any map.
 - **Backroads: Logger's Leap's kicker is rounded.** It curves up from flat to the same lip and
   height, and rolls back down behind it instead of a sheer drop (it looked like a triangle). Flat
   out you fly about as far; slow, you roll over it rather than off its back.

@@ -4,7 +4,7 @@ Where racecar stands and what's next, for whoever picks it up (a person or a fre
 The design is [SPEC.md](./SPEC.md): decisions in §17, and what building changed in "Changed while
 building". This file is "where are we"; the spec is "what are we making".
 
-**Last updated:** 2026-10-02 (Avalanche, experimental; the owner's next direction: Paradise open). The last tag is **`alpha-1.28`** (PRs #67–#70: a press flash and a
+**Last updated:** 2026-10-02 (Avalanche out of experimental, not yet merged; the owner's next direction: Paradise open). The last tag is **`alpha-1.28`** (PRs #67–#70: a press flash and a
 click on the menus' buttons; the title's music from the start where the browser allows it, with a
 "press any key" hint where it doesn't; Logger's Leap smoothed and bermed, and shortcuts' mouths
 cleaner on every map; the traffic fading in front of you investigated, its fix to choose, in
@@ -16,18 +16,18 @@ below).
 **Since alpha-1.28** (on `main`, not tagged): the Leap's kicker rounded and launchable from its
 sides (#71, #72), and PLAN's "Open, freeform maps" direction (#73).
 
-**Experimental, not for release: Avalanche** (draft PR #74, branch `avalanche-plan`, label
-`experimental`). The first open map, one run from a summit to a valley: open ground you drive on
+**Avalanche, out of experimental (the owner, 2026-10-02), not yet merged** (PR #74, branch
+`avalanche-plan`). The first open map, one run from a summit to a valley: open ground you drive on
 everywhere, slope gravity on snow, moguls, canyons, kickers, snow-capped rocks on the piste, and an
 open main road (one run, no laps). The loose plan's items 1–9 are built too: the run reads as a run
 (HUD distance to the bottom, start and finish gates), the camera follows the slope, snow tracks,
 sounds and snowfall, the avalanche at chaos, slalom gates, pine forests (solid), and a ski jump.
 Items 8 and 9 too: the AI lets the slope carry it, brakes with the slope in its plan and rides the
 canyons; the bake is 4–5× faster and the ground draws in levels of detail.
-Out of the lobby and the map lists (`experimental: true`); open
-it at `?mode=free&map=avalanche/slope` with the branch checked out. Everything about it, built and
-next, is [AVALANCHE.md](./AVALANCHE.md): "Built so far", then "Next: a loose plan" (ten items, the
-owner's pick). Don't merge it to `main` or tag from it until the owner says.
+In the lobby, the vote and quick race now (with the branch checked out), racing to the four
+any-map tracks; open it at `?mode=free&map=avalanche/slope`. Everything about it, built and next,
+is [AVALANCHE.md](./AVALANCHE.md). Don't merge it to `main` or tag from it until the owner says;
+a `/code-review` of #74 comes first.
 
 **The owner's direction (2026-10-02): open maps, starting with Paradise.** The owner really liked
 the Avalanche experiment ("this is really really awesome", "this map is amazing") and wants
@@ -60,29 +60,25 @@ How to start:
 - Build it as an experimental layout beside the current one (say `paradise/open`), out of the
   lobby, like Avalanche, until the owner picks.
 - It needs #74's open-ground code (`Ground`, slope gravity, the bounds, `pines`), so either #74
-  merges first (the owner's call: it's experimental) or the work branches from `avalanche-plan`.
+  merges first (it's out of experimental now; the merge is the owner's call) or the work branches
+  from `avalanche-plan`.
   Ask.
 
 **What's left on Avalanche** (AVALANCHE.md has the detail):
-- **The owner's drive** of everything since the rocks: the HUD and gates, the camera, snowfall and
-  tracks, the avalanche at chaos (`?mode=race&map=avalanche/slope&mayhem=chaos&weather=rain`), the
-  slalom gates, the thinner forest, the ski jump, and the open bounds (all the drawn ground,
-  ridge-jumping onto later stretches).
+- **The owner drove it** (2026-10-02): "it feels good".
 - **Listen:** the snow crunch and hiss, the avalanche's rumble and the gate chime haven't been
   heard by ear.
 - **Item 8, the AI downhill: built.** It lets the slope carry it past its top speed and plans its
   braking with the slope. It rides a canyon now and then, and the avalanche is re-tuned to catch
   the slowest car late. The floor is 93.07 s. The AI never takes ridge shortcuts: watch whether
   players' ones need trees or rock to tame them.
-- **Item 9, a phone: built as far as a desktop shows.** The bake is 4–5× faster (0.4–0.5 s, the
-  same ground to the bit), and the ground draws in three levels of detail (a third of the
-  triangles). It's still to be driven on a real phone.
-- **Item 10, the release** (the owner's call). The code half is built: the validator knows a run,
-  and the lobby's thumbnail and the minimap draw it open with its finish marked. The lobby's
-  "one run" text was already built. Left for the owner:
-  - The map's music (their own track).
-  - A look at the attract mode and the map vote once it's in the lobby.
-  - Then `experimental: true` off, a /code-review of #74, the merge and the tag.
+- **Item 9, lighter: built.** The bake is 4–5× faster (0.4–0.5 s, the same ground to the bit),
+  and the ground draws in three levels of detail (a third of the triangles). Phones aren't a
+  target for this map (the owner: not enjoyable to play on one).
+- **Item 10, the release: built, but not merged.** The validator knows a run. The lobby's
+  thumbnail and the minimap draw it open with its finish marked. It races to the four any-map
+  tracks. `experimental` is off. Left: a /code-review of #74, the merge and the tag (the owner's
+  call).
 - **Before merging:** a `/code-review` of #74 with its full URL (it touches shared physics,
   progress, bake, collisions and the AI). Check you're still on the branch afterwards.
 Every release is in [CHANGELOG.md](../CHANGELOG.md): add to its "Unreleased" section as you go,

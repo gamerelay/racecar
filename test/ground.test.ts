@@ -122,11 +122,11 @@ describe("Avalanche's Slope", () => {
     }
   });
 
-  test('is experimental: out of the maps the game, the validator and the lap report run', () => {
-    expect(ALL_MAPS.find((m) => m.id === 'avalanche')?.experimental).toBe(true);
-    expect(MAPS.some((m) => m.id === 'avalanche')).toBe(false);
-    expect(LAYOUT_KEYS).not.toContain('avalanche/slope');
-    expect(EXPERIMENTAL_KEYS).toContain('avalanche/slope');
+  test("is a map (out of experimental, the owner's call, 2026-10-02): in the game, the validator and the lap report run", () => {
+    expect(ALL_MAPS.find((m) => m.id === 'avalanche')?.experimental).toBeUndefined();
+    expect(MAPS.some((m) => m.id === 'avalanche')).toBe(true);
+    expect(LAYOUT_KEYS).toContain('avalanche/slope');
+    expect(EXPERIMENTAL_KEYS).not.toContain('avalanche/slope');
   });
 
   test('has a ground, groomed snow on the piste, powder off it, a mogul field and a canyon', () => {
