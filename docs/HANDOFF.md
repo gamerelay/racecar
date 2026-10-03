@@ -19,7 +19,10 @@ sides (#71, #72), and PLAN's "Open, freeform maps" direction (#73).
 **Experimental, not for release: Avalanche** (draft PR #74, branch `avalanche-plan`, label
 `experimental`). The first open map, one run from a summit to a valley: open ground you drive on
 everywhere, slope gravity on snow, moguls, canyons, kickers, snow-capped rocks on the piste, and an
-open main road (one run, no laps). Out of the lobby and the map lists (`experimental: true`); open
+open main road (one run, no laps). The loose plan's items 1–7 are built too: the run reads as a run
+(HUD distance to the bottom, start and finish gates), the camera follows the slope, snow tracks,
+sounds and snowfall, the avalanche at chaos, slalom gates, pine forests (solid), and a ski jump.
+Out of the lobby and the map lists (`experimental: true`); open
 it at `?mode=free&map=avalanche/slope` with the branch checked out. Everything about it, built and
 next, is [AVALANCHE.md](./AVALANCHE.md): "Built so far", then "Next: a loose plan" (ten items, the
 owner's pick). Don't merge it to `main` or tag from it until the owner says.
@@ -400,8 +403,10 @@ the cone's far flanks.
    profile to see the music hint, neither checked by ear or eye here). Left: the traffic fading
    out in front of you (investigated: choose a fix from PLAN's options), Backroads by day (a
    maybe), and more particles and sounds when smashing props. Then the pickup truck. Avalanche is
-   under way on its own experimental line (PR #74, above): its next steps are AVALANCHE.md's
-   "Next: a loose plan", starting with the HUD and gates for one run and the camera's pitch.
+   under way on its own experimental line (PR #74, above): items 1–7 of AVALANCHE.md's "Next: a
+   loose plan" are built. Next is 8 (the AI downhill: braking with the slope, canyon lines), then 9
+   (a phone: the ground's bake is now about 1 s with the pines). The snow sounds and the
+   avalanche's rumble haven't been heard by ear yet.
 4. **Paradise v2 (alpha-1.24):** drive it. Do the Beach Cut and Smugglers' Trail feel
    like a fair gamble? The hard AI is about even on both (−0.4 s and level). Does the dust feel
    right running wide onto the beach and the jungle's edge? It isn't checked by eye: the poster
