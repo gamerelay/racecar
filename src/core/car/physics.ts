@@ -2,7 +2,7 @@
 // an angle band and a three-stage mini-turbo, boost, real air off crests and ramps, and a wreck
 // body with aftertouch. One car per call; collisions happen after every car has moved.
 
-import { DECK_CATCH, type Ground } from '../track/ground';
+import { DECK_CATCH, newCast, type Ground } from '../track/ground';
 import type { Controls } from '../controls';
 import { Cause, Ev } from '../events';
 import { approach, atan, atan2, clamp, cos, damp, hypot, lerp, pow, sign, sin, smoothstep, sq, wrapAngle } from '../math';
@@ -254,6 +254,7 @@ export function stepCar(sim: SimState, i: number, c: Controls, dt: number): void
 /** A rock face (GroundDef.face) only takes a rise of at least this (m) in one tick: a slow car on a steep slope just climbs. */
 const FACE_STEP = 0.3;
 const faceSlope = { x: 0, z: 0 };
+const FACE_CAST = newCast();
 
 /**
  * A car that just moved into a rock face (GroundDef.face): back where it was, bounced off it as off
@@ -262,14 +263,13 @@ const faceSlope = { x: 0, z: 0 };
  */
 function meetFace(sim: SimState, g: Ground, i: number): void {
   const cars = sim.cars;
-  // On a deck, no face, unless that's a tunnel's road found by sinking into the slope over it in one
+  // On a piece, no face, unless that's a tunnel's road found by sinking into the slope over it in one
   // tick (from the slope, not from the tunnel: flat out up a mouth's face, cars came down through 30 m
   // of rock onto its road). Then it's the rock it went into.
-  const d = g.deckUnder(cars.x[i], cars.z[i], cars.y[i]);
-  const gh = g.height(cars.x[i], cars.z[i]);
-  const was = d === d && gh > cars.y[i] + DECK_CATCH ? g.deckUnder(cars.px[i], cars.pz[i], cars.y[i]) : 0;
-  const sank = !(was === was);
-  if (d === d && !sank) return;
+  const onPiece = g.cast(cars.x[i], cars.y[i], cars.z[i], FACE_CAST).piece >= 0;
+  const gh = FACE_CAST.ground;
+  const sank = onPiece && gh > cars.y[i] + DECK_CATCH && g.cast(cars.px[i], cars.y[i], cars.pz[i], FACE_CAST).piece < 0;
+  if (onPiece && !sank) return;
   const rise = (sank ? gh : wheelGround(g, cars.x[i], cars.z[i], cars.h[i], cars.y[i])) - cars.y[i];
   const run = hypot(cars.x[i] - cars.px[i], cars.z[i] - cars.pz[i]);
   if (rise < FACE_STEP || rise < run * g.face!) return;
@@ -303,17 +303,18 @@ function wheelGround(g: Ground, x: number, z: number, h: number, y: number): num
   const fz = cos(h) * 1.3;
   const rx = -cos(h) * 0.8;
   const rz = sin(h) * 0.8;
-  const d = g.deckUnder(x, z, y);
-  if (d === d) {
+  if (g.cast(x, y, z, WHEEL_CAST).piece >= 0) {
+    const d = WHEEL_CAST.floor;
     let sum = 0;
     for (const [a, b] of WHEELS) {
-      const v = g.deck(x + fx * a + rx * b, z + fz * a + rz * b, DECK_SLACK, d + DECK_CATCH);
+      const v = g.pieceFloor(x + fx * a + rx * b, z + fz * a + rz * b, DECK_SLACK, d + DECK_CATCH);
       sum += v === v ? v : d;
     }
     return sum / 4;
   }
   return (g.height(x + fx + rx, z + fz + rz) + g.height(x + fx - rx, z + fz - rz) + g.height(x - fx + rx, z - fz + rz) + g.height(x - fx - rx, z - fz - rz)) / 4;
 }
+const WHEEL_CAST = newCast();
 const WHEELS = [
   [1, 1],
   [1, -1],
@@ -362,8 +363,7 @@ function followGround(sim: SimState, i: number, dt: number): void {
     // its bounce (Avalanche's lap is tuned with it).
     if (cars.vy[i] > 8) cars.vy[i] = 8;
     if (!wasGrounded && vyBall < 0 && cars.vy[i] > 0 && sim.track.ground) {
-      const d = sim.track.ground.deckUnder(cars.x[i], cars.z[i], cars.y[i]);
-      if (d === d) cars.vy[i] = 0;
+      if (sim.track.ground.cast(cars.x[i], cars.y[i], cars.z[i], WHEEL_CAST).piece >= 0) cars.vy[i] = 0;
     }
     cars.y[i] = ground;
   }
@@ -709,8 +709,8 @@ export function respawn(sim: SimState, i: number): void {
     cars.lastS[i] = Math.min(ahead, (sim.track.run?.finish ?? sim.track.main.length) - AVALANCHE_LINE);
     cars.lastLat[i] = 0;
   }
-  // Not with no run-up at a gap in the road (GroundDef.branchGaps, the Lava Tube's jump): past it.
-  const gap = sim.track.ground?.branchGap.get(cars.lastSpline[i]);
+  // Not with no run-up at a gap in the road (a piece with no floor, the Lava Tube's jump): past it.
+  const gap = sim.track.ground?.pieces.gaps(cars.lastSpline[i]);
   if (gap) cars.lastS[i] = pastGap(sim.track.splines[cars.lastSpline[i]], gap, cars.lastS[i]);
   const sp = sim.track.splines[cars.lastSpline[i]];
   const at = sampleAt(sp, cars.lastS[i], sim.hitA);

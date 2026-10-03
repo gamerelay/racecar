@@ -18,6 +18,9 @@ and where things stand is [docs/HANDOFF.md](./docs/HANDOFF.md).
   - **The same math on every platform** (step 0b): the sim's own `sin`, `cos`, `exp` and the rest,
     so every OS, CPU and browser computes the same bits. One set of fingerprints, and F8 replays
     exact from Chrome to Bun (they were 1.6 cm off after 30 s). Driving is unchanged.
+  - **Pieces** (step 1a): the Freeway, the Lava Tube and its jump are pieces in the layout, and
+    the physics, the camera and the tools ask one question of the ground: what's under this
+    point. Driving is unchanged.
 - **A road over the ground** (docs/PARADISE.md, step 0): a deck on open ground, the main road over
   the ground beneath it. On the deck you drive on it; over its edge you fall to whatever is below.
   The sea (`ground.sea`) is drawn, and deep water is out of bounds: you respawn on the road.

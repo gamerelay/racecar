@@ -9,7 +9,7 @@
 // math (src/core/math.ts), so the bits don't depend on the OS or CPU.
 
 import type { CarClass, SurfaceDef, TrackLayout } from '../core/content';
-import type { Ground } from '../core/track/ground';
+import { newCast, type Ground } from '../core/track/ground';
 import { CAR_FIELDS } from '../core/car/pool';
 import { hypot } from '../core/math';
 import { Ev } from '../core/events';
@@ -136,15 +136,19 @@ export function groundHash(track: Track): string {
   return h.hex();
 }
 
+const cast = newCast();
+
 /** Everything the ground answers about one point, for something at height `y`. */
 function ask(g: Ground, h: Hasher, x: number, y: number, z: number, slope: { x: number; z: number }): void {
   h.num(g.height(x, z));
   g.slope(x, z, slope);
   h.num(slope.x);
   h.num(slope.z);
-  h.num(g.deck(x, z));
-  h.num(g.deck(x, z, 2, y));
-  h.num(g.deckUnder(x, z, y));
+  h.num(g.pieceFloor(x, z));
+  h.num(g.pieceFloor(x, z, 2, y));
+  // The floor of the piece it's on (NaN on the ground).
+  g.cast(x, y, z, cast);
+  h.num(cast.piece >= 0 ? cast.floor : NaN);
   h.num(g.top(x, z));
   h.num(g.top(x, z, y));
   g.topSlope(x, z, y, slope);

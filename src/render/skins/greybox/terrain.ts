@@ -10,6 +10,7 @@
 // horizon, shallow and turquoise over the sand, deep blue further out.
 
 import { BufferAttribute, BufferGeometry, Color, DoubleSide, Float32BufferAttribute, Mesh, NoBlending, ShaderMaterial, UniformsLib, UniformsUtils, type Object3D } from 'three';
+import { smoothstep as smooth } from '../../../core/math';
 import type { Track } from '../../../core/track/bake';
 import { coneHeight, curve, loopDist } from '../../../core/track/island';
 import { toon } from './toon';
@@ -63,10 +64,6 @@ function noise(x: number, z: number, seed: number): number {
 
 const hills = (x: number, z: number, seed: number) => 26 * noise(x / 260, z / 260, seed) + 8 * noise(x / 85, z / 85, seed + 1) + 2 * noise(x / 28, z / 28, seed + 2);
 
-const smooth = (e0: number, e1: number, x: number) => {
-  const t = Math.min(1, Math.max(0, (x - e0) / (e1 - e0)));
-  return t * t * (3 - 2 * t);
-};
 
 /** Distance from (x, z) to a polyline. */
 function polyDist(poly: [number, number][], x: number, z: number): number {

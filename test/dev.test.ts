@@ -22,7 +22,8 @@ describe('probe', () => {
     const r = probe(open, p.x, p.z, p.y + 0.3);
     expect(r.near.road).toBe('lava-tube');
     expect(r.near.on).toBe('road');
-    expect(r.ground!.on).toBe('deck');
+    expect(r.ground!.on).toBe('lava-tube-in');
+    expect(r.ground!.space).toBe('enclosed');
     expect(r.ground!.height).toBeGreaterThan(p.y + 7);
   });
 

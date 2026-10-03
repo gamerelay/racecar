@@ -193,26 +193,27 @@ export function buildTrackVisual(track: Track, palette: Palette, seed: number): 
       chunks.push(mesh);
     }
   }
-  // A deck over open ground (GroundDef.decks) is drawn as a road: the island's concrete bridge,
+  // A piece's floor on the main road (a deck over open ground) is drawn as a road: the island's concrete bridge,
   // its edges open (no barrier: drive off it), on pillars down into the water.
   const decks: Object3D[] = [];
   if (track.ground) {
     const ground = track.ground;
     const main = track.main;
     const style: Style = { country: true, floor: (x, z) => ground.height(x, z), island: true };
+    const deckSample = ground.pieces.floors(main.index) ?? new Uint8Array(main.n);
     for (let i = 0; i < main.n; i++) {
-      if (!ground.deckSample[i]) continue;
+      if (!deckSample[i]) continue;
       let j = i;
-      while (j + 1 < main.n && ground.deckSample[j + 1]) j++;
+      while (j + 1 < main.n && deckSample[j + 1]) j++;
       const g = new Geo();
-      buildChunk(g, track, main, i, j, groundY, false, ground.deckSample, style, null);
+      buildChunk(g, track, main, i, j, groundY, false, deckSample, style, null);
       const mesh = new Mesh(g.build(), road);
       mesh.matrixAutoUpdate = false;
       chunks.push(mesh);
       i = j;
     }
     const sea = ground.sea;
-    const { pillars, caps } = deckPillars(main, ground.deckSample, (x, z) => ground.height(x, z) - 0.5, (x, z) => sea === undefined || ground.height(x, z) > sea, 0xd9d0bd, 0xbdb3a0);
+    const { pillars, caps } = deckPillars(main, deckSample, (x, z) => ground.height(x, z) - 0.5, (x, z) => sea === undefined || ground.height(x, z) > sea, 0xd9d0bd, 0xbdb3a0);
     if (pillars.length) decks.push(boxes(pillars, toon()), boxes(caps, toon()));
   }
 

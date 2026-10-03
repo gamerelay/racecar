@@ -1,4 +1,4 @@
-// Open ground drawn (docs/AVALANCHE.md): the track's heightfield (core/track/ground.ts), exactly the
+// Open ground drawn (docs/AVALANCHE.md): the track's heightfield (core/track/ground), exactly the
 // ground the car drives on, in tiles the camera culls (a 6 km run's ground is far more than it
 // sees). Colored by what's under it: the road's own surface on the road (groomed snow on the piste,
 // asphalt on a road), the verge's past it (powder), and grey rock where it's too steep for snow to
@@ -7,6 +7,7 @@
 
 import { BufferAttribute, BufferGeometry, Color, ConeGeometry, CylinderGeometry, Float32BufferAttribute, IcosahedronGeometry, InstancedMesh, LOD, Matrix4, Mesh, Quaternion, Vector3, type Object3D } from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
+import { smoothstep } from '../../../core/math';
 import { VERGE_DEFAULT, type Track } from '../../../core/track/bake';
 import { noise } from '../../../core/track/ground';
 import { TREE_PINE } from '../../../core/track/pines';
@@ -45,15 +46,12 @@ const ASH = new Color('#5e5558');
 const EARTH = new Color('#4d3b31');
 const rock = new Color();
 const vergeC = new Color();
-const smooth01 = (t: number) => {
-  const u = Math.min(1, Math.max(0, t));
-  return u * u * (3 - 2 * u);
-};
 
 export function buildSnow(track: Track, green?: Color): Object3D[] {
   // (The palette's grass, softened toward the forest: on its own it's a lawn.)
   const grass = green?.clone().lerp(FOREST, 0.3);
   const g = track.ground!;
+  const decks = g.pieces.floors(track.main.index);
   const main = track.main;
   const { nx, nz, cell, x0, z0, h, lateral, near } = g;
   const isle = !!track.layout.ground?.coast;
@@ -91,7 +89,7 @@ export function buildSnow(track: Track, green?: Color): Object3D[] {
           nor[o + 2] = -hz * n;
           const i = near[k];
           // (Under a deck it's the ground, not the road: the road's up on the deck.)
-          const road = (Math.abs(lateral[k]) <= main.width[i] / 2 && !g.deckSample[i]) || g.onBranch[k] === 2;
+          const road = (Math.abs(lateral[k]) <= main.width[i] / 2 && !decks?.[i]) || g.onBranch[k] === 2;
           // Off it, the stretch's own verge (the volcano's ash, the jungle's undergrowth), else the layout's.
           // (A branch's road is its own surface.)
           c.copy(g.onBranch[k] === 2 ? surfaceColors[g.branchSurface[k]] : road ? surfaceColors[main.surface[i]] : main.verge[i] === VERGE_DEFAULT ? vergeColor : surfaceColors[main.verge[i]]);
@@ -107,16 +105,16 @@ export function buildSnow(track: Track, green?: Color): Object3D[] {
             else if (g.coast(x, z) < 12 + 12 * n && h[k] < sea + 4) c.copy(SAND);
             // A beach (GroundDef.beaches): sand from the road down to the sea on its side, with
             // grass tufts by the road, wandering in at its ends.
-            else if (beach * lateral[k] > 0 && Math.abs(beach) > 0.2 + 0.6 * n && !(off < 3 + 4 * n && n > 0.6)) c.copy(SAND).lerp(SAND_WET, 0.25 * smooth01((n - 0.5) * 3));
+            else if (beach * lateral[k] > 0 && Math.abs(beach) > 0.2 + 0.6 * n && !(off < 3 + 4 * n && n > 0.6)) c.copy(SAND).lerp(SAND_WET, 0.25 * smoothstep(0, 1, (n - 0.5) * 3));
             else if (grass) {
               // Inland of the beach, the island's green, darkening into forest away from the roads;
               // a stretch's own verge (the volcano's ash, the jungle's undergrowth) by its road,
               // fading into it over a wandering edge rather than filling the ground to where the
               // next stretch's starts (straight-edged blocks of ash across the grass).
               vergeC.copy(c);
-              c.copy(grass).lerp(grass2!, smooth01((n - 0.45) * 4));
-              c.lerp(FOREST, 0.6 * smooth01((Math.abs(lateral[k]) - 25) / 60) * (0.5 + 0.5 * n));
-              if (main.verge[i] !== VERGE_DEFAULT) c.lerp(vergeC, 1 - smooth01((off - 10 - 25 * n) / 20));
+              c.copy(grass).lerp(grass2!, smoothstep(0, 1, (n - 0.45) * 4));
+              c.lerp(FOREST, 0.6 * smoothstep(0, 1, (Math.abs(lateral[k]) - 25) / 60) * (0.5 + 0.5 * n));
+              if (main.verge[i] !== VERGE_DEFAULT) c.lerp(vergeC, 1 - smoothstep(0, 1, (off - 10 - 25 * n) / 20));
             }
             // Black lava rock up the volcano, blended in at its edge: dark rock and lighter, ashier
             // patches and warm earth, at two sizes, not one tone.
@@ -125,11 +123,11 @@ export function buildSnow(track: Track, green?: Color): Object3D[] {
               if (up > -12) {
                 const fine = noise(x, z, 9, 11);
                 const broad = noise(x, z, 55, 13);
-                rock.copy(LAVA_ROCK).lerp(LAVA_ROCK_2, smooth01((n - 0.3) * 2.5));
-                rock.lerp(ASH, 0.75 * smooth01((broad - 0.55) * 4));
-                rock.lerp(EARTH, 0.6 * smooth01((0.4 - broad) * 4));
+                rock.copy(LAVA_ROCK).lerp(LAVA_ROCK_2, smoothstep(0, 1, (n - 0.3) * 2.5));
+                rock.lerp(ASH, 0.75 * smoothstep(0, 1, (broad - 0.55) * 4));
+                rock.lerp(EARTH, 0.6 * smoothstep(0, 1, (0.4 - broad) * 4));
                 rock.multiplyScalar(0.9 + 0.2 * fine);
-                c.lerp(rock, smooth01((up + 12) / 24));
+                c.lerp(rock, smoothstep(0, 1, (up + 12) / 24));
               }
             }
           }
@@ -480,6 +478,7 @@ function buildRocks(track: Track): Mesh | null {
  */
 function roadLines(track: Track): Mesh | null {
   const g = track.ground!;
+  const decks = g.pieces.floors(track.main.index);
   const main = track.main;
   const pos: number[] = [];
   const col: number[] = [];
@@ -531,7 +530,7 @@ function roadLines(track: Track): Mesh | null {
       continue;
     }
     if (isle) {
-      if (!g.deckSample[i]) quad(i, -wa, wa, surfaceColor(main.surface[i]), main, LIFT * 0.6);
+      if (!decks?.[i]) quad(i, -wa, wa, surfaceColor(main.surface[i]), main, LIFT * 0.6);
       continue;
     }
     if (track.surfaces[main.surface[i]].slide) continue;
@@ -544,10 +543,10 @@ function roadLines(track: Track): Mesh | null {
   if (isle)
     for (const sp of track.splines) {
       if (sp === main) continue;
-      const decks = g.branchDeck.get(sp.index);
-      const gaps = g.branchGap.get(sp.index);
+      const floors = g.pieces.floors(sp.index);
+      const gaps = g.pieces.gaps(sp.index);
       for (let i = 0; i + 1 < sp.n; i++) {
-        if (decks?.[i] || decks?.[i + 1] || gaps?.[i] || sp.merge[i] > 0.5) continue;
+        if (floors?.[i] || floors?.[i + 1] || gaps?.[i] || sp.merge[i] > 0.5) continue;
         quad(i, -sp.width[i] / 2, sp.width[i] / 2, surfaceColor(sp.surface[i]), sp, LIFT * 0.4);
       }
     }

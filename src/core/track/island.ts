@@ -1,12 +1,8 @@
-import { exp, hypot, pow, sq } from '../math';
+import { exp, hypot, pow, smoothstep as smooth, sq } from '../math';
 // The island's shapes (Paradise): its coastline and its volcano, pure arithmetic shared by the
 // land the renderer draws round a lapped island (render/skins/greybox/terrain.ts) and the open
-// ground the car drives on (core/track/ground.ts, docs/PARADISE.md), so both build the same island.
+// ground the car drives on (core/track/ground, docs/PARADISE.md), so both build the same island.
 
-const smooth = (e0: number, e1: number, x: number) => {
-  const t = Math.min(1, Math.max(0, (x - e0) / (e1 - e0)));
-  return t * t * (3 - 2 * t);
-};
 
 /** Signed distance from (x, z) to a closed loop: positive inside it. */
 export function loopDist(loop: [number, number][], x: number, z: number): number {

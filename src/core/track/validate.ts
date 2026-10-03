@@ -1,7 +1,7 @@
 // Layout checks (SPEC §5, "Validation"): shape first, then gameplay. The editor shows these on
 // the map as you edit, and CI runs them over every layout. Milestone 2 adds the AI lap checks.
 
-import { LANDMARK_KINDS, type CarClass, type SurfaceDef, type TrackLayout } from '../content';
+import { LANDMARK_KINDS, type CarClass, type PieceDef, type SurfaceDef, type TrackLayout } from '../content';
 import { KINDS } from '../world/hazards';
 import { SMASH_IDS } from '../world/smash';
 import { bakeTrack, sampleIndex, wrap } from './bake';
@@ -144,6 +144,35 @@ export function validateLayout(layout: TrackLayout, surfaces: SurfaceDef[], clas
 
   if (track.checkpoints.length < 5) warn(`only ${track.checkpoints.length} checkpoints after moving them off shortcuts; list them in "checkpoints"`);
   for (const r of layout.ramps ?? []) if (r.s < 0 || r.s > L) err(`ramp at ${r.s} is off the main spline (0–${L.toFixed(0)})`);
+  // Pieces (docs/CALDERA.md): on open ground, each on a road that's there, within it.
+  const pieceIds = new Set<string>();
+  for (const p of layout.pieces ?? []) {
+    const name = `piece ${p.id}`;
+    if (!layout.ground) err(`${name}: pieces need open ground ("ground")`);
+    if (pieceIds.has(p.id)) err(`${name}: there's another piece with that id`);
+    pieceIds.add(p.id);
+    const sp = p.road === undefined ? track.main : track.splines.find((b) => b.id === p.road && b !== track.main);
+    if (!sp) {
+      err(`${name}: no branch "${p.road}"`);
+      continue;
+    }
+    if (!(p.s[0] < p.s[1]) || p.s[0] < 0 || p.s[1] > sp.length) err(`${name}: s ${p.s[0]}–${p.s[1]} m isn't a stretch of ${sp === track.main ? 'the main road' : sp.id} (0–${sp.length.toFixed(0)})`, sp.id, p.s[0]);
+    if (p.under && sp !== track.main) err(`${name}: "under" shapes the ground under the main road only, for now`, sp.id, p.s[0]);
+    if (p.ceiling !== undefined && (p.floor === false || !(p.ceiling > 0))) err(`${name}: a ceiling needs a floor under it, and a height over it`, sp.id, p.s[0]);
+    // On the main road the ground is the road's, so a gap or a tunnel there would do nothing yet.
+    if (sp === track.main && (p.floor === false || p.ceiling !== undefined)) err(`${name}: gaps and ceilings are on branches only, for now`, sp.id, p.s[0]);
+    if (p.under && !(p.under.ease > 0 && p.under.reach > 0)) err(`${name}: "under" needs an ease and a reach over 0 m`, sp.id, p.s[0]);
+  }
+  // Two pieces of one road may share an end, no more: which a sample belonged to would hang on the order.
+  const byRoad = new Map<string, PieceDef[]>();
+  for (const p of layout.pieces ?? []) byRoad.set(p.road ?? '', [...(byRoad.get(p.road ?? '') ?? []), p]);
+  for (const [road, list] of byRoad) {
+    const sp = road === '' ? track.main : track.splines.find((b) => b.id === road && b !== track.main);
+    if (!sp) continue;
+    const sorted = [...list].sort((a, b) => a.s[0] - b.s[0]);
+    for (let k = 1; k < sorted.length; k++)
+      if (sorted[k].s[0] < sorted[k - 1].s[1] - sp.step) err(`pieces ${sorted[k - 1].id} and ${sorted[k].id} overlap on ${road || 'the main road'}`, sp.id, sorted[k].s[0]);
+  }
   for (const z of layout.zones ?? []) if (z.s[0] < 0 || z.s[1] > L) warn(`zone ${z.surface} runs past the spline's length`);
   for (const d of layout.smashables ?? []) {
     if (!SMASH_IDS.includes(d.kind)) err(`smashables: unknown kind "${d.kind}"`);

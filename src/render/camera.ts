@@ -5,7 +5,7 @@
 // The coupe (0.65 m half height, 2.15 m half length) is the base.
 
 import type { Vec3 } from '../core/content';
-import { DECK_CATCH, TUBE_H, type Ground } from '../core/track/ground';
+import { DECK_CATCH, newCast, type Ground } from '../core/track/ground';
 
 export interface ChaseOffset {
   /** Meters behind the car's center, and above its base. */
@@ -57,9 +57,11 @@ const DECK_LOOK = 40;
  * (the camera dipped at the bay floor the moment a car got on the ramp); under one, the ground does.
  */
 export function slopeRise(g: Ground, x: number, y: number, z: number, fx: number, fz: number, ahead: number): number {
-  const on = g.deckUnder(x, z, y);
-  const over = g.deck(x, z);
-  const under = !(on === on) && over === over && over > y + DECK_CATCH && g.height(x, z) <= y + DECK_CATCH;
+  const c = g.cast(x, y, z, CAST);
+  const on = c.piece >= 0 ? c.floor : NaN;
+  const below = c.floor;
+  const over = g.pieceFloor(x, z);
+  const under = !(on === on) && over === over && over > y + DECK_CATCH && c.ground <= y + DECK_CATCH;
   const at = (k: number) => {
     const px = x + fx * k;
     const pz = z + fz * k;
@@ -69,34 +71,40 @@ export function slopeRise(g: Ground, x: number, y: number, z: number, fx: number
     // above it (a bridge's ramp), never a tunnel's road down under a slope.
     const reach = (on === on ? on : y) + 2 + 0.15 * k;
     if (on === on) {
-      const v = g.deck(px, pz, DECK_LOOK, reach);
+      const v = g.pieceFloor(px, pz, DECK_LOOK, reach);
       if (v === v) return v;
       // Off its end over a drop (the Lava Tube's jump): its level, across to the far side, not
       // down into the lava as you line the jump up.
       if (g.height(px, pz) < on - 3) return on;
     }
     const gh = g.height(px, pz);
-    const d = g.deck(px, pz, 0, reach);
+    const d = g.pieceFloor(px, pz, 0, reach);
     if (d === d && d >= gh) return d;
     // A tunnel's road ahead, nearer the car than the slope over it is: into a tunnel's mouth, or up
     // one steeper than `reach` allows (the Lava Tube's climb out read the volcano over its roof, and
     // the view tipped up at the rock 15 m over the road).
     const base = on === on ? on : y;
-    const t = g.deck(px, pz, on === on ? DECK_LOOK : 0);
+    const t = g.pieceFloor(px, pz, on === on ? DECK_LOOK : 0);
     return t === t && Math.abs(t - base) < Math.abs(gh - base) ? t : gh;
   };
-  return (at(ahead) + at(ahead * 2)) / 2 - g.top(x, z, y);
+  return (at(ahead) + at(ahead * 2)) / 2 - below;
 }
 
+/** Scratch for the camera's casts. */
+const CAST = newCast();
+
+/** The camera keeps this far (m) under an enclosed piece's ceiling. */
+const UNDER_CEILING = 1;
+
 /**
- * What the camera at (x, y, z) keeps GROUND_CLEAR above: a deck under it within a tunnel's height
- * (in the Lava Tube's space, its road), else the surface under it. At a tunnel's mouth the slope
- * rises off the road just over the camera, and lifted clear of that it rode the slope up, 7 m over
- * the car, as the car went in.
+ * What the camera at (x, y, z) keeps GROUND_CLEAR above: an enclosed piece's floor while it's under
+ * the ceiling (in the Lava Tube's space, its road), else what's under it. At a tunnel's mouth the
+ * slope rises off the road just over the camera, and lifted clear of that it rode the slope up, 7 m
+ * over the car, as the car went in.
  */
 export function cameraFloor(g: Ground, x: number, y: number, z: number): number {
-  const d = g.deck(x, z, 0, y);
-  return d === d && y - d < TUBE_H - 1 ? d : g.top(x, z, y);
+  const c = g.cast(x, y, z, CAST);
+  return y < c.ceiling - UNDER_CEILING ? c.over : c.floor;
 }
 
 /** On open ground the camera stays this far above the snow under it (behind a car on a steep pitch, it would be in the slope). */
@@ -112,8 +120,8 @@ export function clearView(g: Ground, cx: number, cy: number, cz: number, cam: { 
   const y0 = cy + 1;
   const open = (x: number, y: number, z: number) => {
     if (g.height(x, z) < y - 0.3) return true;
-    const d = g.deck(x, z, 0, y);
-    return d === d && y > d && y < d + TUBE_H - 1;
+    const c = g.cast(x, y, z, CAST);
+    return c.space === 'enclosed' && y > c.over && y < c.ceiling - UNDER_CEILING;
   };
   const STEPS = 16;
   for (let k = 1; k <= STEPS; k++) {

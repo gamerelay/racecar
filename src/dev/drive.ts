@@ -8,6 +8,7 @@ import { neutralControls, type Controls } from '../core/controls';
 import { Cause, EV_NAMES, Ev } from '../core/events';
 import { Sim } from '../core/sim';
 import type { Track } from '../core/track/bake';
+import { newCast } from '../core/track/ground';
 import { locateCar } from '../core/track/locate';
 import { cos, hypot, pow, sin } from '../core/math';
 import { nearestRoad } from './probe';
@@ -52,7 +53,7 @@ export interface Row {
   s: number;
   lateral: number;
   kmh: number;
-  /** 'deck' or 'ground' on open ground, 'road' otherwise; 'air' off the ground. */
+  /** On open ground the piece it's on (by id) or 'ground', 'road' otherwise; 'air' off the ground. */
   on: string;
   surface: string;
   wreck: boolean;
@@ -132,12 +133,14 @@ export function setup(track: Track, classes: CarClass[], surfaces: SurfaceDef[],
   return sim;
 }
 
+const ROW_CAST = newCast();
+
 /** Car `i` as a trace row (at time `t`, s). */
 export function carRow(sim: Sim, i: number, t = sim.time): Row {
   const c = sim.cars;
   const g = sim.track.ground;
   const r = (v: number, d = 2) => Math.round(v * pow(10, d)) / pow(10, d);
-  const under = g ? g.deckUnder(c.x[i], c.z[i], c.y[i]) : NaN;
+  const piece = g ? g.cast(c.x[i], c.y[i], c.z[i], ROW_CAST).piece : -1;
   return {
     t: r(t),
     x: r(c.x[i]),
@@ -147,7 +150,7 @@ export function carRow(sim: Sim, i: number, t = sim.time): Row {
     s: r(c.s[i], 1),
     lateral: r(c.lateral[i]),
     kmh: r(hypot(c.vx[i], c.vz[i]) * 3.6, 1),
-    on: !c.grounded[i] ? 'air' : !g ? 'road' : under === under ? 'deck' : 'ground',
+    on: !c.grounded[i] ? 'air' : !g ? 'road' : piece >= 0 ? g.pieces.list[piece].id : 'ground',
     surface: sim.surfaces[c.surface[i]]?.id ?? String(c.surface[i]),
     wreck: c.wreck[i] === 1,
   };

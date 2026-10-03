@@ -12,7 +12,7 @@ import type { PinesDef, TrackLayout } from '../content';
 import { hash01 } from '../rng';
 import type { BakedSpline } from './bake';
 import { canyonAt, noise, type Ground } from './ground';
-import { hypot, pow } from '../math';
+import { hypot, pow, smoothstep as smooth } from '../math';
 
 /** The lookup grid's cell (m). */
 const CELL = 16;
@@ -40,10 +40,6 @@ const PALM_COAST = 70;
 /** On an island, how thick the trees grow by the verge of the road they're nearest: the jungle's thickest. */
 const TROPIC_THICK: Record<string, number> = { undergrowth: 1.7, 'red-earth': 1.7, beach: 0.55, sand: 0.4, ash: 0.25 };
 
-const smooth = (e0: number, e1: number, v: number) => {
-  const t = Math.min(1, Math.max(0, (v - e0) / (e1 - e0)));
-  return t * t * (3 - 2 * t);
-};
 
 export function buildPines(def: PinesDef, layout: TrackLayout, main: BakedSpline, ground: Ground, verge?: (i: number) => string): Pines {
   const g = layout.ground!;

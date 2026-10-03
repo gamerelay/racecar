@@ -219,7 +219,7 @@ is experimental, `paradise-open/open` (its own map, `content/maps/paradise-open`
 by `bun tools/gen-paradise-open.ts` from today's island lap; edit the generator, not the JSON.
 
 **#79, step 0, a road over the ground:**
-- **Decks on open ground** (`GroundDef.decks`): the main road over the ground, the ground under it
+- **Decks on open ground** (`GroundDef.decks`; a piece since CALDERA's step 1a, `pieces` with `under`): the main road over the ground, the ground under it
   carved to a floor. On the deck you drive on it; once your middle is over its edge you fall.
 - **The sea** (`GroundDef.sea`): drawn, and deep water is out of bounds (a respawn on the road).
 - **The Freeway** is a deck over the bay, with its rails (the owner asked for them back). On open
@@ -245,7 +245,7 @@ by `bun tools/gen-paradise-open.ts` from today's island lap; edit the generator,
 **#81, the Lava Tube** (the owner: climbing the mountain is slow; a tube down into the volcano,
 over the lava on a jagged rock bridge, out the other side):
 - **Branches on open ground:** a shortcut shapes the ground (its own height, a cutting into a
-  slope). Its decks (`GroundDef.branchDecks`) leave the ground as it is: a tunnel where the ground
+  slope). Its decks (`GroundDef.branchDecks`; pieces with a ceiling since CALDERA's step 1a) leave the ground as it is: a tunnel where the ground
   is over the road, a bridge where it's under.
 - **The surface rule:** a car is on the highest surface at or below it. At a tunnel's mouth, where
   the slope rises off the road, a car within a hard landing (1 m) of the road stays on it.
@@ -261,7 +261,7 @@ over the lava on a jagged rock bridge, out the other side):
   broken by a 40 m gap in its middle, a 12 m kicker rising 2.5 m up to it. Every car needs about
   150 km/h off the lip (the bus 160); flat out from the tunnel the slowest is at 175. Lift, or
   scrape a wall on the way, and it's the lava.
-  - **Gaps** (`GroundDef.branchGaps`): a stretch of a branch with no road: no deck, and nothing
+  - **Gaps** (`GroundDef.branchGaps`; a piece with `floor: false` since CALDERA's step 1a): a stretch of a branch with no road: no deck, and nothing
     shaped under it (the shaft and its lava stay).
   - **Down in the lava, you're back past the gap**, 10 m onto the far side (`pastGap` in
     physics.ts: a respawn within 80 m before a gap goes past it). At its edge you'd have no

@@ -3,6 +3,7 @@
 // branches mapped onto the main spline's distance, checkpoints, zones, ramps and render chunks.
 
 import { buildGround, type Ground } from './ground';
+import { across, along } from './frame';
 import { buildPines, type Pines } from './pines';
 import type { BranchDef, SurfaceDef, TrackLayout, TrackPoint, Vec3, ZoneDef } from '../content';
 import { atan2, cos, hypot, pow, smoothstep, sq, tan } from '../math';
@@ -213,7 +214,7 @@ export function bakeTrack(layout: TrackLayout, surfaces: SurfaceDef[]): Track {
   if (layout.trestles) props.push(...supports(splines));
 
   // Open ground: shaped round the main road, and every spline's ground query reads it.
-  const ground = layout.ground ? buildGround(layout.ground, main, splines.slice(1)) : undefined;
+  const ground = layout.ground ? buildGround(layout.ground, main, splines.slice(1), layout.pieces) : undefined;
   if (ground) for (const sp of splines) sp.ground = ground;
   // On open ground a prop stands on it (a rock on a swell, or a deck), not on the road's line beneath.
   if (ground) for (const p of props) p.y = ground.top(p.x, p.z);
@@ -261,9 +262,8 @@ function supports(splines: BakedSpline[]): BakedProp[] {
           const z = up.pz[i] + up.tx[i] * half * f;
           const j = nearestBelow(low, x, z, near, up.py[i] - OVER);
           if (j < 0) continue;
-          const lat = (x - low.px[j]) * -low.tz[j] + (z - low.pz[j]) * low.tx[j];
-          const along = (x - low.px[j]) * low.tx[j] + (z - low.pz[j]) * low.tz[j];
-          if (Math.abs(along) > low.step || Math.abs(lat) > low.width[j] / 2 + low.shoulder[j] + LEG) continue;
+          const lat = across(low, j, x, z);
+          if (Math.abs(along(low, j, x, z)) > low.step || Math.abs(lat) > low.width[j] / 2 + low.shoulder[j] + LEG) continue;
           // From just under the road up to the bent's cap under the deck.
           const y = low.py[j] - 0.5;
           out.push({ kind: 'trestle-leg', solid: true, spline: low.index, s: j * low.step, lateral: lat, x, y, z, hx: LEG, hy: (up.py[i] - 1.2 - y) / 2, hz: LEG, heading: atan2(up.tx[i], up.tz[i]) });
@@ -417,7 +417,7 @@ function joinBranch(main: BakedSpline, sp: BakedSpline): void {
           const x = sp.px[i] + brx * l;
           const z = sp.pz[i] + brz * l;
           const m = nearestSample(main, x, z, k * main.step, 15);
-          const ml = (x - main.px[m]) * -main.tz[m] + (z - main.pz[m]) * main.tx[m];
+          const ml = across(main, m, x, z);
           if (Math.abs(ml) < mh - 0.5 || Math.abs(ml) > verge + 0.5) continue;
           const open = ml < 0 ? main.openL : main.openR;
           for (let d = -2; d <= 2; d++) open[(m + d + main.n) % main.n] = 1;
