@@ -115,7 +115,7 @@ export function bakeTrack(layout: TrackLayout, surfaces: SurfaceDef[]): Track {
   const splines = [main];
   for (const b of layout.branches ?? []) splines.push(bakeBranch(b, splines.length, main, surfaceIndex));
 
-  for (const sp of splines.slice(1)) joinBranch(main, sp);
+  for (const [k, sp] of splines.slice(1).entries()) joinBranch(main, sp, layout.branches![k].heights === 'own');
 
   const gapsAuto: { spline: BakedSpline; s0: number; s1: number; side: -1 | 0 | 1 }[] = [];
   for (const sp of splines.slice(1)) {
@@ -381,9 +381,11 @@ function slipPoint(main: BakedSpline, s: number, p: TrackPoint, dir: 1 | -1): Tr
 /**
  * Where a branch overlaps the main road, it must be the main road: the same ground (height and
  * bank) under its centerline, fading to its own as it pulls clear (JOIN_FADE). Also marks the curbs
- * and verges the two roads' decks run through (openL/openR), which the renderer leaves out.
+ * and verges the two roads' decks run through (openL/openR), which the renderer leaves out. A
+ * branch with its own heights (`own`, BranchDef.heights) keeps them: its height is the main road's
+ * ground only where it's on the main road or its verge, with no fade (its bank still fades).
  */
-function joinBranch(main: BakedSpline, sp: BakedSpline): void {
+function joinBranch(main: BakedSpline, sp: BakedSpline, own: boolean): void {
   // From each end inward, until the branch has pulled clear (a branch may pass near some other
   // part of the main road in between: that's not a join).
   for (const [from, dir] of [[0, 1], [sp.n - 1, -1]] as const) {
@@ -400,7 +402,7 @@ function joinBranch(main: BakedSpline, sp: BakedSpline): void {
       const w = 1 - smoothstep(0, JOIN_FADE, Math.abs(lat) - verge - bh);
       if (w <= 0) break;
       const ground = main.py[k] - lat * tan(main.bank[k]);
-      sp.py[i] += (ground - sp.py[i]) * w;
+      sp.py[i] += (ground - sp.py[i]) * (own ? (w >= 1 ? 1 : 0) : w);
       sp.bank[i] += (main.bank[k] - sp.bank[i]) * w;
       sp.merge[i] = Math.max(sp.merge[i], w);
       // The branch's own edges: open while they're on the main road or its verge.
@@ -428,7 +430,7 @@ function joinBranch(main: BakedSpline, sp: BakedSpline): void {
 }
 
 /** How far (m) a branch's ground fades from the main road's to its own once it's clear of it. */
-export const JOIN_FADE = 20;
+const JOIN_FADE = 20;
 
 /** The main-road sample nearest (x, z), searched within `within` m (default 60) of main distance `hint`. */
 function nearestSample(main: BakedSpline, x: number, z: number, hint: number, within = 60): number {

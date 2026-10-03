@@ -5,8 +5,8 @@ The design is [SPEC.md](./SPEC.md): decisions in §17, and what building changed
 building". This file is "where are we"; the spec is "what are we making".
 
 **Last updated:** 2026-10-03 (Paradise Open merged in #81, untagged; the plan for the engine,
-[CALDERA.md](./CALDERA.md), merged in #82; steps 0 and 0b merged in #83 and #84; 1a and 1b in
-PRs #85 and #86, awaiting the owner's merge; next is 1c; see "Next: Caldera" below). Before that, `alpha-1.30`: Avalanche's snow and rumble quieter. The last tag is **`alpha-1.30`** (PR #77: the snow under the wheels and the avalanche's rumble about 4.5 dB down, the owner's ask). Before it, **`alpha-1.29`** (PRs #71–#74): **Avalanche**, the first open map, one 6.1 km run down a mountain (#74), and the Leap's kicker rounded and launchable from its sides (#71, #72), and PLAN's "Open, freeform maps" direction (#73).
+[CALDERA.md](./CALDERA.md), merged in #82; steps 0 and 0b merged in #83 and #84; 1a, 1b and 1c in
+PRs #85, #86 and #87 (stacked), awaiting the owner's merge; next is 1d; see "Next: Caldera" below). Before that, `alpha-1.30`: Avalanche's snow and rumble quieter. The last tag is **`alpha-1.30`** (PR #77: the snow under the wheels and the avalanche's rumble about 4.5 dB down, the owner's ask). Before it, **`alpha-1.29`** (PRs #71–#74): **Avalanche**, the first open map, one 6.1 km run down a mountain (#74), and the Leap's kicker rounded and launchable from its sides (#71, #72), and PLAN's "Open, freeform maps" direction (#73).
 Before it, `alpha-1.28` (PRs #67–#70: a press flash and a click on the menus' buttons; the title's
 music from the start; Logger's Leap smoothed and bermed), `alpha-1.27` (PRs #63–#65), `alpha-1.26`
 (PR #62: two new tracks), `alpha-1.25` (PR #61: boost, Overdrive, the slipstream) and `alpha-1.24`
@@ -58,17 +58,25 @@ clips the terrain), and the shroud is gone. Past each open end the cut goes on t
 face (1.5 m), so ground standing in the opening is cut too; only the finest level of detail is cut.
 Drawing only, so the fingerprints stayed identical (CALDERA had planned to re-record them).
 
-**Merging them:** #85 first (with `--delete-branch`, GitHub retargets #86 to main), then #86. Merge
-only on the owner's word.
+**Step 1c, branches own their heights, is built** (PR #87, branch `caldera-own-heights`, stacked
+on #86, 2026-10-03). `BranchDef.heights: 'own'`: the bake keeps a branch's heights as authored,
+holding it to the main road's ground only where it's on the main road or its verge (no JOIN_FADE
+fade; its bank still fades). The Lava Tube says it, and `gen-paradise-open.ts` writes the profile
+it wants instead of inverting the pull (`LAND` is now its own choice: within 10 m of the rim road's
+verge, the tube runs at the rim road's ground). The tube is within 8 cm of before; drives through
+it, the lap floor (68.07) and the field (27 wrecks in 40 seeds, against 26) are the same.
+Paradise Open's fingerprints re-recorded, the rest identical.
 
-**Next: step 1c, branches own their heights** (the generator stops working backwards from the
-bake's join; fingerprints re-recorded, lap floors checked). Follow CALDERA's "How to work on it".
-Where to start: TECH_DEBT's "The generator inverts the bake's join" (`gen-paradise-open.ts`'s
-`beside`/`LAND` copy `joinBranch`'s pull, `JOIN_FADE`, so the tube's authored heights come out
-right after the bake pulls them toward the main road). The fix there: a branch that says it
-authors its own heights, and `joinBranch` leaves them. The generator reproduces the committed JSON
-exactly today (`bun tools/gen-paradise-open.ts`, then `git diff`), which makes changes to it easy
-to see.
+**Merging them:** in order, #85, #86, #87, each with `--delete-branch` so GitHub retargets the
+next to main. Merge only on the owner's word.
+
+**Next: step 1d, one surface function** for drawing and driving: the coast's sand drives as sand
+(decided). Fingerprints and Paradise Open's lap floor re-recorded. Follow CALDERA's "How to work on
+it". Where to start: TECH_DEBT's "Off-road surfaces are per main-road sample, not per side or per
+point" (the sand painted by the coast drives as the stretch's verge unless it's in a beach,
+`GroundDef.beaches`, which `surfaceAt` checks by side). What's drawn and what's driven should come
+from one function of (x, z). The generator reproduces the committed JSON exactly (`bun
+tools/gen-paradise-open.ts`, then `git diff`).
 
 **Working notes (2026-10-03):**
 - One PR per step, a fresh reviewer at the end (it found real bugs every time: in 0b, 1a and 1b),

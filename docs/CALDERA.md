@@ -10,8 +10,9 @@ spec.** Details will change while building; note those changes in [SPEC.md](./SP
 golden fingerprints, the allocation test on the open maps, `tools/drive.ts`, `tools/probe.ts`,
 `tools/shot.ts` and `window.__rc.dev`, over `src/dev/`. **Step 0b, the sim's own math**, is merged (PR #84):
 see "Same math in every browser"; one fingerprint file for every platform. **Step 1a, the move
-onto pieces**, and **1b, portals**, are built (fingerprints identical). Next: step 1c, branches
-own their heights. HANDOFF has the detail.
+onto pieces**, and **1b, portals**, are built (fingerprints identical), and **1c, branches own
+their heights** (Paradise Open re-recorded, its drive the same). Next: step 1d, one surface
+function. HANDOFF has the detail.
 
 **Reading it:** "Principles" and "The core idea: pieces" are the design; "Build order" and "How
 to work on it" are what to do; the rest is reference (moving things, routes, a worked example,
@@ -447,7 +448,7 @@ What the engine struggles with now, and the build step that lifts it (if any):
 | Nothing in the world can be pushed by a car | Online, not the engine: offline the sim could push things exactly, but online each screen sees other players' cars only as poses, so each would push a thing a little differently and they'd drift apart (SPEC §4) | Room left for it: a **kick**, a **host** entity, or later a **relay**-run one (see "Things that move") |
 | Deep water is just out of bounds: no wading physics, boats or tides | No water in the sim | Not planned |
 | The AI follows racing lines on the roads: it can't cut across open ground or plan a route | Lines are per spline | Step 7 (pathfinding over the graph) |
-| Features are authored in generator scripts, which sometimes work around the bake (the tube's ends) | No editor for ground features; the bake pulls branches toward the main road | Step 1c (branches own their heights), then 2 |
+| Features are authored in generator scripts | No editor for ground features (a branch can own its heights since step 1c) | Step 2 |
 
 ### Performance budgets
 
@@ -639,7 +640,10 @@ stream across a route): then the new floor is recorded, with why.
      an arch's outer face), the ground in front of the openings is cut, and the tube's walls lie on
      the outline.
    - **1c, branches own their heights:** the generator stops working backwards from the bake.
-     The tube should drive the same: fingerprints re-recorded, lap floors checked.
+     The tube should drive the same: fingerprints re-recorded, lap floors checked. *Built:*
+     `BranchDef.heights: 'own'` (held to the main road's ground only on it or its verge, no fade);
+     the generator writes the tube's profile as it wants it. Within 8 cm of before; the lap floor
+     and the field unchanged.
    - **1d, one surface function** for drawing and driving. The coast's sand drives as sand
      (decided): fingerprints and Paradise Open's floor re-recorded.
 

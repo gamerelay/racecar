@@ -23,6 +23,9 @@ and where things stand is [docs/HANDOFF.md](./docs/HANDOFF.md).
     point. Driving is unchanged.
   - **Portals** (step 1b): the Lava Tube's mouths meet the slope cleanly, the ground cut to the
     tube's own shape instead of whole squares (and the patch of rock over them gone).
+  - **Branches can own their heights** (step 1c): the Lava Tube's heights are written as it
+    drives, not worked out backwards from how the bake used to blend it into the road. It drives
+    the same.
 - **A road over the ground** (docs/PARADISE.md, step 0): a deck on open ground, the main road over
   the ground beneath it. On the deck you drive on it; over its edge you fall to whatever is below.
   The sea (`ground.sea`) is drawn, and deep water is out of bounds: you respawn on the road.

@@ -12,7 +12,7 @@
 
 import { writeFileSync, mkdirSync } from 'node:fs';
 import type { TrackLayout } from '../src/core/content';
-import { bakeTrack, JOIN_FADE } from '../src/core/track/bake';
+import { bakeTrack } from '../src/core/track/bake';
 import { newHit, projectGlobal, sampleAt } from '../src/core/track/query';
 import { smoothstep } from '../src/core/math';
 import { across } from '../src/core/track/frame';
@@ -120,9 +120,9 @@ const legs: [typeof A, typeof A][] = [
   [C2, B],
 ];
 /**
- * The main road's ground beside (x, z), and how much the bake pulls a branch there onto it
- * (bake.ts joinBranch: 1 on its verge, fading to 0 JOIN_FADE m clear of it), searched along the
- * main road near `s`.
+ * The main road's ground beside (x, z) (its plane carried out sideways), and how far the tube's
+ * edge there is past the main road's verge (m), searched along the main road near `s`. (`clear`
+ * is joinBranch's test, bake.ts: at 0 or less the bake holds the tube to that ground.)
  */
 const beside = (x: number, z: number, s: number) => {
   let k = 0;
@@ -133,11 +133,10 @@ const beside = (x: number, z: number, s: number) => {
   }
   const lat = across(main, k, x, z);
   const verge = main.width[k] / 2 + main.shoulder[k];
-  const w = 1 - smoothstep(0, 1, (Math.abs(lat) - verge - TUBE.width / 2) / JOIN_FADE);
-  return { y: main.py[k] - lat * Math.tan(main.bank[k]), w };
+  return { y: main.py[k] - lat * Math.tan(main.bank[k]), clear: Math.abs(lat) - verge - TUBE.width / 2 };
 };
-/** Where the bake's pull is at least this, the tube is the main road's ground (no say of its own). */
-const LAND = 0.5;
+/** Within this far of the rim road's verge, the tube runs at the rim road's ground. */
+const LAND = 10;
 const tubePoints: { p: [number, number, number]; width: number; lanes: number; shoulder: number; surface: string }[] = [];
 for (const [k, [p, q]] of legs.entries()) {
   const len = Math.hypot(q.x - p.x, q.z - p.z);
@@ -155,14 +154,13 @@ for (const [k, [p, q]] of legs.entries()) {
     for (const pt of pts) point(pt.x, TUBE.bridge, pt.z);
     continue;
   }
-  // The road it should be once baked: level over the shaft (inside the lip), then one smooth curve
-  // that lands on the main road's ground where the bake holds it there (LAND), at that ground's own
-  // grade, so nothing crests on the way out. The heights authored are the ones the bake's pull
-  // toward the main road turns into that. (Its own climb to its end, then dragged up 8 m onto the
-  // rim road over its last 25 m, was a 45% hump out of the exit tunnel that launched you at full
-  // speed; a smaller one going in.)
+  // Level over the shaft (inside the lip), then one smooth curve that lands on the main road's
+  // ground near it (LAND), at that ground's own grade, so nothing crests on the way out. The tube
+  // has its own heights (BranchDef.heights): the bake keeps these. (Its own climb to its end, then
+  // dragged up 8 m onto the rim road over its last 25 m, was a 45% hump out of the exit tunnel that
+  // launched you at full speed; a smaller one going in.)
   const flat = CROSS;
-  const held = pts.filter((pt) => pt.w >= LAND);
+  const held = pts.filter((pt) => pt.clear <= LAND);
   const land = held.length ? held.reduce((a, b) => (b.fromMid < a.fromMid ? b : a)) : pts[k === 0 ? 0 : pts.length - 1];
   const next = pts[pts.indexOf(land) + (k === 0 ? -1 : 1)] ?? land;
   const grade = next === land ? 0 : (next.y - land.y) / (next.fromMid - land.fromMid);
@@ -171,15 +169,14 @@ for (const [k, [p, q]] of legs.entries()) {
     let y = pt.y;
     if (pt.fromMid < land.fromMid) {
       const u = Math.min(1, Math.max(0, (pt.fromMid - flat) / span));
-      const want = (2 * u ** 3 - 3 * u ** 2 + 1) * TUBE.bridge + (3 * u ** 2 - 2 * u ** 3) * land.y + (u ** 3 - u ** 2) * span * grade;
-      y = pt.w >= LAND ? pt.y : (want - pt.y * pt.w) / (1 - pt.w);
+      y = (2 * u ** 3 - 3 * u ** 2 + 1) * TUBE.bridge + (3 * u ** 2 - 2 * u ** 3) * land.y + (u ** 3 - u ** 2) * span * grade;
     }
     point(pt.x, y, pt.z);
   }
 }
 // It leaves the road a little before its first point and rejoins a little past its last (the
 // validator's gentle fork: each end point along the road from where it meets it).
-const tubeDef = { id: 'lava-tube', kind: 'shortcut' as const, from: TUBE.from - 12, to: TUBE.to + 12, points: tubePoints };
+const tubeDef = { id: 'lava-tube', kind: 'shortcut' as const, heights: 'own' as const, from: TUBE.from - 12, to: TUBE.to + 12, points: tubePoints };
 const layout: TrackLayout = {
   ...src,
   id: 'open',

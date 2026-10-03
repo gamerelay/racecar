@@ -303,11 +303,6 @@ shared `lateralOf`").
   the coast drives as the stretch's verge (grass) unless it's in a beach (`GroundDef.beaches`,
   which `surfaceAt` checks by side). What's drawn and what's driven should come from one
   function of (x, z). *Medium.*
-- **The generator inverts the bake's join** (`gen-paradise-open.ts`'s `beside`/`LAND`: the tube's
-  heights are authored so that `joinBranch`'s pull toward the main road gives the profile
-  wanted). It copies the pull's formula (`JOIN_FADE`, the verge, the smooth), so a change to
-  `joinBranch` quietly breaks the tube's ends. Better: a branch that says it authors its own
-  heights, and `joinBranch` leaves them. *Medium.*
 - **Wrapping past the line is inconsistent:** beaches wrap (`s[0] > s[1]`); pieces (`definePieces`,
   `runIn`, `pull`) don't, so a piece across s = 0 can't be said (the validator rejects `s[0] > s[1]`). The generator's
   `beside` doesn't wrap either (fine at 2,685 and 3,255 m). *Small.*
