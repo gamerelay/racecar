@@ -29,7 +29,8 @@ describe('feature modules', () => {
     const m = moguls.def!;
     if (m.kind !== 'moguls') throw new Error('not moguls');
     expect(slope.bare((m.s[0] + m.s[1]) / 2, (m.lateral[0] + m.lateral[1]) / 2)).toBe(true);
-    expect(slope.bare((m.s[0] + m.s[1]) / 2, m.lateral[1] + 20)).toBe(slope.sunk((m.s[0] + m.s[1]) / 2, m.lateral[1] + 20) > 0.2);
+    // Well clear of every feature (on the piste, between the mogul fields and the canyons), trees may grow.
+    expect(slope.bare(400, 0)).toBe(false);
   });
 
   test('the volcano says where its lava is; nothing else does', () => {

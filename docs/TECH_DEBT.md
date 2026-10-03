@@ -302,6 +302,11 @@ shared `lateralOf`").
 - **The verge off the sand is still the road's** (`surfaceAt` takes it from the nearest road's
   sample, the drawing from the main road's nearest the grid point): the two can differ beside a
   branch. The volcano's rock is a colour over the verge (ash), not a surface. *Small.*
+- **Overlapping features (none yet):** two beaches each claim sand by their own table while the
+  palms read the merged `ground.beach` (they'd disagree where beaches overlap); two canyons' tree
+  test is per canyon, not on their sum. `side` and the AI reading a canyon's `def` are one-feature
+  hooks: tidy when a second user turns up (palms asking per point; the canyon list on `Ground`).
+  *Small.*
 - **Wrapping past the line is inconsistent:** beaches wrap (`s[0] > s[1]`); pieces (`definePieces`,
   `runIn`, `pull`) don't, so a piece across s = 0 can't be said (the validator rejects `s[0] > s[1]`). The generator's
   `beside` doesn't wrap either (fine at 2,685 and 3,255 m). *Small.*

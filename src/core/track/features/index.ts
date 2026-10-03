@@ -1,11 +1,12 @@
 // Feature modules (docs/CALDERA.md step 2, "The types, sketched"): a map's features (a volcano, a
-// coast, later lava streams and a drawbridge), each placed in world space and each saying, through
-// a few optional hooks, what it does to the ground, what the ground is, and what's dangerous there.
-// The ground (track/ground) runs every feature's hooks in order (`groundFeatures`'); it knows
-// features only by these hooks. (A feature may use the ground's constants and its kinds.)
+// coast, mogul fields, canyons, beaches; later lava streams and a drawbridge), each placed in world
+// space (the volcano, the coast) or along the main road (the rest), and each saying, through a few
+// optional hooks, what it does to the ground, what the ground is, and what's dangerous there. The
+// ground (track/ground) runs every feature's hooks in order (`groundFeatures`); it knows features
+// only by these hooks. (A feature may use the ground's constants and its kinds.)
 //
-// Hooks run at load (shape, surface), or per query (hazard, a pure function of position and time:
-// no allocation, deterministic). The renderer's part stays out of core: today the skin still draws
+// Hooks run at load (rise, shape, surface, bare, side), or per query (hazard and sunk, every tick
+// for the cars they concern: pure functions of position (and time), no allocation, deterministic). The renderer's part stays out of core: today the skin still draws
 // the volcano and the coast from the layout; a `draw` hook comes with the first feature that needs
 // one (the lava stream).
 
@@ -40,7 +41,7 @@ export interface ShapePoint {
 }
 
 export interface Feature {
-  /** What it is ('volcano', 'coast'). */
+  /** What it is ('volcano', 'coast', 'moguls', 'canyon', 'beach'). */
   readonly kind: string;
   /** The layout's own entry for it (GroundDef.features), for anything that reads its numbers (the AI's line down a canyon). */
   readonly def?: FeatureDef;
