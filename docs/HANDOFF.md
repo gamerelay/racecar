@@ -49,8 +49,14 @@ with a floor or none, a ceiling, and how the ground falls away under it) instead
 one query, `ground.cast(x, y, z, out)`, which physics, the camera and the tools ask. CALDERA's
 build order has what's in it and what isn't yet.
 
-**Next: step 1b, portals** (the tube's mouths cut to its outline and stitched, the shroud gone;
-fingerprints re-recorded on purpose). Follow CALDERA's "How to work on it".
+**Step 1b, portals, is built** (branch `caldera-portals`, stacked on 1a, 2026-10-03). The tube's
+mouths, and where it comes out into the shaft, have the ground drawn cut to the tube's own outline
+(`outlineAt` in core, which the tube's walls are built on too; `render/skins/greybox/portal.ts`
+clips the terrain), and the shroud is gone. Drawing only, so the fingerprints stayed identical
+(CALDERA had planned to re-record them).
+
+**Next: step 1c, branches own their heights** (the generator stops working backwards from the
+bake's join; fingerprints re-recorded, lap floors checked). Follow CALDERA's "How to work on it".
 
 **Avalanche** (merged in #74, out of experimental on the owner's word): open ground you drive on
 everywhere, slope gravity on snow, moguls, canyons, kickers, rocks, 18 slalom gates, about 650
