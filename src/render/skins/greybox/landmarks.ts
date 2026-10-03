@@ -85,6 +85,11 @@ export function clockText(seconds: number): string {
  * Every landmark in the layout, standing on `floor` (the ground's height at x, z). `time` drives
  * the ones animated in their shaders.
  */
+/** The sea's level the landmarks stand by: the island's terrain's, or open ground's (`ground.sea`); undefined with no sea. */
+export function landmarkSea(layout: TrackLayout): number | undefined {
+  return layout.terrain?.sea ?? layout.ground?.sea;
+}
+
 export function buildLandmarks(layout: TrackLayout, floor: (x: number, z: number) => number): Landmarks {
   const objects: Object3D[] = [];
   const time = { value: 0 };
@@ -97,7 +102,7 @@ export function buildLandmarks(layout: TrackLayout, floor: (x: number, z: number
     const sc = m.params?.scale ?? 1;
     const [cs, sn] = [Math.cos(m.rot ?? 0), Math.sin(m.rot ?? 0)];
     const ground = (lx: number, lz: number) => (floor(m.at[0] + (lx * cs + lz * sn) * sc, m.at[1] + (-lx * sn + lz * cs) * sc) - base) / sc;
-    const seaY = layout.terrain?.sea;
+    const seaY = landmarkSea(layout);
     const b = build(m, { time, ground, sea: seaY === undefined ? null : (seaY - base) / sc });
     b.root.position.set(m.at[0], floor(m.at[0], m.at[1]), m.at[1]);
     b.root.name = `landmark:${m.kind}`;
