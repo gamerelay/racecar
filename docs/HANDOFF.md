@@ -22,11 +22,7 @@ desktop only, refactor freely and keep the feel). Start at its "Build order", st
 - **The first tools:** `tools/drive.ts`, `tools/probe.ts`, `tools/shot.ts`, over one dev module
   shared with `window.__rc` (CALDERA's "Developer tools").
 
-Branch `caldera-step-0`, off `main`. Follow CALDERA's "How to work on it". (A task-by-task plan
-for steps 0–2 from another session sits uncommitted in the owner's tree, under
-`docs/superpowers/plans/`. It predates the agreed doc in places: it works on #81's branch, puts
-lava in `GroundDef.lava` rather than a feature module, keeps a re-export shim, and has no
-`drive`/`probe`/`shot`. Where they differ, CALDERA wins; its task detail is still useful.)
+Branch `caldera-step-0` (draft PR #83), off `main`. Follow CALDERA's "How to work on it".
 
 **Avalanche** (merged in #74, out of experimental on the owner's word): open ground you drive on
 everywhere, slope gravity on snow, moguls, canyons, kickers, rocks, 18 slalom gates, about 650

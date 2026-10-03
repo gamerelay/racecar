@@ -7,9 +7,7 @@ spec.** Details will change while building; note those changes in [SPEC.md](./SP
 "Changed while building", as usual.
 
 **Status (2026-10-03):** reviewed and agreed (PR #82, merged); nothing built yet. Step 0 (the
-safety net and tools) is next, on branch `caldera-step-0`. A task-by-task plan for steps 0–2 from
-another session sits uncommitted in the owner's tree (`docs/superpowers/plans/`); it predates
-this doc in places, and where they differ, this doc wins.
+safety net and tools) is next, on branch `caldera-step-0` (PR #83).
 
 **Reading it:** "Principles" and "The core idea: pieces" are the design; "Build order" and "How
 to work on it" are what to do; the rest is reference (moving things, routes, a worked example,
