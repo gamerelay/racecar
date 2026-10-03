@@ -665,7 +665,7 @@ stream across a route): then the new floor is recorded, with why.
      which needs one). `shape` gets where a point is by the main road (s, lateral, edge, the
      deck run-in); `hazard` gets the time. Open for 2d: `surface` returns a ground kind, so the
      stream's rock banks add a kind, or it becomes a surface id.
-   - **2b, the by-road features as modules** (built): mogul fields, canyons and beaches are
+   - **2b, the by-road features as modules** (merged, #90): mogul fields, canyons and beaches are
      `GroundDef.features` (`{ kind: 'moguls' | 'canyon' | 'beach', … }`), modules with new hooks:
      `rise` (added with the swell), `sunk` (the avalanche's shelter), `bare` (no trees), `side`
      (a beach's side, for palms), and `surface` gets the main road's sample and lateral. The AI
