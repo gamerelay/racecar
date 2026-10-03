@@ -191,6 +191,28 @@ export function buildTrackVisual(track: Track, palette: Palette, seed: number): 
       chunks.push(mesh);
     }
   }
+  // A deck over open ground (GroundDef.decks) is drawn as a road: the island's concrete bridge,
+  // its edges open (no barrier: drive off it), on pillars down into the water.
+  const decks: Object3D[] = [];
+  if (track.ground) {
+    const ground = track.ground;
+    const main = track.main;
+    const style: Style = { country: true, floor: (x, z) => ground.height(x, z), island: true };
+    for (let i = 0; i < main.n; i++) {
+      if (!ground.deckSample[i]) continue;
+      let j = i;
+      while (j + 1 < main.n && ground.deckSample[j + 1]) j++;
+      const g = new Geo();
+      buildChunk(g, track, main, i, j, groundY, false, ground.deckSample, style, null);
+      const mesh = new Mesh(g.build(), road);
+      mesh.matrixAutoUpdate = false;
+      chunks.push(mesh);
+      i = j;
+    }
+    const sea = ground.sea;
+    const { pillars, caps } = deckPillars(main, ground.deckSample, (x, z) => ground.height(x, z) - 0.5, (x, z) => sea === undefined || ground.height(x, z) > sea, 0xd9d0bd, 0xbdb3a0);
+    if (pillars.length) decks.push(boxes(pillars, toon()), boxes(caps, toon()));
+  }
 
   // The city lays its own ground (streets, with holes where a trench runs); the country has its land.
   // Anything else gets a plain plane.
@@ -202,7 +224,7 @@ export function buildTrackVisual(track: Track, palette: Palette, seed: number): 
     ground.matrixAutoUpdate = false;
     return ground;
   };
-  const extras: Object3D[] = track.ground ? buildSnow(track) : city ? [] : land ? [...land.objects] : [plainGround()];
+  const extras: Object3D[] = track.ground ? [...buildSnow(track), ...decks] : city ? [] : land ? [...land.objects] : [plainGround()];
   const wet = puddles(track);
   if (wet) extras.push(wet);
   // Solid props on the road (the pillars): tall striped boxes. The Trestle's legs are the forest's.

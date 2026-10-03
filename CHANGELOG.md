@@ -6,6 +6,13 @@ and where things stand is [docs/HANDOFF.md](./docs/HANDOFF.md).
 
 ## Unreleased
 
+- **A road over the ground** (docs/PARADISE.md, step 0): a deck on open ground, the main road over
+  the ground beneath it. On the deck you drive on it; over its edge you fall to whatever is below.
+  The sea (`ground.sea`) is drawn, and deep water is out of bounds: you respawn on the road.
+- **Paradise Open, experimental** (`?mode=free&map=paradise-open/open`, out of the lobby): today's
+  island lap as open ground, the Freeway a deck over the bay with no barriers. The coast, the
+  routes and the volcano come next.
+
 ## alpha-1.30: quieter snow
 
 PR #77.

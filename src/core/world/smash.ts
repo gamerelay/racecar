@@ -91,7 +91,7 @@ export class Smashables {
         const lat = g.lateral + (side * g.gap) / 2;
         const x = at.cx - at.tz * lat;
         const z = at.cz + at.tx * lat;
-        const y = track.ground ? track.ground.height(x, z) : at.cy - lat * Math.tan(at.bank);
+        const y = track.ground ? track.ground.top(x, z) : at.cy - lat * Math.tan(at.bank);
         out.push({ kind, spline: 0, s: at.s, x, y, z });
       }
     });

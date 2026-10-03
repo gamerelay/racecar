@@ -2,7 +2,7 @@
 // an angle band and a three-stage mini-turbo, boost, real air off crests and ramps, and a wreck
 // body with aftertouch. One car per call; collisions happen after every car has moved.
 
-import type { Ground } from '../track/ground';
+import { DECK_CATCH, type Ground } from '../track/ground';
 import type { Controls } from '../controls';
 import { Cause, Ev } from '../events';
 import { approach, clamp, damp, lerp, sign, smoothstep, wrapAngle } from '../math';
@@ -211,7 +211,7 @@ export function stepCar(sim: SimState, i: number, c: Controls, dt: number): void
   // slower, down a bank's side. Grip turns the sideways part back along the heading, as in a corner.
   const slide = surf.slide ?? 0;
   if (slide > 0 && grounded && sim.track.ground) {
-    const g = sim.track.ground.slope(cars.x[i], cars.z[i], SLOPE);
+    const g = sim.track.ground.topSlope(cars.x[i], cars.z[i], cars.y[i], SLOPE);
     const k = (T.gravity * slide * dt) / (1 + g.x * g.x + g.z * g.z);
     vx -= g.x * k;
     vz -= g.z * k;
@@ -228,23 +228,45 @@ export function stepCar(sim: SimState, i: number, c: Controls, dt: number): void
 /** Scratch for the ground's slope. */
 const SLOPE = { x: 0, z: 0 };
 
+/** A wheel past a deck's edge, with the car's middle still on it, still stands on the deck's plane this far out (m). */
+const DECK_SLACK = 2;
+/** Under the sea's level by more than this (m), on the ground, is deep water: out of bounds. */
+const WADE = 0.8;
+
 /**
  * Open ground under a car: the mean of its four wheels' (1.3 m ahead and behind, 0.8 m each side),
- * so bumps shorter than a car (moguls) are soaked up as a suspension would, not thrown at it.
+ * so bumps shorter than a car (moguls) are soaked up as a suspension would, not thrown at it. On a
+ * deck (its middle over it, and not under it) all four are on the deck; once its middle is over
+ * the edge, none are, and it falls.
  */
-function wheelGround(g: Ground, x: number, z: number, h: number): number {
+function wheelGround(g: Ground, x: number, z: number, h: number, y: number): number {
   const fx = Math.sin(h) * 1.3;
   const fz = Math.cos(h) * 1.3;
   const rx = -Math.cos(h) * 0.8;
   const rz = Math.sin(h) * 0.8;
+  const d = g.deck(x, z);
+  if (d === d && y >= d - DECK_CATCH) {
+    let sum = 0;
+    for (const [a, b] of WHEELS) {
+      const v = g.deck(x + fx * a + rx * b, z + fz * a + rz * b, DECK_SLACK);
+      sum += v === v ? v : d;
+    }
+    return sum / 4;
+  }
   return (g.height(x + fx + rx, z + fz + rz) + g.height(x + fx - rx, z + fz - rz) + g.height(x - fx + rx, z - fz + rz) + g.height(x - fx - rx, z - fz - rz)) / 4;
 }
+const WHEELS = [
+  [1, 1],
+  [1, -1],
+  [-1, 1],
+  [-1, -1],
+] as const;
 
 /** Keeps a grounded car on the road, or launches it when the road falls away faster than gravity. */
 function followGround(sim: SimState, i: number, dt: number): void {
   const cars = sim.cars;
   const hit = locateCar(sim, i);
-  const ground = sim.track.ground ? wheelGround(sim.track.ground, cars.x[i], cars.z[i], cars.h[i]) : hit.ground;
+  const ground = sim.track.ground ? wheelGround(sim.track.ground, cars.x[i], cars.z[i], cars.h[i], cars.y[i]) : hit.ground;
   const wasGrounded = cars.grounded[i] === 1;
   const vyBall = cars.vy[i] - T.gravity * dt;
   const yBall = cars.y[i] + vyBall * dt;
@@ -307,7 +329,7 @@ function followGround(sim: SimState, i: number, dt: number): void {
   let targetRoll = cars.grounded[i] ? hit.bank * Math.cos(rel) - Math.atan(across) * Math.cos(rel) : cars.roll[i];
   // Open ground: the body follows its slope, along the car and across it.
   if (sim.track.ground && cars.grounded[i]) {
-    const g = sim.track.ground.slope(cars.x[i], cars.z[i], SLOPE);
+    const g = sim.track.ground.topSlope(cars.x[i], cars.z[i], cars.y[i], SLOPE);
     const fx = Math.sin(cars.h[i]);
     const fz = Math.cos(cars.h[i]);
     targetPitch = -Math.atan(g.x * fx + g.z * fz);
@@ -325,7 +347,10 @@ function followGround(sim: SimState, i: number, dt: number): void {
   // Open ground's bounds are its walls: up past their foot (Ground.outside), not off the road.
   // (In the air off a wall's slope it isn't, until it comes down there: launch off the sides.)
   const out = sim.track.ground ? sim.track.ground.outside(cars.x[i], cars.z[i]) && cars.grounded[i] === 1 : Math.abs(hit.lateral) > hit.width / 2 + hit.shoulder + T.outOfBounds;
-  if (out || cars.y[i] < ground - 20) {
+  // Deep water (GroundDef.sea): down on the ground, well under the sea's level (a deck over it is above it).
+  const sea = sim.track.ground?.sea;
+  const deep = sea !== undefined && cars.grounded[i] === 1 && ground < sea - WADE;
+  if (out || deep || cars.y[i] < ground - 20) {
     wreckCar(sim, i, Cause.OutOfBounds, 0, 0, -1);
     // Nothing to watch: respawn after a second.
     cars.wreckT[i] = T.wreckTime - 1;
@@ -466,7 +491,8 @@ function stepWreck(sim: SimState, i: number, c: Controls, dt: number): void {
   cars.h[i] = wrapAngle(cars.h[i] + cars.wy[i] * wdt);
   cars.rx[i] += cars.wx[i] * wdt;
   cars.rz[i] += cars.wz[i] * wdt;
-  const floor = hit.ground + 0.5;
+  // (On open ground, the deck under it only if it's on it: a wreck over the edge falls past.)
+  const floor = (sim.track.ground ? sim.track.ground.top(cars.x[i], cars.z[i], cars.y[i]) : hit.ground) + 0.5;
   if (cars.y[i] < floor) {
     cars.y[i] = floor;
     if (cars.vy[i] < 0) cars.vy[i] *= -0.35;

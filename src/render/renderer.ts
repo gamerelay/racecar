@@ -440,7 +440,7 @@ export class GameRenderer {
         if (ground) {
           // The ground a look-distance and two ahead, against the ground under the car (not the car:
           // in the air off a kicker the view stays on the slope).
-          const at = (d: number) => ground.height(car.x + fx * d, car.z + fz * d);
+          const at = (d: number) => ground.top(car.x + fx * d, car.z + fz * d, car.y);
           const rise = (at(o.ahead) + at(o.ahead * 2)) / 2 - at(0);
           this.slopeRise += (rise - this.slopeRise) * damp(3, dt);
           const v = slopeView(this.slopeRise);
@@ -448,7 +448,7 @@ export class GameRenderer {
           lookUp += v.look;
         }
         this.camPos.y += (car.y + height - this.camPos.y) * damp(5, dt);
-        if (ground) this.camPos.y = Math.max(this.camPos.y, ground.height(this.camPos.x, this.camPos.z) + GROUND_CLEAR);
+        if (ground) this.camPos.y = Math.max(this.camPos.y, ground.top(this.camPos.x, this.camPos.z, this.camPos.y) + GROUND_CLEAR);
         cam.position.copy(this.camPos);
         this.look.set(car.x + fx * o.ahead, car.y + lookUp, car.z + fz * o.ahead);
       }

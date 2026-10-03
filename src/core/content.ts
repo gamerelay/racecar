@@ -268,6 +268,15 @@ export interface GroundDef {
    * `ease` m at its ends.
    */
   canyons?: { s: [number, number]; lateral: number; floor: number; depth: number; ease: number }[];
+  /**
+   * Roads over the ground (docs/PARADISE.md, step 0): stretches of the main road that are a deck
+   * (a bridge), with the ground under them, not the road. Under a deck the ground falls to `floor`
+   * (its height, m), easing in over `ease` m from each end and back up over `reach` m past the
+   * deck's edges. On the deck a car drives on it; over its edge, it falls to the ground below.
+   */
+  decks?: { s: [number, number]; floor: number; ease: number; reach: number }[];
+  /** The sea's level (m): water is drawn to it, and a car on the ground under it deeper than wading is in deep water (out of bounds). */
+  sea?: number;
 }
 
 export interface MapDef {

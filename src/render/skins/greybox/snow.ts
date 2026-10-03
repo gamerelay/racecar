@@ -5,7 +5,7 @@
 // sit (a canyon's lip, the walls at the edges). A road that isn't snow gets its lines painted on.
 // The pines are the track's own list (core/track/pines.ts), each drawn where its collider stands.
 
-import { BufferAttribute, BufferGeometry, Color, ConeGeometry, CylinderGeometry, Float32BufferAttribute, IcosahedronGeometry, InstancedMesh, LOD, Matrix4, Mesh, Quaternion, Vector3, type Object3D } from 'three';
+import { BufferAttribute, BufferGeometry, Color, ConeGeometry, CylinderGeometry, Float32BufferAttribute, IcosahedronGeometry, InstancedMesh, LOD, Matrix4, Mesh, PlaneGeometry, Quaternion, Vector3, type Object3D } from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import type { Track } from '../../../core/track/bake';
 import { hash01 } from '../../../core/rng';
@@ -65,7 +65,8 @@ export function buildSnow(track: Track): Object3D[] {
           nor[o + 1] = n;
           nor[o + 2] = -hz * n;
           const i = near[k];
-          c.copy(Math.abs(lateral[k]) <= main.width[i] / 2 ? surfaceColors[main.surface[i]] : vergeColor);
+          // (Under a deck it's the ground, not the road: the road's up on the deck.)
+          c.copy(Math.abs(lateral[k]) <= main.width[i] / 2 && !g.deckSample[i] ? surfaceColors[main.surface[i]] : vergeColor);
           const steep = Math.hypot(hx, hz);
           if (steep > ROCK) c.lerp(ROCK_COLOR, Math.min(1, (steep - ROCK) * 2));
           col[o] = c.r;
@@ -151,6 +152,7 @@ export function buildSnow(track: Track): Object3D[] {
   }
   const lines = roadLines(track);
   if (lines) out.push(lines);
+  if (g.sea !== undefined) out.push(seaPlane(track, g.sea));
   const rocks = buildRocks(track);
   if (rocks) out.push(rocks);
   const gates = buildGates(track);
@@ -159,6 +161,22 @@ export function buildSnow(track: Track): Object3D[] {
   if (tower) out.push(tower);
   out.push(...buildPines(track));
   return out;
+}
+
+const SEA = new Color('#2fb8c8');
+
+/** The sea (GroundDef.sea): a flat plane at its level over the whole ground and out past it, the ground showing through where it's higher. */
+function seaPlane(track: Track, y: number): Mesh {
+  const g = track.ground!;
+  const w = (g.nx - 1) * g.cell;
+  const d = (g.nz - 1) * g.cell;
+  const geo = new PlaneGeometry(w + 4000, d + 4000);
+  geo.rotateX(-Math.PI / 2);
+  const mesh = new Mesh(geo, toon({ color: SEA, transparent: true, opacity: 0.85 }));
+  mesh.position.set(g.x0 + w / 2, y, g.z0 + d / 2);
+  mesh.updateMatrix();
+  mesh.matrixAutoUpdate = false;
+  return mesh;
 }
 
 /** Pines are grouped into chunks this big (m), so the camera culls the ones out of view. */
@@ -417,7 +435,7 @@ function roadLines(track: Track): Mesh | null {
     const p = (k: number, l: number) => {
       const x = main.px[k] - main.tz[k] * l;
       const z = main.pz[k] + main.tx[k] * l;
-      pos.push(x, g.height(x, z) + LIFT, z);
+      pos.push(x, g.top(x, z) + LIFT, z);
       col.push(color.r, color.g, color.b);
     };
     // Two triangles, facing up (right × along is up): (i, l0) (i, l1) (j, l0), then (i, l1) (j, l1) (j, l0).

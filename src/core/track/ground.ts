@@ -6,6 +6,10 @@
 // edges. All of it is yours to drive, ridges and mountainsides too: out of bounds is only off the
 // grid, where the ground ends.
 //
+// A deck (GroundDef.decks, docs/PARADISE.md) is the main road over the ground, a bridge: there the
+// grid is the ground under it (the bay), and the deck is the road's own plane, found by where the
+// point is along and across it. A car on the deck drives on it; off its edge, it falls.
+//
 // Pure arithmetic from the layout, so every screen builds the same ground.
 
 import type { GroundDef } from '../content';
@@ -29,7 +33,23 @@ export interface Ground {
   readonly near: Int32Array;
   /** Off the grid, where the ground ends: out of bounds (anywhere drawn is in bounds). */
   outside(x: number, z: number): boolean;
+  /** Per main-road sample, 1 where it's a deck (GroundDef.decks). */
+  readonly deckSample: Uint8Array;
+  /** The sea's level (GroundDef.sea), if the ground has one. */
+  readonly sea?: number;
+  /**
+   * The deck's height at (x, z): the road's plane, if the point is over a deck, within `slack` m
+   * past its edges (the road and its shoulder). NaN if it isn't.
+   */
+  deck(x: number, z: number, slack?: number): number;
+  /** What's under (x, z) for something at height `y`: the deck if it's over one and not below it (unset: always the deck), else the ground. */
+  top(x: number, z: number, y?: number): number;
+  /** The slope of `top` at (x, z) for something at height `y`, into `out`. */
+  topSlope(x: number, z: number, y: number, out: { x: number; z: number }): { x: number; z: number };
 }
+
+/** On a deck: a car this far under its surface still drives on it (a hard landing); further down, it's under it. */
+export const DECK_CATCH = 1;
 
 /** Off the road, the rough snow comes in over this many meters past the shoulder. */
 const ROUGH_IN = 10;
@@ -105,6 +125,12 @@ export function groundShape(def: GroundDef, s: number, lat: number, half: number
   h -= canyonAt(def, s, lat);
   if (a > def.wallFrom) h += (a - def.wallFrom) * def.wallRise;
   return h;
+}
+
+/** How far toward a deck's floor the ground `s` m along the main road and `d` m from its middle is pulled (0–1; the road's edge `edge` m out). */
+export function deckPull(deck: NonNullable<GroundDef['decks']>[number], s: number, d: number, edge: number): number {
+  if (s < deck.s[0] || s > deck.s[1]) return 0;
+  return smooth(0, deck.ease, Math.min(s - deck.s[0], deck.s[1] - s)) * (1 - smooth(edge, edge + deck.reach, d));
 }
 
 /** The search's coarse samples: one in this many of the road's. */
@@ -304,11 +330,27 @@ export function buildGround(def: GroundDef, main: BakedSpline): Ground {
       const road = plane(i, x, z);
       const y = road + (land(x, z) - road) * smooth(edge, edge + ROUGH_IN, d);
       // What the layout adds, by the distance across (not the lateral: that jumps between stretches).
-      h[g] = y + groundShape(def, i * main.step + along, lat < 0 ? -d : d, half, main.shoulder[i], x, z);
+      const s = i * main.step + along;
+      let gy = y + groundShape(def, s, lat < 0 ? -d : d, half, main.shoulder[i], x, z);
+      // Under a deck, the ground falls away to its floor.
+      for (const dk of def.decks ?? []) {
+        const pull = deckPull(dk, s, d, edge);
+        if (pull > 0 && dk.floor < gy) gy += (dk.floor - gy) * pull;
+      }
+      h[g] = gy;
       lateral[g] = lat < 0 ? -d : d;
       near[g] = i;
     }
   }
+
+  // Which samples are deck.
+  const deckSample = new Uint8Array(main.n);
+  for (const dk of def.decks ?? []) {
+    for (let i = Math.max(0, Math.ceil(dk.s[0] / main.step)); i <= Math.min(main.n - 1, Math.floor(dk.s[1] / main.step)); i++) deckSample[i] = 1;
+  }
+  const hasDeck = deckSample.some((v) => v === 1);
+  const d2 = (i: number, x: number, z: number) => (main.px[i] - x) ** 2 + (main.pz[i] - z) ** 2;
+  const next = (i: number, by: number) => (main.closed ? (i + by + main.n) % main.n : Math.min(main.n - 1, Math.max(0, i + by)));
 
   const at = (gx: number, gz: number) => h[Math.min(nz - 1, Math.max(0, gz)) * nx + Math.min(nx - 1, Math.max(0, gx))];
   return {
@@ -320,6 +362,46 @@ export function buildGround(def: GroundDef, main: BakedSpline): Ground {
     h,
     lateral,
     near,
+    deckSample,
+    sea: def.sea,
+    deck(x, z, slack = 0) {
+      if (!hasDeck) return NaN;
+      const gx = Math.min(nx - 1, Math.max(0, Math.round((x - x0) / cell)));
+      const gz = Math.min(nz - 1, Math.max(0, Math.round((z - z0) / cell)));
+      // The grid point's nearest sample, then down the road to the point's own.
+      let i = near[gz * nx + gx];
+      let e = d2(i, x, z);
+      for (const by of [1, -1]) {
+        for (let k = 0; k < 8; k++) {
+          const j = next(i, by);
+          const f = d2(j, x, z);
+          if (f >= e) break;
+          i = j;
+          e = f;
+        }
+      }
+      if (!deckSample[i]) return NaN;
+      const lat = (x - main.px[i]) * -main.tz[i] + (z - main.pz[i]) * main.tx[i];
+      if (Math.abs(lat) > main.width[i] / 2 + main.shoulder[i] + slack) return NaN;
+      return plane(i, x, z);
+    },
+    top(x, z, y) {
+      const d = this.deck(x, z);
+      return d === d && (y === undefined || y >= d - DECK_CATCH) ? d : this.height(x, z);
+    },
+    topSlope(x, z, y, out) {
+      const d = this.deck(x, z);
+      if (!(d === d && y >= d - DECK_CATCH)) return this.slope(x, z, out);
+      // The deck's own plane, a little past its edge if need be.
+      const e = cell / 2;
+      const on = (px: number, pz: number) => {
+        const v = this.deck(px, pz, e + 1);
+        return v === v ? v : d;
+      };
+      out.x = (on(x + e, z) - on(x - e, z)) / (2 * e);
+      out.z = (on(x, z + e) - on(x, z - e)) / (2 * e);
+      return out;
+    },
     outside(x, z) {
       const gx = Math.round((x - x0) / cell);
       const gz = Math.round((z - z0) / cell);
