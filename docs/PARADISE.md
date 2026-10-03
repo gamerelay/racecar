@@ -209,10 +209,104 @@ tropical. Some ideas to pick from:
 - **Retuning:** today's floor is 71.52 s, with traffic on the straights and showers. The new lap
   needs its own target, and the field's wrecks have to stay where they are (1.5 a race).
 
+## Built so far (2026-10-02, PRs #79–#81, not merged)
+
+Three stacked PRs, each a draft or open until the owner says. Each branches off the one before:
+`main` ← **#79** `paradise-open` ← **#80** `paradise-open-island` ← **#81** `paradise-open-tube`. The map
+is experimental, `paradise-open/open` (its own map, `content/maps/paradise-open`, since
+`experimental` is per map), out of the lobby: `?mode=free&map=paradise-open/open`. It's generated
+by `bun tools/gen-paradise-open.ts` from today's island lap; edit the generator, not the JSON.
+
+**#79, step 0, a road over the ground:**
+- **Decks on open ground** (`GroundDef.decks`): the main road over the ground, the ground under it
+  carved to a floor. On the deck you drive on it; once your middle is over its edge you fall.
+- **The sea** (`GroundDef.sea`): drawn, and deep water is out of bounds (a respawn on the road).
+- **The Freeway** is a deck over the bay, with its rails (the owner asked for them back). On open
+  ground a rail is two-sided: outside one you stay outside, and under a bridge you never meet it.
+- **The camera** follows the deck up a ramp and when you swerve near its edge (it dipped to the bay).
+- **The two turns off the Freeway** are banked 14° into themselves, the second the other way, and
+  on open ground a bank holds you in (`TUNING.bankHold`): it bends your path toward its low side,
+  so a drift leans on it. The owner: "it feels a lot better", "plays nice".
+
+**#80, steps 1 and part of 5 and 8, the island:**
+- **Today's coastline** (`GroundDef.coast`): a beach, and the sea floor falling away past it. The
+  Freeway now crosses a real bay.
+- **The volcano** (`GroundDef.volcano`): today's 95 m cone, its crater, and a lava lake that wrecks
+  you. The plume, and the crater's glow, shared with today's Paradise (`crater()` in island.ts).
+- **About 2,400 solid trees** (the pines' list, `kind: 'tropic'`): palms within 70 m of the coast,
+  jungle inland, thickest by the jungle road.
+- **Island colours** on the ground: sand, grass darkening into forest, black lava rock up the cone.
+- **Off the road, slopes pull you** (`TUNING.offroadSlope`, 0.8): the ash holds you back climbing.
+- **Not yet:** Harbor Town's houses, the pier and boats, the umbrellas, the lava flows and the land
+  landmarks. On open ground each needs a collider first (you'd drive through it). The landmarks at
+  sea (shipwreck, whale, seaplanes) are back.
+
+**#81, the Lava Tube** (the owner: climbing the mountain is slow; a tube down into the volcano,
+over the lava on a jagged rock bridge, out the other side):
+- **Branches on open ground:** a shortcut shapes the ground (its own height, a cutting into a
+  slope). Its decks (`GroundDef.branchDecks`) leave the ground as it is: a tunnel where the ground
+  is over the road, a bridge where it's under.
+- **The surface rule:** a car is on the highest surface at or below it. At a tunnel's mouth, where
+  the slope rises off the road, a car within a hard landing (1 m) of the road stays on it.
+- **The route:** off the rim road where it turns round the cone, a tunnel in, out into the crater
+  (now a shaft, `volcano.pit`: floor 12 m, lava 14 m), over a jagged rock bridge 4 m above the
+  lava with no rails (off it is a lava wreck), and a tunnel out to the top of the rim.
+- **The AI takes it** (hard rivals most laps). Its line rejoins the main road at the main road's
+  speed, so it brakes for what's past the end.
+
+## What we learned (2026-10-02)
+
+**The Lava Tube is too strong (the owner: "a bit too overpowered", "cuts thru so much time").**
+- 480 m against 570 m round the rim, and level where the road climbs: the lap floor went from
+  70.03 s to 67.68 s, about 2.4 s, and a hard rival takes it most laps.
+- The aim, as for every cut: about even with the road for a hard rival, a gamble not a skip.
+- Ways to even it out (not tried yet; one or two together):
+  - **Slower inside:** the tunnel winds (a bend or two in the rock), narrower, rougher floor
+    (`ash` or a grippier but draggy rock), a hairpin down into the shaft.
+  - **Longer:** in earlier and out later, or out lower on the rim (then the climb's yours).
+  - **Riskier:** a narrower bridge, a kink in it, or the race's one lava spurt sometimes across it.
+  - **Rarer:** the AI's take rate for it (`skill.shortcut`) down, like secrets.
+- Measure with `bun tools/lap-report.ts paradise-open/open` (and `--field`, `--chaos`): the floor
+  should come back to about 70 s with the tube taken.
+
+**Climbing the volcano off-road is slow** (the owner). That's `TUNING.offroadSlope` working. If
+the crater jump (step 5) needs a run-up from the flank, it may want a road or a ramp up, or the pull
+lighter on the cone.
+
+**Building lessons:**
+- **A shortcut has to part from the main road quickly.** The tube's start overlapped the rim road
+  for 60 m: the AI chose it, then its 60 m window ran out before it was on it, and it swerved back.
+- **Its end, too.** Where a branch runs along the main road before rejoining, its heights are
+  pulled to the main road's: a 15 m hump at the tube's exit. Rejoin at an angle.
+- **A new, faster route finds the crests downstream.** Out of the tube flat out, cars flew off a
+  crest on the rim road's descent into the trees. It's smoothed now (3,250–3,420 m).
+- **The heightfield and tunnels:** the ground stays one height, the tunnel's road is a deck under
+  it, and its mouths are opened in the slope (`Ground.hole`). Steep ground round a mouth leaves
+  gaps where its triangles are skipped: the shaft's walls fall over 18 m, not 9, and the mouths
+  into the shaft have a tall rock collar.
+- **Every look change was checked in the browser** with the dev hook `window.__rc` (`placeCar`,
+  `advance`, `renderer.freeCamera`).
+
+**Known rough edges** (on #81 unless noted):
+- **A hump after the exit tunnel:** about 11 m over 24 m (412–432 m along the tube), where its last
+  stretch rides over the rim road's bend. Redraw the exit when the tube's rebalanced.
+- **The arches' pillars and the shaft's collar aren't solid:** a car on the slope beside a mouth
+  could clip one.
+- **The tunnel mouths are blocky** rock frames: a greybox.
+- **The look (#80, the owner's call):** a lot of black lava rock on the cone (grey ash streaks, or
+  less of it?), and the grass still a bit bright.
+
+**Numbers** (best AI lap, solo hard coupe): Paradise Open 67.68 s with the tube (70.03 s without
+it, 71.52 s for today's Paradise); the field's wrecks at 0 to 3 a race. Every other map's floor is
+unchanged: Downtown 57.9, Backroads 62.82, Avalanche 93.07. `bun test`: 479 pass.
+
 ## Steps
 
 Each one is a PR on its own experimental layout, `paradise/open`, beside today's `paradise/island`
 and out of the lobby (`experimental`, like Avalanche) until the owner picks.
+
+Done so far: step 0 (#79), step 1 (#80), and of the rest the volcano's cone, crater and lava lake,
+the trees and the Lava Tube (#80, #81). See "Built so far" above.
 
 0. **A road over the ground** (maybe first: it unblocks every map's move to open, the owner):
    a deck the car follows when it's on it, with the ground under it otherwise. Try it on the
@@ -248,6 +342,8 @@ and out of the lobby (`experimental`, like Avalanche) until the owner picks.
   open sand along the water, as the beach road's alternative or in place of it. The long dashes on
   the sketch can be a line across the sand rather than a built track.
 - **The Lava Tube:** "I'm going to miss the lava tube tunnel", but the volcano jump replaces it.
+  Later the same day: climbing the mountain is slow, so bring it back, down into the volcano and
+  over the lava on a jagged rock bridge (built, #81). Then: "a bit too overpowered" (above).
 - **Lava:** about one dynamic lava spurt a race, not a schedule shutting routes every lap.
   "Random lava" above becomes one event per race: seeded, closed-form in time, with a warning
   first, and somewhere that changes the best line for a while.
@@ -257,7 +353,10 @@ and out of the lobby (`experimental`, like Avalanche) until the owner picks.
 
 ## Questions for the owner
 
-Answered above. Still open: none yet.
+Answered above. Still open:
+- **The Lava Tube's balance:** which of the ways above (slower, longer, riskier, rarer)?
+- **The look:** the black rock on the cone, and the grass.
+- **Merging:** #79 (the bridge) could go to `main` on its own; #80 and #81 build on it.
 
 As asked:
 

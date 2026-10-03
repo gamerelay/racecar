@@ -4,7 +4,7 @@ Where racecar stands and what's next, for whoever picks it up (a person or a fre
 The design is [SPEC.md](./SPEC.md): decisions in §17, and what building changed in "Changed while
 building". This file is "where are we"; the spec is "what are we making".
 
-**Last updated:** 2026-10-02 (`alpha-1.30`: Avalanche's snow and rumble quieter; the owner's next direction: Paradise open). The last tag is **`alpha-1.30`** (PR #77: the snow under the wheels and the avalanche's rumble about 4.5 dB down, the owner's ask). Before it, **`alpha-1.29`** (PRs #71–#74): **Avalanche**, the first open map, one 6.1 km run down a mountain (#74), and the Leap's kicker rounded and launchable from its sides (#71, #72), and PLAN's "Open, freeform maps" direction (#73).
+**Last updated:** 2026-10-02 (Paradise Open under way: PRs #78–#81, none merged; see "Paradise Open, where it stands" below). Before that, `alpha-1.30`: Avalanche's snow and rumble quieter. The last tag is **`alpha-1.30`** (PR #77: the snow under the wheels and the avalanche's rumble about 4.5 dB down, the owner's ask). Before it, **`alpha-1.29`** (PRs #71–#74): **Avalanche**, the first open map, one 6.1 km run down a mountain (#74), and the Leap's kicker rounded and launchable from its sides (#71, #72), and PLAN's "Open, freeform maps" direction (#73).
 Before it, `alpha-1.28` (PRs #67–#70: a press flash and a click on the menus' buttons; the title's
 music from the start; Logger's Leap smoothed and bermed), `alpha-1.27` (PRs #63–#65), `alpha-1.26`
 (PR #62: two new tracks), `alpha-1.25` (PR #61: boost, Overdrive, the slipstream) and `alpha-1.24`
@@ -56,15 +56,34 @@ zany, and no lighthouse. The owner's answers are in it: about today's length, ex
 then replacing today's Paradise, some traffic, fresh shortcuts, the beach as open sand, one lava
 spurt a race, and the crater jump in place of the Lava Tube.
 
-Rough size: about two sessions. The first makes the island's land drivable with the sea as its
-edge, then drive it. The second sorts the tunnel, the solid palms, the volcano's gravity and lava.
-Then tune.
+**Paradise Open, where it stands (2026-10-02):** built on four PRs, none merged. Each one
+branches off the one before:
+- **#78** `paradise-open-plan` (docs only): PARADISE.md and this file.
+- **#79** `paradise-open` (off `main`): a road over the ground (decks), the sea, the Freeway as a
+  deck with rails, the camera on decks, banked turns that hold a drift (`TUNING.bankHold`). The
+  owner drove it: "feels a lot better", "plays nice".
+- **#80** `paradise-open-island` (off #79, draft): the coast, the volcano with its lava lake, about
+  2,400 solid palms and jungle trees, island colours, off-road slopes that pull
+  (`TUNING.offroadSlope`).
+- **#81** `paradise-open-tube` (off #80, draft): the Lava Tube through the volcano, over the lava
+  in its crater's shaft on a rock bridge; branches on open ground (tunnels and bridges, "a car is on
+  the highest surface at or below it").
 
-How to start:
-- Build it as an experimental layout beside the current one (say `paradise/open`), out of the
-  lobby, like Avalanche, until the owner picks.
-- It builds on #74's open-ground code (`Ground`, slope gravity, the bounds, `pines`), now on
-  `main`: branch from `main`.
+Every PR had `/code-review` and its findings fixed. **The owner's last word: the Lava Tube is "a
+bit too overpowered"** (about 2.4 s a lap). PARADISE.md's "What we learned" has the numbers, the
+ways to even it out, the building lessons and the known rough edges (a hump after the tube's exit
+tunnel, the mouths' rock not solid).
+
+To try it: check out `paradise-open-tube` (it has all three), `bun run dev`, and open
+`?mode=free&map=paradise-open/open`. The map is generated: edit `tools/gen-paradise-open.ts` and
+run it. Its tests are `test/deck.test.ts`.
+
+Next, the owner's call:
+- **Even out the Lava Tube** (PARADISE.md has options), back to a floor of about 70 s.
+- **Merge order:** #79 could go to `main` alone. Then #80, then #81.
+- **The rest of PARADISE.md's steps:** the routes from the sketch (step 2: today's island lap is
+  still the only road), the half-moon bridge, mud, the crater jump, the lava spurt, then Harbor
+  Town and the dressing with colliders (step 8).
 
 **What's left on Avalanche** (AVALANCHE.md has the detail):
 - **Listen:** the owner liked the snow and the rumble, a little quieter (done, #77). The gate
