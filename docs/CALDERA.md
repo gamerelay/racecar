@@ -36,7 +36,8 @@ Started 2026-10-03, from the owner's brief:
    the sim, draw itself. A map is a road network plus a list of features. Adding one means writing
    a module, not editing `buildGround`, the physics and the camera. A module places itself in
    world space, or along a street it names, **never by the main road**: the main road goes away
-   with the road graph, and modules shouldn't go with it.
+   with the road graph, and modules shouldn't go with it. For the one spot nothing else fits,
+   there's an escape hatch: an override (see "Overrides").
 4. **Online first.** Online play follows SPEC §4's sync categories. The ones that matter to the
    engine:
    - **Your car (O)** is yours: your screen steps its physics and sends its pose 30 times a
@@ -217,6 +218,20 @@ type Motion =
   | { by: 'kick'; rest: Pose }                // its path comes from the claimed hit
   | { by: 'host' }
   | { by: 'relay' };
+
+/** The escape hatch: one map's code for one small region (see "Overrides"). */
+interface Override {
+  id: string;
+  reason: string;                            // why the engine can't do this yet
+  region: Box | { street: string; s: [number, number]; lateral?: [number, number] };
+  // Each hook runs only inside the region, after every feature's, and wins. All optional.
+  cast?(out: Cast, x: number, y: number, z: number, t: number): void;   // floor, surface, hazard
+  tune?(out: CarTuning, car: number, sim: Sim): void;                   // lift cap, grip, gravity
+  walls?(on: boolean, x: number, z: number): boolean;
+  camera?: CameraHint;
+  respawn?: Pose;
+  step?(sim: Sim, car: number): void;        // per tick, for each car inside, no allocation
+}
 ```
 
 ## Things that move: who decides
@@ -293,6 +308,36 @@ stream from the volcano toward the reef: a barrier to drive round, or a risky li
    - `tools/shot.ts` of the crossing looks right (glow, banks, bridge);
    - the fingerprints change on purpose (re-recorded), the lap floor too if the stream crosses
      a route (re-recorded, with why), and every other map's stay identical.
+
+## Overrides: the escape hatch
+
+Complex maps will have spots nobody planned for, where adding an engine feature for one corner
+isn't worth it. An **override** is the escape hatch: one map's own code that changes specific
+behaviour in one small region. Meant to be rare. (Like a level script in Unreal, not like
+swizzling: it never replaces an engine function, so what a function does is always what it
+says.)
+
+- **Declared in the layout:** `overrides: [{ id, reason, region }]`. The region is a box, or a
+  stretch of a street (and a band across it). The reason says what the engine can't do yet:
+  "the tube's exit crest throws cars, so cap the lift here".
+- **Its code lives with the map**, say `src/maps/<map>/overrides.ts`, keyed by id: never a patch
+  to the engine's files.
+- **Only through fixed hooks** (the `Override` type above): the cast's result (floor, surface,
+  hazard), a car's tuning while it's inside (the lift cap, grip, gravity), walls on or off, a
+  camera hint, a respawn spot, and a per-tick step for the cars inside. They run after every
+  feature's hooks, inside the region only, and win. Nothing outside the region changes, and
+  nothing outside those hooks can be reached.
+- **The same rules as everything else:** a pure function of position, time and seed; no
+  allocation per tick; deterministic, so online and replays don't notice it's there.
+- **Visible everywhere:** `tools/probe.ts` says "override active: <id>" at a point inside;
+  `tools/map.ts` and the debug drawing outline the regions; `tools/validate.ts` lists every
+  override per map with its reason, and warns past a handful on one map.
+- **Each one is a to-do.** When the same kind of override turns up twice, it becomes an engine
+  feature (a hook, a piece property, a module) and the overrides are deleted.
+
+They also give today's one-off fixes a home. The candidates, looked at in step 2: `pastGap`'s
+respawn rule for the Lava Tube's jump (it finds the kicker by its ramp heights), and the
+generator's `LAND` shaping of the tube's entry crest.
 
 ## Tricks from the industry
 
@@ -461,7 +506,8 @@ What to add (roughly in order of use):
 - **`tools/shot.ts`**: render a picture of any spot (map, position or distance, camera: chase,
   top-down, orbit, free; time; weather) to a PNG, headless. Built on poster.ts. With `--drive`,
   shots along a `drive` run (frames every second): a visual check of a jump or a tunnel.
-- **`tools/probe.ts`**: what's at a point: the cast (floor, space, hazard, surface, piece), the
+- **`tools/probe.ts`**: what's at a point: the cast (floor, space, hazard, surface, piece), any
+  override active there, the
   pieces above and below, the nearest street. The first thing to check when something feels
   wrong at a spot.
 - **`tools/map.ts`**: a top-down image of a whole map (the ground's heights and surfaces,
@@ -544,7 +590,8 @@ stream across a route): then the new floor is recorded, with why.
 2. **Feature modules**: the volcano, coast, beaches, moguls, canyons and the avalanche as
    modules over pieces, each placed in world space or along a named street, not by the main road
    (moguls and canyons are by the main road today, so they move), and the rest of decks' ground
-   shaping. The first new ones: **lava streams** (see "A feature, end to end"; the static stream
+   shaping, and **overrides** (the hooks, the layout field, `validate`'s list; today's one-offs
+   looked at). The first new ones: **lava streams** (see "A feature, end to end"; the static stream
    from the volcano toward the reef is the first), then the eruption and a lava flow onto a road.
 3. **Enclosed spaces done properly**: the camera under the ceiling (with hints where it's
    tricky), indoor light and fog, reverb, and breakable walls (smashables grown into wall
@@ -571,13 +618,14 @@ The owner's, 2026-10-03:
   mode.
 - **Breakables choose**: stay broken for the race, or stand again after a time.
 - **Room for pushable things** (kicks, host entities, later Resonance relays), not built now.
+- **The coast's sand drives as sand** (step 1d); Paradise Open's floor may move, and is
+  re-recorded if it does. A Sandbar-style beach road (packed `beach` through soft `sand`) goes
+  in PARADISE.md's next steps.
+- **An escape hatch:** overrides, for the rare spot nothing else fits.
 
 ## Open questions
 
-- **The coast's sand (step 1d).** Today the sand painted along the coast drives as grass (the
-  faster off-road surface), except the beach from town to the bridge. With one surface function
-  it drives as sand, so cutting along the shore costs a little time and Paradise Open's floor may
-  move. Or paint less sand, so the coast looks like what it drives as. Owner's call.
+None right now.
 
 ## See also
 
