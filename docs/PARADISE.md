@@ -54,8 +54,9 @@ clockwise: up the west side, across the top, down the east, and back west along 
 2. **The junction north of town** (the blob on the sketch): two ways on to the bridge.
    - **The coast road:** the main road swings east into a deep S, a pocket inland and back, then
      climbs to the bridge's west end.
-   - **The beach road** (the long dashes up the far west): a dirt and sand track along the shore,
-     shorter but loose. It meets the coast road at the bridge's west end.
+   - **The beach** (the long dashes up the far west): open sand along the shore, no road at all
+     (the owner), shorter but loose, with the water's edge to skirt. It meets the coast road at
+     the bridge's west end.
 3. **The Elevated Bridge** (across the top): the big arc over the bay from the north-west round to
    the north-east. It's made more of a half moon (the owner): one long, even, banked curve you can
    drift end to end.
@@ -84,7 +85,7 @@ clockwise: up the west side, across the top, down the east, and back west along 
 
 | Where | The road | The cut (rough, slower ground) | The risky line |
 | --- | --- | --- | --- |
-| Town to the bridge | The coast road's S | The beach road (sand, dirt) | Off the beach road's dunes |
+| Town to the bridge | The coast road's S | The beach (open sand, no road) | Off the dunes |
 | Over the bay | The half-moon bridge | (none) | The Reef Run: rocks, water to jump |
 | The mud | The road winding down | A microcut across a bend | Straight down the mud field |
 | Past the volcano | The east way, the burnt fields | The rim way, over the shoulders | The crater jump over the lava |
@@ -213,6 +214,9 @@ tropical. Some ideas to pick from:
 Each one is a PR on its own experimental layout, `paradise/open`, beside today's `paradise/island`
 and out of the lobby (`experimental`, like Avalanche) until the owner picks.
 
+0. **A road over the ground** (maybe first: it unblocks every map's move to open, the owner):
+   a deck the car follows when it's on it, with the ground under it otherwise. Try it on the
+   half-moon bridge, and it's the Valley's Trestle's answer too.
 1. **The island as ground.** Today's island (its coastline and volcano, `layout.terrain`) becomes
    drivable ground under today's lap, with the sea as the edge. Drive it.
 2. **The routes from the sketch:** a generator (`tools/gen-paradise-open.ts`) with the main road
@@ -223,14 +227,40 @@ and out of the lobby (`experimental`, like Avalanche) until the owner picks.
    cuts are a choice.
 5. **The volcano:** the rim way, the slope gravity on its flanks, the crater jump and the lava
    lake.
-6. **Lava that changes:** flows on a schedule, the Lava Channel, the burnt fields.
+6. **The lava spurt:** one dynamic event a race (seeded, with a warning), the Lava Channel, the
+   burnt fields.
 7. **The risky lines:** the Reef Run's rocks and water patches, and the dunes.
 8. **Hawaii and zany:** solid palms, the dressing, the smashables, things that move, and no
    lighthouse.
 9. **The AI on the routes,** then measure everything and tune. Then the owner drives it.
 10. **Release:** the owner's call, whether it replaces `paradise/island` or sits beside it.
 
+## The owner's answers (2026-10-02)
+
+- **The sketch:** my reading is right ("very nice!").
+- **The lap:** about today's length (3.8 km, about 72 s). It loops, unlike Avalanche's one run.
+- **Replace, eventually.** The goal is for Paradise Open to replace today's Paradise. For now it's
+  built as an experimental layout on its own branch, out of the lobby.
+- **Traffic:** some is good: in town, and on the bridge.
+- **Shortcuts: start fresh** from the sketch. The old ones (the Sandbar, Smugglers' Trail, the
+  Beach Cut) are inspiration where they fit.
+- **Driving on the beach** has to be part of it, as a shortcut, and it needn't be a road at all:
+  open sand along the water, as the beach road's alternative or in place of it. The long dashes on
+  the sketch can be a line across the sand rather than a built track.
+- **The Lava Tube:** "I'm going to miss the lava tube tunnel", but the volcano jump replaces it.
+- **Lava:** about one dynamic lava spurt a race, not a schedule shutting routes every lap.
+  "Random lava" above becomes one event per race: seeded, closed-form in time, with a warning
+  first, and somewhere that changes the best line for a while.
+- **Wider:** most maps will move to this form, relying on clever level design rather than walls
+  to keep races fair (see HANDOFF). The road over the ground (the bridge here, the Valley's
+  Trestle on Backroads) is the piece to solve first; once that works, the rest follows.
+
 ## Questions for the owner
+
+Answered above. Still open: none yet.
+
+As asked:
+
 
 - **The sketch:** is my reading in "The sketch, read as a route map" right? Especially:
   - the beach road as the long dashes;

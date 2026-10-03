@@ -42,11 +42,19 @@ Hard parts:
 - **Cutting across the island** has to cost time, not skip half a lap.
 - **Retuning:** its lap floor (71.52 s), the AI with more room, and grip in a shower off the road.
 
+**Most maps go open (the owner, 2026-10-02):** "we are going to want to switch most maps to this
+form and rely more on clever level design to prevent unfair races." The piece to solve first is
+**a road over the ground**: a bridge or deck the car follows when it's on it, with the open ground
+under it otherwise (Paradise's bridge, the Valley's Trestle on Backroads). "Once we figure out a
+solution to that I think things will be good."
+
 **The plan is [PARADISE.md](./PARADISE.md)** (2026-10-02, from the owner's sketch): a web of
 routes between the old places, each stretch a road, a slower cut and sometimes a risky line (a
 jump over the crater's lava, the Reef Run inside the bridge, a lava channel), a half-moon bridge
 to drift, the mud like a messy mogul field, lava that changes lap to lap, more Hawaii, a little
-zany, and no lighthouse. Its "Questions for the owner" come first.
+zany, and no lighthouse. The owner's answers are in it: about today's length, experimental first
+then replacing today's Paradise, some traffic, fresh shortcuts, the beach as open sand, one lava
+spurt a race, and the crater jump in place of the Lava Tube.
 
 Rough size: about two sessions. The first makes the island's land drivable with the sea as its
 edge, then drive it. The second sorts the tunnel, the solid palms, the volcano's gravity and lava.
