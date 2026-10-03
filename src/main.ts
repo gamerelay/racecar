@@ -41,6 +41,8 @@ import { roster } from './lobby/lobby';
 import { loadPlate } from './lobby/plate';
 import { ALL_MAPS, CLASSES, LAYOUTS, MAPS, PAINTS, SURFACES } from './content';
 import { paletteFor, resolveLayout } from './core/content';
+import { carRow, place, type Spot } from './dev/drive';
+import { describeProbe, probe } from './dev/probe';
 
 const params = new URLSearchParams(location.search);
 /** Where the local lobby is kept: localStorage, or nothing when it's blocked. */
@@ -594,6 +596,32 @@ if (import.meta.env.DEV) {
       return { tick: sim.tick, speedKmh: Math.round(Math.hypot(sim.cars.vx[i], sim.cars.vz[i]) * 3.6), s: Math.round(sim.cars.s[i]), lateral: +sim.cars.lateral[i].toFixed(2), wreck: sim.cars.wreck[i], drift: sim.cars.drift[i], stage: sim.cars.driftStage[i], draws: renderer.drawCalls };
     },
     toggleEditor,
+    /**
+     * Caldera's dev helpers (docs/CALDERA.md, src/dev/), the same ones the tools use. `step` moves
+     * one tick at a time and renders each, so the camera's smoothing sees what a player's would
+     * (`advance` renders 30 frames per call). Everything works in a background tab.
+     *   __rc.dev.place({ road: 'lava-tube', s: 200 }, 170); __rc.dev.step(60, { throttle: 1 }); __rc.dev.shot()
+     */
+    dev: {
+      place: (spot: Spot, kmh = 0) => (place(sim, me, spot, kmh), renderer.snapCamera(), carRow(sim, me)),
+      probe: (x: number, z: number, y?: number) => describeProbe(probe(sim.track, x, z, y)),
+      state: () => carRow(sim, me),
+      step(ticks = 1, c: Partial<Controls> = {}) {
+        Object.assign(controls, neutralControls(), c);
+        for (let k = 0; k < ticks; k++) {
+          stepOnce();
+          for (let i = 0; i < sim.cars.count; i++) {
+            steer[i] = i === human ? controls.steer : sim.controls[i].steer;
+            braking[i] = i === human ? controls.brake > 0 : sim.controls[i].brake > 0;
+          }
+          renderer.frame(1, 1 / TICK_RATE, steer, braking);
+        }
+        hud.update();
+        return carRow(sim, me);
+      },
+      /** The picture as it is now, as a PNG data URL. */
+      shot: () => (renderer.frame(1, 0, steer, braking), renderer.renderer.domElement.toDataURL('image/png')),
+    },
     /** The online race's net layer, once connected. */
     get net() {
       return live?.layers?.cars ?? null;

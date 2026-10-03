@@ -9,8 +9,13 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: oven-sh/setup-bun@v2
+        with:
+          # The version the golden fingerprints were checked with (test/golden.test.ts).
+          bun-version: 1.3.13
       - run: bun install --frozen-lockfile
       - run: bunx tsc --noEmit
-      - run: bun test
+      # A 30 s timeout per test (package.json): CI runs ~3x slower than a laptop, and the
+      # open-ground tests (a bake, a field, a 40 s drive) cross bun's 5 s default there.
+      - run: bun run test
       - run: bun tools/validate.ts --ai
       - run: bunx vite build

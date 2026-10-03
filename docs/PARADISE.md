@@ -209,7 +209,7 @@ tropical. Some ideas to pick from:
 - **Retuning:** today's floor is 71.52 s, with traffic on the straights and showers. The new lap
   needs its own target, and the field's wrecks have to stay where they are (1.5 a race).
 
-## Built so far (2026-10-03, PR #81, not merged)
+## Built so far (2026-10-03, PR #81, merged)
 
 One PR, **#81** `paradise-open-tube` off `main`. It was built as three stacked PRs (#79 ← #80 ←
 #81, with the plan in #78); #78–#80 are closed and folded into it, and their parts below keep
@@ -387,7 +387,8 @@ In about this order:
      drifting off it costs. Painted a little darker and damper than the loose sand, with faint
      ruts or an edge, so the line reads at speed. Once the coast's sand drives as sand (CALDERA
      step 1d, agreed), the road has to be `beach` or cutting off it would cost nothing.
-6. **Merge:** #81, everything in one (the 2026-10-03 work has had its review).
+6. ~~**Merge:** #81~~: merged 2026-10-03. **The engine comes first** now ([CALDERA.md](./CALDERA.md)):
+   items 1–5 here wait for its first steps (lava streams, for one, become its first feature).
 
 ## Steps
 

@@ -4,12 +4,52 @@ Where racecar stands and what's next, for whoever picks it up (a person or a fre
 The design is [SPEC.md](./SPEC.md): decisions in §17, and what building changed in "Changed while
 building". This file is "where are we"; the spec is "what are we making".
 
-**Last updated:** 2026-10-03 (Paradise Open under way: one PR, #81, not merged; the Lava Tube's jump over the lava, and a detail pass on the island; see "Paradise Open, where it stands" below). Before that, `alpha-1.30`: Avalanche's snow and rumble quieter. The last tag is **`alpha-1.30`** (PR #77: the snow under the wheels and the avalanche's rumble about 4.5 dB down, the owner's ask). Before it, **`alpha-1.29`** (PRs #71–#74): **Avalanche**, the first open map, one 6.1 km run down a mountain (#74), and the Leap's kicker rounded and launchable from its sides (#71, #72), and PLAN's "Open, freeform maps" direction (#73).
+**Last updated:** 2026-10-03 (Paradise Open merged in #81, untagged; the plan for the engine,
+[CALDERA.md](./CALDERA.md), merged in #82; next is the engine's step 0, on `caldera-step-0`; see
+"Next: Caldera" below). Before that, `alpha-1.30`: Avalanche's snow and rumble quieter. The last tag is **`alpha-1.30`** (PR #77: the snow under the wheels and the avalanche's rumble about 4.5 dB down, the owner's ask). Before it, **`alpha-1.29`** (PRs #71–#74): **Avalanche**, the first open map, one 6.1 km run down a mountain (#74), and the Leap's kicker rounded and launchable from its sides (#71, #72), and PLAN's "Open, freeform maps" direction (#73).
 Before it, `alpha-1.28` (PRs #67–#70: a press flash and a click on the menus' buttons; the title's
 music from the start; Logger's Leap smoothed and bermed), `alpha-1.27` (PRs #63–#65), `alpha-1.26`
 (PR #62: two new tracks), `alpha-1.25` (PR #61: boost, Overdrive, the slipstream) and `alpha-1.24`
 (PRs #49–#60).
 It's on the hosted build ("Hosted test build" below).
+
+**Next: Caldera, the engine (2026-10-03).** The owner's call: engine first, before the rest of
+Paradise Open. [CALDERA.md](./CALDERA.md) is the plan, reviewed and agreed: one engine for every
+racecar map (pieces as one surface layer, routes as a graph, overrides as an escape hatch,
+desktop only, refactor freely and keep the feel). Read its "Principles", "The core idea: pieces",
+"Build order" and "How to work on it" before touching the engine.
+
+**Step 0 is built: PR #83 (`caldera-step-0`), reviewed, CI green, waiting on the owner to merge.**
+- **Golden fingerprints:** `bun tools/fingerprint.ts` checks every layout's roads, its open ground
+  (by the answers to its questions, not how it's stored) and fixed drives (40 s from the grid, 15 s
+  down each branch) to the last bit; `--update` records them; `--from-ci` writes CI's from its
+  log. In the tests too (`test/golden.test.ts`). One recording per platform:
+  `test/golden/fingerprints.darwin-arm64.json` (the owner's Mac) and `…linux-x64.json` (CI).
+- **The tools:** `bun tools/drive.ts` (place a car, run it headless, trace it), `bun tools/probe.ts`
+  (what's at a point), `bun tools/shot.ts` (a PNG of a spot; needs `bun run dev`), and
+  `window.__rc.dev` (`place`, `step`, `probe`, `state`, `shot`), all over `src/dev/`. CALDERA's
+  "Developer tools" has the flags.
+- **The allocation test** on Paradise Open and Avalanche. A 30 s per-test timeout (`bun run
+  test`; CI uses it), since CI runs about 3x slower.
+
+**What we learned about the fingerprints (2026-10-03, with Docker):** floats differ in their last
+bits by OS *and* by CPU. Linux arm64 doesn't match macOS arm64; Linux x64 under emulation doesn't
+match CI's Linux x64 (the bake and ground do, the drives don't), though each is steady run to
+run. So the Mac's recording is the one to trust while refactoring, and CI's could go off if
+GitHub's runners change CPUs (re-record with `--from-ci`, and check the diff is only the drives).
+Docker can't stand in for CI's recording.
+
+**Next, in order:**
+1. **Merge #83** when the owner says.
+2. **Recommended first: our own math for the sim** (call it step 0b; the owner's call). `Math.sin`,
+   `cos`, `atan2`, `exp`, `pow`, `tan`, `log`, `hypot` written in `core/math.ts` (fixed
+   polynomials, correctly rounded `sqrt` is fine), used everywhere in `src/core`. Then every
+   platform and browser computes the same bits: one fingerprint file for all, F8 replays exact
+   across Chrome and Bun (SPEC records 1.6 cm off after 30 s today), and no flaky CI. It moves
+   every number a hair, so fingerprints and lap floors are re-recorded once, which is cheapest
+   now, before step 1a leans on them. CALDERA's "Same math in every browser" has the idea.
+3. **Step 1a:** the move onto pieces, with the fingerprints identical (CALDERA's "Build order").
+   Follow its "How to work on it".
 
 **Avalanche** (merged in #74, out of experimental on the owner's word): open ground you drive on
 everywhere, slope gravity on snow, moguls, canyons, kickers, rocks, 18 slalom gates, about 650
@@ -56,8 +96,8 @@ zany, and no lighthouse. The owner's answers are in it: about today's length, ex
 then replacing today's Paradise, some traffic, fresh shortcuts, the beach as open sand, one lava
 spurt a race, and the crater jump in place of the Lava Tube.
 
-**Paradise Open, where it stands (2026-10-03):** one PR, **#81** (`paradise-open-tube`, off
-`main`, not merged). It began as four stacked PRs (#78–#81); #78–#80 are closed and folded into
+**Paradise Open, where it stands (2026-10-03):** **merged** (#81, `faed2bc`, untagged: it's
+in CHANGELOG's "Unreleased"). It began as four stacked PRs (#78–#81); #78–#80 are closed and folded into
 #81. Its parts, in the order they were built:
 - **The plan** (was #78): PARADISE.md and this file.
 - **Step 0** (was #79): a road over the ground (decks), the sea, the Freeway as a
@@ -82,18 +122,17 @@ Every PR had `/code-review` and its findings fixed, the 2026-10-03 work too (fiv
 the code's shape went to TECH_DEBT.md, "Open ground and Paradise Open"). PARADISE.md's "Built so far" and "What we learned" have the detail, the numbers
 and the known rough edges.
 
-To try it: check out `paradise-open-tube` (it has all three), `bun run dev`, and open
+To try it: on `main`, `bun run dev`, and open
 `?mode=free&map=paradise-open/open`. Add `&spawn=2600` to start just before the tube (dev only:
 any distance along the main road). The map is generated: edit `tools/gen-paradise-open.ts` and run
 it. Its tests are `test/deck.test.ts`.
 
-Next (PARADISE.md's "Next" has the list):
+Next (PARADISE.md's "Next" has the list; after the engine's first steps, the owner's call):
 - **Fixed since the owner saw them:** the camera's hiccup at the tube's start, and the big rock box
   over the way in.
 - **The eruption:** the race's one lava event; in the tube, a wreck.
 - **Balance:** the hard AI makes the jump every lap, so the floor is 68.05 s (70.03 s without the
   tube; 68.07 s after review). For a player it's a gamble now; whether the AI should miss sometimes is the owner's call.
-- **Merge:** #81, when the owner says.
 - **The rest of PARADISE.md's steps:** the routes from the sketch (step 2: today's island lap is
   still the only road), the half-moon bridge, real mud, the lava spurt, then Harbor Town and the
   dressing with colliders (step 8).
@@ -423,6 +462,8 @@ the cone's far flanks.
 
 ## Next, in order
 
+0. **Caldera, the engine** (now): [CALDERA.md](./CALDERA.md)'s build order, from step 0 (the
+   safety net and the first tools). See "Next: Caldera" at the top.
 1. **Milestone 3 (online).** How it all works, end to end, and what Xbox Live does for each
    part: [ONLINE.md](./ONLINE.md). Done so far:
    - **Online lobbies** (PR #32, `alpha-1.14`): a lobby is a room (`src/lobby/relay.ts`), the

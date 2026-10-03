@@ -13,7 +13,7 @@ import { validateLayout } from '../src/core/track/validate';
 import { Sim } from '../src/core/sim';
 import { respawn } from '../src/core/car/physics';
 import { TUNING } from '../src/core/car/tuning';
-import { CLASSES, DOWNTOWN, SURFACES, citySim, ringSim } from './helpers';
+import { CLASSES, DOWNTOWN, SURFACES, citySim, layout, ringSim } from './helpers';
 
 describe('rng', () => {
   test('streams are independent and repeatable', () => {
@@ -375,6 +375,20 @@ describe('sim', () => {
     // Allow noise from the runtime itself; 6,000 ticks allocating even one small object each would be far more.
     expect(grown).toBeLessThan(400_000);
   });
+
+  // On open ground (docs/CALDERA.md, step 0): the deck, slope and surface queries run for every
+  // wheel every tick, and that's where new allocation would hide.
+  for (const key of ['paradise-open/open', 'avalanche/slope'])
+    test(`stepping does not allocate after warm-up on ${key} (8 AI, traffic)`, () => {
+      const sim = new Sim(bakeTrack(layout(key), SURFACES), CLASSES, SURFACES, { seed: 3, mayhem: 'normal', traffic: 1 });
+      for (let k = 0; k < 8; k++) sim.addCar({ cls: CLASSES[k % CLASSES.length].id, racer: { difficulty: (k % 3) as 0 | 1 | 2 } });
+      sim.startRace(3, 0.5);
+      for (let t = 0; t < 600; t++) sim.step([]);
+      Bun.gc(true);
+      const before = process.memoryUsage().heapUsed;
+      for (let t = 0; t < 6000; t++) sim.step([]);
+      expect(process.memoryUsage().heapUsed - before).toBeLessThan(400_000);
+    });
 
   test('a tick stays well under budget', () => {
     const sim = citySim();
