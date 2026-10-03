@@ -8,7 +8,9 @@ spec.** Details will change while building; note those changes in [SPEC.md](./SP
 
 **Status (2026-10-03):** reviewed and agreed (PR #82, merged). **Step 0 is built** (PR #83): the
 golden fingerprints, the allocation test on the open maps, `tools/drive.ts`, `tools/probe.ts`,
-`tools/shot.ts` and `window.__rc.dev`, over `src/dev/`. Next is step 1a.
+`tools/shot.ts` and `window.__rc.dev`, over `src/dev/`. Recommended next: our own math for the
+sim (see "Same math in every browser"; the fingerprints showed floats differ by OS and CPU),
+then step 1a. HANDOFF has the detail.
 
 **Reading it:** "Principles" and "The core idea: pieces" are the design; "Build order" and "How
 to work on it" are what to do; the rest is reference (moving things, routes, a worked example,
@@ -403,7 +405,11 @@ draw distance; a greybox skin separate from the gameplay.
   the same last digit in every JavaScript engine. SPEC already records it: an F8 report from
   Chrome replayed in Bun ended 1.6 cm off after 30 s, while the same engine is exact. The world
   tolerates it (it's closed-form, nothing builds up). If replays need to be exact across
-  engines, the fix is our own `sin`/`cos`/`exp` in `core/math.ts` for the sim.
+  engines, the fix is our own `sin`/`cos`/`exp` in `core/math.ts` for the sim. **Step 0 found
+  it goes further** (2026-10-03): the last bits differ by OS and by CPU (Linux arm64 vs macOS
+  arm64; emulated vs CI's Linux x64), so the golden fingerprints need one recording per
+  platform, and CI's could drift if GitHub changes runners. Our own math fixes all of it; it's
+  recommended before step 1a.
 
 ## Limitations
 

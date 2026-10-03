@@ -16,18 +16,40 @@ It's on the hosted build ("Hosted test build" below).
 **Next: Caldera, the engine (2026-10-03).** The owner's call: engine first, before the rest of
 Paradise Open. [CALDERA.md](./CALDERA.md) is the plan, reviewed and agreed: one engine for every
 racecar map (pieces as one surface layer, routes as a graph, overrides as an escape hatch,
-desktop only, refactor freely and keep the feel). **Step 0 is built** (PR #83, `caldera-step-0`):
-- **Golden fingerprints:** `bun tools/fingerprint.ts` (every layout's bake, open ground and a
-  fixed 40 s drive, to the last bit; `--update` records). In the tests too. A clean-up leaves
-  them identical.
+desktop only, refactor freely and keep the feel). Read its "Principles", "The core idea: pieces",
+"Build order" and "How to work on it" before touching the engine.
+
+**Step 0 is built: PR #83 (`caldera-step-0`), reviewed, CI green, waiting on the owner to merge.**
+- **Golden fingerprints:** `bun tools/fingerprint.ts` checks every layout's roads, its open ground
+  (by the answers to its questions, not how it's stored) and fixed drives (40 s from the grid, 15 s
+  down each branch) to the last bit; `--update` records them; `--from-ci` writes CI's from its
+  log. In the tests too (`test/golden.test.ts`). One recording per platform:
+  `test/golden/fingerprints.darwin-arm64.json` (the owner's Mac) and `…linux-x64.json` (CI).
 - **The tools:** `bun tools/drive.ts` (place a car, run it headless, trace it), `bun tools/probe.ts`
-  (what's at a point), `bun tools/shot.ts` (a PNG of a spot, needs the dev server), and
+  (what's at a point), `bun tools/shot.ts` (a PNG of a spot; needs `bun run dev`), and
   `window.__rc.dev` (`place`, `step`, `probe`, `state`, `shot`), all over `src/dev/`. CALDERA's
   "Developer tools" has the flags.
-- **The allocation test** on Paradise Open and Avalanche.
+- **The allocation test** on Paradise Open and Avalanche. A 30 s per-test timeout (`bun run
+  test`; CI uses it), since CI runs about 3x slower.
 
-Next is step 1a: the move onto pieces, with the fingerprints identical. Follow CALDERA's "How to
-work on it".
+**What we learned about the fingerprints (2026-10-03, with Docker):** floats differ in their last
+bits by OS *and* by CPU. Linux arm64 doesn't match macOS arm64; Linux x64 under emulation doesn't
+match CI's Linux x64 (the bake and ground do, the drives don't), though each is steady run to
+run. So the Mac's recording is the one to trust while refactoring, and CI's could go off if
+GitHub's runners change CPUs (re-record with `--from-ci`, and check the diff is only the drives).
+Docker can't stand in for CI's recording.
+
+**Next, in order:**
+1. **Merge #83** when the owner says.
+2. **Recommended first: our own math for the sim** (call it step 0b; the owner's call). `Math.sin`,
+   `cos`, `atan2`, `exp`, `pow`, `tan`, `log`, `hypot` written in `core/math.ts` (fixed
+   polynomials, correctly rounded `sqrt` is fine), used everywhere in `src/core`. Then every
+   platform and browser computes the same bits: one fingerprint file for all, F8 replays exact
+   across Chrome and Bun (SPEC records 1.6 cm off after 30 s today), and no flaky CI. It moves
+   every number a hair, so fingerprints and lap floors are re-recorded once, which is cheapest
+   now, before step 1a leans on them. CALDERA's "Same math in every browser" has the idea.
+3. **Step 1a:** the move onto pieces, with the fingerprints identical (CALDERA's "Build order").
+   Follow its "How to work on it".
 
 **Avalanche** (merged in #74, out of experimental on the owner's word): open ground you drive on
 everywhere, slope gravity on snow, moguls, canyons, kickers, rocks, 18 slalom gates, about 650
