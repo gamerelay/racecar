@@ -213,7 +213,7 @@ export function bakeTrack(layout: TrackLayout, surfaces: SurfaceDef[]): Track {
   if (layout.trestles) props.push(...supports(splines));
 
   // Open ground: shaped round the main road, and every spline's ground query reads it.
-  const ground = layout.ground ? buildGround(layout.ground, main) : undefined;
+  const ground = layout.ground ? buildGround(layout.ground, main, splines.slice(1)) : undefined;
   if (ground) for (const sp of splines) sp.ground = ground;
   // On open ground a prop stands on it (a rock on a swell, or a deck), not on the road's line beneath.
   if (ground) for (const p of props) p.y = ground.top(p.x, p.z);

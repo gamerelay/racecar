@@ -39,6 +39,7 @@ const SAND_WET = new Color('#d9c79a');
 const LAVA_ROCK = new Color('#3a3336');
 const LAVA_ROCK_2 = new Color('#463c3d');
 const FOREST = new Color('#2a6b33');
+const CRAG = new Color('#3f383b');
 const smooth01 = (t: number) => {
   const u = Math.min(1, Math.max(0, t));
   return u * u * (3 - 2 * u);
@@ -85,9 +86,10 @@ export function buildSnow(track: Track, green?: Color): Object3D[] {
           nor[o + 2] = -hz * n;
           const i = near[k];
           // (Under a deck it's the ground, not the road: the road's up on the deck.)
-          const road = Math.abs(lateral[k]) <= main.width[i] / 2 && !g.deckSample[i];
+          const road = (Math.abs(lateral[k]) <= main.width[i] / 2 && !g.deckSample[i]) || g.onBranch[k] === 2;
           // Off it, the stretch's own verge (the volcano's ash, the jungle's undergrowth), else the layout's.
-          c.copy(road ? surfaceColors[main.surface[i]] : main.verge[i] === VERGE_DEFAULT ? vergeColor : surfaceColors[main.verge[i]]);
+          // (A branch's road is its own surface.)
+          c.copy(g.onBranch[k] === 2 ? surfaceColors[g.branchSurface[k]] : road ? surfaceColors[main.surface[i]] : main.verge[i] === VERGE_DEFAULT ? vergeColor : surfaceColors[main.verge[i]]);
           const steep = Math.hypot(hx, hz);
           if (isle && !road) {
             const x = pos[o];
@@ -109,7 +111,8 @@ export function buildSnow(track: Track, green?: Color): Object3D[] {
               if (up > -12) c.lerp(n > 0.5 ? LAVA_ROCK : LAVA_ROCK_2, smooth01((up + 12) / 24));
             }
           }
-          if (steep > ROCK) c.lerp(ROCK_COLOR, Math.min(1, (steep - ROCK) * 2));
+          // (An island's crags are dark volcanic rock, not the mountains' grey.)
+          if (steep > ROCK) c.lerp(isle ? CRAG : ROCK_COLOR, Math.min(1, (steep - ROCK) * 2));
           col[o] = c.r;
           col[o + 1] = c.g;
           col[o + 2] = c.b;
@@ -166,6 +169,8 @@ export function buildSnow(track: Track, green?: Color): Object3D[] {
             const b = zs[j + 1] * w + xs[i];
             const a1 = zs[j] * w + xs[i + 1];
             const b1 = zs[j + 1] * w + xs[i + 1];
+            // Not over a tunnel's mouth: the slope's open there (Ground.hole).
+            if (g.hole[(tz + zs[j]) * nx + tx + xs[i]] || g.hole[(tz + zs[j + 1]) * nx + tx + xs[i]] || g.hole[(tz + zs[j]) * nx + tx + xs[i + 1]] || g.hole[(tz + zs[j + 1]) * nx + tx + xs[i + 1]]) continue;
             index.push(a, b, a1, a1, b, b1);
           }
         }

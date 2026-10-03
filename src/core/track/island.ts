@@ -41,6 +41,17 @@ export function coneHeight(v: Volcano, x: number, z: number): number {
   return v.h * u ** 1.6 + lip - (rr < v.crater ? 26 * smooth(v.crater, v.crater * 0.35, rr) : 0);
 }
 
+/** A crater's shaft (GroundDef.volcano.pit): inside the lip, its walls fall over this many meters to its floor. */
+export const PIT_WALL = 18;
+
+/** The cone at (x, z) with its crater a shaft down to `pit` (over the sea), if it has one. */
+export function shaftHeight(v: Volcano & { pit?: number }, x: number, z: number): number {
+  const cone = coneHeight(v, x, z);
+  const rr = Math.hypot(x - v.x, z - v.z);
+  if (v.pit === undefined || rr >= v.crater) return cone;
+  return v.pit + (cone - v.pit) * smooth(v.crater - PIT_WALL, v.crater, rr);
+}
+
 /** A polyline smoothed into a curve (Catmull-Rom), every few meters. */
 export function curve(poly: [number, number][], step = 6): [number, number][] {
   const out: [number, number][] = [];

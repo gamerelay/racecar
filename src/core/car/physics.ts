@@ -266,11 +266,11 @@ function wheelGround(g: Ground, x: number, z: number, h: number, y: number): num
   const fz = Math.cos(h) * 1.3;
   const rx = -Math.cos(h) * 0.8;
   const rz = Math.sin(h) * 0.8;
-  const d = g.deck(x, z);
-  if (d === d && y >= d - DECK_CATCH) {
+  const d = g.deckUnder(x, z, y);
+  if (d === d) {
     let sum = 0;
     for (const [a, b] of WHEELS) {
-      const v = g.deck(x + fx * a + rx * b, z + fz * a + rz * b, DECK_SLACK);
+      const v = g.deck(x + fx * a + rx * b, z + fz * a + rz * b, DECK_SLACK, d + DECK_CATCH);
       sum += v === v ? v : d;
     }
     return sum / 4;

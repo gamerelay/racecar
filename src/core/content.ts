@@ -277,6 +277,12 @@ export interface GroundDef {
    * deck's edges. On the deck a car drives on it; over its edge, it falls to the ground below.
    */
   decks?: { s: [number, number]; floor: number; ease: number; reach: number }[];
+  /**
+   * A branch's decks (docs/PARADISE.md, the Lava Tube): stretches of a branch whose road isn't the
+   * ground. The ground there stays as it is: over the road it's a tunnel (the road under the
+   * ground), under it a bridge. A car drives on the highest surface at or below it.
+   */
+  branchDecks?: { spline: string; s: [number, number] }[];
   /** The sea's level (m): water is drawn to it, and a car on the ground under it deeper than wading is in deep water (out of bounds). */
   sea?: number;
   /**
@@ -287,9 +293,10 @@ export interface GroundDef {
   /**
    * A volcano (core/track/island.ts's cone): its middle, the crater's radius, the lip's height over
    * the sea, its foot's radius. Off the roads the ground rises over it; in the crater a lava lake
-   * `lava` m over the sea, and down in that is a wreck.
+   * `lava` m over the sea, and down in that is a wreck. With `pit`, the crater is a shaft, its
+   * walls falling nearly sheer to a floor `pit` m over the sea.
    */
-  volcano?: { x: number; z: number; crater: number; h: number; r: number; lava: number };
+  volcano?: { x: number; z: number; crater: number; h: number; r: number; lava: number; pit?: number };
 }
 
 export interface MapDef {

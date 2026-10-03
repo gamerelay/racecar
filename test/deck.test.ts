@@ -3,7 +3,7 @@ import type { TrackLayout } from '../src/core/content';
 import { neutralControls } from '../src/core/controls';
 import { Sim } from '../src/core/sim';
 import { bakeTrack } from '../src/core/track/bake';
-import { DECK_CATCH } from '../src/core/track/ground';
+import { DECK_CATCH, TUBE_H } from '../src/core/track/ground';
 import { validateLayout } from '../src/core/track/validate';
 import { slopeRise } from '../src/render/camera';
 import { TUNING } from '../src/core/car/tuning';
@@ -129,8 +129,9 @@ describe('Paradise Open (docs/PARADISE.md)', () => {
         }
       }
     }
-    // The road falls no more than a meter or so over 26 m anywhere there; the bay is 6 m under it.
-    expect(worst).toBeGreaterThan(-1.5);
+    // The ground ahead falls no more than a couple of meters over 26 m anywhere there (beside the
+    // ramp's foot, looking off toward the bay, it does fall); the bay floor is 6–20 m under the deck.
+    expect(worst).toBeGreaterThan(-2.5);
   });
 
   test('the two turns off the Freeway are banked steeply into themselves, the second the other way', () => {
@@ -297,3 +298,102 @@ describe('Paradise Open: the island (docs/PARADISE.md)', () => {
     expect(run(x, v.z, up, TUNING.offroadSlope)).toBeLessThan(run(x, v.z, up, 0) - 5);
   });
 });
+
+describe('Paradise Open: the Lava Tube (docs/PARADISE.md)', () => {
+  const track = bakeTrack(layout('paradise-open/open'), SURFACES);
+  const g = track.ground!;
+  const tube = track.splines.find((s) => s.id === 'lava-tube')!;
+  const v = track.layout.ground!.volcano!;
+  const decks = g.branchDeck.get(tube.index)!;
+  /** Its samples by what's round them: under the volcano (a tunnel) or over the shaft (the bridge). */
+  const tunnel: number[] = [];
+  const bridge: number[] = [];
+  for (let i = 0; i < tube.n; i++) {
+    if (!decks[i]) continue;
+    const over = g.height(tube.px[i], tube.pz[i]) - tube.py[i];
+    if (over > TUBE_H) tunnel.push(i);
+    else if (over < -2) bridge.push(i);
+  }
+
+  test('it\'s a shortcut through the volcano: tunnels under it, a bridge over the lava in its shaft, shorter than the road round', () => {
+    expect(tube.length).toBeLessThan(wrapGap(tube.mainFrom, tube.mainTo, track.main.length) - 80);
+    expect(tunnel.length).toBeGreaterThan(150);
+    expect(bridge.length).toBeGreaterThan(60);
+    for (const i of bridge) {
+      expect(Math.hypot(tube.px[i] - v.x, tube.pz[i] - v.z)).toBeLessThan(v.crater);
+      expect(tube.py[i]).toBeGreaterThan(g.sea! + v.lava + 2);
+    }
+  });
+
+  test('in a tunnel a car drives on its road; on the slope over it, a car stays on the slope', () => {
+    const i = tunnel[Math.floor(tunnel.length / 2)];
+    const x = tube.px[i];
+    const z = tube.pz[i];
+    expect(g.top(x, z, tube.py[i])).toBeCloseTo(tube.py[i], 0);
+    expect(g.top(x, z, g.height(x, z))).toBeCloseTo(g.height(x, z), 3);
+    const sim = new Sim(track, CLASSES, SURFACES, { seed: 1, traffic: 0, mayhem: 'off' });
+    const c = sim.addCar({ cls: 'coupe', human: true });
+    sim.placeCar(c, tube.index, (tunnel[0] + 10) * tube.step, 0, 25);
+    let off = 0;
+    for (let t = 0; t < 90; t++) {
+      sim.step([{ ...neutralControls(), throttle: 0.6 }]);
+      off = Math.max(off, Math.abs(sim.cars.y[c] - g.top(sim.cars.x[c], sim.cars.z[c], sim.cars.y[c])));
+    }
+    expect(sim.cars.wreck[c]).toBe(0);
+    expect(off).toBeLessThan(0.5);
+  });
+
+  test('off the bridge is down into the lava: a wreck, and back on the bridge', () => {
+    const sim = new Sim(track, CLASSES, SURFACES, { seed: 1, traffic: 0, mayhem: 'off' });
+    const c = sim.addCar({ cls: 'coupe', human: true });
+    const i = bridge[Math.floor(bridge.length / 2)];
+    sim.placeCar(c, tube.index, i * tube.step, 3, 18);
+    let burnt = false;
+    for (let t = 0; t < 60 * 5 && !burnt; t++) {
+      sim.step([{ ...neutralControls(), throttle: 0.5, steer: 1 }]);
+      burnt = sim.cars.wreck[c] === 1 && sim.cars.wreckCause[c] === Cause.Hazard;
+    }
+    expect(burnt).toBe(true);
+    for (let t = 0; t < 60 * 4 && sim.cars.wreck[c]; t++) sim.step([neutralControls()]);
+    expect(sim.cars.wreck[c]).toBe(0);
+    expect(sim.cars.spline[c]).toBe(tube.index);
+    expect(sim.cars.y[c]).toBeGreaterThan(g.sea! + v.lava + 2);
+  });
+
+  test('a hard rival takes it, and gets round clean', () => {
+    const sim = new Sim(track, CLASSES, SURFACES, { seed: 7, slowmo: 'wreck', traffic: 0, mayhem: 'off' });
+    const c = sim.addCar({ cls: 'coupe', racer: { difficulty: 2 } });
+    sim.startRace(2, 0.1);
+    let inTube = 0;
+    let wrecks = 0;
+    for (let t = 0; t < 60 * 200 && !sim.cars.finished[c]; t++) {
+      sim.step([]);
+      if (sim.cars.spline[c] === tube.index && sim.cars.s[c] > 100 && sim.cars.s[c] < 400) inTube++;
+      if (sim.cars.wreck[c] && sim.cars.wreckT[c] === 0) wrecks++;
+    }
+    expect(sim.cars.finished[c]).toBe(1);
+    expect(inTube).toBeGreaterThan(200);
+    expect(sim.cars.wrecks[c]).toBe(0);
+  });
+
+  test('its mouths open the slope only off the main road, and no tree grows on it', () => {
+    const m = track.main;
+    for (let k = 0; k < g.nx * g.nz; k++) if (g.hole[k]) expect(Math.abs(g.lateral[k])).toBeGreaterThan(m.width[g.near[k]] / 2 + m.shoulder[g.near[k]]);
+    const p = track.pines!;
+    for (let k = 0; k < p.n; k++) {
+      let near = Infinity;
+      let ni = 0;
+      for (let i = 0; i < tube.n; i++) {
+        const d = Math.hypot(p.x[k] - tube.px[i], p.z[k] - tube.pz[i]);
+        if (d < near) {
+          near = d;
+          ni = i;
+        }
+      }
+      // (Over a tunnel the volcano's slope is free to grow on; by its road at the ground, nothing.)
+      if (near < tube.width[ni] / 2 + tube.shoulder[ni]) expect(p.y[k] - tube.py[ni]).toBeGreaterThan(TUBE_H);
+    }
+  });
+});
+
+const wrapGap = (from: number, to: number, L: number) => (((to - from) % L) + L) % L;

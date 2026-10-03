@@ -134,7 +134,7 @@ export function projectGlobal(sp: BakedSpline, x: number, z: number, out: TrackH
 function finishProjection(sp: BakedSpline, out: TrackHit, x: number, z: number): void {
   // right = (-tz, tx)
   out.lateral = (x - out.cx) * -out.tz + (z - out.cz) * out.tx;
-  out.ground = sp.ground ? sp.ground.top(x, z) : out.cy - out.lateral * Math.tan(out.bank) - flankDrop(out);
+  out.ground = sp.ground ? sp.ground.top(x, z, out.cy + 0.5) : out.cy - out.lateral * Math.tan(out.bank) - flankDrop(out);
 }
 
 /** How far a ramp's height has run out at the hit's lateral: past the road's edge and shoulder, over its flank. */

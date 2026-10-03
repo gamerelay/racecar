@@ -214,9 +214,9 @@ export function palmGeometry(): { trunk: BufferGeometry; fronds: BufferGeometry 
  * churning slowly), a glow round it, and a plume of smoke rising. Shared with open ground's island
  * (openIsland.ts).
  */
-export function crater(volcano: { x: number; z: number; crater: number }, y: number, time: { value: number }, rng: Rng): Object3D[] {
+export function crater(volcano: { x: number; z: number; crater: number }, y: number, time: { value: number }, rng: Rng, radius = volcano.crater * 0.62, plumeY = y + 4.8): Object3D[] {
   const objects: Object3D[] = [];
-  const pool = new Mesh(new CircleGeometry(volcano.crater * 0.62, 32).rotateX(-Math.PI / 2), new ShaderMaterial({
+  const pool = new Mesh(new CircleGeometry(radius, 48).rotateX(-Math.PI / 2), new ShaderMaterial({
     uniforms: { uTime: time },
     vertexShader: `varying vec2 vP;void main(){vP=position.xz;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);}`,
     fragmentShader: `uniform float uTime;varying vec2 vP;
@@ -239,7 +239,7 @@ export function crater(volcano: { x: number; z: number; crater: number }, y: num
   objects.push(glowPoints(glow, 0xff6a1a, 22));
   const plume = { pos: [] as number[], phase: [] as number[], col: [] as number[] };
   for (let k = 0; k < 90; k++) {
-    plume.pos.push(volcano.x + rng.range(-12, 12), y + 4.8, volcano.z + rng.range(-12, 12));
+    plume.pos.push(volcano.x + rng.range(-12, 12), plumeY, volcano.z + rng.range(-12, 12));
     plume.phase.push(k / 90 + rng.next() * 0.01);
     const g = rng.range(0.3, 0.46);
     plume.col.push(g, g * 0.97, g * 0.95);

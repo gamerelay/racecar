@@ -17,6 +17,15 @@ and where things stand is [docs/HANDOFF.md](./docs/HANDOFF.md).
   a respawn), the Freeway over a real bay, and the volcano in the middle: a 95 m cone with its
   crater, the lava lake in it (down in it is a wreck) and the plume. About 2,400 trees, palms along
   the coast and jungle inland, every one solid (what you see is what you hit).
+- **The Lava Tube is back, through the volcano** (the owner): off the rim road where it turns
+  round the cone, a tunnel in through its flank, out over the lava in its crater (now a shaft, the
+  lava lake at its foot) on a jagged rock bridge with no rails, and a tunnel out the other side.
+  About 90 m shorter than the road round, and about 2 s a lap for a hard rival who takes it.
+- **Branches on open ground:** a shortcut shapes the ground (its own height, cut into a slope),
+  and its decks are tunnels or bridges: a car is on the highest surface at or below it. The rim
+  road's descent off the volcano is smoothed (out of the tube flat out, its crest threw cars).
+- **The AI brakes for what's past a shortcut's end:** its line rejoins the main road at what the
+  main road allows there.
 - **Off the road on open ground, slopes pull you** (`TUNING.offroadSlope`): the volcano's ash holds
   you back climbing and runs you down it. Roads keep the arcade's free climbs, snow is unchanged.
 - **Rails on open ground are two-sided:** a car outside one (on the sand by a bridge's ramp) is

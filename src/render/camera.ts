@@ -57,18 +57,21 @@ const DECK_LOOK = 40;
  * (the camera dipped at the bay floor the moment a car got on the ramp); under one, the ground does.
  */
 export function slopeRise(g: Ground, x: number, y: number, z: number, fx: number, fz: number, ahead: number): number {
-  const d = g.deck(x, z);
-  const under = d === d && y < d - DECK_CATCH;
-  const on = d === d && !under;
+  const on = g.deckUnder(x, z, y);
+  const over = g.deck(x, z);
+  const under = !(on === on) && over === over && over > y + DECK_CATCH && g.height(x, z) <= y + DECK_CATCH;
   const at = (k: number) => {
     const px = x + fx * k;
     const pz = z + fz * k;
     if (under) return g.height(px, pz);
-    if (on) {
-      const v = g.deck(px, pz, DECK_LOOK);
+    // What's ahead is what's at or below a little over the car, more the further ahead (a ramp
+    // climbs), so a deck up ahead counts but the slope over a tunnel doesn't.
+    const reach = (on === on ? on : y) + 2 + 0.15 * k;
+    if (on === on) {
+      const v = g.deck(px, pz, DECK_LOOK, reach);
       if (v === v) return v;
     }
-    return g.top(px, pz);
+    return g.top(px, pz, reach);
   };
   return (at(ahead) + at(ahead * 2)) / 2 - g.top(x, z, y);
 }

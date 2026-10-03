@@ -62,6 +62,8 @@ export function buildPines(def: PinesDef, layout: TrackLayout, main: BakedSpline
       const gx = Math.round((x - ground.x0) / ground.cell);
       const gz = Math.round((z - ground.z0) / ground.cell);
       const k = gz * ground.nx + gx;
+      // Not on a branch or its verge, nor in a tunnel's mouth.
+      if (ground.onBranch[k] || ground.hole[k]) continue;
       const lat = ground.lateral[k];
       const i = ground.near[k];
       const s = i * main.step;

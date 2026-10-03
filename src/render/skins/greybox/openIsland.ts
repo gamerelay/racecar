@@ -6,6 +6,7 @@
 
 import { Color, CylinderGeometry, IcosahedronGeometry, type Object3D } from 'three';
 import { Rng } from '../../../core/rng';
+import { coneHeight } from '../../../core/track/island';
 import type { Track } from '../../../core/track/bake';
 import { TREE_JUNGLE, TREE_PALM } from '../../../core/track/pines';
 import { instanced, type Part } from './forest';
@@ -31,7 +32,9 @@ export function buildOpenIsland(track: Track, palette: Palette, seed: number): O
   const objects: Object3D[] = [];
   const seaY = g.sea ?? 0;
   if (g.sea !== undefined) objects.push(sea(seaY, g.x0, g.z0, g.nx, g.nz, g.h, time, palette.seaLight ?? 0xffffff, g.cell));
-  if (def.volcano) objects.push(...crater(def.volcano, seaY + def.volcano.lava, time, rng));
+  // (A shaft's lake fills it to its walls, and its plume rises from the lip, not down in it.)
+  const v = def.volcano;
+  if (v) objects.push(...crater(v, seaY + v.lava, time, rng, v.pit !== undefined ? v.crater : undefined, v.pit !== undefined ? seaY + coneHeight(v, v.x + v.crater, v.z) : undefined));
 
   const p = track.pines;
   if (p && p.n) {

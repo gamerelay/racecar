@@ -34,6 +34,7 @@ import { buildIsland } from './island';
 import { buildLandmarks, landmarkCircles, landmarkKeeps } from './landmarks';
 import { buildSnow } from './snow';
 import { buildOpenIsland } from './openIsland';
+import { buildTubes } from './tube';
 import { buildTerrain } from './terrain';
 import { boxes, type Box } from './scenery';
 import { disposeTree } from './dispose';
@@ -61,7 +62,7 @@ const RAIL_TOP = 1.25;
 /** The island's concrete barrier, above the curb. */
 const ISLAND_BARRIER = 0.85;
 
-class Geo {
+export class Geo {
   pos: number[] = [];
   col: number[] = [];
   idx: number[] = [];
@@ -227,7 +228,7 @@ export function buildTrackVisual(track: Track, palette: Palette, seed: number): 
   };
   // An island on open ground (docs/PARADISE.md): its sea, its crater, its trees.
   const isle = track.ground && (track.ground.sea !== undefined || track.pines) ? buildOpenIsland(track, palette, seed) : null;
-  const extras: Object3D[] = track.ground ? [...buildSnow(track, track.layout.ground?.coast ? new Color(palette.ground) : undefined), ...decks, ...(isle?.objects ?? [])] : city ? [] : land ? [...land.objects] : [plainGround()];
+  const extras: Object3D[] = track.ground ? [...buildSnow(track, track.layout.ground?.coast ? new Color(palette.ground) : undefined), ...decks, ...buildTubes(track), ...(isle?.objects ?? [])] : city ? [] : land ? [...land.objects] : [plainGround()];
   const wet = puddles(track);
   if (wet) extras.push(wet);
   // Solid props on the road (the pillars): tall striped boxes. The Trestle's legs are the forest's.
