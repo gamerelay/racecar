@@ -397,3 +397,58 @@ describe('Paradise Open: the Lava Tube (docs/PARADISE.md)', () => {
 });
 
 const wrapGap = (from: number, to: number, L: number) => (((to - from) % L) + L) % L;
+
+describe('Paradise Open: the Lava Tube, after review', () => {
+  const track = bakeTrack(layout('paradise-open/open'), SURFACES);
+  const g = track.ground!;
+  const tube = track.splines.find((s) => s.id === 'lava-tube')!;
+  const decks = g.branchDeck.get(tube.index)!;
+
+  test('a car drives into the tunnel on its road, not up the rock rising off it at the mouth', () => {
+    const sim = new Sim(track, CLASSES, SURFACES, { seed: 1, traffic: 0, mayhem: 'off' });
+    const c = sim.addCar({ cls: 'coupe', human: true });
+    sim.placeCar(c, tube.index, 30, 0, 40);
+    let worst = 0;
+    for (let t = 0; t < 60 * 3; t++) {
+      sim.step([{ ...neutralControls(), throttle: 1 }]);
+      if (sim.cars.spline[c] !== tube.index) continue;
+      const i = Math.round(sim.cars.s[c] / tube.step);
+      if (sim.cars.grounded[c]) worst = Math.max(worst, sim.cars.y[c] - tube.py[i]);
+    }
+    expect(worst).toBeLessThan(0.6);
+  });
+
+  test('on the slope over a tunnel, heading up it, the camera sees the slope rise', () => {
+    let worst = Infinity;
+    for (let i = 0; i < tube.n; i += 10) {
+      const v = track.layout.ground!.volcano!;
+      // (Well out from the crater: near it, 26 m ahead is down its shaft.)
+      if (!decks[i] || g.height(tube.px[i], tube.pz[i]) < tube.py[i] + TUBE_H + 4 || Math.hypot(tube.px[i] - v.x, tube.pz[i] - v.z) < v.crater + 45) continue;
+      // Off to the side of the tunnel, up the slope (toward the crater).
+      const x = tube.px[i] - tube.tz[i] * 4;
+      const z = tube.pz[i] + tube.tx[i] * 4;
+      const h = Math.atan2(v.x - x, v.z - z);
+      worst = Math.min(worst, slopeRise(g, x, g.height(x, z), z, Math.sin(h), Math.cos(h), 13));
+    }
+    expect(worst).toBeGreaterThan(-1);
+  });
+
+  test('a tunnel mouth never opens the cutting\'s floor beside the road', () => {
+    for (let k = 0; k < g.nx * g.nz; k++) {
+      if (!g.hole[k]) continue;
+      const x = g.x0 + (k % g.nx) * g.cell;
+      const z = g.z0 + Math.floor(k / g.nx) * g.cell;
+      let near = Infinity;
+      let ni = 0;
+      for (let i = 0; i < tube.n; i++) {
+        const d = Math.hypot(x - tube.px[i], z - tube.pz[i]);
+        if (d < near) {
+          near = d;
+          ni = i;
+        }
+      }
+      // (Against the nearest sample's road: the mouth's own sample is within a step of it.)
+      expect(g.h[k]).toBeGreaterThan(tube.py[ni] + 0.7);
+    }
+  });
+});

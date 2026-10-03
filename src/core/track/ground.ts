@@ -461,20 +461,7 @@ export function buildGround(def: GroundDef, main: BakedSpline, branches: BakedSp
       const decks = branchDeck.get(sp.index);
       for (let i = 0; i < sp.n; i++) {
         const edge = sp.width[i] / 2 + sp.shoulder[i];
-        if (decks?.[i]) {
-          // A tunnel's mouth: where the slope comes down into the space over its road, it's open.
-          const road = sp.py[i];
-          each(sp, i, edge, (g, x, z) => {
-            // Only across this sample's own strip of road (not spilling back onto a cutting behind
-            // the first), and never in the main road: a mouth stays clear of it.
-            if (Math.abs((x - sp.px[i]) * sp.tx[i] + (z - sp.pz[i]) * sp.tz[i]) > sp.step * 0.75) return;
-            if (Math.abs(lateral[g]) < main.width[near[g]] / 2 + main.shoulder[near[g]] + 2) return;
-            // Over the road and under its ceiling: not a cutting's floor at the road's height, nor
-            // the slope over the mouth (its arch frames the edge).
-            if (h[g] > road + 0.8 && h[g] < road + TUBE_H) hole[g] = 1;
-          });
-          continue;
-        }
+        if (decks?.[i]) continue;
         each(sp, i, edge + ROUGH_IN, (g, x, z, d) => {
           if (d >= bestD[g]) return;
           bestD[g] = d;
@@ -492,6 +479,25 @@ export function buildGround(def: GroundDef, main: BakedSpline, branches: BakedSp
       if (Math.abs(lateral[g]) < main.width[i] / 2 + main.shoulder[i]) continue;
       h[g] += (bestY[g] - h[g]) * (1 - smooth(bestEdge[g], bestEdge[g] + ROUGH_IN, d));
       onBranch[g] = d <= bestHalf[g] ? 2 : d <= bestEdge[g] + 3 ? 1 : 0;
+    }
+    // A tunnel's mouth: where the slope comes down into the space over its road, it's open (after
+    // the cuttings are shaped: one's floor at the road's height stays).
+    for (const sp of branches) {
+      const decks = branchDeck.get(sp.index);
+      if (!decks) continue;
+      for (let i = 0; i < sp.n; i++) {
+        if (!decks[i]) continue;
+        const road = sp.py[i];
+        each(sp, i, sp.width[i] / 2 + sp.shoulder[i], (g, x, z) => {
+          // Only across this sample's own strip of road (not spilling back onto a cutting behind
+          // the first), and never in the main road: a mouth stays clear of it.
+          if (Math.abs((x - sp.px[i]) * sp.tx[i] + (z - sp.pz[i]) * sp.tz[i]) > sp.step * 0.75) return;
+          if (Math.abs(lateral[g]) < main.width[near[g]] / 2 + main.shoulder[near[g]] + 2) return;
+          // Over the road and under its ceiling: not a cutting's floor at the road's height, nor
+          // the slope over the mouth (its arch frames the edge).
+          if (h[g] > road + 0.8 && h[g] < road + TUBE_H) hole[g] = 1;
+        });
+      }
     }
   }
   // The branches' deck samples, bucketed.
@@ -598,7 +604,12 @@ export function buildGround(def: GroundDef, main: BakedSpline, branches: BakedSp
       const d = this.deck(x, z, 0, y);
       if (!(d === d)) return NaN;
       const gh = this.height(x, z);
-      return gh > y + DECK_CATCH || d >= gh ? d : NaN;
+      // Over the ground (a bridge), the deck; under it by more than a hard landing (a tunnel's roof
+      // over the car), the deck too; and under it by less (a tunnel's mouth, its slope rising off
+      // the road) the deck for a car on it, within a hard landing of it: the slope over the mouth
+      // rises off the road, and riding it carried cars up into the rock.
+      if (d >= gh || gh > y + DECK_CATCH) return d;
+      return y !== Infinity && Math.abs(y - d) <= DECK_CATCH ? d : NaN;
     },
     top(x, z, y = Infinity) {
       const d = this.deckUnder(x, z, y);

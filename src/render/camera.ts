@@ -64,14 +64,17 @@ export function slopeRise(g: Ground, x: number, y: number, z: number, fx: number
     const px = x + fx * k;
     const pz = z + fz * k;
     if (under) return g.height(px, pz);
-    // What's ahead is what's at or below a little over the car, more the further ahead (a ramp
-    // climbs), so a deck up ahead counts but the slope over a tunnel doesn't.
+    // On a deck, its road ahead (at or below a little over the car, more the further ahead: a ramp
+    // climbs), not the slope over a tunnel. On the ground, the ground ahead, or a deck up ahead
+    // above it (a bridge's ramp), never a tunnel's road down under a slope.
     const reach = (on === on ? on : y) + 2 + 0.15 * k;
     if (on === on) {
       const v = g.deck(px, pz, DECK_LOOK, reach);
       if (v === v) return v;
     }
-    return g.top(px, pz, reach);
+    const gh = g.height(px, pz);
+    const d = g.deck(px, pz, 0, reach);
+    return d === d && d >= gh ? d : gh;
   };
   return (at(ahead) + at(ahead * 2)) / 2 - g.top(x, z, y);
 }

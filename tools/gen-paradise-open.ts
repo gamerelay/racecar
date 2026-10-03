@@ -49,9 +49,10 @@ const VOLCANO = { ...island.terrain.volcano, pit: 12, lava: 14 };
 /**
  * The Lava Tube (the owner: climbing the mountain is slow; a tube down into the volcano, over the
  * lava on a jagged rock bridge and out the other side). It leaves the rim road where it runs
- * at the volcano, as the road turns away round it, and rejoins it where it runs straight away.
+ * at the volcano, as the road turns away round it, and rejoins it at the top of the rim, where
+ * the road turns to run straight away (later, the two ran over each other: a hump at its exit).
  */
-const TUBE = { from: 2685, to: 3300, bridge: VOLCANO.lava + 4, width: 12, shoulder: 1.5 };
+const TUBE = { from: 2685, to: 3255, bridge: VOLCANO.lava + 4, width: 12, shoulder: 1.5 };
 /** Its tunnels run where the volcano is at least this far over the road (the ceiling and a roof). */
 const TUBE_COVER = TUBE_H + 1.5;
 
