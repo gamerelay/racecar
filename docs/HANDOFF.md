@@ -4,7 +4,7 @@ Where racecar stands and what's next, for whoever picks it up (a person or a fre
 The design is [SPEC.md](./SPEC.md): decisions in §17, and what building changed in "Changed while
 building". This file is "where are we"; the spec is "what are we making".
 
-**Last updated:** 2026-10-02 (`alpha-1.29`: Avalanche shipped; the owner's next direction: Paradise open). The last tag is **`alpha-1.29`** (PRs #71–#74): **Avalanche**, the first open map, one 6.1 km run down a mountain (#74), and the Leap's kicker rounded and launchable from its sides (#71, #72), and PLAN's "Open, freeform maps" direction (#73).
+**Last updated:** 2026-10-02 (`alpha-1.30`: Avalanche's snow and rumble quieter; the owner's next direction: Paradise open). The last tag is **`alpha-1.30`** (PR #77: the snow under the wheels and the avalanche's rumble about 4.5 dB down, the owner's ask). Before it, **`alpha-1.29`** (PRs #71–#74): **Avalanche**, the first open map, one 6.1 km run down a mountain (#74), and the Leap's kicker rounded and launchable from its sides (#71, #72), and PLAN's "Open, freeform maps" direction (#73).
 Before it, `alpha-1.28` (PRs #67–#70: a press flash and a click on the menus' buttons; the title's
 music from the start; Logger's Leap smoothed and bermed), `alpha-1.27` (PRs #63–#65), `alpha-1.26`
 (PR #62: two new tracks), `alpha-1.25` (PR #61: boost, Overdrive, the slipstream) and `alpha-1.24`
@@ -53,8 +53,8 @@ How to start:
   `main`: branch from `main`.
 
 **What's left on Avalanche** (AVALANCHE.md has the detail):
-- **Listen:** the snow crunch and hiss, the avalanche's rumble and the gate chime haven't been
-  heard by ear.
+- **Listen:** the owner liked the snow and the rumble, a little quieter (done, #77). The gate
+  chime hasn't been heard by ear yet.
 - **Ridge shortcuts:** the AI never takes them; watch whether players' ones need trees or rock.
 - **The AI's corner speeds don't know the bank** (it hasn't mattered on a piste this wide).
 
@@ -372,7 +372,7 @@ the cone's far flanks.
     the track for an hour. The proxy always sends it.
   - **CORS on the Space** (GET and HEAD from any origin) stays: it lets a build read the Space's
     origin directly too, if the CDN is ever down.
-- **What's there now:** `alpha-1.29` (PRs #71–#74, Avalanche), updated 2026-10-02 by the owner
+- **What's there now:** `alpha-1.30` (PR #77, quieter snow; before it `alpha-1.29`, Avalanche), updated 2026-10-02 by the owner
   (the production database is theirs to write), with every track on the CDN. Keep it the one row: update Z442EE in place rather than adding a game.
 
 ## Next, in order
