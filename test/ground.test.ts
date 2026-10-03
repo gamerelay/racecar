@@ -298,11 +298,13 @@ describe("the Slope's slalom gates", () => {
 });
 
 describe("the Slope's pines", () => {
-  test('thousands of solid pines off the piste: none near its edge, in a canyon or its mouth, or in the moguls', () => {
+  test('hundreds of solid pines off the piste: none near its edge, in a canyon or its mouth, or in the moguls', () => {
     const track = slope();
     const p = track.pines!;
     const g = track.layout.ground!;
-    expect(p.n).toBeGreaterThan(2000);
+    // Sparse: the slopes stay open to drive up.
+    expect(p.n).toBeGreaterThan(300);
+    expect(p.n).toBeLessThan(1500);
     // The same forest every time (every screen builds its own).
     expect(Array.from(buildPines(g.pines!, track.layout, track.main, track.ground!).x)).toEqual(Array.from(p.x));
     const main = track.main;

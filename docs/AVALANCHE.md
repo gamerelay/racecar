@@ -485,8 +485,10 @@ Item 5, slalom gates, is built (2026-10-02):
 
 Item 6, pines, is built (2026-10-02):
 
-- **Placement:** about 6,200 pines (`track.pines`, `core/track/pines.ts`), scattered at bake time
-  from `ground.pines` (seed 17, a candidate every 7 m, jittered). None within 8 m of the piste's
+- **Placement:** about 650 pines (`track.pines`, `core/track/pines.ts`), scattered at bake time
+  from `ground.pines` (seed 17, a candidate every 7 m, jittered). There were 6,200 at first, but
+  the owner found that overwhelming, and driving up the slopes is part of the fun, so the density
+  is now 0.06, a tenth. None within 8 m of the piste's
   edge, then thickening over 40 m and up the walls, in glades about 90 m across (value noise).
   None in a canyon or its mouth, in a mogul field, or beside a kicker.
 - **Solid:** a square collider at the foot (the trunk and the low branches, 1.2–1.5 m), found

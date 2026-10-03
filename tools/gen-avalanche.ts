@@ -206,9 +206,10 @@ layout.ground = {
     { s: [rollers[0] + 60, rollers[1] - 60], lateral: [6, 50], height: 1.6, spacing: 10 },
     { s: [across[0] + 80, across[0] + 300], lateral: [-30, 30], height: 1.4, spacing: 11 },
   ],
-  // Pines off the piste (core/track/pines.ts): none within 8 m of its edge, thick 40 m on and up
-  // the walls, in glades about 90 m across.
-  pines: { seed: 17, spacing: 7, clear: 8, thicken: 40, density: 0.6, glade: 90 },
+  // Pines off the piste (core/track/pines.ts), sparse (the owner: a tenth of the first forest, so the
+  // slopes stay open to drive up): none within 8 m of its edge, more 40 m on and up the walls, in
+  // groups about 90 m across.
+  pines: { seed: 17, spacing: 7, clear: 8, thicken: 40, density: 0.06, glade: 90 },
   canyons: [
     { s: stretch('a canyon on the left'), lateral: -48, floor: 12, depth: 6, ease: 40 },
     { s: stretch('a canyon on the right'), lateral: 50, floor: 12, depth: 6, ease: 40 },
