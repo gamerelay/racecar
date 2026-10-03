@@ -6,7 +6,7 @@ building". This file is "where are we"; the spec is "what are we making".
 
 **Last updated:** 2026-10-03 (Paradise Open merged in #81, untagged; the plan for the engine,
 [CALDERA.md](./CALDERA.md), merged in #82; steps 0 and 0b merged in #83 and #84; 1a, 1b and 1c in
-PRs #85, #86 and #87, merged; 1d merged in #88; 2a (feature modules) in #89; next is 2b; see "Next: Caldera" below). Before that, `alpha-1.30`: Avalanche's snow and rumble quieter. The last tag is **`alpha-1.30`** (PR #77: the snow under the wheels and the avalanche's rumble about 4.5 dB down, the owner's ask). Before it, **`alpha-1.29`** (PRs #71–#74): **Avalanche**, the first open map, one 6.1 km run down a mountain (#74), and the Leap's kicker rounded and launchable from its sides (#71, #72), and PLAN's "Open, freeform maps" direction (#73).
+PRs #85, #86 and #87, merged; 1d merged in #88; 2a (feature modules) in #89; 2b in PR #90, awaiting merge; see "Next: Caldera" below). Before that, `alpha-1.30`: Avalanche's snow and rumble quieter. The last tag is **`alpha-1.30`** (PR #77: the snow under the wheels and the avalanche's rumble about 4.5 dB down, the owner's ask). Before it, **`alpha-1.29`** (PRs #71–#74): **Avalanche**, the first open map, one 6.1 km run down a mountain (#74), and the Leap's kicker rounded and launchable from its sides (#71, #72), and PLAN's "Open, freeform maps" direction (#73).
 Before it, `alpha-1.28` (PRs #67–#70: a press flash and a click on the menus' buttons; the title's
 music from the start; Logger's Leap smoothed and bermed), `alpha-1.27` (PRs #63–#65), `alpha-1.26`
 (PR #62: two new tracks), `alpha-1.25` (PR #61: boost, Overdrive, the slipstream) and `alpha-1.24`
@@ -82,10 +82,15 @@ done.
 the coast moved onto it (`volcano.ts`, `coast.ts`), and `ground.hazard(x, y, z)` replaced
 `inLava`. A clean-up: every fingerprint identical.
 
-**Next: step 2b, the by-road features into world space** (CALDERA's step 2 list): moguls, canyons
-and beaches are placed by the main road's s and lateral today (`ground/shape.ts`, `GroundDef`);
-they become features placed in world space (or along a named road). Then 2c, overrides; 2d, the
-lava stream, end to end.
+**Step 2b, the by-road features as modules, is built** (PR #90, branch `caldera-world-features`,
+2026-10-03; awaiting the owner's merge). Mogul fields, canyons and beaches are `GroundDef.features`
+entries (`kind: 'moguls' | 'canyon' | 'beach'`), modules in `core/track/features/` with new hooks
+(`rise`, `sunk`, `bare`, `side`). `ground.sunk(s, lat)` and `ground.bare(s, lat)` replaced
+`canyonAt` (the avalanche's shelter, the trees); the AI reads a canyon's `def`. They stay placed
+along the main road (CALDERA's note): a clean-up, every fingerprint identical.
+
+**Next:** the owner's ask, the jungle's red-earth road a little uneven (its own PR), then step 2c,
+overrides; 2d, the lava stream (world-space placement starts there).
 
 **Working notes (2026-10-03):**
 - One PR per step, a fresh reviewer at the end (it found real bugs every time: in 0b, 1a and 1b),

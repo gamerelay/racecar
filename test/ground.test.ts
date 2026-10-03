@@ -4,7 +4,7 @@ import { neutralControls } from '../src/core/controls';
 import { Sim } from '../src/core/sim';
 import { wreckCar } from '../src/core/car/physics';
 import { bakeTrack } from '../src/core/track/bake';
-import { canyonAt, canyonDepth } from '../src/core/track/ground';
+import { canyonDepth } from '../src/core/track/ground';
 import { buildPines } from '../src/core/track/pines';
 import { validateLayout } from '../src/core/track/validate';
 import { newHit, projectGlobal, sampleAt } from '../src/core/track/query';
@@ -136,8 +136,8 @@ describe("Avalanche's Slope", () => {
     expect(track.ground).toBeDefined();
     expect(l.shoulderSurface).toBe('powder');
     expect(SURFACES[track.main.surface[0]].id).toBe('snow');
-    expect(l.ground!.moguls!.length).toBeGreaterThan(0);
-    expect(l.ground!.canyons!.length).toBeGreaterThan(0);
+    expect(l.ground!.features!.some((f) => f.kind === 'moguls')).toBe(true);
+    expect(l.ground!.features!.some((f) => f.kind === 'canyon')).toBe(true);
   });
 
   test('the hard AI gets down it clean, in one run', async () => {
@@ -168,7 +168,7 @@ describe("Avalanche's Slope", () => {
   });
 
   test('the AI rides a canyon now and then (in early, out up its side before its end), and clean', () => {
-    const def = layout('avalanche/slope').ground!;
+    const ground = slope().ground!;
     let riders = 0;
     for (let seed = 1; seed <= 3; seed++) {
       const sim = new Sim(slope(), CLASSES, SURFACES, { seed, slowmo: 'wreck', traffic: 1 });
@@ -179,7 +179,7 @@ describe("Avalanche's Slope", () => {
       let cursor = sim.events.head;
       while (sim.tick < 60 * 150 && sim.race.finishedCount < 8) {
         sim.step([]);
-        for (let i = 0; i < 8; i++) if (c.spline[i] === 0 && canyonAt(def, c.s[i], c.lateral[i]) > 4) rode[i] = true;
+        for (let i = 0; i < 8; i++) if (c.spline[i] === 0 && ground.sunk(c.s[i], c.lateral[i]) > 4) rode[i] = true;
         cursor = sim.events.read(cursor, (e) => {
           // Into nothing on the mountain (a pine, a rock, a canyon's wall).
           if (e.type === Ev.Wreck) expect(e.b).not.toBe(Cause.Prop);
@@ -398,7 +398,7 @@ describe("the Slope's pines", () => {
       projectGlobal(main, p.x[k], p.z[k], at);
       const edge = at.width / 2 + main.shoulder[Math.round(at.s / main.step)];
       expect(Math.abs(at.lateral) - edge).toBeGreaterThan(g.pines!.clear - 3);
-      expect(canyonAt(g, at.s, at.lateral)).toBeLessThan(0.5);
+      expect(track.ground!.sunk(at.s, at.lateral)).toBeLessThan(0.5);
       expect(Math.abs(p.y[k] - track.ground!.height(p.x[k], p.z[k]))).toBeLessThan(1e-3);
     }
   });
@@ -540,7 +540,7 @@ describe("the Slope's avalanche", () => {
   test("a car down in a canyon is under it, and isn't buried", () => {
     const { sim, i } = race('chaos');
     const track = sim.track;
-    const canyon = track.layout.ground!.canyons![0];
+    const canyon = track.layout.ground!.features!.find((f) => f.kind === 'canyon')!;
     const s = (canyon.s[0] + canyon.s[1]) / 2;
     // Hold the car on the canyon's floor while the avalanche goes over.
     const k = Math.round(s / track.main.step);

@@ -20,7 +20,7 @@ export const KIND_VERGE = 2;
 export const KIND_SAND = 3;
 /** Wet sand at the water's edge (the `shore` surface). */
 export const KIND_SHORE = 4;
-/** A beach's sand (GroundDef.beaches): drives as sand, drawn a little damper in patches. */
+/** A beach's sand (a beach feature): drives as sand, drawn a little damper in patches. */
 export const KIND_BEACH = 5;
 
 /** The noise the sand's edges wander by (the renderer's grass and beach shading use it too). */
@@ -28,10 +28,9 @@ export const surfaceNoise = (x: number, z: number) => noise(x, z, 23, 7);
 
 /**
  * Per grid point of `land`, what the ground is (a KIND_*): the roads; off them, what a feature says
- * (the coast's sand: track/features), in order; else on a beach's side of the main road, sand from
- * the road down, wandering in at its ends, with tufts of the verge by the road; else the verge.
+ * (the coast's sand, a beach's: track/features), the first that does; else the verge.
  */
-export function groundKinds(land: Land, main: BakedSpline, marks: BranchMarks, pieces: Pieces, beach: Float32Array, features: readonly Feature[]): Uint8Array {
+export function groundKinds(land: Land, main: BakedSpline, marks: BranchMarks, pieces: Pieces, features: readonly Feature[]): Uint8Array {
   const { x0, z0, cell, nx, nz, h, lateral, near } = land;
   const decks = pieces.floors(main.index);
   const say = features.filter((f) => f.surface);
@@ -52,12 +51,9 @@ export function groundKinds(land: Land, main: BakedSpline, marks: BranchMarks, p
       const x = x0 + gx * cell;
       const z = z0 + gz * cell;
       const n = surfaceNoise(x, z);
-      const off = Math.abs(lateral[k]) - main.width[i] / 2;
       let said = -1;
-      for (let f = 0; f < say.length && said < 0; f++) said = say[f].surface!(x, z, h[k], n);
-      if (said >= 0) kind[k] = said;
-      else if (beach[i] * lateral[k] > 0 && Math.abs(beach[i]) > 0.2 + 0.6 * n && !(off < 3 + 4 * n && n > 0.6)) kind[k] = KIND_BEACH;
-      else kind[k] = KIND_VERGE;
+      for (let f = 0; f < say.length && said < 0; f++) said = say[f].surface!(x, z, h[k], n, i, lateral[k]);
+      kind[k] = said >= 0 ? said : KIND_VERGE;
     }
   return kind;
 }

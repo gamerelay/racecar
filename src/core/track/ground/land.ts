@@ -52,6 +52,7 @@ export function buildLand(def: GroundDef, main: BakedSpline, pieces: Pieces, fea
   const nz = Math.ceil((maxZ + margin - z0) / cell) + 1;
   const nearest = sampleSearch(main, x0, z0, nx * cell, nz * cell, 24);
   const shapers = features.filter((f) => f.shape);
+  const risers = features.filter((f) => f.rise);
   const at: ShapePoint = { x: 0, z: 0, s: 0, lat: 0, d: 0, half: 0, shoulder: 0, edge: 0, keep: 1 };
   const plane = (i: number, x: number, z: number) => planeOf(main, i, x, z);
   const shaping = pieces.list.filter((p) => p.spline === main.index && p.under);
@@ -117,10 +118,6 @@ export function buildLand(def: GroundDef, main: BakedSpline, pieces: Pieces, fea
       const y = road + (land(x, z) - road) * smooth(edge, edge + ROUGH_IN, d);
       // What the layout adds, by the distance across (not the lateral: that jumps between stretches).
       const s = i * main.step + ahead;
-      const keep = runIn(pieces, s, d, edge);
-      let gy = y + groundShape(def, s, lat < 0 ? -d : d, half, main.shoulder[i], x, z) * keep;
-      // The features, in order (the volcano rising off the roads, the coast falling into the sea):
-      // off the roads, the road's own height on them.
       at.x = x;
       at.z = z;
       at.s = s;
@@ -129,7 +126,10 @@ export function buildLand(def: GroundDef, main: BakedSpline, pieces: Pieces, fea
       at.half = half;
       at.shoulder = main.shoulder[i];
       at.edge = edge;
-      at.keep = keep;
+      at.keep = runIn(pieces, s, d, edge);
+      let gy = y + groundShape(def, at, risers) * at.keep;
+      // The features, in order (the volcano rising off the roads, the coast falling into the sea):
+      // off the roads, the road's own height on them.
       for (const f of shapers) gy = f.shape!(at, gy);
       // Under a piece that says so, the ground falls away to its floor.
       for (const p of shaping) {

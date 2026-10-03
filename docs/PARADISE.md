@@ -282,7 +282,7 @@ over the lava on a jagged rock bridge, out the other side):
 - **Dev:** `?spawn=<m>` starts your car that far along the main road (2600: just before the tube).
 
 **The island, a detail pass (2026-10-03, on #81's branch):**
-- **A beach** (`GroundDef.beaches`): from Harbor Town's west end to the Freeway, the sea side of
+- **A beach** (a `beach` in `GroundDef.features`): from Harbor Town's west end to the Freeway, the sea side of
   the road is sand down to the water, drawn and driven (`sand`), with palms on it.
 - **The roads are laid over the ground,** main and branches, in their own colours, and with no
   markings (the checkered line stays). The ground's colour is per grid point, so the grass used to

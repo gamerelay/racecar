@@ -11,8 +11,25 @@ describe('feature modules', () => {
   const open = bakeTrack(layout('paradise-open/open'), SURFACES).ground!;
 
   test("a layout's features, in the order they shape the ground", () => {
-    expect(open.features.map((f) => f.kind)).toEqual(['volcano', 'coast']);
-    expect(bakeTrack(layout('avalanche/slope'), SURFACES).ground!.features).toEqual([]);
+    expect(open.features.map((f) => f.kind)).toEqual(['volcano', 'coast', 'beach']);
+    expect(bakeTrack(layout('avalanche/slope'), SURFACES).ground!.features.map((f) => f.kind)).toEqual(['moguls', 'moguls', 'canyon', 'canyon']);
+  });
+
+  test('a canyon sinks the ground and keeps the trees off it; a mogul field keeps them off too', () => {
+    const slope = bakeTrack(layout('avalanche/slope'), SURFACES).ground!;
+    const [canyon] = slope.features.filter((f) => f.kind === 'canyon');
+    const c = canyon.def!;
+    if (c.kind !== 'canyon') throw new Error('not a canyon');
+    const mid = (c.s[0] + c.s[1]) / 2;
+    // Its floor is its depth down; far across from it, nothing.
+    expect(slope.sunk(mid, c.lateral)).toBeCloseTo(c.depth, 6);
+    expect(slope.sunk(mid, -c.lateral)).toBe(0);
+    expect(slope.bare(mid, c.lateral)).toBe(true);
+    const [moguls] = slope.features.filter((f) => f.kind === 'moguls');
+    const m = moguls.def!;
+    if (m.kind !== 'moguls') throw new Error('not moguls');
+    expect(slope.bare((m.s[0] + m.s[1]) / 2, (m.lateral[0] + m.lateral[1]) / 2)).toBe(true);
+    expect(slope.bare((m.s[0] + m.s[1]) / 2, m.lateral[1] + 20)).toBe(slope.sunk((m.s[0] + m.s[1]) / 2, m.lateral[1] + 20) > 0.2);
   });
 
   test('the volcano says where its lava is; nothing else does', () => {
@@ -24,7 +41,7 @@ describe('feature modules', () => {
   });
 
   test('the coast says where its sand is: low ground within a wandering 12–24 m of it', () => {
-    const [coast] = groundFeatures(layout('paradise-open/open').ground!).filter((f) => f.kind === 'coast');
+    const [coast] = groundFeatures(layout('paradise-open/open').ground!, bakeTrack(layout('paradise-open/open'), SURFACES).main).filter((f) => f.kind === 'coast');
     const sea = open.sea ?? 0;
     // The ground's coast is the feature's.
     expect(coast.coast!(5000, 5000)).toBe(open.coast(5000, 5000));
@@ -36,10 +53,10 @@ describe('feature modules', () => {
     };
     const near = inland(5);
     const far = inland(40);
-    expect(coast.surface!(near, 0, sea + 0.1, 0.5)).toBe(KIND_SHORE);
-    expect(coast.surface!(near, 0, sea + 2, 0)).toBe(KIND_SAND);
+    expect(coast.surface!(near, 0, sea + 0.1, 0.5, 0, 0)).toBe(KIND_SHORE);
+    expect(coast.surface!(near, 0, sea + 2, 0, 0, 0)).toBe(KIND_SAND);
     // 40 m in is past the wandering edge whatever the noise; and high ground is never sand.
-    expect(coast.surface!(far, 0, sea + 2, 1)).toBe(-1);
-    expect(coast.surface!(near, 0, sea + 8, 0.5)).toBe(-1);
+    expect(coast.surface!(far, 0, sea + 2, 1, 0, 0)).toBe(-1);
+    expect(coast.surface!(near, 0, sea + 8, 0.5, 0, 0)).toBe(-1);
   });
 });

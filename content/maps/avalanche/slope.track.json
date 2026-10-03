@@ -3890,8 +3890,9 @@
    "height": 2.6,
    "size": 22
   },
-  "moguls": [
+  "features": [
    {
+    "kind": "moguls",
     "s": [
      1609,
      2008
@@ -3904,6 +3905,7 @@
     "spacing": 10
    },
    {
+    "kind": "moguls",
     "s": [
      4362,
      4582
@@ -3914,18 +3916,9 @@
     ],
     "height": 1.4,
     "spacing": 11
-   }
-  ],
-  "pines": {
-   "seed": 17,
-   "spacing": 7,
-   "clear": 8,
-   "thicken": 40,
-   "density": 0.06,
-   "glade": 90
-  },
-  "canyons": [
+   },
    {
+    "kind": "canyon",
     "s": [
      2068,
      2401
@@ -3936,6 +3929,7 @@
     "ease": 40
    },
    {
+    "kind": "canyon",
     "s": [
      4781,
      5197
@@ -3945,6 +3939,14 @@
     "depth": 6,
     "ease": 40
    }
-  ]
+  ],
+  "pines": {
+   "seed": 17,
+   "spacing": 7,
+   "clear": 8,
+   "thicken": 40,
+   "density": 0.06,
+   "glade": 90
+  }
  }
 }

@@ -26,7 +26,6 @@ import { Traffic, laneActive } from './world/traffic';
 import { Smashables } from './world/smash';
 import { AVALANCHE_UNDER, Avalanche } from './world/avalanche';
 import { Slalom } from './rules/slalom';
-import { canyonAt } from './track/ground';
 import { planWeather, weatherAt, type WeatherOption, type WeatherPlan, type WeatherState } from './world/weather';
 
 export const TICK_RATE = 60;
@@ -275,7 +274,7 @@ export class Sim implements SimState {
       // Down in a canyon (and not in the air over it), it goes over you.
       const ground = this.track.ground;
       const lat = (cars.x[i] - at.cx) * -at.tz + (cars.z[i] - at.cz) * at.tx;
-      if (ground && canyonAt(this.track.layout.ground!, sMain, lat) > AVALANCHE_UNDER && cars.y[i] < ground.height(cars.x[i], cars.z[i]) + 3) continue;
+      if (ground && ground.sunk(sMain, lat) > AVALANCHE_UNDER && cars.y[i] < ground.height(cars.x[i], cars.z[i]) + 3) continue;
       // Thrown down the slope with it.
       wreckCar(this, i, Cause.Hazard, at.tx * 10, at.tz * 10, -1);
     }
