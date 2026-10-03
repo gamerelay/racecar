@@ -31,13 +31,20 @@ Started 2026-10-03, from the owner's brief:
    a module, not editing `buildGround`, the physics and the camera. A module places itself in
    world space, or along a street it names, **never by the main road**: the main road goes away
    with the road graph, and modules shouldn't go with it.
-4. **Online first.** Every screen runs the same sim at 60 Hz and must agree. Everything the sim
-   reads comes from the layout, the seed, the race clock and the inputs: plain float math in a
-   fixed order, no physics engine, no `Math.random`, no render state leaking in. Moving things
-   (a drawbridge, an avalanche, an eruption, a lava flow) are formulas of the race clock and the
-   seed, so they need no networking at all. Things a car breaks (a window, a fruit stand) are sim
-   state: every screen runs the same crash, so every screen breaks the same thing on the same
-   tick. Cosmetic things (particles, light, sound) are free to differ.
+4. **Online first.** Online play follows SPEC §4's sync categories: your car is yours (its pose
+   sent 30 times a second), the host runs the AI, and **the world is a pure function of the seed
+   and the race clock**, so nothing about it is sent. Every engine feature has to fit one of them:
+   - **The world (D):** pieces, moving pieces (a drawbridge's angle at t), spreading hazards (a
+     lava flow, the avalanche, the eruption): closed-form functions of time, not integrated, so
+     float differences between browsers can't build up. Randomness comes from the seed's streams.
+   - **Triggers (T):** something a car sets off that changes the world for everyone, like
+     breaking a wall open: one screen claims it (`room.claim`) and everyone runs it from a start
+     time a moment ahead, as traffic hits do.
+   - **Local (L):** particles, light, sound, debris, the camera: free to differ.
+
+   Inside the sim, plain float math in a fixed order: no physics engine, no `Math.random`, no
+   render state leaking in. That keeps the world agreeing online, and replays (F8 reports) and
+   tests exact.
 5. **Telemetry built in.** The sim already emits events (wrecks, laps, air, drifts) and the dev
    server logs them. Every new feature should emit its own (entered a piece, jumped a gap, hit by
    the eruption), so playtests and tuning questions can be answered from the data.
@@ -62,7 +69,7 @@ Caldera replaces them with one layer. A **piece** is anything you can drive on:
 
 - a **floor** following a curve (its width, bank and height along it);
 - optional **walls** on either side, which can be **breakable** (a shop window: solid until a
-  car hits it fast enough, then gone, and when it broke is sim state);
+  car hits it fast enough, then gone; online, the break is a claimed trigger, see "Online first");
 - an optional **ceiling**: then it's **enclosed** (a tunnel, a mall, the inside of the volcano);
 - a **surface** tag (tarmac, tile, sand, snow) and a **look** (drawn as road, as rock, or
   invisible);
@@ -80,6 +87,16 @@ Everything asks one question, **cast down from (x, y, z)**, and gets back:
 - the ceiling over it, if it's enclosed;
 - which piece it is (and where along it).
 
+And two more, from the same index: **the walls near a point** (for the physics to bounce off,
+breakable or not), and **a line between two points** (is it clear: the camera's view of the car,
+an AI's line of sight). Remote cars use the cast too, to sit on the right floor between poses.
+
+Where a piece goes into the ground (a tunnel's mouth, a mall's door), it gets a **portal**: the
+ground cut to the piece's own outline (not whole grid squares) and stitched to its rim, with a
+frame of rock or a doorway over the seam. Every tunnel and entrance then meets the land cleanly
+with no per-map fix. (Today's Lava Tube has a stopgap: a shroud of rock over the tube where the
+slope's cut open, so no sky shows through.)
+
 The rule stays the one we have: **a car is on the highest floor at or below it.** The physics
 uses the query for driving and landing; the camera uses it to stay under a ceiling and out of the
 rock; respawns use it to find a floor; the renderer uses "enclosed" to switch to indoor light.
@@ -92,7 +109,7 @@ How the owner's list falls out of it:
 | **Invisible tubes** | An enclosed piece with an invisible look: it holds the car and the camera inside, and the scenery around it is decoration. |
 | **Indoor moments** | Enclosed pieces. Inside, the camera stays under the ceiling, the light and fog switch to indoor, the sound gets reverb. A mall is enclosed pieces plus its scenery, with breakable windows to crash through. |
 | **Drawbridges** | A piece with a motion: its angle at time t is a formula. A car on it rides it; a car arriving while it's up jumps the gap or hits the edge. |
-| **Breakable walls** | A wall that breaks when hit hard enough, like today's smashables (`core/world/smash.ts`: where each stands comes from the layout, when it broke is state saved in snapshots, the shatter is the renderer's from the event). It can stay broken for the race: a shortcut you made. |
+| **Breakable walls** | A wall that breaks when hit hard enough, grown from today's smashables (`core/world/smash.ts`: where each stands comes from the layout, when it broke is state saved in snapshots, the shatter is the renderer's). Smashables break on each screen by themselves (they never block anyone); a wall changes where you can drive, so its break is claimed online. It can stay broken for the race: a shortcut you made. |
 | **Hazards that spread** | A lava flow down the volcano onto a road, the avalanche: a path from the layout, how far along it is a formula of the race clock (and the seed, for which flank and when). A car in it wrecks. A crust that cools into something to drive on is a piece that appears at a set time. |
 | **Cities and chases** | Streets are pieces joined at junctions: a graph (below). |
 
@@ -118,6 +135,75 @@ street it's on from the pieces query, not from the main road. Then:
 This is the biggest change, and the one that unlocks a city. So before building it, a cop chase
 on Downtown as it is (step 5 in "Build order") checks that the mode is worth it.
 
+## Tricks from the industry
+
+Common practice in racing and open-world games, and where each fits here. Some we already do.
+
+**Already doing:** a fixed 60 Hz step with the picture interpolated between steps
+(`renderer.frame(alpha, …)`); a world that's a function of time and seed (SPEC §4); splines as
+the source of roads; instancing for scenery; fog to hide the draw distance; a greybox skin
+separate from the gameplay.
+
+**The world and its surfaces**
+- **Seams get a frame, not perfect geometry.** Games rarely stitch terrain to tunnels exactly:
+  a rock frame, a doorway or a "skirt" (a strip hanging under a mesh's edge, as terrain tiles
+  use between levels of detail) covers the join. The portal is this; the Lava Tube's shroud is
+  the same trick.
+- **A uniform grid (spatial hash) for lookups.** For a world that's mostly flat and a few km
+  across, a grid of buckets beats a tree: simple, fast, and the same on every screen. The deck
+  sample buckets in `ground.ts` are one already; the pieces' index should be the same.
+- **Junctions as their own pieces.** Road tools (Unreal's, Houdini's) build each street from
+  its spline and each junction as a separate patch the streets end at. Streets stay simple
+  strips; the patch handles the corners, the kerbs and the sharing of surfaces.
+- **Kill and respawn volumes, and a "last safe spot" trail.** Racers keep a short ring of recent
+  positions where the car was grounded on a road and pointing the right way, and respawn at the
+  newest one far enough back from the hazard. That replaces per-feature rules like `pastGap`.
+
+**Camera, light and sound**
+- **Camera hints on the world.** Instead of the camera working out where it is, areas carry
+  hints: in this tunnel, sit lower and closer; on this jump, look at the landing. Pieces can
+  carry them (an enclosed piece's own camera distance and height), which removes most camera
+  special cases.
+- **Volumes for light, fog and reverb, blended at their edges.** Entering an enclosed piece
+  fades to its light and its reverb over a second, not at a hard line.
+- **Portal culling indoors.** Deep inside a mall or a tube, the outside isn't drawn (you can
+  only see it through the portals), and outside, the inside isn't: a big saving for indoor
+  stretches.
+- **Lighting baked into vertex colours.** For the toon look, darkening by ambient occlusion and
+  a glow from lava or neon, painted into the vertices at build time, is nearly free and reads as
+  lit. Real-time lights only for headlights and flashes.
+- **Readability over realism.** Chevrons, lights and colour lead the eye to the line, the
+  shortcut, the jump's lip (the kicker's chevrons already do).
+
+**Performance**
+- **Level of detail and impostors.** Far trees as a flat image facing the camera, near ones as
+  models; the far ones are most of Paradise Open's triangles.
+- **Dynamic resolution.** Lower the render resolution a little when a frame runs long, then
+  raise it back: weaker laptops hold 60 fps with no settings.
+
+**AI and modes**
+- **Pursuit AI uses "last known position."** Chase games (Need for Speed's police, for one) have
+  cops head for where they last saw you, search when they lose you, and call in roadblocks or
+  spike strips ahead on your likely route. With a road graph, cutting you off is a path search
+  to a junction ahead of you. "Heat" levels raise the pressure over time.
+- **Catch-up, honestly.** Most arcade racers help the cars at the back (rubber banding). Boost by
+  position already does this; for a chase, cops faster when far behind keeps it tense.
+
+**Testing and tools**
+- **Debug drawing.** A key that draws what the engine thinks: pieces' outlines, the floor under
+  each car, the camera's line of sight, the AI's line and target. On in `tools/shot.ts` too, so
+  an LLM can see it.
+- **Golden replays.** Record a few human runs (the jump, a tunnel, a shortcut) once, replay them
+  in the tests, and compare where they end: catches changes to the feel that AI lap floors miss.
+- **Heatmaps from telemetry.** Wrecks, respawns and air plotted on the map's top-down image
+  (`tools/map.ts`): where players actually struggle.
+- **Same math in every browser.** `Math.sin`, `Math.exp` and the like aren't required to give
+  the same last digit in every JavaScript engine (Chrome's V8, Safari's and Bun's
+  JavaScriptCore, Firefox's SpiderMonkey). The world tolerates that (it's closed-form, nothing
+  builds up), but a replay re-run in Bun of a race played in Chrome could drift over a long
+  window. If `tools/replay.ts` ever reports a mismatch, the fix is our own `sin`/`cos`/`exp` in
+  `core/math.ts` for the sim.
+
 ## Limitations
 
 ### By design
@@ -126,7 +212,7 @@ Kept out on purpose, so the engine stays small and deterministic:
 - **No upside-down driving**: gravity is always down, so no loops, wall rides or half-pipes.
 - **No sculpting the terrain mid-race**: the heightfield is fixed at load, so a crater dug
   wherever a car crashes is out. Anything else that changes during a race is a hazard, a piece
-  or a breakable, driven by the race clock, the seed or a crash in the sim (a lava flow, the
+  or a breakable, driven by the race clock, the seed or a claimed crash (a lava flow, the
   avalanche, a drawbridge, a cooling crust, a smashed window), so every screen agrees.
 - **No streaming**: a map is built at load and fits in memory. Maps of a few km² are fine.
 - **No mobile**: desktop browsers only.
@@ -147,7 +233,8 @@ What the engine struggles with now, and the build step that lifts it (if any):
 | Only small round props break (smashables), placed in rows along a road | `smash.ts` touches a radius and places by the main road | Steps 2 and 3 (breakable walls, placed in world space) |
 | Big air is hard: the road lifts a car at most 8 m/s | The vertical speed cap keeps cars on the road over bumps | Tuning per feature (the jump's kicker was sized by a sweep) |
 | The car is one body with a heading: no wheels leaving the ground one by one, no rolling over, no stacking | Our own simple car model | Not planned |
-| Every screen simulates every car: CPU grows with the car count, and anything that touches physics must stay deterministic | Online lockstep | Not planned (8 cars is the target) |
+| Contact between players' cars is approximate online: another player's car is a pose 30 times a second, and a bump is agreed between the two screens (`net/contact.ts`) | Each player owns their car | Not planned (it's the right trade for 8 players) |
+| Nothing in the world can be pushed by a car: a pushed thing would differ between screens | The world is a function of time (SPEC §4); a pushable thing would have to be a host entity | Not planned (one-offs as host entities) |
 | Deep water is just out of bounds: no wading physics, boats or tides | No water in the sim | Not planned |
 | The AI follows racing lines on the roads: it can't cut across open ground or plan a route | Lines are per spline | Step 7 (pathfinding over the graph) |
 | Features are authored in generator scripts, which sometimes work around the bake (the tube's ends) | No editor for ground features; the bake pulls branches toward the main road | Steps 1–2 (pieces own their heights) |
@@ -212,7 +299,7 @@ What to add (roughly in order of use):
   inputs from a snapshot give the same state") restores a snapshot on Downtown and compares three
   numbers at the end. Widen it to every map (pieces, moving pieces and features included), a
   hash of the whole sim state, compared every tick, so a mismatch names the tick it started.
-  Online play depends on it.
+  Replays, the AI reports and the world agreeing online all depend on it.
 - **Perf numbers from the command line**: triangles, draw calls, frame time for a map at a spot
   (what `renderer.info` gives in the browser, headless).
 - **`window.__rc` made stable and documented**: `place`, `step(ticks)` (stepping the camera
@@ -231,8 +318,9 @@ Each step ships on its own, and the existing maps keep their lap floors througho
 
 0. **Tools first, small:** `drive`, `probe` and `shot`, since every step below gets tested with
    them.
-1. **The pieces layer and its one query**, with the Lava Tube moved onto it first: it has every
-   hard case (a tube, a gap, a kicker, mouths, the camera). Done when the tube plays the same,
+1. **The pieces layer and its queries**, with the Lava Tube moved onto it first: it has every
+   hard case (a tube, a gap, a kicker, mouths, the camera). Its mouths become portals (the
+   shroud goes). Done when the tube plays the same,
    the lap floors don't move, the three special cases in `ground.ts`, `camera.ts` and
    `physics.ts` are gone, and so are `GroundDef`'s `decks`, `branchDecks` and `branchGaps` (the
    layouts and generators moved to pieces). Clears most of TECH_DEBT's "Open ground and Paradise
@@ -242,8 +330,8 @@ Each step ships on its own, and the existing maps keep their lap floors througho
    (moguls and canyons are by the main road today, so they move). The eruption (and a lava flow
    onto a road) is the first new one.
 3. **Enclosed spaces done properly**: the camera under the ceiling, indoor light and fog, reverb,
-   and breakable walls (smashables grown into wall panels, placed in world space). Then a short
-   indoor stretch on a map: a mall to cut through.
+   and breakable walls (smashables grown into wall panels, placed in world space, their break a
+   claimed trigger online). Then a short indoor stretch on a map: a mall to cut through.
 4. **Moving pieces**: a drawbridge.
 5. **A cop chase on Downtown as it is**: the mode only (roles, busted, escape, a timer), with
    cops that chase along the track. A playtest: if the chase is fun, the road graph is worth
