@@ -36,7 +36,9 @@ const STRETCHES: [number, number, string][] = [
   [480, 0.08, 'a bunny slope, moguls across it'],
   [400, 0.18, 'a canyon on the right'],
   [110, -0.07, 'a climb to a kicker'],
-  [320, 0.4, 'the last pitch'],
+  [180, 0.42, "the ski jump's in-run"],
+  [26, 0, "the ski jump's lip"],
+  [260, 0.5, 'the landing hill'],
   [350, 0.03, 'the valley'],
   [220, 0, 'the run-out'],
 ];
@@ -53,11 +55,16 @@ const gradeAt = (s: number) => {
   while (k > 0 && starts[k] > s) k--;
   return STRETCHES[k][1];
 };
-/** The grade smoothed over about ±`sigma` m: pitches ease in and out. */
-const smoothGrade = (s: number, sigma = 28) => {
+/** The ski jump: from the in-run's foot to the landing hill's top, where the road is sharp, straight and level across. */
+const jumpAt = (name: string) => starts[STRETCHES.findIndex(([, , what]) => what === name)];
+const LIP = [jumpAt("the ski jump's lip"), jumpAt('the landing hill')] as const;
+/** How far `s` is from the lip (0 on it). */
+const fromLip = (s: number) => Math.max(0, LIP[0] - s, s - LIP[1]);
+/** The grade smoothed over about ±`sigma` m: pitches ease in and out. At the lip, hardly at all: an edge to fly off. */
+const smoothGrade = (s: number, sigma = 3 + 25 * Math.min(1, fromLip(s) / 60)) => {
   let sum = 0;
   let w = 0;
-  for (let u = -3 * sigma; u <= 3 * sigma; u += 2) {
+  for (let u = -3 * sigma; u <= 3 * sigma; u += sigma < 10 ? 0.5 : 2) {
     const k = Math.exp(-(u * u) / (2 * sigma * sigma));
     sum += gradeAt(Math.min(total, Math.max(0, s + u))) * k;
     w += k;
@@ -65,7 +72,14 @@ const smoothGrade = (s: number, sigma = 28) => {
   return sum / w;
 };
 /** The heading (radians, 0 is +z) at `s`: slow winds, straight on the start pad and in the valley. */
-const heading = (s: number) => {
+const heading = (s: number) => winding(straightJump(s));
+/**
+ * The ski jump runs straight: the heading holds from 80 m above the in-run (the crest's kicker
+ * launches down it too) to 40 m past the landing hill's top.
+ */
+const JUMP_STRAIGHT = [jumpAt("the ski jump's in-run") - 80, LIP[1] + 40] as const;
+const straightJump = (s: number) => (s < JUMP_STRAIGHT[0] ? s : s < JUMP_STRAIGHT[1] ? JUMP_STRAIGHT[0] : s - (JUMP_STRAIGHT[1] - JUMP_STRAIGHT[0]));
+const winding = (s: number) => {
   const calm = Math.max(0, Math.min(1, (s - 60) / 300, (total - s - 150) / 300));
   return calm * (0.55 * Math.sin(s / 210) + 0.35 * Math.sin(s / 97 + 1.3) + 0.2 * Math.sin(s / 61 + 4));
 };
@@ -78,11 +92,14 @@ let x = 0;
 let z = 0;
 let y = 1300;
 for (let s = 0; s <= total; s += 1) {
-  if (s % EVERY === 0 || s === total) {
+  // Denser over the jump, so the lip stays an edge.
+  if (s % EVERY === 0 || s === total || (fromLip(s) < 30 && s % 4 === 0)) {
     const turn = (heading(s + 5) - heading(s - 5)) / 10;
     // Into its turns (a right turn is the heading falling: its right edge down), and a small tilt
     // between them that switches side to side; none on the start pad or in the valley.
-    const calm = Math.max(0, Math.min(1, (s - 60) / 200, (total - s - 150) / 300));
+    // (And none down the ski jump's in-run, over its lip and where you land: level across, so you fly straight.)
+    const jump = Math.max(0, jumpAt("the ski jump's in-run") - s, s - LIP[1] - 60);
+    const calm = Math.max(0, Math.min(1, (s - 60) / 200, (total - s - 150) / 300, jump / 80));
     const bank = calm * Math.max(-0.2, Math.min(0.2, -turn * 45 + 0.06 * Math.sin(s / 83)));
     points.push({ p: [Math.round(x * 10) / 10, Math.round(y * 10) / 10, Math.round(z * 10) / 10], width: widthAt(s), surface: 'snow', shoulder: 4, bank: Math.round(bank * 1000) / 1000 });
   }
@@ -133,7 +150,13 @@ const gate = (s: number): PropDef[] => {
   const half = baked.width[Math.round(s / baked.step)] / 2;
   return [-1, 1].map((side) => ({ kind: 'gate-post', s, lateral: side * (half + 1.5), size: [0.8, 7, 0.8] as [number, number, number] }));
 };
+// The ski jump: its lip's edge and the landing hill, and a judges' tower beside the lip (a solid
+// prop; snow.ts draws it).
+const lip = stretch("the ski jump's lip")[1];
+layout.skiJump = { lip, landing: stretch('the landing hill')[1] - lip };
+const tower: PropDef = { kind: 'jump-tower', s: lip - 12, lateral: -(baked.width[Math.round((lip - 12) / baked.step)] / 2 + 9), size: [5, 16, 5] };
 layout.props = [
+  tower,
   ...gate(layout.run.start),
   ...gate(layout.run.finish),
   rock('a bunny slope', 220, 0, 5, 2.4, 5),

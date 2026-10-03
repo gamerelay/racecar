@@ -313,14 +313,22 @@ describe("the Slope's pines", () => {
     const p = track.pines!;
     const sim = new Sim(track, CLASSES, SURFACES, { seed: 1 });
     const i = sim.addCar({ cls: 'coupe', human: true });
-    // A tree on fairly level ground, the car 20 m off, aimed at it.
-    let k = 0;
+    // A tree on fairly level ground well down the run, with nothing else in the way, the car 12 m off, aimed at it.
     const slope = { x: 0, z: 0 };
-    while (track.ground!.slope(p.x[k], p.z[k], slope) && Math.hypot(slope.x, slope.z) > 0.15) k++;
-    sim.placeCar(i, 0, 100, 0, 0);
-    sim.cars.x[i] = p.x[k] - 20;
+    const hit = newHit();
+    const clear = (k: number) => {
+      let others = 0;
+      p.near(p.x[k] - 6, p.z[k], (j) => {
+        if (j !== k && p.x[j] < p.x[k] && p.x[j] > p.x[k] - 14 && Math.abs(p.z[j] - p.z[k]) < 4) others++;
+      });
+      return others === 0;
+    };
+    let k = 0;
+    while (track.ground!.slope(p.x[k], p.z[k], slope) && (Math.hypot(slope.x, slope.z) > 0.15 || projectGlobal(track.main, p.x[k], p.z[k], hit) < 0 || hit.s < 500 || !clear(k))) k++;
+    sim.placeCar(i, 0, hit.s, 0, 0);
+    sim.cars.x[i] = p.x[k] - 12;
     sim.cars.z[i] = p.z[k];
-    sim.cars.y[i] = track.ground!.height(p.x[k] - 20, p.z[k]) + 0.5;
+    sim.cars.y[i] = track.ground!.height(p.x[k] - 12, p.z[k]) + 0.5;
     sim.cars.h[i] = Math.PI / 2;
     sim.cars.vx[i] = 35;
     sim.cars.vz[i] = 0;
@@ -330,6 +338,47 @@ describe("the Slope's pines", () => {
       wrecked = sim.cars.wreck[i] === 1 && sim.cars.wreckCause[i] === Cause.Prop;
     }
     expect(wrecked).toBe(true);
+  });
+});
+
+describe("the Slope's ski jump", () => {
+  test('a straight, level in-run, a lip, and a landing hill that falls away below it', () => {
+    const track = bakeTrack(layout('avalanche/slope'), SURFACES);
+    const { lip, landing } = track.layout.skiJump!;
+    const m = track.main;
+    const grade = (s: number) => (m.py[Math.round((s - 4) / m.step)] - m.py[Math.round((s + 4) / m.step)]) / 8;
+    expect(Math.abs(grade(lip - 12))).toBeLessThan(0.1);
+    expect(grade(lip + 40)).toBeGreaterThan(0.4);
+    expect(landing).toBeGreaterThan(200);
+    for (let s = lip - 40; s < lip + 60; s += 10) expect(Math.abs(m.bank[Math.round(s / m.step)])).toBeLessThan(0.02);
+    expect(track.props.some((p) => p.kind === 'jump-tower' && p.solid)).toBe(true);
+  });
+
+  test('every class flies it, long and clean, and lands on the hill', () => {
+    const track = bakeTrack(layout('avalanche/slope'), SURFACES);
+    const { lip, landing } = track.layout.skiJump!;
+    for (const cls of ['coupe', 'bus']) {
+      const sim = new Sim(track, CLASSES, SURFACES, { seed: 1, traffic: 0, mayhem: 'off' });
+      sim.addCar({ cls, racer: { difficulty: 2 } });
+      sim.startRace(1, 0.1);
+      let flight = 0;
+      let landed = 0;
+      let wrecks = 0;
+      let cursor = sim.events.head;
+      while (!sim.cars.finished[0] && sim.tick < 60 * 200) {
+        sim.step([]);
+        cursor = sim.events.read(cursor, (e) => {
+          if (e.type === Ev.Land && sim.cars.s[0] > lip && sim.cars.s[0] < lip + landing && e.a > flight) {
+            flight = e.a;
+            landed = sim.cars.s[0];
+          }
+          if (e.type === Ev.Wreck) wrecks++;
+        });
+      }
+      expect(flight).toBeGreaterThan(1.5);
+      expect(landed - lip).toBeGreaterThan(80);
+      expect(wrecks).toBe(0);
+    }
   });
 });
 

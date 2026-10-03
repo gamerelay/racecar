@@ -2777,515 +2777,724 @@
    },
    {
     "p": [
-     12.7,
+     12.8,
      208.8,
-     4515.8
+     4515.9
     ],
     "width": 39,
     "surface": "snow",
     "shoulder": 4,
-    "bank": 0.026
+    "bank": -0.045
    },
    {
     "p": [
-     0.5,
+     1.1,
      209.9,
-     4531.7
+     4532.1
     ],
     "width": 38,
     "surface": "snow",
     "shoulder": 4,
-    "bank": -0.033
+    "bank": -0.036
    },
    {
     "p": [
-     -11.8,
-     210.5,
-     4547.4
+     -10.5,
+     210.4,
+     4548.4
     ],
     "width": 38,
     "surface": "snow",
     "shoulder": 4,
-    "bank": -0.087
+    "bank": -0.022
    },
    {
     "p": [
-     -24,
-     209.6,
-     4563.3
+     -22.2,
+     209.5,
+     4564.6
     ],
     "width": 38,
     "surface": "snow",
     "shoulder": 4,
-    "bank": -0.13
+    "bank": -0.007
    },
    {
     "p": [
-     -35.7,
-     206.3,
-     4579.5
+     -33.8,
+     206,
+     4580.9
     ],
     "width": 37,
     "surface": "snow",
     "shoulder": 4,
-    "bank": -0.161
+    "bank": 0
    },
    {
     "p": [
-     -46.6,
-     200.6,
-     4596.3
+     -45.4,
+     199.9,
+     4597.2
     ],
     "width": 37,
     "surface": "snow",
     "shoulder": 4,
-    "bank": -0.178
+    "bank": 0
    },
    {
     "p": [
-     -56.5,
-     193.3,
-     4613.7
+     -57.1,
+     192.3,
+     4613.4
     ],
     "width": 36,
     "surface": "snow",
     "shoulder": 4,
-    "bank": -0.181
+    "bank": 0
    },
    {
     "p": [
-     -65.3,
-     185.5,
-     4631.6
+     -68.7,
+     184.1,
+     4629.7
     ],
     "width": 36,
     "surface": "snow",
     "shoulder": 4,
-    "bank": -0.171
+    "bank": 0
    },
    {
     "p": [
-     -72.9,
-     177.5,
-     4650.1
-    ],
-    "width": 36,
-    "surface": "snow",
-    "shoulder": 4,
-    "bank": -0.151
-   },
-   {
-    "p": [
-     -79.3,
-     169.5,
-     4669
+     -80.4,
+     175.7,
+     4646
     ],
     "width": 35,
     "surface": "snow",
     "shoulder": 4,
-    "bank": -0.126
+    "bank": 0
    },
    {
     "p": [
-     -84.6,
-     161.5,
-     4688.3
+     -92,
+     167.3,
+     4662.2
     ],
     "width": 35,
     "surface": "snow",
     "shoulder": 4,
-    "bank": -0.1
+    "bank": 0
    },
    {
     "p": [
-     -89,
-     153.5,
+     -103.6,
+     159,
+     4678.5
+    ],
+    "width": 35,
+    "surface": "snow",
+    "shoulder": 4,
+    "bank": 0
+   },
+   {
+    "p": [
+     -115.3,
+     150.8,
+     4694.8
+    ],
+    "width": 34,
+    "surface": "snow",
+    "shoulder": 4,
+    "bank": 0
+   },
+   {
+    "p": [
+     -117.6,
+     149.2,
+     4698
+    ],
+    "width": 34,
+    "surface": "snow",
+    "shoulder": 4,
+    "bank": 0
+   },
+   {
+    "p": [
+     -119.9,
+     147.5,
+     4701.3
+    ],
+    "width": 34,
+    "surface": "snow",
+    "shoulder": 4,
+    "bank": 0
+   },
+   {
+    "p": [
+     -122.3,
+     145.9,
+     4704.5
+    ],
+    "width": 34,
+    "surface": "snow",
+    "shoulder": 4,
+    "bank": 0
+   },
+   {
+    "p": [
+     -124.6,
+     144.3,
      4707.8
     ],
-    "width": 35,
+    "width": 34,
     "surface": "snow",
     "shoulder": 4,
-    "bank": -0.077
+    "bank": 0
    },
    {
     "p": [
-     -92.3,
-     145.5,
-     4727.6
+     -126.9,
+     142.7,
+     4711
     ],
     "width": 34,
     "surface": "snow",
     "shoulder": 4,
-    "bank": -0.061
+    "bank": 0
    },
    {
     "p": [
-     -94.8,
-     137.5,
-     4747.4
+     -129.2,
+     141.2,
+     4714.3
     ],
     "width": 34,
     "surface": "snow",
     "shoulder": 4,
-    "bank": -0.055
+    "bank": 0
    },
    {
     "p": [
-     -96.3,
-     129.5,
-     4767.3
+     -131.6,
+     139.9,
+     4717.5
     ],
     "width": 34,
     "surface": "snow",
     "shoulder": 4,
-    "bank": -0.061
+    "bank": 0
    },
    {
     "p": [
-     -96.8,
-     121.5,
-     4787.3
+     -133.9,
+     139,
+     4720.8
+    ],
+    "width": 34,
+    "surface": "snow",
+    "shoulder": 4,
+    "bank": 0
+   },
+   {
+    "p": [
+     -136.2,
+     138.8,
+     4724
+    ],
+    "width": 34,
+    "surface": "snow",
+    "shoulder": 4,
+    "bank": 0
+   },
+   {
+    "p": [
+     -138.6,
+     138.8,
+     4727.3
+    ],
+    "width": 34,
+    "surface": "snow",
+    "shoulder": 4,
+    "bank": 0
+   },
+   {
+    "p": [
+     -140.9,
+     138.8,
+     4730.5
+    ],
+    "width": 34,
+    "surface": "snow",
+    "shoulder": 4,
+    "bank": 0
+   },
+   {
+    "p": [
+     -143.2,
+     138.8,
+     4733.8
+    ],
+    "width": 34,
+    "surface": "snow",
+    "shoulder": 4,
+    "bank": 0
+   },
+   {
+    "p": [
+     -145.5,
+     138.7,
+     4737.1
+    ],
+    "width": 34,
+    "surface": "snow",
+    "shoulder": 4,
+    "bank": 0
+   },
+   {
+    "p": [
+     -147.9,
+     138.2,
+     4740.3
+    ],
+    "width": 34,
+    "surface": "snow",
+    "shoulder": 4,
+    "bank": 0
+   },
+   {
+    "p": [
+     -150.2,
+     136.9,
+     4743.6
     ],
     "width": 33,
     "surface": "snow",
     "shoulder": 4,
-    "bank": -0.078
+    "bank": 0
    },
    {
     "p": [
-     -96,
-     113.5,
-     4807.3
+     -152.5,
+     135.2,
+     4746.8
     ],
     "width": 33,
     "surface": "snow",
     "shoulder": 4,
-    "bank": -0.106
+    "bank": 0
    },
    {
     "p": [
-     -93.8,
-     105.6,
-     4827.2
-    ],
-    "width": 33,
-    "surface": "snow",
-    "shoulder": 4,
-    "bank": -0.14
-   },
-   {
-    "p": [
-     -89.8,
-     98.2,
-     4846.8
+     -154.8,
+     133.4,
+     4750.1
     ],
     "width": 32,
     "surface": "snow",
     "shoulder": 4,
-    "bank": -0.177
+    "bank": 0
    },
    {
     "p": [
-     -84,
-     92,
-     4865.9
+     -157.2,
+     131.5,
+     4753.3
     ],
     "width": 32,
     "surface": "snow",
     "shoulder": 4,
-    "bank": -0.2
+    "bank": 0
    },
    {
     "p": [
-     -76.1,
-     87.7,
-     4884.3
+     -159.5,
+     129.6,
+     4756.6
     ],
     "width": 32,
     "surface": "snow",
     "shoulder": 4,
-    "bank": -0.2
+    "bank": 0
    },
    {
     "p": [
-     -66.1,
-     85.3,
-     4901.6
+     -161.8,
+     127.7,
+     4759.8
     ],
     "width": 32,
     "surface": "snow",
     "shoulder": 4,
-    "bank": -0.2
+    "bank": 0
    },
    {
     "p": [
-     -54.1,
-     84.1,
-     4917.6
+     -164.2,
+     125.7,
+     4763.1
+    ],
+    "width": 32,
+    "surface": "snow",
+    "shoulder": 4,
+    "bank": 0
+   },
+   {
+    "p": [
+     -173.5,
+     117.9,
+     4776.1
     ],
     "width": 31,
     "surface": "snow",
     "shoulder": 4,
-    "bank": -0.2
+    "bank": 0
    },
    {
     "p": [
-     -40.4,
-     83.4,
-     4932.1
+     -185.5,
+     108,
+     4792.1
     ],
     "width": 31,
-    "surface": "snow",
-    "shoulder": 4,
-    "bank": -0.2
-   },
-   {
-    "p": [
-     -25.3,
-     82.8,
-     4945.3
-    ],
-    "width": 31,
-    "surface": "snow",
-    "shoulder": 4,
-    "bank": -0.2
-   },
-   {
-    "p": [
-     -9.3,
-     82.2,
-     4957.2
-    ],
-    "width": 31,
-    "surface": "snow",
-    "shoulder": 4,
-    "bank": -0.156
-   },
-   {
-    "p": [
-     7.3,
-     81.6,
-     4968.4
-    ],
-    "width": 31,
-    "surface": "snow",
-    "shoulder": 4,
-    "bank": 0.058
-   },
-   {
-    "p": [
-     23.4,
-     81,
-     4980.2
-    ],
-    "width": 30,
-    "surface": "snow",
-    "shoulder": 4,
-    "bank": 0.116
-   },
-   {
-    "p": [
-     38.5,
-     80.4,
-     4993.3
-    ],
-    "width": 30,
-    "surface": "snow",
-    "shoulder": 4,
-    "bank": 0.155
-   },
-   {
-    "p": [
-     52.1,
-     79.8,
-     5008
-    ],
-    "width": 30,
-    "surface": "snow",
-    "shoulder": 4,
-    "bank": 0.153
-   },
-   {
-    "p": [
-     63.8,
-     79.2,
-     5024.2
-    ],
-    "width": 30,
-    "surface": "snow",
-    "shoulder": 4,
-    "bank": 0.14
-   },
-   {
-    "p": [
-     73.1,
-     78.6,
-     5041.9
-    ],
-    "width": 30,
-    "surface": "snow",
-    "shoulder": 4,
-    "bank": 0.127
-   },
-   {
-    "p": [
-     80.1,
-     78,
-     5060.6
-    ],
-    "width": 30,
-    "surface": "snow",
-    "shoulder": 4,
-    "bank": 0.113
-   },
-   {
-    "p": [
-     84.8,
-     77.4,
-     5080
-    ],
-    "width": 30,
-    "surface": "snow",
-    "shoulder": 4,
-    "bank": 0.1
-   },
-   {
-    "p": [
-     87.5,
-     76.8,
-     5099.8
-    ],
-    "width": 30,
-    "surface": "snow",
-    "shoulder": 4,
-    "bank": 0.071
-   },
-   {
-    "p": [
-     88.6,
-     76.2,
-     5119.8
-    ],
-    "width": 30,
-    "surface": "snow",
-    "shoulder": 4,
-    "bank": 0.044
-   },
-   {
-    "p": [
-     88.7,
-     75.7,
-     5139.8
-    ],
-    "width": 30,
-    "surface": "snow",
-    "shoulder": 4,
-    "bank": 0.024
-   },
-   {
-    "p": [
-     88.2,
-     75.3,
-     5159.8
-    ],
-    "width": 30,
-    "surface": "snow",
-    "shoulder": 4,
-    "bank": 0.011
-   },
-   {
-    "p": [
-     87.5,
-     75.1,
-     5179.8
-    ],
-    "width": 30,
     "surface": "snow",
     "shoulder": 4,
     "bank": 0.005
    },
    {
     "p": [
-     86.9,
-     75,
-     5199.8
+     -197.8,
+     98.1,
+     4807.8
+    ],
+    "width": 31,
+    "surface": "snow",
+    "shoulder": 4,
+    "bank": 0.011
+   },
+   {
+    "p": [
+     -210.1,
+     88.1,
+     4823.6
     ],
     "width": 30,
     "surface": "snow",
     "shoulder": 4,
-    "bank": 0.002
+    "bank": -0.012
    },
    {
     "p": [
-     86.5,
-     75,
-     5219.8
+     -222,
+     78.1,
+     4839.7
+    ],
+    "width": 30,
+    "surface": "snow",
+    "shoulder": 4,
+    "bank": -0.058
+   },
+   {
+    "p": [
+     -233.1,
+     68.1,
+     4856.3
+    ],
+    "width": 30,
+    "surface": "snow",
+    "shoulder": 4,
+    "bank": -0.114
+   },
+   {
+    "p": [
+     -243.3,
+     58.1,
+     4873.5
+    ],
+    "width": 30,
+    "surface": "snow",
+    "shoulder": 4,
+    "bank": -0.144
+   },
+   {
+    "p": [
+     -252.5,
+     48.1,
+     4891.3
+    ],
+    "width": 29,
+    "surface": "snow",
+    "shoulder": 4,
+    "bank": -0.164
+   },
+   {
+    "p": [
+     -260.4,
+     38.2,
+     4909.6
+    ],
+    "width": 29,
+    "surface": "snow",
+    "shoulder": 4,
+    "bank": -0.173
+   },
+   {
+    "p": [
+     -267.2,
+     28.7,
+     4928.4
+    ],
+    "width": 30,
+    "surface": "snow",
+    "shoulder": 4,
+    "bank": -0.175
+   },
+   {
+    "p": [
+     -272.9,
+     20.4,
+     4947.6
     ],
     "width": 31,
     "surface": "snow",
     "shoulder": 4,
-    "bank": 0.001
+    "bank": -0.172
    },
    {
     "p": [
-     86.5,
-     75,
-     5239.8
+     -277.5,
+     14.3,
+     4967.1
+    ],
+    "width": 30,
+    "surface": "snow",
+    "shoulder": 4,
+    "bank": -0.167
+   },
+   {
+    "p": [
+     -281.1,
+     10.7,
+     4986.7
+    ],
+    "width": 30,
+    "surface": "snow",
+    "shoulder": 4,
+    "bank": -0.164
+   },
+   {
+    "p": [
+     -283.9,
+     9.1,
+     5006.6
+    ],
+    "width": 30,
+    "surface": "snow",
+    "shoulder": 4,
+    "bank": -0.164
+   },
+   {
+    "p": [
+     -285.7,
+     8.2,
+     5026.5
+    ],
+    "width": 30,
+    "surface": "snow",
+    "shoulder": 4,
+    "bank": -0.169
+   },
+   {
+    "p": [
+     -286.5,
+     7.6,
+     5046.5
+    ],
+    "width": 30,
+    "surface": "snow",
+    "shoulder": 4,
+    "bank": -0.179
+   },
+   {
+    "p": [
+     -286.1,
+     7,
+     5066.4
+    ],
+    "width": 30,
+    "surface": "snow",
+    "shoulder": 4,
+    "bank": -0.194
+   },
+   {
+    "p": [
+     -284.3,
+     6.4,
+     5086.4
+    ],
+    "width": 30,
+    "surface": "snow",
+    "shoulder": 4,
+    "bank": -0.197
+   },
+   {
+    "p": [
+     -280.9,
+     5.8,
+     5106.1
+    ],
+    "width": 30,
+    "surface": "snow",
+    "shoulder": 4,
+    "bank": -0.184
+   },
+   {
+    "p": [
+     -275.7,
+     5.2,
+     5125.4
+    ],
+    "width": 30,
+    "surface": "snow",
+    "shoulder": 4,
+    "bank": -0.171
+   },
+   {
+    "p": [
+     -268.4,
+     4.6,
+     5144
+    ],
+    "width": 30,
+    "surface": "snow",
+    "shoulder": 4,
+    "bank": -0.157
+   },
+   {
+    "p": [
+     -259,
+     4,
+     5161.6
+    ],
+    "width": 30,
+    "surface": "snow",
+    "shoulder": 4,
+    "bank": -0.144
+   },
+   {
+    "p": [
+     -247.6,
+     3.4,
+     5178
+    ],
+    "width": 30,
+    "surface": "snow",
+    "shoulder": 4,
+    "bank": -0.131
+   },
+   {
+    "p": [
+     -234.4,
+     2.8,
+     5193
+    ],
+    "width": 30,
+    "surface": "snow",
+    "shoulder": 4,
+    "bank": -0.108
+   },
+   {
+    "p": [
+     -219.7,
+     2.2,
+     5206.6
     ],
     "width": 31,
     "surface": "snow",
     "shoulder": 4,
-    "bank": 0
+    "bank": -0.071
    },
    {
     "p": [
-     86.5,
-     75,
-     5259.8
+     -203.9,
+     1.6,
+     5218.8
     ],
     "width": 31,
     "surface": "snow",
     "shoulder": 4,
-    "bank": 0
+    "bank": -0.034
    },
    {
     "p": [
-     86.5,
-     75,
-     5279.8
+     -187.4,
+     1,
+     5230.1
     ],
     "width": 31,
     "surface": "snow",
     "shoulder": 4,
-    "bank": 0
+    "bank": -0.002
    },
    {
     "p": [
-     86.5,
-     75,
-     5299.8
+     -170.5,
+     0.4,
+     5240.9
     ],
     "width": 31,
     "surface": "snow",
     "shoulder": 4,
-    "bank": 0
+    "bank": 0.023
    },
    {
     "p": [
-     86.5,
-     75,
-     5319.8
+     -153.8,
+     0,
+     5251.8
     ],
     "width": 31,
     "surface": "snow",
     "shoulder": 4,
-    "bank": 0
+    "bank": 0.037
    },
    {
     "p": [
-     86.5,
-     75,
-     5339.8
+     -137.5,
+     -0.3,
+     5263.4
+    ],
+    "width": 31,
+    "surface": "snow",
+    "shoulder": 4,
+    "bank": 0.037
+   },
+   {
+    "p": [
+     -122.1,
+     -0.4,
+     5276.2
+    ],
+    "width": 32,
+    "surface": "snow",
+    "shoulder": 4,
+    "bank": 0.024
+   },
+   {
+    "p": [
+     -108.2,
+     -0.4,
+     5290.6
+    ],
+    "width": 32,
+    "surface": "snow",
+    "shoulder": 4,
+    "bank": 0.011
+   },
+   {
+    "p": [
+     -96.4,
+     -0.4,
+     5306.7
     ],
     "width": 32,
     "surface": "snow",
@@ -3294,22 +3503,88 @@
    },
    {
     "p": [
-     86.5,
-     75,
-     5359.8
+     -87,
+     -0.4,
+     5324.3
     ],
-    "width": 32,
+    "width": 33,
     "surface": "snow",
     "shoulder": 4,
     "bank": 0
    },
    {
     "p": [
-     86.5,
-     75,
-     5379.8
+     -80.7,
+     -0.4,
+     5343.3
     ],
-    "width": 32,
+    "width": 33,
+    "surface": "snow",
+    "shoulder": 4,
+    "bank": 0
+   },
+   {
+    "p": [
+     -77.3,
+     -0.4,
+     5363
+    ],
+    "width": 33,
+    "surface": "snow",
+    "shoulder": 4,
+    "bank": 0
+   },
+   {
+    "p": [
+     -76.6,
+     -0.4,
+     5382.9
+    ],
+    "width": 34,
+    "surface": "snow",
+    "shoulder": 4,
+    "bank": 0
+   },
+   {
+    "p": [
+     -77.7,
+     -0.4,
+     5402.9
+    ],
+    "width": 34,
+    "surface": "snow",
+    "shoulder": 4,
+    "bank": 0
+   },
+   {
+    "p": [
+     -79.9,
+     -0.4,
+     5422.8
+    ],
+    "width": 34,
+    "surface": "snow",
+    "shoulder": 4,
+    "bank": 0
+   },
+   {
+    "p": [
+     -82.6,
+     -0.4,
+     5442.6
+    ],
+    "width": 35,
+    "surface": "snow",
+    "shoulder": 4,
+    "bank": 0
+   },
+   {
+    "p": [
+     -83.5,
+     -0.4,
+     5448.5
+    ],
+    "width": 35,
     "surface": "snow",
     "shoulder": 4,
     "bank": 0
@@ -3323,7 +3598,7 @@
    {
     "s": [
      0,
-     6222.49489704101
+     6387.790587181496
     ],
     "side": "both"
    }
@@ -3331,21 +3606,21 @@
  },
  "ramps": [
   {
-   "s": 1152,
+   "s": 1155,
    "height": 1.8,
    "length": 14,
    "back": 10,
    "flank": 8
   },
   {
-   "s": 5274,
+   "s": 5286,
    "height": 2.4,
    "length": 14,
    "back": 10,
    "flank": 8
   },
   {
-   "s": 5751,
+   "s": 5915,
    "height": 1.5,
    "length": 14,
    "back": 10,
@@ -3354,6 +3629,16 @@
  ],
  "checkpoints": "auto",
  "props": [
+  {
+   "kind": "jump-tower",
+   "s": 5513,
+   "lateral": -26,
+   "size": [
+    5,
+    16,
+    5
+   ]
+  },
   {
    "kind": "gate-post",
    "s": 70,
@@ -3376,8 +3661,8 @@
   },
   {
    "kind": "gate-post",
-   "s": 6002,
-   "lateral": -16.5,
+   "s": 6168,
+   "lateral": -17,
    "size": [
     0.8,
     7,
@@ -3386,8 +3671,8 @@
   },
   {
    "kind": "gate-post",
-   "s": 6002,
-   "lateral": 16.5,
+   "s": 6168,
+   "lateral": 17,
    "size": [
     0.8,
     7,
@@ -3396,7 +3681,7 @@
   },
   {
    "kind": "rock",
-   "s": 313,
+   "s": 314,
    "lateral": 0,
    "size": [
     5,
@@ -3406,7 +3691,7 @@
   },
   {
    "kind": "rock",
-   "s": 919,
+   "s": 920,
    "lateral": -12,
    "size": [
     4.5,
@@ -3416,7 +3701,7 @@
   },
   {
    "kind": "rock",
-   "s": 927,
+   "s": 928,
    "lateral": 11,
    "size": [
     4,
@@ -3426,7 +3711,7 @@
   },
   {
    "kind": "rock",
-   "s": 1745,
+   "s": 1749,
    "lateral": 3,
    "size": [
     3.5,
@@ -3436,7 +3721,7 @@
   },
   {
    "kind": "rock",
-   "s": 2815,
+   "s": 2821,
    "lateral": 6,
    "size": [
     6,
@@ -3446,7 +3731,7 @@
   },
   {
    "kind": "rock",
-   "s": 3332,
+   "s": 3339,
    "lateral": 0,
    "size": [
     5,
@@ -3456,7 +3741,7 @@
   },
   {
    "kind": "rock",
-   "s": 3612,
+   "s": 3619,
    "lateral": 4,
    "size": [
     3.5,
@@ -3466,7 +3751,7 @@
   },
   {
    "kind": "rock",
-   "s": 4971,
+   "s": 4981,
    "lateral": -5,
    "size": [
     5,
@@ -3476,7 +3761,7 @@
   },
   {
    "kind": "rock",
-   "s": 5971,
+   "s": 6135,
    "lateral": 0,
    "size": [
     5.5,
@@ -3490,96 +3775,100 @@
  "shoulderSurface": "powder",
  "run": {
   "start": 70,
-  "finish": 6002
+  "finish": 6168
+ },
+ "skiJump": {
+  "lip": 5525,
+  "landing": 270
  },
  "slalom": [
   {
-   "s": 163,
+   "s": 164,
    "lateral": -4.8,
    "gap": 14
   },
   {
-   "s": 213,
+   "s": 214,
    "lateral": 3.7,
    "gap": 14
   },
   {
-   "s": 263,
+   "s": 264,
    "lateral": -3.6,
    "gap": 14
   },
   {
-   "s": 363,
+   "s": 364,
    "lateral": 4.5,
    "gap": 14
   },
   {
-   "s": 413,
+   "s": 414,
    "lateral": -4.8,
    "gap": 14
   },
   {
-   "s": 3182,
+   "s": 3189,
    "lateral": -2.8,
    "gap": 11
   },
   {
-   "s": 3232,
-   "lateral": 5.2,
+   "s": 3239,
+   "lateral": 5.1,
    "gap": 11
   },
   {
-   "s": 3282,
+   "s": 3289,
    "lateral": -3,
    "gap": 11
   },
   {
-   "s": 3392,
-   "lateral": 5.5,
+   "s": 3399,
+   "lateral": 5.6,
    "gap": 11
   },
   {
-   "s": 3442,
-   "lateral": -1.9,
+   "s": 3449,
+   "lateral": -1.8,
    "gap": 11
   },
   {
-   "s": 3492,
+   "s": 3499,
    "lateral": 6.2,
    "gap": 11
   },
   {
-   "s": 3542,
-   "lateral": -2.4,
+   "s": 3549,
+   "lateral": -2.7,
    "gap": 11
   },
   {
-   "s": 3692,
+   "s": 3699,
    "lateral": 1.8,
    "gap": 11
   },
   {
-   "s": 3742,
-   "lateral": -6.1,
+   "s": 3749,
+   "lateral": -6,
    "gap": 11
   },
   {
-   "s": 3792,
-   "lateral": 3,
+   "s": 3799,
+   "lateral": 3.1,
    "gap": 11
   },
   {
-   "s": 4603,
-   "lateral": -2.5,
+   "s": 4612,
+   "lateral": -2.4,
    "gap": 13
   },
   {
-   "s": 4653,
-   "lateral": 6.6,
+   "s": 4662,
+   "lateral": 6.8,
    "gap": 13
   },
   {
-   "s": 4703,
+   "s": 4712,
    "lateral": -0.9,
    "gap": 13
   }
@@ -3604,8 +3893,8 @@
   "moguls": [
    {
     "s": [
-     1605,
-     2004
+     1609,
+     2008
     ],
     "lateral": [
      6,
@@ -3616,8 +3905,8 @@
    },
    {
     "s": [
-     4353,
-     4573
+     4362,
+     4582
     ],
     "lateral": [
      -30,
@@ -3638,8 +3927,8 @@
   "canyons": [
    {
     "s": [
-     2064,
-     2396
+     2068,
+     2401
     ],
     "lateral": -48,
     "floor": 12,
@@ -3648,8 +3937,8 @@
    },
    {
     "s": [
-     4771,
-     5185
+     4781,
+     5197
     ],
     "lateral": 50,
     "floor": 12,

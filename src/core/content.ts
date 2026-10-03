@@ -211,6 +211,8 @@ export interface TrackLayout {
   run?: { start: number; finish: number };
   /** Slalom gates on the main road (core/rules/slalom.ts): a pair of flags each, smashable. */
   slalom?: SlalomGate[];
+  /** A ski jump on the main road: its lip's edge (m along it) and the landing hill below (m long), for the lines painted on it. */
+  skiJump?: { lip: number; landing: number };
   /** One run's avalanche, at chaos (core/world/avalanche.ts). */
   avalanche?: AvalancheDef;
 }

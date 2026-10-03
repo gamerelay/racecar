@@ -92,6 +92,8 @@ export function buildSnow(track: Track): Object3D[] {
   if (rocks) out.push(rocks);
   const gates = buildGates(track);
   if (gates) out.push(gates);
+  const tower = buildTower(track);
+  if (tower) out.push(tower);
   out.push(...buildPines(track));
   return out;
 }
@@ -158,6 +160,73 @@ function buildPines(track: Track): InstancedMesh[] {
   return out;
 }
 
+/** A box into `pos`/`col`: centered on `c`, `hu` along the unit `u` (level), `hv` up, `hw` across both. */
+function pushBox(pos: number[], col: number[], c: number[], u: number[], hu: number, hv: number, hw: number, color: Color): void {
+  const w = [-u[2], 0, u[0]];
+  const corner = (a: number, b: number, d: number) => [c[0] + u[0] * hu * a + w[0] * hw * d, c[1] + hv * b, c[2] + u[2] * hu * a + w[2] * hw * d];
+  // Each face as two triangles, wound to face out.
+  const faces: [number, number, number][][] = [
+    [[1, -1, -1], [1, 1, -1], [1, 1, 1], [1, -1, 1]],
+    [[-1, -1, 1], [-1, 1, 1], [-1, 1, -1], [-1, -1, -1]],
+    [[-1, 1, -1], [-1, 1, 1], [1, 1, 1], [1, 1, -1]],
+    [[-1, -1, 1], [-1, -1, -1], [1, -1, -1], [1, -1, 1]],
+    [[-1, -1, 1], [1, -1, 1], [1, 1, 1], [-1, 1, 1]],
+    [[1, -1, -1], [-1, -1, -1], [-1, 1, -1], [1, 1, -1]],
+  ];
+  for (const f of faces) {
+    for (const k of [0, 1, 2, 0, 2, 3]) {
+      pos.push(...corner(...f[k]));
+      col.push(color.r, color.g, color.b);
+    }
+  }
+}
+
+/** Boxes laid into `pos`/`col` as one toon mesh with vertex colors. */
+function boxMesh(pos: number[], col: number[]): Mesh {
+  const geo = new BufferGeometry();
+  geo.setAttribute('position', new Float32BufferAttribute(pos, 3));
+  geo.setAttribute('color', new Float32BufferAttribute(col, 3));
+  geo.computeVertexNormals();
+  geo.computeBoundingSphere();
+  const mesh = new Mesh(geo, toon({ vertexColors: true }));
+  mesh.matrixAutoUpdate = false;
+  return mesh;
+}
+
+/**
+ * A ski jump's judges' tower (a solid prop of kind `jump-tower`) beside its lip: four timber legs
+ * as tall as the collider, a cabin with a window band on top, a roof, and striped banners down the
+ * legs facing the run, to be seen from up the mountain.
+ */
+function buildTower(track: Track): Mesh | null {
+  const t = track.props.find((p) => p.kind === 'jump-tower');
+  if (!t) return null;
+  const pos: number[] = [];
+  const col: number[] = [];
+  // Across the road (its right) and along it.
+  const u = [-Math.cos(t.heading), 0, Math.sin(t.heading)];
+  const along = [Math.sin(t.heading), 0, Math.cos(t.heading)];
+  const top = t.y + 2 * t.hy;
+  const legs = top - 4 - t.y + 1;
+  for (const a of [-1, 1])
+    for (const b of [-1, 1]) {
+      const x = t.x + (u[0] * a + along[0] * b) * (t.hx - 0.3);
+      const z = t.z + (u[2] * a + along[2] * b) * (t.hz - 0.3);
+      pushBox(pos, col, [x, t.y - 1 + legs / 2, z], u, 0.3, legs / 2, 0.3, TIMBER);
+    }
+  // The cabin, its window band, the roof.
+  pushBox(pos, col, [t.x, top - 2, t.z], u, t.hx, 2, t.hz, TIMBER_DARK);
+  pushBox(pos, col, [t.x, top - 1.6, t.z], u, t.hx + 0.02, 0.6, t.hz + 0.02, new Color('#9fd3ff'));
+  pushBox(pos, col, [t.x, top + 0.25, t.z], u, t.hx + 0.6, 0.25, t.hz + 0.6, BANNER);
+  // Banners down the legs on the run's side, red and white.
+  const side = t.lateral < 0 ? 1 : -1;
+  for (let k = 0; k < 5; k++) {
+    const y = top - 5 - k * 1.6;
+    pushBox(pos, col, [t.x + u[0] * side * (t.hx + 0.05), y, t.z + u[2] * side * (t.hx + 0.05)], u, 0.05, 0.7, t.hz - 0.5, k % 2 ? BANNER_LIGHT : BANNER);
+  }
+  return boxMesh(pos, col);
+}
+
 const TIMBER = new Color('#6b4a32');
 const TIMBER_DARK = new Color('#4f3524');
 const BANNER = new Color('#e8433a');
@@ -174,26 +243,7 @@ function buildGates(track: Track): Mesh | null {
   if (posts.length < 2 || !track.run) return null;
   const pos: number[] = [];
   const col: number[] = [];
-  /** A box: centered on `c`, `hu` along the unit `u` (level), `hv` up, `hw` across both. */
-  const box = (c: number[], u: number[], hu: number, hv: number, hw: number, color: Color) => {
-    const w = [-u[2], 0, u[0]];
-    const corner = (a: number, b: number, d: number) => [c[0] + u[0] * hu * a + w[0] * hw * d, c[1] + hv * b, c[2] + u[2] * hu * a + w[2] * hw * d];
-    // Each face as two triangles, wound to face out.
-    const faces: [number, number, number][][] = [
-      [[1, -1, -1], [1, 1, -1], [1, 1, 1], [1, -1, 1]],
-      [[-1, -1, 1], [-1, 1, 1], [-1, 1, -1], [-1, -1, -1]],
-      [[-1, 1, -1], [-1, 1, 1], [1, 1, 1], [1, 1, -1]],
-      [[-1, -1, 1], [-1, -1, -1], [1, -1, -1], [1, -1, 1]],
-      [[-1, -1, 1], [1, -1, 1], [1, 1, 1], [-1, 1, 1]],
-      [[1, -1, -1], [-1, -1, -1], [-1, 1, -1], [1, 1, -1]],
-    ];
-    for (const f of faces) {
-      for (const k of [0, 1, 2, 0, 2, 3]) {
-        pos.push(...corner(...f[k]));
-        col.push(color.r, color.g, color.b);
-      }
-    }
-  };
+  const box = (c: number[], u: number[], hu: number, hv: number, hw: number, color: Color) => pushBox(pos, col, c, u, hu, hv, hw, color);
   for (const s of [track.run.start, track.run.finish]) {
     const pair = posts.filter((p) => Math.abs(p.s - s) < 1);
     if (pair.length !== 2) continue;
@@ -318,12 +368,22 @@ function roadLines(track: Track): Mesh | null {
   const last = main.closed ? main.n : main.n - 1;
   // The finish line (a loop's is its start too); one run's start line, as checkered.
   const lines = track.run ? [track.run.start, track.run.finish] : [0];
+  // A ski jump's landing hill: a blue line every 25 m of flight from 75 m, red at 150 m (its K-point).
+  const jump = track.layout.skiJump;
+  const marks = jump ? [75, 100, 125, 150, 175, 200, 225].filter((d) => d < jump.landing).map((d) => jump.lip + d) : [];
+  const red = new Color('#e8433a');
+  const blue = new Color('#2f6bff');
   for (let i = 0; i < last; i++) {
     const s = i * main.step;
     const wa = main.width[i] / 2;
     if (lines.some((at) => s >= at && s < at + 4)) {
       const cells = 12;
       for (let k = 0; k < cells; k++) quad(i, -wa + (k * 2 * wa) / cells, -wa + ((k + 1) * 2 * wa) / cells, (k + Math.floor(s)) % 2 === 0 ? white : black);
+      continue;
+    }
+    const mark = marks.find((at) => s >= at && s < at + Math.max(2, main.step));
+    if (mark !== undefined) {
+      quad(i, -wa, wa, mark === jump!.lip + 150 ? red : blue);
       continue;
     }
     if (track.surfaces[main.surface[i]].slide) continue;

@@ -499,6 +499,28 @@ Item 6, pines, is built (2026-10-02):
   a phone. The AI never leaves the piste, so its times are unchanged (97.75 s, the field and chaos
   the same).
 
+Item 7, the ski jump, is built (2026-10-02):
+
+- **The profile:** the last pitch is now a ski jump. A 180 m in-run at 42%, a 26 m flat lip, then a
+  270 m landing hill at 50% into the valley. The grade is smoothed over only ±3 m at the lip (28 m
+  elsewhere, blended over 60 m), with control points every 4 m there, so the lip is an edge to fly
+  off. The road holds its heading from 80 m above the in-run to 40 m past the lip, and it's level
+  across down the in-run, the lip and the first 60 m of the landing. The run is now 6.39 km and
+  1,300 m of drop.
+- **Flights:** every class flies it clean. The bus goes about 125 m in 1.9 s, the muscle car 190 m
+  in 2.5 s, landing mid-hill on the slope, not the flat. That's a Superman's payout if you boost
+  through it. The crest's kicker above the in-run now throws a 2–2.8 s air down it too, so the
+  bottom of the run is two big airs in a row.
+- **The landmark:** a judges' tower beside the lip (`jump-tower`, solid). It has timber legs, a
+  cabin with a window band, a red roof, and red and white banners facing the run. The landing hill
+  has a blue line every 25 m of flight from 75 m, and a red one at 150 m (`layout.skiJump`,
+  `roadLines`).
+- **A bug found:** with the road still winding above the in-run, the crest kicker threw a car 45 m
+  off the piste, and it crossed the lip on a diagonal into the pines. The straight now starts above
+  that kicker.
+- **Numbers:** a 100.03 s floor (the run is 170 m longer), 101.23 s in snow. The field: one
+  car-on-car takedown and nothing else. At chaos the avalanche buries that car.
+
 The sketches as they were:
 
 1. **It reads as a run.**
