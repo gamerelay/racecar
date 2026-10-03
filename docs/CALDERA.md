@@ -6,11 +6,16 @@ where tubes, gaps and rock faces were first needed, hence the name). **It's a di
 spec.** Details will change while building; note those changes in [SPEC.md](./SPEC.md) under
 "Changed while building", as usual.
 
-**Status (2026-10-03):** nothing built yet; step 0 (the safety net and tools) is next. A
+**Status (2026-10-03):** reviewed and agreed; nothing built yet. Step 0 (the safety net and
+tools) is next. A
 task-by-task plan for steps 0–2 is drafted in the owner's working tree
 (`docs/superpowers/plans/2026-10-03-open-world-engine.md`, not committed). This doc refers to
 PARADISE.md, the shroud over the Lava Tube and TECH_DEBT's "Open ground and Paradise Open", which
 arrive with PR #81: merge this after it.
+
+**Reading it:** "Principles" and "The core idea: pieces" are the design; "Build order" and "How
+to work on it" are what to do; the rest is reference (moving things, routes, a worked example,
+overrides, industry tricks, limitations, budgets, tools, decisions).
 
 Started 2026-10-03, from the owner's brief:
 - One engine for every racecar map: open ground, cities, and whatever comes next. **For racecar
@@ -119,8 +124,8 @@ of sight, so **queries write into a scratch result the caller owns** (as `newHit
 **What's drawn is what's driven:** the surface comes from one function of the point, used by
 both the physics and the renderer. Today they disagree: off-road surfaces go by the nearest
 main-road sample and side, so sand painted along the coast drives as grass. With one function,
-patches of mud or sand can be any shape, and the coast's sand drives as sand (see "Open
-questions").
+patches of mud or sand can be any shape, and the coast's sand drives as sand (decided: see
+"Decisions").
 
 The rule stays the one we have: **a car is on the highest floor at or below it.** The physics
 uses the cast for driving and landing; the camera uses it to stay under a ceiling and out of the
@@ -227,7 +232,7 @@ interface Override {
   // Each hook runs only inside the region, after every feature's, and wins. All optional.
   cast?(out: Cast, x: number, y: number, z: number, t: number): void;   // floor, surface, hazard
   tune?(out: CarTuning, car: number, sim: Sim): void;                   // lift cap, grip, gravity
-  walls?(on: boolean, x: number, z: number): boolean;
+  walls?(x: number, z: number, on: boolean): boolean;               // on or off here
   camera?: CameraHint;
   respawn?: Pose;
   step?(sim: Sim, car: number): void;        // per tick, for each car inside, no allocation
@@ -318,7 +323,7 @@ swizzling: it never replaces an engine function, so what a function does is alwa
 says.)
 
 - **Declared in the layout:** `overrides: [{ id, reason, region }]`. The region is a box, or a
-  stretch of a street (and a band across it). The reason says what the engine can't do yet:
+  stretch of a street (a spline's id until the road graph) and a band across it. The reason says what the engine can't do yet:
   "the tube's exit crest throws cars, so cap the lift here".
 - **Its code lives with the map**, say `src/maps/<map>/overrides.ts`, keyed by id: never a patch
   to the engine's files.
@@ -507,9 +512,8 @@ What to add (roughly in order of use):
   top-down, orbit, free; time; weather) to a PNG, headless. Built on poster.ts. With `--drive`,
   shots along a `drive` run (frames every second): a visual check of a jump or a tunnel.
 - **`tools/probe.ts`**: what's at a point: the cast (floor, space, hazard, surface, piece), any
-  override active there, the
-  pieces above and below, the nearest street. The first thing to check when something feels
-  wrong at a spot.
+  override active there, the pieces above and below, the nearest street. The first thing to
+  check when something feels wrong at a spot.
 - **`tools/map.ts`**: a top-down image of a whole map (the ground's heights and surfaces,
   pieces by kind, gaps, lava, trees, routes, checkpoints, the AI's racing line, and where cars
   wrecked), and a text summary of its size and contents. For designing routes without opening
@@ -584,15 +588,16 @@ stream across a route): then the new floor is recorded, with why.
    - **1c, branches own their heights:** the generator stops working backwards from the bake.
      The tube should drive the same: fingerprints re-recorded, lap floors checked.
    - **1d, one surface function** for drawing and driving. The coast's sand drives as sand
-     (see "Open questions"): fingerprints and Paradise Open's floor re-recorded.
+     (decided): fingerprints and Paradise Open's floor re-recorded.
 
    Clears most of TECH_DEBT's "Open ground and Paradise Open".
 2. **Feature modules**: the volcano, coast, beaches, moguls, canyons and the avalanche as
    modules over pieces, each placed in world space or along a named street, not by the main road
-   (moguls and canyons are by the main road today, so they move), and the rest of decks' ground
-   shaping, and **overrides** (the hooks, the layout field, `validate`'s list; today's one-offs
-   looked at). The first new ones: **lava streams** (see "A feature, end to end"; the static stream
-   from the volcano toward the reef is the first), then the eruption and a lava flow onto a road.
+   (moguls and canyons are by the main road today, so they move), plus the rest of decks' ground
+   shaping. **Overrides** come with them (the hooks, the layout field, `validate`'s list), and
+   today's one-offs are looked at. The first new modules: **lava streams** (see "A feature, end
+   to end"; the static stream from the volcano toward the reef is the first), then the eruption
+   and a lava flow onto a road.
 3. **Enclosed spaces done properly**: the camera under the ceiling (with hints where it's
    tricky), indoor light and fog, reverb, and breakable walls (smashables grown into wall
    panels, placed in world space, staying broken or standing again as each says, their break a
