@@ -700,7 +700,7 @@ Item 4, the avalanche, is built (2026-10-02):
   thrown down the slope). Its respawn moves it 60 m ahead of the front, and never within 15 m of
   the finish. One run's progress counts the checkpoints a respawn like that skips. Any other
   respawn still counts nothing.
-- **A canyon is a way out:** more than 4 m down in a canyon (`canyonAt` in `ground.ts`), and not
+- **A canyon is a way out:** more than 4 m down in a canyon (`ground.sunk`, from the canyon features), and not
   in the air over it, a car is under the avalanche.
 - **Drawn** as a churning band of unlit white blobs across the piste and 35 m past each edge,
   with a translucent powder cloud billowing over and ahead of it. **Heard** as a low rumble from

@@ -202,18 +202,17 @@ layout.ground = {
   wallRise: 0.9,
   swell: { height: 1.4, size: 45 },
   rough: { height: 2.6, size: 22 },
-  moguls: [
-    { s: [rollers[0] + 60, rollers[1] - 60], lateral: [6, 50], height: 1.6, spacing: 10 },
-    { s: [across[0] + 80, across[0] + 300], lateral: [-30, 30], height: 1.4, spacing: 11 },
+  // Mogul fields, then the canyons (core/track/features), in the order they shape the ground.
+  features: [
+    { kind: 'moguls', s: [rollers[0] + 60, rollers[1] - 60], lateral: [6, 50], height: 1.6, spacing: 10 },
+    { kind: 'moguls', s: [across[0] + 80, across[0] + 300], lateral: [-30, 30], height: 1.4, spacing: 11 },
+    { kind: 'canyon', s: stretch('a canyon on the left'), lateral: -48, floor: 12, depth: 6, ease: 40 },
+    { kind: 'canyon', s: stretch('a canyon on the right'), lateral: 50, floor: 12, depth: 6, ease: 40 },
   ],
   // Pines off the piste (core/track/pines.ts), sparse (the owner: a tenth of the first forest, so the
   // slopes stay open to drive up): none within 8 m of its edge, more 40 m on and up the walls, in
   // groups about 90 m across.
   pines: { seed: 17, spacing: 7, clear: 8, thicken: 40, density: 0.06, glade: 90 },
-  canyons: [
-    { s: stretch('a canyon on the left'), lateral: -48, floor: 12, depth: 6, ease: 40 },
-    { s: stretch('a canyon on the right'), lateral: 50, floor: 12, depth: 6, ease: 40 },
-  ],
 };
 
 const dir = new URL('../content/maps/avalanche/', import.meta.url);

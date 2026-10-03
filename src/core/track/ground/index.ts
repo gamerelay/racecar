@@ -17,7 +17,6 @@
 // Pure arithmetic from the layout, so every screen builds the same ground.
 
 import type { GroundDef, PieceDef } from '../../content';
-import { smoothstep as smooth } from '../../math';
 import type { BakedSpline } from '../bake';
 import { shapeBranches } from './branches';
 import { buildLand } from './land';
@@ -26,13 +25,12 @@ import { groundKinds } from './surface';
 import { groundFeatures, type Feature, type Hazard } from '../features';
 
 export { DECK_CATCH, DECK_SLACK, type Piece, type Pieces } from './pieces';
-export { canyonAt, canyonDepth, groundShape, noise } from './shape';
+export { canyonDepth, groundShape, noise } from './shape';
+export { BEACH_FADE } from '../features/beach';
 export { OUTLINE_POINTS, outlineAt } from './outline';
 export type { Feature, Hazard } from '../features';
 export { KIND_BEACH, KIND_BRANCH, KIND_ROAD, KIND_SAND, KIND_SHORE, KIND_VERGE, surfaceNoise } from './surface';
 
-/** A beach's ends (GroundDef.beaches) fade in over this many meters. */
-export const BEACH_FADE = 40;
 /** A tunnel's usual ceiling over its road (m): the Lava Tube's (PieceDef.ceiling). */
 export const TUBE_H = 7;
 
@@ -90,7 +88,7 @@ export interface Ground {
   /** Steeper than this is a rock face (GroundDef.face), if the ground has them. */
   readonly face?: number;
   /**
-   * Per main-road sample, its beach (GroundDef.beaches): which side (-1 left, 1 right) times how
+   * Per main-road sample, its beach (a beach feature): which side (-1 left, 1 right) times how
    * far in from the beach's ends (0 to 1 over BEACH_FADE m); 0 with none.
    */
   readonly beach: Float32Array;
@@ -98,6 +96,10 @@ export interface Ground {
   coast(x: number, z: number): number;
   /** The features shaping it (track/features), in order. */
   readonly features: readonly Feature[];
+  /** How far the features have sunk the ground `s` m along the main road and `lat` across it (m: down in a canyon). */
+  sunk(s: number, lat: number): number;
+  /** Whether no tree grows `s` m along the main road and `lat` across it (a feature says so: a canyon, a mogul field). */
+  bare(s: number, lat: number): boolean;
   /** What's dangerous at (x, y, z) at time `t` (s; default 0): a feature's say (the volcano's lava lake), else 'none'. */
   hazard(x: number, y: number, z: number, t?: number): Hazard;
   /**
@@ -117,21 +119,16 @@ export interface Ground {
 /** The ground for `def` round `main`, its `branches` and the layout's `pieces`. */
 export function buildGround(def: GroundDef, main: BakedSpline, branches: BakedSpline[] = [], pieceDefs: readonly PieceDef[] = []): Ground {
   const pieces = definePieces(pieceDefs, [main, ...branches]);
-  const features = groundFeatures(def);
+  const features = groundFeatures(def, main);
   const land = buildLand(def, main, pieces, features);
   const { x0, z0, cell, nx, nz, h } = land;
   const { onBranch, branchSurface, hole } = shapeBranches(land, main, branches, pieces);
   const floors = floorQuery(pieces, main, branches, land);
+  // The beaches' sides, per main-road sample (for the palms, and the tools).
   const beach = new Float32Array(main.n);
-  for (const b of def.beaches ?? []) {
-    const len = (((b.s[1] - b.s[0]) % main.length) + main.length) % main.length;
-    const side = b.side === 'left' ? -1 : 1;
-    for (let d = 0; d <= len; d += main.step) {
-      const i = Math.round((((b.s[0] + d) % main.length) + main.length) % main.length / main.step) % main.n;
-      beach[i] = side * smooth(0, BEACH_FADE, Math.min(d, len - d));
-    }
-  }
-  const kind = groundKinds(land, main, { onBranch, branchSurface, hole }, pieces, beach, features);
+  for (const f of features) if (f.side) for (let i = 0; i < main.n; i++) if (f.side(i)) beach[i] = f.side(i);
+  const sunkers = features.filter((f) => f.sunk);
+  const kind = groundKinds(land, main, { onBranch, branchSurface, hole }, pieces, features);
   const hazards = features.filter((f) => f.hazard);
   const coastOf = features.find((f) => f.coast);
   const at = (gx: number, gz: number) => h[Math.min(nz - 1, Math.max(0, gz)) * nx + Math.min(nx - 1, Math.max(0, gx))];
@@ -160,6 +157,14 @@ export function buildGround(def: GroundDef, main: BakedSpline, branches: BakedSp
     face: def.face,
     features,
     coast: coastOf ? coastOf.coast! : () => Infinity,
+    sunk(s, lat) {
+      let d = 0;
+      for (const f of sunkers) d += f.sunk!(s, lat);
+      return d;
+    },
+    bare(s, lat) {
+      return features.some((f) => f.bare?.(s, lat));
+    },
     hazard(x, y, z, t = 0) {
       for (const f of hazards) {
         const h = f.hazard!(x, y, z, t);

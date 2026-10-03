@@ -665,9 +665,14 @@ stream across a route): then the new floor is recorded, with why.
      which needs one). `shape` gets where a point is by the main road (s, lateral, edge, the
      deck run-in); `hazard` gets the time. Open for 2d: `surface` returns a ground kind, so the
      stream's rock banks add a kind, or it becomes a surface id.
-   - **2b, by-road features into world space:** moguls, canyons, beaches (and the avalanche,
-     which follows a canyon) placed in world space or along a named road. They change where they
-     are by a little, so Avalanche's and Paradise Open's fingerprints are re-recorded.
+   - **2b, the by-road features as modules** (built): mogul fields, canyons and beaches are
+     `GroundDef.features` (`{ kind: 'moguls' | 'canyon' | 'beach', … }`), modules with new hooks:
+     `rise` (added with the swell), `sunk` (the avalanche's shelter), `bare` (no trees), `side`
+     (a beach's side, for palms), and `surface` gets the main road's sample and lateral. The AI
+     reads a canyon's `def` for its line. *Changed while building:* they stay placed along the main
+     road (s and lateral): that is "along a named road", and a mogul field or a canyon belongs by
+     its piste. So nothing moved: every fingerprint identical. World-space placement (a path)
+     starts with the lava stream.
    - **2c, overrides:** the layout field, the hooks, `validate`'s list; `pastGap` and the
      tube's `LAND` looked at.
    - **2d, the lava stream**, end to end as above.

@@ -306,20 +306,12 @@ export interface GroundDef {
   rough?: { height: number; size: number };
   /** Pines on the open snow (core/track/pines.ts), solid. */
   pines?: PinesDef;
-  /** Mogul fields: bumps `height` m high, `spacing` m apart, over s × lateral. */
-  moguls?: { s: [number, number]; lateral: [number, number]; height: number; spacing: number }[];
   /**
-   * Canyons: a trench beside or along the road, a flat floor `floor` m wide and walls curving up
-   * `depth` m (at most about 60° at the lip), centered `lateral` m across, easing in and out over
-   * `ease` m at its ends.
+   * The map's features (core/track/features), in the order they shape the ground: mogul fields,
+   * canyons, beaches. Each is placed along the main road (its `s`, and `lateral` across it), until
+   * the road graph names streets.
    */
-  canyons?: { s: [number, number]; lateral: number; floor: number; depth: number; ease: number }[];
-  /**
-   * Beaches along the main road (Paradise Open: town to the Freeway): off its `side` from `s[0]` to
-   * `s[1]` m (wrapping past the line if `s[0]` is the larger), the ground between the road and the
-   * sea is sand, drawn and driven. Its ends fade over BEACH_FADE m.
-   */
-  beaches?: { s: [number, number]; side: 'left' | 'right' }[];
+  features?: FeatureDef[];
   /** The sea's level (m): water is drawn to it, and a car on the ground under it deeper than wading is in deep water (out of bounds). */
   sea?: number;
   /**
@@ -341,6 +333,42 @@ export interface GroundDef {
    */
   face?: number;
 }
+
+/** Mogul field: bumps `height` m high, `spacing` m apart, over s × lateral. */
+export interface MogulsDef {
+  kind: 'moguls';
+  s: [number, number];
+  lateral: [number, number];
+  height: number;
+  spacing: number;
+}
+
+/**
+ * Canyon: a trench beside or along the road, a flat floor `floor` m wide and walls curving up
+ * `depth` m (at most about 60° at the lip), centered `lateral` m across, easing in and out over
+ * `ease` m at its ends. The AI may run its floor; the avalanche goes over a car down in it.
+ */
+export interface CanyonDef {
+  kind: 'canyon';
+  s: [number, number];
+  lateral: number;
+  floor: number;
+  depth: number;
+  ease: number;
+}
+
+/**
+ * Beach along the main road (Paradise Open: town to the Freeway): off its `side` from `s[0]` to
+ * `s[1]` m (wrapping past the line if `s[0]` is the larger), the ground between the road and the
+ * sea is sand, drawn and driven. Its ends fade over BEACH_FADE m.
+ */
+export interface BeachDef {
+  kind: 'beach';
+  s: [number, number];
+  side: 'left' | 'right';
+}
+
+export type FeatureDef = MogulsDef | CanyonDef | BeachDef;
 
 export interface MapDef {
   id: string;

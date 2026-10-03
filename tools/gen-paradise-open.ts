@@ -45,7 +45,7 @@ const bankAt = (s: number): number | undefined => {
 /** The volcano: today's cone, its crater a shaft down to a lava lake (the Lava Tube crosses it). */
 const VOLCANO = { ...island.terrain.volcano, pit: 12, lava: 14 };
 /**
- * Beaches (GroundDef.beaches, the owner): from Harbor Town's west end to the Freeway, the sea side
+ * Beaches (beach features, the owner): from Harbor Town's west end to the Freeway, the sea side
  * of the road is sand down to the water (it was grass, with a strip of sand at the water's edge).
  */
 const BEACHES: { s: [number, number]; side: 'left' | 'right' }[] = [{ s: [-260, FREEWAY[0]], side: 'left' }];
@@ -209,7 +209,7 @@ const layout: TrackLayout = {
     coast: island.terrain.island as [number, number][],
     volcano: VOLCANO,
     face: FACE,
-    beaches: BEACHES,
+    features: BEACHES.map((b) => ({ kind: 'beach' as const, ...b })),
     pines: { kind: 'tropic', seed: 23, spacing: 7, clear: 7, thicken: 30, density: 0.4, glade: 70 },
   },
 };

@@ -6,7 +6,7 @@
 // choice of shortcuts, and mild catch-up toward the human leader.
 
 import { TUNING as T } from '../car/tuning';
-import type { SlalomGate, TrackLayout } from '../content';
+import type { CanyonDef, SlalomGate } from '../content';
 import type { Controls } from '../controls';
 import { atan2, clamp, cos, hypot, sin, smoothstep, sq, wrapAngle } from '../math';
 import { hash01 } from '../rng';
@@ -199,14 +199,20 @@ function passRocks(sim: SimState, i: number, sp: BakedSpline, target: number, sp
   return target;
 }
 
-type Canyon = NonNullable<NonNullable<TrackLayout['ground']>['canyons']>[number];
+/** The track's canyons (canyon features), found once per track. */
+const canyonsOf = new WeakMap<Track, CanyonDef[]>();
+const trackCanyons = (track: Track): CanyonDef[] => {
+  let list = canyonsOf.get(track);
+  if (!list) canyonsOf.set(track, (list = (track.ground?.features ?? []).flatMap((f) => (f.def?.kind === 'canyon' ? [f.def] : []))));
+  return list;
+};
 const canyonOut = { lateral: 0, floor: 0, w: 0 };
 
 /**
  * Whether car `i` rides a canyon at `s` m down the main road (a seeded choice per car and canyon,
  * as often as `take` allows), and how far into it: w from 0 (the line) to 1 (the canyon's floor).
  */
-function canyonLine(sim: SimState, i: number, canyons: readonly Canyon[], s: number, take: number): typeof canyonOut | null {
+function canyonLine(sim: SimState, i: number, canyons: readonly CanyonDef[], s: number, take: number): typeof canyonOut | null {
   for (let k = 0; k < canyons.length; k++) {
     const cy = canyons[k];
     const out = cy.s[1] - cy.ease;
@@ -282,7 +288,8 @@ export function driveRacer(sim: SimState, i: number, d: RacerDriver, out: Contro
     }
   }
   // Down a canyon's floor, now and then (open ground): out to it, along it and back.
-  const canyon = sp.index === 0 && track.layout.ground?.canyons ? canyonLine(sim, i, track.layout.ground.canyons, s + ahead, skill.shortcut) : null;
+  const canyons = sp.index === 0 ? trackCanyons(track) : null;
+  const canyon = canyons?.length ? canyonLine(sim, i, canyons, s + ahead, skill.shortcut) : null;
   if (canyon) target += (canyon.lateral - target) * canyon.w;
   const lineTarget = target;
   // Holding a line round something: keep it until the hold runs out.

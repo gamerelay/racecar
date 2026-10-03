@@ -11,7 +11,7 @@
 import type { PinesDef, TrackLayout } from '../content';
 import { hash01 } from '../rng';
 import type { BakedSpline } from './bake';
-import { canyonAt, noise, type Ground } from './ground';
+import { noise, type Ground } from './ground';
 import { hypot, pow, smoothstep as smooth } from '../math';
 
 /** The lookup grid's cell (m). */
@@ -67,7 +67,7 @@ export function buildPines(def: PinesDef, layout: TrackLayout, main: BakedSpline
       const half = main.width[i] / 2 + main.shoulder[i];
       const d = Math.abs(lat) - half;
       if (d < def.clear || Math.abs(lat) > span || s < 10 || s > main.length - 10) continue;
-      if (blocked(layout, s, lat, d)) continue;
+      if (blocked(layout, ground, s, lat, d)) continue;
       const y = ground.height(x, z);
       let thick = 1;
       let kind = TREE_PINE;
@@ -76,7 +76,7 @@ export function buildPines(def: PinesDef, layout: TrackLayout, main: BakedSpline
         if (y < sea + 0.8) continue;
         if (v && hypot(x - v.x, z - v.z) < v.r * 0.62) continue;
         thick = TROPIC_THICK[verge?.(i) ?? ''] ?? 1;
-        // (Palms on a beach too, however far it runs back from the water: GroundDef.beaches.)
+        // (Palms on a beach too, however far it runs back from the water: a beach feature.)
         kind = ground.coast(x, z) < PALM_COAST || ground.beach[i] * lat > 0 ? TREE_PALM : TREE_JUNGLE;
       }
       // Thicker away from the piste and up the walls, and in glades, not an even carpet.
@@ -123,15 +123,9 @@ export function buildPines(def: PinesDef, layout: TrackLayout, main: BakedSpline
   };
 }
 
-/** Where no tree grows: a canyon and its mouth (between it and the piste), a mogul field, beside a kicker. */
-function blocked(layout: TrackLayout, s: number, lat: number, d: number): boolean {
-  const g = layout.ground!;
-  if (canyonAt(g, s, lat) > 0.2) return true;
-  for (const c of g.canyons ?? []) {
-    if (s < c.s[0] - 40 || s > c.s[1] + 40 || Math.sign(lat) !== Math.sign(c.lateral)) continue;
-    if (Math.abs(lat) < Math.abs(c.lateral) + c.floor / 2 + 2 * c.depth + 4) return true;
-  }
-  for (const m of g.moguls ?? []) if (s > m.s[0] - 6 && s < m.s[1] + 6 && lat > m.lateral[0] - 6 && lat < m.lateral[1] + 6) return true;
+/** Where no tree grows: where a feature says (a canyon and its mouth, a mogul field), beside a kicker. */
+function blocked(layout: TrackLayout, ground: Ground, s: number, lat: number, d: number): boolean {
+  if (ground.bare(s, lat)) return true;
   for (const r of layout.ramps ?? []) if (Math.abs(s - r.s) < r.length + (r.back ?? 0) + 12 && d < (r.flank ?? 8) + 8) return true;
   return false;
 }
