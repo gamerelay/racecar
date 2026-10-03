@@ -304,24 +304,26 @@ export function log(x: number): number {
 }
 
 /**
- * x to the power y, with Math.pow's special values. Whole powers up to 1024 by squaring, y = 0.5 as
- * sqrt, otherwise e^(y·ln x), which loses about |y·ln x| ulp (12 at worst at the game's sizes).
+ * x to the power y, with Math.pow's special values. Whole powers up to 64 by squaring (each
+ * squaring doubles the error, so no further), y = 0.5 as sqrt, otherwise e^(y·ln x), which loses up
+ * to about 2·|y·ln x| ulp (12 at worst at the game's sizes).
  */
 export function pow(x: number, y: number): number {
   if (y === 0) return 1;
   if (x !== x || y !== y) return NaN;
-  if (y === Math.floor(y) && y >= -1024 && y <= 1024) {
+  if (y === Math.floor(y) && y >= -64 && y <= 64) {
     let r = 1;
     let b = x;
     for (let n = y < 0 ? -y : y; n > 0; n >>= 1) {
       if (n & 1) r *= b;
       b *= b;
     }
-    return y < 0 ? 1 / r : r;
+    // A negative power whose x^|y| overflowed would come out 0, not subnormal: exp scales it below.
+    if (y > 0 || Math.abs(r) !== Infinity) return y < 0 ? 1 / r : r;
   }
   const ax = x < 0 ? -x : x;
   if (y === Infinity || y === -Infinity) return ax === 1 ? NaN : ax > 1 === y > 0 ? Infinity : 0;
-  // A whole y here is past 1024; an odd one keeps x's sign.
+  // A whole y here is past 64 (or under -64, or overflowed); an odd one keeps x's sign.
   const odd = y === Math.floor(y) && y % 2 !== 0;
   if (ax === Infinity || x === 0) {
     const big = ax === Infinity === y > 0;

@@ -68,13 +68,17 @@ describe('own math', () => {
     expect(sin(NaN)).toBeNaN();
     expect(cos(Infinity)).toBeNaN();
     for (const x of [-709.79, -708.4, -745.13, 709.78, 0.3465735902799726, -0.3465735902799727]) expect(ulps(exp(x), Math.exp(x))).toBeLessThanOrEqual(1);
-    const special = [0, -0, 1, -1, 0.5, -0.5, 2, -2, 3, -3, 65, -65, 1025, -1025, 1026, 0.7, -0.7, 1.5, Infinity, -Infinity, NaN];
+    const special = [0, -0, 1, -1, 0.5, -0.5, 2, -2, 3, -3, 63, -63, 64, -64, 65, -65, 1025, -1025, 1026, 1e5, -1e5, 0.7, -0.7, 1.5, Infinity, -Infinity, NaN];
     // The special values exactly; a finite answer within about 2·|y·ln x| ulp (e^(y·ln x)).
     for (const x of special)
       for (const y of special) {
         const [a, b] = [pow(x, y), Math.pow(x, y)];
         if (ulps(a, b) > (Number.isFinite(b) && b !== 0 ? 4 + 2 * Math.abs(y * Math.log(Math.abs(x))) : 0)) throw new Error(`pow(${x}, ${y}) is ${pow(x, y)}, Math says ${b}`);
       }
+    // Big whole powers (squaring would drift) and negative ones whose x^|y| overflows (subnormal, not 0).
+    for (const [x, y] of [[1.427873072328596, 1008], [2, -1024], [10, -310], [1e5, -64], [-1e5, -63], [-3, -641]]) {
+      expect(ulps(pow(x, y), Math.pow(x, y))).toBeLessThanOrEqual(4 + 2 * Math.abs(y * Math.log(Math.abs(x))));
+    }
     expect(ulps(atan2(1, -5e-324), Math.atan2(1, -5e-324))).toBe(0);
   });
 
