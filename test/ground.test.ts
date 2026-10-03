@@ -1,9 +1,10 @@
-import { describe, expect, test } from 'bun:test';
+import { describe, expect, setDefaultTimeout, test } from 'bun:test';
 import type { TrackLayout } from '../src/core/content';
 import { neutralControls } from '../src/core/controls';
 import { Sim } from '../src/core/sim';
 import { bakeTrack } from '../src/core/track/bake';
 import { canyonAt, canyonDepth } from '../src/core/track/ground';
+import { buildPines } from '../src/core/track/pines';
 import { newHit, projectGlobal, sampleAt } from '../src/core/track/query';
 import { slopeView } from '../src/render/camera';
 import { Cause, Ev } from '../src/core/events';
@@ -14,6 +15,13 @@ import { CLASSES, SURFACES, layout } from './helpers';
 
 // Open ground (docs/AVALANCHE.md, experimental): a heightfield the car drives on everywhere, the
 // slope pulling you along it on snow, and Avalanche's Slope built on it.
+
+// Whole runs down a 6 km mountain: seconds each on a slow CI machine.
+setDefaultTimeout(30_000);
+
+/** The Slope, baked once for the file (its ground and forest take a few seconds on a slow machine). */
+let baked: ReturnType<typeof bakeTrack> | undefined;
+const slope = () => (baked ??= bakeTrack(layout('avalanche/slope'), SURFACES));
 
 /** A straight strip falling `grade` m per m, all ground, its road `surface`. */
 function incline(grade: number, surface: string): TrackLayout {
@@ -69,7 +77,7 @@ describe('open ground', () => {
 
 describe("Avalanche's Slope", () => {
   test("its ground has no cliffs: nowhere steeper than a canyon's lip (60°) between neighbours", () => {
-    const g = bakeTrack(layout('avalanche/slope'), SURFACES).ground!;
+    const g = slope().ground!;
     let worst = 0;
     for (let gz = 0; gz < g.nz - 1; gz++) {
       for (let gx = 0; gx < g.nx - 1; gx++) {
@@ -171,7 +179,7 @@ describe("Avalanche's Slope", () => {
 
 describe("the Slope's rocks", () => {
   test('a few snow-capped rocks and ridges stand on the piste, solid, on the ground', () => {
-    const track = bakeTrack(layout('avalanche/slope'), SURFACES);
+    const track = slope();
     const rocks = track.props.filter((p) => p.kind === 'rock');
     expect(rocks.length).toBeGreaterThanOrEqual(5);
     expect(rocks.length).toBeLessThanOrEqual(12);
@@ -186,7 +194,7 @@ describe("the Slope's rocks", () => {
   });
 
   test('driven straight at, a rock wrecks you', () => {
-    const track = bakeTrack(layout('avalanche/slope'), SURFACES);
+    const track = slope();
     const r = track.props.find((p) => p.kind === 'rock')!;
     const sim = new Sim(track, CLASSES, SURFACES, { seed: 1 });
     const i = sim.addCar({ cls: 'coupe', human: true });
@@ -205,7 +213,7 @@ describe("the Slope's rocks", () => {
 
 describe("the Slope's gates", () => {
   test('a gate over the start and the finish: a solid post either side, just off the piste', () => {
-    const track = bakeTrack(layout('avalanche/slope'), SURFACES);
+    const track = slope();
     const posts = track.props.filter((p) => p.kind === 'gate-post');
     expect(posts.length).toBe(4);
     for (const s of [track.run!.start, track.run!.finish]) {
@@ -235,7 +243,7 @@ describe('the camera on a slope', () => {
 
 describe("the Slope's slalom gates", () => {
   test('a gate is two flags 10–14 m apart on the piste, clear of the rocks; their flags are smashable', () => {
-    const track = bakeTrack(layout('avalanche/slope'), SURFACES);
+    const track = slope();
     const gates = track.layout.slalom!;
     expect(gates.length).toBeGreaterThanOrEqual(10);
     for (const g of gates) {
@@ -250,7 +258,7 @@ describe("the Slope's slalom gates", () => {
   });
 
   test('through a gate pays boost and points, more for gates in a row; a missed one ends the streak', () => {
-    const track = bakeTrack(layout('avalanche/slope'), SURFACES);
+    const track = slope();
     const gates = track.layout.slalom!;
     const sim = new Sim(track, CLASSES, SURFACES, { seed: 1 });
     const i = sim.addCar({ cls: 'coupe', human: true });
@@ -274,7 +282,7 @@ describe("the Slope's slalom gates", () => {
   });
 
   test('the hard AI takes most of them', () => {
-    const sim = new Sim(bakeTrack(layout('avalanche/slope'), SURFACES), CLASSES, SURFACES, { seed: 1, traffic: 0, mayhem: 'off' });
+    const sim = new Sim(slope(), CLASSES, SURFACES, { seed: 1, traffic: 0, mayhem: 'off' });
     sim.addCar({ cls: 'coupe', racer: { difficulty: 2 } });
     sim.startRace(1, 0.1);
     let gates = 0;
@@ -291,12 +299,12 @@ describe("the Slope's slalom gates", () => {
 
 describe("the Slope's pines", () => {
   test('thousands of solid pines off the piste: none near its edge, in a canyon or its mouth, or in the moguls', () => {
-    const track = bakeTrack(layout('avalanche/slope'), SURFACES);
+    const track = slope();
     const p = track.pines!;
     const g = track.layout.ground!;
     expect(p.n).toBeGreaterThan(2000);
     // The same forest every time (every screen builds its own).
-    expect(Array.from(bakeTrack(layout('avalanche/slope'), SURFACES).pines!.x.slice(0, 50))).toEqual(Array.from(p.x.slice(0, 50)));
+    expect(Array.from(buildPines(g.pines!, track.layout, track.main, track.ground!).x)).toEqual(Array.from(p.x));
     const main = track.main;
     for (let k = 0; k < p.n; k += 7) {
       const at = sampleAt(main, 0, newHit());
@@ -309,12 +317,12 @@ describe("the Slope's pines", () => {
   });
 
   test('driven into, a pine wrecks you', () => {
-    const track = bakeTrack(layout('avalanche/slope'), SURFACES);
+    const track = slope();
     const p = track.pines!;
     const sim = new Sim(track, CLASSES, SURFACES, { seed: 1 });
     const i = sim.addCar({ cls: 'coupe', human: true });
     // A tree on fairly level ground well down the run, with nothing else in the way, the car 12 m off, aimed at it.
-    const slope = { x: 0, z: 0 };
+    const tilt = { x: 0, z: 0 };
     const hit = newHit();
     const clear = (k: number) => {
       let others = 0;
@@ -324,7 +332,7 @@ describe("the Slope's pines", () => {
       return others === 0;
     };
     let k = 0;
-    while (track.ground!.slope(p.x[k], p.z[k], slope) && (Math.hypot(slope.x, slope.z) > 0.15 || projectGlobal(track.main, p.x[k], p.z[k], hit) < 0 || hit.s < 500 || !clear(k))) k++;
+    while (track.ground!.slope(p.x[k], p.z[k], tilt) && (Math.hypot(tilt.x, tilt.z) > 0.15 || projectGlobal(track.main, p.x[k], p.z[k], hit) < 0 || hit.s < 500 || !clear(k))) k++;
     sim.placeCar(i, 0, hit.s, 0, 0);
     sim.cars.x[i] = p.x[k] - 12;
     sim.cars.z[i] = p.z[k];
@@ -343,7 +351,7 @@ describe("the Slope's pines", () => {
 
 describe("the Slope's ski jump", () => {
   test('a straight, level in-run, a lip, and a landing hill that falls away below it', () => {
-    const track = bakeTrack(layout('avalanche/slope'), SURFACES);
+    const track = slope();
     const { lip, landing } = track.layout.skiJump!;
     const m = track.main;
     const grade = (s: number) => (m.py[Math.round((s - 4) / m.step)] - m.py[Math.round((s + 4) / m.step)]) / 8;
@@ -355,7 +363,7 @@ describe("the Slope's ski jump", () => {
   });
 
   test('every class flies it, long and clean, and lands on the hill', () => {
-    const track = bakeTrack(layout('avalanche/slope'), SURFACES);
+    const track = slope();
     const { lip, landing } = track.layout.skiJump!;
     for (const cls of ['coupe', 'bus']) {
       const sim = new Sim(track, CLASSES, SURFACES, { seed: 1, traffic: 0, mayhem: 'off' });
@@ -384,7 +392,7 @@ describe("the Slope's ski jump", () => {
 
 describe("the Slope's avalanche", () => {
   const race = (mayhem: 'normal' | 'chaos') => {
-    const sim = new Sim(bakeTrack(layout('avalanche/slope'), SURFACES), CLASSES, SURFACES, { seed: 1, mayhem });
+    const sim = new Sim(slope(), CLASSES, SURFACES, { seed: 1, mayhem });
     const i = sim.addCar({ cls: 'coupe', human: true });
     sim.startRace(1, 0.1);
     return { sim, i };
