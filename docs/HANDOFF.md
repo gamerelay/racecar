@@ -5,8 +5,8 @@ The design is [SPEC.md](./SPEC.md): decisions in §17, and what building changed
 building". This file is "where are we"; the spec is "what are we making".
 
 **Last updated:** 2026-10-03 (Paradise Open merged in #81, untagged; the plan for the engine,
-[CALDERA.md](./CALDERA.md), merged in #82; its step 0 merged in #83; next is step 0b or 1a; see
-"Next: Caldera" below). Before that, `alpha-1.30`: Avalanche's snow and rumble quieter. The last tag is **`alpha-1.30`** (PR #77: the snow under the wheels and the avalanche's rumble about 4.5 dB down, the owner's ask). Before it, **`alpha-1.29`** (PRs #71–#74): **Avalanche**, the first open map, one 6.1 km run down a mountain (#74), and the Leap's kicker rounded and launchable from its sides (#71, #72), and PLAN's "Open, freeform maps" direction (#73).
+[CALDERA.md](./CALDERA.md), merged in #82; steps 0 and 0b merged in #83 and #84; 1a and 1b in
+PRs #85 and #86, awaiting the owner's merge; next is 1c; see "Next: Caldera" below). Before that, `alpha-1.30`: Avalanche's snow and rumble quieter. The last tag is **`alpha-1.30`** (PR #77: the snow under the wheels and the avalanche's rumble about 4.5 dB down, the owner's ask). Before it, **`alpha-1.29`** (PRs #71–#74): **Avalanche**, the first open map, one 6.1 km run down a mountain (#74), and the Leap's kicker rounded and launchable from its sides (#71, #72), and PLAN's "Open, freeform maps" direction (#73).
 Before it, `alpha-1.28` (PRs #67–#70: a press flash and a click on the menus' buttons; the title's
 music from the start; Logger's Leap smoothed and bermed), `alpha-1.27` (PRs #63–#65), `alpha-1.26`
 (PR #62: two new tracks), `alpha-1.25` (PR #61: boost, Overdrive, the slipstream) and `alpha-1.24`
@@ -42,21 +42,43 @@ across browsers and CI can't drift. The feel is unchanged: after 60 s of an 8-ca
 are picometres from where they were; lap floors and the field's results (5 seeds per map) match to
 the tenth. `--from-ci` and the per-platform files are gone.
 
-**Step 1a, the move onto pieces, is built** (branch `caldera-pieces`, 2026-10-03), the
+**Step 1a, the move onto pieces, is built** (PR #85, branch `caldera-pieces`, 2026-10-03; reviewed,
+CI green, awaiting the owner's merge), the
 fingerprints identical on every layout. Layouts say `pieces` (`PieceDef`: a stretch of a road
 with a floor or none, a ceiling, and how the ground falls away under it) instead of `GroundDef`'s
 `decks`, `branchDecks` and `branchGaps`; `ground.ts` is a `ground/` folder; what's under a point is
 one query, `ground.cast(x, y, z, out)`, which physics, the camera and the tools ask. CALDERA's
 build order has what's in it and what isn't yet.
 
-**Step 1b, portals, is built** (branch `caldera-portals`, stacked on 1a, 2026-10-03). The tube's
+**Step 1b, portals, is built** (PR #86, branch `caldera-portals`, stacked on #85, 2026-10-03;
+reviewed, CI green, awaiting the owner's merge). The tube's
 mouths, and where it comes out into the shaft, have the ground drawn cut to the tube's own outline
 (`outlineAt` in core, which the tube's walls are built on too; `render/skins/greybox/portal.ts`
-clips the terrain), and the shroud is gone. Drawing only, so the fingerprints stayed identical
-(CALDERA had planned to re-record them).
+clips the terrain), and the shroud is gone. Past each open end the cut goes on to the arch's outer
+face (1.5 m), so ground standing in the opening is cut too; only the finest level of detail is cut.
+Drawing only, so the fingerprints stayed identical (CALDERA had planned to re-record them).
+
+**Merging them:** #85 first (with `--delete-branch`, GitHub retargets #86 to main), then #86. Merge
+only on the owner's word.
 
 **Next: step 1c, branches own their heights** (the generator stops working backwards from the
 bake's join; fingerprints re-recorded, lap floors checked). Follow CALDERA's "How to work on it".
+Where to start: TECH_DEBT's "The generator inverts the bake's join" (`gen-paradise-open.ts`'s
+`beside`/`LAND` copy `joinBranch`'s pull, `JOIN_FADE`, so the tube's authored heights come out
+right after the bake pulls them toward the main road). The fix there: a branch that says it
+authors its own heights, and `joinBranch` leaves them. The generator reproduces the committed JSON
+exactly today (`bun tools/gen-paradise-open.ts`, then `git diff`), which makes changes to it easy
+to see.
+
+**Working notes (2026-10-03):**
+- One PR per step, a fresh reviewer at the end (it found real bugs every time: in 0b, 1a and 1b),
+  then the owner merges. The PR says whether it's a clean-up (fingerprints identical) or a change.
+- After moving a file into a folder, restart `bun run dev`: Vite keeps the old path cached and
+  `tools/shot.ts` hangs.
+- `tools/shot.ts` back to back sometimes fails ("Bun v1.3.13" and no file); run them one at a time.
+  A contact sheet (`--s 50,60,70`) is one run.
+- For anything drawn, a headless check beats screenshots: 1b's cut was checked by sampling the
+  terrain against the outline (`test/portal.test.ts`), which found two bugs no screenshot showed.
 
 **Avalanche** (merged in #74, out of experimental on the owner's word): open ground you drive on
 everywhere, slope gravity on snow, moguls, canyons, kickers, rocks, 18 slalom gates, about 650
