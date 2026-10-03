@@ -42,6 +42,12 @@ Hard parts:
 - **Cutting across the island** has to cost time, not skip half a lap.
 - **Retuning:** its lap floor (71.52 s), the AI with more room, and grip in a shower off the road.
 
+**The plan is [PARADISE.md](./PARADISE.md)** (2026-10-02, from the owner's sketch): a web of
+routes between the old places, each stretch a road, a slower cut and sometimes a risky line (a
+jump over the crater's lava, the Reef Run inside the bridge, a lava channel), a half-moon bridge
+to drift, the mud like a messy mogul field, lava that changes lap to lap, more Hawaii, a little
+zany, and no lighthouse. Its "Questions for the owner" come first.
+
 Rough size: about two sessions. The first makes the island's land drivable with the sea as its
 edge, then drive it. The second sorts the tunnel, the solid palms, the volcano's gravity and lava.
 Then tune.
