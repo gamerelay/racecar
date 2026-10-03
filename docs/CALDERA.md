@@ -121,6 +121,32 @@ How the owner's list falls out of it:
 | **Hazards that spread** | A lava flow down the volcano onto a road, the avalanche: a path from the layout, how far along it is a formula of the race clock (and the seed, for which flank and when). A car in it wrecks. A crust that cools into something to drive on is a piece that appears at a set time. |
 | **Cities and chases** | Streets are pieces joined at junctions: a graph (below). |
 
+## Things that move: who decides
+
+Not built yet, but the engine leaves room for it. Every moving thing in the world (a piece, a
+prop, a hazard) says **who decides where it is**, and nothing else in the engine cares which:
+the physics collides with it, the renderer draws it, snapshots save it, the same way for all.
+
+| Authority | Who moves it | Online cost | For |
+|---|---|---|---|
+| **World** (today) | A formula of the seed and the race clock (SPEC §4's D) | Nothing sent | Drawbridges, the avalanche, lava, traffic |
+| **Kick** | A hit is claimed (T), then a canned path from the hit's time, speed and angle, the same formula on every screen | One claim and one event per hit | A barrel or a cone sent flying, a gate knocked off its hinges |
+| **Host** | The host's page steps it and sends it as an entity, like the AI (H) | An entity's updates while it moves | Something shoved for a while: a ball, a car on a trailer |
+| **Relay** (later) | A Resonance node near the players steps it, if Resonance ever runs game code | The same as a host entity, with less lag and no host leaving | The same, when it matters |
+
+What keeps that room open, from the start:
+- **One interface for moving things:** its pose at a tick, its collision shape, its state for
+  snapshots. A drawbridge (world) and a ball (host) are the same to the rest of the engine.
+- **Kicks are formulas from the hit:** where the thing is at t is a closed-form function of the
+  hit's time, position, speed and angle (a ballistic arc, a bounce or two, then rest), so the
+  claimed event is all that's sent.
+- **The state is small and plain:** what a host or a relay would send fits an entity (a pose,
+  a velocity, a few flags), so moving something from World to Host to Relay is a change of
+  authority, not a rewrite.
+- **Ask GameRelay for what's missing:** if a relay-run object needs something the SDK lacks (an
+  entity owned by the room, not a player), it gets built into GameRelay (SPEC §11's "Platform
+  asks"), not faked in the game.
+
 ## Routes: a graph, not a loop
 
 Today a track is one main road with branches that leave and rejoin it. The ground, the off-road
@@ -242,7 +268,7 @@ What the engine struggles with now, and the build step that lifts it (if any):
 | Big air is hard: the road lifts a car at most 8 m/s | The vertical speed cap keeps cars on the road over bumps | Tuning per feature (the jump's kicker was sized by a sweep) |
 | The car is one body with a heading: no wheels leaving the ground one by one, no rolling over, no stacking | Our own simple car model | Not planned |
 | Contact between players' cars is approximate online: another player's car is a pose 30 times a second, and a bump is agreed between the two screens (`net/contact.ts`) | Each player owns their car | Not planned (it's the right trade for 8 players) |
-| Nothing in the world can be pushed by a car | Online, not the engine: offline the sim could push things exactly, but online each screen sees other players' cars only as poses, so each would push a thing a little differently and they'd drift apart (SPEC §4) | Two ways when it's wanted: a **kick** (a hit is a claimed trigger, then the thing follows a canned path from the hit's speed and angle, the same on every screen: a barrel sent flying), or a **host entity** (the host moves it and sends it out, for things shoved for a while, like a ball; laggier for the pusher) |
+| Nothing in the world can be pushed by a car | Online, not the engine: offline the sim could push things exactly, but online each screen sees other players' cars only as poses, so each would push a thing a little differently and they'd drift apart (SPEC §4) | Room left for it: a **kick**, a **host** entity, or later a **relay**-run one (see "Things that move: who decides") |
 | Deep water is just out of bounds: no wading physics, boats or tides | No water in the sim | Not planned |
 | The AI follows racing lines on the roads: it can't cut across open ground or plan a route | Lines are per spline | Step 7 (pathfinding over the graph) |
 | Features are authored in generator scripts, which sometimes work around the bake (the tube's ends) | No editor for ground features; the bake pulls branches toward the main road | Steps 1–2 (pieces own their heights) |
