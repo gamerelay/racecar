@@ -2,6 +2,8 @@
 // sampled every meter of arc length (center, tangent, width, height, bank, surface, walls), the
 // branches mapped onto the main spline's distance, checkpoints, zones, ramps and render chunks.
 
+import { buildGround, type Ground } from './ground';
+import { buildPines, type Pines } from './pines';
 import type { BranchDef, SurfaceDef, TrackLayout, TrackPoint, Vec3, ZoneDef } from '../content';
 import { smoothstep } from '../math';
 import { sampleDense, type DenseSample } from './spline';
@@ -40,6 +42,8 @@ export interface BakedSpline {
   shoulder: Float64Array;
   /** Extra ground height from ramps. */
   ramp: Float64Array;
+  /** The track's open ground, if it has one (every spline's ground query reads it). */
+  ground?: Ground;
   /** Where a ramp has sides (RampDef.flank): meters past the road's edge and shoulder its height runs out over (0: none). */
   rampFlank: Float64Array;
   lanes: Uint8Array;
@@ -91,16 +95,22 @@ export interface Track {
   main: BakedSpline;
   surfaces: SurfaceDef[];
   surfaceIndex: Map<string, number>;
-  /** Main-spline distances of the checkpoints, in order; the finish line is s = 0. */
+  /** Main-spline distances of the checkpoints, in order; the finish line is s = 0 (or the run's finish). */
   checkpoints: number[];
+  /** One run (layout.run): the main road is open, the race from `start` to `finish` on it. */
+  run?: { start: number; finish: number };
   props: BakedProp[];
   /** A stable hash of the layout JSON, carried in reports so a replay uses the same track. */
   version: string;
+  /** Open ground (layout.ground): what the car drives on everywhere, off the roads too. */
+  ground?: Ground;
+  /** Pines on the open ground (layout.ground.pines), solid. */
+  pines?: Pines;
 }
 
 export function bakeTrack(layout: TrackLayout, surfaces: SurfaceDef[]): Track {
   const surfaceIndex = new Map(surfaces.map((s, i) => [s.id, i]));
-  const main = bakeSpline(layout.id, 0, layout.main.points, true, surfaceIndex);
+  const main = bakeSpline(layout.id, 0, layout.main.points, !layout.run, surfaceIndex);
   const splines = [main];
   for (const b of layout.branches ?? []) splines.push(bakeBranch(b, splines.length, main, surfaceIndex));
 
@@ -152,8 +162,14 @@ export function bakeTrack(layout: TrackLayout, surfaces: SurfaceDef[]): Track {
   // A checkpoint on the line itself would be taken just after the lap counts, halving the laps:
   // the line is the lap, so drop any within 20 m of it.
   const listed = Array.isArray(layout.checkpoints) ? layout.checkpoints.map((c) => (c >= 0 && c < L ? c : wrap(c, L))).filter((c) => c > 20 && c < L - 20).sort((a, b) => a - b) : [];
+  // One run: the finish isn't the start, and nothing wraps.
+  const run = layout.run && { start: Math.max(0, layout.run.start), finish: Math.min(L, layout.run.finish) };
+  if (run) {
+    const listedRun = Array.isArray(layout.checkpoints) ? layout.checkpoints.filter((c) => c > run.start + 20 && c < run.finish - 20).sort((a, b) => a - b) : [];
+    checkpoints = listedRun.length ? listedRun : Array.from({ length: 7 }, (_, k) => run.start + ((k + 1) * (run.finish - run.start)) / 8);
+  }
   // None listed (or none left): auto. Progress needs at least one, or it's a lap out half the lap.
-  if (listed.length) checkpoints = listed;
+  else if (listed.length) checkpoints = listed;
   else {
     // Every 1/8 of the lap, stepped past any shortcut's span so no branch can skip one.
     checkpoints = Array.from({ length: 7 }, (_, k) => {
@@ -196,7 +212,13 @@ export function bakeTrack(layout: TrackLayout, surfaces: SurfaceDef[]): Track {
 
   if (layout.trestles) props.push(...supports(splines));
 
-  return { layout, splines, main, surfaces, surfaceIndex, checkpoints, props, version: layoutVersion(layout) };
+  // Open ground: shaped round the main road, and every spline's ground query reads it.
+  const ground = layout.ground ? buildGround(layout.ground, main) : undefined;
+  if (ground) for (const sp of splines) sp.ground = ground;
+  // On open ground a prop stands on it (a rock on a swell), not on the road's line beneath.
+  if (ground) for (const p of props) p.y = ground.height(p.x, p.z);
+  const pines = ground && layout.ground!.pines ? buildPines(layout.ground!.pines, layout, main, ground) : undefined;
+  return { layout, splines, main, surfaces, surfaceIndex, checkpoints, props, version: layoutVersion(layout), ground, pines, run };
 }
 
 /** A high bridge stands on a timber bent this often (m along it), on legs across it (SPEC, "Trestle legs"). */

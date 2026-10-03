@@ -4,7 +4,7 @@
 
 import { type Fog, PerspectiveCamera, type PointsMaterial, Scene, Vector3, WebGLRenderer, type DirectionalLight } from 'three';
 import type { CarClass, PaintDef } from '../core/content';
-import { CLASSES, LAYOUTS, MAPS, PAINTS, SURFACES } from '../content';
+import { ALL_MAPS, CLASSES, LAYOUTS, MAPS, PAINTS, SURFACES } from '../content';
 import { Sim } from '../core/sim';
 import { bakeTrack, type Track } from '../core/track/bake';
 import { newHit, project, sampleAt, type TrackHit } from '../core/track/query';
@@ -114,7 +114,7 @@ export class Stage {
     palette?: string,
   ) {
     const layout = structuredClone(LAYOUTS[mapKey]);
-    const map = MAPS.find((m) => mapKey.startsWith(m.id + '/')) ?? MAPS[0];
+    const map = ALL_MAPS.find((m) => mapKey.startsWith(m.id + '/')) ?? MAPS[0];
     this.track = bakeTrack(layout, SURFACES);
     this.sim = new Sim(this.track, CLASSES, SURFACES, { seed: 7, weather: 'clear', mayhem: 'off', traffic: 0 });
     this.skin.environment(this.scene, palette ?? map.palette);

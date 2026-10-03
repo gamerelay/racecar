@@ -117,6 +117,9 @@ export const TUNING = {
   chainBoostMax: 2,
 
   boostFromNearMiss: 0.05,
+  /** Through a slalom gate (rules/slalom.ts): boost and points, the points growing with gates in a row. */
+  boostFromGate: 0.04,
+  gatePoints: 200,
   boostFromOncoming: 0.04,
   boostFromCheck: 0.06,
   /**

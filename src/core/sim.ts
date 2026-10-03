@@ -4,7 +4,7 @@
 
 import { driveFollow, type FollowDriver } from './ai/follow';
 import { driveRacer, type RacerDriver } from './ai/racer';
-import { stepCar } from './car/physics';
+import { stepCar, wreckCar } from './car/physics';
 import { createCarPool, restoreCars, snapshotCars, type CarPool } from './car/pool';
 import { TUNING } from './car/tuning';
 import { collideCars } from './collide/cars';
@@ -24,6 +24,9 @@ import { newHit, projectGlobal, sampleAt } from './track/query';
 import { Hazards, type Mayhem } from './world/hazards';
 import { Traffic, laneActive } from './world/traffic';
 import { Smashables } from './world/smash';
+import { AVALANCHE_UNDER, Avalanche } from './world/avalanche';
+import { Slalom } from './rules/slalom';
+import { canyonAt } from './track/ground';
 import { planWeather, weatherAt, type WeatherOption, type WeatherPlan, type WeatherState } from './world/weather';
 
 export const TICK_RATE = 60;
@@ -74,6 +77,9 @@ export interface RemotePose {
   ghost: boolean;
 }
 
+/** One run, in free drive: this long (s) past the finish, you're back at the top. */
+const RUN_AGAIN = 4;
+
 export class Sim implements SimState {
   track: Track;
   readonly cars: CarPool;
@@ -100,6 +106,11 @@ export class Sim implements SimState {
   weatherPlan: WeatherPlan;
   readonly weatherState: WeatherState = { wetness: 0, grip: 1, wet: false, visibility: 1 };
   world: { traffic: Traffic; hazards: Hazards; smash: Smashables };
+  /** One run's avalanche, at chaos (world/avalanche.ts), and where its front is this tick. */
+  avalanche: Avalanche | null = null;
+  avalancheFront = -Infinity;
+  /** Slalom gates' streaks (rules/slalom.ts), for this screen's own cars. */
+  private readonly slalom = new Slalom(MAX_CARS);
   race: RaceState = { phase: 'free', goTime: 0, laps: 3, finishedCount: 0 };
   private readonly grid = new SpatialGrid(16, 1024, MAX_CARS);
   private readonly isActive = (i: number) => this.cars.active[i] === 1;
@@ -131,6 +142,8 @@ export class Sim implements SimState {
   }
 
   private buildWorld(track: Track): { traffic: Traffic; hazards: Hazards; smash: Smashables } {
+    const def = track.layout.avalanche;
+    this.avalanche = def && track.run && this.options.mayhem === 'chaos' ? new Avalanche(track, def) : null;
     const traffic = new Traffic(track, this.seed, this.options.traffic ?? 1);
     return { traffic, hazards: new Hazards(track, traffic, this.seed, this.options.mayhem ?? 'normal'), smash: new Smashables(track) };
   }
@@ -167,7 +180,8 @@ export class Sim implements SimState {
    */
   private finish(n: number): void {
     const cars = this.cars;
-    const line = this.race.laps * this.track.main.length;
+    const run = this.track.run;
+    const line = run ? run.finish - run.start : this.race.laps * this.track.main.length;
     for (let k = 0; k < n; k++) {
       const i = this.finishers[k];
       this.crossedAgo[k] = (cars.progress[i] - line) / Math.max(1, Math.hypot(cars.vx[i], cars.vz[i]));
@@ -196,11 +210,17 @@ export class Sim implements SimState {
 
   /** Puts car i in its grid slot, lap 0. */
   private gridCar(i: number): void {
+    this.slalom.reset(i);
     const c = this.cars;
     const row = Math.floor(i / 2);
     const col = i % 2 === 0 ? -1 : 1;
     const main = this.track.main;
-    if (this.gridOncoming()) {
+    const run = this.track.run;
+    if (run) {
+      // One run: the grid behind the start, at the top.
+      const at = sampleAt(main, run.start - 10 - row * 9, this.hitA);
+      this.placeCar(i, 0, at.s, col * at.width * 0.22);
+    } else if (this.gridOncoming()) {
       // Two-way traffic at the start: the whole grid is in the race's own half of the road, the
       // two columns staggered (half a row apart) to fit side by side, so nobody starts facing
       // oncoming cars.
@@ -213,7 +233,7 @@ export class Sim implements SimState {
     const at = this.hitA;
     c.lap[i] = 0;
     c.nextCp[i] = 0;
-    c.progress[i] = at.s - main.length;
+    c.progress[i] = at.s - (run ? run.start : main.length);
     c.lapStartTime[i] = this.time;
     c.boost[i] = TUNING.startBoost;
     c.finished[i] = 0;
@@ -227,6 +247,40 @@ export class Sim implements SimState {
     c.lastLap[i] = 0;
   }
 
+  /** Back to the top of the run (free drive), its times kept: in its own grid slot, so two cars finishing together don't land on each other. */
+  private runAgain(i: number): void {
+    const run = this.track.run!;
+    const at = sampleAt(this.track.main, run.start - 10 - Math.floor(i / 2) * 9, this.hitA);
+    this.placeCar(i, 0, at.s, (i % 2 === 0 ? -1 : 1) * at.width * 0.22);
+    const c = this.cars;
+    c.lap[i] = 0;
+    c.nextCp[i] = 0;
+    c.progress[i] = at.s - run.start;
+    c.lapStartTime[i] = this.time;
+    this.slalom.reset(i);
+  }
+
+  /**
+   * The avalanche buries every car of this screen's it has reached (its main-road distance behind
+   * the front), unless it's down in a canyon. Respawns put them ahead of it.
+   */
+  private bury(): void {
+    const cars = this.cars;
+    const main = this.track.main;
+    for (let i = 0; i < cars.count; i++) {
+      if (!cars.active[i] || cars.remote[i] || cars.wreck[i] || cars.finished[i]) continue;
+      const sMain = mainDistance(this.track, cars.spline[i], cars.s[i]);
+      if (sMain >= this.avalancheFront) continue;
+      const at = sampleAt(main, sMain, this.hitA);
+      // Down in a canyon (and not in the air over it), it goes over you.
+      const ground = this.track.ground;
+      const lat = (cars.x[i] - at.cx) * -at.tz + (cars.z[i] - at.cz) * at.tx;
+      if (ground && canyonAt(this.track.layout.ground!, sMain, lat) > AVALANCHE_UNDER && cars.y[i] < ground.height(cars.x[i], cars.z[i]) + 3) continue;
+      // Thrown down the slope with it.
+      wreckCar(this, i, Cause.Hazard, at.tx * 10, at.tz * 10, -1);
+    }
+  }
+
   /** Whether an oncoming traffic lane runs over the grid or just past the line. */
   private gridOncoming(): boolean {
     const L = this.track.main.length;
@@ -237,7 +291,8 @@ export class Sim implements SimState {
   startRace(laps: number, seconds = 3): void {
     for (let i = 0; i < this.cars.count; i++) if (this.cars.active[i]) this.gridCar(i);
     // At least a lap (0 would finish everyone on the first tick), and no slow-mo left running.
-    this.race = { phase: 'countdown', goTime: this.time + seconds, laps: Math.max(1, Math.floor(laps) || 1), finishedCount: 0 };
+    // One run is one "lap", whatever the lobby asked for.
+    this.race = { phase: 'countdown', goTime: this.time + seconds, laps: this.track.run ? 1 : Math.max(1, Math.floor(laps) || 1), finishedCount: 0 };
     this.timeScale = 1;
   }
 
@@ -258,6 +313,11 @@ export class Sim implements SimState {
       c.lastS[i] = this.hitA.s;
       c.lastLat[i] = 0;
     }
+  }
+
+  /** It's snow that's falling, not rain (sim.wetness is how hard). */
+  get snowing(): boolean {
+    return !!this.weatherPlan.snow;
   }
 
   /** Plans the weather again (another map behind the menu, which may not see rain). */
@@ -392,14 +452,19 @@ export class Sim implements SimState {
     // Against another player's car too: yours takes its share of the bump (theirs, on their screen).
     collideCars(this, this.grid);
     for (let i = 0; i < cars.count; i++) if (!cars.remote[i]) collideWorld(this, i, ctx);
+    this.avalancheFront = this.avalanche && this.race.phase === 'racing' ? this.avalanche.front(this.time - this.race.goTime) : -Infinity;
+    if (this.avalancheFront > -Infinity) this.bury();
     // System 12: rules.
     let nf = 0;
     for (let i = 0; i < cars.count; i++) {
       if (!cars.active[i]) continue;
       updateProgress(this, i);
+      // One run, in free drive: a few seconds past the finish, back to the top for another.
+      if (this.track.run && this.race.phase === 'free' && !cars.remote[i] && cars.lap[i] > 0 && this.time - cars.lapStartTime[i] > RUN_AGAIN) this.runAgain(i);
       const sMain = mainDistance(this.track, cars.spline[i], cars.s[i]);
       // Triggers sit on the main road: a car on a shortcut passing the same mapped distance is
       // somewhere else (it used to drop the Valley's sign on the cars still on the main road).
+      if (!cars.remote[i]) this.slalom.cross(this, i, ctx.prevMain[i], sMain);
       if (!cars.wreck[i] && cars.spline[i] === 0) hazards.crossTriggers(i, ctx.prevMain[i], sMain, this.time, this.events, this.tick);
       if (this.race.phase === 'racing' && !cars.finished[i] && cars.lap[i] >= this.race.laps) this.finishers[nf++] = i;
     }

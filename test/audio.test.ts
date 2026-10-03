@@ -74,8 +74,9 @@ describe('the soundtrack', () => {
   test("the title's tracks behind the menus; in a race the map's own and the four for any map; a file for every one", () => {
     expect(playlistFor('downtown', true)).toEqual(['title', 'pursuit-orchestra']);
     expect(playlistFor('backroads', false)).toEqual(['backroads', 'backroads-acoustic', ...ANY_MAP]);
-    // Every map has its own (named after it, first), and every track is someone's.
-    for (const m of MAPS) expect(playlistFor(m.id, false)).toEqual([m.id as (typeof TRACKS)[number], ...MAP_TRACKS[m.id]!.slice(1), ...ANY_MAP]);
+    // A map with its own has them first (named after it), and every track is someone's. Avalanche
+    // races to the four for any map (the owner, 2026-10-02).
+    for (const m of MAPS) expect(playlistFor(m.id, false)).toEqual(m.id === 'avalanche' ? [...ANY_MAP] : [m.id as (typeof TRACKS)[number], ...MAP_TRACKS[m.id]!.slice(1), ...ANY_MAP]);
     expect(playlistFor('downtown', false)).toEqual(['downtown', 'tokyo-dubstep', ...ANY_MAP]);
     expect(playlistFor('paradise', false)).toEqual(['paradise', 'hawaiian-vibes', ...ANY_MAP]);
     expect(new Set([...TITLE_TRACKS, ...Object.values(MAP_TRACKS).flat(), ...ANY_MAP])).toEqual(new Set(TRACKS));

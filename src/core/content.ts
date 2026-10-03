@@ -197,6 +197,77 @@ export interface TrackLayout {
    * solid, like pillars (the Valley's trestle). Off, a flyover spans the road beneath (the city's).
    */
   trestles?: boolean;
+  /**
+   * Open ground (docs/AVALANCHE.md): a heightfield the car drives on everywhere, in the sim and
+   * drawn, instead of the road's plane carried outward. Shaped round the main road: the road's
+   * height along it, then off it whatever `GroundDef` adds. Out of bounds is the ground's walls.
+   */
+  ground?: GroundDef;
+  /**
+   * One run, not laps (docs/AVALANCHE.md): the main road is open, top to bottom, and a race is one
+   * run from `start` to `finish` (m along it). The grid stands behind `start`; past `finish` is
+   * the run-out. Without it the main road is a loop and the line is s = 0.
+   */
+  run?: { start: number; finish: number };
+  /** Slalom gates on the main road (core/rules/slalom.ts): a pair of flags each, smashable. */
+  slalom?: SlalomGate[];
+  /** A ski jump on the main road: its lip's edge (m along it) and the landing hill below (m long), for the lines painted on it. */
+  skiJump?: { lip: number; landing: number };
+  /** One run's avalanche, at chaos (core/world/avalanche.ts). */
+  avalanche?: AvalancheDef;
+}
+
+/** A slalom gate: its middle `lateral` m across the main road at `s`, its flags `gap` m apart. */
+export interface SlalomGate {
+  s: number;
+  lateral: number;
+  gap: number;
+}
+
+/** An avalanche down a run: it breaks away `behind` m above the start line, `delay` s after the green light, at about `speed` m/s on a 20% slope. */
+export interface AvalancheDef {
+  behind: number;
+  delay: number;
+  speed: number;
+}
+
+/**
+ * Pines scattered on open ground (core/track/pines.ts): candidates every `spacing` m (jittered),
+ * none within `clear` m of the piste's edge, thickening to `density` (0–1) over the next `thicken`
+ * m and up the walls, in glades (noise `glade` m wide), from `seed`.
+ */
+export interface PinesDef {
+  seed: number;
+  spacing: number;
+  clear: number;
+  thicken: number;
+  density: number;
+  glade: number;
+}
+
+/** Open ground round the main road (core/track/ground.ts). Distances are along the main road (s) and across it (lateral, + right). */
+export interface GroundDef {
+  /** Grid cell (m). */
+  cell: number;
+  /** Past this far from the main road's middle the ground rises into walls, `wallRise` m per m. */
+  wallFrom: number;
+  wallRise: number;
+  /** How far up the walls (m past `wallFrom`) the ground is drawn, plus 20 m, at its narrowest (default 25). All of it is in bounds. */
+  wallOut?: number;
+  /** Long, low rolls everywhere, the road too: this high (m, peak to trough), this wide (m). */
+  swell?: { height: number; size: number };
+  /** Bumps off the road: up to this high (m), this wide (m). */
+  rough?: { height: number; size: number };
+  /** Pines on the open snow (core/track/pines.ts), solid. */
+  pines?: PinesDef;
+  /** Mogul fields: bumps `height` m high, `spacing` m apart, over s × lateral. */
+  moguls?: { s: [number, number]; lateral: [number, number]; height: number; spacing: number }[];
+  /**
+   * Canyons: a trench beside or along the road, a flat floor `floor` m wide and walls curving up
+   * `depth` m (at most about 60° at the lip), centered `lateral` m across, easing in and out over
+   * `ease` m at its ends.
+   */
+  canyons?: { s: [number, number]; lateral: number; floor: number; depth: number; ease: number }[];
 }
 
 export interface MapDef {
@@ -208,6 +279,11 @@ export interface MapDef {
   sunset?: string;
   /** What weather it gets: `clear`, `rain`, and `shower` for rain that passes (world/weather.ts). */
   weather: string[];
+  /**
+   * Not for a release (docs/AVALANCHE.md): out of the lobby, the map lists and the validator. Its
+   * layouts open from a link (`?mode=free&map=<key>`).
+   */
+  experimental?: boolean;
 }
 
 /** A race's time of day: a map with a sunset palette can be raced by day or at sunset. */
@@ -231,6 +307,12 @@ export interface SurfaceDef {
   /** How easily a drift starts (1 = asphalt). */
   looseness: number;
   offroad?: boolean;
+  /**
+   * How much the ground's slope pulls you along it (0–1, default 0): downhill faster, uphill
+   * slower, sideways down a bank. Snow's 1; the roads' are 0, so the other maps drive as tuned.
+   * Above top speed on it, the engine stops holding you back (a steep pitch takes you past it).
+   */
+  slide?: number;
   /** Greybox color. */
   color: string;
 }

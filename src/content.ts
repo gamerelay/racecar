@@ -13,7 +13,10 @@ export const SURFACES = surfaces as SurfaceDef[];
 const mapFiles = import.meta.glob<MapDef>('../content/maps/*/map.json', { eager: true, import: 'default' });
 const layoutFiles = import.meta.glob<TrackLayout>('../content/maps/*/*.track.json', { eager: true, import: 'default' });
 
-export const MAPS: MapDef[] = Object.values(mapFiles);
+/** Every map, the experimental ones too (docs/AVALANCHE.md): for a link straight to one. */
+export const ALL_MAPS: MapDef[] = Object.values(mapFiles);
+/** The maps in the game: the lobby's, the vote's, the results'. Not the experimental ones. */
+export const MAPS: MapDef[] = ALL_MAPS.filter((m) => !m.experimental);
 
 /** Layouts by "map/layout", e.g. "downtown/downtown". */
 export const LAYOUTS: Record<string, TrackLayout> = Object.fromEntries(

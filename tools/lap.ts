@@ -31,13 +31,16 @@ export interface LapOptions {
   laps?: number;
   /** A field's mayhem (default normal; a solo lap has none). */
   mayhem?: 'normal' | 'chaos';
+  /** Rain (snow on a map where it snows), with the map's allowed weather; default clear. */
+  weather?: 'clear' | 'rain';
+  weatherAllowed?: string[];
 }
 
 /** A race of `car` (solo) or a field on `layout`, reported. */
 export function lapReport(key: string, layout: TrackLayout, car = 'coupe', opts: LapOptions = {}): LapReport {
-  const { field = false, seed = 7, laps = 3, mayhem = 'normal' } = opts;
+  const { field = false, seed = 7, laps = 3, mayhem = 'normal', weather = 'clear', weatherAllowed } = opts;
   const track = bakeTrack(layout, surfaces);
-  const sim = new Sim(track, classes, surfaces, { seed, slowmo: 'wreck', traffic: field ? 1 : 0, mayhem: field ? mayhem : 'off' });
+  const sim = new Sim(track, classes, surfaces, { seed, slowmo: 'wreck', traffic: field ? 1 : 0, mayhem: field ? mayhem : 'off', weather, weatherAllowed });
   const cars = field ? 8 : 1;
   for (let k = 0; k < cars; k++) sim.addCar({ cls: field ? classes[k % classes.length].id : car, racer: { difficulty: field ? ((k % 3) as 0 | 1 | 2) : 2 } });
   sim.startRace(laps, 0.1);

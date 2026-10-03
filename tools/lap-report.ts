@@ -7,9 +7,10 @@
 //   --laps 3  --field (8 AI with traffic and hazards, as a race)  --chaos (the field at chaos)  --seed 7  --json
 //   --cars                                        every class's hard lap floor per layout (balance)
 //   --car rally                                   the solo lap in that class
+//   --weather rain                                in the rain (snow where the map snows)
 
 import { resolveLayout } from '../src/core/content';
-import { CLASSES as classes, LAYOUT_KEYS, layout } from './content';
+import { ALL_MAPS, CLASSES as classes, EXPERIMENTAL_KEYS, LAYOUT_KEYS, layout } from './content';
 import { lapReport, zeroTo100, type LapReport } from './lap';
 
 const args = process.argv.slice(2);
@@ -19,14 +20,15 @@ const value = (flag: string): string | undefined => {
   return k >= 0 && k + 1 < args.length && !args[k + 1].startsWith('--') ? args[k + 1] : undefined;
 };
 if (args.includes('--help') || args.includes('-h')) {
-  console.log('bun tools/lap-report.ts [map/layout] [--laps N] [--field] [--chaos] [--seed N] [--json] [--cars] [--car id]');
+  console.log('bun tools/lap-report.ts [map/layout] [--laps N] [--field] [--chaos] [--seed N] [--json] [--cars] [--car id] [--weather rain]');
   process.exit(0);
 }
 const opts = { field: args.includes('--field') || args.includes('--chaos'), seed: Number(value('--seed') ?? 7), laps: Number(value('--laps') ?? 3), mayhem: args.includes('--chaos') ? ('chaos' as const) : ('normal' as const) };
-const named = args.find((a, k) => !a.startsWith('-') && !(k > 0 && ['--laps', '--seed', '--car'].includes(args[k - 1])));
-const only = named && (resolveLayout(named, LAYOUT_KEYS) ?? named);
+const named = args.find((a, k) => !a.startsWith('-') && !(k > 0 && ['--laps', '--seed', '--car', '--weather'].includes(args[k - 1])));
+// An experimental map's layouts only when named (docs/AVALANCHE.md): never in the every-layout run.
+const only = named && (resolveLayout(named, [...LAYOUT_KEYS, ...EXPERIMENTAL_KEYS]) ?? named);
 const car = value('--car') ?? 'coupe';
-const keys = LAYOUT_KEYS.filter((key) => !only || key === only);
+const keys = only ? [...LAYOUT_KEYS, ...EXPERIMENTAL_KEYS].filter((key) => key === only) : LAYOUT_KEYS;
 if (!keys.length) {
   console.log(`No layout ${only}; there are: ${LAYOUT_KEYS.join(', ')}`);
   process.exit(1);
@@ -47,7 +49,9 @@ if (args.includes('--cars')) {
   }
   console.log('0–100 km/h: ' + classes.map((c) => `${c.id} ${zeroTo100(c)} s`).join(' · '));
 } else {
-  const reports: LapReport[] = keys.map((key) => lapReport(key, layout(key), car, opts));
+  const weather = value('--weather') === 'rain' ? ('rain' as const) : ('clear' as const);
+  const allowed = (key: string) => ALL_MAPS.find((m) => key.startsWith(m.id + '/'))?.weather;
+  const reports: LapReport[] = keys.map((key) => lapReport(key, layout(key), car, { ...opts, weather, weatherAllowed: allowed(key) }));
   if (args.includes('--json')) console.log(JSON.stringify(reports, null, 2));
   else
     for (const r of reports) {

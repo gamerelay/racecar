@@ -108,6 +108,25 @@ describe('weather', () => {
     expect(planWeather('rain', 1, ['clear']).to).toBe(0);
   });
 
+  test("on a map where it snows, rain's weather is snow: a little less grip than rain, no puddles, thicker fog", () => {
+    const state = () => ({ wetness: 0, grip: 1, wet: false, visibility: 1 });
+    const allowed = ['clear', 'snow'];
+    const snow = planWeather('rain', 1, allowed);
+    expect(snow.snow).toBe(true);
+    const s = weatherAt(snow, 10, state());
+    const r = weatherAt(planWeather('rain', 1), 10, state());
+    expect(s.wetness).toBe(1);
+    expect(s.wet).toBe(false);
+    expect(s.grip).toBeLessThan(1);
+    expect(s.grip).toBeGreaterThan(r.grip);
+    expect(s.visibility).toBeLessThan(r.visibility);
+    // Random weather snows on some seeds, as other maps' rains.
+    let snowy = 0;
+    for (let seed = 1; seed <= 40; seed++) if (planWeather('random', seed, allowed).to > 0) snowy++;
+    expect(snowy).toBeGreaterThan(10);
+    expect(planWeather('rain', 1).snow).toBeUndefined();
+  });
+
   test('a tropical shower rolls in partway through the race and passes again', () => {
     const allowed = ['clear', 'rain', 'shower'];
     const state = () => ({ wetness: 0, grip: 1, wet: false, visibility: 1 });

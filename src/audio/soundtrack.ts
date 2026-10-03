@@ -11,7 +11,7 @@ export type TrackName = (typeof TRACKS)[number];
 export const TITLE_TRACKS: readonly TrackName[] = ['title', 'pursuit-orchestra'];
 /** Tracks for any map's race (`relentless-pursuit` and `half-time-surge`, the owner's, 2026-10-02). */
 export const ANY_MAP: readonly TrackName[] = ['finish-line', 'final-sprint', 'relentless-pursuit', 'half-time-surge'];
-/** Each map's own tracks: the city has the Tokyo dubstep too, the island the Hawaiian one (2026-10-01), the valley an acoustic one (2026-10-02). */
+/** Each map's own tracks: the city has the Tokyo dubstep too, the island the Hawaiian one (2026-10-01), the valley an acoustic one (2026-10-02). Avalanche has none: it races to the four for any map. */
 export const MAP_TRACKS: Readonly<Record<string, readonly TrackName[]>> = {
   downtown: ['downtown', 'tokyo-dubstep'],
   backroads: ['backroads', 'backroads-acoustic'],

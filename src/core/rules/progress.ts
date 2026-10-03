@@ -6,6 +6,7 @@ import type { SimState } from '../state';
 import { mainDistance, wrap } from '../track/bake';
 
 export function updateProgress(sim: SimState, i: number): void {
+  if (sim.track.run) return runProgress(sim, i, sim.track.run);
   const cars = sim.cars;
   const track = sim.track;
   const L = track.main.length;
@@ -40,6 +41,36 @@ export function updateProgress(sim: SimState, i: number): void {
   if (cars.nextCp[i] === 0 && sMain > L / 2) p -= L; // just before the line on a new lap
   if (cars.nextCp[i] >= cps.length && sMain < L / 2) p += L; // just past the line, lap not yet counted
   cars.progress[i] = p;
+}
+
+/**
+ * One run (layout.run): progress is the distance from the start, the checkpoints in order, and
+ * crossing the finish after them is the run's one "lap". Nothing wraps.
+ */
+function runProgress(sim: SimState, i: number, run: { start: number; finish: number }): void {
+  const cars = sim.cars;
+  const cps = sim.track.checkpoints;
+  const sMain = mainDistance(sim.track, cars.spline[i], cars.s[i]);
+  const prevS = cars.progress[i] + run.start;
+  let n = cars.nextCp[i];
+  // Only forward (a respawn, back on the road behind, isn't a crossing). A jump ahead counts what it
+  // skipped: a respawn ahead of an avalanche, or a leap over a ridge onto a later stretch (open
+  // ground is all in bounds), a shortcut you earned.
+  const ahead = sMain > prevS;
+  while (ahead && n < cps.length && prevS < cps[n] && sMain >= cps[n]) {
+    sim.events.push(sim.tick, Ev.Checkpoint, i, cars.x[i], cars.y[i], cars.z[i], n, cars.lap[i]);
+    n++;
+  }
+  cars.nextCp[i] = n;
+  if (ahead && n >= cps.length && cars.lap[i] === 0 && prevS < run.finish && sMain >= run.finish) {
+    const time = sim.time - cars.lapStartTime[i];
+    cars.lap[i] = 1;
+    cars.lastLap[i] = time;
+    if (cars.bestLap[i] === 0 || time < cars.bestLap[i]) cars.bestLap[i] = time;
+    cars.lapStartTime[i] = sim.time;
+    sim.events.push(sim.tick, Ev.Lap, i, cars.x[i], cars.y[i], cars.z[i], time, 1);
+  }
+  cars.progress[i] = sMain - run.start;
 }
 
 /** True if moving forward from a to b (a short step, wrapping at L) passes point c. */

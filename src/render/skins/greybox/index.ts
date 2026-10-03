@@ -23,6 +23,8 @@ import { PALETTES, type Palette } from './palettes';
 import { buildTrackVisual } from './track';
 
 const RAIN_FOG = new Color(0x3a4460);
+/** Snowfall's fog: a pale whiteout, not rain's grey. */
+const SNOW_FOG = new Color(0xdfe6ee);
 /** Rain cloud, for the sky. */
 const RAIN_SKY = 0x6d7488;
 const SUN_FROM: [number, number, number] = [-300, 400, -800];
@@ -125,19 +127,22 @@ export class GreyboxSkin implements Skin {
     return buildWorldVisual(scene, sim, track?.roof);
   }
 
-  update(time: number, x: number, y: number, z: number, wetness = 0): void {
-    WET.value = wetness;
+  update(time: number, x: number, y: number, z: number, wetness = 0, snow = false): void {
+    WET.value = snow ? 0 : wetness;
     if (this.skyTime) this.skyTime.value = time;
     const p = this.palette;
     // How overcast the rain makes it: all the way in the city, a sunny shower in the tropics.
-    const cloud = wetness * (p.overcast ?? 1);
+    // Snow comes out of a full overcast, whatever the palette's showers do.
+    const cloud = wetness * (snow ? 1 : (p.overcast ?? 1));
     if (this.skyWet) this.skyWet.value = cloud;
     if (this.fog) {
       // Rain still thickens the air where the sun stays out, if less.
-      const thick = wetness * (0.5 + 0.5 * (p.overcast ?? 1));
+      // Snow closes in further (AVALANCHE.md: fog that closes in), and whiter.
+      const thick = wetness * (snow ? 1.2 : 0.5 + 0.5 * (p.overcast ?? 1));
       this.fog.near = p.fogNear * (1 - 0.5 * thick);
       this.fog.far = p.fogFar * (1 - 0.55 * thick);
-      this.fog.color.setHex(p.fog).lerp(RAIN_FOG, wetness * 0.6 * (0.4 + 0.6 * (p.overcast ?? 1)));
+      if (snow) this.fog.color.setHex(p.fog).lerp(SNOW_FOG, wetness * 0.8);
+      else this.fog.color.setHex(p.fog).lerp(RAIN_FOG, wetness * 0.6 * (0.4 + 0.6 * (p.overcast ?? 1)));
       // What shows past the sky's reach is the fog's color, in any weather.
       if (this.background) this.background.copy(this.fog.color);
       if (this.hemi) this.hemi.intensity = p.hemiIntensity * (1 - 0.35 * cloud);

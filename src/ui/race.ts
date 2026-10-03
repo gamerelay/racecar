@@ -6,6 +6,9 @@ import { Ev, type GameEvent } from '../core/events';
 import type { Sim } from '../core/sim';
 import { fmt, ordinal } from './format';
 import { fitBox } from './thumb';
+
+/** One run's finish on the minimap: a bar this many pixels either side of the road. */
+const FINISH_BAR = 16;
 import type { ResultRow } from '../lobby/lobby';
 import type { VoteView } from '../net/postrace';
 
@@ -96,6 +99,25 @@ export class RaceUi {
       g.lineWidth = k === 0 ? 5 : 3;
       g.stroke(p);
     });
+    // One run: a bar across the road at the finish (a lap's start is its finish, and needs none).
+    if (t.run) {
+      // (A fixed length on the map: a 6 km run's road is a few pixels wide.)
+      const i = Math.min(t.main.n - 1, Math.round(t.run.finish / t.main.step));
+      const [mx, my] = this.project(t.main.px[i], t.main.pz[i]);
+      const [ex, ey] = this.project(t.main.px[i] + t.main.tz[i], t.main.pz[i] - t.main.tx[i]);
+      const k = FINISH_BAR / (Math.hypot(ex - mx, ey - my) || 1);
+      const [a, b, c, d] = [mx + (ex - mx) * k, my + (ey - my) * k, mx - (ex - mx) * k, my - (ey - my) * k];
+      g.lineCap = 'round';
+      g.strokeStyle = 'rgba(18,10,32,.85)';
+      g.lineWidth = 10;
+      g.beginPath();
+      g.moveTo(a, b);
+      g.lineTo(c, d);
+      g.stroke();
+      g.strokeStyle = '#ffd23f';
+      g.lineWidth = 5;
+      g.stroke();
+    }
   }
 
   update(): void {
@@ -158,7 +180,7 @@ export class RaceUi {
 
   showResults(): void {
     this.results.innerHTML = `<div class="card results"><h1 id="rPlace">${ordinal(this.sim.cars.place[this.focus])}</h1>
-      <table><thead><tr><th></th><th>Driver</th><th>Car</th><th>Time</th><th>Best lap</th><th>Takedowns</th><th>Wrecks</th><th>Score</th></tr></thead><tbody id="rRows"></tbody></table>
+      <table><thead><tr><th></th><th>Driver</th><th>Car</th><th>Time</th><th>${this.sim.track.run ? 'Best run' : 'Best lap'}</th><th>Takedowns</th><th>Wrecks</th><th>Score</th></tr></thead><tbody id="rRows"></tbody></table>
       <div id="rVote"></div>
       <div class="row">${this.canAgain ? '<button id="rAgain">Race again</button>' : ''}<button id="rSetup" class="${this.canAgain ? 'ghost' : ''}">${this.setupLabel}</button></div></div>`;
     this.voteHtml = '';
@@ -204,7 +226,7 @@ export class RaceUi {
     document.getElementById('rRows')!.innerHTML = rows
       .map(
         (i) =>
-          `<tr class="${i === this.focus ? 'me' : ''}"><td>${place.get(i) ?? '–'}</td><td><i class="dot" style="background:${this.colors[i]}"></i><span class="plate">${esc(this.names[i])}</span></td><td>${this.classes[c.cls[i]].name}</td><td>${time(i)}</td><td>${best(i) ? fmt(best(i)) : '–'}${i === fastest ? ' <b class="fast" title="Fastest lap">★</b>' : ''}</td><td>${off.get(i)?.takedowns ?? c.takedowns[i]}</td><td>${off.get(i)?.wrecks ?? c.wrecks[i]}</td><td>${Math.floor(off.get(i)?.score ?? c.score[i]).toLocaleString()}</td></tr>`,
+          `<tr class="${i === this.focus ? 'me' : ''}"><td>${place.get(i) ?? '–'}</td><td><i class="dot" style="background:${this.colors[i]}"></i><span class="plate">${esc(this.names[i])}</span></td><td>${this.classes[c.cls[i]].name}</td><td>${time(i)}</td><td>${best(i) ? fmt(best(i)) : '–'}${i === fastest ? ` <b class="fast" title="Fastest ${this.sim.track.run ? 'run' : 'lap'}">★</b>` : ''}</td><td>${off.get(i)?.takedowns ?? c.takedowns[i]}</td><td>${off.get(i)?.wrecks ?? c.wrecks[i]}</td><td>${Math.floor(off.get(i)?.score ?? c.score[i]).toLocaleString()}</td></tr>`,
       )
       .join('');
   }

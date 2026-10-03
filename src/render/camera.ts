@@ -34,3 +34,16 @@ export function lookBackOffset(size: Vec3, out: ChaseOffset = { dist: 0, height:
   out.lookUp = 1;
   return out;
 }
+
+/**
+ * On open ground (docs/AVALANCHE.md), the camera follows the slope: `rise` is how far the ground
+ * ahead (smoothed) is above the ground under the car, negative downhill. The look point goes with
+ * it, so a steep pitch looks steep and a crest hides what's past it, and uphill the camera lifts a
+ * little to see over the top. Maps without open ground keep the level camera.
+ */
+export function slopeView(rise: number): { look: number; lift: number } {
+  return { look: rise * 0.6, lift: Math.min(2.5, Math.max(0, rise * 0.25)) };
+}
+
+/** On open ground the camera stays this far above the snow under it (behind a car on a steep pitch, it would be in the slope). */
+export const GROUND_CLEAR = 1.2;

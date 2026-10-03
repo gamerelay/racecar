@@ -52,6 +52,8 @@ export const Ev = {
   Slingshot: 30,
   /** The straight-line build reached its full cruiseTop. */
   Overdrive: 31,
+  /** Through a slalom gate (rules/slalom.ts). a = boost paid, b = gates in a row, other = the gate. */
+  Gate: 32,
 } as const;
 export type Ev = (typeof Ev)[keyof typeof Ev];
 
@@ -87,6 +89,7 @@ export const EV_NAMES: Record<number, string> = {
   29: 'smash',
   30: 'slingshot',
   31: 'overdrive',
+  32: 'gate',
 };
 
 /**

@@ -4,7 +4,7 @@ Where racecar stands and what's next, for whoever picks it up (a person or a fre
 The design is [SPEC.md](./SPEC.md): decisions in §17, and what building changed in "Changed while
 building". This file is "where are we"; the spec is "what are we making".
 
-**Last updated:** 2026-10-02. The last tag is **`alpha-1.28`** (PRs #67–#70: a press flash and a
+**Last updated:** 2026-10-02 (Avalanche out of experimental, not yet merged; the owner's next direction: Paradise open). The last tag is **`alpha-1.28`** (PRs #67–#70: a press flash and a
 click on the menus' buttons; the title's music from the start where the browser allows it, with a
 "press any key" hint where it doesn't; Logger's Leap smoothed and bermed, and shortcuts' mouths
 cleaner on every map; the traffic fading in front of you investigated, its fix to choose, in
@@ -12,6 +12,75 @@ PLAN). Before it, `alpha-1.27` (PRs #63–#65: PLAN's next-up notes, a pickup tr
 tech-debt pass; the mirrored minimap and two speed fixes), `alpha-1.26` (PR #62: two new tracks), `alpha-1.25` (PR #61: boost, Overdrive, the
 slipstream) and `alpha-1.24` (PRs #49–#60). It's on the hosted build ("Hosted test build"
 below).
+
+**Since alpha-1.28** (on `main`, not tagged): the Leap's kicker rounded and launchable from its
+sides (#71, #72), and PLAN's "Open, freeform maps" direction (#73).
+
+**Avalanche, out of experimental (the owner, 2026-10-02), not yet merged** (PR #74, branch
+`avalanche-plan`). The first open map, one run from a summit to a valley: open ground you drive on
+everywhere, slope gravity on snow, moguls, canyons, kickers, snow-capped rocks on the piste, and an
+open main road (one run, no laps). The loose plan's items 1–9 are built too: the run reads as a run
+(HUD distance to the bottom, start and finish gates), the camera follows the slope, snow tracks,
+sounds and snowfall, the avalanche at chaos, slalom gates, pine forests (solid), and a ski jump.
+Items 8 and 9 too: the AI lets the slope carry it, brakes with the slope in its plan and rides the
+canyons; the bake is 4–5× faster and the ground draws in levels of detail.
+In the lobby, the vote and quick race now (with the branch checked out), racing to the four
+any-map tracks; open it at `?mode=free&map=avalanche/slope`. Everything about it, built and next,
+is [AVALANCHE.md](./AVALANCHE.md). Don't merge it to `main` or tag from it until the owner says;
+a `/code-review` of #74 comes first.
+
+**The owner's direction (2026-10-02): open maps, starting with Paradise.** The owner really liked
+the Avalanche experiment ("this is really really awesome", "this map is amazing") and wants
+**Paradise switched to the open model too, even if that means redesigning some or part of the
+level.** Why Paradise first (Backroads was considered: its trestle and river and its flat infield
+make it harder):
+- **The sea is a natural edge.** It's an island: drive the beach and the shallows, and the sea is a
+  respawn. No invisible walls, per AVALANCHE.md's philosophy ("if it's drawn, you can drive it").
+- **Its land is already a formula** (the island's outline plus the volcano cone, `layout.terrain`),
+  so the drivable ground can be built from what's drawn now. The island would look much the same,
+  only solid.
+- **Mostly open already:** most of its walls have gaps, and there are no roads over roads.
+- **The volcano becomes the centerpiece:** up its flanks, off the crater rim, maybe lava as a
+  wreck. With slope gravity on its rock and earth, a cut over its shoulder is a gamble, not a free
+  shortcut across the loop.
+
+Hard parts:
+- **The Lava Tube is a real tunnel** through the cone's shoulder. The ground is one height per
+  point, so it needs to step aside under a road (or be redesigned away: the owner's fine with
+  redesigning).
+- **Solid palms and rocks,** the pines way: one list, drawn and hit.
+- **Cutting across the island** has to cost time, not skip half a lap.
+- **Retuning:** its lap floor (71.52 s), the AI with more room, and grip in a shower off the road.
+
+Rough size: about two sessions. The first makes the island's land drivable with the sea as its
+edge, then drive it. The second sorts the tunnel, the solid palms, the volcano's gravity and lava.
+Then tune.
+
+How to start:
+- Build it as an experimental layout beside the current one (say `paradise/open`), out of the
+  lobby, like Avalanche, until the owner picks.
+- It needs #74's open-ground code (`Ground`, slope gravity, the bounds, `pines`), so either #74
+  merges first (it's out of experimental now; the merge is the owner's call) or the work branches
+  from `avalanche-plan`.
+  Ask.
+
+**What's left on Avalanche** (AVALANCHE.md has the detail):
+- **The owner drove it** (2026-10-02): "it feels good".
+- **Listen:** the snow crunch and hiss, the avalanche's rumble and the gate chime haven't been
+  heard by ear.
+- **Item 8, the AI downhill: built.** It lets the slope carry it past its top speed and plans its
+  braking with the slope. It rides a canyon now and then, and the avalanche is re-tuned to catch
+  the slowest car late. The floor is 93.07 s. The AI never takes ridge shortcuts: watch whether
+  players' ones need trees or rock to tame them.
+- **Item 9, lighter: built.** The bake is 4–5× faster (0.4–0.5 s, the same ground to the bit),
+  and the ground draws in three levels of detail (a third of the triangles). Phones aren't a
+  target for this map (the owner: not enjoyable to play on one).
+- **Item 10, the release: built, but not merged.** The validator knows a run. The lobby's
+  thumbnail and the minimap draw it open with its finish marked. It races to the four any-map
+  tracks. `experimental` is off. Left: a /code-review of #74, the merge and the tag (the owner's
+  call).
+- **Before merging:** a `/code-review` of #74 with its full URL (it touches shared physics,
+  progress, bake, collisions and the AI). Check you're still on the branch afterwards.
 Every release is in [CHANGELOG.md](../CHANGELOG.md): add to its "Unreleased" section as you go,
 and retitle that section when you tag. [PLAN.md](./PLAN.md)'s six phases are all merged (it keeps
 a pool of other ideas), how online works is [ONLINE.md](./ONLINE.md), how maps are made is
@@ -388,9 +457,12 @@ the cone's far flanks.
    Leap are done (`alpha-1.28`; listen to the clicks, and open the title in a fresh browser
    profile to see the music hint, neither checked by ear or eye here). Left: the traffic fading
    out in front of you (investigated: choose a fix from PLAN's options), Backroads by day (a
-   maybe), and more particles and sounds when smashing props. Then the pickup truck, and Avalanche
-   (a large job: a greybox slope and the AI on it first).
-4. **Paradise v2 (alpha-1.24):** drive it. Do the Beach Cut and Smugglers' Trail feel
+   maybe), and more particles and sounds when smashing props. Then the pickup truck. Avalanche is
+   under way on its own experimental line (PR #74, above): items 1–7 of AVALANCHE.md's "Next: a
+   loose plan" are built. What's left is listed above ("What's left on Avalanche"), and so is the
+   owner's next direction, Paradise as an open map.
+4. **Paradise v2 (alpha-1.24):** (the owner now wants Paradise opened up like Avalanche, above;
+   this is for the current layout meanwhile) drive it. Do the Beach Cut and Smugglers' Trail feel
    like a fair gamble? The hard AI is about even on both (−0.4 s and level). Does the dust feel
    right running wide onto the beach and the jungle's edge? It isn't checked by eye: the poster
    scout's cars stand still, so tune `DUST` in `renderer.ts` from a drive. And is the lava rain at

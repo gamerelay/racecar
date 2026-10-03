@@ -9,7 +9,7 @@ import { clamp, damp, wrapAngle } from '../core/math';
 import type { Sim } from '../core/sim';
 import { newHit, project, sampleAt } from '../core/track/query';
 import { Particles } from './fx';
-import { chaseOffset, lookBackOffset, type ChaseOffset } from './camera';
+import { chaseOffset, GROUND_CLEAR, lookBackOffset, slopeView, type ChaseOffset } from './camera';
 import { InkPass } from './ink';
 import { PostPass } from './post';
 import { Showroom } from './showroom';
@@ -32,6 +32,15 @@ const SKID_WIDTH = 0.4;
 const SKID_ROAD = [0.3, 0.28, 0.34] as const;
 const SKID_DIRT = [0.55, 0.42, 0.3] as const;
 const SKID_GRASS = [0.5, 0.62, 0.36] as const;
+/**
+ * Tracks in snow (docs/AVALANCHE.md): every wheel on a snow surface leaves one, not just a slide,
+ * and they last the whole run: faint and narrow on the groomed piste, deep and wide in powder.
+ */
+const TRACK_SEGMENTS = 24000;
+const TRACK_LIFE = 900;
+const TRACK_STEP = 1.2;
+const TRACK_GROOMED = [0.8, 0.85, 0.94] as const;
+const TRACK_POWDER = [0.6, 0.68, 0.84] as const;
 
 export interface RenderOptions {
   post: boolean;
@@ -59,6 +68,8 @@ interface Dust {
   life: [number, number];
   gravity: number;
   drag: number;
+  /** Only in a slide or a drift (groomed snow: on the road, a carve throws it up, cruising doesn't). */
+  sliding?: boolean;
 }
 const DUST: Record<string, Dust> = {
   // A low cloud that hangs behind.
@@ -73,6 +84,10 @@ const DUST: Record<string, Dust> = {
   shore: { rate: 0.6, puff: 14, colors: [0xcfe4e8, 0xe8d8a8], kick: 0.2, spread: 3, y: 0.2, up: [2.6, 2.4], life: [0.45, 0.3], gravity: 18, drag: 0.8 },
   // Ash: a grey haze that rises a little and lingers.
   ash: { rate: 0.5, puff: 10, colors: [0x8a8288, 0x6f686e], kick: 0.06, spread: 3, y: 0.4, up: [0.8, 1.4], life: [1.6, 1], gravity: -0.8, drag: 2.4 },
+  // Powder: a big white spray, thrown high, falling slowly, a fine mist with it. Groomed snow: a
+  // smaller one off a carve.
+  powder: { rate: 0.9, puff: 22, colors: [0xffffff, 0xf2f7fc, 0xdde8f4], kick: 0.22, spread: 4, y: 0.3, up: [2.6, 3.2], life: [0.7, 0.6], gravity: 7, drag: 1.4 },
+  snow: { rate: 0.45, puff: 0, colors: [0xffffff, 0xe6eef7], kick: 0.16, spread: 3, y: 0.2, up: [1.6, 2], life: [0.5, 0.4], gravity: 9, drag: 1.6, sliding: true },
 };
 
 export class GameRenderer {
@@ -83,6 +98,8 @@ export class GameRenderer {
   private readonly ink = new InkPass(1, 1);
   private readonly fx = new Particles();
   private readonly skids = new Skids();
+  /** Tracks in snow, made the first time a map has snow to leave them in (they're a big ring). */
+  private snowTracks: Skids | null = null;
   private readonly skidHit = newHit();
   private readonly scenicHit = newHit();
   /** Where the car select's camera is along the lap (m). */
@@ -105,6 +122,8 @@ export class GameRenderer {
   private boostVis = 0;
   private camHeading = 0;
   private camPos = new Vector3();
+  /** On open ground: the ground ahead's height over the ground under the focus car, smoothed (camera.ts slopeView). */
+  private slopeRise = 0;
   private readonly offset: ChaseOffset = { dist: 0, height: 0, ahead: 0, lookUp: 0 };
   /** Paused: the camera still settles, but nothing in the world moves (smoke, wheels, debris). */
   paused = false;
@@ -169,6 +188,7 @@ export class GameRenderer {
     this.scene.add(this.trackVisual.debug);
     // Marks lie on the old road.
     this.skids.clear();
+    this.snowTracks?.clear();
     // Gantries and the like are placed from the track, so the world visual is rebuilt too.
     this.worldVisual.dispose();
     this.worldVisual = this.skin.world(this.scene, this.sim, this.trackVisual);
@@ -309,6 +329,7 @@ export class GameRenderer {
     this.fx.update(sdt);
     const haze = this.scene.fog as Fog | null;
     this.skids.update(sdt, haze?.near, haze?.far);
+    this.snowTracks?.update(sdt, haze?.near, haze?.far);
     this.updateCamera(dt);
     // The turntable rides in front of the camera, so it's placed once the camera has moved.
     if (this.showroom.visible) {
@@ -325,7 +346,7 @@ export class GameRenderer {
     this.live.leader = this.opts.plates?.[positions(this.sim, this.order)[0]]?.text ?? null;
     this.live.wetness = this.sim.wetness;
     this.trackVisual.update?.(this.worldTime, sdt, this.camera.position, this.live);
-    this.skin.update?.(this.worldTime, this.camera.position.x, this.camera.position.y, this.camera.position.z, this.sim.wetness);
+    this.skin.update?.(this.worldTime, this.camera.position.x, this.camera.position.y, this.camera.position.z, this.sim.wetness, this.sim.snowing);
 
     const stage = this.showroom.visible ? this.showroom : null;
     if (stage) {
@@ -348,7 +369,8 @@ export class GameRenderer {
       u.uFogFar.value = fog.far;
       u.uSky.value.copy(fog.color);
     }
-    u.uWet.value = this.sim.wetness;
+    // Snowfall doesn't wet the road (no sheen on the snow).
+    u.uWet.value = this.sim.snowing ? 0 : this.sim.wetness;
     u.uWater.value = this.trackVisual.water ? 1 : 0;
     this.camera.updateMatrixWorld();
     u.uProj.value.copy(this.camera.projectionMatrix);
@@ -412,9 +434,23 @@ export class GameRenderer {
         this.camDist += (o.dist - this.camDist) * damp(4, dt);
         this.camPos.x = car.x - fx * this.camDist;
         this.camPos.z = car.z - fz * this.camDist;
-        this.camPos.y += (car.y + o.height - this.camPos.y) * damp(5, dt);
+        let height = o.height;
+        let lookUp = o.lookUp;
+        const ground = this.sim.track.ground;
+        if (ground) {
+          // The ground a look-distance and two ahead, against the ground under the car (not the car:
+          // in the air off a kicker the view stays on the slope).
+          const at = (d: number) => ground.height(car.x + fx * d, car.z + fz * d);
+          const rise = (at(o.ahead) + at(o.ahead * 2)) / 2 - at(0);
+          this.slopeRise += (rise - this.slopeRise) * damp(3, dt);
+          const v = slopeView(this.slopeRise);
+          height += v.lift;
+          lookUp += v.look;
+        }
+        this.camPos.y += (car.y + height - this.camPos.y) * damp(5, dt);
+        if (ground) this.camPos.y = Math.max(this.camPos.y, ground.height(this.camPos.x, this.camPos.z) + GROUND_CLEAR);
         cam.position.copy(this.camPos);
-        this.look.set(car.x + fx * o.ahead, car.y + o.lookUp, car.z + fz * o.ahead);
+        this.look.set(car.x + fx * o.ahead, car.y + lookUp, car.z + fz * o.ahead);
       }
     }
     this.lastWreck = c.wreck[i] === 1;
@@ -464,9 +500,9 @@ export class GameRenderer {
     const surf = this.sim.surfaces[c.surface[i]];
     const was = this.lastSurface[i];
     this.lastSurface[i] = c.surface[i];
-    if (surf?.offroad && c.grounded[i] && speed > 6) {
-      const d = DUST[surf.id] ?? DUST.dirt;
-      const sliding = c.drift[i] === 1 || Math.abs(c.slip[i]) > 0.15;
+    const d = surf && (DUST[surf.id] ?? (surf.offroad ? DUST.dirt : undefined));
+    const sliding = c.drift[i] === 1 || Math.abs(c.slip[i]) > 0.15;
+    if (d && (!d.sliding || sliding) && c.grounded[i] && speed > 6) {
       const ranOff = was !== undefined && was !== c.surface[i] && !this.sim.surfaces[was]?.offroad && speed > 14;
       const rate = d.rate * speed * (sliding ? 2.2 : 1);
       for (let s = -1; s <= 1; s += 2) {
@@ -516,7 +552,11 @@ export class GameRenderer {
     const stopping = braking && fwd > 18;
     const surf = this.sim.surfaces[c.surface[i]];
     const near = Math.hypot(x - this.camera.position.x, z - this.camera.position.z) < SKID_RANGE;
-    const on = near && c.grounded[i] === 1 && !c.wreck[i] && speed > 4 && (sliding || stopping) && surf?.id !== 'puddle';
+    const down = near && c.grounded[i] === 1 && !c.wreck[i] && speed > 4;
+    // In snow, tracks instead of rubber: always, deeper in a slide.
+    const snow = !!surf?.slide;
+    if (snow || this.snowTracks) this.snowMarks(i, x, z, h, down && snow, surf?.offroad ? 1 : 0, sliding);
+    const on = down && !snow && (sliding || stopping) && surf?.id !== 'puddle';
     const cls = this.sim.classes[c.cls[i]];
     const fx = Math.sin(h);
     const fz = Math.cos(h);
@@ -535,6 +575,35 @@ export class GameRenderer {
       // On the road's surface under the wheel (banked, ramped), not the car's middle.
       project(this.sim.track.splines[c.spline[i]], wx, wz, c.s[i], this.skidHit);
       this.skids.mark(key, wx, this.skidHit.ground, wz, SKID_WIDTH, r, g, b, alpha);
+    }
+  }
+
+  /** Car `i`'s rear wheels' tracks in snow while `on`: `deep` 1 in powder, 0 on the groomed piste. */
+  private snowMarks(i: number, x: number, z: number, h: number, on: boolean, deep: number, sliding: boolean): void {
+    if (!this.snowTracks) {
+      if (!on) return;
+      this.snowTracks = new Skids(TRACK_SEGMENTS, TRACK_LIFE, TRACK_STEP);
+      this.scene.add(this.snowTracks.mesh);
+    }
+    const tracks = this.snowTracks;
+    const c = this.sim.cars;
+    const cls = this.sim.classes[c.cls[i]];
+    const fx = Math.sin(h);
+    const fz = Math.cos(h);
+    const back = cls.size[1] - 0.6;
+    const [r, g, b] = deep ? TRACK_POWDER : TRACK_GROOMED;
+    const alpha = (deep ? 0.7 : 0.45) + (sliding ? 0.2 : 0);
+    for (let side = -1; side <= 1; side += 2) {
+      const key = i * 2 + (side > 0 ? 1 : 0);
+      if (!on) {
+        tracks.lift(key);
+        continue;
+      }
+      const lat = side * (cls.size[0] - 0.2);
+      const wx = x - fx * back - fz * lat;
+      const wz = z - fz * back + fx * lat;
+      project(this.sim.track.splines[c.spline[i]], wx, wz, c.s[i], this.skidHit);
+      tracks.mark(key, wx, this.skidHit.ground, wz, deep ? 0.6 : 0.45, r, g, b, alpha);
     }
   }
 

@@ -32,6 +32,7 @@ import { buildCityscape } from './cityscape';
 import { buildForest } from './forest';
 import { buildIsland } from './island';
 import { buildLandmarks, landmarkCircles, landmarkKeeps } from './landmarks';
+import { buildSnow } from './snow';
 import { buildTerrain } from './terrain';
 import { boxes, type Box } from './scenery';
 import { disposeTree } from './dispose';
@@ -178,7 +179,8 @@ export function buildTrackVisual(track: Track, palette: Palette, seed: number): 
   const land = track.layout.scenery === 'countryside' || island ? buildTerrain(track, palette, seed) : null;
   const style: Style = land ? { country: true, floor: land.height, island } : { country: false };
 
-  for (const sp of track.splines) {
+  // Open ground (docs/AVALANCHE.md) is drawn as itself, the roads' surfaces painted on it.
+  for (const sp of track.ground ? [] : track.splines) {
     const deck = land ? land.deck[sp.index] : deckMask(sp, groundY);
     const under = underMain(track.main, sp);
     for (let k = 0; k < sp.chunks.length - 1; k++) {
@@ -200,11 +202,12 @@ export function buildTrackVisual(track: Track, palette: Palette, seed: number): 
     ground.matrixAutoUpdate = false;
     return ground;
   };
-  const extras: Object3D[] = city ? [] : land ? [...land.objects] : [plainGround()];
+  const extras: Object3D[] = track.ground ? buildSnow(track) : city ? [] : land ? [...land.objects] : [plainGround()];
   const wet = puddles(track);
   if (wet) extras.push(wet);
   // Solid props on the road (the pillars): tall striped boxes. The Trestle's legs are the forest's.
-  const solid = track.props.filter((p) => p.solid && p.kind !== 'trestle-leg');
+  // (Rocks on the snow, a run's gates and a ski jump's tower are snow.ts's.)
+  const solid = track.props.filter((p) => p.solid && p.kind !== 'trestle-leg' && p.kind !== 'rock' && p.kind !== 'gate-post' && p.kind !== 'jump-tower');
   if (solid.length) {
     const mesh = new InstancedMesh(new BoxGeometry(1, 1, 1), toon({ color: 0xbfb3d6 }), solid.length);
     const mat = new Matrix4();

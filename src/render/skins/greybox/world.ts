@@ -1,9 +1,10 @@
 // Greybox visuals for the world systems: traffic (instanced, one mesh per kind, posed at the exact
 // render time since traffic is a formula), wrecked traffic tumbling as cosmetic debris (category L),
-// hazard pieces and telegraph markers, sign gantries, and rain.
+// hazard pieces and telegraph markers, sign gantries, rain and snow, and one run's avalanche.
 
 import {
   AdditiveBlending,
+  CanvasTexture,
   BoxGeometry,
   BufferAttribute,
   BufferGeometry,
@@ -237,6 +238,29 @@ export function buildWorldVisual(scene: Scene, sim: Sim, roof?: (x: number, z: n
   root.add(rain);
   const seeds = Float32Array.from({ length: DROPS * 3 }, () => Math.random());
 
+  // ---- snow (a map whose weather lists snow): flakes drifting down and swaying in a bigger box ----
+  const FLAKES = 2600;
+  const flakePos = new Float32Array(FLAKES * 3);
+  const flakeGeo = new BufferGeometry();
+  flakeGeo.setAttribute('position', new BufferAttribute(flakePos, 3));
+  // A soft round dot, not the square a point draws by default.
+  const dot = document.createElement('canvas');
+  dot.width = dot.height = 32;
+  const dctx = dot.getContext('2d');
+  if (dctx) {
+    const grad = dctx.createRadialGradient(16, 16, 0, 16, 16, 16);
+    grad.addColorStop(0, 'rgba(255,255,255,1)');
+    grad.addColorStop(0.5, 'rgba(255,255,255,0.8)');
+    grad.addColorStop(1, 'rgba(255,255,255,0)');
+    dctx.fillStyle = grad;
+    dctx.fillRect(0, 0, 32, 32);
+  }
+  const flakes = new Points(flakeGeo, new PointsMaterial({ color: 0xffffff, size: 0.3, map: new CanvasTexture(dot), transparent: true, opacity: 0.9, depthWrite: false }));
+  flakes.frustumCulled = false;
+  flakes.visible = false;
+  root.add(flakes);
+  const flakeSeeds = Float32Array.from({ length: FLAKES * 3 }, () => Math.random());
+
   function onEvent(ev: GameEvent): void {
     if (ev.type !== Ev.TrafficWreck) return;
     const k = ev.other;
@@ -268,6 +292,40 @@ export function buildWorldVisual(scene: Scene, sim: Sim, roof?: (x: number, z: n
     });
   }
 
+  // ---- the avalanche (core/world/avalanche.ts): a churning band of snow across the slope at its
+  // front, and a powder cloud billowing over and behind it ----
+  const BLOBS = 220;
+  const CLOUDS = 70;
+  // Unlit white, so it reads as snow (shaded, big lumps read as boulders).
+  const blobs = new InstancedMesh(new IcosahedronGeometry(1, 1), new MeshBasicMaterial({ color: 0xf6f9ff }), BLOBS);
+  const clouds = new InstancedMesh(new IcosahedronGeometry(1, 1), new MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.45, depthWrite: false }), CLOUDS);
+  for (const m of [blobs, clouds]) {
+    m.frustumCulled = false;
+    m.visible = false;
+    root.add(m);
+  }
+  const avHit = newHit();
+  const avMat = new Matrix4();
+  const avQ = new Quaternion();
+  const avPos = new Vector3();
+  const avScale = new Vector3();
+  const AV_UP = new Vector3(0, 1, 0);
+  /** Blob `k` of `n`'s place at `front`: across the piste and a way past it, a little behind the front, on the ground. */
+  const avPlace = (k: number, seed: number, front: number, back: number, lift: number, size: number, t: number, mesh: InstancedMesh) => {
+    const main = sim.track.main;
+    const a = sampleAt(main, Math.max(0, front - hash01(seed, k, 1) * back), avHit);
+    const lat = (hash01(seed, k, 2) - 0.5) * (a.width + 70);
+    const x = a.cx - a.tz * lat;
+    const z = a.cz + a.tx * lat;
+    const ground = sim.track.ground ? sim.track.ground.height(x, z) : a.cy;
+    const r = size * (0.6 + 0.8 * hash01(seed, k, 3)) * (1 + 0.18 * Math.sin(t * (2 + hash01(seed, k, 4) * 3) + k));
+    avPos.set(x, ground + r * 0.5 + lift * hash01(seed, k, 5) + Math.abs(Math.sin(t * 2.5 + k)) * 1.2, z);
+    avQ.setFromAxisAngle(AV_UP, t * 0.7 + k);
+    avScale.setScalar(r);
+    avMat.compose(avPos, avQ, avScale);
+    mesh.setMatrixAt(k, avMat);
+  };
+
   let cursor = sim.events.head;
   /** The rain's clock: world time, so it hangs in the air while paused. */
   let rainT = 0;
@@ -275,6 +333,17 @@ export function buildWorldVisual(scene: Scene, sim: Sim, roof?: (x: number, z: n
     update(dt, cam, time) {
       cursor = sim.events.read(cursor, onEvent);
       smash.update(time);
+      // The avalanche, at the render time (it's a formula, like traffic).
+      const coming = sim.avalanche && sim.avalancheFront > -Infinity;
+      blobs.visible = clouds.visible = !!coming;
+      if (coming) {
+        const front = sim.avalanche!.front(time - sim.race.goTime);
+        if (front > -Infinity) {
+          for (let k = 0; k < BLOBS; k++) avPlace(k, 71, front, 26, 5, 2.4, time, blobs);
+          for (let k = 0; k < CLOUDS; k++) avPlace(k, 72, front + 6, 70, 16, 8, time * 0.6, clouds);
+          blobs.instanceMatrix.needsUpdate = clouds.instanceMatrix.needsUpdate = true;
+        } else blobs.visible = clouds.visible = false;
+      }
       const tr = sim.world.traffic;
       // Pose traffic at the render time, like the cars: it's a formula, so it's exactly where it
       // should be between ticks, and so is how visible it is. Everything near the camera is drawn,
@@ -414,8 +483,30 @@ export function buildWorldVisual(scene: Scene, sim: Sim, roof?: (x: number, z: n
         (r.material as MeshBasicMaterial).opacity = 0.3 + 0.5 * u;
       }
 
+      // Snow, where it snows instead of raining: slow, swaying, and wrapped round the camera so a
+      // car at speed drives through it.
+      flakes.visible = sim.snowing && sim.wetness > 0.05;
+      if (flakes.visible) {
+        const box = 80;
+        rainT += dt;
+        const time = rainT;
+        for (let d = 0; d < FLAKES; d++) {
+          const a = flakeSeeds[d * 3];
+          const b = flakeSeeds[d * 3 + 1];
+          const c = flakeSeeds[d * 3 + 2];
+          const sway = Math.sin(time * (0.6 + a) + c * 40) * 1.2;
+          const wrap = (v: number, at: number) => at + ((((v - at) % box) + box * 1.5) % box) - box / 2;
+          const j = d * 3;
+          flakePos[j] = wrap(a * box * 7 + sway, cam.x);
+          flakePos[j + 1] = cam.y + 30 - ((c * 50 + time * (2 + b * 1.5)) % 50);
+          flakePos[j + 2] = wrap(b * box * 7 + Math.cos(time * 0.5 + a * 30) * 1.2, cam.z);
+        }
+        (flakeGeo.attributes.position as BufferAttribute).needsUpdate = true;
+        (flakes.material as PointsMaterial).opacity = 0.9 * Math.min(1, sim.wetness * 1.5);
+      }
+
       // Rain.
-      rain.visible = sim.wetness > 0.05;
+      rain.visible = !sim.snowing && sim.wetness > 0.05;
       if (rain.visible) {
         const box = 60;
         const fall = 40;

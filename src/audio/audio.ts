@@ -1,6 +1,7 @@
-// Game audio (SPEC §13): the focus car's engine, tyres, gravel, wind and boost as continuous voices;
-// the three nearest rivals' engines, panned and Doppler-shifted; one-shots from sim events (hits,
-// wrecks, landings, boost, chimes, near-miss horns, hazard alerts, the countdown); and the music:
+// Game audio (SPEC §13): the focus car's engine, tyres, gravel, snow, wind, boost and an avalanche's
+// rumble as continuous voices; the three nearest rivals' engines, panned and Doppler-shifted;
+// one-shots from sim events (hits, wrecks, landings, boost, chimes, near-miss horns, hazard alerts,
+// the countdown); and the music:
 // the recorded soundtrack (soundtrack.ts), or the synth (music.ts) where there's no track. The rest
 // is synthesized (synth.ts). All presentation: it reads the sim and never writes to it.
 //
@@ -84,8 +85,13 @@ interface Graph {
   engine: EngineVoice;
   tyres: NoiseVoice;
   gravel: NoiseVoice;
+  /** Snow under the wheels: a crunch on the groomed piste, a hiss in powder. */
+  crunch: NoiseVoice;
+  hiss: NoiseVoice;
   wind: NoiseVoice;
   roar: NoiseVoice;
+  /** The avalanche, a low rumble that grows as it closes on you. */
+  rumble: NoiseVoice;
   horn: Out;
   rivals: EngineVoice[];
   music: Music;
@@ -218,8 +224,11 @@ export class GameAudio {
       engine: new EngineVoice(ctx, engines),
       tyres: new NoiseVoice(ctx, sfx, 'bandpass', 1500, 5),
       gravel: new NoiseVoice(ctx, sfx, 'lowpass', 650, 0.7),
+      crunch: new NoiseVoice(ctx, sfx, 'bandpass', 2100, 1.4),
+      hiss: new NoiseVoice(ctx, sfx, 'bandpass', 5200, 0.6),
       wind: new NoiseVoice(ctx, sfx, 'lowpass', 500, 0.5),
       roar: new NoiseVoice(ctx, sfx, 'bandpass', 220, 1.2),
+      rumble: new NoiseVoice(ctx, sfx, 'lowpass', 110, 0.8),
       horn,
       rivals: Array.from({ length: RIVALS }, () => new EngineVoice(ctx, engines)),
       music: new Music(ctx, musicLevel),
@@ -357,14 +366,25 @@ export class GameAudio {
     const slip = Math.abs(c.slip[i]);
     const moving = clamp(speed / 15, 0, 1);
     const onRoad = grounded && !wrecked;
-    const squeal = onRoad && !surf.offroad ? clamp((slip - 0.08) * 2.8, 0, 1) * moving * (c.drift[i] ? 1 : 0.7) : 0;
+    const snow = !!surf.slide;
+    // (Snow doesn't squeal: it crunches, below.)
+    const squeal = onRoad && !surf.offroad && !snow ? clamp((slip - 0.08) * 2.8, 0, 1) * moving * (c.drift[i] ? 1 : 0.7) : 0;
     glide(g.tyres.filter.frequency, (1250 + slip * 900) * slow, now);
     g.tyres.out.set(squeal * 0.3, 0, now, 0.06);
-    const gravel = onRoad && surf.offroad ? clamp(speed / 30, 0, 1) * 0.45 + slip * 0.3 : 0;
+    const gravel = onRoad && surf.offroad && !snow ? clamp(speed / 30, 0, 1) * 0.45 + slip * 0.3 : 0;
     g.gravel.out.set(gravel * 0.5, 0, now, 0.08);
+    // Snow: groomed crunches (a flutter, frame to frame, like packed snow giving), powder hisses.
+    const inSnow = onRoad && snow ? clamp(speed / 25, 0, 1) * 0.4 + slip * 0.35 : 0;
+    g.crunch.out.set(surf.offroad ? 0 : inSnow * (0.35 + 0.5 * Math.random()), 0, now, 0.03);
+    glide(g.hiss.filter.frequency, (4200 + speed * 25) * slow, now);
+    g.hiss.out.set(surf.offroad ? inSnow * 0.55 : inSnow * 0.12, 0, now, 0.1);
     glide(g.wind.filter.frequency, 350 + speed * 22, now);
     g.wind.out.set(clamp((speed - 8) / 60, 0, 1) ** 2 * 0.3, 0, now, 0.2);
     g.roar.out.set(boosting && !wrecked ? 0.32 : 0, 0, now, 0.08);
+    // The avalanche: from 500 m behind you, louder as it closes (and on top of you, loudest).
+    const run = sim.track.run;
+    const gap = run && sim.avalancheFront > -Infinity && !c.finished[i] ? c.progress[i] + run.start - sim.avalancheFront : Infinity;
+    g.rumble.out.set(f.menu ? 0 : clamp(1 - gap / 500, 0, 1) ** 1.5 * 0.7, 0, now, 0.25);
     g.horn.set(ctl.horn && !f.menu ? 0.12 : 0, 0, now, 0.02);
 
     // ---- rivals: the nearest few engines ----
@@ -465,13 +485,23 @@ export class GameAudio {
         });
         break;
       case Ev.Land:
-        if (e.a > 0.15) this.play(at(0.4 * clamp(e.a, 0, 1)), pan, (s) => toneShot(s, 'sine', 95, 40, 0.002, 0.2));
+        // In snow a mogul's hop lands too: a soft whump of snow, under the thud.
+        if (this.sim.surfaces[this.sim.cars.surface[e.car]]?.slide && e.a > 0.08)
+          this.play(at(0.45 * clamp(e.a * 1.5, 0.3, 1)), pan, (s) => {
+            noiseShot(s, 'lowpass', 600, 120, 0.004, 0.28, 0.8);
+            toneShot(s, 'sine', 70, 35, 0.003, 0.18);
+          });
+        else if (e.a > 0.15) this.play(at(0.4 * clamp(e.a, 0, 1)), pan, (s) => toneShot(s, 'sine', 95, 40, 0.002, 0.2));
         break;
       case Ev.BoostStart:
         if (mine) this.play(0.35, 0, (s) => noiseShot(s, 'bandpass', 300, 1800, 0.08, 0.4, 1.5));
         break;
       case Ev.AirBoost:
         if (e.car === focus) this.chime(e.other === 1 ? [5, 12, 17, 24] : e.b > 0.9 ? [5, 12, 17] : [5, 12], 0.16);
+        break;
+      case Ev.Gate:
+        // Up a step a gate in a row.
+        if (e.car === focus) this.chime([7 + Math.min(e.b, 5) * 2], 0.14);
         break;
       case Ev.MiniTurbo:
       case Ev.DriftBoost:

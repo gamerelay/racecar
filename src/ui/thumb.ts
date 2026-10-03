@@ -5,11 +5,13 @@
 import type { TrackLayout } from '../core/content';
 
 export interface Thumb {
-  /** The main lap, closed. */
+  /** The main lap, closed; one run (layout.run) open, top to bottom. */
   main: string;
+  /** One run's finish, where it's drawn. */
+  finish?: [number, number];
   /** Each shortcut or alternate (not the secret ones). */
   branches: string[];
-  /** The lap's length through its control points, in km (a touch under the baked length). */
+  /** The lap's length through its control points, in km (a touch under the baked length); one run's, start to finish. */
   km: number;
 }
 
@@ -46,18 +48,30 @@ export function thumb(layout: TrackLayout, size = 64, pad = 4): Thumb {
       })
       .join('') + (closed ? 'Z' : '');
   const pts = layout.main.points;
+  const run = layout.run;
+  // Along the control points: the whole loop, or one run's road (its finish, on the way).
   let m = 0;
-  for (let i = 0; i < pts.length; i++) {
+  let finish: [number, number] | undefined;
+  for (let i = 0; i < pts.length - (run ? 1 : 0); i++) {
     const a = pts[i].p;
     const b = pts[(i + 1) % pts.length].p;
-    m += Math.hypot(b[0] - a[0], b[2] - a[2]);
+    // (A run's finish is in the road's meters, along its slope: down a mountain that's more than across the map.)
+    const d = run ? Math.hypot(b[0] - a[0], b[1] - a[1], b[2] - a[2]) : Math.hypot(b[0] - a[0], b[2] - a[2]);
+    if (run && !finish && m + d >= run.finish) {
+      const t = (run.finish - m) / d;
+      finish = at(a[0] + (b[0] - a[0]) * t, a[2] + (b[2] - a[2]) * t);
+    }
+    m += d;
   }
-  return { main: path(pts, true), branches: (layout.branches ?? []).filter((b) => !b.secret).map((b) => path(b.points, false)), km: m / 1000 };
+  const branches = (layout.branches ?? []).filter((b) => !b.secret).map((b) => path(b.points, false));
+  // (A run's length is its own, in the main road's meters: start line to finish line.)
+  return run ? { main: path(pts, false), finish, branches, km: (run.finish - run.start) / 1000 } : { main: path(pts, true), branches, km: m / 1000 };
 }
 
 /** The thumbnail as an `<svg>`. */
 export function thumbSvg(layout: TrackLayout | undefined, size = 64): string {
   if (!layout) return `<svg class="thumb" width="${size}" height="${size}" viewBox="0 0 ${size} ${size}"></svg>`;
   const t = thumb(layout, size);
-  return `<svg class="thumb" width="${size}" height="${size}" viewBox="0 0 ${size} ${size}" aria-hidden="true"><path class="lap" d="${t.main}"/>${t.branches.map((d) => `<path class="cut" d="${d}"/>`).join('')}</svg>`;
+  const finish = t.finish ? `<circle class="end" cx="${t.finish[0].toFixed(1)}" cy="${t.finish[1].toFixed(1)}" r="${(size / 16).toFixed(1)}"/>` : '';
+  return `<svg class="thumb" width="${size}" height="${size}" viewBox="0 0 ${size} ${size}" aria-hidden="true"><path class="lap" d="${t.main}"/>${t.branches.map((d) => `<path class="cut" d="${d}"/>`).join('')}${finish}</svg>`;
 }

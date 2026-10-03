@@ -189,6 +189,24 @@ export function collideWorld(sim: SimState, i: number, ctx: WorldCtx): void {
       wreckCar(sim, i, Cause.Prop, -contact.nx * closing * 0.3, -contact.nz * closing * 0.3, by);
     } else sim.events.push(tick, Ev.WallHit, i, contact.x, c.y[i] + 0.5, contact.z, closing, 0);
   }
+
+  // ---- pines on open ground (track/pines.ts): a trunk like a pillar, and over its top in the air ----
+  const pines = sim.track.pines;
+  if (pines) {
+    const x = c.x[i];
+    const z = c.z[i];
+    pines.near(x, z, (k) => {
+      const r = pines.r[k];
+      if (Math.abs(c.x[i] - pines.x[k]) > r + 4 || Math.abs(c.z[i] - pines.z[k]) > r + 4) return;
+      if (c.y[i] > pines.y[k] + pines.h[k] || c.y[i] < pines.y[k] - 2) return;
+      if (!obbOverlap(c.x[i], c.z[i], c.h[i], cls.size[0], cls.size[1], pines.x[k], pines.z[k], 0, r, r, contact)) return;
+      const closing = bounce(sim, i, 0, 0, 0.2);
+      if (closing <= 0.5 || c.wreck[i]) return;
+      c.wallT[i] = 0.3;
+      if (closing > T.wallWreck && !ghost) wreckCar(sim, i, Cause.Prop, -contact.nx * closing * 0.3, -contact.nz * closing * 0.3, recentAttacker(sim, i, 60));
+      else sim.events.push(tick, Ev.WallHit, i, contact.x, c.y[i] + 0.5, contact.z, closing, 0);
+    });
+  }
 }
 
 function nearMiss(sim: SimState, i: number, ctx: WorldCtx, p: number, ds: number, speed: number): void {

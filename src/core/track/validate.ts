@@ -98,12 +98,20 @@ export function validateLayout(layout: TrackLayout, surfaces: SurfaceDef[], clas
     }
   }
 
-  // The start grid: a fairly straight run behind the line.
-  const g0 = Math.round(wrap(-GRID_LENGTH, L) / track.main.step);
-  const g1 = track.main.n - 1;
+  // The start grid: a fairly straight run behind the line (a lap's at the end of the loop, before
+  // s = 0; one run's behind its start, at the top).
+  const run = layout.run;
+  if (run && !(run.start >= GRID_LENGTH && run.start < run.finish && run.finish <= L)) {
+    err(`the run (${run.start}–${run.finish} m) must start at least ${GRID_LENGTH} m along the main road (its grid is behind the line) and finish ahead of that, by its end (${L.toFixed(0)} m)`, 'main', run.start);
+    return out;
+  }
+  const lineAt = run ? run.start : L;
+  const g0 = Math.round(wrap(lineAt - GRID_LENGTH, L) / track.main.step);
+  const g1 = Math.min(track.main.n - 1, Math.round(lineAt / track.main.step));
   const h0 = Math.atan2(track.main.tx[g0], track.main.tz[g0]);
   const h1 = Math.atan2(track.main.tx[g1], track.main.tz[g1]);
-  if (Math.abs(wrap(h1 - h0 + Math.PI, Math.PI * 2) - Math.PI) > 0.35) err('the start grid (50 m behind the line) should be straight', 'main', L - GRID_LENGTH);
+  if (Math.abs(wrap(h1 - h0 + Math.PI, Math.PI * 2) - Math.PI) > 0.35) err('the start grid (50 m behind the line) should be straight', 'main', lineAt - GRID_LENGTH);
+  if (run) checkRun(layout, track, err, warn);
 
   // Branches fork off and rejoin gently: an end's nearest point well along the road, not out to
   // the side (the baker adds a slip point when there's room; a sharp fork is a hard kink).
@@ -161,7 +169,8 @@ export function validateLayout(layout: TrackLayout, surfaces: SurfaceDef[], clas
     }
     if (worst < m.r) err(`landmark ${m.kind} at [${m.at.join(', ')}] needs ${m.r} m clear of the road, and ${at.sp} ${at.s.toFixed(0)} m is ${Math.max(0, worst).toFixed(1)} m off`, at.sp, at.s);
   }
-  if (L < 2000) warn(`lap is ${L.toFixed(0)} m; full layouts aim for 3,500–5,000 m (70–100 s)`);
+  if (!run && L < 2000) warn(`lap is ${L.toFixed(0)} m; full layouts aim for 3,500–5,000 m (70–100 s)`);
+  if (layout.avalanche && !run) warn('an avalanche comes only down one run (layout.run): on a lap it never does');
   // Traffic appears where its section starts and vanishes where it ends (oncoming traffic the other
   // way round). Popping in mid-corner, round a blind bend, is a wreck nobody could see coming.
   {
@@ -204,6 +213,37 @@ export function validateLayout(layout: TrackLayout, surfaces: SurfaceDef[], clas
   }
 
   return out;
+}
+
+/** Past the finish, at least this much road (m) to stop on: the AI plans to stop by its end. */
+const RUN_OUT = 150;
+
+/** One run's own checks (layout.run): the road past its finish, and what's on it in range. */
+function checkRun(layout: TrackLayout, track: ReturnType<typeof bakeTrack>, err: (m: string, sp?: string, s?: number) => void, warn: (m: string, sp?: string, s?: number) => void): void {
+  const run = layout.run!;
+  const main = track.main;
+  const L = main.length;
+  if (L - run.finish < RUN_OUT) err(`only ${(L - run.finish).toFixed(0)} m of road past the finish; leave ${RUN_OUT} m to stop on`, 'main', run.finish);
+  if (run.finish - run.start < 2000) warn(`the run is ${(run.finish - run.start).toFixed(0)} m; a full one aims for 70–100 s`);
+  for (const cp of Array.isArray(layout.checkpoints) ? layout.checkpoints : []) {
+    if (cp <= run.start || cp >= run.finish) warn(`checkpoint at ${cp} m is outside the run (${run.start}–${run.finish} m), so it's left out`, 'main', cp);
+  }
+  // Slalom gates: across the piste, inside the run.
+  for (const [k, g] of (layout.slalom ?? []).entries()) {
+    if (!(g.s > run.start && g.s < run.finish)) {
+      err(`slalom gate ${k} at ${g.s} m is outside the run (${run.start}–${run.finish} m)`, 'main', g.s);
+      continue;
+    }
+    const half = main.width[sampleIndex(main, g.s)] / 2;
+    if (!(g.gap > 0) || Math.abs(g.lateral) + g.gap / 2 > half) err(`slalom gate ${k} at ${g.s} m: its flags (${g.gap} m apart, ${g.lateral} m across) must both stand on the piste (${half.toFixed(1)} m either side)`, 'main', g.s);
+  }
+  const jump = layout.skiJump;
+  if (jump && !(jump.lip > run.start && jump.lip + jump.landing < run.finish)) err(`the ski jump (its lip at ${jump.lip} m, ${jump.landing} m of landing hill) must be inside the run`, 'main', jump.lip);
+  const av = layout.avalanche;
+  if (av) {
+    if (!(av.speed > 0) || !(av.delay >= 0) || !(av.behind >= 0)) err('the avalanche needs a speed above 0, and a delay and a start behind the line of 0 or more');
+    else if (av.behind > run.start) warn(`the avalanche breaks away ${av.behind} m above the line, but the road starts ${run.start} m above it: it starts at the road's top`);
+  }
 }
 
 /**
