@@ -12,7 +12,7 @@ golden fingerprints, the allocation test on the open maps, `tools/drive.ts`, `to
 see "Same math in every browser"; one fingerprint file for every platform. **Step 1a, the move
 onto pieces**, and **1b, portals**, are merged (#85, #86; fingerprints identical), and **1c,
 branches own their heights** (#87; Paradise Open re-recorded, its drive the same). **1d, one
-surface function**, is built (the coast's sand drives as sand). Next: step 2, feature modules.
+surface function**, is merged (#88) (the coast's sand drives as sand). Next: step 2, feature modules.
 HANDOFF has the detail.
 
 **Reading it:** "Principles" and "The core idea: pieces" are the design; "Build order" and "How
