@@ -2167,7 +2167,7 @@ Caldera, the engine (2026-10-03; the plan is docs/CALDERA.md):
   differ in their last bits between engines, OSes and CPUs, and the golden fingerprints showed
   they do (macOS and Linux disagreed on the same CPU). Now every platform computes the same bits:
   one fingerprint file, checked identical on macOS, Linux arm64 and x64 (Bun) and in V8 (Node),
-  so replays are exact across browsers and CI can't drift. Each function is within an ulp or two
-  of Math's: after 60 s of an 8-car field the cars are picometres from where they were, the lap
+  so replays are exact across browsers and CI can't drift. Each function is within an ulp of
+  Math's (tan 3; pow a few more for big powers): after 60 s of an 8-car field the cars are picometres from where they were, the lap
   floors and the field's results (5 seeds per map) are unchanged to the tenth.
 - **Smashables break per screen**, not "the same online": each screen collides only its own cars.

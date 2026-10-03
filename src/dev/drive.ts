@@ -9,6 +9,7 @@ import { Cause, EV_NAMES, Ev } from '../core/events';
 import { Sim } from '../core/sim';
 import type { Track } from '../core/track/bake';
 import { locateCar } from '../core/track/locate';
+import { cos, hypot, pow, sin } from '../core/math';
 import { nearestRoad } from './probe';
 
 const CAUSES: Record<number, string> = Object.fromEntries(Object.entries(Cause).map(([k, v]) => [v, k.toLowerCase()]));
@@ -113,8 +114,8 @@ export function place(sim: Sim, i: number, spot: Spot, kmh = 0): void {
   else if (track.ground && !onRoad) c.y[i] = track.ground.top(c.x[i], c.z[i], c.y[i] + 0.5);
   if (spot.reverse) c.h[i] += Math.PI;
   const v = kmh / 3.6;
-  c.vx[i] = Math.sin(c.h[i]) * v;
-  c.vz[i] = Math.cos(c.h[i]) * v;
+  c.vx[i] = sin(c.h[i]) * v;
+  c.vz[i] = cos(c.h[i]) * v;
   c.py[i] = c.y[i];
   c.ph[i] = c.h[i];
   // Where it is on the road now (its surface, the junction), not where the grid slot was.
@@ -135,7 +136,7 @@ export function setup(track: Track, classes: CarClass[], surfaces: SurfaceDef[],
 export function carRow(sim: Sim, i: number, t = sim.time): Row {
   const c = sim.cars;
   const g = sim.track.ground;
-  const r = (v: number, d = 2) => Math.round(v * 10 ** d) / 10 ** d;
+  const r = (v: number, d = 2) => Math.round(v * pow(10, d)) / pow(10, d);
   const under = g ? g.deckUnder(c.x[i], c.z[i], c.y[i]) : NaN;
   return {
     t: r(t),
@@ -145,7 +146,7 @@ export function carRow(sim: Sim, i: number, t = sim.time): Row {
     road: sim.track.splines[c.spline[i]].id,
     s: r(c.s[i], 1),
     lateral: r(c.lateral[i]),
-    kmh: r(Math.hypot(c.vx[i], c.vz[i]) * 3.6, 1),
+    kmh: r(hypot(c.vx[i], c.vz[i]) * 3.6, 1),
     on: !c.grounded[i] ? 'air' : !g ? 'road' : under === under ? 'deck' : 'ground',
     surface: sim.surfaces[c.surface[i]]?.id ?? String(c.surface[i]),
     wreck: c.wreck[i] === 1,
@@ -169,7 +170,7 @@ export function run(sim: Sim, input: Inputs, seconds = 5, every = 0.25): DriveRe
     const now = t / 60;
     if (input !== 'ai') Object.assign(controls, neutralControls(), typeof input === 'function' ? input(now) : input);
     sim.step(input === 'ai' ? [] : inputs);
-    top = Math.max(top, Math.hypot(c.vx[0], c.vz[0]) * 3.6);
+    top = Math.max(top, hypot(c.vx[0], c.vz[0]) * 3.6);
     if (!c.grounded[0]) air += 1 / 60;
     cursor = sim.events.read(cursor, (e) => {
       if (e.car !== 0) return;

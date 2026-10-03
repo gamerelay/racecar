@@ -41,7 +41,8 @@ export const MPH = 2.2369363;
 // CPU). So src/core never calls them (test/math.test.ts checks), only these: fdlibm's algorithms,
 // which most engines started from, written with + - * / and Math.sqrt alone, which IEEE 754 makes
 // exact everywhere. Every platform then computes the same bits: one set of golden fingerprints,
-// replays exact across browsers. Each is within an ulp or two of Math's.
+// replays exact across browsers. Each is within an ulp of Math's (tan 3, pow a few more: see it),
+// test/math.test.ts measures them.
 
 /** x², without `**`, whose pow isn't the same everywhere. */
 export const sq = (x: number): number => x * x;
@@ -107,8 +108,9 @@ let rLo = 0;
 let quarter = 0;
 
 function reduce(x: number): void {
-  // Far out (or not finite), wrap first: no angle in the game is, so it needn't be precise, only
-  // the same everywhere (`%` is exact in IEEE 754; NaN and ±Infinity stay NaN).
+  // Past 2^20·π/2 (or not finite), wrap by TAU first: no angle in the game gets there, so out
+  // there it's far from Math's (TAU isn't 2π exactly) but still the same everywhere (`%` is exact
+  // in IEEE 754; NaN and ±Infinity stay NaN).
   if (!(x < 1647099 && x > -1647099)) x %= TAU;
   const n = Math.round(x * INV_PIO2);
   const t = x - n * PIO2_1; // exact
@@ -228,7 +230,9 @@ export function atan2(y: number, x: number): number {
     return x > 0 ? (y > 0 ? 0 : -0) : y > 0 ? Math.PI : -Math.PI;
   }
   if (ay === Infinity) return y > 0 ? Math.PI / 2 : -Math.PI / 2;
-  const z = atan(ay / ax);
+  const ratio = ay / ax;
+  if (ratio > 18446744073709551616) return y > 0 ? Math.PI / 2 : -Math.PI / 2; // past 2^64, as fdlibm
+  const z = x < 0 && ratio < 5.421010862427522e-20 ? 0 : atan(ratio);
   if (x > 0) return y > 0 ? z : -z;
   return y > 0 ? Math.PI - (z - PI_LO) : (z - PI_LO) - Math.PI;
 }
@@ -296,15 +300,17 @@ export function log(x: number): number {
   const w = z * z;
   const t1 = w * (LG2 + w * (LG4 + w * LG6));
   const t2 = z * (LG1 + w * (LG3 + w * (LG5 + w * LG7)));
-  return s * (hfsq + t2 + t1) + k * LN2_LO - hfsq + f + k * LN2_HI;
+  return s * (hfsq + (t2 + t1)) + k * LN2_LO - hfsq + f + k * LN2_HI;
 }
 
 /**
- * x to the power y: whole powers up to 64 by squaring, y = 0.5 as sqrt, otherwise e^(y·ln x),
- * within a few ulp at the sizes the game uses. A negative x only to a whole power.
+ * x to the power y, with Math.pow's special values. Whole powers up to 1024 by squaring, y = 0.5 as
+ * sqrt, otherwise e^(y·ln x), which loses about |y·ln x| ulp (12 at worst at the game's sizes).
  */
 export function pow(x: number, y: number): number {
-  if (y === Math.floor(y) && y >= -64 && y <= 64) {
+  if (y === 0) return 1;
+  if (x !== x || y !== y) return NaN;
+  if (y === Math.floor(y) && y >= -1024 && y <= 1024) {
     let r = 1;
     let b = x;
     for (let n = y < 0 ? -y : y; n > 0; n >>= 1) {
@@ -313,10 +319,16 @@ export function pow(x: number, y: number): number {
     }
     return y < 0 ? 1 / r : r;
   }
-  if (y === 0.5 && x >= 0) return Math.sqrt(x);
-  if (x > 0) return exp(y * log(x));
-  if (x === 0) return y > 0 ? 0 : Infinity;
+  const ax = x < 0 ? -x : x;
+  if (y === Infinity || y === -Infinity) return ax === 1 ? NaN : ax > 1 === y > 0 ? Infinity : 0;
+  // A whole y here is past 1024; an odd one keeps x's sign.
+  const odd = y === Math.floor(y) && y % 2 !== 0;
+  if (ax === Infinity || x === 0) {
+    const big = ax === Infinity === y > 0;
+    return x < 0 || Object.is(x, -0) ? (odd ? (big ? -Infinity : -0) : big ? Infinity : 0) : big ? Infinity : 0;
+  }
+  if (x > 0) return y === 0.5 ? Math.sqrt(x) : exp(y * log(x));
   if (y !== Math.floor(y)) return NaN;
   const r = exp(y * log(-x));
-  return y % 2 === 0 ? r : -r;
+  return odd ? -r : r;
 }

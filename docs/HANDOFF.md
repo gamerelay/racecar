@@ -35,8 +35,8 @@ desktop only, refactor freely and keep the feel). Read its "Principles", "The co
 floats differ in their last bits by OS and by CPU (Docker: Linux arm64 vs macOS arm64, emulated vs
 CI's x64), so there was a recording per platform. Now `core/math.ts` has the sim's own `sin`, `cos`,
 `tan`, `atan`, `atan2`, `exp`, `log`, `pow` and `hypot` (fdlibm's algorithms in `+ - * /` and
-`sqrt`; `sq()` instead of `** 2`), and `test/math.test.ts` checks `src/core` uses nothing else, the
-functions stay within an ulp or two of Math's, and their bits stay put. One fingerprint file is
+`sqrt`; `sq()` instead of `** 2`), and `test/math.test.ts` checks `src/core` and `src/dev` use nothing
+else, the functions stay within an ulp of Math's (tan 3, pow a few more), and their bits stay put. One fingerprint file is
 identical on macOS, Linux arm64 and x64 (Bun, in Docker) and in V8 (Node), so F8 replays are exact
 across browsers and CI can't drift. The feel is unchanged: after 60 s of an 8-car field the cars
 are picometres from where they were; lap floors and the field's results (5 seeds per map) match to
