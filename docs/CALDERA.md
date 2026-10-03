@@ -10,8 +10,8 @@ spec.** Details will change while building; note those changes in [SPEC.md](./SP
 golden fingerprints, the allocation test on the open maps, `tools/drive.ts`, `tools/probe.ts`,
 `tools/shot.ts` and `window.__rc.dev`, over `src/dev/`. **Step 0b, the sim's own math**, is merged (PR #84):
 see "Same math in every browser"; one fingerprint file for every platform. **Step 1a, the move
-onto pieces**, and **1b, portals**, are built (fingerprints identical), and **1c, branches own
-their heights** (Paradise Open re-recorded, its drive the same). Next: step 1d, one surface
+onto pieces**, and **1b, portals**, are merged (#85, #86; fingerprints identical), and **1c,
+branches own their heights** (#87; Paradise Open re-recorded, its drive the same). Next: step 1d, one surface
 function. HANDOFF has the detail.
 
 **Reading it:** "Principles" and "The core idea: pieces" are the design; "Build order" and "How

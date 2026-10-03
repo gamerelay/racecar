@@ -6,7 +6,7 @@ building". This file is "where are we"; the spec is "what are we making".
 
 **Last updated:** 2026-10-03 (Paradise Open merged in #81, untagged; the plan for the engine,
 [CALDERA.md](./CALDERA.md), merged in #82; steps 0 and 0b merged in #83 and #84; 1a, 1b and 1c in
-PRs #85, #86 and #87 (stacked), awaiting the owner's merge; next is 1d; see "Next: Caldera" below). Before that, `alpha-1.30`: Avalanche's snow and rumble quieter. The last tag is **`alpha-1.30`** (PR #77: the snow under the wheels and the avalanche's rumble about 4.5 dB down, the owner's ask). Before it, **`alpha-1.29`** (PRs #71–#74): **Avalanche**, the first open map, one 6.1 km run down a mountain (#74), and the Leap's kicker rounded and launchable from its sides (#71, #72), and PLAN's "Open, freeform maps" direction (#73).
+PRs #85, #86 and #87, merged; next is 1d; see "Next: Caldera" below). Before that, `alpha-1.30`: Avalanche's snow and rumble quieter. The last tag is **`alpha-1.30`** (PR #77: the snow under the wheels and the avalanche's rumble about 4.5 dB down, the owner's ask). Before it, **`alpha-1.29`** (PRs #71–#74): **Avalanche**, the first open map, one 6.1 km run down a mountain (#74), and the Leap's kicker rounded and launchable from its sides (#71, #72), and PLAN's "Open, freeform maps" direction (#73).
 Before it, `alpha-1.28` (PRs #67–#70: a press flash and a click on the menus' buttons; the title's
 music from the start; Logger's Leap smoothed and bermed), `alpha-1.27` (PRs #63–#65), `alpha-1.26`
 (PR #62: two new tracks), `alpha-1.25` (PR #61: boost, Overdrive, the slipstream) and `alpha-1.24`
@@ -42,24 +42,22 @@ across browsers and CI can't drift. The feel is unchanged: after 60 s of an 8-ca
 are picometres from where they were; lap floors and the field's results (5 seeds per map) match to
 the tenth. `--from-ci` and the per-platform files are gone.
 
-**Step 1a, the move onto pieces, is built** (PR #85, branch `caldera-pieces`, 2026-10-03; reviewed,
-CI green, awaiting the owner's merge), the
+**Step 1a, the move onto pieces, is built** (PR #85, merged 2026-10-03), the
 fingerprints identical on every layout. Layouts say `pieces` (`PieceDef`: a stretch of a road
 with a floor or none, a ceiling, and how the ground falls away under it) instead of `GroundDef`'s
 `decks`, `branchDecks` and `branchGaps`; `ground.ts` is a `ground/` folder; what's under a point is
 one query, `ground.cast(x, y, z, out)`, which physics, the camera and the tools ask. CALDERA's
 build order has what's in it and what isn't yet.
 
-**Step 1b, portals, is built** (PR #86, branch `caldera-portals`, stacked on #85, 2026-10-03;
-reviewed, CI green, awaiting the owner's merge). The tube's
+**Step 1b, portals, is built** (PR #86, merged 2026-10-03). The tube's
 mouths, and where it comes out into the shaft, have the ground drawn cut to the tube's own outline
 (`outlineAt` in core, which the tube's walls are built on too; `render/skins/greybox/portal.ts`
 clips the terrain), and the shroud is gone. Past each open end the cut goes on to the arch's outer
 face (1.5 m), so ground standing in the opening is cut too; only the finest level of detail is cut.
 Drawing only, so the fingerprints stayed identical (CALDERA had planned to re-record them).
 
-**Step 1c, branches own their heights, is built** (PR #87, branch `caldera-own-heights`, stacked
-on #86, 2026-10-03). `BranchDef.heights: 'own'`: the bake keeps a branch's heights as authored,
+**Step 1c, branches own their heights, is built** (PR #87, merged
+2026-10-03). `BranchDef.heights: 'own'`: the bake keeps a branch's heights as authored,
 holding it to the main road's ground only where it's on the main road or its verge (no JOIN_FADE
 fade; its bank still fades). The Lava Tube says it, and `gen-paradise-open.ts` writes the profile
 it wants instead of inverting the pull (`LAND` is now its own choice: within 10 m of the rim road's
@@ -67,8 +65,9 @@ verge, the tube runs at the rim road's ground). The tube is within 8 cm of befor
 it, the lap floor (68.07) and the field (27 wrecks in 40 seeds, against 26) are the same.
 Paradise Open's fingerprints re-recorded, the rest identical.
 
-**Merging them:** in order, #85, #86, #87, each with `--delete-branch` so GitHub retargets the
-next to main. Merge only on the owner's word.
+**Merging a stack:** `gh pr merge --delete-branch` on the bottom PR *closes* the one stacked on it
+(GitHub doesn't retarget when gh deletes the branch). Instead: merge the bottom PR without
+deleting its branch, `gh pr edit <next> --base main`, then delete the branch.
 
 **Next: step 1d, one surface function** for drawing and driving: the coast's sand drives as sand
 (decided). Fingerprints and Paradise Open's lap floor re-recorded. Follow CALDERA's "How to work on
