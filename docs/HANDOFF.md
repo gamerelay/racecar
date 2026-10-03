@@ -9,9 +9,7 @@ Before it, `alpha-1.28` (PRs #67–#70: a press flash and a click on the menus' 
 music from the start; Logger's Leap smoothed and bermed), `alpha-1.27` (PRs #63–#65), `alpha-1.26`
 (PR #62: two new tracks), `alpha-1.25` (PR #61: boost, Overdrive, the slipstream) and `alpha-1.24`
 (PRs #49–#60).
-**The hosted build is still `alpha-1.28`:** the new single file is built and passes asleepace.com's
-sanitizer, but updating the `games` row needs the owner (the production database; "Hosted test
-build" below).
+It's on the hosted build ("Hosted test build" below).
 
 **Avalanche** (merged in #74, out of experimental on the owner's word): open ground you drive on
 everywhere, slope gravity on snow, moguls, canyons, kickers, rocks, 18 slalom gates, about 650
@@ -374,9 +372,8 @@ the cone's far flanks.
     the track for an hour. The proxy always sends it.
   - **CORS on the Space** (GET and HEAD from any origin) stays: it lets a build read the Space's
     origin directly too, if the CDN is ever down.
-- **What's there now:** `alpha-1.28` (PRs #67–#70), updated 2026-10-02, with every track on the
-  CDN. `alpha-1.29` is built (`dist-single/racecar.html`, sanitizer ok) and waits for the owner to
-  update the row. No new tracks: the CDN needs nothing. Keep it the one row: update Z442EE in place rather than adding a game.
+- **What's there now:** `alpha-1.29` (PRs #71–#74, Avalanche), updated 2026-10-02 by the owner
+  (the production database is theirs to write), with every track on the CDN. Keep it the one row: update Z442EE in place rather than adding a game.
 
 ## Next, in order
 
