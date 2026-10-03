@@ -24,10 +24,10 @@ import { buildLand } from './land';
 import { DECK_CATCH, definePieces, floorQuery, type Pieces } from './pieces';
 import { groundKinds } from './surface';
 
-export { DECK_CATCH, type Piece, type Pieces } from './pieces';
+export { DECK_CATCH, DECK_SLACK, type Piece, type Pieces } from './pieces';
 export { canyonAt, canyonDepth, groundShape, noise } from './shape';
 export { OUTLINE_POINTS, outlineAt } from './outline';
-export { KIND_BRANCH, KIND_ROAD, KIND_SAND, KIND_SHORE, KIND_VERGE, surfaceNoise } from './surface';
+export { KIND_BEACH, KIND_BRANCH, KIND_ROAD, KIND_SAND, KIND_SHORE, KIND_VERGE, surfaceNoise } from './surface';
 
 /** A beach's ends (GroundDef.beaches) fade in over this many meters. */
 export const BEACH_FADE = 40;

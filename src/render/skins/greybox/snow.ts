@@ -9,7 +9,7 @@ import { BufferAttribute, BufferGeometry, Color, ConeGeometry, CylinderGeometry,
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { smoothstep } from '../../../core/math';
 import { VERGE_DEFAULT, type Track } from '../../../core/track/bake';
-import { KIND_BRANCH, KIND_ROAD, KIND_SAND, KIND_SHORE, noise, surfaceNoise } from '../../../core/track/ground';
+import { KIND_BEACH, KIND_BRANCH, KIND_ROAD, KIND_SAND, KIND_SHORE, noise, surfaceNoise } from '../../../core/track/ground';
 import { TREE_PINE } from '../../../core/track/pines';
 import { hash01 } from '../../../core/rng';
 import { buildPortals, VERTEX } from './portal';
@@ -101,9 +101,10 @@ export function buildSnow(track: Track, green?: Color): Object3D[] {
           // Smooth noise, so the edges between them wander instead of stepping cell by cell.
           const n = surfaceNoise(x, z);
           if (kind === KIND_SHORE) c.copy(SAND_WET);
+          else if (kind === KIND_SAND) c.copy(SAND);
           // (A beach's sand a little damper in patches.)
-          else if (kind === KIND_SAND) c.copy(SAND).lerp(SAND_WET, g.beach[i] * lateral[k] > 0 ? 0.25 * smoothstep(0, 1, (n - 0.5) * 3) : 0);
-          if (isle && !road && kind !== KIND_SHORE && kind !== KIND_SAND) {
+          else if (kind === KIND_BEACH) c.copy(SAND).lerp(SAND_WET, 0.25 * smoothstep(0, 1, (n - 0.5) * 3));
+          if (isle && !road && kind !== KIND_SHORE && kind !== KIND_SAND && kind !== KIND_BEACH) {
             const off = Math.abs(lateral[k]) - main.width[i] / 2;
             if (grass) {
               // Inland of the beach, the island's green, darkening into forest away from the roads;

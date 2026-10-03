@@ -13,6 +13,9 @@ import { planeOf } from './plane';
 /** On a floor: a car this far under it still drives on it (a hard landing); further down, it's under it. */
 export const DECK_CATCH = 1;
 
+/** A wheel past a deck's edge, with the car's middle still on it, still stands on the deck's plane this far out (m). */
+export const DECK_SLACK = 2;
+
 /** A piece, resolved against the baked roads. */
 export interface Piece {
   id: string;

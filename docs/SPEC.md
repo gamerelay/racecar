@@ -2184,9 +2184,10 @@ Caldera, the engine (2026-10-03; the plan is docs/CALDERA.md):
 - **One surface function for the ground** (CALDERA's step 1d): `ground.kind` per grid point
   (`core/track/ground/surface.ts`: road, a branch's road, sand, wet sand, verge) is what the
   renderer colours and what a car off the asphalt drives on (`surfaceAt`, which now takes the
-  car's x and z). The coast's sand drove as the verge beside it (grass) while drawn as sand; now
+  car's x, y and z). The coast's sand drove as the verge beside it (grass) while drawn as sand; now
   it's `sand`, and the wet strip at the water's edge `shore`. The beaches were decided twice (the
   drawing's wandering edge and tufts, the physics' half-way cut); now once, as drawn. Paradise
-  Open's floor 68.07 → 68.10 s; the field 28 wrecks in 40 seeds (27 before). Only Paradise Open's
+  Open's floor 68.07 → 68.10 s; the field 30 wrecks in 40 seeds (28 before). A car
+  over a piece (the Freeway's shoulder) drives the piece's verge, not the ground under it. Only Paradise Open's
   fingerprints moved.
 - **Smashables break per screen**, not "the same online": each screen collides only its own cars.

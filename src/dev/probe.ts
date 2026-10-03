@@ -80,7 +80,7 @@ export function probe(track: Track, x: number, z: number, y?: number): Probe {
   // Without open ground and no height asked, the road's found by where it is, not how high.
   const near = nearestRoad(track, x, z, g || y !== undefined ? yy : undefined, hit);
   const shoulder = track.surfaceIndex.get(track.layout.shoulderSurface ?? 'sidewalk') ?? 0;
-  const out: Probe = { x, z, y: yy, near, surface: track.surfaces[surfaceAt(track, hit, x, z, false, shoulder)].id };
+  const out: Probe = { x, z, y: yy, near, surface: track.surfaces[surfaceAt(track, hit, x, yy, z, false, shoulder)].id };
   if (!g) {
     if (y === undefined) out.y = hit.ground;
     return out;

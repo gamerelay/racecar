@@ -119,8 +119,10 @@ export function groundHash(track: Track): string {
         for (const up of [0.3, 3]) ask(g, h, x, sp.py[k] + up, z, slope);
         // And what a car there drives on, dry and wet (the beaches, the verges).
         hit.lateral = l;
-        h.num(surfaceAt(track, hit, x, z, false, shoulder));
-        h.num(surfaceAt(track, hit, x, z, true, shoulder));
+        const hx = hit.cx - hit.tz * l;
+        const hz = hit.cz + hit.tx * l;
+        h.num(surfaceAt(track, hit, hx, sp.py[k] + 0.3, hz, false, shoulder));
+        h.num(surfaceAt(track, hit, hx, sp.py[k] + 0.3, hz, true, shoulder));
       }
     }
   // And over a grid, a third of the way between its points (off the heightfield's own points, so

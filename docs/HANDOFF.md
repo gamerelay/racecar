@@ -74,7 +74,8 @@ the owner's merge). `ground.kind` per grid point (`core/track/ground/surface.ts`
 road, sand, wet sand, verge) is what `snow.ts` colours and what `surfaceAt` drives off the asphalt
 (it takes the car's x and z now: the point rebuilt from a far projection drifted). The coast's sand
 drives as `sand`, the water's edge as `shore`, the beaches as drawn. Paradise Open 68.07 → 68.10 s,
-the field 28 wrecks in 40 seeds (27 before); only Paradise Open's fingerprints moved. That's step 1
+the field 30 wrecks in 40 seeds (28 before, the same mix); a car on a piece (the Freeway's
+shoulder) drives its verge, not the sand under it (`surfaceAt` takes y); only Paradise Open's fingerprints moved. That's step 1
 done.
 
 **Next: step 2, feature modules** (CALDERA's "Build order"): the volcano, coast, beaches, moguls,

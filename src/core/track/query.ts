@@ -4,7 +4,8 @@
 
 import { VERGE_DEFAULT, wrap, type BakedSpline, type Track } from './bake';
 import { hypot, sq, tan } from '../math';
-import { KIND_SAND, KIND_SHORE } from './ground/surface';
+import { DECK_SLACK } from './ground/pieces';
+import { KIND_BEACH, KIND_SAND, KIND_SHORE } from './ground/surface';
 
 export interface TrackHit {
   spline: number;
@@ -147,12 +148,12 @@ export function flankDrop(hit: TrackHit): number {
 }
 
 /**
- * Surface at (x, z), `hit` its place on the road nearest: dynamic zones first (not in milestone 1),
+ * Surface at (x, y, z), `hit` its place on the road nearest: dynamic zones first (not in milestone 1),
  * then authored zones, then the road's own surface on the asphalt; beyond it, on open ground, what
  * the ground is there (ground/surface.ts: sand, wet sand), else the verge (the stretch's own, or the
  * layout's shoulder surface).
  */
-export function surfaceAt(track: Track, hit: TrackHit, x: number, z: number, wet: boolean, shoulderSurface: number): number {
+export function surfaceAt(track: Track, hit: TrackHit, x: number, y: number, z: number, wet: boolean, shoulderSurface: number): number {
   const sp = track.splines[hit.spline];
   for (let k = 0; k < sp.zones.length; k++) {
     const z = sp.zones[k];
@@ -163,9 +164,12 @@ export function surfaceAt(track: Track, hit: TrackHit, x: number, z: number, wet
   }
   if (Math.abs(hit.lateral) > hit.width / 2) {
     // Off the asphalt on open ground, what the ground is there (the same as it's drawn): sand
-    // along the coast and on the beaches, wet sand at the water's edge; else the road's verge.
-    const kind = track.ground ? track.ground.kindAt(x, z) : -1;
-    if (kind === KIND_SAND) return track.surfaceIndex.get('sand') ?? hit.surface;
+    // along the coast and on the beaches, wet sand at the water's edge; else the road's verge. Not
+    // on a piece (over the Freeway's shoulder): that's the piece's verge, not the ground under it.
+    const g = track.ground;
+    const floor = g ? g.pieceFloor(x, z, DECK_SLACK, y) : NaN;
+    const kind = g && floor !== floor ? g.kindAt(x, z) : -1;
+    if (kind === KIND_SAND || kind === KIND_BEACH) return track.surfaceIndex.get('sand') ?? hit.surface;
     if (kind === KIND_SHORE) return track.surfaceIndex.get('shore') ?? hit.surface;
     return hit.verge === VERGE_DEFAULT ? shoulderSurface : hit.verge;
   }
