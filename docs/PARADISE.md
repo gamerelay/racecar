@@ -209,10 +209,11 @@ tropical. Some ideas to pick from:
 - **Retuning:** today's floor is 71.52 s, with traffic on the straights and showers. The new lap
   needs its own target, and the field's wrecks have to stay where they are (1.5 a race).
 
-## Built so far (2026-10-03, PRs #79–#81, not merged)
+## Built so far (2026-10-03, PR #81, not merged)
 
-Three stacked PRs, each a draft or open until the owner says. Each branches off the one before:
-`main` ← **#79** `paradise-open` ← **#80** `paradise-open-island` ← **#81** `paradise-open-tube`. The map
+One PR, **#81** `paradise-open-tube` off `main`. It was built as three stacked PRs (#79 ← #80 ←
+#81, with the plan in #78); #78–#80 are closed and folded into it, and their parts below keep
+their old numbers. The map
 is experimental, `paradise-open/open` (its own map, `content/maps/paradise-open`, since
 `experimental` is per map), out of the lobby: `?mode=free&map=paradise-open/open`. It's generated
 by `bun tools/gen-paradise-open.ts` from today's island lap; edit the generator, not the JSON.
@@ -378,7 +379,7 @@ In about this order:
 4. **Balance:** whether the AI should miss the jump sometimes (it never does), and the floor.
 5. **The rest of the steps below:** the routes from the sketch, the half-moon bridge, real mud,
    Harbor Town with colliders.
-6. **Merge:** #79, #80, #81 in order (the 2026-10-03 work has had its review).
+6. **Merge:** #81, everything in one (the 2026-10-03 work has had its review).
 
 ## Steps
 
@@ -439,7 +440,7 @@ Answered above. Still open:
 - **The Lava Tube's balance:** riskier, the jump (built). Should the AI miss it sometimes?
 - **A miss:** back past the gap (today), or back to the rim road (harsher)?
 - **The look:** the black rock on the cone, and the grass.
-- **Merging:** #79 (the bridge) could go to `main` on its own; #80 and #81 build on it.
+- **Merging:** one PR now, #81, when you say.
 
 As asked:
 
