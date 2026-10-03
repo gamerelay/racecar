@@ -16,6 +16,7 @@ import { Solid, type Hazards } from '../world/hazards';
 import { SMASH_KINDS, type Smashables } from '../world/smash';
 import { laneActive, TRAFFIC_KINDS, type Traffic } from '../world/traffic';
 import { newContact, obbOverlap } from './obb';
+import { cos, hypot, sin } from '../math';
 
 const contact = newContact();
 
@@ -53,7 +54,7 @@ export function collideWorld(sim: SimState, i: number, ctx: WorldCtx): void {
   const L = sim.track.main.length;
   const sMain = mainDistance(sim.track, c.spline[i], c.s[i]);
   const onMain = c.spline[i] === 0;
-  const speed = Math.hypot(c.vx[i], c.vz[i]);
+  const speed = hypot(c.vx[i], c.vz[i]);
   const ghost = c.ghostT[i] > 0;
 
   // ---- traffic ----
@@ -101,8 +102,8 @@ export function collideWorld(sim: SimState, i: number, ctx: WorldCtx): void {
   if (!ghost) {
     const sm = ctx.smash;
     const sp = sim.track.splines[c.spline[i]];
-    const fx = Math.sin(c.h[i]);
-    const fz = Math.cos(c.h[i]);
+    const fx = sin(c.h[i]);
+    const fz = cos(c.h[i]);
     for (let k = 0; k < sm.n; k++) {
       if (sm.spline[k] !== c.spline[i]) continue;
       const ds = sp.closed ? signedGap(sm.s[k], c.s[i], sp.length) : sm.s[k] - c.s[i];
@@ -249,7 +250,7 @@ export function hazardsWreckTraffic(sim: SimState, ctx: WorldCtx): void {
       const lat = (lane.pos * at.width[idx]) / 2;
       const px = at.px[idx] - at.tz[idx] * lat;
       const pz = at.pz[idx] + at.tx[idx] * lat;
-      if (Math.hypot(px - hazards.px[p], pz - hazards.pz[p]) < hazards.phl[p] + 2.5) {
+      if (hypot(px - hazards.px[p], pz - hazards.pz[p]) < hazards.phl[p] + 2.5) {
         traffic.wreckedAt[k] = ctx.t;
         sim.events.push(sim.tick, Ev.TrafficWreck, -1, px, at.py[idx], pz, lane.speed, 2, k);
         break;

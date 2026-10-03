@@ -8,9 +8,9 @@ spec.** Details will change while building; note those changes in [SPEC.md](./SP
 
 **Status (2026-10-03):** reviewed and agreed (PR #82, merged). **Step 0 is built and merged** (PR #83): the
 golden fingerprints, the allocation test on the open maps, `tools/drive.ts`, `tools/probe.ts`,
-`tools/shot.ts` and `window.__rc.dev`, over `src/dev/`. Recommended next: our own math for the
-sim (see "Same math in every browser"; the fingerprints showed floats differ by OS and CPU),
-then step 1a. HANDOFF has the detail.
+`tools/shot.ts` and `window.__rc.dev`, over `src/dev/`. **Step 0b, the sim's own math**, is
+built (see "Same math in every browser"): one fingerprint file for every platform. Next: step
+1a. HANDOFF has the detail.
 
 **Reading it:** "Principles" and "The core idea: pieces" are the design; "Build order" and "How
 to work on it" are what to do; the rest is reference (moving things, routes, a worked example,
@@ -404,12 +404,12 @@ draw distance; a greybox skin separate from the gameplay.
 - **Same math in every browser.** `Math.sin`, `Math.exp` and the like aren't required to give
   the same last digit in every JavaScript engine. SPEC already records it: an F8 report from
   Chrome replayed in Bun ended 1.6 cm off after 30 s, while the same engine is exact. The world
-  tolerates it (it's closed-form, nothing builds up). If replays need to be exact across
-  engines, the fix is our own `sin`/`cos`/`exp` in `core/math.ts` for the sim. **Step 0 found
-  it goes further** (2026-10-03): the last bits differ by OS and by CPU (Linux arm64 vs macOS
-  arm64; emulated vs CI's Linux x64), so the golden fingerprints need one recording per
-  platform, and CI's could drift if GitHub changes runners. Our own math fixes all of it; it's
-  recommended before step 1a.
+  tolerates it (it's closed-form, nothing builds up). Step 0 found it goes further: the last
+  bits differed by OS and by CPU (Linux arm64 vs macOS arm64; emulated vs CI's Linux x64), so
+  the golden fingerprints needed one recording per platform. **Done in step 0b** (2026-10-03):
+  the sim's own `sin`, `cos`, `tan`, `atan`, `atan2`, `exp`, `log`, `pow` and `hypot` in
+  `core/math.ts`, and a test that `src/core` uses nothing else. One fingerprint file now holds on
+  macOS, Linux arm64 and x64, and in V8.
 
 ## Limitations
 
@@ -504,17 +504,14 @@ What exists today:
 
 Built in step 0 (`src/dev/`, shared by the tools and `window.__rc.dev`):
 - **Golden fingerprints:** `bun tools/fingerprint.ts` checks every layout's roads, its open
-  ground and fixed drives (40 s from the grid, 15 s down each branch) against this platform's
-  recording and says what moved; `--update` records them. `test/golden.test.ts` runs them with
+  ground and fixed drives (40 s from the grid, 15 s down each branch) against the recording and
+  says what moved; `--update` records them. `test/golden.test.ts` runs them with
   the tests. They fingerprint **behaviour, not storage**: the ground by the answers to its
   questions (height, slope, decks, what's on top, coast, lava, surfaces), asked along every road
   and over a grid, so step 1a can change how the ground is stored and keep them identical.
-  **One recording per platform** (`test/golden/fingerprints.<platform>-<arch>.json`): floats
-  differ in their last bits between macOS and Linux (`Math.sin` and the rest). A platform with
-  none skips the check; one that misses or is off prints its fresh fingerprints. **A change
-  meant to move a map** re-records both: `--update` here (the Mac's), push, and when CI fails on
-  Linux's, `bun tools/fingerprint.ts --from-ci` writes them from its log; check the diff names
-  only the maps meant to move, then push again.
+  **One recording for every platform** (`test/golden/fingerprints.json`), since the sim does its
+  own math (step 0b). **A change meant to move a map** re-records it with `--update`; check the
+  report names only the maps meant to move.
 - **`bun tools/drive.ts <map> …`**: place a car (`--road id --s m --lat m`, or `--at x,z[,y]`;
   `--kmh`, `--class`, `--reverse`), give it inputs (`--ai`, or held `--throttle --brake --steer
   --boost --drift`), run it (`--seconds`, `--every`), and get a trace (where, on what, speed, air,
@@ -586,7 +583,8 @@ seconds: Downtown 57.9, Backroads 62.82, Avalanche 93.07, Paradise 71.52, Paradi
 of 2026-10-03), unless a step means to change a map (the coast's sand driving as sand, a lava
 stream across a route): then the new floor is recorded, with why.
 
-0. **A safety net and tools first** (built, PR #83). The golden fingerprints for each open map, and the
+0. **A safety net and tools first** (built, PR #83), and **0b, the sim's own math** (built), so
+   the fingerprints are the same bits on every platform. The golden fingerprints for each open map, and the
    allocation test on them. Clean-up steps must leave the fingerprints identical to the last
    bit (any change at all fails a test, so refactors can move fast); steps that mean to change
    the game re-record them on purpose. Then `drive`, `probe` and `shot`, since every step below

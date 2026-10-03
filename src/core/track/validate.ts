@@ -5,6 +5,7 @@ import { LANDMARK_KINDS, type CarClass, type SurfaceDef, type TrackLayout } from
 import { KINDS } from '../world/hazards';
 import { SMASH_IDS } from '../world/smash';
 import { bakeTrack, sampleIndex, wrap } from './bake';
+import { atan2, hypot } from '../math';
 
 export interface Problem {
   level: 'error' | 'warning';
@@ -57,7 +58,7 @@ export function validateLayout(layout: TrackLayout, surfaces: SurfaceDef[], clas
         const A = pts[a];
         const B = pts[b];
         if (Math.abs(A.x - B.x) > A.r + B.r || Math.abs(A.z - B.z) > A.r + B.r) continue;
-        if (Math.hypot(A.x - B.x, A.z - B.z) > A.r + B.r || Math.abs(A.y - B.y) >= CLEAR) continue;
+        if (hypot(A.x - B.x, A.z - B.z) > A.r + B.r || Math.abs(A.y - B.y) >= CLEAR) continue;
         if (A.sp === B.sp) {
           const sp = track.splines[A.sp];
           if ((sp.closed ? near(A.s, B.s, sp.length) : Math.abs(A.s - B.s)) < 3 * (A.r + B.r) + 20) continue;
@@ -87,8 +88,8 @@ export function validateLayout(layout: TrackLayout, surfaces: SurfaceDef[], clas
     }
     // Corners too tight for the width: the inside edge would fold over itself.
     for (let i = 2; i < sp.n - 2; i += 2) {
-      const a = Math.atan2(sp.tx[i - 2], sp.tz[i - 2]);
-      const b = Math.atan2(sp.tx[i + 2], sp.tz[i + 2]);
+      const a = atan2(sp.tx[i - 2], sp.tz[i - 2]);
+      const b = atan2(sp.tx[i + 2], sp.tz[i + 2]);
       const turn = Math.abs(wrap(b - a + Math.PI, Math.PI * 2) - Math.PI);
       const radius = (4 * sp.step) / Math.max(turn, 1e-6);
       if (radius < sp.width[i] / 2 + sp.shoulder[i]) {
@@ -108,8 +109,8 @@ export function validateLayout(layout: TrackLayout, surfaces: SurfaceDef[], clas
   const lineAt = run ? run.start : L;
   const g0 = Math.round(wrap(lineAt - GRID_LENGTH, L) / track.main.step);
   const g1 = Math.min(track.main.n - 1, Math.round(lineAt / track.main.step));
-  const h0 = Math.atan2(track.main.tx[g0], track.main.tz[g0]);
-  const h1 = Math.atan2(track.main.tx[g1], track.main.tz[g1]);
+  const h0 = atan2(track.main.tx[g0], track.main.tz[g0]);
+  const h1 = atan2(track.main.tx[g1], track.main.tz[g1]);
   if (Math.abs(wrap(h1 - h0 + Math.PI, Math.PI * 2) - Math.PI) > 0.35) err('the start grid (50 m behind the line) should be straight', 'main', lineAt - GRID_LENGTH);
   if (run) checkRun(layout, track, err, warn);
 
@@ -126,7 +127,7 @@ export function validateLayout(layout: TrackLayout, surfaces: SurfaceDef[], clas
       const m = track.main;
       const along = ((p.p[0] - m.px[i]) * m.tx[i] + (p.p[2] - m.pz[i]) * m.tz[i]) * dir;
       const lat = (p.p[0] - m.px[i]) * -m.tz[i] + (p.p[2] - m.pz[i]) * m.tx[i];
-      const angle = (Math.atan2(Math.abs(lat), along) * 180) / Math.PI;
+      const angle = (atan2(Math.abs(lat), along) * 180) / Math.PI;
       if (angle > MAX_FORK) warn(`branch ${b.id} ${dir > 0 ? 'leaves' : 'rejoins'} the main road at ${angle.toFixed(0)}°; put its ${dir > 0 ? 'first' : 'last'} point further along and closer in (under ${MAX_FORK}°)`, b.id, dir > 0 ? 0 : undefined);
     }
   }
@@ -160,7 +161,7 @@ export function validateLayout(layout: TrackLayout, surfaces: SurfaceDef[], clas
     let at = { sp: '', s: 0 };
     for (const sp of track.splines) {
       for (let i = 0; i < sp.n; i += 2) {
-        const gap = Math.hypot(sp.px[i] - m.at[0], sp.pz[i] - m.at[1]) - (sp.width[i] / 2 + sp.shoulder[i] + 0.5);
+        const gap = hypot(sp.px[i] - m.at[0], sp.pz[i] - m.at[1]) - (sp.width[i] / 2 + sp.shoulder[i] + 0.5);
         if (gap < worst) {
           worst = gap;
           at = { sp: sp.id, s: i * sp.step };
@@ -179,7 +180,7 @@ export function validateLayout(layout: TrackLayout, surfaces: SurfaceDef[], clas
       const i = Math.round(wrap(s, L) / main.step) % main.n;
       const a = (i - 20 + main.n) % main.n;
       const b = (i + 20) % main.n;
-      return Math.abs(wrap(Math.atan2(main.tx[b], main.tz[b]) - Math.atan2(main.tx[a], main.tz[a]) + Math.PI, Math.PI * 2) - Math.PI);
+      return Math.abs(wrap(atan2(main.tx[b], main.tz[b]) - atan2(main.tx[a], main.tz[a]) + Math.PI, Math.PI * 2) - Math.PI);
     };
     const seen = new Set<number>();
     for (const lane of layout.traffic?.lanes ?? []) {
@@ -260,7 +261,7 @@ export function straightenSections(layout: TrackLayout, surfaces: SurfaceDef[]):
       const i = Math.round(wrap(s + d, L) / main.step) % main.n;
       const a = (i - 20 + main.n) % main.n;
       const b = (i + 20) % main.n;
-      const turn = Math.abs(wrap(Math.atan2(main.tx[b], main.tz[b]) - Math.atan2(main.tx[a], main.tz[a]) + Math.PI, Math.PI * 2) - Math.PI);
+      const turn = Math.abs(wrap(atan2(main.tx[b], main.tz[b]) - atan2(main.tx[a], main.tz[a]) + Math.PI, Math.PI * 2) - Math.PI);
       if (turn > (5 * Math.PI) / 180) return false;
     }
     return true;

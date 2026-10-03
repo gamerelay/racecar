@@ -8,7 +8,7 @@
 import { TUNING as T } from '../car/tuning';
 import type { SlalomGate, TrackLayout } from '../content';
 import type { Controls } from '../controls';
-import { clamp, smoothstep, wrapAngle } from '../math';
+import { atan2, clamp, cos, hypot, sin, smoothstep, sq, wrapAngle } from '../math';
 import { hash01 } from '../rng';
 import type { SimState } from '../state';
 import { mainDistance, signedGap, wrap, type BakedSpline, type Track } from '../track/bake';
@@ -75,8 +75,8 @@ export function racingLine(track: Track, sp: BakedSpline): Line {
   const curv = new Float64Array(n);
   const w = Math.max(1, Math.round(6 / sp.step));
   for (let i = 0; i < n; i++) {
-    const a = Math.atan2(sp.tx[at(i - w)], sp.tz[at(i - w)]);
-    const b = Math.atan2(sp.tx[at(i + w)], sp.tz[at(i + w)]);
+    const a = atan2(sp.tx[at(i - w)], sp.tz[at(i - w)]);
+    const b = atan2(sp.tx[at(i + w)], sp.tz[at(i + w)]);
     curv[i] = wrapAngle(b - a) / (2 * w * sp.step);
   }
   const smooth = (src: Float64Array, meters: number, passes: number) => {
@@ -123,8 +123,8 @@ export function racingLine(track: Track, sp: BakedSpline): Line {
   // a corner just past the rejoin (out of the Lava Tube flat out, into the rim road's bend).
   if (sp.index > 0) speed[n - 1] = Math.min(speed[n - 1], lineAt(track.main, sp.mainTo, racingLine(track, track.main).speed));
   for (let pass = 0; pass < (sp.closed ? 2 : 1); pass++) {
-    for (let i = n - 2; i >= 0; i--) speed[i] = Math.min(speed[i], Math.sqrt(speed[i + 1] ** 2 + 2 * brake[i] * sp.step));
-    if (sp.closed) speed[n - 1] = Math.min(speed[n - 1], Math.sqrt(speed[0] ** 2 + 2 * brake[n - 1] * sp.step));
+    for (let i = n - 2; i >= 0; i--) speed[i] = Math.min(speed[i], Math.sqrt(sq(speed[i + 1]) + 2 * brake[i] * sp.step));
+    if (sp.closed) speed[n - 1] = Math.min(speed[n - 1], Math.sqrt(sq(speed[0]) + 2 * brake[n - 1] * sp.step));
   }
   const line = { offset, speed };
   perTrack.set(sp.index, line);
@@ -244,7 +244,7 @@ export function driveRacer(sim: SimState, i: number, d: RacerDriver, out: Contro
   const track = sim.track;
   const skill = SKILL[d.difficulty];
   const cls = sim.classes[c.cls[i]];
-  const speed = Math.hypot(c.vx[i], c.vz[i]);
+  const speed = hypot(c.vx[i], c.vz[i]);
   const L = track.main.length;
 
   // Which spline to follow: the one we're on, or a shortcut we've chosen to take.
@@ -306,17 +306,17 @@ export function driveRacer(sim: SimState, i: number, d: RacerDriver, out: Contro
   const ps = onBranchAhead ? s + lead : c.s[i] + lead;
   sampleAt(path, ps, look);
   sampleAt(path, ps + 6, probe);
-  const pathH = Math.atan2(look.tx, look.tz);
-  const curv = wrapAngle(Math.atan2(probe.tx, probe.tz) - pathH) / 6;
+  const pathH = atan2(look.tx, look.tz);
+  const curv = wrapAngle(atan2(probe.tx, probe.tz) - pathH) / 6;
   // Sideways error from where we want to be (positive: we're right of the target).
   const cross = (c.x[i] - look.cx) * -look.tz + (c.z[i] - look.cz) * look.tx - target;
-  let want = pathH + Math.atan2(1.6 * cross, speed + 4);
+  let want = pathH + atan2(1.6 * cross, speed + 4);
   // On sliding snow the slope pulls you sideways down every bank and swell, and the line drifts a
   // few meters downhill of where it should be (into a rock): aim up the slope against it.
   if (track.ground && sim.surfaces[c.surface[i]].slide && c.grounded[i]) {
     const g = track.ground.slope(c.x[i], c.z[i], SLOPE);
     // The rise per meter to the car's right (right is (-cos h, sin h)); rising right, it pulls you left.
-    const rising = -g.x * Math.cos(c.h[i]) + g.z * Math.sin(c.h[i]);
+    const rising = -g.x * cos(c.h[i]) + g.z * sin(c.h[i]);
     want -= clamp(rising * UPHILL_AIM, -0.15, 0.15);
   }
   const err = wrapAngle(want - c.h[i]);
@@ -467,7 +467,7 @@ function avoid(sim: SimState, i: number, sp: BakedSpline, s: number, target: num
   }
   for (let j = 0; j < c.count; j++) {
     if (j === i || !c.active[j] || c.spline[j] !== c.spline[i]) continue;
-    const vj = c.wreck[j] ? 0 : Math.hypot(c.vx[j], c.vz[j]);
+    const vj = c.wreck[j] ? 0 : hypot(c.vx[j], c.vz[j]);
     mark(c.lateral[j], sim.classes[c.cls[j]].size[0], sp.closed ? signedGap(c.s[j], c.s[i], sp.length) : c.s[j] - c.s[i], vj);
   }
   lastT = mk.tTarget;
@@ -545,7 +545,7 @@ function wrongWay(sim: SimState, i: number): boolean {
   const c = sim.cars;
   const sp = sim.track.splines[c.spline[i]];
   const at = sampleAt(sp, c.s[i], probe);
-  const road = Math.atan2(at.tx, at.tz);
-  const speed = Math.hypot(c.vx[i], c.vz[i]);
-  return speed > 3 && Math.abs(wrapAngle(Math.atan2(c.vx[i], c.vz[i]) - road)) > 2.2 && Math.abs(wrapAngle(c.h[i] - road)) > 1.6;
+  const road = atan2(at.tx, at.tz);
+  const speed = hypot(c.vx[i], c.vz[i]);
+  return speed > 3 && Math.abs(wrapAngle(atan2(c.vx[i], c.vz[i]) - road)) > 2.2 && Math.abs(wrapAngle(c.h[i] - road)) > 1.6;
 }

@@ -13,6 +13,7 @@ import { Rng, hash01, hashString } from '../rng';
 import { wrap, type Track } from '../track/bake';
 import { newHit, sampleAt, type TrackHit } from '../track/query';
 import { TRUCK, TRAFFIC_KINDS, type Traffic } from './traffic';
+import { atan2, exp, log, sin, tan } from '../math';
 
 export type Mayhem = 'off' | 'normal' | 'chaos';
 
@@ -109,10 +110,10 @@ export class Hazards {
       const rng = Rng.stream(seed, `hazard:${d}:${def.use}`);
       let t = kind.schedule === 'periodic' ? rng.range(0, kind.every(def)) : 0;
       for (let n = 0; t < HORIZON && n < 10_000; n++) {
-        t += kind.schedule === 'periodic' ? kind.every(def) * scale : -Math.log(1 - rng.next()) * kind.every(def) * scale;
+        t += kind.schedule === 'periodic' ? kind.every(def) * scale : -log(1 - rng.next()) * kind.every(def) * scale;
         // Nothing in the first 15 s: let the race settle.
         if (t < 15) continue;
-        this.occurrences.push({ id: this.occurrences.length, def: d, t0: t, by: -1, seed: Math.floor(rng.next() * 2 ** 31), a: -1 });
+        this.occurrences.push({ id: this.occurrences.length, def: d, t0: t, by: -1, seed: Math.floor(rng.next() * 2147483648), a: -1 });
       }
     });
     this.occurrences.sort((a, b) => a.t0 - b.t0);
@@ -263,7 +264,7 @@ const logTruck: HazardKind = {
       const r3 = hash01(occ.seed, j, 3);
       // Closed-form roll-out: displacement v·(1 − e^(−kt))/k, so it slows to a stop.
       const k = 0.9 + r3 * 0.4;
-      const ease = (1 - Math.exp(-k * u)) / k;
+      const ease = (1 - exp(-k * u)) / k;
       const vs = lane.dir * lane.speed * (0.45 + r1 * 0.25);
       const vl = (r2 - 0.5) * 9;
       const s = truckS - lane.dir * (kindHl + 0.6 + j * 0.9) + vs * ease;
@@ -271,9 +272,9 @@ const logTruck: HazardKind = {
       const lat0 = (lane.pos * at.width) / 2 + (r3 - 0.5) * 1.2;
       const half = at.width / 2 + at.shoulder - 0.6;
       const lat = Math.max(-half, Math.min(half, lat0 + vl * ease));
-      const bounce = 1.6 * Math.abs(Math.sin(u * 5 + j)) * Math.exp(-2.2 * u);
-      const roadH = Math.atan2(at.tx, at.tz);
-      const heading = roadH + Math.PI / 2 + (r1 - 0.5) * 0.8 + (r2 - 0.5) * 2 * (1 - Math.exp(-k * u));
+      const bounce = 1.6 * Math.abs(sin(u * 5 + j)) * exp(-2.2 * u);
+      const roadH = atan2(at.tx, at.tz);
+      const heading = roadH + Math.PI / 2 + (r1 - 0.5) * 0.8 + (r2 - 0.5) * 2 * (1 - exp(-k * u));
       h.addPiece(occ.id, Piece.Log, at.s, at.cx - at.tz * lat, at.cy + 0.35 + bounce, at.cz + at.tx * lat, heading, 0.35, 2.1, 0.35, true, 16);
     }
   },
@@ -294,11 +295,11 @@ const fallingSign: HazardKind = {
     const lat = (side * at.width) / 4;
     const x = at.cx - at.tz * lat;
     const z = at.cz + at.tx * lat;
-    const heading = Math.atan2(at.tx, at.tz);
+    const heading = atan2(at.tx, at.tz);
     const hw = at.width / 4 - 0.3;
     if (u < 0) {
       h.addMarker(x, at.cy, z, hw, 1 + u / fallingSign.telegraph);
-      h.addPiece(occ.id, Piece.Sign, s, x, at.cy + 6.2, z, heading, hw, 0.15, 1.1, false, 0, Math.sin(u * 40) * 0.08);
+      h.addPiece(occ.id, Piece.Sign, s, x, at.cy + 6.2, z, heading, hw, 0.15, 1.1, false, 0, sin(u * 40) * 0.08);
       return;
     }
     // Falls over half a second, swinging down onto the road, then lies there.
@@ -336,7 +337,7 @@ const volcanoBombs: HazardKind = {
         // In the air: a marker where it'll land, and the rock itself at its height (the renderer
         // draws it along the arc from the crater), not solid yet. The AI steers round it already.
         h.addMarker(land.x, land.y, land.z, r * 2.2, f);
-        const y = land.y + r + (1 - f) * (1 - f) * 70 + Math.sin(Math.PI * f) * 30;
+        const y = land.y + r + (1 - f) * (1 - f) * 70 + sin(Math.PI * f) * 30;
         h.addPiece(occ.id, Piece.Bomb, land.s, land.x, y, land.z, land.yaw, r, r, r, false, 0, f);
         continue;
       }
@@ -362,7 +363,7 @@ function bombLanding(h: Hazards, occ: Occurrence, j: number, n: number, a: numbe
   landing.x = at.cx - at.tz * lat;
   landing.z = at.cz + at.tx * lat;
   // The road's surface there, banked (a banked corner's edge is well off the centre's height).
-  landing.y = at.cy - lat * Math.tan(at.bank);
+  landing.y = at.cy - lat * tan(at.bank);
   landing.yaw = hash01(occ.seed, j, 13) * Math.PI * 2;
   return landing;
 }
@@ -390,7 +391,7 @@ const coconuts: HazardKind = {
       const at = sampleAt(h.track.main, s0 + 6 + j * 9 + hash01(occ.seed, j, 23) * 7, h.hit);
       const half = at.width / 2;
       const lat0 = side * (half - 1.5 - hash01(occ.seed, j, 24) * 2);
-      const bank = Math.tan(at.bank);
+      const bank = tan(at.bank);
       if (u < -drop) {
         // Shaken loose: a marker under each, the nut still up in the crown.
         h.addMarker(at.cx - at.tz * lat0, at.cy - lat0 * bank, at.cz + at.tx * lat0, 1.2, 1 + u / coconuts.telegraph);
@@ -399,9 +400,9 @@ const coconuts: HazardKind = {
       const t = u + drop;
       // Falls 9 m (it lands at u = 0), then rolls in toward the middle, slowing to a stop.
       const fall = Math.max(0, 9 - 11.1 * t * t);
-      const roll = u > 0 ? ((1 - Math.exp(-1.4 * u)) / 1.4) * (2 + hash01(occ.seed, j, 25) * 3) : 0;
+      const roll = u > 0 ? ((1 - exp(-1.4 * u)) / 1.4) * (2 + hash01(occ.seed, j, 25) * 3) : 0;
       const lat = lat0 - side * roll;
-      const hop = u > 0 ? 0.5 * Math.abs(Math.sin(u * 7)) * Math.exp(-3 * u) : 0;
+      const hop = u > 0 ? 0.5 * Math.abs(sin(u * 7)) * exp(-3 * u) : 0;
       // It spins as it rolls, and stops when the roll does.
       h.addPiece(occ.id, Piece.Coconut, at.s, at.cx - at.tz * lat, at.cy - lat * bank + 0.28 + fall + hop, at.cz + at.tx * lat, j + roll * 2.5, 0.3, 0.3, 0.28, u > 0 ? Solid.Bump : Solid.None, Infinity);
     }

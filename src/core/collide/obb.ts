@@ -1,3 +1,4 @@
+import { cos, sin } from '../math';
 // Oriented boxes in the xz plane, tested with the separating axis theorem. A car is a box
 // (half width, half length) turned by its heading. Results go into a reused `Contact`.
 
@@ -35,10 +36,10 @@ export function obbOverlap(
   bhl: number,
   out: Contact,
 ): boolean {
-  const afx = Math.sin(ah);
-  const afz = Math.cos(ah);
-  const bfx = Math.sin(bh);
-  const bfz = Math.cos(bh);
+  const afx = sin(ah);
+  const afz = cos(ah);
+  const bfx = sin(bh);
+  const bfz = cos(bh);
   const dx = bx - ax;
   const dz = bz - az;
   let best = Infinity;

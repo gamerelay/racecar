@@ -5,12 +5,13 @@
 //
 // They fingerprint behaviour, not how it's stored: the ground by the answers to its questions
 // (asked along every road and over a grid), so moving decks onto pieces (step 1a) can keep them
-// identical while the data's shape changes. Floats differ in their last bits between platforms
-// (Math.sin and the rest), so each platform has its own recording (tools/fingerprint.ts).
+// identical while the data's shape changes. One recording for every platform: the sim does its own
+// math (src/core/math.ts), so the bits don't depend on the OS or CPU.
 
 import type { CarClass, SurfaceDef, TrackLayout } from '../core/content';
 import type { Ground } from '../core/track/ground';
 import { CAR_FIELDS } from '../core/car/pool';
+import { hypot } from '../core/math';
 import { Ev } from '../core/events';
 import { Sim } from '../core/sim';
 import { bakeTrack, type Track } from '../core/track/bake';
@@ -84,7 +85,7 @@ function drive(track: Track, classes: CarClass[], surfaces: SurfaceDef[], spline
     });
     if (marks && t % 600 === 0) {
       const r = (v: number) => Math.round(v * 100) / 100;
-      marks.push({ t: t / 60, s: r(c.s[0]), x: r(c.x[0]), y: r(c.y[0]), z: r(c.z[0]), kmh: r(Math.hypot(c.vx[0], c.vz[0]) * 3.6) });
+      marks.push({ t: t / 60, s: r(c.s[0]), x: r(c.x[0]), y: r(c.y[0]), z: r(c.z[0]), kmh: r(hypot(c.vx[0], c.vz[0]) * 3.6) });
     }
   }
   return { hash: h.hex(), wrecks };

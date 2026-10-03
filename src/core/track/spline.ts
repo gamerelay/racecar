@@ -2,13 +2,14 @@
 // control point and doesn't loop or cusp on uneven spacing, which is what an editor needs.
 
 import type { Vec3 } from '../content';
+import { hypot } from '../math';
 
 const EPS = 1e-4;
 
 /** Point on the centripetal Catmull-Rom segment p1→p2 at t ∈ [0, 1], written into `out`. */
 export function catmullRom(p0: Vec3, p1: Vec3, p2: Vec3, p3: Vec3, t: number, out: Vec3): Vec3 {
   const k = (a: Vec3, b: Vec3, prev: number) =>
-    prev + Math.max(EPS, Math.sqrt(Math.hypot(b[0] - a[0], b[1] - a[1], b[2] - a[2])));
+    prev + Math.max(EPS, Math.sqrt(hypot(b[0] - a[0], b[1] - a[1], b[2] - a[2])));
   const t0 = 0;
   const t1 = k(p0, p1, t0);
   const t2 = k(p1, p2, t1);
@@ -61,13 +62,13 @@ export function sampleDense(points: Vec3[], closed: boolean, spacing = 0.25, bef
     const p1 = at(i);
     const p2 = at(i + 1);
     const p3 = at(i + 2);
-    const chord = Math.hypot(p2[0] - p1[0], p2[1] - p1[1], p2[2] - p1[2]);
+    const chord = hypot(p2[0] - p1[0], p2[1] - p1[1], p2[2] - p1[2]);
     const steps = Math.max(4, Math.ceil(chord / spacing));
     const last = i === segs - 1 && !closed;
     for (let j = 0; j < steps + (last ? 1 : 0); j++) {
       const t = j / steps;
       catmullRom(p0, p1, p2, p3, t, p);
-      if (out.length) s += Math.hypot(p[0] - px, p[1] - py, p[2] - pz);
+      if (out.length) s += hypot(p[0] - px, p[1] - py, p[2] - pz);
       out.push({ x: p[0], y: p[1], z: p[2], s, seg: i, t });
       px = p[0];
       py = p[1];
@@ -77,7 +78,7 @@ export function sampleDense(points: Vec3[], closed: boolean, spacing = 0.25, bef
   if (closed) {
     // Close the loop: the distance from the last sample back to the first.
     const f = out[0];
-    s += Math.hypot(f.x - px, f.y - py, f.z - pz);
+    s += hypot(f.x - px, f.y - py, f.z - pz);
     out.push({ x: f.x, y: f.y, z: f.z, s, seg: segs - 1, t: 1 });
   }
   return out;

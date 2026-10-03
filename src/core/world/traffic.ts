@@ -17,6 +17,7 @@ import type { Track } from '../track/bake';
 import { sampleAt, type TrackHit } from '../track/query';
 import { newHit } from '../track/query';
 import { signedGap, wrap } from '../track/bake';
+import { atan2, sq, tan } from '../math';
 
 export interface TrafficKind {
   id: string;
@@ -192,8 +193,8 @@ export class Traffic {
     out.lat = lat;
     out.x = at.cx - at.tz * lat;
     out.z = at.cz + at.tx * lat;
-    out.y = at.cy - lat * Math.tan(at.bank);
-    const h = Math.atan2(at.tx, at.tz);
+    out.y = at.cy - lat * tan(at.bank);
+    const h = atan2(at.tx, at.tz);
     out.h = lane.dir > 0 ? h : h + Math.PI;
     out.vx = at.tx * lane.dir * lane.speed;
     out.vz = at.tz * lane.dir * lane.speed;
@@ -229,7 +230,7 @@ export class Traffic {
       for (let j = 0; j < n && !close; j++) close = Math.abs(signedGap(s, nearS[j], L)) < LOD;
       if (!close) {
         const o = this.poseAt(k, t, this.scratch, this.hit);
-        for (let j = 0; j < n && !close; j++) close = (o.x - nearX[j]) ** 2 + (o.z - nearZ[j]) ** 2 < LOD_STRAIGHT * LOD_STRAIGHT;
+        for (let j = 0; j < n && !close; j++) close = sq(o.x - nearX[j]) + sq(o.z - nearZ[j]) < LOD_STRAIGHT * LOD_STRAIGHT;
       }
       if (close) this.pose(k, t, p++);
     }
@@ -247,7 +248,7 @@ export class Traffic {
       const v = this.visibility(k, t);
       if (v <= 0) continue;
       this.poseAt(k, t, o, this.renderHit);
-      if ((o.x - x) ** 2 + (o.z - z) ** 2 <= range * range) fn(k, v, o);
+      if (sq(o.x - x) + sq(o.z - z) <= range * range) fn(k, v, o);
     }
   }
 

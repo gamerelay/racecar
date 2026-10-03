@@ -22,9 +22,8 @@ desktop only, refactor freely and keep the feel). Read its "Principles", "The co
 **Step 0 is built and merged** (PR #83, 2026-10-03).
 - **Golden fingerprints:** `bun tools/fingerprint.ts` checks every layout's roads, its open ground
   (by the answers to its questions, not how it's stored) and fixed drives (40 s from the grid, 15 s
-  down each branch) to the last bit; `--update` records them; `--from-ci` writes CI's from its
-  log. In the tests too (`test/golden.test.ts`). One recording per platform:
-  `test/golden/fingerprints.darwin-arm64.json` (the owner's Mac) and `…linux-x64.json` (CI).
+  down each branch) to the last bit; `--update` records them. In the tests too
+  (`test/golden.test.ts`). One recording, `test/golden/fingerprints.json`, for every platform.
 - **The tools:** `bun tools/drive.ts` (place a car, run it headless, trace it), `bun tools/probe.ts`
   (what's at a point), `bun tools/shot.ts` (a PNG of a spot; needs `bun run dev`), and
   `window.__rc.dev` (`place`, `step`, `probe`, `state`, `shot`), all over `src/dev/`. CALDERA's
@@ -32,23 +31,19 @@ desktop only, refactor freely and keep the feel). Read its "Principles", "The co
 - **The allocation test** on Paradise Open and Avalanche. A 30 s per-test timeout (`bun run
   test`; CI uses it), since CI runs about 3x slower.
 
-**What we learned about the fingerprints (2026-10-03, with Docker):** floats differ in their last
-bits by OS *and* by CPU. Linux arm64 doesn't match macOS arm64; Linux x64 under emulation doesn't
-match CI's Linux x64 (the bake and ground do, the drives don't), though each is steady run to
-run. So the Mac's recording is the one to trust while refactoring, and CI's could go off if
-GitHub's runners change CPUs (re-record with `--from-ci`, and check the diff is only the drives).
-Docker can't stand in for CI's recording.
+**Step 0b, the sim's own math, is built** (branch `caldera-own-math`, 2026-10-03). Step 0 found
+floats differ in their last bits by OS and by CPU (Docker: Linux arm64 vs macOS arm64, emulated vs
+CI's x64), so there was a recording per platform. Now `core/math.ts` has the sim's own `sin`, `cos`,
+`tan`, `atan`, `atan2`, `exp`, `log`, `pow` and `hypot` (fdlibm's algorithms in `+ - * /` and
+`sqrt`; `sq()` instead of `** 2`), and `test/math.test.ts` checks `src/core` and `src/dev` use nothing
+else, the functions stay within an ulp of Math's (tan 3, pow a few more), and their bits stay put. One fingerprint file is
+identical on macOS, Linux arm64 and x64 (Bun, in Docker) and in V8 (Node), so F8 replays are exact
+across browsers and CI can't drift. The feel is unchanged: after 60 s of an 8-car field the cars
+are picometres from where they were; lap floors and the field's results (5 seeds per map) match to
+the tenth. `--from-ci` and the per-platform files are gone.
 
-**Next, in order:**
-1. **Recommended first: our own math for the sim** (call it step 0b; the owner's call). `Math.sin`,
-   `cos`, `atan2`, `exp`, `pow`, `tan`, `log`, `hypot` written in `core/math.ts` (fixed
-   polynomials, correctly rounded `sqrt` is fine), used everywhere in `src/core`. Then every
-   platform and browser computes the same bits: one fingerprint file for all, F8 replays exact
-   across Chrome and Bun (SPEC records 1.6 cm off after 30 s today), and no flaky CI. It moves
-   every number a hair, so fingerprints and lap floors are re-recorded once, which is cheapest
-   now, before step 1a leans on them. CALDERA's "Same math in every browser" has the idea.
-2. **Step 1a:** the move onto pieces, with the fingerprints identical (CALDERA's "Build order").
-   Follow its "How to work on it".
+**Next: step 1a**, the move onto pieces, with the fingerprints identical (CALDERA's "Build
+order"). Follow its "How to work on it".
 
 **Avalanche** (merged in #74, out of experimental on the owner's word): open ground you drive on
 everywhere, slope gravity on snow, moguls, canyons, kickers, rocks, 18 slalom gates, about 650

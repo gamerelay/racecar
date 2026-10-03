@@ -5,7 +5,7 @@
 import { DECK_CATCH, type Ground } from '../track/ground';
 import type { Controls } from '../controls';
 import { Cause, Ev } from '../events';
-import { approach, clamp, damp, lerp, sign, smoothstep, wrapAngle } from '../math';
+import { approach, atan, atan2, clamp, cos, damp, hypot, lerp, pow, sign, sin, smoothstep, sq, wrapAngle } from '../math';
 import type { SimState } from '../state';
 import { locateCar } from '../track/locate';
 import { mainDistance, signedGap } from '../track/bake';
@@ -47,7 +47,7 @@ export function stepCar(sim: SimState, i: number, c: Controls, dt: number): void
 
   const cls = sim.classes[cars.cls[i]];
   // Stuck: flooring it and going nowhere (drivers use this to reset).
-  if (c.throttle > 0.5 && Math.hypot(cars.vx[i], cars.vz[i]) < 2) cars.stuckT[i] += dt;
+  if (c.throttle > 0.5 && hypot(cars.vx[i], cars.vz[i]) < 2) cars.stuckT[i] += dt;
   else cars.stuckT[i] = 0;
   locateCar(sim, i);
   const surf = sim.surfaces[cars.surface[i]];
@@ -58,10 +58,10 @@ export function stepCar(sim: SimState, i: number, c: Controls, dt: number): void
   let vx = cars.vx[i];
   let vz = cars.vz[i];
   let h = cars.h[i];
-  let speed = Math.hypot(vx, vz);
-  let vdir = speed > 0.5 ? Math.atan2(vx, vz) : h;
-  const fx = Math.sin(h);
-  const fz = Math.cos(h);
+  let speed = hypot(vx, vz);
+  let vdir = speed > 0.5 ? atan2(vx, vz) : h;
+  const fx = sin(h);
+  const fz = cos(h);
   const fwd = vx * fx + vz * fz;
   const grounded = cars.grounded[i] === 1;
 
@@ -94,7 +94,7 @@ export function stepCar(sim: SimState, i: number, c: Controls, dt: number): void
     if (cars.stallT[i] > 0) cars.stallT[i] -= dt;
     // Past top speed the engine holds you back, except where the slope's pulling (snow): a steep
     // pitch takes you past it.
-    else if (c.throttle > 0) a += fwd < top ? cls.accel * c.throttle * Math.max(0.08, 1 - (fwd / top) ** 2) : surf.slide ? 0 : -(fwd - top) * 0.8;
+    else if (c.throttle > 0) a += fwd < top ? cls.accel * c.throttle * Math.max(0.08, 1 - sq(fwd / top)) : surf.slide ? 0 : -(fwd - top) * 0.8;
     if (boosting && fwd < top) a += T.boostAccel * (1 - fwd / (top * 1.05));
     if (mini) a += T.miniTurboAccel * (cars.miniStage[i] / 3 + 0.34);
     if (c.brake > 0) {
@@ -137,7 +137,7 @@ export function stepCar(sim: SimState, i: number, c: Controls, dt: number): void
       let slip = wrapAngle(h - vdir);
       vdir += arc * dt;
       // Rate-limited going in, easing out near the target, so the rotation doesn't stop dead.
-      const settle = T.driftSettle * cls.driftRotation * surf.looseness ** 0.3 * dt;
+      const settle = T.driftSettle * cls.driftRotation * pow(surf.looseness, 0.3) * dt;
       slip = approach(slip, targetSlip, Math.min(settle, Math.abs(targetSlip - slip) * damp(5, dt)));
       const newH = vdir + slip;
       cars.yaw[i] = wrapAngle(newH - h) / dt;
@@ -145,8 +145,8 @@ export function stepCar(sim: SimState, i: number, c: Controls, dt: number): void
       cars.slip[i] = slip;
       // Keep the speed along the arc; throttle holds it, the angle scrubs it.
       speed = Math.max(0, speed + (a * 0.8 - speed * T.driftScrub * Math.abs(slip)) * dt);
-      vx = Math.sin(vdir) * speed;
-      vz = Math.cos(vdir) * speed;
+      vx = sin(vdir) * speed;
+      vz = cos(vdir) * speed;
       // Charge, points, boost.
       // Normalized so a full-angle drift at 40 m/s in a reference car reaches the stages on time.
       const angleFrac = Math.min(1, Math.abs(slip) / T.driftAngleMax);
@@ -190,11 +190,11 @@ export function stepCar(sim: SimState, i: number, c: Controls, dt: number): void
       vdir += speed > 0.5 ? turnBy : off;
       speed *= 1 - Math.min(0.5, Math.abs(reversing ? 0 : slip) * T.slipScrub * lerp(1, T.driftExitScrub, exit) * dt);
       cars.slip[i] = reversing ? 0 : slip;
-      vx = Math.sin(vdir) * speed;
-      vz = Math.cos(vdir) * speed;
+      vx = sin(vdir) * speed;
+      vz = cos(vdir) * speed;
       // Engine and brakes push along the heading.
-      vx += Math.sin(h) * a * dt;
-      vz += Math.cos(h) * a * dt;
+      vx += sin(h) * a * dt;
+      vz += cos(h) * a * dt;
     }
   } else {
     // In the air: a little yaw control, no traction.
@@ -226,19 +226,19 @@ export function stepCar(sim: SimState, i: number, c: Controls, dt: number): void
     // banked turn leans on it instead of running wide. Gravity's pull down the bank, across the
     // car, bends its path (velocity and heading together, like a berm carrying you round): pushed
     // sideways, grip only turned it back along the heading and nothing changed.
-    const v = Math.hypot(vx, vz);
+    const v = hypot(vx, vz);
     // (Not reversing: turned by the car's own right, the pull went up the bank instead.)
-    const forward = vx * Math.sin(h) + vz * Math.cos(h) > 0;
+    const forward = vx * sin(h) + vz * cos(h) > 0;
     if (at.bank !== 0 && v > 5 && forward) {
       // Down the bank: the road's right (-tz, tx) for a positive bank (low on the right). Its part
       // across the car (the car's right is (-cos h, sin h)) turns it that way: right is -h.
-      const pull = T.gravity * T.bankHold * Math.sin(at.bank);
-      const across = pull * (at.tz * Math.cos(h) + at.tx * Math.sin(h));
+      const pull = T.gravity * T.bankHold * sin(at.bank);
+      const across = pull * (at.tz * cos(h) + at.tx * sin(h));
       const turn = (across / v) * dt;
       h -= turn;
-      const dir = Math.atan2(vx, vz) - turn;
-      vx = Math.sin(dir) * v;
-      vz = Math.cos(dir) * v;
+      const dir = atan2(vx, vz) - turn;
+      vx = sin(dir) * v;
+      vz = cos(dir) * v;
     }
   }
 
@@ -271,14 +271,14 @@ function meetFace(sim: SimState, g: Ground, i: number): void {
   const sank = !(was === was);
   if (d === d && !sank) return;
   const rise = (sank ? gh : wheelGround(g, cars.x[i], cars.z[i], cars.h[i], cars.y[i])) - cars.y[i];
-  const run = Math.hypot(cars.x[i] - cars.px[i], cars.z[i] - cars.pz[i]);
+  const run = hypot(cars.x[i] - cars.px[i], cars.z[i] - cars.pz[i]);
   if (rise < FACE_STEP || rise < run * g.face!) return;
   // Into the face: up its slope, or on a flat-topped step the way the car was going.
   const up = g.slope(cars.x[i], cars.z[i], faceSlope);
-  const steep = Math.hypot(up.x, up.z) > 0.05;
+  const steep = hypot(up.x, up.z) > 0.05;
   const nx = steep ? up.x : cars.x[i] - cars.px[i];
   const nz = steep ? up.z : cars.z[i] - cars.pz[i];
-  const len = Math.hypot(nx, nz) || 1;
+  const len = hypot(nx, nz) || 1;
   cars.x[i] = cars.px[i];
   cars.z[i] = cars.pz[i];
   hitFace(sim, i, nx / len, nz / len);
@@ -299,10 +299,10 @@ const WADE = 0.8;
  * the edge, none are, and it falls.
  */
 function wheelGround(g: Ground, x: number, z: number, h: number, y: number): number {
-  const fx = Math.sin(h) * 1.3;
-  const fz = Math.cos(h) * 1.3;
-  const rx = -Math.cos(h) * 0.8;
-  const rz = Math.sin(h) * 0.8;
+  const fx = sin(h) * 1.3;
+  const fz = cos(h) * 1.3;
+  const rx = -cos(h) * 0.8;
+  const rz = sin(h) * 0.8;
   const d = g.deckUnder(x, z, y);
   if (d === d) {
     let sum = 0;
@@ -333,7 +333,7 @@ function followGround(sim: SimState, i: number, dt: number): void {
     if (wasGrounded) {
       cars.airT[i] = 0;
       cars.superT[i] = 0;
-      sim.events.push(sim.tick, Ev.Takeoff, i, cars.x[i], cars.y[i], cars.z[i], Math.hypot(cars.vx[i], cars.vz[i]));
+      sim.events.push(sim.tick, Ev.Takeoff, i, cars.x[i], cars.y[i], cars.z[i], hypot(cars.vx[i], cars.vz[i]));
     }
     cars.grounded[i] = 0;
     cars.y[i] = yBall;
@@ -391,17 +391,17 @@ function followGround(sim: SimState, i: number, dt: number): void {
       slope -= (ahead.ramp - ramp0) / 4;
     }
   }
-  const rel = cars.h[i] - Math.atan2(hit.tx, hit.tz);
-  let targetPitch = cars.grounded[i] ? -Math.atan(slope) * Math.cos(rel) + Math.atan(across) * Math.sin(rel) : cars.pitch[i];
-  let targetRoll = cars.grounded[i] ? hit.bank * Math.cos(rel) - Math.atan(across) * Math.cos(rel) : cars.roll[i];
+  const rel = cars.h[i] - atan2(hit.tx, hit.tz);
+  let targetPitch = cars.grounded[i] ? -atan(slope) * cos(rel) + atan(across) * sin(rel) : cars.pitch[i];
+  let targetRoll = cars.grounded[i] ? hit.bank * cos(rel) - atan(across) * cos(rel) : cars.roll[i];
   // Open ground: the body follows its slope, along the car and across it.
   if (sim.track.ground && cars.grounded[i]) {
     const g = sim.track.ground.topSlope(cars.x[i], cars.z[i], cars.y[i], SLOPE);
-    const fx = Math.sin(cars.h[i]);
-    const fz = Math.cos(cars.h[i]);
-    targetPitch = -Math.atan(g.x * fx + g.z * fz);
+    const fx = sin(cars.h[i]);
+    const fz = cos(cars.h[i]);
+    targetPitch = -atan(g.x * fx + g.z * fz);
     // Right is (-cos h, sin h): rising to the right rolls you left (negative).
-    targetRoll = -Math.atan(-g.x * fz + g.z * fx);
+    targetRoll = -atan(-g.x * fz + g.z * fx);
   }
   cars.pitch[i] += (targetPitch - cars.pitch[i]) * damp(12, dt);
   cars.roll[i] += (targetRoll - cars.roll[i]) * damp(12, dt);
@@ -521,7 +521,7 @@ export function wreckCar(sim: SimState, i: number, cause: number, ix: number, iz
     cars.lastHitT[i] = sim.tick;
   }
   cars.wrecks[i]++;
-  sim.events.push(sim.tick, Ev.Wreck, i, cars.x[i], cars.y[i], cars.z[i], Math.hypot(ix, iz), cause, by);
+  sim.events.push(sim.tick, Ev.Wreck, i, cars.x[i], cars.y[i], cars.z[i], hypot(ix, iz), cause, by);
   if (by >= 0 && by !== i && cause !== Cause.Reset) creditTakedown(sim, by, i);
 }
 
@@ -550,7 +550,7 @@ function stepWreck(sim: SimState, i: number, c: Controls, dt: number): void {
   cars.wreckT[i] += dt;
   const hit = locateCar(sim, i);
   // Aftertouch: steer the wreck sideways.
-  const speed = Math.hypot(cars.vx[i], cars.vz[i]);
+  const speed = hypot(cars.vx[i], cars.vz[i]);
   if (speed > 1) {
     const k = (c.steer * T.aftertouch * wdt) / speed;
     const vx = cars.vx[i];
@@ -729,7 +729,7 @@ export function respawn(sim: SimState, i: number): void {
   cars.x[i] = at.cx - at.tz * lat;
   cars.z[i] = at.cz + at.tx * lat;
   cars.y[i] = at.cy;
-  cars.h[i] = Math.atan2(at.tx, at.tz);
+  cars.h[i] = atan2(at.tx, at.tz);
   cars.vx[i] = at.tx * T.respawnSpeed;
   cars.vz[i] = at.tz * T.respawnSpeed;
   cars.vy[i] = 0;

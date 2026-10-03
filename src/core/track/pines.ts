@@ -12,6 +12,7 @@ import type { PinesDef, TrackLayout } from '../content';
 import { hash01 } from '../rng';
 import type { BakedSpline } from './bake';
 import { canyonAt, noise, type Ground } from './ground';
+import { hypot, pow } from '../math';
 
 /** The lookup grid's cell (m). */
 const CELL = 16;
@@ -77,13 +78,13 @@ export function buildPines(def: PinesDef, layout: TrackLayout, main: BakedSpline
       if (tropic) {
         // Nothing in the sea or on the wet sand; nothing up the volcano's bare top or in its crater.
         if (y < sea + 0.8) continue;
-        if (v && Math.hypot(x - v.x, z - v.z) < v.r * 0.62) continue;
+        if (v && hypot(x - v.x, z - v.z) < v.r * 0.62) continue;
         thick = TROPIC_THICK[verge?.(i) ?? ''] ?? 1;
         // (Palms on a beach too, however far it runs back from the water: GroundDef.beaches.)
         kind = ground.coast(x, z) < PALM_COAST || ground.beach[i] * lat > 0 ? TREE_PALM : TREE_JUNGLE;
       }
       // Thicker away from the piste and up the walls, and in glades, not an even carpet.
-      const p = def.density * thick * smooth(def.clear, def.clear + def.thicken, d) ** 0.7 * (0.35 + 0.9 * noise(x, z, def.glade, def.seed));
+      const p = def.density * thick * pow(smooth(def.clear, def.clear + def.thicken, d), 0.7) * (0.35 + 0.9 * noise(x, z, def.glade, def.seed));
       if (hash01(def.seed + 1, ix, iz) >= p) continue;
       const h = 7 + 7 * hash01(def.seed + 2, ix, iz);
       // A palm's collider is its slim trunk; a jungle tree's and a pine's, the trunk and low branches.

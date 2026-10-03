@@ -15,6 +15,9 @@ and where things stand is [docs/HANDOFF.md](./docs/HANDOFF.md).
     **`tools/probe.ts`** (what's at a point) and **`tools/shot.ts`** (a picture of a spot), and the
     same in the browser as `window.__rc.dev` in the dev build.
   - The no-allocation test on Paradise Open and Avalanche too.
+  - **The same math on every platform** (step 0b): the sim's own `sin`, `cos`, `exp` and the rest,
+    so every OS, CPU and browser computes the same bits. One set of fingerprints, and F8 replays
+    exact from Chrome to Bun (they were 1.6 cm off after 30 s). Driving is unchanged.
 - **A road over the ground** (docs/PARADISE.md, step 0): a deck on open ground, the main road over
   the ground beneath it. On the deck you drive on it; over its edge you fall to whatever is below.
   The sea (`ground.sea`) is drawn, and deep water is out of bounds: you respawn on the road.
