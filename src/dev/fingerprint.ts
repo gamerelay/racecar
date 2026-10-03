@@ -158,6 +158,6 @@ function ask(g: Ground, h: Hasher, x: number, y: number, z: number, slope: { x: 
   h.num(slope.z);
   h.num(g.coast(x, z));
   h.byte(g.outside(x, z) ? 1 : 0);
-  h.byte(g.inLava(x, z, y) ? 1 : 0);
-  h.byte(g.inLava(x, z, g.height(x, z)) ? 1 : 0);
+  h.byte(g.hazard(x, y, z) === 'lava' ? 1 : 0);
+  h.byte(g.hazard(x, g.height(x, z), z) === 'lava' ? 1 : 0);
 }

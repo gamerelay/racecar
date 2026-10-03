@@ -77,11 +77,16 @@ the field 30 wrecks in 40 seeds (28 before, the same mix); a car on a piece (the
 shoulder) drives its verge, not the sand under it (`surfaceAt` takes y); only Paradise Open's fingerprints moved. That's step 1
 done.
 
-**Next: step 2, feature modules** (CALDERA's "Build order"): the volcano, coast, beaches, moguls,
-canyons and the avalanche as modules over pieces, placed in world space or along a named street,
-not by the main road; overrides with them; then the first new module, a lava stream. Read CALDERA's
-"A feature, end to end" first. It's big: split it into PRs (a module interface and one existing
-feature moved onto it, fingerprints identical, would be a good first).
+**Step 2a, feature modules' interface, is built** (PR #89, branch `caldera-modules`, 2026-10-03;
+awaiting the owner's merge). `core/track/features/`: a `Feature` (kind, and optional `shape`,
+`surface`, `hazard`, `coast` hooks) that the ground runs in order. The volcano and
+the coast moved onto it (`volcano.ts`, `coast.ts`), and `ground.hazard(x, y, z)` replaced
+`inLava`. A clean-up: every fingerprint identical.
+
+**Next: step 2b, the by-road features into world space** (CALDERA's step 2 list): moguls, canyons
+and beaches are placed by the main road's s and lateral today (`ground/shape.ts`, `GroundDef`);
+they become features placed in world space (or along a named road). Then 2c, overrides; 2d, the
+lava stream, end to end.
 
 **Working notes (2026-10-03):**
 - One PR per step, a fresh reviewer at the end (it found real bugs every time: in 0b, 1a and 1b),

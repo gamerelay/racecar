@@ -3,8 +3,8 @@
 // the road's asphalt, drives on it. Before this the sand the coast painted drove as the verge
 // beside it (grass), and the beaches were decided twice, once for each.
 
-import type { GroundDef } from '../../content';
 import type { BakedSpline } from '../bake';
+import type { Feature } from '../features';
 import type { BranchMarks } from './branches';
 import type { Land } from './land';
 import type { Pieces } from './pieces';
@@ -27,16 +27,14 @@ export const KIND_BEACH = 5;
 export const surfaceNoise = (x: number, z: number) => noise(x, z, 23, 7);
 
 /**
- * Per grid point of `land`, what the ground is (a KIND_*). On an island (`def.coast`): wet sand just
- * over the sea, dry sand within a wandering 12–24 m of the coast (up to 4 m over the sea). On a
- * beach's side of the main road, sand from the road down, wandering in at its ends, with tufts of
- * the verge by the road.
+ * Per grid point of `land`, what the ground is (a KIND_*): the roads; off them, what a feature says
+ * (the coast's sand: track/features), in order; else on a beach's side of the main road, sand from
+ * the road down, wandering in at its ends, with tufts of the verge by the road; else the verge.
  */
-export function groundKinds(def: GroundDef, land: Land, main: BakedSpline, marks: BranchMarks, pieces: Pieces, beach: Float32Array): Uint8Array {
+export function groundKinds(land: Land, main: BakedSpline, marks: BranchMarks, pieces: Pieces, beach: Float32Array, features: readonly Feature[]): Uint8Array {
   const { x0, z0, cell, nx, nz, h, lateral, near } = land;
   const decks = pieces.floors(main.index);
-  const sea = def.sea ?? 0;
-  const isle = !!def.coast;
+  const say = features.filter((f) => f.surface);
   const kind = new Uint8Array(nx * nz);
   for (let gz = 0; gz < nz; gz++)
     for (let gx = 0; gx < nx; gx++) {
@@ -55,9 +53,9 @@ export function groundKinds(def: GroundDef, land: Land, main: BakedSpline, marks
       const z = z0 + gz * cell;
       const n = surfaceNoise(x, z);
       const off = Math.abs(lateral[k]) - main.width[i] / 2;
-      // (The coast's distance, a scan of its segments, only where it's low enough to matter.)
-      if (isle && h[k] < sea + 0.4) kind[k] = KIND_SHORE;
-      else if (isle && h[k] < sea + 4 && land.coast(x, z) < 12 + 12 * n) kind[k] = KIND_SAND;
+      let said = -1;
+      for (let f = 0; f < say.length && said < 0; f++) said = say[f].surface!(x, z, h[k], n);
+      if (said >= 0) kind[k] = said;
       else if (beach[i] * lateral[k] > 0 && Math.abs(beach[i]) > 0.2 + 0.6 * n && !(off < 3 + 4 * n && n > 0.6)) kind[k] = KIND_BEACH;
       else kind[k] = KIND_VERGE;
     }

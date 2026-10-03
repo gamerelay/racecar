@@ -1,25 +1,19 @@
 // The heightfield (docs/AVALANCHE.md): built once from the main road. On the road and its
 // shoulder, the road's own height; off it, the land between the roads (relaxed smooth, so two
-// stretches meet in a slope, not a cliff); then what the layout adds (shape.ts), the volcano, the
-// coast falling into the sea, and the ground falling away under a piece that says so (the bay
-// under the Freeway).
+// stretches meet in a slope, not a cliff); then what the layout adds (shape.ts), the features
+// (track/features: the volcano, the coast falling into the sea), and the ground falling away under
+// a piece that says so (the bay under the Freeway).
 
 import type { GroundDef } from '../../content';
-import { hypot, smoothstep as smooth } from '../../math';
+import { smoothstep as smooth } from '../../math';
 import type { BakedSpline } from '../bake';
+import type { Feature, ShapePoint } from '../features';
 import { across, along } from '../frame';
-import { curve, loopDist, shaftHeight } from '../island';
 import { pull, runIn, type Pieces } from './pieces';
 import { planeOf } from './plane';
 import { sampleSearch } from './search';
 import { ROUGH_IN, groundShape } from './shape';
 
-/** An island's beach: the ground's height at the waterline over the sea, how steeply it rises inland of it (1:x), and the sea bed's depth (as the lapped island's land, terrain.ts). */
-const SHORE = 1.2;
-const SHORE_RISE = 0.6;
-const SEA_BED = 9;
-/** Off a road, the volcano's flank comes in over this many meters past its edge (a cutting, not a cliff). */
-const CONE_IN = 40;
 /** Past the walls' foot (`wallFrom`), the grid reaches this far up them, and 20 m more, at its narrowest (GroundDef.wallOut). */
 const WALL_OUT = 25;
 /** The land between the roads is relaxed on a grid this coarse (m), this many passes. */
@@ -36,11 +30,9 @@ export interface Land {
   h: Float32Array;
   lateral: Float32Array;
   near: Int32Array;
-  /** Signed distance to the coast (GroundDef.coast), positive inland; Infinity with none. */
-  coast(x: number, z: number): number;
 }
 
-export function buildLand(def: GroundDef, main: BakedSpline, pieces: Pieces): Land {
+export function buildLand(def: GroundDef, main: BakedSpline, pieces: Pieces, features: readonly Feature[]): Land {
   let minX = Infinity;
   let maxX = -Infinity;
   let minZ = Infinity;
@@ -59,10 +51,8 @@ export function buildLand(def: GroundDef, main: BakedSpline, pieces: Pieces): La
   const nx = Math.ceil((maxX + margin - x0) / cell) + 1;
   const nz = Math.ceil((maxZ + margin - z0) / cell) + 1;
   const nearest = sampleSearch(main, x0, z0, nx * cell, nz * cell, 24);
-  const sea = def.sea ?? 0;
-  const coastLoop = def.coast && def.coast.length > 2 ? curve([...def.coast, def.coast[0]], 12) : null;
-  const coast = (x: number, z: number) => (coastLoop ? loopDist(coastLoop, x, z) : Infinity);
-  const volcano = def.volcano;
+  const shapers = features.filter((f) => f.shape);
+  const at: ShapePoint = { x: 0, z: 0, s: 0, lat: 0, d: 0, half: 0, shoulder: 0, edge: 0, keep: 1 };
   const plane = (i: number, x: number, z: number) => planeOf(main, i, x, z);
   const shaping = pieces.list.filter((p) => p.spline === main.index && p.under);
 
@@ -127,22 +117,20 @@ export function buildLand(def: GroundDef, main: BakedSpline, pieces: Pieces): La
       const y = road + (land(x, z) - road) * smooth(edge, edge + ROUGH_IN, d);
       // What the layout adds, by the distance across (not the lateral: that jumps between stretches).
       const s = i * main.step + ahead;
-      let gy = y + groundShape(def, s, lat < 0 ? -d : d, half, main.shoulder[i], x, z) * runIn(pieces, s, d, edge);
-      // The volcano rises off the roads (cut back to them over CONE_IN), and the coast falls away
-      // into the sea, a beach along it: off them, the road's own height on them.
-      if (volcano) {
-        // (A shaft for a crater: inside the lip the walls fall nearly sheer to its floor.)
-        const cone = sea + shaftHeight(volcano, x, z);
-        const pit = volcano.pit !== undefined && hypot(x - volcano.x, z - volcano.z) < volcano.crater;
-        if (cone > gy || pit) gy += (cone - gy) * smooth(edge, edge + CONE_IN, d);
-      }
-      if (coastLoop) {
-        const sd = coast(x, z);
-        let isle = gy;
-        if (sd > 20) isle = Math.max(isle, sea + SHORE);
-        isle = Math.min(isle, sea - SEA_BED + (SEA_BED + SHORE) * smooth(-90, 2, sd) + Math.max(0, sd - 2) * SHORE_RISE);
-        gy += (isle - gy) * smooth(edge, edge + ROUGH_IN, d);
-      }
+      const keep = runIn(pieces, s, d, edge);
+      let gy = y + groundShape(def, s, lat < 0 ? -d : d, half, main.shoulder[i], x, z) * keep;
+      // The features, in order (the volcano rising off the roads, the coast falling into the sea):
+      // off the roads, the road's own height on them.
+      at.x = x;
+      at.z = z;
+      at.s = s;
+      at.lat = lat < 0 ? -d : d;
+      at.d = d;
+      at.half = half;
+      at.shoulder = main.shoulder[i];
+      at.edge = edge;
+      at.keep = keep;
+      for (const f of shapers) gy = f.shape!(at, gy);
       // Under a piece that says so, the ground falls away to its floor.
       for (const p of shaping) {
         const k = pull(p, s, d, edge);
@@ -153,5 +141,5 @@ export function buildLand(def: GroundDef, main: BakedSpline, pieces: Pieces): La
       near[g] = i;
     }
   }
-  return { x0, z0, cell, nx, nz, h, lateral, near, coast };
+  return { x0, z0, cell, nx, nz, h, lateral, near };
 }

@@ -240,8 +240,8 @@ describe('Paradise Open: the island (docs/PARADISE.md)', () => {
   test('the volcano rises in the middle, its crater a bowl with lava in it, and down in the lava is a wreck', () => {
     expect(g.height(v.x + v.crater, v.z)).toBeGreaterThan(90);
     expect(g.height(v.x, v.z)).toBeLessThan(g.height(v.x + v.crater, v.z) - 15);
-    expect(g.inLava(v.x, v.z, g.height(v.x, v.z))).toBe(true);
-    expect(g.inLava(v.x + v.crater + 10, v.z, g.height(v.x + v.crater + 10, v.z))).toBe(false);
+    expect(g.hazard(v.x, g.height(v.x, v.z), v.z) === 'lava').toBe(true);
+    expect(g.hazard(v.x + v.crater + 10, g.height(v.x + v.crater + 10, v.z), v.z) === 'lava').toBe(false);
     const sim = new Sim(track, CLASSES, SURFACES, { seed: 1, traffic: 0, mayhem: 'off' });
     const i = sim.addCar({ cls: 'coupe', human: true });
     sim.placeCar(i, 0, 100, 0, 0);
@@ -580,7 +580,7 @@ describe('Paradise Open: the Lava Tube\'s jump over the lava', () => {
       const i = Math.round(s / tube.step);
       expect(Math.hypot(tube.px[i] - v.x, tube.pz[i] - v.z)).toBeLessThan(v.crater - 10);
       expect(g.pieceFloor(tube.px[i], tube.pz[i])).toBeNaN();
-      expect(g.inLava(tube.px[i], tube.pz[i], g.height(tube.px[i], tube.pz[i]))).toBe(true);
+      expect(g.hazard(tube.px[i], g.height(tube.px[i], tube.pz[i]), tube.pz[i]) === 'lava').toBe(true);
     }
   });
 
