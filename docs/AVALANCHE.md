@@ -411,14 +411,6 @@ lap floors haven't moved.
 
 ### The feel first
 
-**No invisible wall (2026-10-02):** the owner drove up the slopes and crashed into nothing, well
-short of the top. The out-of-bounds line sat 25 m up the walls (`wallOut`), with drawn snow going
-on past it. Now the walls turn there into a rock cliff (`CLIFF` 1.6 more rise per m, for
-`CLIFF_BAND` 15 m, drawn grey as any rock), and the car stops against it like a road wall
-(`cliff()` in `physics.ts`: pushed back, its speed into it taken away, a knock, or a wreck past
-`wallWreck`). Out of bounds is only past the cliff's top (flown over it). The pines stop short of
-it.
-
 Items 1 and 2 are built (2026-10-02, on PR #74):
 
 - **The run reads as a run.** The HUD's lap box is "To go", the distance to the bottom (km, then

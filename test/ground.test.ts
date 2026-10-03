@@ -3,7 +3,7 @@ import type { TrackLayout } from '../src/core/content';
 import { neutralControls } from '../src/core/controls';
 import { Sim } from '../src/core/sim';
 import { bakeTrack } from '../src/core/track/bake';
-import { CLIFF, canyonAt, canyonDepth } from '../src/core/track/ground';
+import { canyonAt, canyonDepth } from '../src/core/track/ground';
 import { buildPines } from '../src/core/track/pines';
 import { newHit, projectGlobal, sampleAt } from '../src/core/track/query';
 import { slopeView } from '../src/render/camera';
@@ -51,11 +51,9 @@ describe('open ground', () => {
     let worst = 0;
     for (let i = Math.round(100 / m.step); i < Math.round(600 / m.step); i++) worst = Math.max(worst, Math.abs(g.height(m.px[i], m.pz[i]) - m.py[i]));
     expect(worst).toBeLessThan(0.05);
-    // 80 m out (20 past the walls' start), 16 m up; 100 m out, 15 m up the rock cliff past their
-    // climbable 25 m, 32 + 24 m up.
+    // 100 m out (40 past the walls' start), 32 m up.
     const i = Math.round(400 / m.step);
-    expect(g.height(m.px[i] - 80, m.pz[i]) - m.py[i]).toBeCloseTo(16, 0);
-    expect(g.height(m.px[i] - 100, m.pz[i]) - m.py[i]).toBeCloseTo(32 + 15 * CLIFF, 0);
+    expect(g.height(m.px[i] - 100, m.pz[i]) - m.py[i]).toBeCloseTo(32, 0);
   });
 
   test('on snow the slope pulls you down it; on asphalt it doesn\'t', () => {
@@ -78,23 +76,19 @@ describe('open ground', () => {
 });
 
 describe("Avalanche's Slope", () => {
-  test("its ground has no cliffs short of the walls' rock: nowhere steeper than a canyon's lip (60°) between neighbours", () => {
-    const track = slope();
-    const g = track.ground!;
-    const foot = track.layout.ground!.wallFrom + (track.layout.ground!.wallOut ?? 25);
+  test("its ground has no cliffs: nowhere steeper than a canyon's lip (60°) between neighbours", () => {
+    const g = slope().ground!;
     let worst = 0;
     for (let gz = 0; gz < g.nz - 1; gz++) {
       for (let gx = 0; gx < g.nx - 1; gx++) {
         const k = gz * g.nx + gx;
-        // (Up the walls' rock cliff is meant to be steep: it's their end.)
-        if (Math.max(Math.abs(g.lateral[k]), Math.abs(g.lateral[k + 1]), Math.abs(g.lateral[k + g.nx])) > foot - 3) continue;
         worst = Math.max(worst, Math.abs(g.h[k + 1] - g.h[k]), Math.abs(g.h[k + g.nx] - g.h[k]));
       }
     }
     expect(worst / g.cell).toBeLessThan(Math.tan((60 * Math.PI) / 180));
   });
 
-  test("a car driven up the walls stops at their rock cliff: no invisible wall, and never off the map", () => {
+  test("a car driven up the walls goes out of bounds, it doesn't drive off the map", () => {
     const l = layout('avalanche/slope');
     const track = bakeTrack(l, SURFACES);
     const sim = new Sim(track, CLASSES, SURFACES, { seed: 1 });
@@ -104,21 +98,18 @@ describe("Avalanche's Slope", () => {
     sim.cars.h[i] += Math.PI / 2;
     sim.cars.vx[i] = Math.sin(sim.cars.h[i]) * 25;
     sim.cars.vz[i] = Math.cos(sim.cars.h[i]) * 25;
-    const foot = l.ground!.wallFrom + (l.ground!.wallOut ?? 25);
-    let furthest = -Infinity;
-    let outOfBounds = false;
-    for (let t = 0; t < 60 * 15; t++) {
+    let wrecked = false;
+    for (let t = 0; t < 60 * 15 && !wrecked; t++) {
       const c = neutralControls();
       c.throttle = 1;
       sim.step([c]);
-      furthest = Math.max(furthest, track.ground!.over(sim.cars.x[i], sim.cars.z[i]));
-      if (sim.cars.wreck[i] && sim.cars.wreckCause[i] === Cause.OutOfBounds) outOfBounds = true;
+      wrecked = sim.cars.wreck[i] === 1;
     }
-    // It reached the cliff (up all the snow), and got no more than a car's length up it.
-    expect(furthest).toBeGreaterThan(-3);
-    expect(furthest).toBeLessThan(3);
-    expect(outOfBounds).toBe(false);
-    expect(foot).toBeGreaterThan(l.ground!.wallFrom);
+    expect(wrecked).toBe(true);
+    const m = track.main;
+    const k = Math.round(700 / m.step);
+    const lat = (sim.cars.x[i] - m.px[k]) * -m.tz[k] + (sim.cars.z[i] - m.pz[k]) * m.tx[k];
+    expect(Math.abs(lat)).toBeLessThan(l.ground!.wallFrom + (l.ground!.wallOut ?? 25) + 5);
   });
 
   test('is experimental: out of the maps the game, the validator and the lap report run', () => {

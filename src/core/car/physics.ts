@@ -10,7 +10,6 @@ import type { SimState } from '../state';
 import { locateCar } from '../track/locate';
 import { mainDistance, signedGap } from '../track/bake';
 import { AVALANCHE_AHEAD, AVALANCHE_LINE } from '../world/avalanche';
-import { CLIFF_BAND } from '../track/ground';
 import { sampleAt } from '../track/query';
 import { TUNING as T } from './tuning';
 
@@ -228,32 +227,6 @@ export function stepCar(sim: SimState, i: number, c: Controls, dt: number): void
 
 /** Scratch for the ground's slope. */
 const SLOPE = { x: 0, z: 0 };
-const UP = { x: 0, z: 0 };
-
-/**
- * Car `i` against the rock cliff up open ground's walls (track/ground.ts, CLIFF): pushed back to
- * its foot, its speed into it taken away, like a road's wall: a knock, or a wreck past wallWreck.
- * Into it is up the slope (the cliff rises outward).
- */
-function cliff(sim: SimState, i: number): void {
-  const cars = sim.cars;
-  const g = sim.track.ground!;
-  const over = g.over(cars.x[i], cars.z[i]);
-  if (over <= 0 || over > CLIFF_BAND) return;
-  g.slope(cars.x[i], cars.z[i], UP);
-  const len = Math.hypot(UP.x, UP.z) || 1;
-  const nx = UP.x / len;
-  const nz = UP.z / len;
-  cars.x[i] -= nx * over;
-  cars.z[i] -= nz * over;
-  const into = cars.vx[i] * nx + cars.vz[i] * nz;
-  if (into <= 0) return;
-  cars.vx[i] -= nx * into * 1.2;
-  cars.vz[i] -= nz * into * 1.2;
-  if (into > 2) sim.events.push(sim.tick, Ev.WallHit, i, cars.x[i] + nx * 2, cars.y[i] + 0.5, cars.z[i] + nz * 2, into, 0);
-  if ((cars.drift[i] || cars.chainT[i] > 0) && into > 6) cancelDrift(sim, i);
-  if (into > T.wallWreck && cars.ghostT[i] <= 0) wreckCar(sim, i, Cause.Wall, -nx * into * 0.3, -nz * into * 0.3, -1);
-}
 
 /**
  * Open ground under a car: the mean of its four wheels' (1.3 m ahead and behind, 0.8 m each side),
@@ -349,9 +322,7 @@ function followGround(sim: SimState, i: number, dt: number): void {
     cars.lastS[i] = hit.s;
     cars.lastLat[i] = hit.lateral;
   }
-  // Open ground's walls end in a rock cliff: a wall to stop against (Ground.over).
-  if (sim.track.ground && !cars.wreck[i]) cliff(sim, i);
-  // Past the cliff (flown over it) is out of bounds (Ground.outside); off the road isn't.
+  // Open ground's bounds are its walls: up past their foot (Ground.outside), not off the road.
   const out = sim.track.ground ? sim.track.ground.outside(cars.x[i], cars.z[i]) : Math.abs(hit.lateral) > hit.width / 2 + hit.shoulder + T.outOfBounds;
   if (out || cars.y[i] < ground - 20) {
     wreckCar(sim, i, Cause.OutOfBounds, 0, 0, -1);
