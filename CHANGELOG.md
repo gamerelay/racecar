@@ -21,6 +21,8 @@ and where things stand is [docs/HANDOFF.md](./docs/HANDOFF.md).
   - **Pieces** (step 1a): the Freeway, the Lava Tube and its jump are pieces in the layout, and
     the physics, the camera and the tools ask one question of the ground: what's under this
     point. Driving is unchanged.
+  - **Portals** (step 1b): the Lava Tube's mouths meet the slope cleanly, the ground cut to the
+    tube's own shape instead of whole squares (and the patch of rock over them gone).
 - **A road over the ground** (docs/PARADISE.md, step 0): a deck on open ground, the main road over
   the ground beneath it. On the deck you drive on it; over its edge you fall to whatever is below.
   The sea (`ground.sea`) is drawn, and deep water is out of bounds: you respawn on the road.

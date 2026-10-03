@@ -25,6 +25,7 @@ import { DECK_CATCH, definePieces, floorQuery, type Pieces } from './pieces';
 
 export { DECK_CATCH, type Piece, type Pieces } from './pieces';
 export { canyonAt, canyonDepth, groundShape, noise } from './shape';
+export { OUTLINE_POINTS, outlineAt } from './outline';
 
 /** A beach's ends (GroundDef.beaches) fade in over this many meters. */
 export const BEACH_FADE = 40;
@@ -74,7 +75,7 @@ export interface Ground {
   readonly onBranch: Uint8Array;
   /** Per grid point on a branch's road, its surface. */
   readonly branchSurface: Uint8Array;
-  /** Per grid point, 1 where the ground is left out of the drawing: a tunnel's mouth, opened in the slope. */
+  /** Per grid point, 1 where the slope comes down into a tunnel's space at its mouth (no trees there; the drawing cuts the ground to the tunnel's own outline: render's portal.ts). */
   readonly hole: Uint8Array;
   /** The sea's level (GroundDef.sea), if the ground has one. */
   readonly sea?: number;

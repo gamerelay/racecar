@@ -66,8 +66,8 @@ export function shapeBranches(land: Land, main: BakedSpline, branches: readonly 
     h[g] += (bestY[g] - h[g]) * (1 - smooth(bestEdge[g], bestEdge[g] + ROUGH_IN, d));
     onBranch[g] = d <= bestHalf[g] ? 2 : d <= bestEdge[g] + 3 ? 1 : 0;
   }
-  // An enclosed piece's mouth: where the slope comes down into the space over its floor, it's open
-  // (after the cuttings are shaped: one's floor at the road's height stays).
+  // An enclosed piece's mouth: where the slope comes down into the space over its floor (after the
+  // cuttings are shaped: one's floor at the road's height isn't). No trees there.
   for (const sp of branches) {
     const at = pieces.at(sp.index);
     if (!at) continue;

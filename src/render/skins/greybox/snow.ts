@@ -12,6 +12,7 @@ import { VERGE_DEFAULT, type Track } from '../../../core/track/bake';
 import { noise } from '../../../core/track/ground';
 import { TREE_PINE } from '../../../core/track/pines';
 import { hash01 } from '../../../core/rng';
+import { buildPortals, VERTEX } from './portal';
 import { toon } from './toon';
 
 /** Steeper than this (rise per meter), it's rock. */
@@ -64,6 +65,8 @@ export function buildSnow(track: Track, green?: Color): Object3D[] {
   const material = toon({ vertexColors: true });
   const out: Object3D[] = [];
   const c = new Color();
+  // Where the ground comes down over a tunnel, it's cut to the tunnel's outline (portal.ts).
+  const portals = buildPortals(track);
   for (let tz = 0; tz < nz - 1; tz += TILE) {
     for (let tx = 0; tx < nx - 1; tx += TILE) {
       const w = Math.min(TILE, nx - 1 - tx) + 1;
@@ -138,6 +141,25 @@ export function buildSnow(track: Track, green?: Color): Object3D[] {
           col[o + 2] = c.b;
         }
       }
+      // The cells cut at a portal, each clipped once (its triangles' vertices after the skirt's),
+      // and drawn at full detail in every level.
+      const extra: number[] = [];
+      const cut = new Map<number, number[]>();
+      if (portals) {
+        const vert = (k: number) => [pos[k * 3], pos[k * 3 + 1], pos[k * 3 + 2], nor[k * 3], nor[k * 3 + 1], nor[k * 3 + 2], col[k * 3], col[k * 3 + 1], col[k * 3 + 2]];
+        for (let vz = 0; vz < d - 1; vz++)
+          for (let vx = 0; vx < w - 1; vx++) {
+            if (!portals.cells[(tz + vz) * nx + tx + vx]) continue;
+            const a = vert(vz * w + vx);
+            const b = vert((vz + 1) * w + vx);
+            const a1 = vert(vz * w + vx + 1);
+            const b1 = vert((vz + 1) * w + vx + 1);
+            const tris: number[] = [];
+            portals.clip(a, b, a1, extra, tris);
+            portals.clip(a1, b, b1, extra, tris);
+            cut.set(vz * (w - 1) + vx, tris);
+          }
+      }
       // The skirt: the edge's points again, SKIRT lower (the edge goes round the tile once).
       const edge: number[] = [];
       for (let vx = 0; vx < w; vx++) edge.push(vx);
@@ -147,7 +169,8 @@ export function buildSnow(track: Track, green?: Color): Object3D[] {
       const all = w * d;
       const edgeAt = new Map(edge.map((k, e) => [k, all + e]));
       const skirt = (k: number) => edgeAt.get(k)!;
-      const P = new Float32Array((all + edge.length) * 3);
+      const base = all + edge.length;
+      const P = new Float32Array((base + extra.length / VERTEX) * 3);
       const N = new Float32Array(P.length);
       const C = new Float32Array(P.length);
       P.set(pos);
@@ -160,6 +183,12 @@ export function buildSnow(track: Track, green?: Color): Object3D[] {
           C[(all + e) * 3 + a] = col[k * 3 + a];
         }
       });
+      for (let v = 0; v < extra.length / VERTEX; v++)
+        for (let a = 0; a < 3; a++) {
+          P[(base + v) * 3 + a] = extra[v * VERTEX + a];
+          N[(base + v) * 3 + a] = extra[v * VERTEX + 3 + a];
+          C[(base + v) * 3 + a] = extra[v * VERTEX + 6 + a];
+        }
       // Relative to the tile's middle, so the detail can go by its distance.
       const cx = x0 + (tx + (w - 1) / 2) * cell;
       const cz = z0 + (tz + (d - 1) / 2) * cell;
@@ -189,8 +218,20 @@ export function buildSnow(track: Track, green?: Color): Object3D[] {
             const b = zs[j + 1] * w + xs[i];
             const a1 = zs[j] * w + xs[i + 1];
             const b1 = zs[j + 1] * w + xs[i + 1];
-            // Not over a tunnel's mouth: the slope's open there (Ground.hole).
-            if (g.hole[(tz + zs[j]) * nx + tx + xs[i]] || g.hole[(tz + zs[j + 1]) * nx + tx + xs[i]] || g.hole[(tz + zs[j]) * nx + tx + xs[i + 1]] || g.hole[(tz + zs[j + 1]) * nx + tx + xs[i + 1]]) continue;
+            // At a portal, the cells clipped to the tunnel's outline: at full detail only (further
+            // off, a coarse quad drawn as fine cells left cracks against its coarse neighbours, and
+            // a 7 m mouth is a few pixels there).
+            let portal = false;
+            for (let vz = zs[j]; vz < zs[j + 1] && !portal && cut.size && stride === 1; vz++) for (let vx = xs[i]; vx < xs[i + 1] && !portal; vx++) portal = cut.has(vz * (w - 1) + vx);
+            if (portal) {
+              for (let vz = zs[j]; vz < zs[j + 1]; vz++)
+                for (let vx = xs[i]; vx < xs[i + 1]; vx++) {
+                  const tris = cut.get(vz * (w - 1) + vx);
+                  if (tris) for (const v of tris) index.push(base + v);
+                  else index.push(vz * w + vx, (vz + 1) * w + vx, vz * w + vx + 1, vz * w + vx + 1, (vz + 1) * w + vx, (vz + 1) * w + vx + 1);
+                }
+              continue;
+            }
             index.push(a, b, a1, a1, b, b1);
           }
         }

@@ -273,7 +273,7 @@ export interface PieceDef {
   s: [number, number];
   /** Whether it has a floor (default true); false is a gap. */
   floor?: boolean;
-  /** Enclosed: a ceiling this high (m) over its floor, a tunnel's (the camera stays under it, and where the ground is between the floor and it, the slope's opened at its mouth). */
+  /** Enclosed: a ceiling this high (m) over its floor, a tunnel's (the camera stays under it, and at its mouths the ground's drawn cut to its outline). */
   ceiling?: number;
   /**
    * The ground under it falls to `floor` (its height, m), easing in over `ease` m from each end and

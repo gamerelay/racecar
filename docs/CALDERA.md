@@ -10,7 +10,8 @@ spec.** Details will change while building; note those changes in [SPEC.md](./SP
 golden fingerprints, the allocation test on the open maps, `tools/drive.ts`, `tools/probe.ts`,
 `tools/shot.ts` and `window.__rc.dev`, over `src/dev/`. **Step 0b, the sim's own math**, is merged (PR #84):
 see "Same math in every browser"; one fingerprint file for every platform. **Step 1a, the move
-onto pieces**, is built (fingerprints identical). Next: step 1b, portals. HANDOFF has the detail.
+onto pieces**, and **1b, portals**, are built (fingerprints identical). Next: step 1c, branches
+own their heights. HANDOFF has the detail.
 
 **Reading it:** "Principles" and "The core idea: pieces" are the design; "Build order" and "How
 to work on it" are what to do; the rest is reference (moving things, routes, a worked example,
@@ -155,8 +156,10 @@ point (the landing past a jump). Most pieces need none.
 Where a piece goes into the ground (a tunnel's mouth, a mall's door), it gets a **portal**: the
 ground cut to the piece's own outline (not whole grid squares) and stitched to its rim, with a
 frame of rock or a doorway over the seam. Every tunnel and entrance then meets the land cleanly
-with no per-map fix. (Today's Lava Tube has a stopgap: a shroud of rock over the tube where the
-slope's cut open, so no sky shows through.)
+with no per-map fix. (Built in step 1b: an enclosed piece's outline is core's `outlineAt`, the
+tube's walls are built on it, and the drawn ground is clipped to it, `render/skins/greybox/portal.ts`;
+the arches stay as the frame. It's drawing only: the sim's ground is untouched, since a car in
+there is in the piece's space by the cast.)
 
 ### What the owner's list becomes
 
@@ -355,8 +358,8 @@ draw distance; a greybox skin separate from the gameplay.
 **The world and its surfaces**
 - **Seams get a frame, not perfect geometry.** Games rarely stitch terrain to tunnels exactly:
   a rock frame, a doorway or a "skirt" (a strip hanging under a mesh's edge, as terrain tiles
-  use between levels of detail) covers the join. The portal is this; the Lava Tube's shroud is
-  the same trick.
+  use between levels of detail) covers the join. Our portal goes one better (the ground clipped to
+  the outline, step 1b) and keeps the frame anyway, which covers what's left of the seam.
 - **Junctions as their own pieces.** Road tools (Unreal's, Houdini's) build each street from
   its spline and each junction as a separate patch the streets end at. Streets stay simple
   strips; the patch handles the corners, the kerbs and the sharing of surfaces.
@@ -624,8 +627,17 @@ stream across a route): then the new floor is recorded, with why.
        Freeway): its "inside a tube" rule now holds only under an enclosed piece's ceiling, not
        6 m over any deck, so `clearView` pulls it in there, and `cameraFloor` keeps it over that
        slope rather than over the deck. The camera only; nothing drives differently.
-   - **1b, portals:** the tube's mouths cut to its outline and stitched; the shroud goes.
-     Changes the ground: fingerprints re-recorded.
+   - **1b, portals** (built): the tube's mouths cut to its outline and stitched; the shroud goes.
+     Planned as a change to the ground; built as drawing only, so the fingerprints stayed
+     identical. `outlineAt` (core) is an enclosed piece's cross-section, the tube's walls are
+     built on it, and the terrain's cells near it are split finer and clipped to it, the cut
+     found by bisection on a signed distance (`portal.ts`). Past each open end the end's outline is
+     carried on as far as its arch reaches (1.5 m), so ground standing in front of the opening is
+     cut too; the arches sit on the end rings. Only the finest level of detail is cut (further off
+     a 7 m mouth is a few pixels, and cutting coarse quads cracked them against their neighbours).
+     `test/portal.test.ts` checks nothing is drawn inside the outline (but where the cut stops, at
+     an arch's outer face), the ground in front of the openings is cut, and the tube's walls lie on
+     the outline.
    - **1c, branches own their heights:** the generator stops working backwards from the bake.
      The tube should drive the same: fingerprints re-recorded, lap floors checked.
    - **1d, one surface function** for drawing and driving. The coast's sand drives as sand
