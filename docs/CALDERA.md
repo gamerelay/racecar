@@ -6,12 +6,10 @@ where tubes, gaps and rock faces were first needed, hence the name). **It's a di
 spec.** Details will change while building; note those changes in [SPEC.md](./SPEC.md) under
 "Changed while building", as usual.
 
-**Status (2026-10-03):** reviewed and agreed; nothing built yet. Step 0 (the safety net and
-tools) is next. A
-task-by-task plan for steps 0–2 is drafted in the owner's working tree
-(`docs/superpowers/plans/2026-10-03-open-world-engine.md`, not committed). This doc refers to
-PARADISE.md, the shroud over the Lava Tube and TECH_DEBT's "Open ground and Paradise Open", which
-arrive with PR #81: merge this after it.
+**Status (2026-10-03):** reviewed and agreed (PR #82, merged); nothing built yet. Step 0 (the
+safety net and tools) is next, on branch `caldera-step-0`. A task-by-task plan for steps 0–2 from
+another session sits uncommitted in the owner's tree (`docs/superpowers/plans/`); it predates
+this doc in places, and where they differ, this doc wins.
 
 **Reading it:** "Principles" and "The core idea: pieces" are the design; "Build order" and "How
 to work on it" are what to do; the rest is reference (moving things, routes, a worked example,
