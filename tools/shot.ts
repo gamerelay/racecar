@@ -27,26 +27,30 @@ const CAMS: Record<string, { back: number; up: number; side: number; ahead: numb
   front: { back: -14, up: 3, side: 0, ahead: -20, fov: 55 },
 };
 
+// Every flag first, then what's left is the layout (so it can come anywhere on the line).
 const a = args();
-const key = a.rest()[0];
 const s = a.str('s');
+const road = a.str('road');
+const lat = a.num('lat') ?? 0;
+const cls = a.str('class') ?? 'coupe';
+const camName = a.str('cam') ?? 'chase';
+if (!CAMS[camName]) throw new Error(`--cam is one of ${Object.keys(CAMS).join(', ')}`);
+const cam = { ...CAMS[camName] };
+for (const k of ['back', 'up', 'side', 'ahead', 'fov'] as const) cam[k] = a.num(k) ?? cam[k];
+const size = { w: a.num('w'), h: a.num('h') };
+const outFlag = a.str('out');
+const port = a.str('port') ?? '5178';
+const key = a.rest()[0];
 if (!key || !s) {
   console.error('usage: bun tools/shot.ts <map/layout> --s m[,m…] [--road id] [--lat m] [--cam chase|high|side|top|front] [--out file] [--port 5178]');
   process.exit(2);
 }
 const track = bakeTrack(layout(key), SURFACES);
-const spline = roadIndex(track, a.str('road'));
-const cam = { ...CAMS[a.str('cam') ?? 'chase'] };
-if (!CAMS[a.str('cam') ?? 'chase']) throw new Error(`--cam is one of ${Object.keys(CAMS).join(', ')}`);
-for (const k of ['back', 'up', 'side', 'ahead', 'fov'] as const) cam[k] = a.num(k) ?? cam[k];
-const q = new URLSearchParams({ scout: key, s, spline: String(spline), lat: String(a.num('lat') ?? 0), cls: a.str('class') ?? 'coupe' });
+const spline = roadIndex(track, road);
+const q = new URLSearchParams({ scout: key, s, spline: String(spline), lat: String(lat), cls });
 for (const [k, v] of Object.entries(cam)) q.set(k, String(v));
-for (const k of ['w', 'h']) {
-  const v = a.num(k);
-  if (v !== undefined) q.set(k, String(v));
-}
-const out = a.str('out') ?? join('telemetry', 'shots', `${key.replace('/', '-')}-${s.split(',')[0]}.png`);
-const port = a.str('port') ?? '5178';
+for (const [k, v] of Object.entries(size)) if (v !== undefined) q.set(k, String(v));
+const out = outFlag ?? join('telemetry', 'shots', `${key.replace('/', '-')}-${s.split(',')[0]}.png`);
 const r = spawnSync('bun', [join(import.meta.dir, 'poster.ts'), '--url', `poster.html?${q}`, '--out', out, '--port', port], { stdio: ['ignore', 'pipe', 'inherit'], encoding: 'utf8' });
 const wrote = r.stdout.includes(`wrote ${out}`);
 console.log(wrote ? out : r.stdout);

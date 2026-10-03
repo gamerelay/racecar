@@ -9,6 +9,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: oven-sh/setup-bun@v2
+        with:
+          # The version the golden fingerprints were checked with (test/golden.test.ts).
+          bun-version: 1.3.13
       - run: bun install --frozen-lockfile
       - run: bunx tsc --noEmit
       - run: bun test

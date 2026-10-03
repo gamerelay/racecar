@@ -497,9 +497,15 @@ What exists today:
 - `window.__rc`: the sim, the renderer and `advance()`.
 
 Built in step 0 (`src/dev/`, shared by the tools and `window.__rc.dev`):
-- **Golden fingerprints:** `bun tools/fingerprint.ts` checks every layout's bake, its open
-  ground and a fixed 40 s drive against `test/golden/fingerprints.json` and says what moved;
-  `--update` records them. `test/golden.test.ts` runs them with the tests.
+- **Golden fingerprints:** `bun tools/fingerprint.ts` checks every layout's roads, its open
+  ground and fixed drives (40 s from the grid, 15 s down each branch) against this platform's
+  recording and says what moved; `--update` records them. `test/golden.test.ts` runs them with
+  the tests. They fingerprint **behaviour, not storage**: the ground by the answers to its
+  questions (height, slope, decks, what's on top, coast, lava, surfaces), asked along every road
+  and over a grid, so step 1a can change how the ground is stored and keep them identical.
+  **One recording per platform** (`test/golden/fingerprints.<platform>-<arch>.json`): floats
+  differ in their last bits between macOS and Linux (`Math.sin` and the rest). A platform with
+  none (CI's Linux, first time) skips the check and prints its fingerprints to commit.
 - **`bun tools/drive.ts <map> …`**: place a car (`--road id --s m --lat m`, or `--at x,z[,y]`;
   `--kmh`, `--class`, `--reverse`), give it inputs (`--ai`, or held `--throttle --brake --steer
   --boost --drift`), run it (`--seconds`, `--every`), and get a trace (where, on what, speed, air,

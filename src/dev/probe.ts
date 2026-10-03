@@ -4,7 +4,7 @@
 // when something feels wrong at a spot. Dev only: plain objects, allocating freely.
 
 import type { Track } from '../core/track/bake';
-import { newHit, projectGlobal, sampleAt, surfaceAt, type TrackHit } from '../core/track/query';
+import { newHit, projectGlobal, surfaceAt, type TrackHit } from '../core/track/query';
 
 export interface RoadSpot {
   /** The road's id ("lava-tube"; the main road is the layout's id) and its index in `track.splines`. */
@@ -48,30 +48,34 @@ export interface Probe {
   };
 }
 
-/** The road a point is most inside of: the least distance past its edge (negative inside). */
+/**
+ * The road a point is most inside of: the least distance past its asphalt's edge, as
+ * `locateCar` ranks them (core/track/locate.ts). A branch counts only along its own length: past
+ * either end, a projection clamps to the end and would look close when it isn't. (The sim also
+ * keeps a car on the road it was on until another is 0.5 m better; a point has no history.)
+ */
 export function nearestRoad(track: Track, x: number, z: number, y?: number, out: TrackHit = newHit()): RoadSpot {
-  let best: RoadSpot | null = null;
-  let bestPast = Infinity;
   const hit = newHit();
+  let bestInside = Infinity;
   for (const sp of track.splines) {
     projectGlobal(sp, x, z, hit, y);
-    const past = Math.abs(hit.lateral) - hit.width / 2 - hit.shoulder;
-    // A branch only counts on its own stretch: near its ends it lies on the main road.
-    if (past < bestPast - 1e-9) {
-      bestPast = past;
+    if (sp.index > 0 && (hit.s <= 0.01 || hit.s >= sp.length - 0.01)) continue;
+    const inside = Math.abs(hit.lateral) - hit.width / 2;
+    if (inside < bestInside) {
+      bestInside = inside;
       Object.assign(out, hit);
-      const on = Math.abs(hit.lateral) <= hit.width / 2 ? 'road' : past <= 0 ? 'verge' : 'off';
-      best = { road: sp.id, spline: sp.index, s: hit.s, lateral: hit.lateral, width: hit.width, shoulder: hit.shoulder, on };
     }
   }
-  return best!;
+  const on = bestInside <= 0 ? 'road' : bestInside <= out.shoulder ? 'verge' : 'off';
+  return { road: track.splines[out.spline].id, spline: out.spline, s: out.s, lateral: out.lateral, width: out.width, shoulder: out.shoulder, on };
 }
 
 export function probe(track: Track, x: number, z: number, y?: number): Probe {
   const hit = newHit();
   const g = track.ground;
-  const yy = y ?? (g ? g.top(x, z) : sampleAt(track.main, 0, newHit()).cy);
-  const near = nearestRoad(track, x, z, yy, hit);
+  const yy = y ?? (g ? g.top(x, z) : 0);
+  // Without open ground and no height asked, the road's found by where it is, not how high.
+  const near = nearestRoad(track, x, z, g || y !== undefined ? yy : undefined, hit);
   const shoulder = track.surfaceIndex.get(track.layout.shoulderSurface ?? 'sidewalk') ?? 0;
   const out: Probe = { x, z, y: yy, near, surface: track.surfaces[surfaceAt(track, hit, false, shoulder)].id };
   if (!g) {

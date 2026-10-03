@@ -8,6 +8,7 @@ import { neutralControls, type Controls } from '../core/controls';
 import { Cause, EV_NAMES, Ev } from '../core/events';
 import { Sim } from '../core/sim';
 import type { Track } from '../core/track/bake';
+import { locateCar } from '../core/track/locate';
 import { nearestRoad } from './probe';
 
 const CAUSES: Record<number, string> = Object.fromEntries(Object.entries(Cause).map(([k, v]) => [v, k.toLowerCase()]));
@@ -103,21 +104,27 @@ export function place(sim: Sim, i: number, spot: Spot, kmh = 0): void {
   }
   sim.placeCar(i, spline, s, lateral, 0);
   const c = sim.cars;
+  // Past the road and its shoulder (where placeCar left it, at the road's height), it goes on
+  // whatever's under it near that height: not the volcano over a tunnel, nor a bridge over it.
   const sp = track.splines[spline];
-  const onRoad = Math.abs(lateral) <= (sp.width[Math.min(sp.n - 1, Math.max(0, Math.round(s / sp.step)))] ?? 0) / 2;
+  const k = Math.min(sp.n - 1, Math.max(0, Math.round(c.s[i] / sp.step)));
+  const onRoad = Math.abs(lateral) <= sp.width[k] / 2 + sp.shoulder[k];
   if (spot.y !== undefined) c.y[i] = spot.y;
-  else if (track.ground && !onRoad) c.y[i] = track.ground.top(c.x[i], c.z[i]);
+  else if (track.ground && !onRoad) c.y[i] = track.ground.top(c.x[i], c.z[i], c.y[i] + 0.5);
   if (spot.reverse) c.h[i] += Math.PI;
   const v = kmh / 3.6;
   c.vx[i] = Math.sin(c.h[i]) * v;
   c.vz[i] = Math.cos(c.h[i]) * v;
   c.py[i] = c.y[i];
   c.ph[i] = c.h[i];
+  // Where it is on the road now (its surface, the junction), not where the grid slot was.
+  locateCar(sim, i);
 }
 
 /** A sim on `track` with the car to drive (index 0), placed. */
 export function setup(track: Track, classes: CarClass[], surfaces: SurfaceDef[], spot: Spot, input: Inputs, opts: DriveOptions = {}): Sim {
-  const sim = new Sim(track, classes, surfaces, { seed: opts.seed ?? 7, traffic: opts.traffic ? 1 : 0, mayhem: 'off', weather: 'clear' });
+  // Slow motion only for a wreck's own car ('wreck'), never the world: a trace's times are the sim's.
+  const sim = new Sim(track, classes, surfaces, { seed: opts.seed ?? 7, slowmo: 'wreck', traffic: opts.traffic ? 1 : 0, mayhem: 'off', weather: 'clear' });
   sim.addCar({ cls: opts.cls ?? 'coupe', human: input !== 'ai', racer: input === 'ai' ? { difficulty: 2 } : undefined });
   for (let k = 0; k < (opts.rivals ?? 0); k++) sim.addCar({ cls: classes[k % classes.length].id, racer: { difficulty: 2 } });
   place(sim, 0, spot, opts.kmh ?? 0);

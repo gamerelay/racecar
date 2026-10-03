@@ -1,10 +1,12 @@
 // The golden fingerprints (docs/CALDERA.md, step 0; src/dev/fingerprint.ts): every layout's bake,
-// its open ground and a fixed 40 s drive, hashed. Checks them against test/golden/fingerprints.json,
-// or records them.
+// its open ground and fixed drives, hashed. Checks them against this platform's recording
+// (test/golden/fingerprints.<platform>-<arch>.json: floats differ in their last bits between
+// platforms), or records them. `--print` writes them out (CI prints its own when it has none).
 //
 //   bun tools/fingerprint.ts                 check every layout, say what moved
 //   bun tools/fingerprint.ts --update        record them (only when a change means to move a map)
 //   bun tools/fingerprint.ts paradise-open/open --update   one layout
+//   bun tools/fingerprint.ts --print         print them (to record another platform's from its output)
 //   add --json for machine-readable output
 
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
@@ -12,7 +14,8 @@ import { join } from 'node:path';
 import { fingerprint, type Fingerprint } from '../src/dev/fingerprint';
 import { CLASSES, EXPERIMENTAL_KEYS, LAYOUT_KEYS, SURFACES, layout } from './content';
 
-export const GOLDEN = join(import.meta.dir, '..', 'test', 'golden', 'fingerprints.json');
+export const PLATFORM = `${process.platform}-${process.arch}`;
+export const GOLDEN = join(import.meta.dir, '..', 'test', 'golden', `fingerprints.${PLATFORM}.json`);
 export const GOLDEN_KEYS = [...LAYOUT_KEYS, ...EXPERIMENTAL_KEYS];
 
 export function readGolden(): Record<string, Fingerprint> {
@@ -25,6 +28,7 @@ export function moved(was: Fingerprint | undefined, now: Fingerprint): string[] 
   const out: string[] = [];
   if (was.track !== now.track) out.push('track (the bake: roads, checkpoints, zones…)');
   if (was.ground !== now.ground) out.push('ground (heights, decks, holes, beaches…)');
+  if (was.branches !== now.branches) out.push('branches (the drives down each branch)');
   if (was.drive !== now.drive) {
     const at = now.marks.find((m, k) => JSON.stringify(m) !== JSON.stringify(was.marks[k]));
     out.push(`drive${at ? ` (by ${at.t} s: was ${JSON.stringify(was.marks.find((m) => m.t === at.t))}, now ${JSON.stringify(at)})` : ' (in the last bits)'}`);
@@ -37,7 +41,14 @@ if (import.meta.main) {
   const args = process.argv.slice(2);
   const update = args.includes('--update');
   const json = args.includes('--json');
+  const print = args.includes('--print');
   const keys = args.filter((a) => !a.startsWith('--'));
+  if (print) {
+    const all: Record<string, Fingerprint> = {};
+    for (const key of keys.length ? keys : GOLDEN_KEYS) all[key] = fingerprint(layout(key), CLASSES, SURFACES);
+    console.log(JSON.stringify(all, null, 1));
+    process.exit(0);
+  }
   const golden = readGolden();
   const report: Record<string, string[]> = {};
   for (const key of keys.length ? keys : GOLDEN_KEYS) {

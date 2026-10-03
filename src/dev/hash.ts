@@ -61,15 +61,20 @@ export class Hasher {
     }
     if (v instanceof Map) {
       const keys = [...v.keys()].sort((p, q) => (String(p) < String(q) ? -1 : String(p) > String(q) ? 1 : 0));
+      // Its size first, as an array's length, so a field moved in or out of it shows.
+      this.num(keys.length);
       for (const k of keys) {
         this.str(String(k));
         this.deep(v.get(k), skip, seen);
       }
       return;
     }
-    for (const k of Object.keys(v).sort()) {
+    const keys = Object.keys(v)
+      .filter((k) => !skip.has(k) && typeof (v as Record<string, unknown>)[k] !== 'function')
+      .sort();
+    this.num(keys.length);
+    for (const k of keys) {
       const x = (v as Record<string, unknown>)[k];
-      if (skip.has(k) || typeof x === 'function') continue;
       this.str(k);
       this.deep(x, skip, seen);
     }

@@ -6,7 +6,7 @@ export interface Args {
   num(name: string): number | undefined;
   /** A switch (and removes it). */
   has(name: string): boolean;
-  /** What's left that isn't a flag. */
+  /** What's left, once every flag has been read (an unread flag is an error). */
   rest(): string[];
 }
 
@@ -33,7 +33,12 @@ export function args(argv = process.argv.slice(2)): Args {
       if (i >= 0) a.splice(i, 1);
       return i >= 0;
     },
-    rest: () => a.filter((x) => !x.startsWith('--')),
+    rest: () => {
+      // Read every flag first: one left over is unknown (and its value would pass for an argument).
+      const left = a.filter((x) => x.startsWith('--'));
+      if (left.length) throw new Error(`unknown flag${left.length > 1 ? 's' : ''}: ${left.join(' ')}`);
+      return a;
+    },
   };
 }
 
