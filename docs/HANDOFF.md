@@ -89,8 +89,11 @@ entries (`kind: 'moguls' | 'canyon' | 'beach'`), modules in `core/track/features
 `canyonAt` (the avalanche's shelter, the trees); the AI reads a canyon's `def`. They stay placed
 along the main road (CALDERA's note): a clean-up, every fingerprint identical.
 
-**Next:** the owner's ask, the jungle's red-earth road a little uneven (its own PR), then step 2c,
-overrides; 2d, the lava stream (world-space placement starts there).
+**The jungle's mud, a little uneven** (PR #91, branch `paradise-mud`, stacked on #90; awaiting the
+owner's merge): an `uneven` feature on the red-earth road, lumps ~0.35 m, calmer on the banked
+turns; PARADISE.md has the numbers. Floor and field unchanged.
+
+**Next:** step 2c, overrides; 2d, the lava stream (world-space placement starts there).
 
 **Working notes (2026-10-03):**
 - One PR per step, a fresh reviewer at the end (it found real bugs every time: in 0b, 1a and 1b),

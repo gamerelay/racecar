@@ -30,6 +30,8 @@ and where things stand is [docs/HANDOFF.md](./docs/HANDOFF.md).
     canyons and Paradise Open's beach as modules the ground runs. Nothing changes in play.
   - **The coast's sand drives as sand** (step 1d): what the ground is drawn as is what it drives
     as, and the wet strip at the water's edge is `shore`.
+- **Paradise Open's jungle mud is a little uneven** (the owner's ask): low lumps on the red-earth
+  road (2.1–2.7 km), calmer on the banked turns so a drift still leans on them.
 - **A road over the ground** (docs/PARADISE.md, step 0): a deck on open ground, the main road over
   the ground beneath it. On the deck you drive on it; over its edge you fall to whatever is below.
   The sea (`ground.sea`) is drawn, and deep water is out of bounds: you respawn on the road.

@@ -16,6 +16,7 @@ import { beachFeature } from './beach';
 import { canyonFeature } from './canyon';
 import { coastFeature } from './coast';
 import { mogulsFeature } from './moguls';
+import { unevenFeature } from './uneven';
 import { volcanoFeature } from './volcano';
 
 /** What's dangerous at a point: lava wrecks a car (the volcano's lake). */
@@ -24,7 +25,8 @@ export type Hazard = 'none' | 'lava';
 /**
  * Where a grid point is, for `shape`: its place, and where it is by the main road (its nearest
  * sample): `s` along it, `lat` across (m, + right; by distance, so it doesn't jump between
- * stretches), `d` = |lat|, its half width and shoulder there and `edge` (the two summed), and how
+ * stretches), `d` = |lat|, its half width and shoulder there and `edge` (the two summed), its bank
+ * (radians, + low on the right), and how
  * much of what the layout adds the ground keeps there (`keep`, 0–1: none where a deck's floor
  * starts). One object, refilled for each point: don't keep it.
  */
@@ -37,11 +39,12 @@ export interface ShapePoint {
   half: number;
   shoulder: number;
   edge: number;
+  bank: number;
   keep: number;
 }
 
 export interface Feature {
-  /** What it is ('volcano', 'coast', 'moguls', 'canyon', 'beach'). */
+  /** What it is ('volcano', 'coast', 'moguls', 'canyon', 'beach', 'uneven'). */
   readonly kind: string;
   /** The layout's own entry for it (GroundDef.features), for anything that reads its numbers (the AI's line down a canyon). */
   readonly def?: FeatureDef;
@@ -85,6 +88,7 @@ export function groundFeatures(def: GroundDef, main: BakedSpline): Feature[] {
     if (f.kind === 'moguls') out.push(mogulsFeature(f));
     else if (f.kind === 'canyon') out.push(canyonFeature(f));
     else if (f.kind === 'beach') out.push(beachFeature(f, main));
+    else if (f.kind === 'uneven') out.push(unevenFeature(f));
   }
   return out;
 }

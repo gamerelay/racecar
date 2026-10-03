@@ -34,6 +34,8 @@ const DETAIL = [
 const SKIRT = 6;
 /** The lines' lift off the ground: clear of it, under the skids. */
 const LIFT = 0.05;
+/** An island's road is laid over the ground in this many strips across (its lumps followed). */
+const STRIPS = 6;
 
 /** An island's ground (GroundDef.coast, docs/PARADISE.md): sand along the water, grass inland, black lava rock up the volcano. */
 const SAND = new Color('#f3e8c8');
@@ -568,7 +570,9 @@ function roadLines(track: Track): Mesh | null {
       continue;
     }
     if (isle) {
-      if (!decks?.[i]) quad(i, -wa, wa, surfaceColor(main.surface[i]), main, LIFT * 0.6);
+      // In strips across, so it follows the ground's lumps (an uneven road's) and doesn't cut
+      // through them.
+      if (!decks?.[i]) for (let k = 0; k < STRIPS; k++) quad(i, -wa + (k * 2 * wa) / STRIPS, -wa + ((k + 1) * 2 * wa) / STRIPS, surfaceColor(main.surface[i]), main, LIFT * 0.6);
       continue;
     }
     if (track.surfaces[main.surface[i]].slide) continue;

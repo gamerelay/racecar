@@ -49,6 +49,22 @@ const VOLCANO = { ...island.terrain.volcano, pit: 12, lava: 14 };
  * of the road is sand down to the water (it was grass, with a strip of sand at the water's edge).
  */
 const BEACHES: { s: [number, number]; side: 'left' | 'right' }[] = [{ s: [-260, FREEWAY[0]], side: 'left' }];
+/** The jungle's mud (the owner: "a little uneven"): lumps this high peak to trough (m), this wide. */
+const MUD = { height: 0.35, size: 7 };
+/** Where the main road is red earth (the jungle), each stretch from and to (m), rounded. */
+const redEarth = (): [number, number][] => {
+  const out: [number, number][] = [];
+  let from = -1;
+  for (let i = 0; i <= main.n; i++) {
+    const on = i < main.n && surfaces[main.surface[i]]?.id === 'red-earth';
+    if (on && from < 0) from = i;
+    if (!on && from >= 0) {
+      out.push([Math.round(from * main.step), Math.round((i - 1) * main.step)]);
+      from = -1;
+    }
+  }
+  return out;
+};
 /** Steeper than this is a rock face, a wall (GroundDef.face): the volcano's round the tube's mouths. */
 const FACE = 1;
 /**
@@ -209,7 +225,11 @@ const layout: TrackLayout = {
     coast: island.terrain.island as [number, number][],
     volcano: VOLCANO,
     face: FACE,
-    features: BEACHES.map((b) => ({ kind: 'beach' as const, ...b })),
+    features: [
+      ...BEACHES.map((b) => ({ kind: 'beach' as const, ...b })),
+      // The jungle's red-earth road a little uneven (the owner): lumps a few tenths high.
+      ...redEarth().map((s) => ({ kind: 'uneven' as const, s, height: MUD.height, size: MUD.size })),
+    ],
     pines: { kind: 'tropic', seed: 23, spacing: 7, clear: 7, thicken: 30, density: 0.4, glade: 70 },
   },
 };

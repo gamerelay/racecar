@@ -11,7 +11,7 @@ describe('feature modules', () => {
   const open = bakeTrack(layout('paradise-open/open'), SURFACES).ground!;
 
   test("a layout's features, in the order they shape the ground", () => {
-    expect(open.features.map((f) => f.kind)).toEqual(['volcano', 'coast', 'beach']);
+    expect(open.features.map((f) => f.kind)).toEqual(['volcano', 'coast', 'beach', 'uneven']);
     expect(bakeTrack(layout('avalanche/slope'), SURFACES).ground!.features.map((f) => f.kind)).toEqual(['moguls', 'moguls', 'canyon', 'canyon']);
   });
 
@@ -59,5 +59,30 @@ describe('feature modules', () => {
     // 40 m in is past the wandering edge whatever the noise; and high ground is never sand.
     expect(coast.surface!(far, 0, sea + 2, 1, 0, 0)).toBe(-1);
     expect(coast.surface!(near, 0, sea + 8, 0.5, 0, 0)).toBe(-1);
+  });
+
+  test("the jungle's mud is a little uneven: lumps on the red-earth road, a few tenths high, and only there", () => {
+    const track = bakeTrack(layout('paradise-open/open'), SURFACES);
+    const [mud] = track.ground!.features.filter((f) => f.kind === 'uneven');
+    const u = mud.def!;
+    if (u.kind !== 'uneven') throw new Error('not uneven');
+    // It's where the road is red earth.
+    const red = track.surfaceIndex.get('red-earth')!;
+    const mid = Math.round((u.s[0] + u.s[1]) / 2 / track.main.step);
+    expect(track.main.surface[mid]).toBe(red);
+    expect(track.main.surface[Math.round((u.s[0] - 30) / track.main.step)]).not.toBe(red);
+    // What it adds on the road: lumps both ways, within its height; nothing outside its stretch.
+    const at = (s: number, x: number, z: number) => mud.rise!({ x, z, s, lat: 0, d: 0, half: 6, shoulder: 2, edge: 8, bank: 0, keep: 1 });
+    let lo = 0;
+    let hi = 0;
+    for (let k = 0; k < 400; k++) {
+      const v = at(u.s[0] + 30 + k, k * 1.7, k * 0.9);
+      lo = Math.min(lo, v);
+      hi = Math.max(hi, v);
+    }
+    expect(hi - lo).toBeGreaterThan(u.height * 0.3);
+    expect(Math.max(-lo, hi)).toBeLessThanOrEqual(u.height * 0.5);
+    expect(at(u.s[0] - 1, 3, 4)).toBe(0);
+    expect(at(u.s[1] + 1, 3, 4)).toBe(0);
   });
 });

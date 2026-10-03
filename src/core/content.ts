@@ -308,7 +308,7 @@ export interface GroundDef {
   pines?: PinesDef;
   /**
    * The map's features (core/track/features), in the order they shape the ground: mogul fields,
-   * canyons, beaches. Each is placed along the main road (its `s`, and `lateral` across it), until
+   * canyons, beaches, uneven stretches of road. Each is placed along the main road (its `s`, and `lateral` across it), until
    * the road graph names streets.
    */
   features?: FeatureDef[];
@@ -368,7 +368,18 @@ export interface BeachDef {
   side: 'left' | 'right';
 }
 
-export type FeatureDef = MogulsDef | CanyonDef | BeachDef;
+/**
+ * An uneven stretch of the main road (Paradise Open's jungle mud), from `s[0]` to `s[1]` m: lumps
+ * up to about `height` m peak to trough, `size` m across, on the road and its shoulder.
+ */
+export interface UnevenDef {
+  kind: 'uneven';
+  s: [number, number];
+  height: number;
+  size: number;
+}
+
+export type FeatureDef = MogulsDef | CanyonDef | BeachDef | UnevenDef;
 
 export interface MapDef {
   id: string;
