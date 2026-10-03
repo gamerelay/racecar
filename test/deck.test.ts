@@ -118,7 +118,15 @@ describe('Paradise Open (docs/PARADISE.md)', () => {
     let worst = 0;
     for (let s = 1150; s <= 2100; s += 5) {
       const i = Math.round(s / m.step);
-      worst = Math.min(worst, slopeRise(g, m.px[i], g.top(m.px[i], m.pz[i]), m.pz[i], m.tx[i], m.tz[i], 13));
+      // Down the middle, and swerving near either edge, the view turned up to 35° toward it.
+      for (const lat of [-10, -6, 0, 6, 10]) {
+        for (const turn of [-0.6, -0.3, 0, 0.3, 0.6]) {
+          const x = m.px[i] - m.tz[i] * lat;
+          const z = m.pz[i] + m.tx[i] * lat;
+          const h = Math.atan2(m.tx[i], m.tz[i]) + turn;
+          worst = Math.min(worst, slopeRise(g, x, g.top(x, z), z, Math.sin(h), Math.cos(h), 13));
+        }
+      }
     }
     // The road falls no more than a meter or so over 26 m anywhere there; the bay is 6 m under it.
     expect(worst).toBeGreaterThan(-1.5);

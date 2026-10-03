@@ -46,16 +46,30 @@ export function slopeView(rise: number): { look: number; lift: number } {
   return { look: rise * 0.6, lift: Math.min(2.5, Math.max(0, rise * 0.25)) };
 }
 
+/** On a deck, the camera reads the deck's plane this far (m) past its edges. */
+const DECK_LOOK = 40;
+
 /**
  * The rise `slopeView` takes: the ground `ahead` m and twice that along (fx, fz) from a car at
- * (x, y, z), over the ground under it. On a deck, or on the road leading onto one, the deck ahead
- * counts even where it climbs more than DECK_CATCH above the car (a bridge's ramp: the camera
- * dipped at the bay floor the moment a car got on it); under one, the ground does.
+ * (x, y, z), over the ground under it. On a deck it's the deck's own plane, carried out past its
+ * edges: swerving near the edge looks off it, and the bay 18 m down tipped the view. On the road
+ * leading onto one, the deck ahead counts even where it climbs more than DECK_CATCH above the car
+ * (the camera dipped at the bay floor the moment a car got on the ramp); under one, the ground does.
  */
 export function slopeRise(g: Ground, x: number, y: number, z: number, fx: number, fz: number, ahead: number): number {
   const d = g.deck(x, z);
   const under = d === d && y < d - DECK_CATCH;
-  const at = (k: number) => (under ? g.height(x + fx * k, z + fz * k) : g.top(x + fx * k, z + fz * k));
+  const on = d === d && !under;
+  const at = (k: number) => {
+    const px = x + fx * k;
+    const pz = z + fz * k;
+    if (under) return g.height(px, pz);
+    if (on) {
+      const v = g.deck(px, pz, DECK_LOOK);
+      if (v === v) return v;
+    }
+    return g.top(px, pz);
+  };
   return (at(ahead) + at(ahead * 2)) / 2 - g.top(x, z, y);
 }
 
