@@ -77,12 +77,12 @@ How to start:
 - **Item 9, a phone: built as far as a desktop shows.** The bake is 4–5× faster (0.4–0.5 s, the
   same ground to the bit), and the ground draws in three levels of detail (a third of the
   triangles). It's still to be driven on a real phone.
-- **Item 10, the release** (the owner's call):
-  - The lobby (its "one run" text is built, waiting).
-  - The thumbnail and minimap for an open run.
-  - The validator taught `layout.run`.
-  - The map's music, the attract mode and the map vote.
-  - Then `experimental: true` off.
+- **Item 10, the release** (the owner's call). The code half is built: the validator knows a run,
+  and the lobby's thumbnail and the minimap draw it open with its finish marked. The lobby's
+  "one run" text was already built. Left for the owner:
+  - The map's music (their own track).
+  - A look at the attract mode and the map vote once it's in the lobby.
+  - Then `experimental: true` off, a /code-review of #74, the merge and the tag.
 - **Before merging:** a `/code-review` of #74 with its full URL (it touches shared physics,
   progress, bake, collisions and the AI). Check you're still on the branch afterwards.
 Every release is in [CHANGELOG.md](../CHANGELOG.md): add to its "Unreleased" section as you go,

@@ -255,7 +255,7 @@ describe('the local backend', () => {
 });
 
 /** Each layout's lap length, km (MAPS.md's table). */
-const LAP_KM: Record<string, number> = { 'downtown/downtown': 3.26, 'backroads/valley': 2.92, 'paradise/island': 3.78 };
+const LAP_KM: Record<string, number> = { 'downtown/downtown': 3.26, 'backroads/valley': 2.92, 'paradise/island': 3.78, 'avalanche/slope': 6.1 };
 
 describe('map thumbnails', () => {
   test('a lap is drawn the way it\'s driven (the thumbnail and the minimap share fitBox): Paradise, driven clockwise, is drawn clockwise', () => {
@@ -287,12 +287,33 @@ describe('map thumbnails', () => {
       const nums = [t.main, ...t.branches].join(' ').match(/-?\d+(\.\d+)?/g)!.map(Number);
       expect(Math.min(...nums)).toBeGreaterThanOrEqual(4 - 0.05);
       expect(Math.max(...nums)).toBeLessThanOrEqual(60 + 0.05);
-      expect(t.main.endsWith('Z')).toBe(true);
+      // A lap closes; one run doesn't.
+      expect(t.main.endsWith('Z')).toBe(!layout.run);
       expect(t.branches.length).toBe((layout.branches ?? []).filter((b) => !b.secret).length);
       // Within 3% of the map's lap length in MAPS.md (control points cut the corners a little).
       const km = LAP_KM[key];
       expect(km, `${key}: add its lap length to LAP_KM`).toBeDefined();
       expect(Math.abs(t.km - km) / km, key).toBeLessThan(0.03);
     }
+  });
+
+  test("one run is drawn open, top to bottom, its finish marked where the road's finish is, and its length the run's", async () => {
+    const { bakeTrack } = await import('../src/core/track/bake');
+    const { SURFACES } = await import('../tools/content');
+    const layout = readLayout('avalanche/slope');
+    const t = thumb(layout, 64, 4);
+    expect(t.main.endsWith('Z')).toBe(false);
+    expect(t.km).toBeCloseTo((layout.run!.finish - layout.run!.start) / 1000, 6);
+    const main = bakeTrack(layout, SURFACES).main;
+    const i = Math.round(layout.run!.finish / main.step);
+    let x0 = Infinity, x1 = -Infinity, z0 = Infinity, z1 = -Infinity;
+    for (const { p } of layout.main.points) {
+      x0 = Math.min(x0, p[0]);
+      x1 = Math.max(x1, p[0]);
+      z0 = Math.min(z0, p[2]);
+      z1 = Math.max(z1, p[2]);
+    }
+    const [fx, fz] = fitBox(x0, x1, z0, z1, 64, 4)(main.px[i], main.pz[i]);
+    expect(Math.hypot(t.finish![0] - fx, t.finish![1] - fz)).toBeLessThan(0.5);
   });
 });

@@ -53,7 +53,7 @@ can find lines the AI doesn't.
   - Slalom gates.
   - Pines.
   - The ski jump.
-- **Next:** a drive on a real phone, then 10 (the release, the owner's call). Items 8 (the AI
+- **Next:** a drive on a real phone, then the owner's half of 10 (music, `experimental` off). Items 8 (the AI
   downhill) and 9 (lighter for a phone: a 4–5× faster bake, a third of the triangles) are built.
 - **Numbers:**
   - The hard coupe's floor is 93.07 s clear and 93.6 s in snow (100.03 s before item 8: the AI
@@ -252,7 +252,6 @@ building, by measurement or by the philosophy above.
   people race it: if one becomes the only way to win, wall it with trees or rock.
 - **The AI's corner speeds don't know the bank** (item 8 left it): its plan is about the radius
   alone. The piste is wide and clean, so it hasn't mattered.
-- **The validator doesn't know `layout.run`:** it assumes a loop. That's for item 10.
 - **The lap report's field plays out the same on every seed** (no traffic or weather on this map
   to vary it), so its "one burial a race" is one race, repeated.
 
@@ -888,6 +887,20 @@ The sketches as they were:
       about `layout.run` (it assumes a loop: the grid 50 m behind s = 0, checkpoints wrapping).
     - The map's music (the owner's own track), the attract mode and the map vote.
     - Then take `experimental: true` off, and it's a map.
+
+    **Built so far (2026-10-02, in PR #74), the parts that are code:**
+    - **The validator knows a run.** A run's grid is checked behind its start line (it wrapped to
+      the end of the run-out). New checks: start and finish on the road (50 m for the grid,
+      150 m to stop past the finish), checkpoints inside the run, slalom flags on the piste, the
+      ski jump inside the run, and the avalanche's numbers. It found the avalanche set to break
+      away above the road's top (`behind` 80, the road 70); it's 70 now, the same start. It still
+      skips experimental layouts, as decided, so a test validates the Slope (clean).
+    - **The thumbnail and minimap know a run.** The lobby's thumbnail draws a run open (it closed
+      it, a line from the valley back to the summit), quotes the run's length (6.1 km, start line
+      to finish line, as the HUD does) and marks the finish with a dot. The minimap puts a yellow
+      bar across the road at the finish.
+    - **Left, the owner's:** the map's music (their own track), the attract mode and the map vote
+      (worth a look once it's in the lobby), then taking `experimental: true` off.
 
 ### Later
 

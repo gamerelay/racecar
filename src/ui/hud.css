@@ -215,6 +215,7 @@ svg.thumb { display: block; }
 svg.thumb path { fill: none; stroke-linejoin: round; stroke-linecap: round; }
 svg.thumb .lap { stroke: var(--ink); stroke-width: 2.5; }
 svg.thumb .cut { stroke: var(--sun); stroke-width: 1.5; stroke-dasharray: 3 2; }
+svg.thumb .end { fill: var(--sun); stroke: var(--ink); stroke-width: 1; }
 .card button.big { display: block; width: 100%; font-size: clamp(22px, 4vw, 30px); padding: 14px 20px; margin: 0 0 14px; box-shadow: 7px 7px 0 var(--pink); }
 .card button.danger { color: #ff8fb8; border-color: #ff8fb8; }
 .card button.danger:hover { color: var(--pink); border-color: var(--pink); }

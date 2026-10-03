@@ -6,6 +6,9 @@ import { Ev, type GameEvent } from '../core/events';
 import type { Sim } from '../core/sim';
 import { fmt, ordinal } from './format';
 import { fitBox } from './thumb';
+
+/** One run's finish on the minimap: a bar this many pixels either side of the road. */
+const FINISH_BAR = 16;
 import type { ResultRow } from '../lobby/lobby';
 import type { VoteView } from '../net/postrace';
 
@@ -96,6 +99,25 @@ export class RaceUi {
       g.lineWidth = k === 0 ? 5 : 3;
       g.stroke(p);
     });
+    // One run: a bar across the road at the finish (a lap's start is its finish, and needs none).
+    if (t.run) {
+      // (A fixed length on the map: a 6 km run's road is a few pixels wide.)
+      const i = Math.min(t.main.n - 1, Math.round(t.run.finish / t.main.step));
+      const [mx, my] = this.project(t.main.px[i], t.main.pz[i]);
+      const [ex, ey] = this.project(t.main.px[i] + t.main.tz[i], t.main.pz[i] - t.main.tx[i]);
+      const k = FINISH_BAR / (Math.hypot(ex - mx, ey - my) || 1);
+      const [a, b, c, d] = [mx + (ex - mx) * k, my + (ey - my) * k, mx - (ex - mx) * k, my - (ey - my) * k];
+      g.lineCap = 'round';
+      g.strokeStyle = 'rgba(18,10,32,.85)';
+      g.lineWidth = 10;
+      g.beginPath();
+      g.moveTo(a, b);
+      g.lineTo(c, d);
+      g.stroke();
+      g.strokeStyle = '#ffd23f';
+      g.lineWidth = 5;
+      g.stroke();
+    }
   }
 
   update(): void {
