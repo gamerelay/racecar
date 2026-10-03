@@ -2190,4 +2190,6 @@ Caldera, the engine (2026-10-03; the plan is docs/CALDERA.md):
   Open's floor 68.07 → 68.10 s; the field 30 wrecks in 40 seeds (28 before). A car
   over a piece (the Freeway's shoulder) drives the piece's verge, not the ground under it. Only Paradise Open's
   fingerprints moved.
+- **Paradise Open's jungle mud is uneven** (the owner): an `uneven` feature, lumps on the
+  red-earth road, calmer on the banked turns so a drift still leans on them.
 - **Smashables break per screen**, not "the same online": each screen collides only its own cars.

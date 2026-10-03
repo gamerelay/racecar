@@ -164,10 +164,10 @@
   "wrecks": 0
  },
  "paradise-open/open": {
-  "track": "e2531eb6849c5661",
-  "ground": "037a8db474b6cf37",
-  "drive": "9a37ab19a7011dd4",
-  "branches": "e3fe0edc9cb5e7a1",
+  "track": "32761ddf6df4ecfc",
+  "ground": "3efc3efb102dfcb9",
+  "drive": "ae8e3256a1cff4e0",
+  "branches": "f986ab30ea729d6a",
   "marks": [
    {
     "t": 10,
@@ -197,7 +197,7 @@
     "t": 40,
     "s": 2184.41,
     "x": 394.11,
-    "y": 6.05,
+    "y": 6.03,
     "z": -363.16,
     "kmh": 155.61
    }

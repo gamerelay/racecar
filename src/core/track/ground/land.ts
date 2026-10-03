@@ -53,7 +53,7 @@ export function buildLand(def: GroundDef, main: BakedSpline, pieces: Pieces, fea
   const nearest = sampleSearch(main, x0, z0, nx * cell, nz * cell, 24);
   const shapers = features.filter((f) => f.shape);
   const risers = features.filter((f) => f.rise);
-  const at: ShapePoint = { x: 0, z: 0, s: 0, lat: 0, d: 0, half: 0, shoulder: 0, edge: 0, keep: 1 };
+  const at: ShapePoint = { x: 0, z: 0, s: 0, lat: 0, d: 0, half: 0, shoulder: 0, edge: 0, bank: 0, keep: 1 };
   const plane = (i: number, x: number, z: number) => planeOf(main, i, x, z);
   const shaping = pieces.list.filter((p) => p.spline === main.index && p.under);
 
@@ -126,6 +126,7 @@ export function buildLand(def: GroundDef, main: BakedSpline, pieces: Pieces, fea
       at.half = half;
       at.shoulder = main.shoulder[i];
       at.edge = edge;
+      at.bank = main.bank[i];
       at.keep = runIn(pieces, s, d, edge);
       let gy = y + groundShape(def, at, risers) * at.keep;
       // The features, in order (the volcano rising off the roads, the coast falling into the sea):

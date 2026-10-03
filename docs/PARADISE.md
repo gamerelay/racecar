@@ -363,6 +363,13 @@ lighter on the cone.
 - **The look (#80, the owner's call):** a lot of black lava rock on the cone (grey ash streaks, or
   less of it?), and the grass still a bit bright.
 
+**The jungle's mud, a little uneven (2026-10-03, the owner's ask):** an `uneven` feature on the
+red-earth road (2,092–2,746 m, found by the generator from the road's surface): smooth-noise lumps
+about 0.35 m peak to trough, 7 m across, on the road and its shoulder, easing in over 25 m, and at
+30% on the banked turns (at full height they took the bank's hold off a drift:
+`test/deck.test.ts`'s drift test). The island's road is laid over the ground in 6 strips across now,
+so it follows them. The floor (68.10 s) and the field (30 wrecks in 40 seeds) are unchanged.
+
 **Numbers** (best AI lap, solo hard coupe): Paradise Open 68.07 s with the jump (67.68 s with the
 tube before it, 70.03 s without the tube, 71.52 s for today's Paradise); the field's wrecks at 0 a
 race (2026-10-03). Every other map's floor is unchanged: Downtown 57.9, Backroads 62.82, Avalanche
