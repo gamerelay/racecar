@@ -20,6 +20,10 @@ const SLAB = 1.6;
 const SPIKE = 5;
 /** The road's lift off its rock (so the two don't fight). */
 const LIFT = 0.04;
+/** How far past the tube's verge its skirt reaches under the slope: past a whole grid square cut out round the mouth. */
+const SKIRT = 5;
+/** Across the shroud (-1 its left edge, +1 its right), where its points are. */
+const SHROUD = [-1, -0.8, -0.6, -0.45, -0.3, -0.15, 0, 0.15, 0.3, 0.45, 0.6, 0.8, 1];
 
 export function buildTubes(track: Track): Object3D[] {
   const g = track.ground!;
@@ -32,6 +36,19 @@ export function buildTubes(track: Track): Object3D[] {
     const surface = track.surfaces[sp.surface[0]].color;
     // A tunnel where the ground's over its road, a bridge where it's fallen away.
     const coveredAt = (k: number) => k >= 0 && k < sp.n && decks[k] === 1 && g.height(sp.px[k], sp.pz[k]) > sp.py[k] - 0.5;
+    // Whether the slope's opened (Ground.hole) anywhere across sample k's road, or the next few.
+    const holeAt = (k: number) => {
+      if (k < 0 || k >= sp.n || !decks[k]) return false;
+      const e = sp.width[k] / 2 + sp.shoulder[k];
+      for (let l = -e; l <= e; l += g.cell / 2) {
+        const gx = Math.round((sp.px[k] - sp.tz[k] * l - g.x0) / g.cell);
+        const gz = Math.round((sp.pz[k] + sp.tx[k] * l - g.z0) / g.cell);
+        if (gx >= 0 && gz >= 0 && gx < g.nx && gz < g.nz && g.hole[gz * g.nx + gx]) return true;
+      }
+      return false;
+    };
+    // (Four samples either way: a cut square reaches a grid square past its last hole.)
+    const opened = (k: number) => coveredAt(k) && [-4, -3, -2, -1, 0, 1, 2, 3, 4].some((d) => holeAt(k + d));
     for (let i = 0; i + 1 < sp.n; i++) {
       if (!decks[i] || !decks[i + 1]) continue;
       const j = i + 1;
@@ -63,6 +80,26 @@ export function buildTubes(track: Track): Object3D[] {
         const a = ring(i);
         const b = ring(j);
         for (let q = 0; q + 1 < a.length; q++) geo.face(a[q], a[q + 1], b[q + 1], b[q], q === 2 ? ROCK_DARK : rock);
+        // Where the slope's opened round it (its grid squares cut out whole, a staircase wider than
+        // the tube), a shroud of rock over it: the slope's own height where that's over the tube,
+        // else hugging the tube's outline. Through a cut square you'd otherwise see into the
+        // mountain's hollow inside, past the arch, and out to the sky.
+        if (opened(i) || opened(j)) {
+          const shroud = (k: number) =>
+            SHROUD.map((f) => {
+              const e = edge(k);
+              const l = f * (e + SKIRT);
+              const x = sp.px[k] - sp.tz[k] * l;
+              const z = sp.pz[k] + sp.tx[k] * l;
+              // The tube's outline across: its vault, down its walls, then under the ground.
+              const d = Math.abs(l);
+              const tube = d <= e * 0.55 ? TUBE_H + 0.3 : d <= e + 0.6 ? TUBE_H * 0.55 + (TUBE_H * 0.45 + 0.3) * (e + 0.6 - d) / (e * 0.45 + 0.6) : TUBE_H * 0.55 - (d - e - 0.6) * 2;
+              return [x, Math.max(sp.py[k] + tube, g.height(x, z) - 0.3), z];
+            });
+          const si = shroud(i);
+          const sj = shroud(j);
+          for (let q = 0; q + 1 < si.length; q++) geo.face(si[q], sj[q], sj[q + 1], si[q + 1], rock);
+        }
         // Lava in the cracks at the walls' feet, every so often.
         if (i % 9 === 0) for (const side of [-1, 1]) glow.push(...p(i, side * (edge(i) - 0.3), 0.5));
         // A rough arch framing each mouth, and an apron of rock out in front of it (over the

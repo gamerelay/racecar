@@ -42,6 +42,9 @@ and where things stand is [docs/HANDOFF.md](./docs/HANDOFF.md).
   screen) or rides the slope up over a mouth (the hiccup going in).
 - **The tube's ends are smooth:** no more launch onto the rim road out of the exit, nor a float
   going in. The rock boxes over its mouths are arches set in the slope.
+- **No sky through the volcano at the tube's mouths:** where the slope's cut open round a mouth,
+  a shroud of rock over the tube follows the slope (or the tube's outline, where the slope is
+  lower), so the cut squares no longer show the mountain's hollow inside and the sky past it.
 - **Rock faces** (`ground.face`): ground steeper than a car can climb is a wall, so off line at a
   mouth you bounce off the volcano (or wreck) instead of being thrown up over it. Not on Avalanche.
 - **Landing short of a bridge's edge** lands you on it, instead of throwing you up off it.

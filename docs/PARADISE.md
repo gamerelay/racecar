@@ -356,7 +356,9 @@ lighter on the cone.
 **Known rough edges** (on #81 unless noted):
 - **The climb out of the tube** peaks at 33% (the same height in the same road, since the entry's
   fix); rejoining further down the rim road would ease it.
-- **A small chink of sky** over the exit mouth's arch, where the slope's opening shows.
+- ~~A small chink of sky over the exit mouth's arch~~: fixed (a shroud over the tube where the
+  slope's cut open). The real fix, a mouth cut to the tube's outline and stitched to it, is
+  CALDERA's portal (step 1).
 - **The arches' pillars and the shaft's collar aren't solid.**
 - **The look (#80, the owner's call):** a lot of black lava rock on the cone (grey ash streaks, or
   less of it?), and the grass still a bit bright.
