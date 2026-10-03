@@ -1,7 +1,7 @@
 // Layout checks (SPEC §5, "Validation"): shape first, then gameplay. The editor shows these on
 // the map as you edit, and CI runs them over every layout. Milestone 2 adds the AI lap checks.
 
-import { LANDMARK_KINDS, type CarClass, type SurfaceDef, type TrackLayout } from '../content';
+import { LANDMARK_KINDS, type CarClass, type PieceDef, type SurfaceDef, type TrackLayout } from '../content';
 import { KINDS } from '../world/hazards';
 import { SMASH_IDS } from '../world/smash';
 import { bakeTrack, sampleIndex, wrap } from './bake';
@@ -159,6 +159,19 @@ export function validateLayout(layout: TrackLayout, surfaces: SurfaceDef[], clas
     if (!(p.s[0] < p.s[1]) || p.s[0] < 0 || p.s[1] > sp.length) err(`${name}: s ${p.s[0]}–${p.s[1]} m isn't a stretch of ${sp === track.main ? 'the main road' : sp.id} (0–${sp.length.toFixed(0)})`, sp.id, p.s[0]);
     if (p.under && sp !== track.main) err(`${name}: "under" shapes the ground under the main road only, for now`, sp.id, p.s[0]);
     if (p.ceiling !== undefined && (p.floor === false || !(p.ceiling > 0))) err(`${name}: a ceiling needs a floor under it, and a height over it`, sp.id, p.s[0]);
+    // On the main road the ground is the road's, so a gap or a tunnel there would do nothing yet.
+    if (sp === track.main && (p.floor === false || p.ceiling !== undefined)) err(`${name}: gaps and ceilings are on branches only, for now`, sp.id, p.s[0]);
+    if (p.under && !(p.under.ease > 0 && p.under.reach > 0)) err(`${name}: "under" needs an ease and a reach over 0 m`, sp.id, p.s[0]);
+  }
+  // Two pieces of one road may share an end, no more: which a sample belonged to would hang on the order.
+  const byRoad = new Map<string, PieceDef[]>();
+  for (const p of layout.pieces ?? []) byRoad.set(p.road ?? '', [...(byRoad.get(p.road ?? '') ?? []), p]);
+  for (const [road, list] of byRoad) {
+    const sp = road === '' ? track.main : track.splines.find((b) => b.id === road && b !== track.main);
+    if (!sp) continue;
+    const sorted = [...list].sort((a, b) => a.s[0] - b.s[0]);
+    for (let k = 1; k < sorted.length; k++)
+      if (sorted[k].s[0] < sorted[k - 1].s[1] - sp.step) err(`pieces ${sorted[k - 1].id} and ${sorted[k].id} overlap on ${road || 'the main road'}`, sp.id, sorted[k].s[0]);
   }
   for (const z of layout.zones ?? []) if (z.s[0] < 0 || z.s[1] > L) warn(`zone ${z.surface} runs past the spline's length`);
   for (const d of layout.smashables ?? []) {

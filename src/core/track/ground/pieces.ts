@@ -38,7 +38,7 @@ export interface Pieces {
   gaps(spline: number): Uint8Array | undefined;
   /** Per sample of the road, the piece with a floor carrying it (its index), -1 for none. */
   at(spline: number): Int16Array | undefined;
-  /** Whether a piece of the road has a floor or a gap at sample `i`: either way, the road doesn't shape the ground there. */
+  /** Whether a piece of the road has a floor or a gap at sample `i`: either way, a branch doesn't shape the ground there. */
   covers(spline: number, i: number): boolean;
 }
 

@@ -309,7 +309,7 @@ shared `lateralOf`").
   `joinBranch` quietly breaks the tube's ends. Better: a branch that says it authors its own
   heights, and `joinBranch` leaves them. *Medium.*
 - **Wrapping past the line is inconsistent:** beaches wrap (`s[0] > s[1]`); pieces (`definePieces`,
-  `runIn`, `pull`) don't, so a deck across s = 0 would do nothing. The generator's
+  `runIn`, `pull`) don't, so a piece across s = 0 can't be said (the validator rejects `s[0] > s[1]`). The generator's
   `beside` doesn't wrap either (fine at 2,685 and 3,255 m). *Small.*
 - **`pastGap` (respawns) finds the jump's kicker by its ramp heights** (`sp.ramp`). A gap with no
   kicker, or a kicker not at a gap, would surprise it. A gap could carry its run-up. *Small.*

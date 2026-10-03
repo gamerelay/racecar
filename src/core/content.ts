@@ -260,8 +260,10 @@ export interface PinesDef {
  * - A **gap**: `floor: false`, no road at all (the Lava Tube's jump): off the end of the road is
  *   down to whatever's there.
  *
- * Either way the road doesn't shape the ground under it (the ground stays as it is), unless the
- * piece says how with `under`.
+ * On a branch, either way the branch doesn't shape the ground under it (the ground stays as it is).
+ * On the main road the ground is the road's, so there a piece is a deck only, and `under` says how
+ * the ground falls away beneath it; gaps and ceilings are on branches only, for now. Pieces of one
+ * road may share an end, not overlap.
  */
 export interface PieceDef {
   id: string;

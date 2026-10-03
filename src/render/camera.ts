@@ -119,8 +119,9 @@ export const GROUND_CLEAR = 1.2;
 export function clearView(g: Ground, cx: number, cy: number, cz: number, cam: { x: number; y: number; z: number }): void {
   const y0 = cy + 1;
   const open = (x: number, y: number, z: number) => {
+    if (g.height(x, z) < y - 0.3) return true;
     const c = g.cast(x, y, z, CAST);
-    return c.ground < y - 0.3 || (c.space === 'enclosed' && y < c.ceiling - UNDER_CEILING);
+    return c.space === 'enclosed' && y > c.over && y < c.ceiling - UNDER_CEILING;
   };
   const STEPS = 16;
   for (let k = 1; k <= STEPS; k++) {

@@ -76,7 +76,7 @@ Started 2026-10-03, from the owner's brief:
 
 ## The core idea: pieces
 
-Today every non-terrain surface is its own special case: decks (`GroundDef.decks`), a branch's
+Before step 1a, every non-terrain surface was its own special case (this section's "today" is then): decks (`GroundDef.decks`), a branch's
 decks (tunnels and bridges), gaps, the kicker's ramp, tunnel mouths (`hole`), rock faces
 (`face`). The question "what surface is under me" is answered in three places (`deckUnder`
 in `ground.ts`, `slopeRise`/`clearView`/`cameraFloor` in `render/camera.ts`, `meetFace` in
@@ -620,9 +620,10 @@ stream across a route): then the new floor is recorded, with why.
        main-road sample, a branch's floor samples bucketed), not a spatial grid of their own, and
        they have no `look` or camera hint (the renderer still knows a tube from a deck by its road).
        Both come when pieces get their own curves.
-     - One small camera change: the camera's "inside a tube" rule now holds only under an
-       enclosed piece's ceiling, not 6 m over any deck, so behind a car on the Freeway with the
-       camera in a slope beside the road, it now pulls in (a rare spot, and the camera only).
+     - Two small camera changes, the same rare spot (the camera inside a slope beside the
+       Freeway): its "inside a tube" rule now holds only under an enclosed piece's ceiling, not
+       6 m over any deck, so `clearView` pulls it in there, and `cameraFloor` keeps it over that
+       slope rather than over the deck. The camera only; nothing drives differently.
    - **1b, portals:** the tube's mouths cut to its outline and stitched; the shroud goes.
      Changes the ground: fingerprints re-recorded.
    - **1c, branches own their heights:** the generator stops working backwards from the bake.

@@ -706,6 +706,8 @@ describe('pieces and the cast (docs/CALDERA.md, step 1a)', () => {
     expect(c.space).toBe('enclosed');
     expect(c.ceiling).toBeCloseTo(y + TUBE_H, 1);
     expect(c.ground).toBeGreaterThan(y + TUBE_H);
+    // A car on the floor, or sunk into it by a hard landing, is inside too.
+    for (const at of [y, y - 0.3]) expect(g.cast(x, at, z, c).space).toBe('enclosed');
     g.cast(x, c.ground + 1, z, c);
     expect(c.piece).toBe(-1);
     expect(c.space).toBe('open');
@@ -745,5 +747,15 @@ describe('pieces and the cast (docs/CALDERA.md, step 1a)', () => {
     expect(errors.some((m) => m.includes('main road only'))).toBe(true);
     expect(errors.some((m) => m.includes("isn't a stretch"))).toBe(true);
     expect(errors.some((m) => m.includes('a ceiling needs a floor'))).toBe(true);
+    expect(errors.some((m) => m.includes('branches only'))).toBe(true);
+  });
+
+  test('the validator: pieces of one road may share an end, not overlap; under needs an ease and a reach', () => {
+    const lay = layout('paradise-open/open');
+    expect(validateLayout(lay, SURFACES, CLASSES).filter((p) => p.level === 'error')).toEqual([]);
+    lay.pieces!.push({ id: 'over', road: 'lava-tube', s: [200, 300] }, { id: 'flat', s: [10, 20], under: { floor: 0, ease: 0, reach: 5 } });
+    const errors = validateLayout(lay, SURFACES, CLASSES).filter((p) => p.level === 'error').map((p) => p.message);
+    expect(errors.some((m) => m.includes('overlap on lava-tube'))).toBe(true);
+    expect(errors.some((m) => m.includes('an ease and a reach'))).toBe(true);
   });
 });

@@ -44,7 +44,7 @@ export interface Cast {
   ground: number;
   /** The floor of a piece there at or below the point (by DECK_CATCH), stood on or not (NaN: none): a tunnel's road under a car on the slope over it. */
   over: number;
-  /** That piece's ceiling (its height, m), NaN if it's open or there's none. */
+  /** That piece's ceiling (its height, m), NaN if it's open or there's none. Under it, from its floor (by DECK_CATCH) up, is `enclosed`. */
   ceiling: number;
   space: Space;
 }
@@ -158,7 +158,8 @@ export function buildGround(def: GroundDef, main: BakedSpline, branches: BakedSp
       const on = d === d && (d >= gh || gh > y + DECK_CATCH || (y !== Infinity && Math.abs(y - d) <= DECK_CATCH));
       out.floor = on ? d : gh;
       out.piece = on ? p : -1;
-      out.space = y > d && y < out.ceiling ? 'enclosed' : y < gh ? 'rock' : 'open';
+      // Inside from its floor (a car on it, or sunk into it by a hard landing) up to its ceiling.
+      out.space = y >= d - DECK_CATCH && y < out.ceiling ? 'enclosed' : y < gh ? 'rock' : 'open';
       return out;
     },
     top(x, z, y = Infinity) {
