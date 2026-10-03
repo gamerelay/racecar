@@ -84,8 +84,16 @@ pieces), so the type itself leaves no room for a fourth special case.
 
 Everything asks one question, **cast down from (x, y, z)**, and gets back:
 - the floor's height and slope there, and its surface;
-- the ceiling over it, if it's enclosed;
+- the ceiling over it, if it's enclosed (the point's **space**: open air, inside a tube, or in
+  the rock);
+- any **hazard** there (lava, deep water);
 - which piece it is (and where along it).
+
+**What's drawn is what's driven:** the surface comes from one function of the point, used by
+both the physics and the renderer. Today they disagree: off-road surfaces go by the nearest
+main-road sample and side, so sand painted along the coast drives as grass. With one function,
+patches of mud or sand can be any shape, and the coast's sand drives as sand (the one gameplay
+change in the clean-up).
 
 And two more, from the same index: **the walls near a point** (for the physics to bounce off,
 breakable or not), and **a line between two points** (is it clear: the camera's view of the car,
@@ -234,7 +242,7 @@ What the engine struggles with now, and the build step that lifts it (if any):
 | Big air is hard: the road lifts a car at most 8 m/s | The vertical speed cap keeps cars on the road over bumps | Tuning per feature (the jump's kicker was sized by a sweep) |
 | The car is one body with a heading: no wheels leaving the ground one by one, no rolling over, no stacking | Our own simple car model | Not planned |
 | Contact between players' cars is approximate online: another player's car is a pose 30 times a second, and a bump is agreed between the two screens (`net/contact.ts`) | Each player owns their car | Not planned (it's the right trade for 8 players) |
-| Nothing in the world can be pushed by a car: a pushed thing would differ between screens | The world is a function of time (SPEC §4); a pushable thing would have to be a host entity | Not planned (one-offs as host entities) |
+| Nothing in the world can be pushed by a car | Online, not the engine: offline the sim could push things exactly, but online each screen sees other players' cars only as poses, so each would push a thing a little differently and they'd drift apart (SPEC §4) | Two ways when it's wanted: a **kick** (a hit is a claimed trigger, then the thing follows a canned path from the hit's speed and angle, the same on every screen: a barrel sent flying), or a **host entity** (the host moves it and sends it out, for things shoved for a while, like a ball; laggier for the pusher) |
 | Deep water is just out of bounds: no wading physics, boats or tides | No water in the sim | Not planned |
 | The AI follows racing lines on the roads: it can't cut across open ground or plan a route | Lines are per spline | Step 7 (pathfinding over the graph) |
 | Features are authored in generator scripts, which sometimes work around the bake (the tube's ends) | No editor for ground features; the bake pulls branches toward the main road | Steps 1–2 (pieces own their heights) |
@@ -293,8 +301,13 @@ What to add (roughly in order of use):
 - **`tools/probe.ts`**: what's at a point: the ground height, the pieces above and below, the
   surface, enclosed or not, the nearest street. The first thing to check when something feels
   wrong at a spot.
-- **`tools/map.ts`**: a top-down image of a whole map (the ground's heights, pieces by kind,
-  routes, checkpoints, features), and a text summary of its size and contents.
+- **`tools/map.ts`**: a top-down image of a whole map (the ground's heights and surfaces,
+  pieces by kind, gaps, lava, trees, routes, checkpoints, the AI's racing line, and where cars
+  wrecked), and a text summary of its size and contents. For designing routes without opening
+  the browser.
+- **A recipe doc** for the common jobs: making a map open, adding a feature module. Plus shared
+  test helpers, and each map's tests in a file of their own (Paradise Open's are in
+  `deck.test.ts` today).
 - **A determinism check**, grown from the test that's there: `test/core.test.ts` ("the same
   inputs from a snapshot give the same state") restores a snapshot on Downtown and compares three
   numbers at the end. Widen it to every map (pieces, moving pieces and features included), a
@@ -316,19 +329,27 @@ stepping frames one at a time, not with `advance()`.
 Each step ships on its own, and the existing maps keep their lap floors throughout (Downtown
 57.9, Backroads 62.82, Avalanche 93.07, Paradise 71.52, Paradise Open 68.07, as of 2026-10-03).
 
-0. **Tools first, small:** `drive`, `probe` and `shot`, since every step below gets tested with
-   them.
+0. **A safety net and tools first.** **Golden fingerprints** for each open map: a hash of its
+   ground (heights, surfaces, decks) and of a fixed 40 s drive. Clean-up steps must leave them
+   identical to the last bit (any change at all fails a test, so refactors can move fast); steps
+   that mean to change the game update them on purpose. Then `drive`, `probe` and `shot`, since
+   every step below gets tested with them.
 1. **The pieces layer and its queries**, with the Lava Tube moved onto it first: it has every
    hard case (a tube, a gap, a kicker, mouths, the camera). Its mouths become portals (the
    shroud goes). Done when the tube plays the same,
    the lap floors don't move, the three special cases in `ground.ts`, `camera.ts` and
    `physics.ts` are gone, and so are `GroundDef`'s `decks`, `branchDecks` and `branchGaps` (the
-   layouts and generators moved to pieces). Clears most of TECH_DEBT's "Open ground and Paradise
-   Open".
+   layouts and generators moved to pieces). On the way: `ground.ts` (692 lines, six jobs) split
+   into a `ground/` folder, the helpers copied across five files (the lateral projection,
+   `smooth`) given one home, branches owning their own heights (so the generator stops working
+   backwards from the bake), and one surface function for drawing and driving. Clears most of
+   TECH_DEBT's "Open ground and Paradise Open".
 2. **Feature modules**: the volcano, coast, beaches, moguls, canyons, decks and the avalanche as
    modules over pieces, each placed in world space or along a named street, not by the main road
-   (moguls and canyons are by the main road today, so they move). The eruption (and a lava flow
-   onto a road) is the first new one.
+   (moguls and canyons are by the main road today, so they move). The first new ones: **lava
+   streams** (a channel cut into the ground, lava you wreck in if you drive down into it, roads
+   bridging over it; the static stream from the volcano toward the reef is the first), then the
+   eruption and a lava flow onto a road.
 3. **Enclosed spaces done properly**: the camera under the ceiling, indoor light and fog, reverb,
    and breakable walls (smashables grown into wall panels, placed in world space, their break a
    claimed trigger online). Then a short indoor stretch on a map: a mall to cut through.
