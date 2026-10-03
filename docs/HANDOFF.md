@@ -5,7 +5,7 @@ The design is [SPEC.md](./SPEC.md): decisions in §17, and what building changed
 building". This file is "where are we"; the spec is "what are we making".
 
 **Last updated:** 2026-10-03 (Paradise Open merged in #81, untagged; the plan for the engine,
-[CALDERA.md](./CALDERA.md), merged in #82; next is the engine's step 0, on `caldera-step-0`; see
+[CALDERA.md](./CALDERA.md), merged in #82; its step 0 merged in #83; next is step 0b or 1a; see
 "Next: Caldera" below). Before that, `alpha-1.30`: Avalanche's snow and rumble quieter. The last tag is **`alpha-1.30`** (PR #77: the snow under the wheels and the avalanche's rumble about 4.5 dB down, the owner's ask). Before it, **`alpha-1.29`** (PRs #71–#74): **Avalanche**, the first open map, one 6.1 km run down a mountain (#74), and the Leap's kicker rounded and launchable from its sides (#71, #72), and PLAN's "Open, freeform maps" direction (#73).
 Before it, `alpha-1.28` (PRs #67–#70: a press flash and a click on the menus' buttons; the title's
 music from the start; Logger's Leap smoothed and bermed), `alpha-1.27` (PRs #63–#65), `alpha-1.26`
@@ -19,7 +19,7 @@ racecar map (pieces as one surface layer, routes as a graph, overrides as an esc
 desktop only, refactor freely and keep the feel). Read its "Principles", "The core idea: pieces",
 "Build order" and "How to work on it" before touching the engine.
 
-**Step 0 is built: PR #83 (`caldera-step-0`), reviewed, CI green, waiting on the owner to merge.**
+**Step 0 is built and merged** (PR #83, 2026-10-03).
 - **Golden fingerprints:** `bun tools/fingerprint.ts` checks every layout's roads, its open ground
   (by the answers to its questions, not how it's stored) and fixed drives (40 s from the grid, 15 s
   down each branch) to the last bit; `--update` records them; `--from-ci` writes CI's from its
@@ -40,15 +40,14 @@ GitHub's runners change CPUs (re-record with `--from-ci`, and check the diff is 
 Docker can't stand in for CI's recording.
 
 **Next, in order:**
-1. **Merge #83** when the owner says.
-2. **Recommended first: our own math for the sim** (call it step 0b; the owner's call). `Math.sin`,
+1. **Recommended first: our own math for the sim** (call it step 0b; the owner's call). `Math.sin`,
    `cos`, `atan2`, `exp`, `pow`, `tan`, `log`, `hypot` written in `core/math.ts` (fixed
    polynomials, correctly rounded `sqrt` is fine), used everywhere in `src/core`. Then every
    platform and browser computes the same bits: one fingerprint file for all, F8 replays exact
    across Chrome and Bun (SPEC records 1.6 cm off after 30 s today), and no flaky CI. It moves
    every number a hair, so fingerprints and lap floors are re-recorded once, which is cheapest
    now, before step 1a leans on them. CALDERA's "Same math in every browser" has the idea.
-3. **Step 1a:** the move onto pieces, with the fingerprints identical (CALDERA's "Build order").
+2. **Step 1a:** the move onto pieces, with the fingerprints identical (CALDERA's "Build order").
    Follow its "How to work on it".
 
 **Avalanche** (merged in #74, out of experimental on the owner's word): open ground you drive on

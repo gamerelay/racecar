@@ -6,7 +6,7 @@ where tubes, gaps and rock faces were first needed, hence the name). **It's a di
 spec.** Details will change while building; note those changes in [SPEC.md](./SPEC.md) under
 "Changed while building", as usual.
 
-**Status (2026-10-03):** reviewed and agreed (PR #82, merged). **Step 0 is built** (PR #83): the
+**Status (2026-10-03):** reviewed and agreed (PR #82, merged). **Step 0 is built and merged** (PR #83): the
 golden fingerprints, the allocation test on the open maps, `tools/drive.ts`, `tools/probe.ts`,
 `tools/shot.ts` and `window.__rc.dev`, over `src/dev/`. Recommended next: our own math for the
 sim (see "Same math in every browser"; the fingerprints showed floats differ by OS and CPU),
