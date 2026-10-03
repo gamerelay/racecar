@@ -658,6 +658,17 @@ stream across a route): then the new floor is recorded, with why.
    today's one-offs are looked at. The first new modules: **lava streams** (see "A feature, end
    to end"; the static stream from the volcano toward the reef is the first), then the eruption
    and a lava flow onto a road.
+   - **2a, the interface** (built): `core/track/features/`, a `Feature` with optional `shape`,
+     `surface`, `hazard` (and `coast`) hooks the ground runs in order; the volcano and the coast
+     moved onto it, the fingerprints identical. `ground.hazard(x, y, z)` replaces `inLava`. The
+     skin still colours the volcano from the layout (a `draw` hook comes with the lava stream,
+     which needs one).
+   - **2b, by-road features into world space:** moguls, canyons, beaches (and the avalanche,
+     which follows a canyon) placed in world space or along a named road. They change where they
+     are by a little, so Avalanche's and Paradise Open's fingerprints are re-recorded.
+   - **2c, overrides:** the layout field, the hooks, `validate`'s list; `pastGap` and the
+     tube's `LAND` looked at.
+   - **2d, the lava stream**, end to end as above.
 3. **Enclosed spaces done properly**: the camera under the ceiling (with hints where it's
    tricky), indoor light and fog, reverb, and breakable walls (smashables grown into wall
    panels, placed in world space, staying broken or standing again as each says, their break a

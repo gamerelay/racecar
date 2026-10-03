@@ -7,7 +7,7 @@
 // ground), which piece, the ground, and the space it's in (open, inside an enclosed piece, or in the
 // rock). The physics, the camera and the tools all ask it.
 //
-//   land.ts      the heightfield: the road, the land between, the volcano, the coast
+//   land.ts      the heightfield: the road, the land between, then the features (track/features)
 //   shape.ts     what the layout adds off the road: swell, rough, moguls, canyons, walls
 //   branches.ts  the branches' cuttings, and the tunnels' mouths opened in the slope
 //   pieces.ts    the pieces: which samples they carry, how they shape the ground, their floors
@@ -17,16 +17,18 @@
 // Pure arithmetic from the layout, so every screen builds the same ground.
 
 import type { GroundDef, PieceDef } from '../../content';
-import { smoothstep as smooth, sq } from '../../math';
+import { smoothstep as smooth } from '../../math';
 import type { BakedSpline } from '../bake';
 import { shapeBranches } from './branches';
 import { buildLand } from './land';
 import { DECK_CATCH, definePieces, floorQuery, type Pieces } from './pieces';
 import { groundKinds } from './surface';
+import { groundFeatures, type Feature, type Hazard } from '../features';
 
 export { DECK_CATCH, DECK_SLACK, type Piece, type Pieces } from './pieces';
 export { canyonAt, canyonDepth, groundShape, noise } from './shape';
 export { OUTLINE_POINTS, outlineAt } from './outline';
+export type { Feature, Hazard } from '../features';
 export { KIND_BEACH, KIND_BRANCH, KIND_ROAD, KIND_SAND, KIND_SHORE, KIND_VERGE, surfaceNoise } from './surface';
 
 /** A beach's ends (GroundDef.beaches) fade in over this many meters. */
@@ -94,8 +96,10 @@ export interface Ground {
   readonly beach: Float32Array;
   /** Signed distance to the coast (GroundDef.coast), positive inland; Infinity with none. */
   coast(x: number, z: number): number;
-  /** Whether (x, z) at height `y` is down in the volcano's lava lake (GroundDef.volcano). */
-  inLava(x: number, z: number, y: number): boolean;
+  /** The features shaping it (track/features), in order. */
+  readonly features: readonly Feature[];
+  /** What's dangerous at (x, y, z): a feature's say (the volcano's lava lake), else 'none'. */
+  hazard(x: number, y: number, z: number): Hazard;
   /**
    * A piece's floor at (x, z): its road's plane, if the point is over one, within `slack` m past
    * its edges (the road and its shoulder); the highest at or below `y` (by DECK_CATCH), if there's
@@ -113,7 +117,8 @@ export interface Ground {
 /** The ground for `def` round `main`, its `branches` and the layout's `pieces`. */
 export function buildGround(def: GroundDef, main: BakedSpline, branches: BakedSpline[] = [], pieceDefs: readonly PieceDef[] = []): Ground {
   const pieces = definePieces(pieceDefs, [main, ...branches]);
-  const land = buildLand(def, main, pieces);
+  const features = groundFeatures(def);
+  const land = buildLand(def, main, pieces, features);
   const { x0, z0, cell, nx, nz, h } = land;
   const { onBranch, branchSurface, hole } = shapeBranches(land, main, branches, pieces);
   const floors = floorQuery(pieces, main, branches, land);
@@ -126,9 +131,9 @@ export function buildGround(def: GroundDef, main: BakedSpline, branches: BakedSp
       beach[i] = side * smooth(0, BEACH_FADE, Math.min(d, len - d));
     }
   }
-  const kind = groundKinds(def, land, main, { onBranch, branchSurface, hole }, pieces, beach);
-  const sea = def.sea ?? 0;
-  const volcano = def.volcano;
+  const kind = groundKinds(land, main, { onBranch, branchSurface, hole }, pieces, beach, features);
+  const hazards = features.filter((f) => f.hazard);
+  const coastOf = features.find((f) => f.coast);
   const at = (gx: number, gz: number) => h[Math.min(nz - 1, Math.max(0, gz)) * nx + Math.min(nx - 1, Math.max(0, gx))];
   const scratch = newCast();
   return {
@@ -153,9 +158,14 @@ export function buildGround(def: GroundDef, main: BakedSpline, branches: BakedSp
     hole,
     sea: def.sea,
     face: def.face,
-    coast: land.coast,
-    inLava(x, z, y) {
-      return !!volcano && sq(x - volcano.x) + sq(z - volcano.z) < sq(volcano.crater) && y < sea + volcano.lava + 0.3;
+    features,
+    coast: coastOf ? coastOf.coast! : () => Infinity,
+    hazard(x, y, z) {
+      for (const f of hazards) {
+        const h = f.hazard!(x, y, z);
+        if (h !== 'none') return h;
+      }
+      return 'none';
     },
     pieceFloor: floors.floor,
     cast(x, y, z, out) {

@@ -415,8 +415,8 @@ function followGround(sim: SimState, i: number, dt: number): void {
   // Deep water (GroundDef.sea): down on the ground, well under the sea's level (a deck over it is above it).
   const sea = sim.track.ground?.sea;
   const deep = sea !== undefined && cars.grounded[i] === 1 && ground < sea - WADE;
-  // Down in the volcano's lava lake: a wreck, burnt up (GroundDef.volcano).
-  if (sim.track.ground?.inLava(cars.x[i], cars.z[i], cars.y[i]) && !cars.wreck[i]) {
+  // Down in lava (the volcano's lake: a feature's hazard), a wreck, burnt up.
+  if (sim.track.ground?.hazard(cars.x[i], cars.y[i], cars.z[i]) === 'lava' && !cars.wreck[i]) {
     wreckCar(sim, i, Cause.Hazard, 0, 0, -1);
     cars.wreckT[i] = T.wreckTime - 1;
     return;

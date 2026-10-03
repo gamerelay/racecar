@@ -26,6 +26,8 @@ and where things stand is [docs/HANDOFF.md](./docs/HANDOFF.md).
   - **Branches can own their heights** (step 1c): the Lava Tube's heights are written as it
     drives, not worked out backwards from how the bake used to blend it into the road. It drives
     the same.
+  - **Feature modules** (step 2a): the volcano and the coast as modules the ground runs, the
+    first of a map's features to be. Nothing changes in play.
   - **The coast's sand drives as sand** (step 1d): what the ground is drawn as is what it drives
     as, and the wet strip at the water's edge is `shore`.
 - **A road over the ground** (docs/PARADISE.md, step 0): a deck on open ground, the main road over

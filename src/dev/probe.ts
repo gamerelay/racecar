@@ -104,7 +104,7 @@ export function probe(track: Track, x: number, z: number, y?: number): Probe {
     hole: k >= 0 && g.hole[k] === 1,
     beach: nearMain >= 0 ? Math.sign(g.beach[nearMain]) : 0,
     coast: Number.isFinite(coast) ? coast : null,
-    lava: g.inLava(x, z, yy),
+    lava: g.hazard(x, yy, z) === 'lava',
   };
   return out;
 }
