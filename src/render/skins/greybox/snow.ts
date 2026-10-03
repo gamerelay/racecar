@@ -5,7 +5,7 @@
 // sit (a canyon's lip, the walls at the edges). A road that isn't snow gets its lines painted on.
 // The pines are the track's own list (core/track/pines.ts), each drawn where its collider stands.
 
-import { BufferAttribute, BufferGeometry, Color, ConeGeometry, CylinderGeometry, Float32BufferAttribute, IcosahedronGeometry, InstancedMesh, Matrix4, Mesh, Quaternion, Vector3, type Object3D } from 'three';
+import { BufferAttribute, BufferGeometry, Color, ConeGeometry, CylinderGeometry, Float32BufferAttribute, IcosahedronGeometry, InstancedMesh, LOD, Matrix4, Mesh, Quaternion, Vector3, type Object3D } from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import type { Track } from '../../../core/track/bake';
 import { hash01 } from '../../../core/rng';
@@ -16,6 +16,18 @@ const ROCK = 1.1;
 const ROCK_COLOR = new Color('#7d8796');
 /** A tile's side, in cells. */
 const TILE = 64;
+/**
+ * Each tile in less detail further off (docs/AVALANCHE.md, item 9): every `stride`-th grid point
+ * from `from` m (tile middle to camera). Looking down the run from the top, the whole mountain to
+ * the far plane was 750 thousand triangles; a phone's budget is a fraction of that.
+ */
+const DETAIL = [
+  { stride: 1, from: 0 },
+  { stride: 2, from: 700 },
+  { stride: 4, from: 1600 },
+];
+/** A skirt hangs this far down every tile's edge, so where a coarser tile meets a finer one there's snow in the gap, not sky. */
+const SKIRT = 6;
 /** The lines' lift off the ground: clear of it, under the skids. */
 const LIFT = 0.05;
 
@@ -61,29 +73,80 @@ export function buildSnow(track: Track): Object3D[] {
           col[o + 2] = c.b;
         }
       }
-      const index = new Uint32Array((w - 1) * (d - 1) * 6);
-      let m = 0;
-      for (let vz = 0; vz < d - 1; vz++) {
-        for (let vx = 0; vx < w - 1; vx++) {
-          const a = vz * w + vx;
-          const b = a + w;
-          index[m++] = a;
-          index[m++] = b;
-          index[m++] = a + 1;
-          index[m++] = a + 1;
-          index[m++] = b;
-          index[m++] = b + 1;
+      // The skirt: the edge's points again, SKIRT lower (the edge goes round the tile once).
+      const edge: number[] = [];
+      for (let vx = 0; vx < w; vx++) edge.push(vx);
+      for (let vz = 1; vz < d; vz++) edge.push(vz * w + w - 1);
+      for (let vx = w - 2; vx >= 0; vx--) edge.push((d - 1) * w + vx);
+      for (let vz = d - 2; vz > 0; vz--) edge.push(vz * w);
+      const all = w * d;
+      const edgeAt = new Map(edge.map((k, e) => [k, all + e]));
+      const skirt = (k: number) => edgeAt.get(k)!;
+      const P = new Float32Array((all + edge.length) * 3);
+      const N = new Float32Array(P.length);
+      const C = new Float32Array(P.length);
+      P.set(pos);
+      N.set(nor);
+      C.set(col);
+      edge.forEach((k, e) => {
+        for (let a = 0; a < 3; a++) {
+          P[(all + e) * 3 + a] = pos[k * 3 + a] - (a === 1 ? SKIRT : 0);
+          N[(all + e) * 3 + a] = nor[k * 3 + a];
+          C[(all + e) * 3 + a] = col[k * 3 + a];
         }
+      });
+      // Relative to the tile's middle, so the detail can go by its distance.
+      const cx = x0 + (tx + (w - 1) / 2) * cell;
+      const cz = z0 + (tz + (d - 1) / 2) * cell;
+      for (let v = 0; v < P.length; v += 3) {
+        P[v] -= cx;
+        P[v + 2] -= cz;
       }
-      const geo = new BufferGeometry();
-      geo.setAttribute('position', new Float32BufferAttribute(pos, 3));
-      geo.setAttribute('normal', new Float32BufferAttribute(nor, 3));
-      geo.setAttribute('color', new Float32BufferAttribute(col, 3));
-      geo.setIndex(new BufferAttribute(index, 1));
-      geo.computeBoundingSphere();
-      const mesh = new Mesh(geo, material);
-      mesh.matrixAutoUpdate = false;
-      out.push(mesh);
+      const position = new Float32BufferAttribute(P, 3);
+      const normal = new Float32BufferAttribute(N, 3);
+      const color = new Float32BufferAttribute(C, 3);
+      const lod = new LOD();
+      lod.position.set(cx, 0, cz);
+      lod.updateMatrix();
+      lod.matrixAutoUpdate = false;
+      for (const { stride, from } of DETAIL) {
+        // Every stride-th point across and down, and always the last, so every level has the same edge.
+        const xs: number[] = [];
+        for (let vx = 0; vx < w - 1; vx += stride) xs.push(vx);
+        xs.push(w - 1);
+        const zs: number[] = [];
+        for (let vz = 0; vz < d - 1; vz += stride) zs.push(vz);
+        zs.push(d - 1);
+        const index: number[] = [];
+        for (let j = 0; j < zs.length - 1; j++) {
+          for (let i = 0; i < xs.length - 1; i++) {
+            const a = zs[j] * w + xs[i];
+            const b = zs[j + 1] * w + xs[i];
+            const a1 = zs[j] * w + xs[i + 1];
+            const b1 = zs[j + 1] * w + xs[i + 1];
+            index.push(a, b, a1, a1, b, b1);
+          }
+        }
+        // The skirt along this level's edge, both faces (it's seen from either side).
+        const ring = [...xs.map((x) => x), ...zs.slice(1).map((z) => z * w + w - 1), ...xs.slice(0, -1).reverse().map((x) => (d - 1) * w + x), ...zs.slice(1, -1).reverse().map((z) => z * w)];
+        for (let r = 0; r < ring.length; r++) {
+          const p = ring[r];
+          const q = ring[(r + 1) % ring.length];
+          const ps = skirt(p);
+          const qs = skirt(q);
+          index.push(p, ps, q, q, ps, qs, p, q, ps, q, qs, ps);
+        }
+        const geo = new BufferGeometry();
+        geo.setAttribute('position', position);
+        geo.setAttribute('normal', normal);
+        geo.setAttribute('color', color);
+        geo.setIndex(new BufferAttribute(Uint32Array.from(index), 1));
+        geo.computeBoundingSphere();
+        const mesh = new Mesh(geo, material);
+        mesh.matrixAutoUpdate = false;
+        lod.addLevel(mesh, from);
+      }
+      out.push(lod);
     }
   }
   const lines = roadLines(track);

@@ -229,6 +229,37 @@ describe("Avalanche's Slope", () => {
   });
 });
 
+describe("the Slope's draw and build (item 9)", () => {
+  test("each grid point's nearest road sample is exactly the nearest (the search is a shortcut, not an approximation)", () => {
+    const track = slope();
+    const g = track.ground!;
+    const main = track.main;
+    for (let n = 0; n < 1500; n++) {
+      const k = Math.floor(((n * 7919) % 104729) / 104729 * g.h.length);
+      const x = g.x0 + (k % g.nx) * g.cell;
+      const z = g.z0 + Math.floor(k / g.nx) * g.cell;
+      let best = Infinity;
+      for (let i = 0; i < main.n; i++) best = Math.min(best, (main.px[i] - x) ** 2 + (main.pz[i] - z) ** 2);
+      const i = g.near[k];
+      expect((main.px[i] - x) ** 2 + (main.pz[i] - z) ** 2).toBe(best);
+    }
+  });
+
+  test('the ground is drawn in tiles, each in less detail further off, with a skirt on every level', async () => {
+    const { buildSnow } = await import('../src/render/skins/greybox/snow');
+    const tiles = buildSnow(slope()).filter((o) => (o as { isLOD?: boolean }).isLOD) as unknown as { levels: { distance: number; object: { geometry: { index: { count: number } } } }[] }[];
+    expect(tiles.length).toBeGreaterThan(50);
+    for (const t of tiles.slice(0, 10)) {
+      expect(t.levels.length).toBe(3);
+      const tris = t.levels.map((l) => l.object.geometry.index.count / 3);
+      // Each level a quarter or so of the one before, give or take its skirt.
+      expect(tris[1]).toBeLessThan(tris[0] * 0.35);
+      expect(tris[2]).toBeLessThan(tris[1] * 0.4);
+      expect(t.levels[1].distance).toBeGreaterThan(400);
+    }
+  });
+});
+
 describe("the Slope's rocks", () => {
   test('a few snow-capped rocks and ridges stand on the piste, solid, on the ground', () => {
     const track = slope();

@@ -53,7 +53,8 @@ can find lines the AI doesn't.
   - Slalom gates.
   - Pines.
   - The ski jump.
-- **Next:** 9 (a phone), 10 (the release, the owner's call). Item 8 (the AI downhill) is built.
+- **Next:** a drive on a real phone, then 10 (the release, the owner's call). Items 8 (the AI
+  downhill) and 9 (lighter for a phone: a 4–5× faster bake, a third of the triangles) are built.
 - **Numbers:**
   - The hard coupe's floor is 93.07 s clear and 93.6 s in snow (100.03 s before item 8: the AI
     braked to hold its top speed down the pitches).
@@ -240,8 +241,9 @@ building, by measurement or by the philosophy above.
 
 - **Not heard yet:** the snow crunch and hiss, the avalanche's rumble and the gate chime were all
   built without listening. They're worth a race with the sound up.
-- **The bake time:** the ground took about 0.6 s on a desktop at first. It measured about 2 s
-  under heavy load later (the pines are 8 ms of it). Measure it on a phone (item 9) before release.
+- **Not measured on a phone:** item 9 made the bake 4–5× faster (2.0–2.4 s to 0.4–0.5 s on a
+  desktop) and the draw about a third of the triangles. A phone is the real test, and no one has
+  driven it on one yet.
 - **The world's outer edge:** on the outside of some stretches the drawn ground ends 130–150 m out,
   and flying off it respawns you. A quarter-pipe or a wider world would change the slopes' look, so
   it's left as it is (owner).
@@ -855,12 +857,32 @@ The sketches as they were:
    - **Left:** corner speeds with the bank in them (it hasn't mattered on a piste this wide), and
      ridge shortcuts (the AI never jumps a ridge).
 
-9. **On a phone.**
+9. **On a phone.** **Built (2026-10-02),** as far as a desktop can measure, see below.
    - Measure: the ground's build (0.6 s on a desktop), its draw (0.48 million points in 128 m
      tiles), the rocks and the snow spray, on a mid-range phone.
    - If it's slow: "Looking ahead"'s corridor (only the tiles near the road at 2.5 m, a coarse
      mesh past them) and a level of detail per tile, and build the ground in a worker or once and
      cache it.
+   **Built (2026-10-02, in PR #74).** Measured on a desktop; not yet on a phone.
+   - **The bake: 2.0–2.4 s down to 0.4–0.5 s, the same ground to the bit.** 1.7 s of it was finding
+     each grid point's nearest road sample. Every point walked rings of 24 m buckets out to the
+     road, hundreds of them empty that far off it, and checked every sample a meter apart. The new
+     search (`sampleSearch` in `ground.ts`) works on one sample in eight. Per bucket, once, it finds
+     the coarse samples that could be nearest to any point in that bucket. Per point, it checks
+     those, then the fine samples near any that could still win (the triangle inequality bounds
+     them). It's exact: compared over the whole grid (7.9 MB of heights, nearest samples and
+     laterals), and a test checks it against brute force. The ground tests went from 11 s to 4 s.
+   - **The draw: a third of the triangles.** Looking down the run, the ground in view was about
+     750 thousand triangles (every 2.5 m cell to the far plane at 3 km). Now each 160 m tile is a
+     `LOD`: every grid point near, every second from 700 m, every fourth from 1,600 m. A 6 m skirt
+     on every level's edge fills any gap where levels meet. In view now: 165–270 thousand.
+     - Tried first at 450 m and 1,100 m (90 thousand). The toon shading's band edges stepped
+       visibly coarser in the middle distance, so the levels moved out until it looked as before.
+   - **What else was checked:** pixel ratio is already capped at 2 with a resolution setting.
+     The ink pass draws cars only. Draw calls are about 175.
+   - **Left:** a real phone. If it's still slow: lower the far plane on small screens, or build
+     the ground in a worker.
+
 10. **Release.**
     - The lobby (one run), the map's thumbnail and minimap for an open run, the validator taught
       about `layout.run` (it assumes a loop: the grid 50 m behind s = 0, checkpoints wrapping).

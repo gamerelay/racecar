@@ -19,10 +19,11 @@ sides (#71, #72), and PLAN's "Open, freeform maps" direction (#73).
 **Experimental, not for release: Avalanche** (draft PR #74, branch `avalanche-plan`, label
 `experimental`). The first open map, one run from a summit to a valley: open ground you drive on
 everywhere, slope gravity on snow, moguls, canyons, kickers, snow-capped rocks on the piste, and an
-open main road (one run, no laps). The loose plan's items 1–8 are built too: the run reads as a run
+open main road (one run, no laps). The loose plan's items 1–9 are built too: the run reads as a run
 (HUD distance to the bottom, start and finish gates), the camera follows the slope, snow tracks,
 sounds and snowfall, the avalanche at chaos, slalom gates, pine forests (solid), and a ski jump.
-Item 8 too: the AI lets the slope carry it, brakes with the slope in its plan, and rides the canyons.
+Items 8 and 9 too: the AI lets the slope carry it, brakes with the slope in its plan and rides the
+canyons; the bake is 4–5× faster and the ground draws in levels of detail.
 Out of the lobby and the map lists (`experimental: true`); open
 it at `?mode=free&map=avalanche/slope` with the branch checked out. Everything about it, built and
 next, is [AVALANCHE.md](./AVALANCHE.md): "Built so far", then "Next: a loose plan" (ten items, the
@@ -73,8 +74,9 @@ How to start:
   braking with the slope. It rides a canyon now and then, and the avalanche is re-tuned to catch
   the slowest car late. The floor is 93.07 s. The AI never takes ridge shortcuts: watch whether
   players' ones need trees or rock to tame them.
-- **Item 9, a phone:** the ground's bake (0.6 s on a desktop, about 2 s under load), its draw, the
-  pines and the snow spray.
+- **Item 9, a phone: built as far as a desktop shows.** The bake is 4–5× faster (0.4–0.5 s, the
+  same ground to the bit), and the ground draws in three levels of detail (a third of the
+  triangles). It's still to be driven on a real phone.
 - **Item 10, the release** (the owner's call):
   - The lobby (its "one run" text is built, waiting).
   - The thumbnail and minimap for an open run.
