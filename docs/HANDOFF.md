@@ -31,7 +31,7 @@ desktop only, refactor freely and keep the feel). Read its "Principles", "The co
 - **The allocation test** on Paradise Open and Avalanche. A 30 s per-test timeout (`bun run
   test`; CI uses it), since CI runs about 3x slower.
 
-**Step 0b, the sim's own math, is built** (branch `caldera-own-math`, 2026-10-03). Step 0 found
+**Step 0b, the sim's own math, is built and merged** (PR #84, 2026-10-03). Step 0 found
 floats differ in their last bits by OS and by CPU (Docker: Linux arm64 vs macOS arm64, emulated vs
 CI's x64), so there was a recording per platform. Now `core/math.ts` has the sim's own `sin`, `cos`,
 `tan`, `atan`, `atan2`, `exp`, `log`, `pow` and `hypot` (fdlibm's algorithms in `+ - * /` and

@@ -8,8 +8,8 @@ spec.** Details will change while building; note those changes in [SPEC.md](./SP
 
 **Status (2026-10-03):** reviewed and agreed (PR #82, merged). **Step 0 is built and merged** (PR #83): the
 golden fingerprints, the allocation test on the open maps, `tools/drive.ts`, `tools/probe.ts`,
-`tools/shot.ts` and `window.__rc.dev`, over `src/dev/`. **Step 0b, the sim's own math**, is
-built (see "Same math in every browser"): one fingerprint file for every platform. Next: step
+`tools/shot.ts` and `window.__rc.dev`, over `src/dev/`. **Step 0b, the sim's own math**, is merged (PR #84):
+see "Same math in every browser"; one fingerprint file for every platform. Next: step
 1a. HANDOFF has the detail.
 
 **Reading it:** "Principles" and "The core idea: pieces" are the design; "Build order" and "How
@@ -583,7 +583,7 @@ seconds: Downtown 57.9, Backroads 62.82, Avalanche 93.07, Paradise 71.52, Paradi
 of 2026-10-03), unless a step means to change a map (the coast's sand driving as sand, a lava
 stream across a route): then the new floor is recorded, with why.
 
-0. **A safety net and tools first** (built, PR #83), and **0b, the sim's own math** (built), so
+0. **A safety net and tools first** (built, PR #83), and **0b, the sim's own math** (built, PR #84), so
    the fingerprints are the same bits on every platform. The golden fingerprints for each open map, and the
    allocation test on them. Clean-up steps must leave the fingerprints identical to the last
    bit (any change at all fails a test, so refactors can move fast); steps that mean to change
