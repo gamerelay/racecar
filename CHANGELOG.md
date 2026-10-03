@@ -6,6 +6,10 @@ and where things stand is [docs/HANDOFF.md](./docs/HANDOFF.md).
 
 ## Unreleased
 
+## alpha-1.29: Avalanche, the first open map
+
+PRs #71–#74.
+
 - **A new map: Avalanche.** The first open map: one 6.1 km run from a summit to a valley, no laps.
   - All the mountainside you can see is yours to drive. Snow pulls you down the slopes, and
     there are no invisible walls: ridges are yours to jump.

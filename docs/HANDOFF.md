@@ -4,30 +4,22 @@ Where racecar stands and what's next, for whoever picks it up (a person or a fre
 The design is [SPEC.md](./SPEC.md): decisions in §17, and what building changed in "Changed while
 building". This file is "where are we"; the spec is "what are we making".
 
-**Last updated:** 2026-10-02 (Avalanche out of experimental, not yet merged; the owner's next direction: Paradise open). The last tag is **`alpha-1.28`** (PRs #67–#70: a press flash and a
-click on the menus' buttons; the title's music from the start where the browser allows it, with a
-"press any key" hint where it doesn't; Logger's Leap smoothed and bermed, and shortcuts' mouths
-cleaner on every map; the traffic fading in front of you investigated, its fix to choose, in
-PLAN). Before it, `alpha-1.27` (PRs #63–#65: PLAN's next-up notes, a pickup truck and Avalanche; a
-tech-debt pass; the mirrored minimap and two speed fixes), `alpha-1.26` (PR #62: two new tracks), `alpha-1.25` (PR #61: boost, Overdrive, the
-slipstream) and `alpha-1.24` (PRs #49–#60). It's on the hosted build ("Hosted test build"
-below).
+**Last updated:** 2026-10-02 (`alpha-1.29`: Avalanche shipped; the owner's next direction: Paradise open). The last tag is **`alpha-1.29`** (PRs #71–#74): **Avalanche**, the first open map, one 6.1 km run down a mountain (#74), and the Leap's kicker rounded and launchable from its sides (#71, #72), and PLAN's "Open, freeform maps" direction (#73).
+Before it, `alpha-1.28` (PRs #67–#70: a press flash and a click on the menus' buttons; the title's
+music from the start; Logger's Leap smoothed and bermed), `alpha-1.27` (PRs #63–#65), `alpha-1.26`
+(PR #62: two new tracks), `alpha-1.25` (PR #61: boost, Overdrive, the slipstream) and `alpha-1.24`
+(PRs #49–#60).
+**The hosted build is still `alpha-1.28`:** the new single file is built and passes asleepace.com's
+sanitizer, but updating the `games` row needs the owner (the production database; "Hosted test
+build" below).
 
-**Since alpha-1.28** (on `main`, not tagged): the Leap's kicker rounded and launchable from its
-sides (#71, #72), and PLAN's "Open, freeform maps" direction (#73).
-
-**Avalanche, out of experimental (the owner, 2026-10-02), not yet merged** (PR #74, branch
-`avalanche-plan`). The first open map, one run from a summit to a valley: open ground you drive on
-everywhere, slope gravity on snow, moguls, canyons, kickers, snow-capped rocks on the piste, and an
-open main road (one run, no laps). The loose plan's items 1–9 are built too: the run reads as a run
-(HUD distance to the bottom, start and finish gates), the camera follows the slope, snow tracks,
-sounds and snowfall, the avalanche at chaos, slalom gates, pine forests (solid), and a ski jump.
-Items 8 and 9 too: the AI lets the slope carry it, brakes with the slope in its plan and rides the
-canyons; the bake is 4–5× faster and the ground draws in levels of detail.
-In the lobby, the vote and quick race now (with the branch checked out), racing to the four
-any-map tracks; open it at `?mode=free&map=avalanche/slope`. Everything about it, built and next,
-is [AVALANCHE.md](./AVALANCHE.md). Don't merge it to `main` or tag from it until the owner says;
-a `/code-review` of #74 comes first.
+**Avalanche** (merged in #74, out of experimental on the owner's word): open ground you drive on
+everywhere, slope gravity on snow, moguls, canyons, kickers, rocks, 18 slalom gates, about 650
+solid pines, a ski jump, snowfall and tracks, the camera following the slope, and an avalanche at
+chaos. The AI lets the slope carry it and rides the canyons. In the lobby, the vote and quick race,
+racing to the four any-map tracks. Everything about it is [AVALANCHE.md](./AVALANCHE.md). The
+owner drove it ("it feels good"); phones aren't a target for it. The `/code-review` found two
+low-severity bugs, fixed before the merge.
 
 **The owner's direction (2026-10-02): open maps, starting with Paradise.** The owner really liked
 the Avalanche experiment ("this is really really awesome", "this map is amazing") and wants
@@ -59,28 +51,15 @@ Then tune.
 How to start:
 - Build it as an experimental layout beside the current one (say `paradise/open`), out of the
   lobby, like Avalanche, until the owner picks.
-- It needs #74's open-ground code (`Ground`, slope gravity, the bounds, `pines`), so either #74
-  merges first (it's out of experimental now; the merge is the owner's call) or the work branches
-  from `avalanche-plan`.
-  Ask.
+- It builds on #74's open-ground code (`Ground`, slope gravity, the bounds, `pines`), now on
+  `main`: branch from `main`.
 
 **What's left on Avalanche** (AVALANCHE.md has the detail):
-- **The owner drove it** (2026-10-02): "it feels good".
 - **Listen:** the snow crunch and hiss, the avalanche's rumble and the gate chime haven't been
   heard by ear.
-- **Item 8, the AI downhill: built.** It lets the slope carry it past its top speed and plans its
-  braking with the slope. It rides a canyon now and then, and the avalanche is re-tuned to catch
-  the slowest car late. The floor is 93.07 s. The AI never takes ridge shortcuts: watch whether
-  players' ones need trees or rock to tame them.
-- **Item 9, lighter: built.** The bake is 4–5× faster (0.4–0.5 s, the same ground to the bit),
-  and the ground draws in three levels of detail (a third of the triangles). Phones aren't a
-  target for this map (the owner: not enjoyable to play on one).
-- **Item 10, the release: built, but not merged.** The validator knows a run. The lobby's
-  thumbnail and the minimap draw it open with its finish marked. It races to the four any-map
-  tracks. `experimental` is off. Left: a /code-review of #74, the merge and the tag (the owner's
-  call).
-- **Before merging:** a `/code-review` of #74 with its full URL (it touches shared physics,
-  progress, bake, collisions and the AI). Check you're still on the branch afterwards.
+- **Ridge shortcuts:** the AI never takes them; watch whether players' ones need trees or rock.
+- **The AI's corner speeds don't know the bank** (it hasn't mattered on a piste this wide).
+
 Every release is in [CHANGELOG.md](../CHANGELOG.md): add to its "Unreleased" section as you go,
 and retitle that section when you tag. [PLAN.md](./PLAN.md)'s six phases are all merged (it keeps
 a pool of other ideas), how online works is [ONLINE.md](./ONLINE.md), how maps are made is
@@ -396,7 +375,8 @@ the cone's far flanks.
   - **CORS on the Space** (GET and HEAD from any origin) stays: it lets a build read the Space's
     origin directly too, if the CDN is ever down.
 - **What's there now:** `alpha-1.28` (PRs #67–#70), updated 2026-10-02, with every track on the
-  CDN. Keep it the one row: update Z442EE in place rather than adding a game.
+  CDN. `alpha-1.29` is built (`dist-single/racecar.html`, sanitizer ok) and waits for the owner to
+  update the row. No new tracks: the CDN needs nothing. Keep it the one row: update Z442EE in place rather than adding a game.
 
 ## Next, in order
 
