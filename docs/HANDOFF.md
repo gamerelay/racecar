@@ -6,7 +6,9 @@ building". This file is "where are we"; the spec is "what are we making".
 
 **Last updated:** 2026-10-03 (Paradise Open merged in #81, untagged; the plan for the engine,
 [CALDERA.md](./CALDERA.md), merged in #82; steps 0 and 0b merged in #83 and #84; 1a, 1b and 1c in
-PRs #85, #86 and #87, merged; 1d merged in #88; 2a (feature modules) in #89; 2b in #90; the uneven mud in #91; see "Next: Caldera" below). Before that, `alpha-1.30`: Avalanche's snow and rumble quieter. The last tag is **`alpha-1.30`** (PR #77: the snow under the wheels and the avalanche's rumble about 4.5 dB down, the owner's ask). Before it, **`alpha-1.29`** (PRs #71–#74): **Avalanche**, the first open map, one 6.1 km run down a mountain (#74), and the Leap's kicker rounded and launchable from its sides (#71, #72), and PLAN's "Open, freeform maps" direction (#73).
+PRs #85, #86 and #87, merged; 1d merged in #88; 2a and 2b (feature modules) in #89 and #90; the
+jungle's uneven mud in #91 and #92; all merged, untagged; next is 2c, overrides; see "Next:
+Caldera" below). Before that, `alpha-1.30`: Avalanche's snow and rumble quieter. The last tag is **`alpha-1.30`** (PR #77: the snow under the wheels and the avalanche's rumble about 4.5 dB down, the owner's ask). Before it, **`alpha-1.29`** (PRs #71–#74): **Avalanche**, the first open map, one 6.1 km run down a mountain (#74), and the Leap's kicker rounded and launchable from its sides (#71, #72), and PLAN's "Open, freeform maps" direction (#73).
 Before it, `alpha-1.28` (PRs #67–#70: a press flash and a click on the menus' buttons; the title's
 music from the start; Logger's Leap smoothed and bermed), `alpha-1.27` (PRs #63–#65), `alpha-1.26`
 (PR #62: two new tracks), `alpha-1.25` (PR #61: boost, Overdrive, the slipstream) and `alpha-1.24`
@@ -89,10 +91,24 @@ entries (`kind: 'moguls' | 'canyon' | 'beach'`), modules in `core/track/features
 `canyonAt` (the avalanche's shelter, the trees); the AI reads a canyon's `def`. They stay placed
 along the main road (CALDERA's note): a clean-up, every fingerprint identical.
 
-**The jungle's mud, a little uneven** (PR #91, merged 2026-10-03): an `uneven` feature on the red-earth road, lumps ~0.35 m, calmer on the banked
-turns; PARADISE.md has the numbers. Floor and field unchanged.
+**The jungle's mud, a little uneven** (the owner's ask; PRs #91 and #92, merged 2026-10-03): an
+`uneven` feature (`features/uneven.ts`) on the red-earth road (2,092–2,746 m, found by the
+generator from the road's surface): lumps up to 0.35 m, 7 m across, at half height on the banked
+turns (at 0.7 the drift test fails: the bank's hold is lost). The island's road is drawn in 6
+strips across there, following them. Floor 68.10 and the field unchanged. If the owner says it
+still feels flat: `MUD` in `gen-paradise-open.ts` (height, size), and `ON_BANK` in `uneven.ts`.
 
-**Next:** step 2c, overrides; 2d, the lava stream (world-space placement starts there).
+**Next: step 2c, overrides** (CALDERA's "Overrides: the escape hatch" and its `Override` type):
+`overrides: [{ id, reason, region }]` in the layout (a box, or a stretch of a road and a band across
+it), the code in `src/maps/<map>/overrides.ts` keyed by id, run only through fixed hooks (the
+cast's result, a car's tuning inside, walls, a camera hint, a respawn, a per-tick step), after
+every feature's and inside the region only. `probe` says "override active", `validate` lists them
+with their reasons. The candidates to look at: `pastGap`'s respawn rule for the Lava Tube's jump
+(it finds the kicker by its ramp heights) and the generator's `LAND` shaping of the tube's entry.
+A clean-up if nothing moves onto one; say so in the PR. Then **2d, the lava stream**, end to end
+(CALDERA's "A feature, end to end"): world-space placement (a path) starts there, and a feature
+`draw` hook in the skin, and its rock banks need a surface (a new kind, or `surface` returning a
+surface id: decide then). TECH_DEBT has the small things the reviews left (overlapping features).
 
 **Working notes (2026-10-03):**
 - One PR per step, a fresh reviewer at the end (it found real bugs every time: in 0b, 1a and 1b),
@@ -103,6 +119,13 @@ turns; PARADISE.md has the numbers. Floor and field unchanged.
   A contact sheet (`--s 50,60,70`) is one run.
 - For anything drawn, a headless check beats screenshots: 1b's cut was checked by sampling the
   terrain against the outline (`test/portal.test.ts`), which found two bugs no screenshot showed.
+- Working on two things at once: a `git worktree` in the scratchpad, `node_modules` symlinked from
+  the main checkout, and its own Vite (`./node_modules/.bin/vite --port 5179 --strictPort`, then
+  `tools/shot.ts --port 5179`). Reviewers get their own worktree too, so nobody stashes over you.
+- `git checkout <file>` to undo a quick experiment throws away *all* the file's changes: copy the
+  file aside and back instead (it cost a redo in 1c).
+- Field wrecks over 40 seeds move by ±2 with any change to a lap's timing (wrecks shift around the
+  map): diff them by seed and place (`lap-report --field --seed N`) before calling it a regression.
 
 **Avalanche** (merged in #74, out of experimental on the owner's word): open ground you drive on
 everywhere, slope gravity on snow, moguls, canyons, kickers, rocks, 18 slalom gates, about 650
@@ -187,7 +210,8 @@ Next (PARADISE.md's "Next" has the list; after the engine's first steps, the own
 - **Balance:** the hard AI makes the jump every lap, so the floor is 68.05 s (70.03 s without the
   tube; 68.07 s after review). For a player it's a gamble now; whether the AI should miss sometimes is the owner's call.
 - **The rest of PARADISE.md's steps:** the routes from the sketch (step 2: today's island lap is
-  still the only road), the half-moon bridge, real mud, the lava spurt, then Harbor Town and the
+  still the only road), the half-moon bridge, real mud (the jungle road's lumps are in, #91; mud
+that slows or slides isn't), the lava spurt, then Harbor Town and the
   dressing with colliders (step 8).
 
 **What's left on Avalanche** (AVALANCHE.md has the detail):
