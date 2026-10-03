@@ -84,5 +84,20 @@ describe('feature modules', () => {
     expect(Math.max(-lo, hi)).toBeLessThanOrEqual(u.height * 0.5);
     expect(at(u.s[0] - 1, 3, 4)).toBe(0);
     expect(at(u.s[1] + 1, 3, 4)).toBe(0);
+    // In the baked ground, the road's lumps survive (the coast and the volcano leave them), calmer
+    // on the banked right-hander than on the straight after the turns.
+    const g = track.ground!;
+    const m = track.main;
+    const flat = bakeTrack({ ...layout('paradise-open/open'), ground: { ...layout('paradise-open/open').ground!, features: layout('paradise-open/open').ground!.features!.filter((f) => f.kind !== 'uneven') } }, SURFACES).ground!;
+    const lumps = (from: number, to: number) => {
+      let d = 0;
+      for (let s = from; s < to; s += 0.5) {
+        const i = Math.round(s / m.step);
+        d = Math.max(d, Math.abs(g.height(m.px[i], m.pz[i]) - flat.height(m.px[i], m.pz[i])));
+      }
+      return d;
+    };
+    expect(lumps(2520, 2590)).toBeGreaterThan(0.04);
+    expect(lumps(2200, 2330)).toBeLessThan(lumps(2520, 2590));
   });
 });

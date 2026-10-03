@@ -34,7 +34,7 @@ const DETAIL = [
 const SKIRT = 6;
 /** The lines' lift off the ground: clear of it, under the skids. */
 const LIFT = 0.05;
-/** An island's road is laid over the ground in this many strips across (its lumps followed). */
+/** Where an island's road is uneven, it's laid over the ground in this many strips across (its lumps followed). */
 const STRIPS = 6;
 
 /** An island's ground (GroundDef.coast, docs/PARADISE.md): sand along the water, grass inland, black lava rock up the volcano. */
@@ -554,6 +554,9 @@ function roadLines(track: Track): Mesh | null {
     if (!c) colors.set(k, (c = new Color(track.surfaces[k].color)));
     return c;
   };
+  /** Whether the main road is uneven `s` m along it (an `uneven` feature's stretch, a little past its ends). */
+  const uneven = g.features.flatMap((f) => (f.def?.kind === 'uneven' ? [f.def.s] : []));
+  const lumpy = (s: number) => uneven.some(([a, b]) => s >= a - 2 && s <= b + 2);
   const red = new Color('#e8433a');
   const blue = new Color('#2f6bff');
   for (let i = 0; i < last; i++) {
@@ -570,9 +573,9 @@ function roadLines(track: Track): Mesh | null {
       continue;
     }
     if (isle) {
-      // In strips across, so it follows the ground's lumps (an uneven road's) and doesn't cut
-      // through them.
-      if (!decks?.[i]) for (let k = 0; k < STRIPS; k++) quad(i, -wa + (k * 2 * wa) / STRIPS, -wa + ((k + 1) * 2 * wa) / STRIPS, surfaceColor(main.surface[i]), main, LIFT * 0.6);
+      // Where it's uneven, in strips across, so it follows the lumps and doesn't cut through them.
+      const strips = lumpy(s) ? STRIPS : 1;
+      if (!decks?.[i]) for (let k = 0; k < strips; k++) quad(i, -wa + (k * 2 * wa) / strips, -wa + ((k + 1) * 2 * wa) / strips, surfaceColor(main.surface[i]), main, LIFT * 0.6);
       continue;
     }
     if (track.surfaces[main.surface[i]].slide) continue;
