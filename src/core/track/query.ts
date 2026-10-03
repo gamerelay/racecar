@@ -3,6 +3,7 @@
 // allocates in the tick.
 
 import { VERGE_DEFAULT, wrap, type BakedSpline, type Track } from './bake';
+import { hypot, sq, tan } from '../math';
 
 export interface TrackHit {
   spline: number;
@@ -77,7 +78,7 @@ export function sampleAt(sp: BakedSpline, s: number, out: TrackHit): TrackHit {
   out.cz = sp.pz[i0] * g + sp.pz[i1] * f;
   let tx = sp.tx[i0] * g + sp.tx[i1] * f;
   let tz = sp.tz[i0] * g + sp.tz[i1] * f;
-  const tl = Math.hypot(tx, tz) || 1;
+  const tl = hypot(tx, tz) || 1;
   out.tx = tx / tl;
   out.tz = tz / tl;
   out.width = sp.width[i0] * g + sp.width[i1] * f;
@@ -121,8 +122,8 @@ export function projectGlobal(sp: BakedSpline, x: number, z: number, out: TrackH
   let bestD = Infinity;
   const stride = Math.max(1, Math.round(8 / sp.step));
   for (let i = 0; i < sp.n; i += stride) {
-    let d = (sp.px[i] - x) ** 2 + (sp.pz[i] - z) ** 2;
-    if (y !== undefined) d += 16 * (sp.py[i] - y) ** 2;
+    let d = sq(sp.px[i] - x) + sq(sp.pz[i] - z);
+    if (y !== undefined) d += 16 * sq(sp.py[i] - y);
     if (d < bestD) {
       bestD = d;
       best = i;
@@ -134,7 +135,7 @@ export function projectGlobal(sp: BakedSpline, x: number, z: number, out: TrackH
 function finishProjection(sp: BakedSpline, out: TrackHit, x: number, z: number): void {
   // right = (-tz, tx)
   out.lateral = (x - out.cx) * -out.tz + (z - out.cz) * out.tx;
-  out.ground = sp.ground ? sp.ground.top(x, z, out.cy + 0.5) : out.cy - out.lateral * Math.tan(out.bank) - flankDrop(out);
+  out.ground = sp.ground ? sp.ground.top(x, z, out.cy + 0.5) : out.cy - out.lateral * tan(out.bank) - flankDrop(out);
 }
 
 /** How far a ramp's height has run out at the hit's lateral: past the road's edge and shoulder, over its flank. */

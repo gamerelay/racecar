@@ -827,9 +827,9 @@ Milestone 1 (2026-09-30):
   where they were in the world. Without it, the alley jumped when the boulevard moved.
 - **Drift arc range widened** to 0.15–1.25 rad/s: with a narrower range, even full counter-steer
   circled at ~108 m, too tight to drift a fast sweeper.
-- **Replays across JS engines are close, not exact**: an F8 report from Chrome replayed in Bun
-  ended 1.6 cm off after 30 s (trig functions differ in the last bits). Same engine is exact.
-  Good enough to debug a moment; worth knowing before trusting a replay for minutes.
+- **Replays across JS engines are exact** (since 2026-10-03): an F8 report from Chrome replayed
+  in Bun used to end 1.6 cm off after 30 s, because `Math.sin` and the like differ in the last
+  bits. The sim now does its own math (`core/math.ts`; see "Caldera" below).
 - **Milestone 1's "AI" is a pace car** (`core/ai/follow.ts`): lane-following pure pursuit with
   corner slowdown and a stuck reset. The real AI builds on it in milestone 2.
 - **A dev hook** (`window.__rc.advance(seconds, controls)`) steps the sim and renders a frame,
@@ -2161,4 +2161,13 @@ Caldera, the engine (2026-10-03; the plan is docs/CALDERA.md):
 - **Triggers happen at once on the hitter's screen** (§4's T): the claim's winner shares the
   hit's time and every screen runs it from then. §4 said "a start time ~250 ms ahead"; traffic
   hits never worked that way (`net/traffic.ts`), and a breakable wall can't wait 250 ms.
+- **The sim does its own math** (CALDERA's step 0b): `sin`, `cos`, `tan`, `atan`, `atan2`, `exp`,
+  `log`, `pow` and `hypot` in `core/math.ts` (fdlibm's algorithms in `+ - * /` and `sqrt`), and no
+  `Math.sin`, `**` or the like anywhere in `src/core` (a test checks). JavaScript lets those
+  differ in their last bits between engines, OSes and CPUs, and the golden fingerprints showed
+  they do (macOS and Linux disagreed on the same CPU). Now every platform computes the same bits:
+  one fingerprint file, checked identical on macOS, Linux arm64 and x64 (Bun) and in V8 (Node),
+  so replays are exact across browsers and CI can't drift. Each function is within an ulp or two
+  of Math's: after 60 s of an 8-car field the cars are picometres from where they were, the lap
+  floors and the field's results (5 seeds per map) are unchanged to the tenth.
 - **Smashables break per screen**, not "the same online": each screen collides only its own cars.

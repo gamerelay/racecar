@@ -21,6 +21,7 @@ import type { GroundDef } from '../content';
 import { hash01 } from '../rng';
 import { curve, loopDist, shaftHeight } from './island';
 import type { BakedSpline } from './bake';
+import { cos, hypot, sq, tan } from '../math';
 
 export interface Ground {
   /** The ground's height at (x, z), bilinear between grid points. */
@@ -160,8 +161,8 @@ export function groundShape(def: GroundDef, s: number, lat: number, half: number
     // Bumps on a grid, flat between them; every other row offset half a bump, like skied moguls.
     const row = Math.floor(s / m.spacing);
     const off = row % 2 ? m.spacing / 2 : 0;
-    const bu = 0.5 - 0.5 * Math.cos((2 * Math.PI * s) / m.spacing);
-    const bv = 0.5 - 0.5 * Math.cos((2 * Math.PI * (lat + off)) / m.spacing);
+    const bu = 0.5 - 0.5 * cos((2 * Math.PI * s) / m.spacing);
+    const bv = 0.5 - 0.5 * cos((2 * Math.PI * (lat + off)) / m.spacing);
     h += m.height * bu * bv * fade;
   }
   h -= canyonAt(def, s, lat);
@@ -220,7 +221,7 @@ function sampleSearch(main: BakedSpline, x0: number, z0: number, w: number, d: n
     buckets[Math.floor((main.pz[i] - z0) / B) * bx + Math.floor((main.px[i] - x0) / B)].push(k);
   }
   const reach = Math.max(bx, bz);
-  const dist2 = (i: number, x: number, z: number) => (main.px[i] - x) ** 2 + (main.pz[i] - z) ** 2;
+  const dist2 = (i: number, x: number, z: number) => sq(main.px[i] - x) + sq(main.pz[i] - z);
   /** Every coarse sample in rings of buckets out from bucket (cx, cz), while a ring could hold one within `limit()` m of (x, z). */
   const rings = (cx: number, cz: number, x: number, z: number, limit: () => number, visit: (k: number, e: number) => void) => {
     for (let r = 0; r <= reach && Math.max(0, r - 1) * B < limit(); r++) {
@@ -287,7 +288,7 @@ function sampleSearch(main: BakedSpline, x0: number, z0: number, w: number, d: n
     best = -1;
     bestD = Infinity;
     refine(coarse);
-    const bound = (Math.sqrt(bestD) + slack) ** 2;
+    const bound = sq(Math.sqrt(bestD) + slack);
     for (let n = 0; n < list.length; n++) if (list[n] !== coarse && dist2(reps[list[n]], x, z) <= bound) refine(list[n]);
     found.i = best;
     found.d = Math.sqrt(bestD);
@@ -309,7 +310,7 @@ function planeOf(sp: BakedSpline, i: number, x: number, z: number): number {
     const fade = over <= 0 ? 1 : Math.max(0, 1 - over / (sp.rampFlank[i] || 8));
     ramp = (sp.ramp[i] + ((sp.ramp[j] - sp.ramp[i]) * along) / sp.step) * fade;
   }
-  return sp.py[i] + ramp + along * rise - lat * Math.tan(sp.bank[i]);
+  return sp.py[i] + ramp + along * rise - lat * tan(sp.bank[i]);
 }
 
 /** The branches' deck samples are bucketed this big (m), to find the one over a point. */
@@ -408,7 +409,7 @@ export function buildGround(def: GroundDef, main: BakedSpline, branches: BakedSp
       if (volcano) {
         // (A shaft for a crater: inside the lip the walls fall nearly sheer to its floor.)
         const cone = sea + shaftHeight(volcano, x, z);
-        const pit = volcano.pit !== undefined && Math.hypot(x - volcano.x, z - volcano.z) < volcano.crater;
+        const pit = volcano.pit !== undefined && hypot(x - volcano.x, z - volcano.z) < volcano.crater;
         if (cone > gy || pit) gy += (cone - gy) * smooth(edge, edge + CONE_IN, d);
       }
       if (coastLoop) {
@@ -483,7 +484,7 @@ export function buildGround(def: GroundDef, main: BakedSpline, branches: BakedSp
         for (let gx = gx0; gx <= gx1; gx++) {
           const x = x0 + gx * cell;
           const z = z0 + gz * cell;
-          const d = Math.hypot(x - sp.px[i], z - sp.pz[i]);
+          const d = hypot(x - sp.px[i], z - sp.pz[i]);
           if (d < reach) fn(gz * nx + gx, x, z, d);
         }
     };
@@ -563,7 +564,7 @@ export function buildGround(def: GroundDef, main: BakedSpline, branches: BakedSp
           const k = v >> 16;
           const i = v & 65535;
           const sp = deckBranches[k];
-          const e = (sp.px[i] - x) ** 2 + (sp.pz[i] - z) ** 2;
+          const e = sq(sp.px[i] - x) + sq(sp.pz[i] - z);
           if (e < near2[k]) {
             near2[k] = e;
             nearI[k] = i;
@@ -584,7 +585,7 @@ export function buildGround(def: GroundDef, main: BakedSpline, branches: BakedSp
     }
     return best;
   };
-  const d2 = (i: number, x: number, z: number) => (main.px[i] - x) ** 2 + (main.pz[i] - z) ** 2;
+  const d2 = (i: number, x: number, z: number) => sq(main.px[i] - x) + sq(main.pz[i] - z);
   const next = (i: number, by: number) => (main.closed ? (i + by + main.n) % main.n : Math.min(main.n - 1, Math.max(0, i + by)));
 
   const at = (gx: number, gz: number) => h[Math.min(nz - 1, Math.max(0, gz)) * nx + Math.min(nx - 1, Math.max(0, gx))];
@@ -608,7 +609,7 @@ export function buildGround(def: GroundDef, main: BakedSpline, branches: BakedSp
     face: def.face,
     coast,
     inLava(x, z, y) {
-      return !!volcano && (x - volcano.x) ** 2 + (z - volcano.z) ** 2 < volcano.crater ** 2 && y < sea + volcano.lava + 0.3;
+      return !!volcano && sq(x - volcano.x) + sq(z - volcano.z) < sq(volcano.crater) && y < sea + volcano.lava + 0.3;
     },
     deck(x, z, slack = 0, y = Infinity) {
       const other = branchDeckAt(x, z, slack, y);

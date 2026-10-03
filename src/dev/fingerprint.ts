@@ -5,8 +5,8 @@
 //
 // They fingerprint behaviour, not how it's stored: the ground by the answers to its questions
 // (asked along every road and over a grid), so moving decks onto pieces (step 1a) can keep them
-// identical while the data's shape changes. Floats differ in their last bits between platforms
-// (Math.sin and the rest), so each platform has its own recording (tools/fingerprint.ts).
+// identical while the data's shape changes. One recording for every platform: the sim does its own
+// math (src/core/math.ts), so the bits don't depend on the OS or CPU.
 
 import type { CarClass, SurfaceDef, TrackLayout } from '../core/content';
 import type { Ground } from '../core/track/ground';

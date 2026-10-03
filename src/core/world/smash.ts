@@ -9,6 +9,7 @@
 import { hash01 } from '../rng';
 import type { Track } from '../track/bake';
 import { newHit, projectGlobal, sampleAt } from '../track/query';
+import { tan } from '../math';
 
 export interface SmashKind {
   id: string;
@@ -75,7 +76,7 @@ export class Smashables {
           // On the verge: out past the road's edge, a little under halfway to the wall.
           const lat = side * (at.width / 2 + (d.lateral ?? Math.min(room * 0.45, room - k.r - 0.3)));
           const x = at.cx - at.tz * lat;
-          const y = at.cy - lat * Math.tan(at.bank);
+          const y = at.cy - lat * tan(at.bank);
           const z = at.cz + at.tx * lat;
           // Not where another road runs: a car on it couldn't hit it (only props on your own road count).
           if (onAnotherRoad(x, y, z, sp.index, k.r)) continue;
@@ -91,7 +92,7 @@ export class Smashables {
         const lat = g.lateral + (side * g.gap) / 2;
         const x = at.cx - at.tz * lat;
         const z = at.cz + at.tx * lat;
-        const y = track.ground ? track.ground.top(x, z) : at.cy - lat * Math.tan(at.bank);
+        const y = track.ground ? track.ground.top(x, z) : at.cy - lat * tan(at.bank);
         out.push({ kind, spline: 0, s: at.s, x, y, z });
       }
     });

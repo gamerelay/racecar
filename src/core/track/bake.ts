@@ -5,7 +5,7 @@
 import { buildGround, type Ground } from './ground';
 import { buildPines, type Pines } from './pines';
 import type { BranchDef, SurfaceDef, TrackLayout, TrackPoint, Vec3, ZoneDef } from '../content';
-import { smoothstep } from '../math';
+import { atan2, cos, hypot, pow, smoothstep, sq, tan } from '../math';
 import { sampleDense, type DenseSample } from './spline';
 
 /** Samples per meter of arc length. */
@@ -146,7 +146,7 @@ export function bakeTrack(layout: TrackLayout, surfaces: SurfaceDef[]): Track {
     const back = r.back ?? 0;
     forRange(sp, r.s, r.s + r.length + back, (i, s) => {
       const u = (s - r.s) / r.length;
-      const h = !back ? r.height * u : u <= 1 ? r.height * u ** 1.5 : (r.height * (1 + Math.cos(Math.PI * Math.min(1, (s - r.s - r.length) / back)))) / 2;
+      const h = !back ? r.height * u : u <= 1 ? r.height * pow(u, 1.5) : (r.height * (1 + cos(Math.PI * Math.min(1, (s - r.s - r.length) / back)))) / 2;
       sp.ramp[i] = Math.max(sp.ramp[i], h);
       if (r.flank) sp.rampFlank[i] = r.flank;
     });
@@ -206,7 +206,7 @@ export function bakeTrack(layout: TrackLayout, surfaces: SurfaceDef[]): Track {
       hx: p.size[0] / 2,
       hy: p.size[1] / 2,
       hz: p.size[2] / 2,
-      heading: Math.atan2(sp.tx[i], sp.tz[i]),
+      heading: atan2(sp.tx[i], sp.tz[i]),
     });
   }
 
@@ -249,13 +249,13 @@ function supports(splines: BakedSpline[]): BakedProp[] {
         let nearD = Infinity;
         for (let j = 0; j < low.n; j += 8) {
           if (up.py[i] - low.py[j] < OVER) continue;
-          const d = (low.px[j] - up.px[i]) ** 2 + (low.pz[j] - up.pz[i]) ** 2;
+          const d = sq(low.px[j] - up.px[i]) + sq(low.pz[j] - up.pz[i]);
           if (d < nearD) {
             nearD = d;
             near = j;
           }
         }
-        if (nearD > (half + 40) ** 2) continue;
+        if (nearD > sq(half + 40)) continue;
         for (const f of BENT_LEGS) {
           const x = up.px[i] - up.tz[i] * half * f;
           const z = up.pz[i] + up.tx[i] * half * f;
@@ -266,7 +266,7 @@ function supports(splines: BakedSpline[]): BakedProp[] {
           if (Math.abs(along) > low.step || Math.abs(lat) > low.width[j] / 2 + low.shoulder[j] + LEG) continue;
           // From just under the road up to the bent's cap under the deck.
           const y = low.py[j] - 0.5;
-          out.push({ kind: 'trestle-leg', solid: true, spline: low.index, s: j * low.step, lateral: lat, x, y, z, hx: LEG, hy: (up.py[i] - 1.2 - y) / 2, hz: LEG, heading: Math.atan2(up.tx[i], up.tz[i]) });
+          out.push({ kind: 'trestle-leg', solid: true, spline: low.index, s: j * low.step, lateral: lat, x, y, z, hx: LEG, hy: (up.py[i] - 1.2 - y) / 2, hz: LEG, heading: atan2(up.tx[i], up.tz[i]) });
         }
       }
     }
@@ -315,7 +315,7 @@ function bakeSpline(id: string, index: number, pts: TrackPoint[], closed: boolea
     const next = closed ? (i + 1) % n : Math.min(n - 1, i + 1);
     const dx = sp.px[next] - sp.px[prev];
     const dz = sp.pz[next] - sp.pz[prev];
-    const len = Math.hypot(dx, dz) || 1;
+    const len = hypot(dx, dz) || 1;
     sp.tx[i] = dx / len;
     sp.tz[i] = dz / len;
   }
@@ -373,7 +373,7 @@ function slipPoint(main: BakedSpline, s: number, p: TrackPoint, dir: 1 | -1): Tr
   const l = lat * (j / along) * 0.5;
   return {
     ...p,
-    p: [m.p[0] - main.tz[k] * l, m.p[1] - l * Math.tan(main.bank[k]), m.p[2] + main.tx[k] * l],
+    p: [m.p[0] - main.tz[k] * l, m.p[1] - l * tan(main.bank[k]), m.p[2] + main.tx[k] * l],
     bank: main.bank[k],
   };
 }
@@ -399,7 +399,7 @@ function joinBranch(main: BakedSpline, sp: BakedSpline): void {
       const bh = sp.width[i] / 2;
       const w = 1 - smoothstep(0, JOIN_FADE, Math.abs(lat) - verge - bh);
       if (w <= 0) break;
-      const ground = main.py[k] - lat * Math.tan(main.bank[k]);
+      const ground = main.py[k] - lat * tan(main.bank[k]);
       sp.py[i] += (ground - sp.py[i]) * w;
       sp.bank[i] += (main.bank[k] - sp.bank[i]) * w;
       sp.merge[i] = Math.max(sp.merge[i], w);
@@ -438,7 +438,7 @@ function nearestSample(main: BakedSpline, x: number, z: number, hint: number, wi
   let bestD = Infinity;
   for (let d = -reach; d <= reach; d++) {
     const i = (i0 + d + main.n) % main.n;
-    const dd = (main.px[i] - x) ** 2 + (main.pz[i] - z) ** 2;
+    const dd = sq(main.px[i] - x) + sq(main.pz[i] - z);
     if (dd < bestD) {
       bestD = dd;
       best = i;
@@ -455,7 +455,7 @@ function nearestBelow(sp: BakedSpline, x: number, z: number, hint: number, below
   for (let d = -reach; d <= reach; d++) {
     const i = (hint + d + sp.n) % sp.n;
     if (sp.py[i] > below) continue;
-    const dd = (sp.px[i] - x) ** 2 + (sp.pz[i] - z) ** 2;
+    const dd = sq(sp.px[i] - x) + sq(sp.pz[i] - z);
     if (dd < bestD) {
       bestD = dd;
       best = i;

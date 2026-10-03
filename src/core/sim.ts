@@ -14,7 +14,7 @@ import { collideWorld, hazardsWreckTraffic, type WorldCtx } from './collide/worl
 import type { CarClass, SurfaceDef } from './content';
 import { neutralControls, quantizeControls, type Controls } from './controls';
 import { Cause, Ev, EventQueue } from './events';
-import { damp } from './math';
+import { atan2, damp, hypot } from './math';
 import { Rng, hash01 } from './rng';
 import { positions, updateProgress } from './rules/progress';
 import type { RaceState, SimState } from './state';
@@ -184,7 +184,7 @@ export class Sim implements SimState {
     const line = run ? run.finish - run.start : this.race.laps * this.track.main.length;
     for (let k = 0; k < n; k++) {
       const i = this.finishers[k];
-      this.crossedAgo[k] = (cars.progress[i] - line) / Math.max(1, Math.hypot(cars.vx[i], cars.vz[i]));
+      this.crossedAgo[k] = (cars.progress[i] - line) / Math.max(1, hypot(cars.vx[i], cars.vz[i]));
     }
     // Insertion sort, longest ago first (a handful at most, and no allocation).
     for (let a = 1; a < n; a++) {
@@ -333,7 +333,7 @@ export class Sim implements SimState {
     c.x[i] = at.cx - at.tz * lateral;
     c.z[i] = at.cz + at.tx * lateral;
     c.y[i] = at.cy;
-    c.h[i] = Math.atan2(at.tx, at.tz);
+    c.h[i] = atan2(at.tx, at.tz);
     c.vx[i] = at.tx * speed;
     c.vz[i] = at.tz * speed;
     c.vy[i] = 0;

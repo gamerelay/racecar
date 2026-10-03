@@ -7,6 +7,7 @@ import { TUNING as T } from '../car/tuning';
 import { Cause, Ev } from '../events';
 import type { SimState } from '../state';
 import { sampleAt } from '../track/query';
+import { atan2, cos, sin } from '../math';
 
 export function collideWalls(sim: SimState, i: number): void {
   const cars = sim.cars;
@@ -14,8 +15,8 @@ export function collideWalls(sim: SimState, i: number): void {
   const sp = sim.track.splines[cars.spline[i]];
   const hit = sampleAt(sp, cars.s[i], sim.hitA);
   const cls = sim.classes[cars.cls[i]];
-  const rel = cars.h[i] - Math.atan2(hit.tx, hit.tz);
-  const reach = Math.abs(Math.cos(rel)) * cls.size[0] + Math.abs(Math.sin(rel)) * cls.size[1];
+  const rel = cars.h[i] - atan2(hit.tx, hit.tz);
+  const reach = Math.abs(cos(rel)) * cls.size[0] + Math.abs(sin(rel)) * cls.size[1];
   const wall = hit.width / 2 + hit.shoulder;
   // Lateral measured fresh: the car moved since it was located this tick.
   const lat = (cars.x[i] - hit.cx) * -hit.tz + (cars.z[i] - hit.cz) * hit.tx;
