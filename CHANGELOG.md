@@ -10,8 +10,12 @@ and where things stand is [docs/HANDOFF.md](./docs/HANDOFF.md).
   the ground beneath it. On the deck you drive on it; over its edge you fall to whatever is below.
   The sea (`ground.sea`) is drawn, and deep water is out of bounds: you respawn on the road.
 - **Paradise Open, experimental** (`?mode=free&map=paradise-open/open`, out of the lobby): today's
-  island lap as open ground, the Freeway a deck over the bay with no barriers. The coast, the
-  routes and the volcano come next.
+  island lap as open ground, the Freeway a deck over the bay with no barriers. Off the Freeway,
+  the right-hander into the jungle and the left-hander after it are banked steeply (14°) into
+  themselves, to drift into. The coast, the routes and the volcano come next.
+- **Banked turns hold you in, on open ground** (`TUNING.bankHold`): off snow, a banked road bends
+  your path toward its low side, so a drift through a banked turn leans on the bank instead of
+  running wide. Lapped maps are unchanged.
 
 ## alpha-1.30: quieter snow
 

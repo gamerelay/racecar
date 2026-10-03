@@ -215,6 +215,24 @@ export function stepCar(sim: SimState, i: number, c: Controls, dt: number): void
     const k = (T.gravity * slide * dt) / (1 + g.x * g.x + g.z * g.z);
     vx -= g.x * k;
     vz -= g.z * k;
+  } else if (grounded && sim.track.ground && T.bankHold > 0) {
+    // Off snow, a banked road holds you into its bank (TUNING.bankHold), so a drift through a
+    // banked turn leans on it instead of running wide. Gravity's pull down the bank, across the
+    // car, bends its path (velocity and heading together, like a berm carrying you round): pushed
+    // sideways, grip only turned it back along the heading and nothing changed.
+    const at = sampleAt(sim.track.splines[cars.spline[i]], cars.s[i], sim.hitB);
+    const v = Math.hypot(vx, vz);
+    if (at.bank !== 0 && v > 5 && Math.abs(cars.lateral[i]) < at.width / 2 + at.shoulder) {
+      // Down the bank: the road's right (-tz, tx) for a positive bank (low on the right). Its part
+      // across the car (the car's right is (-cos h, sin h)) turns it that way: right is -h.
+      const pull = T.gravity * T.bankHold * Math.sin(at.bank);
+      const across = pull * (at.tz * Math.cos(h) + at.tx * Math.sin(h));
+      const turn = (across / v) * dt;
+      h -= turn;
+      const dir = Math.atan2(vx, vz) - turn;
+      vx = Math.sin(dir) * v;
+      vz = Math.cos(dir) * v;
+    }
   }
 
   cars.h[i] = wrapAngle(h);

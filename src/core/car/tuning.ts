@@ -3,6 +3,12 @@
 
 export const TUNING = {
   gravity: 24,
+  /**
+   * On open ground, a banked road holds you into its bank: gravity's pull down it, across the road,
+   * times this (docs/PARADISE.md: banked turns to lean a drift on). Snow's slide already pulls you
+   * down every slope, so it's for the other surfaces.
+   */
+  bankHold: 1,
   /** How fast velocity swings round to where the car points, rad/s at grip 1. */
   gripAlign: 7.5,
   /** Speed lost per second per radian of slip. */

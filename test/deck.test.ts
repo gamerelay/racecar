@@ -6,6 +6,7 @@ import { bakeTrack } from '../src/core/track/bake';
 import { DECK_CATCH } from '../src/core/track/ground';
 import { validateLayout } from '../src/core/track/validate';
 import { slopeRise } from '../src/render/camera';
+import { TUNING } from '../src/core/car/tuning';
 import { Cause } from '../src/core/events';
 import { EXPERIMENTAL_KEYS, MAPS } from '../tools/content';
 import { CLASSES, SURFACES, layout } from './helpers';
@@ -130,6 +131,41 @@ describe('Paradise Open (docs/PARADISE.md)', () => {
     }
     // The road falls no more than a meter or so over 26 m anywhere there; the bay is 6 m under it.
     expect(worst).toBeGreaterThan(-1.5);
+  });
+
+  test('the two turns off the Freeway are banked steeply into themselves, the second the other way', () => {
+    const m = bakeTrack(layout('paradise-open/open'), SURFACES).main;
+    const at = (s: number) => m.bank[Math.round(s / m.step)];
+    // The right-hander low on the right (its inside), the left-hander low on the left.
+    expect(at(2260)).toBeGreaterThan(0.24);
+    expect(at(2450)).toBeLessThan(-0.24);
+  });
+
+  test('a drift through either banked turn leans on the bank: it runs less wide than with no hold', () => {
+    const track = bakeTrack(layout('paradise-open/open'), SURFACES);
+    /** Where a drift from `s`, steering `steer`, is across the road a second on. */
+    const drift = (s: number, steer: number, hold: number) => {
+      const was = TUNING.bankHold;
+      TUNING.bankHold = hold;
+      try {
+        const sim = new Sim(track, CLASSES, SURFACES, { seed: 1, traffic: 0, mayhem: 'off' });
+        const i = sim.addCar({ cls: 'coupe', human: true });
+        sim.placeCar(i, 0, s, 0, 28);
+        const c = { ...neutralControls(), throttle: 1, steer, drift: true };
+        let drifting = 0;
+        for (let t = 0; t < 60; t++) {
+          sim.step([c]);
+          drifting += sim.cars.drift[i];
+        }
+        expect(drifting).toBeGreaterThan(20);
+        return sim.cars.lateral[i];
+      } finally {
+        TUNING.bankHold = was;
+      }
+    };
+    // Right is +lateral: the inside of the right-hander, the outside of the left-hander.
+    expect(drift(2200, 0.8, 1)).toBeGreaterThan(drift(2200, 0.8, 0) + 1);
+    expect(drift(2395, -0.8, 1)).toBeLessThan(drift(2395, -0.8, 0) - 0.5);
   });
 
   test('the Freeway is a deck over the bay, no walls on it', () => {
