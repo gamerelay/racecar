@@ -6,6 +6,9 @@ built on its own branch and PRs marked experimental, not slated for a release, a
 the lobby until the owner says so. **It's an outline, not a spec.** Details will change while building; note those changes in
 [SPEC.md](./SPEC.md) under "Changed while building", as usual.
 
+**Where things stand:** "Status at a glance" below. Why it is the way it is: "Philosophy" and
+"Decisions". How to change it: "How to work on it".
+
 Started 2026-10-02. The owner's brief:
 - Try the open direction on a **new map first**, and leave the three maps we have as they are.
 - **Start small:** a simple snow surface to drive on, to find out how it feels.
@@ -31,6 +34,219 @@ jump from an angle. Trees, rocks, cliffs, fences and the avalanche itself are wh
 cost you. The piste is always quickest, so the AI can race it, and players who know the mountain
 can find lines the AI doesn't.
 
+## Status at a glance (2026-10-02)
+
+- **Where it lives:** draft PR #74, branch `avalanche-plan`, label `experimental`. It isn't merged
+  or tagged, and it isn't in the lobby (`experimental: true` in `map.json`). Open it at
+  `?mode=free&map=avalanche/slope`, or race it at
+  `?mode=race&map=avalanche/slope&mayhem=chaos&weather=rain` (chaos for the avalanche, "rain" for
+  snowfall).
+- **The run:** 6.39 km and 1,300 m of drop, one run from the summit to the valley, in 19 stretches:
+  steep pitches, bunny slopes, short climbs, a canyon either side, two mogul fields, three kickers,
+  nine snow-capped rocks, 18 slalom gates, about 650 pines, and a ski jump near the bottom. All of
+  the drawn mountainside is yours to drive.
+- **Built:** steps 1 and 3 and the rocks, then items 1–7 of the loose plan below.
+  - The run reads as a run.
+  - The camera follows the slope.
+  - Snow you feel and hear.
+  - The avalanche.
+  - Slalom gates.
+  - Pines.
+  - The ski jump.
+- **Next:** 8 (the AI downhill), 9 (a phone), 10 (the release, the owner's call).
+- **Numbers:**
+  - The hard coupe's floor is 100.03 s clear and 101.23 s in snow.
+  - The field: one car-on-car takedown and no other wrecks. At chaos the avalanche buries that
+    car, about one a race.
+  - The other maps' floors are unchanged: Backroads 62.82 s, Downtown 57.9 s, Paradise 71.52 s.
+
+## Philosophy
+
+What this map is trying to be, and the rules that kept coming back while building it. When a new
+idea is in doubt, check it against these.
+
+- **A track you can leave.** One groomed piste is always the fastest way down, so the AI can race
+  it and a race stays a race. But everything around it is snow you can drive: powder cuts, canyons,
+  moguls, ridges, mountainsides. Leaving the piste is a choice with a cost, never a wall.
+- **If it's drawn, you can drive it.** No invisible walls. The owner hit two in one session, and
+  both went. Out of bounds is only where the world visibly ends. A rock cliff to mark the edge was
+  tried and reverted: the slopes have to look right, not just behave right.
+- **What you see is what you hit.** Every solid thing has one list that the sim collides with and
+  the renderer draws: rocks, pines, gate posts, the judges' tower, gate flags. No decorative trunk
+  you pass through, and no collider you can't see.
+- **Reward clean driving, forgive mistakes.** A slalom gate pays a little and a streak pays more,
+  and a missed gate costs only the streak. Flags knock flat, they don't wreck you. The avalanche
+  catches the car that just crashed, not the one that's slow. Hit a rock or a tree hard and you
+  wreck, because you could see it coming.
+- **Air is the payoff.** Moguls, kickers you can hit from any angle, canyons like halfpipes, a ski
+  jump with a soft landing on a slope, ridges to leap off. Air time pays boost, and a Superman pays
+  more.
+- **The same on every screen, with nothing to sync.** The ground, the forest, the gates and the
+  rocks come from the layout and its seed. The avalanche and the weather are functions of race
+  time. Streaks are each screen's own cars'. Online needs nothing new.
+- **The other maps never move.** Everything new is switched on by the layout: `ground`, `run`,
+  `slide` surfaces, `slalom`, `avalanche`, `skiJump`, `ground.pines`. Every change is measured
+  against Backroads, Downtown and Paradise's lap floors.
+- **Measure, then feel.** Every change goes through the lap report (`--field`, `--chaos`,
+  `--weather rain`) and the tests. Then the owner drives it, and the owner's feel decides. The
+  numbers find the crashes; they don't decide what's fun.
+- **Loose plan, quick loop.** This file is an outline, not a spec. Build a slice, show it, take the
+  owner's notes ("bigger moguls", "a tenth of the trees", "no invisible wall"), adjust, write down
+  what changed and why (below).
+- **Experimental until the owner says otherwise.** One PR, its own branch, out of the lobby. No
+  merge, tag or release without the owner.
+
+## Decisions
+
+Each with why and where it lives, newest last. Owner = the owner's call; build = decided while
+building, by measurement or by the philosophy above.
+
+### Shape of the map
+
+- **A new map, the old three untouched** (owner). The open direction is tried here first. Where:
+  every feature is switched on by the layout.
+- **One run, no laps, no road up** (owner). A race is one run from the summit to the valley. Where:
+  `layout.run {start, finish}`, an open main spline, `runProgress`, laps forced to 1.
+- **About two laps long** (owner): 6–7 km and about two minutes. Now 6.39 km and about 100 s for
+  the hard AI.
+- **Steep, bunny and short climbs** (owner): a stretch list with a smoothed grade, winding headings,
+  banks into turns and gentle tilts that switch side to side. Where: `STRETCHES` in
+  `tools/gen-avalanche.ts`.
+- **Even crazier verticality, uneven terrain, winding and switching** (owner, after the first
+  drive): rougher off-piste, long swells over everything, tilts between turns.
+- **Free drive restarts at the top** (build): 4 s past the finish you're back on the start pad.
+  Where: `RUN_AGAIN` and `runAgain` in `sim.ts`.
+
+### Ground and physics
+
+- **One heightfield for the sim and the renderer** (build). A 2.5 m grid built from the main road.
+  On the road it's the road's own plane. Off it, the land is relaxed on a coarse 8 m grid, then
+  shaped by what's nearby. Where: `core/track/ground.ts`, drawn in `snow.ts` tiles.
+- **No cliffs in the ground** (build). Nearest-stretch heights made 136 m cliffs where two
+  stretches' regions met. The relaxed base land and a distance-based shape fixed it. Tested: no
+  neighbor step steeper than 60°.
+- **Slope gravity only on `slide` surfaces** (build): snow and powder pull you down the slope. The
+  other maps' surfaces don't have `slide`, so they don't feel it. Where: `physics.ts`.
+- **Powder costs a little** (owner): slower than the piste, not a wall (`powder`: offroad, grip
+  0.7, drag 0.12).
+- **Moguls bigger and further apart** (owner): 1.6 m every 10 m, and 1.4 m every 11 m.
+- **All the drawn ground is in bounds** (owner). Out of bounds was 25 m up the walls, measured from
+  the nearest road. That made every ridge between stretches an invisible wall, 60% of the ground.
+  Now it's only off the grid (or falling 20 m below the ground), and not while you're in the air.
+  Where: `Ground.outside`.
+  - A rock cliff at the old line was tried and reverted (owner: "too tall and jagged").
+  - A quarter-pipe top was offered and declined (owner: keep the slopes as they are). Flat out,
+    you fly off the world's outer edge and respawn, and that's fine.
+- **A jump ahead counts the checkpoints it skips** (build, following from the bounds decision): a
+  leap over a ridge onto a later stretch is a shortcut you earn, not a run you can't finish. Where:
+  `runProgress`. The AI doesn't take them.
+
+### On the piste
+
+- **Snow-capped rocks, not many** (owner: "this amount of rocks looks good"): nine, solid, some long
+  ridges. Go left or right, or wreck. The AI keeps to its side of them. Where: `rock()` in the
+  generator, `buildRocks` in `snow.ts`, `passRocks` in `racer.ts`.
+- **Slalom gates** (build, from the owner's pick of ideas): 18 gates leaning into the turn ahead and
+  weaving. A pass pays 0.04 of a bar and 200 points × the gates in a row, up to 5. A miss costs only
+  the streak. The flags are smashables. Where: `rules/slalom.ts`, `layout.slalom`.
+- **Start and finish gates** (build): solid timber posts just off the piste, and a banner high
+  enough to drive under. Where: `gate()` in the generator, `buildGates` in `snow.ts`.
+
+### Around the piste
+
+- **Pines: one list, solid** (build). They're scattered at bake time from a seed, with none near the
+  piste's edge, in a canyon or its mouth, in a mogul field, or beside a kicker. Where:
+  `core/track/pines.ts`.
+- **A tenth of the pines, about 650** (owner: 6,200 was "overwhelming", and driving up the slopes is
+  part of the fun). `density` 0.6 became 0.06.
+- **A ski jump near the bottom** (build, from the owner's pick):
+  - A sharp lip over a 50% landing hill. Every class flies 125–190 m and lands on the slope, not
+    the flat.
+  - Straight and level across from above the crest's kicker. A winding road there threw a car 45 m
+    off the piste, into the pines.
+  - A judges' tower, and distance lines on the landing hill.
+  - Where: the jump's stretches and `layout.skiJump`.
+
+### Feel
+
+- **The run reads as a run** (build): the HUD shows "To go" and the distance to the bottom. Pops
+  say "Run" and "Best run", and the results "Best run". The lobby says "one run" (hidden until the
+  map's in the lobby).
+- **The camera follows the slope, on open ground only** (owner's note: uphill was hard to see on
+  this map, but they like that on the others). It looks down the pitches, lifts up to 2.5 m
+  uphill, and stays 1.2 m above the snow. Where: `slopeView` in `camera.ts`.
+- **Tracks that last the run** (build): a second skid ring for snow, so the other maps don't carry
+  it. Faint on the piste, deep in powder.
+- **Snow sounds** (build): a crunch on the piste, a hiss in powder, a whump on a snowy landing. No
+  squeal and no gravel on snow. Not yet heard by ear.
+- **Snowfall instead of rain on a snow map** (build). A map listing `snow` gets snow wherever
+  another gets rain. Grip drops a tenth (rain takes a fifth), with no puddles and no wet-road
+  sheen, and white fog. Where: `WeatherPlan.snow`.
+
+### The avalanche
+
+- **Closed-form in time, at chaos only** (build, per the plan). Its front's distance down the road
+  is a function of race time, faster on the pitches, so there's nothing to sync. It runs out 50 m
+  above the finish, so you can always finish ahead of it. Where: `core/world/avalanche.ts`.
+- **It catches the wrecked, not the slow** (build, measured). At 56 m/s it buries about one car a
+  race, one that was just taken down behind it. Below 54 it never catches anyone, and above 58 it
+  catches the slow cars again and again. A buried car respawns 60 m ahead of it.
+- **A canyon is a way out** (plan): more than 4 m down in a canyon, it goes over you.
+
+### Process
+
+- **Experimental, one PR** (owner): the earlier stacked PRs were folded into #74. No merge, tag or
+  release without the owner.
+- **Measured on every change** (owner's standing rule): `bun tools/lap-report.ts avalanche/slope`,
+  plus `--field`, `--chaos` and `--weather rain`, and the other maps' floors.
+
+## How to work on it
+
+- **The generator makes the map:** `bun tools/gen-avalanche.ts` writes
+  `content/maps/avalanche/slope.track.json` and `map.json`. Edit the generator, never the JSON. The
+  stretches, gates, rocks, kickers, pines, avalanche and ski jump are all there.
+- **Where the code is:**
+  - The ground and its bounds: `core/track/ground.ts`. The pines: `core/track/pines.ts`.
+  - One run's progress: `core/rules/progress.ts`. The gates: `core/rules/slalom.ts`.
+  - The avalanche: `core/world/avalanche.ts`. Snowfall: `core/world/weather.ts`.
+  - The sim's wiring: `core/sim.ts` (`bury`, `runAgain`, the gate crossings).
+  - Collisions: `core/collide/world.ts` (pines, props). The AI: `core/ai/racer.ts`
+    (`passRocks`, `intoGate`, `UPHILL_AIM`).
+  - Drawing: `render/skins/greybox/snow.ts` (ground, lines, rocks, gates, tower, pines) and
+    `world.ts` (flakes, the avalanche).
+  - The rest: `render/camera.ts` (`slopeView`), `render/renderer.ts` (snow tracks),
+    `audio/audio.ts` (crunch, hiss, rumble, gate chime), `ui/hud.ts` (To go, the warning).
+- **Commands:** `bun test` (the Slope's tests are in `test/ground.test.ts`, which bakes the map
+  once), `bun run validate`, and `bun tools/lap-report.ts avalanche/slope [--field] [--chaos]
+  [--weather rain]`. The dev hook `window.__rc` steps the sim from the console
+  (`__rc.advance(1, {throttle: 1})`, `__rc.sim.placeCar(0, 0, s, lateral, speed)`).
+- **Knobs worth knowing:**
+  - The walls: `cell` 2.5, `wallFrom` 80, `wallRise` 0.9.
+  - The ground's texture: `swell` 1.4 m / 45 m, `rough` 2.6 m / 22 m.
+  - The pines: `density` 0.06.
+  - The avalanche: `{behind: 80, delay: 4, speed: 56}`.
+  - The gates: `boostFromGate` 0.04 and `gatePoints` 200 in `tuning.ts`.
+  - The camera: 0.6 of the rise to the look point, a lift of a quarter of it up to 2.5 m.
+  - Snow's grip: 0.1 off at full snowfall.
+
+## Known issues and open questions
+
+- **Not heard yet:** the snow crunch and hiss, the avalanche's rumble and the gate chime were all
+  built without listening. They're worth a race with the sound up.
+- **The bake time:** the ground took about 0.6 s on a desktop at first. It measured about 2 s
+  under heavy load later (the pines are 8 ms of it). Measure it on a phone (item 9) before release.
+- **The world's outer edge:** on the outside of some stretches the drawn ground ends 130–150 m out,
+  and flying off it respawns you. A quarter-pipe or a wider world would change the slopes' look, so
+  it's left as it is (owner).
+- **Ridge shortcuts:** with all the ground in bounds and forward jumps counting checkpoints, a
+  player can leap ridges the AI never takes. That's in the spirit of the map, but watch it once
+  people race it: if one becomes the only way to win, wall it with trees or rock.
+- **The AI on a steep run** (item 8): its speed plan is about corners and doesn't know the slope.
+  It's clean now, but narrower or steeper stretches need it.
+- **The validator doesn't know `layout.run`:** it assumes a loop. That's for item 10.
+- **The lap report's field plays out the same on every seed** (no traffic or weather on this map
+  to vary it), so its "one burial a race" is one race, repeated.
+
 ## The run
 
 About 6–7 km from the summit to the valley, in stretches like a real piste's:
@@ -44,9 +260,16 @@ About 6–7 km from the summit to the valley, in stretches like a real piste's:
 - **Jumps** you can hit from any angle (kickers with flanks, rollers, a ski jump near the end).
 - **The finish** in the valley, by the chalets, where the run-out is flat.
 
-## What the game can't do yet
+## What the game couldn't do (all five gaps since closed)
 
-Reading the code for this, there are five gaps. Each one is a step below.
+Reading the code at the start, there were five gaps. Each has since been built:
+1. The heightfield is `Ground`.
+2. Slope gravity is `slide`.
+3. The bounds are the ground's (all of it is in bounds).
+4. The open main road is `layout.run`.
+5. The colliders are solid rocks, pines and the tower.
+
+As they were:
 
 1. **There's no ground off the road.** Beside a road, the physics' ground is that road's surface
    carried flat outward (`finishProjection` in `src/core/track/query.ts`). The land you see
@@ -618,10 +841,16 @@ The sketches as they were:
 
 ## Questions for the owner
 
-Answered 2026-10-02: one run, no laps; about two laps' length; steep, bunny and short uphill
-stretches; powder costs a little. Still open:
+Answered 2026-10-02:
+- One run, no laps, about two laps long, with steep, bunny and short uphill stretches.
+- Powder costs a little, and the moguls are bigger and further apart.
+- This many rocks is right, and a tenth of the first forest's pines.
+- No invisible walls, and the slopes stay as they look (no cliff, no quarter-pipe).
+
+See "Decisions". Still open:
 
 - **How fast on the steep pitches?** Past a car's top speed is the thrill, but too much and the
-  run's a drag race. Tune it in step 1.
+  run's a drag race. Now: about 280 km/h at the most, about 100 s for the run, and the owner liked
+  the feel ("this map is amazing"). Still worth a check once more people race it.
 - **Slope gravity on the other maps later?** It would make Backroads' crests and Paradise's volcano
   feel more real, but it changes their tuning. Not now; worth knowing for later.
