@@ -631,8 +631,13 @@ stream across a route): then the new floor is recorded, with why.
      Planned as a change to the ground; built as drawing only, so the fingerprints stayed
      identical. `outlineAt` (core) is an enclosed piece's cross-section, the tube's walls are
      built on it, and the terrain's cells near it are split finer and clipped to it, the cut
-     found by bisection on a signed distance (`portal.ts`). `test/portal.test.ts` checks nothing
-     is drawn inside the outline (except where the tube ends, under its arch) and the cut lies on it.
+     found by bisection on a signed distance (`portal.ts`). Past each open end the end's outline is
+     carried on as far as its arch reaches (1.5 m), so ground standing in front of the opening is
+     cut too; the arches sit on the end rings. Only the finest level of detail is cut (further off
+     a 7 m mouth is a few pixels, and cutting coarse quads cracked them against their neighbours).
+     `test/portal.test.ts` checks nothing is drawn inside the outline (but where the cut stops, at
+     an arch's outer face), the ground in front of the openings is cut, and the tube's walls lie on
+     the outline.
    - **1c, branches own their heights:** the generator stops working backwards from the bake.
      The tube should drive the same: fingerprints re-recorded, lap floors checked.
    - **1d, one surface function** for drawing and driving. The coast's sand drives as sand

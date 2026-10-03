@@ -218,9 +218,11 @@ export function buildSnow(track: Track, green?: Color): Object3D[] {
             const b = zs[j + 1] * w + xs[i];
             const a1 = zs[j] * w + xs[i + 1];
             const b1 = zs[j + 1] * w + xs[i + 1];
-            // At a portal, every cell at full detail, the cut ones clipped to the tunnel's outline.
+            // At a portal, the cells clipped to the tunnel's outline: at full detail only (further
+            // off, a coarse quad drawn as fine cells left cracks against its coarse neighbours, and
+            // a 7 m mouth is a few pixels there).
             let portal = false;
-            for (let vz = zs[j]; vz < zs[j + 1] && !portal && cut.size; vz++) for (let vx = xs[i]; vx < xs[i + 1] && !portal; vx++) portal = cut.has(vz * (w - 1) + vx);
+            for (let vz = zs[j]; vz < zs[j + 1] && !portal && cut.size && stride === 1; vz++) for (let vx = xs[i]; vx < xs[i + 1] && !portal; vx++) portal = cut.has(vz * (w - 1) + vx);
             if (portal) {
               for (let vz = zs[j]; vz < zs[j + 1]; vz++)
                 for (let vx = xs[i]; vx < xs[i + 1]; vx++) {

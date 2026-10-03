@@ -9,7 +9,8 @@
 import { DoubleSide, Mesh, type Object3D } from 'three';
 import { hash01 } from '../../../core/rng';
 import type { BakedSpline, Track } from '../../../core/track/bake';
-import { OUTLINE_POINTS, TUBE_H, outlineAt } from '../../../core/track/ground';
+import { OUTLINE_POINTS, outlineAt } from '../../../core/track/ground';
+import { ARCH_DEPTH, tubeCeiling } from './portal';
 import { glowPoints } from './scenery';
 import { Geo } from './track';
 import { toon } from './toon';
@@ -35,8 +36,9 @@ export function buildTubes(track: Track): Object3D[] {
     const surface = track.surfaces[sp.surface[0]].color;
     // A tunnel where the ground's over its road, a bridge where it's fallen away.
     const coveredAt = (k: number) => k >= 0 && k < sp.n && decks[k] === 1 && g.height(sp.px[k], sp.pz[k]) > sp.py[k] - 0.5;
-    const at = g.pieces.at(sp.index)!;
-    const ceiling = (k: number) => (at[k] >= 0 && g.pieces.list[at[k]].ceiling > 0 ? g.pieces.list[at[k]].ceiling : TUBE_H);
+    const ceiling = (k: number) => tubeCeiling(track, sp, k);
+    /** Whether the tube's walls run from sample k to the next (as portal.ts cuts the ground for them). */
+    const walled = (k: number) => k >= 0 && k + 1 < sp.n && decks[k + 1] === 1 && coveredAt(k);
     for (let i = 0; i + 1 < sp.n; i++) {
       if (!decks[i] || !decks[i + 1]) continue;
       const j = i + 1;
@@ -71,8 +73,9 @@ export function buildTubes(track: Track): Object3D[] {
         // (Its ground falling away well under the road: a cutting's floor a little under it isn't the
         // shaft, and gave the way in a 22 m collar standing up out of the slope.)
         const shaft = (k: number) => g.height(sp.px[Math.max(0, Math.min(sp.n - 1, k))], sp.pz[Math.max(0, Math.min(sp.n - 1, k))]) < sp.py[i] - 3;
-        if (!coveredAt(i - 1)) arch(geo, sp, i, edge(i), -1, shaft(i - 8));
-        else if (!coveredAt(j + 1)) arch(geo, sp, i, edge(i), 1, shaft(j + 8));
+        // (Each on its end ring, where the ground's cut on ARCH_DEPTH past it: portal.ts.)
+        if (!walled(i - 1)) arch(geo, sp, i, edge(i), ceiling(i), -1, shaft(i - 8));
+        if (!walled(j)) arch(geo, sp, j, edge(j), ceiling(j), 1, shaft(j + 8));
       } else {
         // Up a kicker (the jump's): chevrons pointing over the edge, red and white, every 3 m.
         const at = i * sp.step;
@@ -135,19 +138,19 @@ function spike(geo: Geo, top: number[], len: number, r: number, color: string): 
 }
 
 /** A rough arch of rock across the tube at sample `i`: two pillars and a lintel, a little proud of the tube, its apron reaching out `out` (-1 back, +1 ahead). */
-function arch(geo: Geo, sp: BakedSpline, i: number, e: number, out: number, tall: boolean): void {
+function arch(geo: Geo, sp: BakedSpline, i: number, e: number, h: number, out: number, tall: boolean): void {
   const p = (l: number, up: number, along: number) => [sp.px[i] - sp.tz[i] * l + sp.tx[i] * along, sp.py[i] + up, sp.pz[i] + sp.tx[i] * l + sp.tz[i] * along];
   const box = (l0: number, l1: number, y0: number, y1: number, color: string) => {
-    const a = [p(l0, y0, -1.5), p(l1, y0, -1.5), p(l1, y1, -1.5), p(l0, y1, -1.5)];
-    const b = [p(l0, y0, 1.5), p(l1, y0, 1.5), p(l1, y1, 1.5), p(l0, y1, 1.5)];
+    const a = [p(l0, y0, -ARCH_DEPTH), p(l1, y0, -ARCH_DEPTH), p(l1, y1, -ARCH_DEPTH), p(l0, y1, -ARCH_DEPTH)];
+    const b = [p(l0, y0, ARCH_DEPTH), p(l1, y0, ARCH_DEPTH), p(l1, y1, ARCH_DEPTH), p(l0, y1, ARCH_DEPTH)];
     for (let k = 0; k < 4; k++) geo.face(a[k], a[(k + 1) % 4], b[(k + 1) % 4], b[k], color);
     geo.face(a[0], a[1], a[2], a[3], color);
     geo.face(b[0], b[1], b[2], b[3], color);
   };
   const w = tall ? 6 : 2.5;
-  box(-e - w, -e - 0.2, 0, TUBE_H + 1.5, ROCK[1]);
-  box(e + 0.2, e + w, 0, TUBE_H + 1.5, ROCK[2]);
-  box(-e - w, e + w, TUBE_H, TUBE_H + (tall ? 22 : 2.5), ROCK[0]);
+  box(-e - w, -e - 0.2, 0, h + 1.5, ROCK[1]);
+  box(e + 0.2, e + w, 0, h + 1.5, ROCK[2]);
+  box(-e - w, e + w, h, h + (tall ? 22 : 2.5), ROCK[0]);
   const f = (l: number, along: number) => [sp.px[i] - sp.tz[i] * l + sp.tx[i] * along, sp.py[i] - l * Math.tan(sp.bank[i]) - 0.06, sp.pz[i] + sp.tx[i] * l + sp.tz[i] * along];
   geo.face(f(-e - 2.5, 0), f(e + 2.5, 0), f(e + 2.5, out * 4), f(-e - 2.5, out * 4), ROCK_DARK);
 }

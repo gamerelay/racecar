@@ -13,7 +13,7 @@
 import { tan } from '../../../core/math';
 import type { BakedSpline, Track } from '../../../core/track/bake';
 import { across, along } from '../../../core/track/frame';
-import { OUTLINE_POINTS, outlineAt } from '../../../core/track/ground';
+import { OUTLINE_POINTS, TUBE_H, outlineAt } from '../../../core/track/ground';
 
 /** Up to this far over the road the ground stays: the cutting's floor, at the road's height (give or take a float's rounding), under the tube's road (drawn 0.04 m up). */
 const KEEP = 0.03;
@@ -23,6 +23,17 @@ const NEAR = 0.6;
 const SUB = 4;
 /** Bisection steps for a cut point (a 2.5 m cell split in four: about a millimetre). */
 const BISECT = 10;
+
+/** How far each way along the tube a mouth's arch reaches (tube.ts): past a tube's open end the cut goes on this far, inside it. */
+export const ARCH_DEPTH = 1.5;
+
+/** The ceiling of the enclosed piece at sample `k` of `sp` (TUBE_H if none says): what its walls and its arch are built to. */
+export function tubeCeiling(track: Track, sp: BakedSpline, k: number): number {
+  const g = track.ground!;
+  const at = g.pieces.at(sp.index);
+  const c = at && at[k] >= 0 ? g.pieces.list[at[k]].ceiling : NaN;
+  return c > 0 ? c : TUBE_H;
+}
 
 /** A vertex as the terrain carries it: position, normal, colour. */
 export const VERTEX = 9;
@@ -54,9 +65,9 @@ export function buildPortals(track: Track): Portals | null {
     const ceiling = new Float64Array(sp.n);
     let any = false;
     const covered = (k: number) => g.height(sp.px[k], sp.pz[k]) > sp.py[k] - 0.5;
+    for (let k = 0; k < sp.n; k++) ceiling[k] = tubeCeiling(track, sp, k);
     for (let k = 0; k + 1 < sp.n; k++) {
       const p = at[k] >= 0 ? g.pieces.list[at[k]] : undefined;
-      ceiling[k] = p ? p.ceiling : NaN;
       if (p && p.ceiling > 0 && at[k + 1] >= 0 && covered(k)) {
         seg[k] = 1;
         any = true;
@@ -65,6 +76,14 @@ export function buildPortals(track: Track): Portals | null {
     if (any) tubes.push({ sp, seg, ceiling });
   }
   if (!tubes.length) return null;
+  // Each tube's open ends: its first ring (the tube runs on, +1, from it) and its last.
+  const ends: { t: number; k: number; dir: -1 | 1 }[] = [];
+  tubes.forEach(({ sp, seg }, t) => {
+    for (let k = 0; k < sp.n; k++) {
+      if (seg[k] && !(k > 0 && seg[k - 1])) ends.push({ t, k, dir: -1 });
+      if (k > 0 && seg[k - 1] && !seg[k]) ends.push({ t, k, dir: 1 });
+    }
+  });
 
   // The tube samples near each grid cell.
   const near = new Map<number, number[]>();
@@ -108,19 +127,37 @@ export function buildPortals(track: Track): Portals | null {
         bk = k;
       }
     }
-    const { sp, seg, ceiling } = tubes[bt];
+    let { sp, seg, ceiling } = tubes[bt];
     const a = along(sp, bk, x, z);
-    const k0 = a >= 0 ? bk : bk - 1;
-    if (k0 < 0 || k0 + 1 >= sp.n || !seg[k0]) return Infinity;
+    let k0 = a >= 0 ? bk : bk - 1;
+    // Where along the segment k0 → k0 + 1 (0 to 1), for its outline, and for the road's height
+    // (which goes on climbing past an end).
+    let f: number;
+    let fRoad: number;
+    if (k0 >= 0 && k0 + 1 < sp.n && seg[k0]) f = fRoad = Math.min(1, Math.max(0, a >= 0 ? a / sp.step : 1 + a / sp.step));
+    else {
+      // Just past a tube's open end (inside its arch), the end's outline carried out: the ground
+      // standing in front of the opening is cut too.
+      const end = ends.find((n) => {
+        const t = tubes[n.t];
+        const b = along(t.sp, n.k, x, z);
+        return n.dir < 0 ? b < 0 && b > -ARCH_DEPTH : b > 0 && b < ARCH_DEPTH;
+      });
+      if (!end) return Infinity;
+      ({ sp, seg, ceiling } = tubes[end.t]);
+      const b = along(sp, end.k, x, z);
+      k0 = end.dir < 0 ? end.k : end.k - 1;
+      f = end.dir < 0 ? 0 : 1;
+      fRoad = end.dir < 0 ? b / sp.step : 1 + b / sp.step;
+    }
     const k1 = k0 + 1;
-    const f = Math.min(1, Math.max(0, a >= 0 ? a / sp.step : 1 + a / sp.step));
     outlineAt(sp, k0, ceiling[k0], A);
-    outlineAt(sp, k1, ceiling[k1] > 0 ? ceiling[k1] : ceiling[k0], B);
+    outlineAt(sp, k1, ceiling[k1], B);
     for (let q = 0; q < P.length; q++) P[q] = A[q] + (B[q] - A[q]) * f;
     // The floor's points raised to KEEP: the cutting's floor under the tube's road stays.
     P[1] = P[P.length - 1] = KEEP;
     const l = across(sp, k0, x, z);
-    const road = sp.py[k0] + sp.ramp[k0] + (sp.py[k1] + sp.ramp[k1] - sp.py[k0] - sp.ramp[k0]) * f - l * tan(sp.bank[k0] + (sp.bank[k1] - sp.bank[k0]) * f);
+    const road = sp.py[k0] + sp.ramp[k0] + (sp.py[k1] + sp.ramp[k1] - sp.py[k0] - sp.ramp[k0]) * fRoad - l * tan(sp.bank[k0] + (sp.bank[k1] - sp.bank[k0]) * f);
     return polygonDistance(P, l, y - road);
   };
 
