@@ -127,6 +127,26 @@ export function groundShape(def: GroundDef, s: number, lat: number, half: number
   return h;
 }
 
+/** The ground's swell and bumps fade out over this many meters of road before a deck, so the road meets the deck at its own height. */
+const DECK_RUN_IN = 30;
+
+/**
+ * How much of what the layout adds (swell, bumps) the ground keeps `s` m along the main road and
+ * `d` m from its middle (0–1): none where a deck starts or ends, on the road and out to the deck's
+ * reach, so a car rolls onto the deck at the height it is, not a step up or down (a step of more
+ * than DECK_CATCH would take it under the deck).
+ */
+export function deckRunIn(decks: GroundDef['decks'], s: number, d: number, edge: number): number {
+  let keep = 1;
+  for (const dk of decks ?? []) {
+    const out = s < dk.s[0] ? dk.s[0] - s : s > dk.s[1] ? s - dk.s[1] : 0;
+    if (out >= DECK_RUN_IN) continue;
+    const near = 1 - smooth(edge, edge + dk.reach, d);
+    keep = Math.min(keep, 1 - (1 - smooth(0, DECK_RUN_IN, out)) * near);
+  }
+  return keep;
+}
+
 /** How far toward a deck's floor the ground `s` m along the main road and `d` m from its middle is pulled (0–1; the road's edge `edge` m out). */
 export function deckPull(deck: NonNullable<GroundDef['decks']>[number], s: number, d: number, edge: number): number {
   if (s < deck.s[0] || s > deck.s[1]) return 0;
@@ -331,7 +351,7 @@ export function buildGround(def: GroundDef, main: BakedSpline): Ground {
       const y = road + (land(x, z) - road) * smooth(edge, edge + ROUGH_IN, d);
       // What the layout adds, by the distance across (not the lateral: that jumps between stretches).
       const s = i * main.step + along;
-      let gy = y + groundShape(def, s, lat < 0 ? -d : d, half, main.shoulder[i], x, z);
+      let gy = y + groundShape(def, s, lat < 0 ? -d : d, half, main.shoulder[i], x, z) * deckRunIn(def.decks, s, d, edge);
       // Under a deck, the ground falls away to its floor.
       for (const dk of def.decks ?? []) {
         const pull = deckPull(dk, s, d, edge);

@@ -84,6 +84,21 @@ describe('a road over the ground', () => {
     expect(sim.cars.y[i]).toBeGreaterThan(9.5);
   });
 
+  test('with swell and bumps on the ground, the road still meets the deck at its own height', () => {
+    const l = bridge();
+    l.ground!.swell = { height: 3, size: 40 };
+    l.ground!.rough = { height: 2, size: 15 };
+    const t = bakeTrack(l, SURFACES);
+    const gr = t.ground!;
+    for (const z of [300, 700]) {
+      for (const x of [-10, -5, 0, 5, 10]) {
+        const before = gr.height(x, z === 300 ? z - 0.5 : z + 0.5);
+        const deck = gr.deck(x, z === 300 ? z + 0.5 : z - 0.5);
+        expect(Math.abs(before - deck)).toBeLessThan(0.15);
+      }
+    }
+  });
+
   test('it validates', () => {
     expect(validateLayout(bridge(), SURFACES, CLASSES).filter((p) => p.level === 'error')).toEqual([]);
   });
