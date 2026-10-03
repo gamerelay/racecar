@@ -38,6 +38,9 @@ const UI_RING_MS = 250;
 
 /** The master's level, before the player's own volume. */
 const MASTER_LEVEL = 0.8;
+/** Snow under the wheels and the avalanche's rumble: the owner heard them first in a race (2026-10-02) and asked for both a little down (from 1, about 4.5 dB). */
+const SNOW_LEVEL = 0.6;
+const RUMBLE_LEVEL = 0.6;
 
 /** The player's volumes (settings.ts), 0 to 1 each: they scale the levels above. */
 export interface Volumes {
@@ -375,16 +378,16 @@ export class GameAudio {
     g.gravel.out.set(gravel * 0.5, 0, now, 0.08);
     // Snow: groomed crunches (a flutter, frame to frame, like packed snow giving), powder hisses.
     const inSnow = onRoad && snow ? clamp(speed / 25, 0, 1) * 0.4 + slip * 0.35 : 0;
-    g.crunch.out.set(surf.offroad ? 0 : inSnow * (0.35 + 0.5 * Math.random()), 0, now, 0.03);
+    g.crunch.out.set(surf.offroad ? 0 : inSnow * (0.35 + 0.5 * Math.random()) * SNOW_LEVEL, 0, now, 0.03);
     glide(g.hiss.filter.frequency, (4200 + speed * 25) * slow, now);
-    g.hiss.out.set(surf.offroad ? inSnow * 0.55 : inSnow * 0.12, 0, now, 0.1);
+    g.hiss.out.set((surf.offroad ? inSnow * 0.55 : inSnow * 0.12) * SNOW_LEVEL, 0, now, 0.1);
     glide(g.wind.filter.frequency, 350 + speed * 22, now);
     g.wind.out.set(clamp((speed - 8) / 60, 0, 1) ** 2 * 0.3, 0, now, 0.2);
     g.roar.out.set(boosting && !wrecked ? 0.32 : 0, 0, now, 0.08);
     // The avalanche: from 500 m behind you, louder as it closes (and on top of you, loudest).
     const run = sim.track.run;
     const gap = run && sim.avalancheFront > -Infinity && !c.finished[i] ? c.progress[i] + run.start - sim.avalancheFront : Infinity;
-    g.rumble.out.set(f.menu ? 0 : clamp(1 - gap / 500, 0, 1) ** 1.5 * 0.7, 0, now, 0.25);
+    g.rumble.out.set(f.menu ? 0 : clamp(1 - gap / 500, 0, 1) ** 1.5 * 0.7 * RUMBLE_LEVEL, 0, now, 0.25);
     g.horn.set(ctl.horn && !f.menu ? 0.12 : 0, 0, now, 0.02);
 
     // ---- rivals: the nearest few engines ----

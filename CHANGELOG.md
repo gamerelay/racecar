@@ -6,6 +6,8 @@ and where things stand is [docs/HANDOFF.md](./docs/HANDOFF.md).
 
 ## Unreleased
 
+- **Avalanche: the snow and the avalanche's rumble a little quieter** (about 4.5 dB each).
+
 ## alpha-1.29: Avalanche, the first open map
 
 PRs #71–#74.
