@@ -5,6 +5,7 @@
 // The coupe (0.65 m half height, 2.15 m half length) is the base.
 
 import type { Vec3 } from '../core/content';
+import { DECK_CATCH, type Ground } from '../core/track/ground';
 
 export interface ChaseOffset {
   /** Meters behind the car's center, and above its base. */
@@ -43,6 +44,19 @@ export function lookBackOffset(size: Vec3, out: ChaseOffset = { dist: 0, height:
  */
 export function slopeView(rise: number): { look: number; lift: number } {
   return { look: rise * 0.6, lift: Math.min(2.5, Math.max(0, rise * 0.25)) };
+}
+
+/**
+ * The rise `slopeView` takes: the ground `ahead` m and twice that along (fx, fz) from a car at
+ * (x, y, z), over the ground under it. On a deck, or on the road leading onto one, the deck ahead
+ * counts even where it climbs more than DECK_CATCH above the car (a bridge's ramp: the camera
+ * dipped at the bay floor the moment a car got on it); under one, the ground does.
+ */
+export function slopeRise(g: Ground, x: number, y: number, z: number, fx: number, fz: number, ahead: number): number {
+  const d = g.deck(x, z);
+  const under = d === d && y < d - DECK_CATCH;
+  const at = (k: number) => (under ? g.height(x + fx * k, z + fz * k) : g.top(x + fx * k, z + fz * k));
+  return (at(ahead) + at(ahead * 2)) / 2 - g.top(x, z, y);
 }
 
 /** On open ground the camera stays this far above the snow under it (behind a car on a steep pitch, it would be in the slope). */

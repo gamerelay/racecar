@@ -5,6 +5,7 @@ import { Sim } from '../src/core/sim';
 import { bakeTrack } from '../src/core/track/bake';
 import { DECK_CATCH } from '../src/core/track/ground';
 import { validateLayout } from '../src/core/track/validate';
+import { slopeRise } from '../src/render/camera';
 import { Cause } from '../src/core/events';
 import { EXPERIMENTAL_KEYS, MAPS } from '../tools/content';
 import { CLASSES, SURFACES, layout } from './helpers';
@@ -108,6 +109,19 @@ describe('Paradise Open (docs/PARADISE.md)', () => {
   test('is experimental: out of the game, opened from a link', () => {
     expect(EXPERIMENTAL_KEYS).toContain('paradise-open/open');
     expect(MAPS.some((m) => m.id === 'paradise-open')).toBe(false);
+  });
+
+  test('the camera sees the deck ahead up the Freeway\'s ramp, not the bay under it', () => {
+    const track = bakeTrack(layout('paradise-open/open'), SURFACES);
+    const g = track.ground!;
+    const m = track.main;
+    let worst = 0;
+    for (let s = 1150; s <= 2100; s += 5) {
+      const i = Math.round(s / m.step);
+      worst = Math.min(worst, slopeRise(g, m.px[i], g.top(m.px[i], m.pz[i]), m.pz[i], m.tx[i], m.tz[i], 13));
+    }
+    // The road falls no more than a meter or so over 26 m anywhere there; the bay is 6 m under it.
+    expect(worst).toBeGreaterThan(-1.5);
   });
 
   test('the Freeway is a deck over the bay, no walls on it', () => {
