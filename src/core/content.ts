@@ -283,6 +283,18 @@ export interface GroundDef {
    * ground), under it a bridge. A car drives on the highest surface at or below it.
    */
   branchDecks?: { spline: string; s: [number, number] }[];
+  /**
+   * Stretches of a branch with no road at all (the Lava Tube's jump): the ground stays as it is
+   * under them, as under a deck, and there's no deck to land on. Off the end of the road, over the
+   * gap, is down to whatever's there.
+   */
+  branchGaps?: { spline: string; s: [number, number] }[];
+  /**
+   * Beaches along the main road (Paradise Open: town to the Freeway): off its `side` from `s[0]` to
+   * `s[1]` m (wrapping past the line if `s[0]` is the larger), the ground between the road and the
+   * sea is sand, drawn and driven. Its ends fade over BEACH_FADE m.
+   */
+  beaches?: { s: [number, number]; side: 'left' | 'right' }[];
   /** The sea's level (m): water is drawn to it, and a car on the ground under it deeper than wading is in deep water (out of bounds). */
   sea?: number;
   /**
@@ -297,6 +309,12 @@ export interface GroundDef {
    * walls falling nearly sheer to a floor `pit` m over the sea.
    */
   volcano?: { x: number; z: number; crater: number; h: number; r: number; lava: number; pit?: number };
+  /**
+   * Ground rising steeper than this (rise over run) is a rock face: a car meets it as a wall instead
+   * of being lifted up it (the volcano's faces round the Lava Tube's mouths). Unset: every slope is
+   * driven up (Avalanche's snow walls).
+   */
+  face?: number;
 }
 
 export interface MapDef {

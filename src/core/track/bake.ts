@@ -428,7 +428,7 @@ function joinBranch(main: BakedSpline, sp: BakedSpline): void {
 }
 
 /** How far (m) a branch's ground fades from the main road's to its own once it's clear of it. */
-const JOIN_FADE = 20;
+export const JOIN_FADE = 20;
 
 /** The main-road sample nearest (x, z), searched within `within` m (default 60) of main distance `hint`. */
 function nearestSample(main: BakedSpline, x: number, z: number, hint: number, within = 60): number {

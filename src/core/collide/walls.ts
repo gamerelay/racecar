@@ -44,6 +44,11 @@ export function collideWalls(sim: SimState, i: number): void {
   bounce(sim, i, -hit.tz * side, hit.tx * side, depth, reach, side);
 }
 
+/** A car meeting a rock face on open ground, into it along (ox, oz) (physics.ts meetFace): a wall. */
+export function hitFace(sim: SimState, i: number, ox: number, oz: number): void {
+  bounce(sim, i, ox, oz, 0, sim.classes[sim.cars.cls[i]].size[1], 0);
+}
+
 /** A car `depth` m into a wall it's moving into along (ox, oz): out of it, bounced and scraped, maybe wrecked. */
 function bounce(sim: SimState, i: number, ox: number, oz: number, depth: number, reach: number, side: number): void {
   const cars = sim.cars;

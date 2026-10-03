@@ -79,7 +79,8 @@ export function buildPines(def: PinesDef, layout: TrackLayout, main: BakedSpline
         if (y < sea + 0.8) continue;
         if (v && Math.hypot(x - v.x, z - v.z) < v.r * 0.62) continue;
         thick = TROPIC_THICK[verge?.(i) ?? ''] ?? 1;
-        kind = ground.coast(x, z) < PALM_COAST ? TREE_PALM : TREE_JUNGLE;
+        // (Palms on a beach too, however far it runs back from the water: GroundDef.beaches.)
+        kind = ground.coast(x, z) < PALM_COAST || ground.beach[i] * lat > 0 ? TREE_PALM : TREE_JUNGLE;
       }
       // Thicker away from the piste and up the walls, and in glades, not an even carpet.
       const p = def.density * thick * smooth(def.clear, def.clear + def.thicken, d) ** 0.7 * (0.35 + 0.9 * noise(x, z, def.glade, def.seed));

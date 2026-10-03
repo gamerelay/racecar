@@ -5,7 +5,7 @@ import { Sim } from '../src/core/sim';
 import { bakeTrack } from '../src/core/track/bake';
 import { DECK_CATCH, TUBE_H } from '../src/core/track/ground';
 import { validateLayout } from '../src/core/track/validate';
-import { slopeRise } from '../src/render/camera';
+import { cameraFloor, clearView, slopeRise } from '../src/render/camera';
 import { TUNING } from '../src/core/car/tuning';
 import { Cause } from '../src/core/events';
 import { EXPERIMENTAL_KEYS, MAPS } from '../tools/content';
@@ -265,7 +265,9 @@ describe('Paradise Open: the island (docs/PARADISE.md)', () => {
       expect(Math.abs(g.lateral[gz * g.nx + gx])).toBeGreaterThan(m.width[i] / 2 + m.shoulder[i]);
       if (p.kind[k] === 1) {
         palms++;
-        expect(g.coast(p.x[k], p.z[k])).toBeLessThan(75);
+        // (Or anywhere on a beach, however far back from the water it runs.)
+        const onBeach = g.beach[i] * g.lateral[gz * g.nx + gx] > 0;
+        if (!onBeach) expect(g.coast(p.x[k], p.z[k])).toBeLessThan(75);
       }
     }
     expect(palms).toBeGreaterThan(50);
@@ -318,7 +320,8 @@ describe('Paradise Open: the Lava Tube (docs/PARADISE.md)', () => {
   test('it\'s a shortcut through the volcano: tunnels under it, a bridge over the lava in its shaft, shorter than the road round', () => {
     expect(tube.length).toBeLessThan(wrapGap(tube.mainFrom, tube.mainTo, track.main.length) - 80);
     expect(tunnel.length).toBeGreaterThan(150);
-    expect(bridge.length).toBeGreaterThan(60);
+    // (Less the jump's gap in its middle.)
+    expect(bridge.length).toBeGreaterThan(30);
     for (const i of bridge) {
       expect(Math.hypot(tube.px[i] - v.x, tube.pz[i] - v.z)).toBeLessThan(v.crater);
       expect(tube.py[i]).toBeGreaterThan(g.sea! + v.lava + 2);
@@ -450,5 +453,229 @@ describe('Paradise Open: the Lava Tube, after review', () => {
       // (Against the nearest sample's road: the mouth's own sample is within a step of it.)
       expect(g.h[k]).toBeGreaterThan(tube.py[ni] + 0.7);
     }
+  });
+});
+
+describe('Paradise Open: the Lava Tube, the camera through it', () => {
+  const track = bakeTrack(layout('paradise-open/open'), SURFACES);
+  const g = track.ground!;
+  const tube = track.splines.find((s) => s.id === 'lava-tube')!;
+
+  test('driving it, the camera sees its road ahead: never the rock over a mouth or over the climb out', () => {
+    // (Into the first mouth it read the slope over the tunnel, 16 m up; up the climb out, the
+    // volcano over the roof.)
+    let worst = 0;
+    const ahead = 13;
+    // (Not up the jump's kicker or over its gap: there it's level, across to the far side.)
+    const jump = track.layout.ramps!.find((r) => r.spline === 'lava-tube')!;
+    const far = jump.s + jump.length + 40;
+    for (let i = 0; i + Math.round((2 * ahead) / tube.step) < tube.n; i += 2) {
+      if (i * tube.step > jump.s - 2 * ahead && i * tube.step < far) continue;
+      const k = (d: number) => i + Math.round(d / tube.step);
+      const road = (tube.py[k(ahead)] + tube.py[k(2 * ahead)]) / 2 - tube.py[i];
+      const seen = slopeRise(g, tube.px[i], tube.py[i], tube.pz[i], tube.tx[i], tube.tz[i], ahead);
+      worst = Math.max(worst, Math.abs(seen - road));
+    }
+    expect(worst).toBeLessThan(1.5);
+  });
+
+  test('flat out of the exit tunnel, a car stays on the road (it launched 4 m off a hump onto the rim road)', () => {
+    const sim = new Sim(track, CLASSES, SURFACES, { seed: 1, traffic: 0, mayhem: 'off' });
+    const c = sim.addCar({ cls: 'coupe', human: true });
+    sim.placeCar(c, tube.index, 300, 0, 200 / 3.6);
+    let air = 0;
+    for (let t = 0; t < 60 * 4; t++) {
+      sim.step([{ ...neutralControls(), throttle: 1 }]);
+      air = Math.max(air, sim.cars.y[c] - g.top(sim.cars.x[c], sim.cars.z[c], sim.cars.y[c] + 0.5));
+    }
+    expect(sim.cars.wreck[c]).toBe(0);
+    expect(air).toBeLessThan(1.5);
+  });
+
+  test('at a tunnel\'s mouth, the camera keeps its height over the road, not over the slope rising off it', () => {
+    // (It rode that slope up, 7 m over the car, as the car went in.)
+    const decks = g.branchDeck.get(tube.index)!;
+    let checked = 0;
+    for (let i = 0; i < tube.n; i++) {
+      const y = tube.py[i] + 2;
+      const gh = g.height(tube.px[i], tube.pz[i]);
+      if (!decks[i] || gh < y - 1 || gh > tube.py[i] + TUBE_H) continue;
+      expect(cameraFloor(g, tube.px[i], y, tube.pz[i])).toBeCloseTo(tube.py[i], 0);
+      checked++;
+    }
+    expect(checked).toBeGreaterThan(5);
+  });
+
+  test('flat out into the tube from the rim road, a car stays on its road (no hop where its deck starts)', () => {
+    const sim = new Sim(track, CLASSES, SURFACES, { seed: 1, traffic: 0, mayhem: 'off' });
+    const c = sim.addCar({ cls: 'coupe', human: true });
+    sim.placeCar(c, tube.index, 25, 0, 165 / 3.6);
+    let air = 0;
+    for (let t = 0; t < 60 * 1.2; t++) {
+      sim.step([{ ...neutralControls(), throttle: 1 }]);
+      air = Math.max(air, sim.cars.y[c] - g.top(sim.cars.x[c], sim.cars.z[c], sim.cars.y[c] + 0.5));
+    }
+    expect(sim.cars.wreck[c]).toBe(0);
+    expect(air).toBeLessThan(0.3);
+  });
+
+  test('turned toward a tunnel wall, the camera behind the car stays in the tube, not in the rock', () => {
+    let checked = 0;
+    for (let i = 0; i < tube.n; i += 15) {
+      if (g.height(tube.px[i], tube.pz[i]) < tube.py[i] + TUBE_H + 4) continue;
+      for (const turn of [-0.8, 0.8]) {
+        const h = Math.atan2(tube.tx[i], tube.tz[i]) + turn;
+        const cam = { x: tube.px[i] - Math.sin(h) * 6, y: tube.py[i] + 2.5, z: tube.pz[i] - Math.cos(h) * 6 };
+        clearView(g, tube.px[i], tube.py[i], tube.pz[i], cam);
+        const d = g.deck(cam.x, cam.z, 0, cam.y);
+        expect(d === d && cam.y > d && cam.y < d + TUBE_H).toBe(true);
+        checked++;
+      }
+    }
+    expect(checked).toBeGreaterThan(10);
+  });
+
+  test('off line into a mouth, the volcano\'s face beside it is a wall: no lifting up it and out over the mountain', () => {
+    for (const steer of [-0.6, 0.6]) {
+      const sim = new Sim(track, CLASSES, SURFACES, { seed: 1, traffic: 0, mayhem: 'off' });
+      const c = sim.addCar({ cls: 'coupe', human: true });
+      sim.placeCar(c, tube.index, 20, 0, 40);
+      let highest = -Infinity;
+      for (let t = 0; t < 60 * 2.5; t++) {
+        sim.step([{ ...neutralControls(), throttle: 1, steer: t < 40 ? steer : 0 }]);
+        if (!sim.cars.wreck[c]) highest = Math.max(highest, sim.cars.y[c]);
+      }
+      expect(highest).toBeLessThan(tube.py[Math.round(80 / tube.step)] + 3);
+    }
+  });
+});
+
+describe('Paradise Open: the Lava Tube\'s jump over the lava', () => {
+  const lay = layout('paradise-open/open');
+  const track = bakeTrack(lay, SURFACES);
+  const g = track.ground!;
+  const tube = track.splines.find((s) => s.id === 'lava-tube')!;
+  const v = lay.ground!.volcano!;
+  const kicker = lay.ramps!.find((r) => r.spline === 'lava-tube')!;
+  const lip = kicker.s + kicker.length;
+  const [gapFrom, gapTo] = lay.ground!.branchGaps!.find((b) => b.spline === 'lava-tube')!.s;
+  /** A car of `cls` at `kmh` just before the kicker, flat out: over, or down in the lava. */
+  const jump = (cls: string, kmh: number) => {
+    const sim = new Sim(track, CLASSES, SURFACES, { seed: 1, traffic: 0, mayhem: 'off' });
+    const c = sim.addCar({ cls, human: true });
+    sim.placeCar(c, tube.index, lip - 14, 0, kmh / 3.6);
+    for (let t = 0; t < 60 * 3; t++) {
+      sim.step([{ ...neutralControls(), throttle: 1 }]);
+      if (sim.cars.wreck[c]) return { over: false, sim, c };
+      if (sim.cars.s[c] > gapTo + 30 && sim.cars.grounded[c]) return { over: true, sim, c };
+    }
+    return { over: false, sim, c };
+  };
+
+  test('the bridge is broken over the middle of the shaft, a kicker up to its edge, and only the lava under the gap', () => {
+    expect(gapFrom).toBe(lip);
+    expect(gapTo - gapFrom).toBeGreaterThan(25);
+    for (let s = gapFrom + 3; s < gapTo - 3; s += 2) {
+      const i = Math.round(s / tube.step);
+      expect(Math.hypot(tube.px[i] - v.x, tube.pz[i] - v.z)).toBeLessThan(v.crater - 10);
+      expect(g.deck(tube.px[i], tube.pz[i])).toBeNaN();
+      expect(g.inLava(tube.px[i], tube.pz[i], g.height(tube.px[i], tube.pz[i]))).toBe(true);
+    }
+  });
+
+  test('the crossing is straight: a jump lands on the road it took off along', () => {
+    const h = (s: number) => {
+      const i = Math.round(s / tube.step);
+      return Math.atan2(tube.tx[i], tube.tz[i]);
+    };
+    expect(Math.abs(h(kicker.s) - h(gapTo + 20))).toBeLessThan(0.02);
+  });
+
+  test('flat out every car makes it; off the throttle (~120 km/h) it\'s the lava', () => {
+    // (Flat out from the tube's mouth the slowest car is at 175 km/h at the kicker.)
+    for (const cls of CLASSES.map((c) => c.id)) {
+      expect(jump(cls, 170).over).toBe(true);
+      const short = jump(cls, 120);
+      expect(short.over).toBe(false);
+      expect(short.sim.cars.wreckCause[short.c]).toBe(Cause.Hazard);
+    }
+  });
+
+  test('down in the lava, you\'re back on the far side of the gap, not at its edge with no run-up', () => {
+    const { sim, c } = jump('coupe', 110);
+    for (let t = 0; t < 60 * 4 && sim.cars.wreck[c]; t++) sim.step([neutralControls()]);
+    expect(sim.cars.wreck[c]).toBe(0);
+    expect(sim.cars.spline[c]).toBe(tube.index);
+    expect(sim.cars.s[c]).toBeGreaterThan(gapTo);
+    expect(g.deck(sim.cars.x[c], sim.cars.z[c])).toBeCloseTo(sim.cars.y[c], 0);
+  });
+
+  test('lining up the jump, the camera looks across the gap, not down into the lava', () => {
+    for (let s = kicker.s - 30; s < kicker.s; s += 2) {
+      const i = Math.round(s / tube.step);
+      expect(slopeRise(g, tube.px[i], tube.py[i], tube.pz[i], tube.tx[i], tube.tz[i], 13)).toBeGreaterThan(-0.5);
+    }
+  });
+});
+
+describe('Paradise Open, after review (2026-10-03)', () => {
+  const track = bakeTrack(layout('paradise-open/open'), SURFACES);
+  const g = track.ground!;
+  const tube = track.splines.find((s) => s.id === 'lava-tube')!;
+
+  test('flat out up the slope over a mouth, a car meets the rock: it never comes down through it onto the tunnel\'s road', () => {
+    const sim = new Sim(track, CLASSES, SURFACES, { seed: 1, traffic: 0, mayhem: 'off' });
+    const c = sim.addCar({ cls: 'coupe', human: true });
+    sim.placeCar(c, 0, 100, 0, 0);
+    const k = Math.round(66 / tube.step);
+    const cars = sim.cars;
+    cars.x[c] = tube.px[k];
+    cars.z[c] = tube.pz[k];
+    cars.y[c] = g.height(tube.px[k], tube.pz[k]) + 0.3;
+    cars.h[c] = Math.atan2(tube.tx[k], tube.tz[k]);
+    cars.vx[c] = tube.tx[k] * 45;
+    cars.vz[c] = tube.tz[k] * 45;
+    cars.grounded[c] = 0;
+    for (let t = 0; t < 90; t++) {
+      sim.step([{ ...neutralControls(), throttle: 1 }]);
+      if (cars.grounded[c]) expect(g.height(cars.x[c], cars.z[c]) - cars.y[c]).toBeLessThan(2);
+    }
+  });
+
+  test('reversing on a banked road, the bank\'s hold doesn\'t push you up it', () => {
+    const hold = TUNING.bankHold;
+    const moved = (h: number) => {
+      TUNING.bankHold = h;
+      const sim = new Sim(track, CLASSES, SURFACES, { seed: 1, traffic: 0, mayhem: 'off' });
+      const c = sim.addCar({ cls: 'coupe', human: true });
+      sim.placeCar(c, 0, 2265, 0, 0);
+      sim.cars.vx[c] = -Math.sin(sim.cars.h[c]) * 9;
+      sim.cars.vz[c] = -Math.cos(sim.cars.h[c]) * 9;
+      const lat0 = sim.cars.lateral[c];
+      for (let t = 0; t < 30; t++) sim.step([{ ...neutralControls(), brake: 1 }]);
+      return sim.cars.lateral[c] - lat0;
+    };
+    try {
+      // (Bank 0.25 there, low on the right: up it is left, negative.)
+      expect(moved(hold)).toBeGreaterThan(moved(0) - 0.05);
+    } finally {
+      TUNING.bankHold = hold;
+    }
+  });
+
+  test('a wreck in the tunnel before the jump respawns you there, not past the jump; one on its kicker, past it', () => {
+    const lay = track.layout;
+    const kicker = lay.ramps!.find((r) => r.spline === 'lava-tube')!;
+    const gapTo = lay.ground!.branchGaps![0].s[1];
+    const respawnAt = (s: number) => {
+      const sim = new Sim(track, CLASSES, SURFACES, { seed: 1, traffic: 0, mayhem: 'off' });
+      const c = sim.addCar({ cls: 'coupe', human: true });
+      sim.placeCar(c, tube.index, s, 0, 0);
+      sim.step([{ ...neutralControls(), reset: true }]);
+      for (let t = 0; t < 60 * 4 && sim.cars.wreck[c]; t++) sim.step([neutralControls()]);
+      return sim.cars.s[c];
+    };
+    expect(respawnAt(kicker.s - 50)).toBeLessThan(kicker.s);
+    expect(respawnAt(kicker.s + 4)).toBeGreaterThan(gapTo);
   });
 });

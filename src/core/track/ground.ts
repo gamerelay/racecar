@@ -43,6 +43,8 @@ export interface Ground {
   readonly deckSample: Uint8Array;
   /** Per branch (by its spline index), 1 per sample where it's a deck (GroundDef.branchDecks). */
   readonly branchDeck: Map<number, Uint8Array>;
+  /** Per branch (by its spline index), 1 per sample where it's a gap: no road (GroundDef.branchGaps). */
+  readonly branchGap: Map<number, Uint8Array>;
   /** Per grid point: 2 on a branch's road, 1 on its verge (and a little past: no trees), 0 off it. */
   readonly onBranch: Uint8Array;
   /** Per grid point on a branch's road, its surface. */
@@ -51,6 +53,13 @@ export interface Ground {
   readonly hole: Uint8Array;
   /** The sea's level (GroundDef.sea), if the ground has one. */
   readonly sea?: number;
+  /** Steeper than this is a rock face (GroundDef.face), if the ground has them. */
+  readonly face?: number;
+  /**
+   * Per main-road sample, its beach (GroundDef.beaches): which side (-1 left, 1 right) times how
+   * far in from the beach's ends (0 to 1 over BEACH_FADE m); 0 with none.
+   */
+  readonly beach: Float32Array;
   /** Signed distance to the coast (GroundDef.coast), positive inland; Infinity with none. */
   coast(x: number, z: number): number;
   /** Whether (x, z) at height `y` is down in the volcano's lava lake (GroundDef.volcano). */
@@ -68,6 +77,9 @@ export interface Ground {
   /** The slope of `top` at (x, z) for something at height `y`, into `out`. */
   topSlope(x: number, z: number, y: number, out: { x: number; z: number }): { x: number; z: number };
 }
+
+/** A beach's ends (GroundDef.beaches) fade in over this many meters. */
+export const BEACH_FADE = 40;
 
 /** On a deck: a car this far under its surface still drives on it (a hard landing); further down, it's under it. */
 export const DECK_CATCH = 1;
@@ -424,6 +436,15 @@ export function buildGround(def: GroundDef, main: BakedSpline, branches: BakedSp
   const deckSample = new Uint8Array(main.n);
   for (const dk of def.decks ?? []) fillSpan(deckSample, main, dk.s);
   const hasDeck = deckSample.some((v) => v === 1);
+  const beach = new Float32Array(main.n);
+  for (const b of def.beaches ?? []) {
+    const len = (((b.s[1] - b.s[0]) % main.length) + main.length) % main.length;
+    const side = b.side === 'left' ? -1 : 1;
+    for (let d = 0; d <= len; d += main.step) {
+      const i = Math.round((((b.s[0] + d) % main.length) + main.length) % main.length / main.step) % main.n;
+      beach[i] = side * smooth(0, BEACH_FADE, Math.min(d, len - d));
+    }
+  }
   const branchDeck = new Map<number, Uint8Array>();
   for (const dk of def.branchDecks ?? []) {
     const sp = branches.find((b) => b.id === dk.spline);
@@ -431,6 +452,15 @@ export function buildGround(def: GroundDef, main: BakedSpline, branches: BakedSp
     let m = branchDeck.get(sp.index);
     if (!m) branchDeck.set(sp.index, (m = new Uint8Array(sp.n)));
     fillSpan(m, sp, dk.s);
+  }
+  // A branch's gaps (GroundDef.branchGaps): no road, so nothing shaped under them either.
+  const branchGap = new Map<number, Uint8Array>();
+  for (const gp of def.branchGaps ?? []) {
+    const sp = branches.find((b) => b.id === gp.spline);
+    if (!sp) continue;
+    let m = branchGap.get(sp.index);
+    if (!m) branchGap.set(sp.index, (m = new Uint8Array(sp.n)));
+    fillSpan(m, sp, gp.s);
   }
 
   // The branches, off the main road: each grid point near one takes its nearest sample's plane,
@@ -459,9 +489,10 @@ export function buildGround(def: GroundDef, main: BakedSpline, branches: BakedSp
     };
     for (const sp of branches) {
       const decks = branchDeck.get(sp.index);
+      const gaps = branchGap.get(sp.index);
       for (let i = 0; i < sp.n; i++) {
         const edge = sp.width[i] / 2 + sp.shoulder[i];
-        if (decks?.[i]) continue;
+        if (decks?.[i] || gaps?.[i]) continue;
         each(sp, i, edge + ROUGH_IN, (g, x, z, d) => {
           if (d >= bestD[g]) return;
           bestD[g] = d;
@@ -567,11 +598,14 @@ export function buildGround(def: GroundDef, main: BakedSpline, branches: BakedSp
     lateral,
     near,
     deckSample,
+    beach,
     branchDeck,
+    branchGap,
     onBranch,
     branchSurface,
     hole,
     sea: def.sea,
+    face: def.face,
     coast,
     inLava(x, z, y) {
       return !!volcano && (x - volcano.x) ** 2 + (z - volcano.z) ** 2 < volcano.crater ** 2 && y < sea + volcano.lava + 0.3;

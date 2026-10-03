@@ -81,14 +81,15 @@ export function clockText(seconds: number): string {
   return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
 }
 
-/**
- * Every landmark in the layout, standing on `floor` (the ground's height at x, z). `time` drives
- * the ones animated in their shaders.
- */
 /** The sea's level the landmarks stand by: the island's terrain's, or open ground's (`ground.sea`); undefined with no sea. */
 export function landmarkSea(layout: TrackLayout): number | undefined {
   return layout.terrain?.sea ?? layout.ground?.sea;
 }
+
+/**
+ * Every landmark in the layout, standing on `floor` (the ground's height at x, z). `time` drives
+ * the ones animated in their shaders.
+ */
 
 export function buildLandmarks(layout: TrackLayout, floor: (x: number, z: number) => number): Landmarks {
   const objects: Object3D[] = [];

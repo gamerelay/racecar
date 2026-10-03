@@ -33,6 +33,25 @@ and where things stand is [docs/HANDOFF.md](./docs/HANDOFF.md).
 - **Banked turns hold you in, on open ground** (`TUNING.bankHold`): off snow, a banked road bends
   your path toward its low side, so a drift through a banked turn leans on the bank instead of
   running wide. Lapped maps are unchanged.
+- **Jump the lava** (the owner: the tube was "a bit too overpowered"): the tube now crosses the
+  shaft straight, and its bridge is broken by a 40 m gap over the lava, a kicker with red and white
+  chevrons up to it. Every car needs about 150 km/h off the lip; flat out they all have 175+. A miss
+  is a lava wreck, and you're back past the gap. Gaps in a branch's road are `ground.branchGaps`.
+- **The camera through the tube:** it looks at the tunnel's road, not the rock over a mouth or the
+  climb out; across the gap it holds the bridge's level; it never sits in the rock (the black
+  screen) or rides the slope up over a mouth (the hiccup going in).
+- **The tube's ends are smooth:** no more launch onto the rim road out of the exit, nor a float
+  going in. The rock boxes over its mouths are arches set in the slope.
+- **Rock faces** (`ground.face`): ground steeper than a car can climb is a wall, so off line at a
+  mouth you bounce off the volcano (or wreck) instead of being thrown up over it. Not on Avalanche.
+- **Landing short of a bridge's edge** lands you on it, instead of throwing you up off it.
+- **A beach from Harbor Town to the Freeway** (`ground.beaches`): sand from the road down to the
+  sea, drawn and driven, with palms. **The roads are laid crisp over the ground** with no
+  markings, the ash fades off its roads, and the volcano's ground is in mixed tones.
+- **Fixes from review:** a car flat out up the slope over a mouth could sink through it into the
+  tunnel; a reversing car was pushed up a banked road; a wreck in the tunnel respawned you past the
+  jump.
+- **Dev:** `?spawn=<m>` starts your car that far along the main road (local races only).
 
 ## alpha-1.30: quieter snow
 

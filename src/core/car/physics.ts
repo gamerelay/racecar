@@ -12,6 +12,7 @@ import { mainDistance, signedGap } from '../track/bake';
 import { AVALANCHE_AHEAD, AVALANCHE_LINE } from '../world/avalanche';
 import { sampleAt } from '../track/query';
 import { TUNING as T } from './tuning';
+import { hitFace } from '../collide/walls';
 
 export function stepCar(sim: SimState, i: number, c: Controls, dt: number): void {
   const cars = sim.cars;
@@ -226,7 +227,9 @@ export function stepCar(sim: SimState, i: number, c: Controls, dt: number): void
     // car, bends its path (velocity and heading together, like a berm carrying you round): pushed
     // sideways, grip only turned it back along the heading and nothing changed.
     const v = Math.hypot(vx, vz);
-    if (at.bank !== 0 && v > 5) {
+    // (Not reversing: turned by the car's own right, the pull went up the bank instead.)
+    const forward = vx * Math.sin(h) + vz * Math.cos(h) > 0;
+    if (at.bank !== 0 && v > 5 && forward) {
       // Down the bank: the road's right (-tz, tx) for a positive bank (low on the right). Its part
       // across the car (the car's right is (-cos h, sin h)) turns it that way: right is -h.
       const pull = T.gravity * T.bankHold * Math.sin(at.bank);
@@ -244,7 +247,41 @@ export function stepCar(sim: SimState, i: number, c: Controls, dt: number): void
   cars.vz[i] = vz;
   cars.x[i] += vx * dt;
   cars.z[i] += vz * dt;
+  if (sim.track.ground?.face && !cars.wreck[i]) meetFace(sim, sim.track.ground, i);
   followGround(sim, i, dt);
+}
+
+/** A rock face (GroundDef.face) only takes a rise of at least this (m) in one tick: a slow car on a steep slope just climbs. */
+const FACE_STEP = 0.3;
+const faceSlope = { x: 0, z: 0 };
+
+/**
+ * A car that just moved into a rock face (GroundDef.face): back where it was, bounced off it as off
+ * a wall. (Into the Lava Tube's mouth off line, a car ran up the volcano's face beside it at the
+ * lift's 8 m/s and was thrown out over the mountain.)
+ */
+function meetFace(sim: SimState, g: Ground, i: number): void {
+  const cars = sim.cars;
+  // On a deck, no face, unless that's a tunnel's road found by sinking into the slope over it in one
+  // tick (from the slope, not from the tunnel: flat out up a mouth's face, cars came down through 30 m
+  // of rock onto its road). Then it's the rock it went into.
+  const d = g.deckUnder(cars.x[i], cars.z[i], cars.y[i]);
+  const gh = g.height(cars.x[i], cars.z[i]);
+  const was = d === d && gh > cars.y[i] + DECK_CATCH ? g.deckUnder(cars.px[i], cars.pz[i], cars.y[i]) : 0;
+  const sank = !(was === was);
+  if (d === d && !sank) return;
+  const rise = (sank ? gh : wheelGround(g, cars.x[i], cars.z[i], cars.h[i], cars.y[i])) - cars.y[i];
+  const run = Math.hypot(cars.x[i] - cars.px[i], cars.z[i] - cars.pz[i]);
+  if (rise < FACE_STEP || rise < run * g.face!) return;
+  // Into the face: up its slope, or on a flat-topped step the way the car was going.
+  const up = g.slope(cars.x[i], cars.z[i], faceSlope);
+  const steep = Math.hypot(up.x, up.z) > 0.05;
+  const nx = steep ? up.x : cars.x[i] - cars.px[i];
+  const nz = steep ? up.z : cars.z[i] - cars.pz[i];
+  const len = Math.hypot(nx, nz) || 1;
+  cars.x[i] = cars.px[i];
+  cars.z[i] = cars.pz[i];
+  hitFace(sim, i, nx / len, nz / len);
 }
 
 /** Scratch for the ground's slope. */
@@ -318,8 +355,16 @@ function followGround(sim: SimState, i: number, dt: number): void {
     }
     cars.grounded[i] = 1;
     cars.vy[i] = (ground - cars.y[i]) / dt;
-    // A hard landing can't launch you again next tick.
+    // A hard landing can't launch you again next tick. Nor can a catch on a deck: falling under its
+    // edge, within a hard landing of it, you land on it; you're not thrown up off it (short of the
+    // Lava Tube's far side, cars were, 4 m up into the rock over the road). Still rising when caught
+    // (up a kicker steeper than the cap), you keep rising; and on the ground a landing still has
+    // its bounce (Avalanche's lap is tuned with it).
     if (cars.vy[i] > 8) cars.vy[i] = 8;
+    if (!wasGrounded && vyBall < 0 && cars.vy[i] > 0 && sim.track.ground) {
+      const d = sim.track.ground.deckUnder(cars.x[i], cars.z[i], cars.y[i]);
+      if (d === d) cars.vy[i] = 0;
+    }
     cars.y[i] = ground;
   }
   // Body pitch and roll follow the road (for the camera and render).
@@ -630,6 +675,30 @@ function catchUp(sim: SimState, i: number): number {
   return paid;
 }
 
+/** How far before a gap in the road (or its kicker) a respawn is too close to it: no run-up. */
+const GAP_RUNUP = 20;
+
+/**
+ * `s` along `sp`, or 10 m onto the far side of the gap ahead (`gap`'s samples) when it's on the
+ * jump's kicker or within GAP_RUNUP of it: at the edge you'd fall in again. Further back (a wreck
+ * in the tunnel before it) you keep your spot and take the jump again. (Within 80 m, a wall in the
+ * tunnel skipped 130 m and the jump.)
+ */
+function pastGap(sp: { n: number; step: number; ramp: ArrayLike<number> }, gap: Uint8Array, s: number): number {
+  const i0 = Math.max(0, Math.round(s / sp.step));
+  for (let i = i0; i < sp.n; i++) {
+    if (!gap[i]) {
+      // Not on a kicker and further than the run-up from here: nothing to skip.
+      if (!(sp.ramp[i] > 0) && (i - i0) * sp.step > GAP_RUNUP) return s;
+      continue;
+    }
+    let j = i;
+    while (j < sp.n - 1 && gap[j]) j++;
+    return Math.min((sp.n - 1) * sp.step, j * sp.step + 10);
+  }
+  return s;
+}
+
 export function respawn(sim: SimState, i: number): void {
   const cars = sim.cars;
   // Ahead of an avalanche, not back under it (world/avalanche.ts). Not once you've finished: it
@@ -640,6 +709,9 @@ export function respawn(sim: SimState, i: number): void {
     cars.lastS[i] = Math.min(ahead, (sim.track.run?.finish ?? sim.track.main.length) - AVALANCHE_LINE);
     cars.lastLat[i] = 0;
   }
+  // Not with no run-up at a gap in the road (GroundDef.branchGaps, the Lava Tube's jump): past it.
+  const gap = sim.track.ground?.branchGap.get(cars.lastSpline[i]);
+  if (gap) cars.lastS[i] = pastGap(sim.track.splines[cars.lastSpline[i]], gap, cars.lastS[i]);
   const sp = sim.track.splines[cars.lastSpline[i]];
   const at = sampleAt(sp, cars.lastS[i], sim.hitA);
   const half = at.width / 2 - 2;
