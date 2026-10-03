@@ -28,7 +28,9 @@ Started 2026-10-03, from the owner's brief:
 3. **Modular.** Each feature (a volcano, a coast, moguls, a drawbridge, an avalanche, an eruption)
    is a module with a small set of hooks: shape the ground, add pieces, give the surface, step in
    the sim, draw itself. A map is a road network plus a list of features. Adding one means writing
-   a module, not editing `buildGround`, the physics and the camera.
+   a module, not editing `buildGround`, the physics and the camera. A module places itself in
+   world space, or along a street it names, **never by the main road**: the main road goes away
+   with the road graph, and modules shouldn't go with it.
 4. **Online first.** Every screen runs the same sim at 60 Hz and must agree. Everything the sim
    reads comes from the layout, the seed, the race clock and the inputs: plain float math in a
    fixed order, no physics engine, no `Math.random`, no render state leaking in. Moving things
@@ -61,6 +63,10 @@ Caldera replaces them with one layer. A **piece** is anything you can drive on:
 The terrain heightfield is the default piece under everything. Pieces are built once at load
 from the layout and put in a spatial index, so a query only checks the pieces near it.
 
+Pieces are **the only way** to add a surface. Once they exist, `GroundDef`'s `decks`,
+`branchDecks` and `branchGaps` are deleted (the layouts and generators say the same things as
+pieces), so the type itself leaves no room for a fourth special case.
+
 Everything asks one question, **cast down from (x, y, z)**, and gets back:
 - the floor's height and slope there, and its surface;
 - the ceiling over it, if it's enclosed;
@@ -89,13 +95,18 @@ distance along it.
 Caldera makes roads a **graph**: streets (splines) joined at **junctions**. A car knows which
 street it's on from the pieces query, not from the main road. Then:
 - **A race is a route**: an ordered list of checkpoints through the graph. Today's loops are
-  routes; Avalanche's run is a route with no lap.
+  routes; Avalanche's run is a route with no lap. This builds on what's there: the bake already
+  makes checkpoints (`Track.checkpoints`) and `rules/progress.ts` already counts laps, runs and
+  positions by them. What changes is that a checkpoint becomes a gate on a street, where today
+  it's a distance along the main road.
 - **A mode can ignore routes**: a cop chase needs only where the cars are and the street graph
   (for the cops' pathfinding and for respawns: "the nearest street").
 - **The ground stops depending on the main road**: features say where they are in world space
-  (the volcano already does).
+  or along a named street (the volcano already does; feature modules are written that way from
+  the start, see "Modular").
 
-This is the biggest change, and the one that unlocks a city.
+This is the biggest change, and the one that unlocks a city. So before building it, a cop chase
+on Downtown as it is (step 5 in "Build order") checks that the mode is worth it.
 
 ## What it won't do
 
@@ -111,6 +122,11 @@ Kept out on purpose, so the engine stays small and deterministic:
 The goal: anything you'd check by playing, an LLM can check from a shell, and read the answer as
 text. The common shape: a `bun tools/<name>.ts` with plain-text output and `--json`, and the
 same functions on `window.__rc` in the dev build.
+
+Both are thin wrappers over **one dev module** (say `src/dev/`) that holds the helpers
+themselves: place a car, step, probe, summarize a run. Written once, the browser and the command
+line can't drift apart. The module stays free of the DOM (it works on the sim and the track), and
+only the screenshot side needs a browser.
 
 What exists today:
 - `bun tools/lap-report.ts <map> [--field]`: AI laps, section times, wrecks and where.
@@ -137,8 +153,11 @@ What to add (roughly in order of use):
   wrong at a spot.
 - **`tools/map.ts`**: a top-down image of a whole map (the ground's heights, pieces by kind,
   routes, checkpoints, features), and a text summary of its size and contents.
-- **A determinism check**: run the same race twice, and with snapshots restored mid-race, and
-  compare state hashes every tick. Online play depends on it; it should be a test.
+- **A determinism check**, grown from the test that's there: `test/core.test.ts` ("the same
+  inputs from a snapshot give the same state") restores a snapshot on Downtown and compares three
+  numbers at the end. Widen it to every map (pieces, moving pieces and features included), a
+  hash of the whole sim state, compared every tick, so a mismatch names the tick it started.
+  Online play depends on it.
 - **Perf numbers from the command line**: triangles, draw calls, frame time for a map at a spot
   (what `renderer.info` gives in the browser, headless).
 - **`window.__rc` made stable and documented**: `place`, `step(ticks)` (stepping the camera
@@ -159,16 +178,23 @@ Each step ships on its own, and the existing maps keep their lap floors througho
    them.
 1. **The pieces layer and its one query**, with the Lava Tube moved onto it first: it has every
    hard case (a tube, a gap, a kicker, mouths, the camera). Done when the tube plays the same,
-   the lap floors don't move, and the three special cases in `ground.ts`, `camera.ts` and
-   `physics.ts` are gone. Clears most of TECH_DEBT's "Open ground and Paradise Open".
+   the lap floors don't move, the three special cases in `ground.ts`, `camera.ts` and
+   `physics.ts` are gone, and so are `GroundDef`'s `decks`, `branchDecks` and `branchGaps` (the
+   layouts and generators moved to pieces). Clears most of TECH_DEBT's "Open ground and Paradise
+   Open".
 2. **Feature modules**: the volcano, coast, beaches, moguls, canyons, decks and the avalanche as
-   modules over pieces. The eruption is the first new one.
+   modules over pieces, each placed in world space or along a named street, not by the main road
+   (moguls and canyons are by the main road today, so they move). The eruption is the first new
+   one.
 3. **Enclosed spaces done properly**: the camera under the ceiling, indoor light and fog, reverb.
    Then a short indoor stretch on a map.
 4. **Moving pieces**: a drawbridge.
-5. **The road graph and routes**: streets, junctions, checkpoints; today's maps as routes.
-6. **The cop chase**: a new mode and a city map, cops pathfinding over the graph. (A cheaper
-   first try, before step 5: a chase mode on Downtown as it is, to see if it's fun.)
+5. **A cop chase on Downtown as it is**: the mode only (roles, busted, escape, a timer), with
+   cops that chase along the track. A playtest: if the chase is fun, the road graph is worth
+   building; if not, we've saved the biggest step.
+6. **The road graph and routes**: streets, junctions, and checkpoints as gates on streets (the
+   bake's checkpoints and `rules/progress.ts` carried over); today's maps as routes.
+7. **The cop chase in a city**: a city map, cops pathfinding over the graph.
 
 ## See also
 
