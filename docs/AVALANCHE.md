@@ -483,6 +483,22 @@ Item 5, slalom gates, is built (2026-10-02):
   it would miss by up to 5 m. One run: easy and normal take 13 of 18, hard 15 (a best streak of
   7). The hard floor is 97.75 s (98.32 without gates). The field and chaos: no wrecks.
 
+Item 6, pines, is built (2026-10-02):
+
+- **Placement:** about 6,200 pines (`track.pines`, `core/track/pines.ts`), scattered at bake time
+  from `ground.pines` (seed 17, a candidate every 7 m, jittered). None within 8 m of the piste's
+  edge, then thickening over 40 m and up the walls, in glades about 90 m across (value noise).
+  None in a canyon or its mouth, in a mogul field, or beside a kicker.
+- **Solid:** a square collider at the foot (the trunk and the low branches, 1.2–1.5 m), found
+  through a 16 m grid. A hit has the pillars' rules: a bump, or a wreck (`Cause.Prop`) past
+  `wallWreck`. You fly over the top in the air.
+- **Drawn** from the same list (`snow.ts`): a trunk and three tiers, each with snow on it, 7–14 m
+  tall, turned its own way, in 200 m chunks the camera culls. 60 fps on the desktop, 143 draw
+  calls. They hide the bare walls.
+- The ground's bake is now about 1 s with the pines (0.6 s before), which is item 9's to measure on
+  a phone. The AI never leaves the piste, so its times are unchanged (97.75 s, the field and chaos
+  the same).
+
 The sketches as they were:
 
 1. **It reads as a run.**

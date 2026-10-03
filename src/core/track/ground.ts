@@ -46,7 +46,7 @@ const smooth = (e0: number, e1: number, x: number) => {
 };
 
 /** Smooth value noise, 0–1, at (x, z) in cells of `size` m (seeded by the grid, so the same everywhere). */
-function noise(x: number, z: number, size: number, seed = 91): number {
+export function noise(x: number, z: number, size: number, seed = 91): number {
   const u = x / size;
   const v = z / size;
   const i = Math.floor(u);

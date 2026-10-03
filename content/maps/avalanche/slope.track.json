@@ -3627,6 +3627,14 @@
     "spacing": 11
    }
   ],
+  "pines": {
+   "seed": 17,
+   "spacing": 7,
+   "clear": 8,
+   "thicken": 40,
+   "density": 0.6,
+   "glade": 90
+  },
   "canyons": [
    {
     "s": [

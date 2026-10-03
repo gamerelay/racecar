@@ -3,8 +3,10 @@
 // sees). Colored by what's under it: the road's own surface on the road (groomed snow on the piste,
 // asphalt on a road), the verge's past it (powder), and grey rock where it's too steep for snow to
 // sit (a canyon's lip, the walls at the edges). A road that isn't snow gets its lines painted on.
+// The pines are the track's own list (core/track/pines.ts), each drawn where its collider stands.
 
-import { BufferAttribute, BufferGeometry, Color, Float32BufferAttribute, IcosahedronGeometry, Mesh, type Object3D } from 'three';
+import { BufferAttribute, BufferGeometry, Color, ConeGeometry, CylinderGeometry, Float32BufferAttribute, IcosahedronGeometry, InstancedMesh, Matrix4, Mesh, Quaternion, Vector3, type Object3D } from 'three';
+import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import type { Track } from '../../../core/track/bake';
 import { hash01 } from '../../../core/rng';
 import { toon } from './toon';
@@ -90,6 +92,69 @@ export function buildSnow(track: Track): Object3D[] {
   if (rocks) out.push(rocks);
   const gates = buildGates(track);
   if (gates) out.push(gates);
+  out.push(...buildPines(track));
+  return out;
+}
+
+/** Pines are grouped into chunks this big (m), so the camera culls the ones out of view. */
+const PINE_CHUNK = 200;
+
+/** One snow-laden pine, 10 m tall, its foot at the origin: a trunk, three tiers, snow on each. */
+function pineModel(): BufferGeometry {
+  const part = (geo: BufferGeometry, color: number, y: number) => {
+    const g = geo.index ? geo.toNonIndexed() : geo;
+    g.translate(0, y, 0);
+    const c = new Color(color);
+    const n = g.getAttribute('position').count;
+    g.setAttribute('color', new Float32BufferAttribute(Array.from({ length: n * 3 }, (_, k) => [c.r, c.g, c.b][k % 3]), 3));
+    g.deleteAttribute('uv');
+    g.computeVertexNormals();
+    return g;
+  };
+  const parts = [part(new CylinderGeometry(0.22, 0.3, 2.2, 6), 0x5a3f2c, 1.1)];
+  // Tiers [radius, height, middle]: the snow on each a shallower cone at the same tip, so it shows.
+  for (const [r, h, y] of [
+    [3, 4, 3.4],
+    [2.3, 3.4, 5.6],
+    [1.5, 3, 7.7],
+  ]) {
+    parts.push(part(new ConeGeometry(r, h, 7), 0x2c5644, y));
+    parts.push(part(new ConeGeometry(r * 0.62, h * 0.5, 7), 0xf3f7fc, y + h * 0.25 + 0.02));
+  }
+  return mergeGeometries(parts)!;
+}
+
+/** The pines (track.pines), instanced, a mesh per chunk of ground; each scaled to its height and turned its own way. */
+function buildPines(track: Track): InstancedMesh[] {
+  const p = track.pines;
+  if (!p || !p.n) return [];
+  const chunks = new Map<string, number[]>();
+  for (let k = 0; k < p.n; k++) {
+    const key = `${Math.floor(p.x[k] / PINE_CHUNK)},${Math.floor(p.z[k] / PINE_CHUNK)}`;
+    let list = chunks.get(key);
+    if (!list) chunks.set(key, (list = []));
+    list.push(k);
+  }
+  const geo = pineModel();
+  const material = toon({ vertexColors: true });
+  const m = new Matrix4();
+  const q = new Quaternion();
+  const up = new Vector3(0, 1, 0);
+  const at = new Vector3();
+  const sc = new Vector3();
+  const out: InstancedMesh[] = [];
+  for (const list of chunks.values()) {
+    const mesh = new InstancedMesh(geo, material, list.length);
+    list.forEach((k, j) => {
+      const size = p.h[k] / 10;
+      // Sunk a little, so a tree on a slope doesn't stand on one edge of its trunk.
+      m.compose(at.set(p.x[k], p.y[k] - 0.3, p.z[k]), q.setFromAxisAngle(up, hash01(29, k, 0) * Math.PI * 2), sc.set(size, size, size));
+      mesh.setMatrixAt(j, m);
+    });
+    mesh.computeBoundingSphere();
+    mesh.matrixAutoUpdate = false;
+    out.push(mesh);
+  }
   return out;
 }
 

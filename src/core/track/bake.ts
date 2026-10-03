@@ -3,6 +3,7 @@
 // branches mapped onto the main spline's distance, checkpoints, zones, ramps and render chunks.
 
 import { buildGround, type Ground } from './ground';
+import { buildPines, type Pines } from './pines';
 import type { BranchDef, SurfaceDef, TrackLayout, TrackPoint, Vec3, ZoneDef } from '../content';
 import { smoothstep } from '../math';
 import { sampleDense, type DenseSample } from './spline';
@@ -103,6 +104,8 @@ export interface Track {
   version: string;
   /** Open ground (layout.ground): what the car drives on everywhere, off the roads too. */
   ground?: Ground;
+  /** Pines on the open ground (layout.ground.pines), solid. */
+  pines?: Pines;
 }
 
 export function bakeTrack(layout: TrackLayout, surfaces: SurfaceDef[]): Track {
@@ -214,7 +217,8 @@ export function bakeTrack(layout: TrackLayout, surfaces: SurfaceDef[]): Track {
   if (ground) for (const sp of splines) sp.ground = ground;
   // On open ground a prop stands on it (a rock on a swell), not on the road's line beneath.
   if (ground) for (const p of props) p.y = ground.height(p.x, p.z);
-  return { layout, splines, main, surfaces, surfaceIndex, checkpoints, props, version: layoutVersion(layout), ground, run };
+  const pines = ground && layout.ground!.pines ? buildPines(layout.ground!.pines, layout, main, ground) : undefined;
+  return { layout, splines, main, surfaces, surfaceIndex, checkpoints, props, version: layoutVersion(layout), ground, pines, run };
 }
 
 /** A high bridge stands on a timber bent this often (m along it), on legs across it (SPEC, "Trestle legs"). */

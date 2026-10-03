@@ -3,7 +3,8 @@ import type { TrackLayout } from '../src/core/content';
 import { neutralControls } from '../src/core/controls';
 import { Sim } from '../src/core/sim';
 import { bakeTrack } from '../src/core/track/bake';
-import { canyonDepth } from '../src/core/track/ground';
+import { canyonAt, canyonDepth } from '../src/core/track/ground';
+import { newHit, projectGlobal, sampleAt } from '../src/core/track/query';
 import { slopeView } from '../src/render/camera';
 import { Cause, Ev } from '../src/core/events';
 import { avalancheSpeed } from '../src/core/world/avalanche';
@@ -285,6 +286,50 @@ describe("the Slope's slalom gates", () => {
       });
     }
     expect(gates).toBeGreaterThanOrEqual(sim.track.layout.slalom!.length * 0.7);
+  });
+});
+
+describe("the Slope's pines", () => {
+  test('thousands of solid pines off the piste: none near its edge, in a canyon or its mouth, or in the moguls', () => {
+    const track = bakeTrack(layout('avalanche/slope'), SURFACES);
+    const p = track.pines!;
+    const g = track.layout.ground!;
+    expect(p.n).toBeGreaterThan(2000);
+    // The same forest every time (every screen builds its own).
+    expect(Array.from(bakeTrack(layout('avalanche/slope'), SURFACES).pines!.x.slice(0, 50))).toEqual(Array.from(p.x.slice(0, 50)));
+    const main = track.main;
+    for (let k = 0; k < p.n; k += 7) {
+      const at = sampleAt(main, 0, newHit());
+      projectGlobal(main, p.x[k], p.z[k], at);
+      const edge = at.width / 2 + main.shoulder[Math.round(at.s / main.step)];
+      expect(Math.abs(at.lateral) - edge).toBeGreaterThan(g.pines!.clear - 3);
+      expect(canyonAt(g, at.s, at.lateral)).toBeLessThan(0.5);
+      expect(Math.abs(p.y[k] - track.ground!.height(p.x[k], p.z[k]))).toBeLessThan(1e-3);
+    }
+  });
+
+  test('driven into, a pine wrecks you', () => {
+    const track = bakeTrack(layout('avalanche/slope'), SURFACES);
+    const p = track.pines!;
+    const sim = new Sim(track, CLASSES, SURFACES, { seed: 1 });
+    const i = sim.addCar({ cls: 'coupe', human: true });
+    // A tree on fairly level ground, the car 20 m off, aimed at it.
+    let k = 0;
+    const slope = { x: 0, z: 0 };
+    while (track.ground!.slope(p.x[k], p.z[k], slope) && Math.hypot(slope.x, slope.z) > 0.15) k++;
+    sim.placeCar(i, 0, 100, 0, 0);
+    sim.cars.x[i] = p.x[k] - 20;
+    sim.cars.z[i] = p.z[k];
+    sim.cars.y[i] = track.ground!.height(p.x[k] - 20, p.z[k]) + 0.5;
+    sim.cars.h[i] = Math.PI / 2;
+    sim.cars.vx[i] = 35;
+    sim.cars.vz[i] = 0;
+    let wrecked = false;
+    for (let t = 0; t < 90 && !wrecked; t++) {
+      sim.step([neutralControls()]);
+      wrecked = sim.cars.wreck[i] === 1 && sim.cars.wreckCause[i] === Cause.Prop;
+    }
+    expect(wrecked).toBe(true);
   });
 });
 

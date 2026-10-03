@@ -229,6 +229,20 @@ export interface AvalancheDef {
   speed: number;
 }
 
+/**
+ * Pines scattered on open ground (core/track/pines.ts): candidates every `spacing` m (jittered),
+ * none within `clear` m of the piste's edge, thickening to `density` (0–1) over the next `thicken`
+ * m and up the walls, in glades (noise `glade` m wide), from `seed`.
+ */
+export interface PinesDef {
+  seed: number;
+  spacing: number;
+  clear: number;
+  thicken: number;
+  density: number;
+  glade: number;
+}
+
 /** Open ground round the main road (core/track/ground.ts). Distances are along the main road (s) and across it (lateral, + right). */
 export interface GroundDef {
   /** Grid cell (m). */
@@ -242,6 +256,8 @@ export interface GroundDef {
   swell?: { height: number; size: number };
   /** Bumps off the road: up to this high (m), this wide (m). */
   rough?: { height: number; size: number };
+  /** Pines on the open snow (core/track/pines.ts), solid. */
+  pines?: PinesDef;
   /** Mogul fields: bumps `height` m high, `spacing` m apart, over s × lateral. */
   moguls?: { s: [number, number]; lateral: [number, number]; height: number; spacing: number }[];
   /**
