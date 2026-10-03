@@ -3,7 +3,7 @@
 // shoulder, the road's own height; off it, the land between the roads (relaxed smooth, so two
 // stretches meet in a slope, not a cliff); then whatever the layout adds by where the point is
 // along and across the road: rough snow off the road, mogul fields, canyons, and walls rising at the
-// edges. Up the walls past `wallOut` is out of bounds.
+// edges, drawn `wallOut` + 20 m up them. Out of bounds is near their top: CLIMB m past `wallOut`.
 //
 // Pure arithmetic from the layout, so every screen builds the same ground.
 
@@ -26,7 +26,7 @@ export interface Ground {
   readonly lateral: Float32Array;
   /** Per point, the main road's sample nearest it. */
   readonly near: Int32Array;
-  /** Past the climbable foot of the walls (GroundDef.wallOut), or off the grid: out of bounds. */
+  /** Near the top of the walls (CLIMB m past GroundDef.wallOut), or off the grid: out of bounds. */
   outside(x: number, z: number): boolean;
 }
 
@@ -36,6 +36,11 @@ const ROUGH_IN = 10;
 const EDGE = 6;
 /** Past the walls' foot (`wallFrom`), this far up them is in bounds by default (GroundDef.wallOut). */
 const WALL_OUT = 25;
+/**
+ * Out of bounds is this far past `wallOut`, 5 m short of where the walls are drawn to: you can drive
+ * most of the way up them (the owner: room to climb the slopes and launch off them).
+ */
+const CLIMB = 15;
 /** The land between the roads is relaxed on a grid this coarse (m), this many passes. */
 const BASE_CELL = 8;
 const RELAX = 300;
@@ -260,7 +265,7 @@ export function buildGround(def: GroundDef, main: BakedSpline): Ground {
       const gx = Math.round((x - x0) / cell);
       const gz = Math.round((z - z0) / cell);
       if (gx < 0 || gz < 0 || gx >= nx || gz >= nz) return true;
-      return Math.abs(lateral[gz * nx + gx]) > def.wallFrom + wallOut;
+      return Math.abs(lateral[gz * nx + gx]) > def.wallFrom + wallOut + CLIMB;
     },
     height(x, z) {
       const u = (x - x0) / cell;

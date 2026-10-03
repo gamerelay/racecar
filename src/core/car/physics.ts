@@ -323,7 +323,8 @@ function followGround(sim: SimState, i: number, dt: number): void {
     cars.lastLat[i] = hit.lateral;
   }
   // Open ground's bounds are its walls: up past their foot (Ground.outside), not off the road.
-  const out = sim.track.ground ? sim.track.ground.outside(cars.x[i], cars.z[i]) : Math.abs(hit.lateral) > hit.width / 2 + hit.shoulder + T.outOfBounds;
+  // (In the air off a wall's slope it isn't, until it comes down there: launch off the sides.)
+  const out = sim.track.ground ? sim.track.ground.outside(cars.x[i], cars.z[i]) && cars.grounded[i] === 1 : Math.abs(hit.lateral) > hit.width / 2 + hit.shoulder + T.outOfBounds;
   if (out || cars.y[i] < ground - 20) {
     wreckCar(sim, i, Cause.OutOfBounds, 0, 0, -1);
     // Nothing to watch: respawn after a second.

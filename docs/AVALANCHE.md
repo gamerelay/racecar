@@ -411,6 +411,12 @@ lap floors haven't moved.
 
 ### The feel first
 
+**Out of bounds moved up the walls (2026-10-02).** The owner drove up the slopes and crashed into
+nothing, well short of the top: out of bounds was 25 m up the walls (`wallOut`). It's now 15 m
+further (`CLIMB` in `ground.ts`), 5 m short of where the walls are drawn to, and it doesn't count in
+the air, so you can launch off the slopes and come back down. (A rock cliff there was tried first,
+but it made the walls look too tall and jagged, so it was reverted. The slopes look as they were.)
+
 Items 1 and 2 are built (2026-10-02, on PR #74):
 
 - **The run reads as a run.** The HUD's lap box is "To go", the distance to the bottom (km, then
