@@ -3874,7 +3874,7 @@
   }
  ],
  "avalanche": {
-  "behind": 80,
+  "behind": 70,
   "delay": 7,
   "speed": 65
  },

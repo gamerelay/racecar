@@ -5,6 +5,7 @@ import { Sim } from '../src/core/sim';
 import { bakeTrack } from '../src/core/track/bake';
 import { canyonAt, canyonDepth } from '../src/core/track/ground';
 import { buildPines } from '../src/core/track/pines';
+import { validateLayout } from '../src/core/track/validate';
 import { newHit, projectGlobal, sampleAt } from '../src/core/track/query';
 import { slopeView } from '../src/render/camera';
 import { Cause, Ev } from '../src/core/events';
@@ -544,6 +545,20 @@ describe("the Slope's avalanche", () => {
 });
 
 describe('one run (layout.run)', () => {
+  test("the validator knows a run: the Slope is clean, and a broken run's start, run-out, gates and jump are caught", () => {
+    const L = layout('avalanche/slope');
+    expect(validateLayout(L, SURFACES, CLASSES)).toEqual([]);
+    const errors = (l: typeof L) => validateLayout(l, SURFACES, CLASSES).filter((p) => p.level === 'error').map((p) => p.message);
+    // No room for the grid behind the line.
+    expect(errors({ ...L, run: { start: 10, finish: L.run!.finish } }).join()).toContain('must start at least 50 m');
+    // Nowhere to stop past the finish.
+    const end = bakeTrack(L, SURFACES).main.length;
+    expect(errors({ ...L, run: { start: L.run!.start, finish: end - 40 } }).join()).toContain('past the finish');
+    // A gate off the piste, a jump past the finish.
+    expect(errors({ ...L, slalom: [{ s: 1000, lateral: 30, gap: 12 }] }).join()).toContain('slalom gate 0');
+    expect(errors({ ...L, skiJump: { lip: L.run!.finish - 100, landing: 260 } }).join()).toContain('ski jump');
+  });
+
   /** A straight run down a 10% grade: 1,400 m, the start at 60, the finish 200 m from the end. */
   const straight = (): TrackLayout => ({
     id: 'run',

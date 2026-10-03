@@ -230,7 +230,7 @@ building, by measurement or by the philosophy above.
   - The walls: `cell` 2.5, `wallFrom` 80, `wallRise` 0.9.
   - The ground's texture: `swell` 1.4 m / 45 m, `rough` 2.6 m / 22 m.
   - The pines: `density` 0.06.
-  - The avalanche: `{behind: 80, delay: 7, speed: 65}`, and `AVALANCHE_AHEAD` 150 m.
+  - The avalanche: `{behind: 70, delay: 7, speed: 65}`, and `AVALANCHE_AHEAD` 150 m.
   - The AI: `CANYON_TAKE` 0.5 (of its shortcut chance), `CANYON_IN` 250 m, `CANYON_OUT` 180 m, and
     `BRAKE_LEFT` 8 m/s² (the least braking it plans on down a pitch).
   - The gates: `boostFromGate` 0.04 and `gatePoints` 200 in `tuning.ts`.
