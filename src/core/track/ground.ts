@@ -3,7 +3,7 @@
 // shoulder, the road's own height; off it, the land between the roads (relaxed smooth, so two
 // stretches meet in a slope, not a cliff); then whatever the layout adds by where the point is
 // along and across the road: rough snow off the road, mogul fields, canyons, and walls rising at the
-// edges, drawn `wallOut` + 20 m up them. Out of bounds is near their top: CLIMB m past `wallOut`.
+// edges, drawn `wallOut` + 20 m up them. Out of bounds is their top (CLIMB m past `wallOut`).
 //
 // Pure arithmetic from the layout, so every screen builds the same ground.
 
@@ -37,10 +37,10 @@ const EDGE = 6;
 /** Past the walls' foot (`wallFrom`), this far up them is in bounds by default (GroundDef.wallOut). */
 const WALL_OUT = 25;
 /**
- * Out of bounds is this far past `wallOut`, 5 m short of where the walls are drawn to: you can drive
- * most of the way up them (the owner: room to climb the slopes and launch off them).
+ * Out of bounds is this far past `wallOut`: where the walls are drawn to, their top. All of them is
+ * yours to drift up at speed and come back down, or launch off (the owner's ask).
  */
-const CLIMB = 15;
+const CLIMB = 20;
 /** The land between the roads is relaxed on a grid this coarse (m), this many passes. */
 const BASE_CELL = 8;
 const RELAX = 300;

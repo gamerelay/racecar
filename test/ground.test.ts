@@ -109,9 +109,9 @@ describe("Avalanche's Slope", () => {
     const m = track.main;
     const k = Math.round(700 / m.step);
     const lat = (sim.cars.x[i] - m.px[k]) * -m.tz[k] + (sim.cars.z[i] - m.pz[k]) * m.tx[k];
-    // Near the walls' top (15 m past wallOut), not at their foot.
-    expect(Math.abs(lat)).toBeGreaterThan(l.ground!.wallFrom + (l.ground!.wallOut ?? 25) + 10);
-    expect(Math.abs(lat)).toBeLessThan(l.ground!.wallFrom + (l.ground!.wallOut ?? 25) + 20);
+    // At the walls' top (20 m past wallOut, where they're drawn to), not at their foot.
+    expect(Math.abs(lat)).toBeGreaterThan(l.ground!.wallFrom + (l.ground!.wallOut ?? 25) + 15);
+    expect(Math.abs(lat)).toBeLessThan(l.ground!.wallFrom + (l.ground!.wallOut ?? 25) + 25);
   });
 
   test('is experimental: out of the maps the game, the validator and the lap report run', () => {
