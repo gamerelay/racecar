@@ -3,7 +3,8 @@
 // shoulder, the road's own height; off it, the land between the roads (relaxed smooth, so two
 // stretches meet in a slope, not a cliff); then whatever the layout adds by where the point is
 // along and across the road: rough snow off the road, mogul fields, canyons, and walls rising at the
-// edges. Up the walls past `wallOut` is out of bounds.
+// edges. `wallOut` m up the walls they turn to a rock cliff (CLIFF): a wall a car stops against,
+// like a road's. Only past the cliff (flown over it) is out of bounds.
 //
 // Pure arithmetic from the layout, so every screen builds the same ground.
 
@@ -26,7 +27,9 @@ export interface Ground {
   readonly lateral: Float32Array;
   /** Per point, the main road's sample nearest it. */
   readonly near: Int32Array;
-  /** Past the climbable foot of the walls (GroundDef.wallOut), or off the grid: out of bounds. */
+  /** How far (m, across the road) (x, z) is past the foot of the walls' rock cliff: negative short of it. */
+  over(x: number, z: number): number;
+  /** Past the cliff's top (CLIFF_BAND m on from its foot), or off the grid: out of bounds. */
   outside(x: number, z: number): boolean;
 }
 
@@ -36,6 +39,9 @@ const ROUGH_IN = 10;
 const EDGE = 6;
 /** Past the walls' foot (`wallFrom`), this far up them is in bounds by default (GroundDef.wallOut). */
 const WALL_OUT = 25;
+/** There the walls steepen into a rock cliff: this much more rise per m (drawn as rock), for this far. */
+export const CLIFF = 1.6;
+export const CLIFF_BAND = 15;
 /** The land between the roads is relaxed on a grid this coarse (m), this many passes. */
 const BASE_CELL = 8;
 const RELAX = 300;
@@ -103,6 +109,8 @@ export function groundShape(def: GroundDef, s: number, lat: number, half: number
   }
   h -= canyonAt(def, s, lat);
   if (a > def.wallFrom) h += (a - def.wallFrom) * def.wallRise;
+  const foot = def.wallFrom + (def.wallOut ?? WALL_OUT);
+  if (a > foot) h += (a - foot) * CLIFF;
   return h;
 }
 
@@ -256,11 +264,14 @@ export function buildGround(def: GroundDef, main: BakedSpline): Ground {
     h,
     lateral,
     near,
-    outside(x, z) {
+    over(x, z) {
       const gx = Math.round((x - x0) / cell);
       const gz = Math.round((z - z0) / cell);
-      if (gx < 0 || gz < 0 || gx >= nx || gz >= nz) return true;
-      return Math.abs(lateral[gz * nx + gx]) > def.wallFrom + wallOut;
+      if (gx < 0 || gz < 0 || gx >= nx || gz >= nz) return Infinity;
+      return Math.abs(lateral[gz * nx + gx]) - (def.wallFrom + wallOut);
+    },
+    outside(x, z) {
+      return this.over(x, z) > CLIFF_BAND;
     },
     height(x, z) {
       const u = (x - x0) / cell;
