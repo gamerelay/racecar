@@ -67,19 +67,23 @@ const layout: TrackLayout = {
       { s: [FREEWAY[1], length], side: 'both' },
     ],
   },
-  // The island's dressing stands on its own terrain; it comes back on this ground in step 8.
-  landmarks: [],
+  // Out at sea, where nothing drives (the island's own on land need colliders first).
+  landmarks: (src.landmarks ?? []).filter((m) => ['shipwreck', 'whale', 'seaplanes'].includes(m.kind)),
   scenery: undefined,
   terrain: undefined,
   ground: {
     cell: 2.5,
-    // Room either side of the road, then the edges rise (the coast replaces them in step 1).
-    wallFrom: 140,
-    wallRise: 0.35,
+    // No walls: the island's coast is its edge, and past it deep water (a respawn).
+    wallFrom: 200,
+    wallRise: 0,
     swell: { height: 1, size: 60 },
     rough: { height: 0.8, size: 18 },
     decks: [{ s: FREEWAY, floor: -6, ease: 80, reach: 90 }],
-    sea: 0,
+    sea: island.terrain.sea,
+    coast: island.terrain.island as [number, number][],
+    // Today's cone, its lava lake in the crater a little under the bowl's rim.
+    volcano: { ...island.terrain.volcano, lava: 76 },
+    pines: { kind: 'tropic', seed: 23, spacing: 7, clear: 7, thicken: 30, density: 0.4, glade: 70 },
   },
 };
 delete layout.scenery;

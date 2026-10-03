@@ -41,8 +41,8 @@ export interface Island {
   covers: Cover[];
 }
 
-const PALM_LEAVES = [0x3f8f3a, 0x4ea03c, 0x358a44, 0x5aa83a];
-const JUNGLE = [0x2f7a3a, 0x266b34, 0x3c8a3a, 0x1f5f35, 0x4a9a3f];
+export const PALM_LEAVES = [0x3f8f3a, 0x4ea03c, 0x358a44, 0x5aa83a];
+export const JUNGLE = [0x2f7a3a, 0x266b34, 0x3c8a3a, 0x1f5f35, 0x4a9a3f];
 const PASTELS = [0xf4a6a0, 0x9fd9c8, 0xf6d38a, 0xa7c4f2, 0xf0b6d6, 0xfff1d6, 0xbfe3a0];
 const CANOPIES = [0xff5a5f, 0xffc93c, 0x35c9e8, 0xff8fc7, 0xffffff, 0x6fdc8c];
 /** How far from a road's verge the jungle's trees stand (bushes nearer in). */
@@ -151,7 +151,7 @@ function lavaFlows(
  * unit of height squared, in the shape's own units, counted from `base` below its origin (a
  * crown is a unit ball, but it sits `base` units up its tree).
  */
-function swaying(time: { value: number }, amount: number, base = 0): MeshToonMaterial {
+export function swaying(time: { value: number }, amount: number, base = 0): MeshToonMaterial {
   const mat = toon();
   mat.onBeforeCompile = (shader) => {
     shader.uniforms.uTime = time;
@@ -174,7 +174,7 @@ function swaying(time: { value: number }, amount: number, base = 0): MeshToonMat
 }
 
 /** A palm, about 8.5 m tall, its trunk curving toward local +x: the trunk and nuts, and the fronds. */
-function palmGeometry(): { trunk: BufferGeometry; fronds: BufferGeometry } {
+export function palmGeometry(): { trunk: BufferGeometry; fronds: BufferGeometry } {
   const seg = 5;
   const H = 8.2;
   const bend = (y: number) => 0.035 * y * y;
@@ -207,6 +207,45 @@ function palmGeometry(): { trunk: BufferGeometry; fronds: BufferGeometry } {
     fronds.push(inner, outer);
   }
   return { trunk: mergeGeometries(parts)!, fronds: faceted(mergeGeometries(fronds)!) };
+}
+
+/**
+ * A volcano's crater: its lava pool at `y` (molten rock, a bright crust breaking up over the glow,
+ * churning slowly), a glow round it, and a plume of smoke rising. Shared with open ground's island
+ * (openIsland.ts).
+ */
+export function crater(volcano: { x: number; z: number; crater: number }, y: number, time: { value: number }, rng: Rng): Object3D[] {
+  const objects: Object3D[] = [];
+  const pool = new Mesh(new CircleGeometry(volcano.crater * 0.62, 32).rotateX(-Math.PI / 2), new ShaderMaterial({
+    uniforms: { uTime: time },
+    vertexShader: `varying vec2 vP;void main(){vP=position.xz;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);}`,
+    fragmentShader: `uniform float uTime;varying vec2 vP;
+      void main(){
+        vec2 q=vP*0.12;
+        float n=sin(q.x*3.1+uTime*0.4)*sin(q.y*2.7-uTime*0.3)+0.5*sin((q.x+q.y)*5.3+uTime*0.7);
+        vec3 col=mix(vec3(1.0,0.35,0.05),vec3(1.0,0.85,0.3),smoothstep(0.2,0.9,n));
+        col=mix(col,vec3(0.25,0.05,0.03),smoothstep(-0.2,-0.7,n));
+        gl_FragColor=vec4(col,1.0);
+      }`,
+  }));
+  pool.position.set(volcano.x, y, volcano.z);
+  objects.push(pool);
+  const glow: number[] = [];
+  for (let k = 0; k < 28; k++) {
+    const a = (k / 28) * Math.PI * 2;
+    const r = volcano.crater * rng.range(0.55, 0.8);
+    glow.push(volcano.x + Math.cos(a) * r, y + 2.8, volcano.z + Math.sin(a) * r);
+  }
+  objects.push(glowPoints(glow, 0xff6a1a, 22));
+  const plume = { pos: [] as number[], phase: [] as number[], col: [] as number[] };
+  for (let k = 0; k < 90; k++) {
+    plume.pos.push(volcano.x + rng.range(-12, 12), y + 4.8, volcano.z + rng.range(-12, 12));
+    plume.phase.push(k / 90 + rng.next() * 0.01);
+    const g = rng.range(0.3, 0.46);
+    plume.col.push(g, g * 0.97, g * 0.95);
+  }
+  objects.push(animatedPoints(plume.pos, plume.phase, plume.col, 'plume', 30, time));
+  return objects;
 }
 
 /** `marks`: ground the landmarks keep (landmarks.ts), clear of palms, huts and houses. */
@@ -452,36 +491,7 @@ export function buildIsland(track: Track, seed: number, land: Terrain, marks: { 
   const lavaRocks: Part[] = [];
   if (volcano) {
     const floor = seaY + coneHeight(volcano, volcano.x, volcano.z);
-    const pool = new Mesh(new CircleGeometry(volcano.crater * 0.62, 32).rotateX(-Math.PI / 2), new ShaderMaterial({
-      uniforms: { uTime: time },
-      vertexShader: `varying vec2 vP;void main(){vP=position.xz;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);}`,
-      // Molten rock: a bright crust breaking up over the glow, churning slowly.
-      fragmentShader: `uniform float uTime;varying vec2 vP;
-        void main(){
-          vec2 q=vP*0.12;
-          float n=sin(q.x*3.1+uTime*0.4)*sin(q.y*2.7-uTime*0.3)+0.5*sin((q.x+q.y)*5.3+uTime*0.7);
-          vec3 col=mix(vec3(1.0,0.35,0.05),vec3(1.0,0.85,0.3),smoothstep(0.2,0.9,n));
-          col=mix(col,vec3(0.25,0.05,0.03),smoothstep(-0.2,-0.7,n));
-          gl_FragColor=vec4(col,1.0);
-        }`,
-    }));
-    pool.position.set(volcano.x, floor + 1.2, volcano.z);
-    objects.push(pool);
-    const glow: number[] = [];
-    for (let k = 0; k < 28; k++) {
-      const a = (k / 28) * Math.PI * 2;
-      const r = volcano.crater * rng.range(0.55, 0.8);
-      glow.push(volcano.x + Math.cos(a) * r, floor + 4, volcano.z + Math.sin(a) * r);
-    }
-    objects.push(glowPoints(glow, 0xff6a1a, 22));
-    const plume = { pos: [] as number[], phase: [] as number[], col: [] as number[] };
-    for (let k = 0; k < 90; k++) {
-      plume.pos.push(volcano.x + rng.range(-12, 12), floor + 6, volcano.z + rng.range(-12, 12));
-      plume.phase.push(k / 90 + rng.next() * 0.01);
-      const g = rng.range(0.3, 0.46);
-      plume.col.push(g, g * 0.97, g * 0.95);
-    }
-    objects.push(animatedPoints(plume.pos, plume.phase, plume.col, 'plume', 30, time));
+    objects.push(...crater(volcano, floor + 1.2, time, rng));
     objects.push(...lavaFlows(volcano, land, roadGap, kept, rng, time));
     // Boulders of black rock over the upper cone, and along the rim road's verges.
     for (let k = 0; k < 260; k++) {

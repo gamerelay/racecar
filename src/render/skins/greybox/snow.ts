@@ -5,9 +5,11 @@
 // sit (a canyon's lip, the walls at the edges). A road that isn't snow gets its lines painted on.
 // The pines are the track's own list (core/track/pines.ts), each drawn where its collider stands.
 
-import { BufferAttribute, BufferGeometry, Color, ConeGeometry, CylinderGeometry, Float32BufferAttribute, IcosahedronGeometry, InstancedMesh, LOD, Matrix4, Mesh, PlaneGeometry, Quaternion, Vector3, type Object3D } from 'three';
+import { BufferAttribute, BufferGeometry, Color, ConeGeometry, CylinderGeometry, Float32BufferAttribute, IcosahedronGeometry, InstancedMesh, LOD, Matrix4, Mesh, Quaternion, Vector3, type Object3D } from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
-import type { Track } from '../../../core/track/bake';
+import { VERGE_DEFAULT, type Track } from '../../../core/track/bake';
+import { noise } from '../../../core/track/ground';
+import { TREE_PINE } from '../../../core/track/pines';
 import { hash01 } from '../../../core/rng';
 import { toon } from './toon';
 
@@ -31,10 +33,27 @@ const SKIRT = 6;
 /** The lines' lift off the ground: clear of it, under the skids. */
 const LIFT = 0.05;
 
-export function buildSnow(track: Track): Object3D[] {
+/** An island's ground (GroundDef.coast, docs/PARADISE.md): sand along the water, grass inland, black lava rock up the volcano. */
+const SAND = new Color('#f3e8c8');
+const SAND_WET = new Color('#d9c79a');
+const LAVA_ROCK = new Color('#3a3336');
+const LAVA_ROCK_2 = new Color('#463c3d');
+const FOREST = new Color('#2a6b33');
+const smooth01 = (t: number) => {
+  const u = Math.min(1, Math.max(0, t));
+  return u * u * (3 - 2 * u);
+};
+
+export function buildSnow(track: Track, green?: Color): Object3D[] {
+  // (The palette's grass, softened toward the forest: on its own it's a lawn.)
+  const grass = green?.clone().lerp(FOREST, 0.3);
   const g = track.ground!;
   const main = track.main;
   const { nx, nz, cell, x0, z0, h, lateral, near } = g;
+  const isle = !!track.layout.ground?.coast;
+  const volcano = track.layout.ground?.volcano;
+  const sea = g.sea ?? 0;
+  const grass2 = grass?.clone().offsetHSL(0.03, 0.05, 0.04);
   const vergeColor = new Color(track.surfaces[track.surfaceIndex.get(track.layout.shoulderSurface ?? 'powder') ?? 0].color);
   const surfaceColors = track.surfaces.map((s) => new Color(s.color));
   const at = (gx: number, gz: number) => h[Math.min(nz - 1, Math.max(0, gz)) * nx + Math.min(nx - 1, Math.max(0, gx))];
@@ -66,8 +85,30 @@ export function buildSnow(track: Track): Object3D[] {
           nor[o + 2] = -hz * n;
           const i = near[k];
           // (Under a deck it's the ground, not the road: the road's up on the deck.)
-          c.copy(Math.abs(lateral[k]) <= main.width[i] / 2 && !g.deckSample[i] ? surfaceColors[main.surface[i]] : vergeColor);
+          const road = Math.abs(lateral[k]) <= main.width[i] / 2 && !g.deckSample[i];
+          // Off it, the stretch's own verge (the volcano's ash, the jungle's undergrowth), else the layout's.
+          c.copy(road ? surfaceColors[main.surface[i]] : main.verge[i] === VERGE_DEFAULT ? vergeColor : surfaceColors[main.verge[i]]);
           const steep = Math.hypot(hx, hz);
+          if (isle && !road) {
+            const x = pos[o];
+            const z = pos[o + 2];
+            // Smooth noise, so the edges between them wander instead of stepping cell by cell.
+            const n = noise(x, z, 23, 7);
+            const verge = main.verge[i] === VERGE_DEFAULT ? -1 : main.verge[i];
+            if (h[k] < sea + 0.4) c.copy(SAND_WET);
+            else if (g.coast(x, z) < 12 + 12 * n && h[k] < sea + 4) c.copy(SAND);
+            // Inland of the beach, the island's green (the jungle's own undergrowth by its roads),
+            // darkening into forest away from the roads.
+            else if (grass && verge < 0) {
+              c.copy(grass).lerp(grass2!, smooth01((n - 0.45) * 4));
+              c.lerp(FOREST, 0.6 * smooth01((Math.abs(lateral[k]) - 25) / 60) * (0.5 + 0.5 * n));
+            }
+            // Black lava rock up the volcano, blended in at its edge.
+            if (volcano) {
+              const up = (0.62 + 0.1 * noise(x, z, 40, 9)) * volcano.r - Math.hypot(x - volcano.x, z - volcano.z);
+              if (up > -12) c.lerp(n > 0.5 ? LAVA_ROCK : LAVA_ROCK_2, smooth01((up + 12) / 24));
+            }
+          }
           if (steep > ROCK) c.lerp(ROCK_COLOR, Math.min(1, (steep - ROCK) * 2));
           col[o] = c.r;
           col[o + 1] = c.g;
@@ -152,7 +193,6 @@ export function buildSnow(track: Track): Object3D[] {
   }
   const lines = roadLines(track);
   if (lines) out.push(lines);
-  if (g.sea !== undefined) out.push(seaPlane(track, g.sea));
   const rocks = buildRocks(track);
   if (rocks) out.push(rocks);
   const gates = buildGates(track);
@@ -161,22 +201,6 @@ export function buildSnow(track: Track): Object3D[] {
   if (tower) out.push(tower);
   out.push(...buildPines(track));
   return out;
-}
-
-const SEA = new Color('#2fb8c8');
-
-/** The sea (GroundDef.sea): a flat plane at its level over the whole ground and out past it, the ground showing through where it's higher. */
-function seaPlane(track: Track, y: number): Mesh {
-  const g = track.ground!;
-  const w = (g.nx - 1) * g.cell;
-  const d = (g.nz - 1) * g.cell;
-  const geo = new PlaneGeometry(w + 4000, d + 4000);
-  geo.rotateX(-Math.PI / 2);
-  const mesh = new Mesh(geo, toon({ color: SEA, transparent: true, opacity: 0.85 }));
-  mesh.position.set(g.x0 + w / 2, y, g.z0 + d / 2);
-  mesh.updateMatrix();
-  mesh.matrixAutoUpdate = false;
-  return mesh;
 }
 
 /** Pines are grouped into chunks this big (m), so the camera culls the ones out of view. */
@@ -213,6 +237,8 @@ function buildPines(track: Track): InstancedMesh[] {
   if (!p || !p.n) return [];
   const chunks = new Map<string, number[]>();
   for (let k = 0; k < p.n; k++) {
+    // (An island's palms and jungle are openIsland.ts's.)
+    if (p.kind[k] !== TREE_PINE) continue;
     const key = `${Math.floor(p.x[k] / PINE_CHUNK)},${Math.floor(p.z[k] / PINE_CHUNK)}`;
     let list = chunks.get(key);
     if (!list) chunks.set(key, (list = []));

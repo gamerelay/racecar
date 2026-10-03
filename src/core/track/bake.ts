@@ -217,7 +217,7 @@ export function bakeTrack(layout: TrackLayout, surfaces: SurfaceDef[]): Track {
   if (ground) for (const sp of splines) sp.ground = ground;
   // On open ground a prop stands on it (a rock on a swell, or a deck), not on the road's line beneath.
   if (ground) for (const p of props) p.y = ground.top(p.x, p.z);
-  const pines = ground && layout.ground!.pines ? buildPines(layout.ground!.pines, layout, main, ground) : undefined;
+  const pines = ground && layout.ground!.pines ? buildPines(layout.ground!.pines, layout, main, ground, (i) => surfaces[main.verge[i] === VERGE_DEFAULT ? (surfaceIndex.get(layout.shoulderSurface ?? '') ?? 0) : main.verge[i]].id) : undefined;
   return { layout, splines, main, surfaces, surfaceIndex, checkpoints, props, version: layoutVersion(layout), ground, pines, run };
 }
 

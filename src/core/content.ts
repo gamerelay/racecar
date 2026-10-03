@@ -237,6 +237,8 @@ export interface AvalancheDef {
  * m and up the walls, in glades (noise `glade` m wide), from `seed`.
  */
 export interface PinesDef {
+  /** What grows (default `pine`, snow-laden): `tropic` is palms along the coast and jungle inland (docs/PARADISE.md). */
+  kind?: 'pine' | 'tropic';
   seed: number;
   spacing: number;
   clear: number;
@@ -277,6 +279,17 @@ export interface GroundDef {
   decks?: { s: [number, number]; floor: number; ease: number; reach: number }[];
   /** The sea's level (m): water is drawn to it, and a car on the ground under it deeper than wading is in deep water (out of bounds). */
   sea?: number;
+  /**
+   * An island (docs/PARADISE.md): its coastline, a closed [x, z] loop with the sea outside it (set
+   * `sea`). Off the roads, past it the ground falls away under the sea; along it, a beach.
+   */
+  coast?: [number, number][];
+  /**
+   * A volcano (core/track/island.ts's cone): its middle, the crater's radius, the lip's height over
+   * the sea, its foot's radius. Off the roads the ground rises over it; in the crater a lava lake
+   * `lava` m over the sea, and down in that is a wreck.
+   */
+  volcano?: { x: number; z: number; crater: number; h: number; r: number; lava: number };
 }
 
 export interface MapDef {

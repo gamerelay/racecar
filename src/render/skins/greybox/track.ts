@@ -33,6 +33,7 @@ import { buildForest } from './forest';
 import { buildIsland } from './island';
 import { buildLandmarks, landmarkCircles, landmarkKeeps } from './landmarks';
 import { buildSnow } from './snow';
+import { buildOpenIsland } from './openIsland';
 import { buildTerrain } from './terrain';
 import { boxes, type Box } from './scenery';
 import { disposeTree } from './dispose';
@@ -224,7 +225,9 @@ export function buildTrackVisual(track: Track, palette: Palette, seed: number): 
     ground.matrixAutoUpdate = false;
     return ground;
   };
-  const extras: Object3D[] = track.ground ? [...buildSnow(track), ...decks] : city ? [] : land ? [...land.objects] : [plainGround()];
+  // An island on open ground (docs/PARADISE.md): its sea, its crater, its trees.
+  const isle = track.ground && (track.ground.sea !== undefined || track.pines) ? buildOpenIsland(track, palette, seed) : null;
+  const extras: Object3D[] = track.ground ? [...buildSnow(track, track.layout.ground?.coast ? new Color(palette.ground) : undefined), ...decks, ...(isle?.objects ?? [])] : city ? [] : land ? [...land.objects] : [plainGround()];
   const wet = puddles(track);
   if (wet) extras.push(wet);
   // Solid props on the road (the pillars): tall striped boxes. The Trestle's legs are the forest's.
@@ -269,8 +272,11 @@ export function buildTrackVisual(track: Track, palette: Palette, seed: number): 
     };
   }
 
-  // Landmarks, on the city's streets or the land.
-  const marks = buildLandmarks(track.layout, land ? land.height : () => groundY);
+  if (isle) update = (t) => isle.update(t);
+
+  // Landmarks, on the city's streets, the land or the open ground.
+  const ground = track.ground;
+  const marks = buildLandmarks(track.layout, land ? land.height : ground ? (x, z) => ground.top(x, z) : () => groundY);
   extras.push(...marks.objects);
   const scenery = update;
   update = (t, dt, cam, live) => {
@@ -285,7 +291,7 @@ export function buildTrackVisual(track: Track, palette: Palette, seed: number): 
     debug,
     update,
     roof: roofMap(track, groundY, city, land ? (sp) => land.deck[sp.index] : (sp) => deckMask(sp, groundY), covers),
-    water: !!land?.objects.length && (!!track.layout.terrain?.river || !!land.sea),
+    water: (!!land?.objects.length && (!!track.layout.terrain?.river || !!land.sea)) || track.ground?.sea !== undefined,
     dispose() {
       for (const c of chunks) (c as Mesh).geometry.dispose();
       road.dispose();

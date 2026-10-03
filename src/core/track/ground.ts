@@ -14,6 +14,7 @@
 
 import type { GroundDef } from '../content';
 import { hash01 } from '../rng';
+import { coneHeight, curve, loopDist } from './island';
 import type { BakedSpline } from './bake';
 
 export interface Ground {
@@ -37,6 +38,10 @@ export interface Ground {
   readonly deckSample: Uint8Array;
   /** The sea's level (GroundDef.sea), if the ground has one. */
   readonly sea?: number;
+  /** Signed distance to the coast (GroundDef.coast), positive inland; Infinity with none. */
+  coast(x: number, z: number): number;
+  /** Whether (x, z) at height `y` is down in the volcano's lava lake (GroundDef.volcano). */
+  inLava(x: number, z: number, y: number): boolean;
   /**
    * The deck's height at (x, z): the road's plane, if the point is over a deck, within `slack` m
    * past its edges (the road and its shoulder). NaN if it isn't.
@@ -53,6 +58,12 @@ export const DECK_CATCH = 1;
 
 /** Off the road, the rough snow comes in over this many meters past the shoulder. */
 const ROUGH_IN = 10;
+/** An island's beach: the ground's height at the waterline over the sea, how steeply it rises inland of it (1:x), and the sea bed's depth (as the lapped island's land, terrain.ts). */
+const SHORE = 1.2;
+const SHORE_RISE = 0.6;
+const SEA_BED = 9;
+/** Off a road, the volcano's flank comes in over this many meters past its edge (a cutting, not a cliff). */
+const CONE_IN = 40;
 /** Mogul fields and canyons ease in at their edges over this many meters. */
 const EDGE = 6;
 /** Past the walls' foot (`wallFrom`), the grid reaches this far up them, and 20 m more, at its narrowest (GroundDef.wallOut). */
@@ -273,6 +284,10 @@ export function buildGround(def: GroundDef, main: BakedSpline): Ground {
   const nx = Math.ceil((maxX + margin - x0) / cell) + 1;
   const nz = Math.ceil((maxZ + margin - z0) / cell) + 1;
   const nearest = sampleSearch(main, x0, z0, nx * cell, nz * cell, 24);
+  const sea = def.sea ?? 0;
+  const coastLoop = def.coast && def.coast.length > 2 ? curve([...def.coast, def.coast[0]], 12) : null;
+  const coast = (x: number, z: number) => (coastLoop ? loopDist(coastLoop, x, z) : Infinity);
+  const volcano = def.volcano;
   /** The road's plane at (x, z) as sample `i` carries it out (its slope along, its bank across). */
   const plane = (i: number, x: number, z: number) => {
     const j = main.closed ? (i + 1) % main.n : Math.min(main.n - 1, i + 1);
@@ -352,6 +367,19 @@ export function buildGround(def: GroundDef, main: BakedSpline): Ground {
       // What the layout adds, by the distance across (not the lateral: that jumps between stretches).
       const s = i * main.step + along;
       let gy = y + groundShape(def, s, lat < 0 ? -d : d, half, main.shoulder[i], x, z) * deckRunIn(def.decks, s, d, edge);
+      // The volcano rises off the roads (cut back to them over CONE_IN), and the coast falls away
+      // into the sea, a beach along it: off them, the road's own height on them.
+      if (volcano) {
+        const cone = sea + coneHeight(volcano, x, z);
+        if (cone > gy) gy += (cone - gy) * smooth(edge, edge + CONE_IN, d);
+      }
+      if (coastLoop) {
+        const sd = coast(x, z);
+        let isle = gy;
+        if (sd > 20) isle = Math.max(isle, sea + SHORE);
+        isle = Math.min(isle, sea - SEA_BED + (SEA_BED + SHORE) * smooth(-90, 2, sd) + Math.max(0, sd - 2) * SHORE_RISE);
+        gy += (isle - gy) * smooth(edge, edge + ROUGH_IN, d);
+      }
       // Under a deck, the ground falls away to its floor.
       for (const dk of def.decks ?? []) {
         const pull = deckPull(dk, s, d, edge);
@@ -384,6 +412,10 @@ export function buildGround(def: GroundDef, main: BakedSpline): Ground {
     near,
     deckSample,
     sea: def.sea,
+    coast,
+    inLava(x, z, y) {
+      return !!volcano && (x - volcano.x) ** 2 + (z - volcano.z) ** 2 < volcano.crater ** 2 && y < sea + volcano.lava + 0.3;
+    },
     deck(x, z, slack = 0) {
       if (!hasDeck) return NaN;
       const gx = Math.min(nx - 1, Math.max(0, Math.round((x - x0) / cell)));

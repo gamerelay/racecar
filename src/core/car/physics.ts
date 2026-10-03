@@ -209,20 +209,24 @@ export function stepCar(sim: SimState, i: number, c: Controls, dt: number): void
 
   // The slope pulls you along it (snow: SurfaceDef.slide), on the ground: downhill faster, uphill
   // slower, down a bank's side. Grip turns the sideways part back along the heading, as in a corner.
-  const slide = surf.slide ?? 0;
-  if (slide > 0 && grounded && sim.track.ground) {
-    const g = sim.track.ground.topSlope(cars.x[i], cars.z[i], cars.y[i], SLOPE);
+  // Off the road on open ground (past its edge, whatever the surface: the jungle's road is red
+  // earth), any slope pulls a little too: TUNING.offroadSlope.
+  const open = sim.track.ground;
+  const at = open && grounded ? sampleAt(sim.track.splines[cars.spline[i]], cars.s[i], sim.hitB) : null;
+  const onRoad = !!at && Math.abs(cars.lateral[i]) < at.width / 2 + at.shoulder;
+  const slide = surf.slide ?? (at && !onRoad ? T.offroadSlope : 0);
+  if (slide > 0 && open && at) {
+    const g = open.topSlope(cars.x[i], cars.z[i], cars.y[i], SLOPE);
     const k = (T.gravity * slide * dt) / (1 + g.x * g.x + g.z * g.z);
     vx -= g.x * k;
     vz -= g.z * k;
-  } else if (grounded && sim.track.ground && T.bankHold > 0) {
+  } else if (at && onRoad && T.bankHold > 0) {
     // Off snow, a banked road holds you into its bank (TUNING.bankHold), so a drift through a
     // banked turn leans on it instead of running wide. Gravity's pull down the bank, across the
     // car, bends its path (velocity and heading together, like a berm carrying you round): pushed
     // sideways, grip only turned it back along the heading and nothing changed.
-    const at = sampleAt(sim.track.splines[cars.spline[i]], cars.s[i], sim.hitB);
     const v = Math.hypot(vx, vz);
-    if (at.bank !== 0 && v > 5 && Math.abs(cars.lateral[i]) < at.width / 2 + at.shoulder) {
+    if (at.bank !== 0 && v > 5) {
       // Down the bank: the road's right (-tz, tx) for a positive bank (low on the right). Its part
       // across the car (the car's right is (-cos h, sin h)) turns it that way: right is -h.
       const pull = T.gravity * T.bankHold * Math.sin(at.bank);
@@ -368,6 +372,12 @@ function followGround(sim: SimState, i: number, dt: number): void {
   // Deep water (GroundDef.sea): down on the ground, well under the sea's level (a deck over it is above it).
   const sea = sim.track.ground?.sea;
   const deep = sea !== undefined && cars.grounded[i] === 1 && ground < sea - WADE;
+  // Down in the volcano's lava lake: a wreck, burnt up (GroundDef.volcano).
+  if (sim.track.ground?.inLava(cars.x[i], cars.z[i], cars.y[i]) && !cars.wreck[i]) {
+    wreckCar(sim, i, Cause.Hazard, 0, 0, -1);
+    cars.wreckT[i] = T.wreckTime - 1;
+    return;
+  }
   if (out || deep || cars.y[i] < ground - 20) {
     wreckCar(sim, i, Cause.OutOfBounds, 0, 0, -1);
     // Nothing to watch: respawn after a second.

@@ -13,6 +13,12 @@ and where things stand is [docs/HANDOFF.md](./docs/HANDOFF.md).
   island lap as open ground, the Freeway a deck over the bay with its rails. Off the Freeway,
   the right-hander into the jungle and the left-hander after it are banked steeply (14°) into
   themselves, to drift into. The coast, the routes and the volcano come next.
+- **Paradise Open is an island:** today's coastline round it (a beach, and deep water past it,
+  a respawn), the Freeway over a real bay, and the volcano in the middle: a 95 m cone with its
+  crater, the lava lake in it (down in it is a wreck) and the plume. About 2,400 trees, palms along
+  the coast and jungle inland, every one solid (what you see is what you hit).
+- **Off the road on open ground, slopes pull you** (`TUNING.offroadSlope`): the volcano's ash holds
+  you back climbing and runs you down it. Roads keep the arcade's free climbs, snow is unchanged.
 - **Rails on open ground are two-sided:** a car outside one (on the sand by a bridge's ramp) is
   kept outside, not snapped onto the road, and a car down under a bridge never meets its rails.
 - **Banked turns hold you in, on open ground** (`TUNING.bankHold`): off snow, a banked road bends

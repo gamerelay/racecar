@@ -216,3 +216,84 @@ describe('Paradise Open (docs/PARADISE.md)', () => {
     expect(closest).toBeLessThan(14.6);
   });
 });
+
+describe('Paradise Open: the island (docs/PARADISE.md)', () => {
+  const track = bakeTrack(layout('paradise-open/open'), SURFACES);
+  const g = track.ground!;
+  const v = track.layout.ground!.volcano!;
+  const m = track.main;
+
+  test('the road keeps its own height, off it the coast falls into the sea', () => {
+    let worst = 0;
+    for (let i = 0; i < m.n; i += 4) if (!g.deckSample[i]) worst = Math.max(worst, Math.abs(g.height(m.px[i], m.pz[i]) - m.py[i]));
+    // (The swell rolls the road a little: the same as before the island.)
+    expect(worst).toBeLessThan(1.5);
+    // Well out past the coast, deep water; well inland, dry land.
+    const [cx, cz] = track.layout.ground!.coast![0];
+    expect(g.coast(cx, cz + 60)).toBeLessThan(0);
+    expect(g.height(cx, cz + 60)).toBeLessThan(g.sea! - 3);
+    expect(g.height(-200, 200)).toBeGreaterThan(g.sea! + 1);
+  });
+
+  test('the volcano rises in the middle, its crater a bowl with lava in it, and down in the lava is a wreck', () => {
+    expect(g.height(v.x + v.crater, v.z)).toBeGreaterThan(90);
+    expect(g.height(v.x, v.z)).toBeLessThan(g.height(v.x + v.crater, v.z) - 15);
+    expect(g.inLava(v.x, v.z, g.height(v.x, v.z))).toBe(true);
+    expect(g.inLava(v.x + v.crater + 10, v.z, g.height(v.x + v.crater + 10, v.z))).toBe(false);
+    const sim = new Sim(track, CLASSES, SURFACES, { seed: 1, traffic: 0, mayhem: 'off' });
+    const i = sim.addCar({ cls: 'coupe', human: true });
+    sim.placeCar(i, 0, 100, 0, 0);
+    sim.cars.x[i] = v.x;
+    sim.cars.z[i] = v.z;
+    sim.cars.y[i] = g.height(v.x, v.z);
+    sim.step([neutralControls()]);
+    expect(sim.cars.wreck[i]).toBe(1);
+    expect(sim.cars.wreckCause[i]).toBe(Cause.Hazard);
+  });
+
+  test('palms by the sea and jungle inland, none in the water, up the bare cone or on a road', () => {
+    const p = track.pines!;
+    expect(p.n).toBeGreaterThan(300);
+    let palms = 0;
+    for (let k = 0; k < p.n; k++) {
+      expect(p.y[k]).toBeGreaterThan(g.sea! + 0.5);
+      expect(Math.hypot(p.x[k] - v.x, p.z[k] - v.z)).toBeGreaterThan(v.r * 0.6);
+      const gx = Math.round((p.x[k] - g.x0) / g.cell);
+      const gz = Math.round((p.z[k] - g.z0) / g.cell);
+      const i = g.near[gz * g.nx + gx];
+      expect(Math.abs(g.lateral[gz * g.nx + gx])).toBeGreaterThan(m.width[i] / 2 + m.shoulder[i]);
+      if (p.kind[k] === 1) {
+        palms++;
+        expect(g.coast(p.x[k], p.z[k])).toBeLessThan(75);
+      }
+    }
+    expect(palms).toBeGreaterThan(50);
+    expect(p.n - palms).toBeGreaterThan(50);
+  });
+
+  test('off the road, the ash pulls you back down the volcano: a climb up its flank is slower than on the flat', () => {
+    /** How far a car gets in 3 s from (x, z), heading `h`, flat out. */
+    const run = (x: number, z: number, h: number, pull: number) => {
+      const was = TUNING.offroadSlope;
+      TUNING.offroadSlope = pull;
+      try {
+        const sim = new Sim(track, CLASSES, SURFACES, { seed: 1, traffic: 0, mayhem: 'off' });
+        const i = sim.addCar({ cls: 'coupe', human: true });
+        sim.placeCar(i, 0, 100, 0, 0);
+        sim.cars.x[i] = x;
+        sim.cars.z[i] = z;
+        sim.cars.y[i] = g.height(x, z);
+        sim.cars.h[i] = h;
+        sim.cars.vx[i] = sim.cars.vz[i] = 0;
+        for (let t = 0; t < 180; t++) sim.step([{ ...neutralControls(), throttle: 1 }]);
+        return Math.hypot(sim.cars.x[i] - x, sim.cars.z[i] - z);
+      } finally {
+        TUNING.offroadSlope = was;
+      }
+    };
+    // Up the cone from partway up its flank, toward the crater.
+    const x = v.x - v.r * 0.55;
+    const up = Math.atan2(v.x - x, 0);
+    expect(run(x, v.z, up, TUNING.offroadSlope)).toBeLessThan(run(x, v.z, up, 0) - 5);
+  });
+});
