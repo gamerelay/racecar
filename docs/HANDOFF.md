@@ -16,13 +16,18 @@ It's on the hosted build ("Hosted test build" below).
 **Next: Caldera, the engine (2026-10-03).** The owner's call: engine first, before the rest of
 Paradise Open. [CALDERA.md](./CALDERA.md) is the plan, reviewed and agreed: one engine for every
 racecar map (pieces as one surface layer, routes as a graph, overrides as an escape hatch,
-desktop only, refactor freely and keep the feel). Start at its "Build order", step 0:
-- **Golden fingerprints** for each open map (a hash of its ground, and of a fixed 40 s drive),
-  so later clean-ups prove they change nothing; the allocation test on the open maps.
-- **The first tools:** `tools/drive.ts`, `tools/probe.ts`, `tools/shot.ts`, over one dev module
-  shared with `window.__rc` (CALDERA's "Developer tools").
+desktop only, refactor freely and keep the feel). **Step 0 is built** (PR #83, `caldera-step-0`):
+- **Golden fingerprints:** `bun tools/fingerprint.ts` (every layout's bake, open ground and a
+  fixed 40 s drive, to the last bit; `--update` records). In the tests too. A clean-up leaves
+  them identical.
+- **The tools:** `bun tools/drive.ts` (place a car, run it headless, trace it), `bun tools/probe.ts`
+  (what's at a point), `bun tools/shot.ts` (a PNG of a spot, needs the dev server), and
+  `window.__rc.dev` (`place`, `step`, `probe`, `state`, `shot`), all over `src/dev/`. CALDERA's
+  "Developer tools" has the flags.
+- **The allocation test** on Paradise Open and Avalanche.
 
-Branch `caldera-step-0` (draft PR #83), off `main`. Follow CALDERA's "How to work on it".
+Next is step 1a: the move onto pieces, with the fingerprints identical. Follow CALDERA's "How to
+work on it".
 
 **Avalanche** (merged in #74, out of experimental on the owner's word): open ground you drive on
 everywhere, slope gravity on snow, moguls, canyons, kickers, rocks, 18 slalom gates, about 650

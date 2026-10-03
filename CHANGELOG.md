@@ -6,6 +6,15 @@ and where things stand is [docs/HANDOFF.md](./docs/HANDOFF.md).
 
 ## Unreleased
 
+- **Caldera, the engine's plan** ([docs/CALDERA.md](docs/CALDERA.md)), and its step 0, for whoever
+  works on the game (people or Claude):
+  - **Golden fingerprints** (`bun tools/fingerprint.ts`, and in the tests): every layout's bake,
+    open ground and a fixed 40 s drive, hashed to the last bit, so a clean-up proves it changed
+    nothing.
+  - **`tools/drive.ts`** (put a car anywhere, run it headless, read what happened),
+    **`tools/probe.ts`** (what's at a point) and **`tools/shot.ts`** (a picture of a spot), and the
+    same in the browser as `window.__rc.dev` in the dev build.
+  - The no-allocation test on Paradise Open and Avalanche too.
 - **A road over the ground** (docs/PARADISE.md, step 0): a deck on open ground, the main road over
   the ground beneath it. On the deck you drive on it; over its edge you fall to whatever is below.
   The sea (`ground.sea`) is drawn, and deep water is out of bounds: you respawn on the road.

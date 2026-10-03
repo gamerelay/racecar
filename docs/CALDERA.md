@@ -6,8 +6,9 @@ where tubes, gaps and rock faces were first needed, hence the name). **It's a di
 spec.** Details will change while building; note those changes in [SPEC.md](./SPEC.md) under
 "Changed while building", as usual.
 
-**Status (2026-10-03):** reviewed and agreed (PR #82, merged); nothing built yet. Step 0 (the
-safety net and tools) is next, on branch `caldera-step-0` (PR #83).
+**Status (2026-10-03):** reviewed and agreed (PR #82, merged). **Step 0 is built** (PR #83): the
+golden fingerprints, the allocation test on the open maps, `tools/drive.ts`, `tools/probe.ts`,
+`tools/shot.ts` and `window.__rc.dev`, over `src/dev/`. Next is step 1a.
 
 **Reading it:** "Principles" and "The core idea: pieces" are the design; "Build order" and "How
 to work on it" are what to do; the rest is reference (moving things, routes, a worked example,
@@ -495,21 +496,35 @@ What exists today:
 - `?spawn=<m>` (dev): start your car, offline, that far along the main road.
 - `window.__rc`: the sim, the renderer and `advance()`.
 
+Built in step 0 (`src/dev/`, shared by the tools and `window.__rc.dev`):
+- **Golden fingerprints:** `bun tools/fingerprint.ts` checks every layout's bake, its open
+  ground and a fixed 40 s drive against `test/golden/fingerprints.json` and says what moved;
+  `--update` records them. `test/golden.test.ts` runs them with the tests.
+- **`bun tools/drive.ts <map> …`**: place a car (`--road id --s m --lat m`, or `--at x,z[,y]`;
+  `--kmh`, `--class`, `--reverse`), give it inputs (`--ai`, or held `--throttle --brake --steer
+  --boost --drift`), run it (`--seconds`, `--every`), and get a trace (where, on what, speed, air,
+  surface), the events (repeats collapsed) and a summary. `--json` too.
+- **`bun tools/probe.ts <map> --at x,z[,y]`** (or `--road id --s m --lat m`): the road nearest
+  and where on it, the surface, and on open ground the ground's height and grade, what a car at
+  that height stands on (deck or ground), the highest deck there, a tunnel's mouth, the beach,
+  the coast, the lava.
+- **`bun tools/shot.ts <map> --s m[,m…]`** (`--road`, `--lat`, `--cam chase|high|side|top|front`
+  or `--back --up --side --ahead --fov`, `--out`): a PNG through the poster studio's scout page,
+  headless; needs the dev server. Default output `telemetry/shots/`.
+- **`window.__rc.dev`** in the dev build: `place(spot, kmh)`, `step(ticks, controls)` (a frame
+  rendered per tick, so the camera's smoothing is right), `probe(x, z, y)`, `state()`, `shot()`
+  (a PNG data URL).
+- **The allocation test** runs on Paradise Open and Avalanche too.
+
 What to add (roughly in order of use):
-- **Golden fingerprints** (step 0): for each open map, a hash of its ground (heights, surfaces,
-  decks) and of a fixed 40 s drive. Identical to the last bit means nothing changed.
-- **`tools/drive.ts`**: place a car (map, class, spot or piece, speed, heading), give it inputs
-  (held, scripted, or the AI), run N seconds headless, and print a trace (where, on what piece,
-  speed, air, wrecks) and a summary. Most of the one-off scripts written while building the Lava
-  Tube jump were this.
+- **`tools/drive.ts` by piece and scripted inputs:** once pieces exist, `--piece`; and a script
+  of timed inputs from a file (the module takes a function of time already).
+- **`tools/shot.ts --drive`:** frames along a drive (every second): a visual check of a jump or
+  a tunnel.
 - **`tools/sweep.ts`**: run `drive` over a range (speeds, classes, lines) and tabulate the
   outcome: "which classes clear the jump from 150 km/h".
-- **`tools/shot.ts`**: render a picture of any spot (map, position or distance, camera: chase,
-  top-down, orbit, free; time; weather) to a PNG, headless. Built on poster.ts. With `--drive`,
-  shots along a `drive` run (frames every second): a visual check of a jump or a tunnel.
-- **`tools/probe.ts`**: what's at a point: the cast (floor, space, hazard, surface, piece), any
-  override active there, the pieces above and below, the nearest street. The first thing to
-  check when something feels wrong at a spot.
+- **`tools/probe.ts` on pieces:** the cast (floor, space, hazard, surface, piece), any override
+  active there, the pieces above and below, the nearest street.
 - **`tools/map.ts`**: a top-down image of a whole map (the ground's heights and surfaces,
   pieces by kind, gaps, lava, trees, routes, checkpoints, the AI's racing line, and where cars
   wrecked), and a text summary of its size and contents. For designing routes without opening
@@ -522,15 +537,8 @@ What to add (roughly in order of use):
   numbers at the end. Widen it to every map (pieces, moving pieces and features included), a
   hash of the whole sim state, compared every tick, so a mismatch names the tick it started.
   Replays, the AI reports and the world agreeing online all depend on it.
-- **The allocation test on an open map:** "stepping does not allocate after warm-up"
-  (`test/core.test.ts`) runs only on Downtown; run it on Paradise Open and Avalanche too, since
-  the cast is where new allocation would hide.
 - **Perf numbers from the command line**: triangles, draw calls, frame time and sim time for a
   map at a spot (what `renderer.info` gives in the browser, headless), against the budgets.
-- **`window.__rc` made stable and documented**: `place`, `step(ticks)` (stepping the camera
-  properly: `advance()` renders 30 frames per call, which skews its smoothing), `probe`,
-  `shot()` (a data URL), `state()`. A background tab doesn't run `requestAnimationFrame`, so
-  every helper must work by stepping by hand.
 
 Lessons from building the Lava Tube that these tools encode: test the sim headless first (it's
 the truth); sweep, don't guess (the jump's numbers came from a sweep); and check the camera by
@@ -563,7 +571,7 @@ seconds: Downtown 57.9, Backroads 62.82, Avalanche 93.07, Paradise 71.52, Paradi
 of 2026-10-03), unless a step means to change a map (the coast's sand driving as sand, a lava
 stream across a route): then the new floor is recorded, with why.
 
-0. **A safety net and tools first.** The golden fingerprints for each open map, and the
+0. **A safety net and tools first** (built, PR #83). The golden fingerprints for each open map, and the
    allocation test on them. Clean-up steps must leave the fingerprints identical to the last
    bit (any change at all fails a test, so refactors can move fast); steps that mean to change
    the game re-record them on purpose. Then `drive`, `probe` and `shot`, since every step below
