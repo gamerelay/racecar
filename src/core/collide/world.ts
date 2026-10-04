@@ -17,6 +17,7 @@ import type { Breakables } from '../world/breakables';
 import { SMASH_KINDS, type Smashables } from '../world/smash';
 import { laneActive, TRAFFIC_KINDS, type Traffic } from '../world/traffic';
 import { collideBreakables } from './breakables';
+import { bounce as wallBounce } from './walls';
 import { newContact, obbOverlap } from './obb';
 import { cos, hypot, sin } from '../math';
 
@@ -188,6 +189,11 @@ export function collideWorld(sim: SimState, i: number, ctx: WorldCtx): void {
     // Only at its own level (a pillar under a bridge doesn't touch the bridge).
     if (c.y[i] < pr.y - 1 || c.y[i] > pr.y + pr.hy * 2) continue;
     if (!obbOverlap(c.x[i], c.z[i], c.h[i], cls.size[0], cls.size[1], pr.x, pr.z, pr.heading, pr.hx, pr.hz, contact)) continue;
+    // A building's wall: met as a road's is (scraped along; a ghost bounces too, but never wrecks).
+    if (pr.wall) {
+      wallBounce(sim, i, contact.nx, contact.nz, contact.depth, cls.size[1], 0);
+      continue;
+    }
     const closing = bounce(sim, i, 0, 0, 0.2);
     if (closing <= 0.5 || c.wreck[i]) continue;
     c.wallT[i] = 0.3;

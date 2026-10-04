@@ -6,6 +6,12 @@ and where things stand is [docs/HANDOFF.md](./docs/HANDOFF.md).
 
 ## Unreleased
 
+- **A market hall on Paradise Open** (Caldera's step 3c): off the harbour front, just after the
+  start, a street runs straight on through Harbor Town where the road swings south, and through a
+  market hall on the beach on the way: pastel walls, a tiled roof, lanterns and bunting inside,
+  warm light and an echo. Its doors are shopfront glass. Hit them from about 30 km/h and they
+  smash, and stay smashed for the race. Slower, they're a wall. It's a little quicker than the
+  road round, and quicker still once someone's smashed the glass.
 - **Four new tracks** (the owner's): Avalanche gets two of its own, *Avalanche* and *Winter
   Pursuit*, and any race can now play *Propulsion* and *Escape* too.
 - **A berm out of the Lava Tube** (the owner's idea): the left-hander at the top of the rim, where

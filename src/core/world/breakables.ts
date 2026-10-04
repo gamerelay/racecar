@@ -22,6 +22,11 @@ export const BREAK_SLOW = 0.93;
  */
 export const BREAK_POINTS = 150;
 
+/** The look of panel `k`'s wall (BreakableDef.look: 'boards', 'glass'), for drawing and sound; '' if out of range. */
+export function panelLook(defs: readonly BreakableDef[] | undefined, br: Breakables, k: number): string {
+  return k >= 0 && k < br.n ? (defs?.[br.wall[k]]?.look ?? '') : '';
+}
+
 export class Breakables {
   /** The panels. */
   readonly n: number;

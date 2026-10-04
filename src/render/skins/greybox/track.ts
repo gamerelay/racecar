@@ -38,6 +38,7 @@ import { buildSnow } from './snow';
 import { drawFeatures } from './features';
 import { buildOpenIsland } from './openIsland';
 import { buildTubes } from './tube';
+import { buildBuildings } from './building';
 import { buildTerrain } from './terrain';
 import { boxes, type Box } from './scenery';
 import { disposeTree } from './dispose';
@@ -234,12 +235,12 @@ export function buildTrackVisual(track: Track, palette: Palette, seed: number): 
   const isle = track.ground && (track.ground.sea !== undefined || track.pines) ? buildOpenIsland(track, palette, seed) : null;
   // What the ground's features draw (features.ts): a lava stream's lava.
   const features = drawFeatures(track);
-  const extras: Object3D[] = track.ground ? [...buildSnow(track, track.layout.ground?.coast ? new Color(palette.ground) : undefined), ...decks, ...buildTubes(track), ...(isle?.objects ?? []), ...features.objects] : city ? [] : land ? [...land.objects] : [plainGround()];
+  const extras: Object3D[] = track.ground ? [...buildSnow(track, track.layout.ground?.coast ? new Color(palette.ground) : undefined), ...decks, ...buildTubes(track), ...buildBuildings(track), ...(isle?.objects ?? []), ...features.objects] : city ? [] : land ? [...land.objects] : [plainGround()];
   const wet = puddles(track);
   if (wet) extras.push(wet);
   // Solid props on the road (the pillars): tall striped boxes. The Trestle's legs are the forest's.
-  // (Rocks on the snow, a run's gates and a ski jump's tower are snow.ts's.)
-  const solid = track.props.filter((p) => p.solid && p.kind !== 'trestle-leg' && p.kind !== 'rock' && p.kind !== 'gate-post' && p.kind !== 'jump-tower');
+  // (Rocks on the snow, a run's gates and a ski jump's tower are snow.ts's; a building's walls, building.ts's.)
+  const solid = track.props.filter((p) => p.solid && p.kind !== 'trestle-leg' && p.kind !== 'rock' && p.kind !== 'gate-post' && p.kind !== 'jump-tower' && p.kind !== 'building-wall');
   if (solid.length) {
     const mesh = new InstancedMesh(new BoxGeometry(1, 1, 1), toon({ color: 0xbfb3d6 }), solid.length);
     const mat = new Matrix4();

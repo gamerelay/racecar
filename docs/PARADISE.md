@@ -388,6 +388,16 @@ no wrecks in any class. Going round, the berm drives as before (no new hop). The
 (28 before): more traffic hits just past the line (4 → 11), two cars bumping at the berm.
 `test/deck.test.ts`'s mouth check allows 0.6 m (not 0.7) where the road climbs over 20%.
 
+**Harbor Town's market hall (2026-10-03, CALDERA's step 3c):** a street off the harbour front
+(`MARKET` in the generator, `market-street`, a shortcut from 170 to 455 m) runs straight on west
+through the town where the road swings south round its S-bend. It's 251 m against the road's
+285 m, and it runs through a market hall on the beach: a building (`PieceDef.building: 'market'`),
+80 m long, its ceiling 7 m up. Inside are pastel plaster, timber beams, lanterns, bunting and striped
+awnings, the `market` indoor look and its echo. Its walls are solid from both sides, and shopfront
+glass stands across both doors (`look: 'glass'`): smashed from 8 m/s (about 29 km/h), down for
+the race; slower, a wall. The hard AI takes it: the floor 67.67 → 66.72 s. The field has 33 wrecks
+in 40 seeds (39 before), none on the street.
+
 **Numbers** (best AI lap, solo hard coupe): Paradise Open 68.07 s with the jump (67.68 s with the
 tube before it, 70.03 s without the tube, 71.52 s for today's Paradise); the field's wrecks at 0 a
 race (2026-10-03). Every other map's floor is unchanged: Downtown 57.9, Backroads 62.82, Avalanche

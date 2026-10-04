@@ -588,8 +588,8 @@ For each change, in this order:
 ## Build order
 
 Each step ships on its own. The existing maps keep their lap floors (the best AI lap, in
-seconds: Downtown 57.9, Backroads 62.82, Avalanche 93.07, Paradise 71.52, Paradise Open 68.00 (68.07 before step 1d's
-sand, 68.10 before 3b's boards), as of 2026-10-03), unless a step means to change a map (the coast's sand driving as sand, a lava
+seconds: Downtown 57.9, Backroads 62.82, Avalanche 93.07, Paradise 71.52, Paradise Open 66.72 (68.07 before step 1d's
+sand, 68.10 before 3b's boards, 68.00 before the tube's berm, 67.67 before 3c's market street), as of 2026-10-03), unless a step means to change a map (the coast's sand driving as sand, a lava
 stream across a route): then the new floor is recorded, with why.
 
 0. **A safety net and tools first** (built, PR #83), and **0b, the sim's own math** (built, PR #84), so
@@ -735,6 +735,30 @@ stream across a route): then the new floor is recorded, with why.
        they touch: a wide car (the bus) through a one-panel hole met the next panels on their ends,
        slowly, and wedged there.
      - **The `walls` override hook still waits:** walls on or off in a region has no first use.
+   - **3c, an indoor stretch** (built): a building, `PieceDef.building` (a key of the skin's
+     building looks: `market`), an enclosed piece built on the ground rather than dug into it.
+     `core/track/buildings.ts` stands its walls along the road's edges as solid props on no road
+     (`BakedProp.wall`: met as a road's wall, from either side, for every car), and the bake turns
+     the road's own walls off along it. The branch shapes the ground under it as anywhere. The cast
+     finds its room (`Cast.room`, for the camera, the light and the echo), but a car in it stands on
+     the ground, and `pieceFloor` doesn't see it. `indoorAt` and `cameraCeiling` take a building's
+     roof as cover, as they do the rock over a tunnel, and `clearView` keeps the chase camera out of
+     its walls. The skin draws it (`render/skins/greybox/building.ts`) and has a `market` indoor
+     look, plus a `glass` look for breakable walls, with its own shards and smash. The first:
+     Paradise Open's **market hall**, on a 251 m street (`market-street`) through Harbor Town,
+     about 34 m shorter than the road round: an 80 m hall with a 7 m ceiling, shopfront glass
+     across both doors, smashed from 8 m/s (about 29 km/h). Paradise Open's floor 67.67 → 66.72 s (the
+     AI takes it), and the field 33 wrecks in 40 seeds (39), none on the street.
+     *Changed while building:*
+     - **A building has no floor of its own.** Drawn as a deck, its plane at the doors kicked cars
+       into the air: a car's rear wheels were still on the ground while its middle was on the
+       deck. It stands on the ground, which the street shapes flat under it.
+     - **Its walls are props, not the road's walls**, so a car outside, off the road beside it,
+       meets them too. They take the road walls' `bounce`: a pillar's response fired a hit every
+       tick along a scrape.
+     - **No mall, and no camera hints yet:** the owner's mall waits for another map. The hall is
+       straight, and the chase camera needs no hint in it. The `camera` override hook still waits.
+     - **It stands on the beach:** the sea side of the harbour front is sand.
 4. **Moving pieces**: a drawbridge.
 5. **A quick chase mode on Downtown as it is** (optional): the mode only (roles, busted,
    escape, a timer), with AI cops that chase along the track. A cheap playtest of whether a

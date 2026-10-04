@@ -172,7 +172,7 @@ export interface SmashDef {
  */
 export interface BreakableDef {
   id: string;
-  /** How it's drawn, a key of the skin's looks ('boards': a barricade of planks). */
+  /** How it's drawn, a key of the skin's looks ('boards': a barricade of planks; 'glass': a shopfront's panes). */
   look: string;
   /** Its foot, end to end: [x, y, z], y the floor it stands on there. */
   from: [number, number, number];
@@ -329,6 +329,14 @@ export interface PieceDef {
    * the Lava Tube's glow; unset, 'tunnel'). Drawing and sound only: the sim never reads it.
    */
   indoor?: string;
+  /**
+   * Built, not dug (docs/CALDERA.md step 3c): an enclosed piece that's a building standing on the
+   * ground, a hall the road runs through (Paradise Open's market hall), not a tunnel through rock.
+   * Its walls are solid from both sides for every car (the road's own walls are off along it), the
+   * branch shapes the ground under it as anywhere, and under its roof is indoors with no ground
+   * over it. A key of the skin's building looks ('market'). Needs a ceiling.
+   */
+  building?: string;
   /**
    * The ground under it falls to `floor` (its height, m), easing in over `ease` m from each end and
    * back up over `reach` m past the piece's edges (the bay under the Freeway). The main road only,

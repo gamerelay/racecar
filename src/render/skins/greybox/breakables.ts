@@ -47,6 +47,23 @@ const LOOKS: Record<string, (w: number, h: number, seed: number) => BufferGeomet
     g.computeVertexNormals();
     return g;
   },
+  // A shopfront's pane (a market hall's doors): glass in a painted frame, a rail across it at
+  // handle height, and a shop's name in a band of colour along its top.
+  glass: (w, h, seed) => {
+    const frame = '#f7f2e6';
+    const parts = [
+      box(0.12, h, 0.14, frame, -w / 2 + 0.06, h / 2, 0),
+      box(0.12, h, 0.14, frame, w / 2 - 0.06, h / 2, 0),
+      box(w, 0.14, 0.14, frame, 0, 0.07, 0),
+      box(w, 0.14, 0.14, frame, 0, h - 0.07, 0),
+      box(w - 0.2, 0.08, 0.1, frame, 0, 1.05, 0.03),
+      box(w - 0.24, h - 0.28, PANEL_THICK * 0.2, seed % 3 ? '#9fd0dc' : '#b5dde6', 0, h / 2, 0),
+      box(w - 0.24, 0.4, PANEL_THICK * 0.25, ['#e04f3c', '#2f8f83', '#f0a630', '#3f6fb5'][seed % 4], 0, h - 0.4, 0.01),
+    ];
+    const g = mergeGeometries(parts)!;
+    g.computeVertexNormals();
+    return g;
+  },
 };
 
 /** A panel standing again grows back over this long (s). */

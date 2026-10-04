@@ -63,7 +63,8 @@ describe('drive', () => {
   test('the AI drives from a spot on the main road', () => {
     const sim = setup(open, CLASSES, SURFACES, { s: 100 }, 'ai');
     const d = run(sim, 'ai', 5, 1);
-    expect(d.summary.end.s).toBeGreaterThan(150);
+    // (On along the main road, or down the market street off it.)
+    expect(Math.hypot(d.summary.end.x - d.rows[0].x, d.summary.end.z - d.rows[0].z)).toBeGreaterThan(50);
     expect(describeDrive(d)).toContain('summary:');
   });
 

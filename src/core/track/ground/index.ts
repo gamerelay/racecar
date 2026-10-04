@@ -43,7 +43,7 @@ export type Space = 'open' | 'enclosed' | 'rock';
 export interface Cast {
   /** What something there stands on: the highest floor at or below it, a piece's or the ground's. */
   floor: number;
-  /** The piece it stands on (its index in `pieces.list`), -1 for the ground. */
+  /** The piece it stands on (its index in `pieces.list`), -1 for the ground (in a building too: it stands on the ground). */
   piece: number;
   /** The ground's height there. */
   ground: number;
@@ -52,9 +52,11 @@ export interface Cast {
   /** That piece's ceiling (its height, m), NaN if it's open or there's none. Under it, from its floor (by DECK_CATCH) up, is `enclosed`. */
   ceiling: number;
   space: Space;
+  /** The enclosed piece whose space it's in (`enclosed`), -1 for none: a tunnel's, or a building's, whose floor is the ground. */
+  room: number;
 }
 
-export const newCast = (): Cast => ({ floor: 0, piece: -1, ground: 0, over: NaN, ceiling: NaN, space: 'open' });
+export const newCast = (): Cast => ({ floor: 0, piece: -1, ground: 0, over: NaN, ceiling: NaN, space: 'open', room: -1 });
 
 export interface Ground {
   /** The ground's height at (x, z), bilinear between grid points. */
@@ -109,7 +111,7 @@ export interface Ground {
   /**
    * A piece's floor at (x, z): its road's plane, if the point is over one, within `slack` m past
    * its edges (the road and its shoulder); the highest at or below `y` (by DECK_CATCH), if there's
-   * more than one. NaN if there's none.
+   * more than one. NaN if there's none (a building has no floor of its own: it stands on the ground).
    */
   pieceFloor(x: number, z: number, slack?: number, y?: number): number;
   /** What's under (x, y, z) (y Infinity: from the sky), into `out`: see Cast. */
@@ -184,9 +186,9 @@ export function buildGround(def: GroundDef, main: BakedSpline, branches: BakedSp
       for (const o of endangerers) if (o.inside(x, z)) h = o.hazard!(h, x, y, z, t);
       return h;
     },
-    pieceFloor: floors.floor,
+    pieceFloor: (x, z, slack, y) => floors.floor(x, z, slack, y),
     cast(x, y, z, out) {
-      const d = floors.floor(x, z, 0, y);
+      const d = floors.floor(x, z, 0, y, true);
       const p = floors.found();
       const gh = this.height(x, z);
       out.ground = gh;
@@ -196,11 +198,15 @@ export function buildGround(def: GroundDef, main: BakedSpline, branches: BakedSp
       // than a hard landing (a tunnel's roof over the car), too; and under it by less (a tunnel's
       // mouth, its slope rising off the road) for a car on the floor, within a hard landing of it:
       // the slope over the mouth rises off the road, and riding it carried cars up into the rock.
-      const on = d === d && (d >= gh || gh > y + DECK_CATCH || (y !== Infinity && Math.abs(y - d) <= DECK_CATCH));
+      // A building stands on the ground, shaped to its road under it: that's what's driven in it (its
+      // own floor's plane, for wheels half on it at its doors, kicked cars into the air).
+      const on = d === d && !pieces.list[p].building && (d >= gh || gh > y + DECK_CATCH || (y !== Infinity && Math.abs(y - d) <= DECK_CATCH));
       out.floor = on ? d : gh;
       out.piece = on ? p : -1;
       // Inside from its floor (a car on it, or sunk into it by a hard landing) up to its ceiling.
-      out.space = y >= d - DECK_CATCH && y < out.ceiling ? 'enclosed' : y < gh ? 'rock' : 'open';
+      const inside = y >= d - DECK_CATCH && y < out.ceiling;
+      out.space = inside ? 'enclosed' : y < gh ? 'rock' : 'open';
+      out.room = inside ? p : -1;
       for (const o of casters) if (o.inside(x, z)) o.cast!(out, x, y, z);
       return out;
     },
