@@ -11,7 +11,7 @@ jungle's uneven mud in #91 and #92; 2c, overrides, in #93 and 2d, the lava strea
 review's fixes in #95; off-road surfaces in #96; step 3a, indoors, in #97; 3b, breakable walls,
 in #98; the berm out of the Lava Tube in #100; four new tracks in #99; all merged, untagged and
 not deployed; a fifth track, `forward`, in #101, open; all five on the CDN; step 3c, the market
-hall, in its own PR, open; see "Next: Caldera" below). Before that, `alpha-1.30`: Avalanche's snow and rumble quieter. The last tag is **`alpha-1.30`** (PR #77: the snow under the wheels and the avalanche's rumble about 4.5 dB down, the owner's ask). Before it, **`alpha-1.29`** (PRs #71–#74): **Avalanche**, the first open map, one 6.1 km run down a mountain (#74), and the Leap's kicker rounded and launchable from its sides (#71, #72), and PLAN's "Open, freeform maps" direction (#73).
+hall, in #102, open; see "Next: Caldera" below). Before that, `alpha-1.30`: Avalanche's snow and rumble quieter. The last tag is **`alpha-1.30`** (PR #77: the snow under the wheels and the avalanche's rumble about 4.5 dB down, the owner's ask). Before it, **`alpha-1.29`** (PRs #71–#74): **Avalanche**, the first open map, one 6.1 km run down a mountain (#74), and the Leap's kicker rounded and launchable from its sides (#71, #72), and PLAN's "Open, freeform maps" direction (#73).
 Before it, `alpha-1.28` (PRs #67–#70: a press flash and a click on the menus' buttons; the title's
 music from the start; Logger's Leap smoothed and bermed), `alpha-1.27` (PRs #63–#65), `alpha-1.26`
 (PR #62: two new tracks), `alpha-1.25` (PR #61: boost, Overdrive, the slipstream) and `alpha-1.24`
@@ -173,7 +173,7 @@ checked: 200 with CORS); production plays them from the next deploy.
 **Not deployed:** everything since `alpha-1.30` (Paradise Open, Caldera's steps, the boards, the berm,
 the tracks) is on main only. Deploy and tag only when the owner asks.
 
-**Step 3c, the market hall** (its own PR, open): buildings, `PieceDef.building`, enclosed pieces
+**Step 3c, the market hall** (#102, open): buildings, `PieceDef.building`, enclosed pieces
 built on the ground. Their walls are solid props on no road (`core/track/buildings.ts`), met as a
 road's wall is from either side. A car in one stands on the ground, and the cast finds the room
 (`Cast.room`). The first is Paradise Open's market hall on a street through Harbor Town
