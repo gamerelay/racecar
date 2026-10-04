@@ -6,7 +6,7 @@ import { KINDS } from '../world/hazards';
 import { SMASH_IDS } from '../world/smash';
 import { bakeTrack, sampleIndex, wrap } from './bake';
 import { OVERRIDES } from '../maps';
-import { regionProblem, type OverrideCode } from './overrides';
+import { regionProblem, respawnProblem, type OverrideCode } from './overrides';
 import { atan2, hypot } from '../math';
 
 export interface Problem {
@@ -60,6 +60,10 @@ export function validateLayout(layout: TrackLayout, surfaces: SurfaceDef[], clas
       if (!o.reason?.trim()) err(`${name} has no reason: say what the engine can't do yet`);
       const why = regionProblem(o, track.splines);
       if (why) err(`${name}: ${why}`);
+      const c = code[o.id];
+      const spot = c ? respawnProblem(c, track.splines) : '';
+      if (spot) err(`${name}: ${spot}`);
+      if (c && (c.cast || c.hazard) && !layout.ground) warn(`${name}: its cast and hazard hooks only run on open ground, and this layout has none`);
     }
     if (seen.size > MANY_OVERRIDES) warn(`${seen.size} overrides: they're meant to be rare; turn a kind that repeats into an engine feature`);
   }

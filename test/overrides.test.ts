@@ -99,6 +99,53 @@ describe('overrides', () => {
     expect(c.s[b]).toBeCloseTo(700, 0);
   });
 
+  test("the engine's rules apply to an override's spot as to any: not back under an avalanche", () => {
+    // (Its spot behind the region: the avalanche rule put a car into the region, and the spot
+    // then put it back under the avalanche.)
+    const back = bakeTrack({ ...base, overrides: [stretch] }, SURFACES, { 'test-stretch': { respawn: { s: 200, lateral: 0 } } });
+    const sim = new Sim(back, CLASSES, SURFACES, { seed: 1, traffic: 0 });
+    const a = sim.addCar({ cls: 'coupe', human: true });
+    const c = sim.cars;
+    sim.avalancheFront = 900;
+    c.lastSpline[a] = 0;
+    c.lastS[a] = 500;
+    c.lastLat[a] = 0;
+    respawn(sim, a);
+    expect(c.s[a]).toBeGreaterThanOrEqual(900);
+    // Inside the region, the spot, then ahead of the avalanche.
+    c.lastS[a] = 1100;
+    respawn(sim, a);
+    expect(c.s[a]).toBeGreaterThanOrEqual(900);
+  });
+
+  test("the body leans with a cast hook's floor (topSlope), not the ground under it", () => {
+    const g = track.ground!;
+    const tilt = bakeTrack({ ...base, overrides: [stretch] }, SURFACES, { 'test-stretch': { cast: (out, x) => void (out.floor += 0.5 * x) } }).ground!;
+    const { x, z } = at(1100);
+    const y = tilt.top(x, z) + 0.3;
+    const e = g.cell / 2;
+    const want = (tilt.top(x + e, z, y) - tilt.top(x - e, z, y)) / (2 * e);
+    expect(tilt.topSlope(x, z, y, { x: 0, z: 0 }).x).toBeCloseTo(want, 6);
+    expect(tilt.topSlope(x, z, y, { x: 0, z: 0 }).x - g.topSlope(x, z, y, { x: 0, z: 0 }).x).toBeCloseTo(0.5, 1);
+  });
+
+  test('on a looped road a stretch can run through the start line, to exactly its ends', () => {
+    const city = layout('downtown/downtown');
+    const L = bakeTrack(city, SURFACES).main.length;
+    const loop = bakeTrack({ ...city, overrides: [{ id: 'w', reason: 'a test', region: { s: [L - 20, 20] } }] }, SURFACES, { w: {} });
+    const o = loop.overrides[0];
+    const where = (s: number) => sampleAt(loop.main, s, newHit());
+    for (const [s, inside] of [
+      [L - 10, true],
+      [L - 0.5, true],
+      [10, true],
+      [19.5, true],
+      [L - 25, false],
+      [25, false],
+    ] as const)
+      expect([s, o.inside(where(s).cx, where(s).cz)]).toEqual([s, inside]);
+  });
+
   test('its step runs each tick for the cars inside only', () => {
     const sim = new Sim(track, CLASSES, SURFACES, { seed: 1, traffic: 0 });
     const [a, b] = [sim.addCar({ cls: 'coupe', human: true }), sim.addCar({ cls: 'coupe', human: true })];
@@ -129,10 +176,11 @@ describe('overrides', () => {
       { ...stretch, id: 'road', region: { road: 'nowhere', s: [0, 10] } },
       { ...stretch, id: 'short', region: { s: [10, 5] } },
       { ...box, id: 'flat', region: { box: [0, 0, 0, 5] } },
+      { ...box, id: 'lost' },
     ];
-    const all = { ...code, why: {}, road: {}, short: {}, flat: {} };
+    const all = { ...code, why: {}, road: {}, short: {}, flat: {}, lost: { respawn: { road: 'nope', s: 0, lateral: 0 } } };
     const problems = validateLayout({ ...base, overrides: bad }, SURFACES, CLASSES, all).map((p) => `${p.level}: ${p.message}`);
-    for (const want of ['error: override "test-stretch" is declared twice', 'error: override "nobody" has no code', 'error: override "why" has no reason', 'error: override "road": no road "nowhere"', 'error: override "short": its stretch is empty', 'error: override "flat": its box is empty', 'warning: 6 overrides'])
+    for (const want of ['error: override "test-stretch" is declared twice', 'error: override "nobody" has no code', 'error: override "why" has no reason', 'error: override "road": no road "nowhere"', 'error: override "short": its stretch is empty', 'error: override "flat": its box is empty', 'error: override "lost": its respawn spot is on no road "nope"', 'warning: 7 overrides'])
       expect(problems.some((p) => p.startsWith(want))).toBe(true);
   }, 30_000);
 

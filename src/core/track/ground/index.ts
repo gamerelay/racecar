@@ -198,6 +198,14 @@ export function buildGround(def: GroundDef, main: BakedSpline, branches: BakedSp
       return this.cast(x, y, z, scratch).floor;
     },
     topSlope(x, z, y, out) {
+      // Where an override changes the floor, the slope of the floor it says (by differences).
+      for (const o of casters) {
+        if (!o.inside(x, z)) continue;
+        const e = cell / 2;
+        out.x = (this.top(x + e, z, y) - this.top(x - e, z, y)) / (2 * e);
+        out.z = (this.top(x, z + e, y) - this.top(x, z - e, y)) / (2 * e);
+        return out;
+      }
       const c = this.cast(x, y, z, scratch);
       if (c.piece < 0) return this.slope(x, z, out);
       const d = c.floor;

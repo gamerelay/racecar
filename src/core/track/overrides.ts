@@ -12,6 +12,7 @@ import type { OverrideDef } from '../content';
 import type { SimState } from '../state';
 import type { BakedSpline } from './bake';
 import type { Cast, Hazard } from './ground';
+import { newHit, sampleAt } from './query';
 
 /** Where a car comes back after a wreck: `s` m along a road (unset: the main road), `lateral` across it. */
 export interface RespawnSpot {
@@ -25,13 +26,16 @@ export interface RespawnSpot {
  * (or a car) inside the region, after every feature's, and has the last word.
  */
 export interface OverrideCode {
-  /** What's under (x, y, z): change `out` (its floor, piece, space). Every `cast`, `top` and `topSlope` sees it. */
+  /** What's under (x, y, z): change `out` (its floor, piece, space). Every `cast`, `top` and `topSlope` sees it. Open ground only. */
   cast?(out: Cast, x: number, y: number, z: number): void;
   /** The surface a car at (x, y, z) drives on (an index into the track's surfaces), given what the engine found. */
   surface?(surface: number, x: number, y: number, z: number): number;
   /** What's dangerous at (x, y, z) at time `t`, given what the features said. Open ground only. */
   hazard?(hazard: Hazard, x: number, y: number, z: number, t: number): Hazard;
-  /** A wrecked car whose comeback spot falls inside comes back here instead. */
+  /**
+   * A wrecked car whose comeback spot falls inside comes back here instead. The engine's own rules
+   * then apply to it as to any spot: ahead of an avalanche, past a gap with no run-up.
+   */
   respawn?: RespawnSpot;
   /** Per tick, for each of your own cars inside (after it's stepped, before collisions). No allocation. */
   step?(sim: SimState, car: number): void;
@@ -45,9 +49,14 @@ export interface Override extends OverrideCode {
   inside(x: number, z: number): boolean;
   /** Its region's outline, [x, z] pairs in order (a box's four corners; a stretch's edges, out one side and back the other), for tools and drawing. */
   outline: Float64Array;
+  /** The road its respawn spot is on (an index into the track's splines), -1 with none. */
+  respawnSpline: number;
 }
 
-/** Why an override's region can't be built (unknown road, empty stretch), or '' if it can. */
+/**
+ * Why an override's region can't be built (unknown road, empty stretch), or '' if it can. A
+ * stretch with `s[0]` past `s[1]` runs through the start line, on a looped road.
+ */
 export function regionProblem(def: OverrideDef, splines: readonly BakedSpline[]): string {
   const r = def.region;
   if ('box' in r) {
@@ -56,28 +65,44 @@ export function regionProblem(def: OverrideDef, splines: readonly BakedSpline[])
   }
   const sp = r.road ? splines.find((s) => s.id === r.road) : splines[0];
   if (!sp) return `no road "${r.road}"`;
-  if (!(r.s[1] > r.s[0])) return 'its stretch is empty (s[0] < s[1])';
-  if (r.s[0] < 0 || r.s[1] > sp.length) return `its stretch runs off "${sp.id}" (0 to ${sp.length.toFixed(0)} m)`;
+  if (!(r.s[0] >= 0 && r.s[1] <= sp.length && r.s[0] <= sp.length && r.s[1] >= 0)) return `its stretch runs off "${sp.id}" (0 to ${sp.length.toFixed(0)} m)`;
+  if (r.s[1] === r.s[0] || (r.s[1] < r.s[0] && !sp.closed)) return `its stretch is empty (s[0] < s[1]${sp.closed ? ', or past it through the start line' : ''})`;
   if (r.lateral && !(r.lateral[1] > r.lateral[0])) return 'its band is empty (lateral[0] < lateral[1])';
+  return '';
+}
+
+/** Why an override's respawn spot can't be used (unknown road, off its end), or ''. */
+export function respawnProblem(code: OverrideCode, splines: readonly BakedSpline[]): string {
+  const r = code.respawn;
+  if (!r) return '';
+  const sp = r.road ? splines.find((s) => s.id === r.road) : splines[0];
+  if (!sp) return `its respawn spot is on no road "${r.road}"`;
+  if (!(r.s >= 0 && r.s <= sp.length)) return `its respawn spot is off "${sp.id}" (0 to ${sp.length.toFixed(0)} m)`;
   return '';
 }
 
 /**
  * The layout's overrides bound to their code (`code`, by id) and their regions on `splines`. One
- * with no code, or a region that can't be built, is left out (the validator says so).
+ * with no code, a region that can't be built or a respawn spot that can't be used is left out
+ * (the validator says so).
  */
 export function bindOverrides(defs: readonly OverrideDef[], code: Readonly<Record<string, OverrideCode>>, splines: readonly BakedSpline[]): Override[] {
   const out: Override[] = [];
   for (const def of defs) {
     const c = code[def.id];
-    if (!c || regionProblem(def, splines)) continue;
+    if (!c || regionProblem(def, splines) || respawnProblem(c, splines)) continue;
     const outline = outlineOf(def, splines);
-    out.push({ ...c, id: def.id, reason: def.reason, outline, inside: insideOf(outline) });
+    const respawnSpline = c.respawn ? (c.respawn.road ? splines.find((s) => s.id === c.respawn!.road)!.index : 0) : -1;
+    out.push({ ...c, id: def.id, reason: def.reason, outline, inside: insideOf(outline), respawnSpline });
   }
   return out;
 }
 
-/** A region's outline (see Override.outline). A stretch runs its left edge forward and its right edge back, sample by sample. */
+/**
+ * A region's outline (see Override.outline). A stretch runs its left edge forward and its right
+ * edge back, from exactly `s[0]` to exactly `s[1]`, a sample's step apart. (A band wider than a
+ * hairpin's radius folds on its inside, and the fold reads as outside: keep bands narrow there.)
+ */
 function outlineOf(def: OverrideDef, splines: readonly BakedSpline[]): Float64Array {
   const r = def.region;
   if ('box' in r) {
@@ -85,22 +110,22 @@ function outlineOf(def: OverrideDef, splines: readonly BakedSpline[]): Float64Ar
     return Float64Array.of(x0, z0, x1, z0, x1, z1, x0, z1);
   }
   const sp = r.road ? splines.find((s) => s.id === r.road)! : splines[0];
-  const i0 = Math.max(0, Math.floor(r.s[0] / sp.step));
-  const i1 = Math.min(sp.n - 1, Math.ceil(r.s[1] / sp.step));
-  const n = i1 - i0 + 1;
+  // Through the start line on a looped road: on past its length.
+  const span = r.s[1] > r.s[0] ? r.s[1] - r.s[0] : r.s[1] + sp.length - r.s[0];
+  const steps = Math.max(1, Math.ceil(span / sp.step));
+  const n = steps + 1;
   const out = new Float64Array(n * 4);
+  const at = newHit();
   for (let k = 0; k < n; k++) {
-    const i = i0 + k;
-    const edge = sp.width[i] / 2 + sp.shoulder[i];
+    sampleAt(sp, r.s[0] + (span * k) / steps, at);
+    const edge = at.width / 2 + at.shoulder;
     const [l, rr] = r.lateral ?? [-edge, edge];
     // right = (-tz, tx)
-    const rx = -sp.tz[i];
-    const rz = sp.tx[i];
-    out[k * 2] = sp.px[i] + rx * l;
-    out[k * 2 + 1] = sp.pz[i] + rz * l;
+    out[k * 2] = at.cx - at.tz * l;
+    out[k * 2 + 1] = at.cz + at.tx * l;
     const b = (2 * n - 1 - k) * 2;
-    out[b] = sp.px[i] + rx * rr;
-    out[b + 1] = sp.pz[i] + rz * rr;
+    out[b] = at.cx - at.tz * rr;
+    out[b + 1] = at.cz + at.tx * rr;
   }
   return out;
 }

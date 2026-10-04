@@ -237,7 +237,7 @@ interface Override {
   cast?(out: Cast, x: number, y: number, z: number): void;               // floor, piece, space
   surface?(surface: SurfaceId, x: number, y: number, z: number): SurfaceId;
   hazard?(hazard: Hazard, x: number, y: number, z: number, t: number): Hazard;
-  respawn?: { road?: string; s: number; lateral: number };
+  respawn?: { road?: string; s: number; lateral: number };      // then the engine's rules apply
   step?(sim: Sim, car: number): void;        // per tick, for each car inside, no allocation
   // Not yet, added with their first use: tune (lift cap, grip, gravity: there's no per-car
   // tuning to change), walls (on or off), camera (camera hints aren't built).
