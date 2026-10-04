@@ -22,6 +22,8 @@ export const KIND_SAND = 3;
 export const KIND_SHORE = 4;
 /** A beach's sand (a beach feature): drives as sand, drawn a little damper in patches. */
 export const KIND_BEACH = 5;
+/** Rock: a lava stream's banks and floor (drives as `lava-rock`). */
+export const KIND_LAVA_ROCK = 6;
 
 /** The noise the sand's edges wander by (the renderer's grass and beach shading use it too). */
 export const surfaceNoise = (x: number, z: number) => noise(x, z, 23, 7);

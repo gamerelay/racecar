@@ -68,6 +68,43 @@ const redEarth = (): [number, number][] => {
 /** Steeper than this is a rock face, a wall (GroundDef.face): the volcano's round the tube's mouths. */
 const FACE = 1;
 /**
+ * The lava stream (a feature, docs/CALDERA.md's "A feature, end to end"; the owner: without it you
+ * cross the volcano from the village too easily): out of the south-west flank below the rim road,
+ * down to the sea by the bay, wandering a little. Its channel's floor `width` m across, `depth` m
+ * deep. The one way down that crosses no road (the main road rings the volcano): it keeps at least
+ * LAVA_CLEAR m from every road's edge.
+ */
+const LAVA = { bearing: 230, from: 100, width: 6, depth: 4 };
+const LAVA_CLEAR = 25;
+const lavaStream = (): [number, number][] => {
+  const path: [number, number][] = [];
+  for (let r = LAVA.from; ; r += 15) {
+    const a = ((LAVA.bearing + 3 * Math.sin(r / 60) + 1.2 * Math.sin(r / 23)) * Math.PI) / 180;
+    const x = Math.round((VOLCANO.x + Math.cos(a) * r) * 10) / 10;
+    const z = Math.round((VOLCANO.z + Math.sin(a) * r) * 10) / 10;
+    path.push([x, z]);
+    // Into the sea a little, so it meets the water.
+    if (inSea(x, z)) return path;
+    if (r > 900) throw new Error('the lava stream never reaches the sea');
+  }
+};
+/** Out past the coast (the island's outline, the sea outside it) by more than 8 m. */
+const inSea = (x: number, z: number) => {
+  const c = island.terrain.island as [number, number][];
+  let inside = false;
+  let near = Infinity;
+  for (let a = 0, b = c.length - 1; a < c.length; b = a++) {
+    const [ax, az] = c[a];
+    const [bx, bz] = c[b];
+    if (az > z !== bz > z && x < ax + ((z - az) * (bx - ax)) / (bz - az)) inside = !inside;
+    const dx = bx - ax;
+    const dz = bz - az;
+    const t = Math.max(0, Math.min(1, ((x - ax) * dx + (z - az) * dz) / (dx * dx + dz * dz || 1)));
+    near = Math.min(near, Math.hypot(ax + dx * t - x, az + dz * t - z));
+  }
+  return !inside && near > 8;
+};
+/**
  * The Lava Tube (the owner: climbing the mountain is slow; a tube down into the volcano, over the
  * lava on a jagged rock bridge and out the other side). It leaves the rim road where it runs
  * at the volcano, as the road turns away round it, and rejoins it at the top of the rim, where
@@ -229,6 +266,7 @@ const layout: TrackLayout = {
       ...BEACHES.map((b) => ({ kind: 'beach' as const, ...b })),
       // The jungle's red-earth road a little uneven (the owner): lumps a few tenths high.
       ...redEarth().map((s) => ({ kind: 'uneven' as const, s, height: MUD.height, size: MUD.size })),
+      { kind: 'lava-stream' as const, path: lavaStream(), width: LAVA.width, depth: LAVA.depth },
     ],
     pines: { kind: 'tropic', seed: 23, spacing: 7, clear: 7, thicken: 30, density: 0.4, glade: 70 },
   },
@@ -284,6 +322,18 @@ layout.pieces = [
   { id: 'lava-tube-out', road: 'lava-tube', s: [far, Math.round(portalOut + 6)], ceiling: TUBE_H },
 ];
 
+
+// The lava stream keeps clear of every road (the validator checks the same, at its edge).
+{
+  const roads = bakeTrack(layout, surfaces).splines;
+  const stream = layout.ground!.features!.find((f) => f.kind === 'lava-stream')!;
+  if (stream.kind !== 'lava-stream') throw new Error('no lava stream');
+  let clear = Infinity;
+  for (const [x, z] of stream.path)
+    for (const sp of roads) for (let i = 0; i < sp.n; i++) clear = Math.min(clear, Math.hypot(sp.px[i] - x, sp.pz[i] - z) - sp.width[i] / 2 - sp.shoulder[i]);
+  if (clear < LAVA_CLEAR) throw new Error(`the lava stream comes within ${clear.toFixed(1)} m of a road (want ${LAVA_CLEAR})`);
+  console.log(`  lava stream: ${stream.path.length} points, ${clear.toFixed(0)} m from the nearest road`);
+}
 
 mkdirSync(DIR, { recursive: true });
 writeFileSync(`${DIR}/open.track.json`, `${JSON.stringify(layout)}\n`);

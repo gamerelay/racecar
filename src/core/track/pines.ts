@@ -67,7 +67,7 @@ export function buildPines(def: PinesDef, layout: TrackLayout, main: BakedSpline
       const half = main.width[i] / 2 + main.shoulder[i];
       const d = Math.abs(lat) - half;
       if (d < def.clear || Math.abs(lat) > span || s < 10 || s > main.length - 10) continue;
-      if (blocked(layout, ground, s, lat, d)) continue;
+      if (blocked(layout, ground, s, lat, d, x, z)) continue;
       const y = ground.height(x, z);
       let thick = 1;
       let kind = TREE_PINE;
@@ -123,9 +123,9 @@ export function buildPines(def: PinesDef, layout: TrackLayout, main: BakedSpline
   };
 }
 
-/** Where no tree grows: where a feature says (a canyon and its mouth, a mogul field), beside a kicker. */
-function blocked(layout: TrackLayout, ground: Ground, s: number, lat: number, d: number): boolean {
-  if (ground.bare(s, lat)) return true;
+/** Where no tree grows: where a feature says (a canyon and its mouth, a mogul field, a lava stream), beside a kicker. */
+function blocked(layout: TrackLayout, ground: Ground, s: number, lat: number, d: number, x: number, z: number): boolean {
+  if (ground.bare(s, lat, x, z)) return true;
   for (const r of layout.ramps ?? []) if (Math.abs(s - r.s) < r.length + (r.back ?? 0) + 12 && d < (r.flank ?? 8) + 8) return true;
   return false;
 }

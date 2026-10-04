@@ -460,7 +460,8 @@ beach from town to the Freeway (#80, #81). See "Built so far" above.
 - **The bridge is done:** the Freeway deck over the bay is the half-moon bridge (step 3). Keep it.
 - **A static lava stream** down the mountain toward the reef, besides the eruption: without it
   you can cross the volcano from the village to the far side too easily. It's a barrier to drive
-  round, or a risky line to jump.
+  round, or a risky line to jump. *Built* (CALDERA's step 2d): out of the south-west flank, below
+  the rim road, down to the sea by the bay (`LAVA` in the generator); jumped from about 130 km/h.
 - **Engine first:** before the remaining steps, the tools to build open worlds: easier testing,
   faster code, and pieces other maps can reuse (most maps are moving to open ground).
 - **The coast's sand drives as sand** once one function decides what's drawn and what's driven

@@ -683,7 +683,25 @@ stream across a route): then the new floor is recorded, with why.
      *Changed while building:* the code lives in `core/maps/` (core imports nothing outside
      core); `tune`, `walls` and `camera` wait for a first use. `pastGap` and `LAND` stay (see
      "Overrides"), so no map has one: a clean-up, every fingerprint identical.
-   - **2d, the lava stream**, end to end as above.
+   - **2d, the lava stream** (built): Paradise Open's, out of the volcano's south-west flank and
+     down to the sea by the bay, end to end as above. *Changed while building:*
+     - **No bridge piece:** the main road rings the volcano, so a stream to the sea either
+       crosses it or takes the one way down that doesn't. It takes that one (at least 34 m from
+       every road), and the validator refuses a stream that crosses or touches a road until a
+       bridge over one is a piece.
+     - **Its banks are a new ground kind** (`KIND_LAVA_ROCK`, driven as `lava-rock`), the 2a
+       question settled: `surface` still returns a kind.
+     - **`hazard` gets the ground's height** there (lava is LAVA_FILL m over the channel's
+       floor, wherever that is); **`bare` gets x and z** (a feature in world space).
+     - **The draw hook is the skin's table** (`render/skins/greybox/features.ts`, by kind),
+       not a hook on core's `Feature`: core has no Three.js. The cone's lava shader is shared.
+     - **Lava wrecks with `Cause.Hazard`**, as the crater's lake: telemetry already tells it
+       from out of bounds, so no `Lava` cause. `tools/map.ts` isn't built.
+     - **The numbers came from driving it** (`tools/drive.ts`, which gained `--heading` and an
+       exact `--at`): a 10 m floor 3 m deep couldn't be jumped at all (the sim's gravity is
+       about 2.5 g); a 6 m floor 4 m deep with 0.6 m of lava is cleared from about 130 km/h,
+       and below 100 km/h you're in it. It comes out of the flank over its first 25 m (a vent,
+       not a pit).
 3. **Enclosed spaces done properly**: the camera under the ceiling (with hints where it's
    tricky), indoor light and fog, reverb, and breakable walls (smashables grown into wall
    panels, placed in world space, staying broken or standing again as each says, their break a

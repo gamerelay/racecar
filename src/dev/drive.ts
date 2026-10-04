@@ -26,6 +26,8 @@ export interface Spot {
   y?: number;
   /** Facing back down the road. */
   reverse?: boolean;
+  /** Facing this way instead (degrees: 0 toward +z, 90 toward +x): across open ground, say. */
+  heading?: number;
 }
 
 /** The car's inputs: the AI (hard), controls held throughout, or controls by time (s). */
@@ -106,6 +108,11 @@ export function place(sim: Sim, i: number, spot: Spot, kmh = 0): void {
   }
   sim.placeCar(i, spline, s, lateral, 0);
   const c = sim.cars;
+  // At the point itself: far off a road its place along it doesn't map back exactly.
+  if (spot.x !== undefined && spot.z !== undefined) {
+    c.x[i] = spot.x;
+    c.z[i] = spot.z;
+  }
   // Past the road and its shoulder (where placeCar left it, at the road's height), it goes on
   // whatever's under it near that height: not the volcano over a tunnel, nor a bridge over it.
   const sp = track.splines[spline];
@@ -114,6 +121,7 @@ export function place(sim: Sim, i: number, spot: Spot, kmh = 0): void {
   if (spot.y !== undefined) c.y[i] = spot.y;
   else if (track.ground && !onRoad) c.y[i] = track.ground.top(c.x[i], c.z[i], c.y[i] + 0.5);
   if (spot.reverse) c.h[i] += Math.PI;
+  if (spot.heading !== undefined) c.h[i] = (spot.heading * Math.PI) / 180;
   const v = kmh / 3.6;
   c.vx[i] = sin(c.h[i]) * v;
   c.vz[i] = cos(c.h[i]) * v;

@@ -4,8 +4,9 @@
 //   bun tools/drive.ts paradise-open/open --road lava-tube --s 200 --kmh 170 --throttle 1 --seconds 4
 //   bun tools/drive.ts paradise-open/open --s 2600 --ai --seconds 20 --every 1
 //   bun tools/drive.ts avalanche/slope --at 0,400 --kmh 80 --steer -0.3 --drift
+//   bun tools/drive.ts paradise-open/open --at 5,-145 --heading -50 --kmh 140 --throttle 1   across the lava stream
 //
-//   where:   [--road id|index] --s m [--lat m] [--reverse]   or   --at x,z[,y]
+//   where:   [--road id|index] --s m [--lat m] [--reverse]   or   --at x,z[,y]   [--heading deg: 0 is +z, 90 is +x]
 //   inputs:  --ai, or held: --throttle 0..1 --brake 0..1 --steer -1..1 --boost --drift
 //   car:     --class coupe --kmh 0   run: --seconds 5 --every 0.25 --seed 7 --rivals 0 --traffic
 //   output:  text, or --json
@@ -17,7 +18,7 @@ import { CLASSES, SURFACES, layout } from './content';
 
 const a = args();
 const at = a.str('at');
-const spot: Spot = { road: a.str('road'), s: a.num('s'), lateral: a.num('lat'), reverse: a.has('reverse') };
+const spot: Spot = { road: a.str('road'), s: a.num('s'), lateral: a.num('lat'), reverse: a.has('reverse'), heading: a.num('heading') };
 if (at) [spot.x, spot.z, spot.y] = point(at);
 const ai = a.has('ai');
 const input: Inputs = ai
