@@ -7,6 +7,7 @@ import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js
 import { hash01 } from '../../../core/rng';
 import type { SimState } from '../../../core/state';
 import { PANEL_THICK } from '../../../core/world/breakables';
+import { INK, markInk } from '../../ink';
 import { toon } from './toon';
 
 /** A box `w` × `h` × `d` at (x, y, z), turned `rz` about its depth, painted one colour. */
@@ -21,25 +22,27 @@ function box(w: number, h: number, d: number, color: string, x: number, y: numbe
   return g;
 }
 
-const WOOD = ['#c08a52', '#d49a5e', '#a8743f', '#caa070'];
+const WOOD = ['#6e4a2e', '#7d5535', '#5f3f27', '#86603c'];
 
 /**
  * The looks (BreakableDef.look), a panel `w` wide and `h` tall at its foot, along x, facing z.
  * `seed` varies one panel from the next.
  */
 const LOOKS: Record<string, (w: number, h: number, seed: number) => BufferGeometry> = {
-  // A barricade of planks nailed across two posts, a little crooked, the top one painted a warning.
+  // A barricade of planks nailed across two posts, the top one painted a warning. Each panel's
+  // planks stop at its own edges (overlapping the next one's, the two fought in depth and the
+  // outline pass drew the flicker), with a hand's gap between them and the slightest of tilts.
   boards: (w, h, seed) => {
-    const parts = [box(0.18, h + 0.25, 0.18, '#5a3a22', -w / 2 + 0.12, (h + 0.25) / 2, -0.08), box(0.18, h + 0.25, 0.18, '#5a3a22', w / 2 - 0.12, (h + 0.25) / 2, -0.08)];
-    const n = Math.max(2, Math.floor(h / 0.42));
+    const parts = [box(0.18, h + 0.25, 0.18, '#4a3020', -w / 2 + 0.1, (h + 0.25) / 2, -0.08), box(0.18, h + 0.25, 0.18, '#4a3020', w / 2 - 0.1, (h + 0.25) / 2, -0.08)];
+    const n = Math.max(2, Math.floor(h / 0.5));
     for (let k = 0; k < n; k++) {
       const top = k === n - 1;
-      const tilt = (hash01(seed, k, 3) - 0.5) * 0.12;
-      const color = top ? (seed % 2 ? '#e8e2d0' : '#d7263d') : WOOD[Math.floor(hash01(seed, k, 5) * WOOD.length)];
-      parts.push(box(w + 0.2, 0.38, PANEL_THICK * 0.4, color, (hash01(seed, k, 7) - 0.5) * 0.2, 0.3 + ((h - 0.5) * k) / (n - 1), 0.06, tilt));
+      const tilt = (hash01(seed, k, 3) - 0.5) * 0.03;
+      const color = top ? (seed % 2 ? '#d6ccb0' : '#a8322c') : WOOD[Math.floor(hash01(seed, k, 5) * WOOD.length)];
+      parts.push(box(w - 0.04, 0.36, PANEL_THICK * 0.4, color, 0, 0.3 + ((h - 0.5) * k) / (n - 1), 0.06, tilt));
     }
-    // A brace across, corner to corner.
-    parts.push(box(Math.hypot(w, h * 0.8), 0.22, 0.06, WOOD[seed % WOOD.length], 0, h / 2, 0.12, Math.atan2(h * 0.8, w) * (seed % 2 ? 1 : -1)));
+    // A brace across, corner to corner, in front of the planks.
+    parts.push(box(Math.hypot(w, h * 0.8) - 0.3, 0.22, 0.06, WOOD[seed % WOOD.length], 0, h / 2, 0.15, Math.atan2(h * 0.8, w) * (seed % 2 ? 1 : -1)));
     const g = mergeGeometries(parts)!;
     g.computeVertexNormals();
     return g;
@@ -58,6 +61,9 @@ export function buildBreakablesVisual(sim: SimState): { objects: Object3D[]; upd
   for (let k = 0; k < br.n; k++) {
     const look = LOOKS[looks[br.wall[k]]?.look] ?? LOOKS.boards;
     const mesh = new Mesh(look(br.half[k] * 2, br.height[k], k), material);
+    // Inked like a car (the outline pass alone missed it against the dark of a tunnel), each panel
+    // its own id from the next so the seam between them inks too.
+    markInk(mesh, k % 2 ? INK.sign : INK.debris);
     mesh.position.set(br.x[k], br.y[k], br.z[k]);
     // Its x along the wall: forward (sin h, cos h).
     mesh.rotation.y = br.h[k] - Math.PI / 2;

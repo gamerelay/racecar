@@ -151,8 +151,7 @@ panels that each break on their own (`core/world/breakables.ts`, `collide/breaka
 to a car slower than `breaks`, burst by a faster one (no boost, unlike smashables). Online a break is
 a trigger, claimed like a traffic hit (`net/breakables.ts`). The first boards up the Lava Tube's
 first mouth (`BOARDS` in the generator). Paradise Open 68.10 → 68.00 s, the field 28 wrecks in 40
-seeds; fingerprints re-recorded for it only. A player joining mid-race doesn't hear earlier breaks
-(TECH_DEBT).
+seeds; fingerprints re-recorded for it only.
 
 **Next, step 3c:** a short indoor stretch on Paradise Open (a mall waits for another map), with
 camera hints if it needs them. TECH_DEBT has the small things the reviews left.
