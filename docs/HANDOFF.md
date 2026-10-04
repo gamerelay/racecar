@@ -10,8 +10,8 @@ PRs #85, #86 and #87, merged; 1d merged in #88; 2a and 2b (feature modules) in #
 jungle's uneven mud in #91 and #92; 2c, overrides, in #93 and 2d, the lava stream, in #94, its
 review's fixes in #95; off-road surfaces in #96; step 3a, indoors, in #97; 3b, breakable walls,
 in #98; the berm out of the Lava Tube in #100; four new tracks in #99; all merged, untagged and
-not deployed; a fifth track, `forward`, in #101, open; all five on the CDN; step 3c, the market
-hall, in #102, open; see "Next: Caldera" below). Before that, `alpha-1.30`: Avalanche's snow and rumble quieter. The last tag is **`alpha-1.30`** (PR #77: the snow under the wheels and the avalanche's rumble about 4.5 dB down, the owner's ask). Before it, **`alpha-1.29`** (PRs #71–#74): **Avalanche**, the first open map, one 6.1 km run down a mountain (#74), and the Leap's kicker rounded and launchable from its sides (#71, #72), and PLAN's "Open, freeform maps" direction (#73).
+not deployed; a fifth track, `forward`, in #101; all five on the CDN; step 3c, the market
+hall, in #102, and Paradise Open tidied in #103, all merged, untagged and not deployed; see "Next: Caldera" below). Before that, `alpha-1.30`: Avalanche's snow and rumble quieter. The last tag is **`alpha-1.30`** (PR #77: the snow under the wheels and the avalanche's rumble about 4.5 dB down, the owner's ask). Before it, **`alpha-1.29`** (PRs #71–#74): **Avalanche**, the first open map, one 6.1 km run down a mountain (#74), and the Leap's kicker rounded and launchable from its sides (#71, #72), and PLAN's "Open, freeform maps" direction (#73).
 Before it, `alpha-1.28` (PRs #67–#70: a press flash and a click on the menus' buttons; the title's
 music from the start; Logger's Leap smoothed and bermed), `alpha-1.27` (PRs #63–#65), `alpha-1.26`
 (PR #62: two new tracks), `alpha-1.25` (PR #61: boost, Overdrive, the slipstream) and `alpha-1.24`
@@ -165,7 +165,7 @@ line. The owner may want it toned down after driving it (no air boost from it, o
 PARADISE.md has the numbers.
 
 **New tracks** (the owner's, 2026-10-03): `avalanche` and `winter-pursuit` are Avalanche's own,
-`propulsion` and `escape` go anywhere (#99, merged), and `forward` too (#101, open: merge it). Each
+`propulsion` and `escape` go anywhere (#99, merged), and `forward` too (#101, merged). Each
 WAV levelled to −15.8/−15.9 LUFS (ffmpeg's `ebur128`) and encoded with `afconvert -f m4af -d aac -b
 128000`. All five are published to https://cdn.gamerelay.io/racecar/music/ (`tools/publish-assets.ts`,
 checked: 200 with CORS); production plays them from the next deploy.
@@ -173,7 +173,7 @@ checked: 200 with CORS); production plays them from the next deploy.
 **Not deployed:** everything since `alpha-1.30` (Paradise Open, Caldera's steps, the boards, the berm,
 the tracks) is on main only. Deploy and tag only when the owner asks.
 
-**Step 3c, the market hall** (#102, open): buildings, `PieceDef.building`, enclosed pieces
+**Step 3c, the market hall** (#102, merged): buildings, `PieceDef.building`, enclosed pieces
 built on the ground. Their walls are solid props on no road (`core/track/buildings.ts`), met as a
 road's wall is from either side. A car in one stands on the ground, and the cast finds the room
 (`Cast.room`). The first is Paradise Open's market hall on a street through Harbor Town
@@ -181,7 +181,7 @@ road's wall is from either side. A car in one stands on the ground, and the cast
 67.67 → 67.27 s (the AI takes the street; its floor's sand, the owner's call, slows it); the field 37 wrecks in 40 seeds (39); fingerprints
 re-recorded for it only. CALDERA's 3c has what changed while building.
 
-**Paradise Open tidied** (stacked on #102, the owner's notes after a drive): lines on the island's
+**Paradise Open tidied** (#103, merged; the owner's notes after a drive): lines on the island's
 paved road (the rim road was hard to see), the green line at the Freeway's end, the dark cliff
 beside it (`under.reach` 90 → 40), and slippery mud (`red-earth` grip 0.58, drag 0.1). Floors:
 Paradise 71.52 → 70.3 s, Paradise Open 67.27 → 66.35 s. PARADISE.md has the why.
