@@ -45,8 +45,9 @@ export function groundKinds(land: Land, main: BakedSpline, marks: BranchMarks, p
         kind[k] = KIND_BRANCH;
         continue;
       }
-      // (Under a deck it's the ground, not the road: the road's up on the deck.)
-      if (Math.abs(lateral[k]) <= main.width[i] / 2 && !decks?.[i]) {
+      // (Under a deck it's the ground, not the road: the road's up on the deck. Where the ground
+      // comes up to the deck, at its ends, it's the road again: the two meet there.)
+      if (Math.abs(lateral[k]) <= main.width[i] / 2 && (!decks?.[i] || h[k] > main.py[i] - 0.5)) {
         kind[k] = KIND_ROAD;
         continue;
       }

@@ -203,7 +203,9 @@ export function buildTrackVisual(track: Track, palette: Palette, seed: number): 
   if (track.ground) {
     const ground = track.ground;
     const main = track.main;
-    const style: Style = { country: true, floor: (x, z) => ground.height(x, z), island: true };
+    // (The island's road, draped over the ground, runs on over its decks: snow.ts. Two roads, one
+    // on the other, made a line across it where they met and speckled where they fought.)
+    const style: Style = { country: true, floor: (x, z) => ground.height(x, z), island: true, draped: !!ground.coast };
     const deckSample = ground.pieces.floors(main.index) ?? new Uint8Array(main.n);
     for (let i = 0; i < main.n; i++) {
       if (!deckSample[i]) continue;
@@ -453,7 +455,8 @@ export function deckMask(sp: BakedSpline, groundY: number): Uint8Array {
 }
 
 /** How roads look off the city grid: timber and earth, land under them rather than a flat ground. */
-type Style = { country: false } | { country: true; floor: (x: number, z: number) => number; island: boolean };
+/** `draped`: the road's top and its lines are drawn by what lies on it (open ground's road, snow.ts), not here. */
+type Style = { country: false; draped?: false } | { country: true; floor: (x: number, z: number) => number; island: boolean; draped?: boolean };
 
 const ruts = new Map<string, number>();
 /** A rut's color: the road's own, darker. */
@@ -509,7 +512,7 @@ function buildChunk(g: Geo, track: Track, sp: BakedSpline, i0: number, i1: numbe
     let t = at(B, -wa, 0);
     // The island's earth roads are packed laterite in patches, not one flat color: three strips
     // across, each a little lighter or darker every few meters.
-    const earth = style.country && style.island && surf.offroad;
+    const earth = style.country && style.island && !style.draped && surf.offroad;
     if (earth) {
       const shade = g.shade;
       for (let k = 0; k < 3; k++) {
@@ -525,7 +528,7 @@ function buildChunk(g: Geo, track: Track, sp: BakedSpline, i0: number, i1: numbe
         g.quad(q[0], q[1], q[2], p[0], p[1], p[2], t[0], t[1], t[2], r[0], r[1], r[2], surf.color);
       }
       g.shade = shade;
-    } else g.quad(q[0], q[1], q[2], p[0], p[1], p[2], t[0], t[1], t[2], r[0], r[1], r[2], surf.color);
+    } else if (!style.draped) g.quad(q[0], q[1], q[2], p[0], p[1], p[2], t[0], t[1], t[2], r[0], r[1], r[2], surf.color);
 
     // Shoulders (sidewalks) with a curb step, both sides. Where another road runs through a
     // side (a branch's mouth), it's open: flush with the road and paved like it, no curb.
@@ -640,6 +643,7 @@ function buildChunk(g: Geo, track: Track, sp: BakedSpline, i0: number, i1: numbe
     }
 
     // Markings: solid edge lines, dashed lane lines (the center one yellow), a checkered finish.
+    if (style.draped) continue;
     const lanes = sp.lanes[i] || 2;
     // Clear of the asphalt as far off as the depth buffer allows (closer flickers on long straights), under the skids (skids.ts).
     const lift = 0.035;

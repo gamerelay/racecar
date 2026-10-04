@@ -520,7 +520,6 @@ function buildRocks(track: Track): Mesh | null {
  */
 function roadLines(track: Track): Mesh | null {
   const g = track.ground!;
-  const decks = g.pieces.floors(track.main.index);
   const main = track.main;
   const pos: number[] = [];
   const col: number[] = [];
@@ -575,16 +574,15 @@ function roadLines(track: Track): Mesh | null {
       continue;
     }
     if (isle) {
-      // Not on a deck (it's the deck's road), but on to the ground where one ends: from the deck's
-      // last sample to the next was left to the ground's cells, a green line across the road.
-      const j = main.closed ? (i + 1) % main.n : Math.min(main.n - 1, i + 1);
-      if (decks?.[i] && decks[j]) continue;
+      // Over a deck too (the Freeway's: track.ts leaves its road's top to this): where the deck's
+      // road met this one across the road, the ground came up to within millimetres of the deck's
+      // end and showed through it (a green line, the owner), and its edge was a line across it.
       // Where it's uneven, in strips across, so it follows the lumps and doesn't cut through them.
       const strips = lumpy(s) ? STRIPS : 1;
       for (let k = 0; k < strips; k++) quad(i, -wa + (k * 2 * wa) / strips, -wa + ((k + 1) * 2 * wa) / strips, surfaceColor(main.surface[i]), main, LIFT * 0.6);
       // Paved (not the jungle's earth), its lines: the owner lost the dark rim road against its ash.
       const surf = track.surfaces[main.surface[i]];
-      if (surf.offroad || surf.slide || decks?.[i]) continue;
+      if (surf.offroad || surf.slide) continue;
     } else if (track.surfaces[main.surface[i]].slide) continue;
     quad(i, -wa + 0.35, -wa + 0.5, white);
     quad(i, wa - 0.5, wa - 0.35, white);
