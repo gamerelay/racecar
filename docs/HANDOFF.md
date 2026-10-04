@@ -164,8 +164,8 @@ line. The owner may want it toned down after driving it (no air boost from it, o
 PARADISE.md has the numbers.
 
 **Four new tracks** (#99, merged): `avalanche` and `winter-pursuit` are Avalanche's own, `propulsion`
-and `escape` go anywhere. **Not on the CDN yet:** run `tools/publish-assets.ts` before the next
-deploy, or production plays the synth for them.
+and `escape` go anywhere, and `forward` (#101) too. Published to the CDN (2026-10-03),
+`forward` too; the next deploy plays them.
 
 **Next, step 3c:** a short indoor stretch on Paradise Open (a mall waits for another map), with
 camera hints if it needs them. TECH_DEBT has the small things the reviews left.
@@ -191,7 +191,7 @@ camera hints if it needs them. TECH_DEBT has the small things the reviews left.
 everywhere, slope gravity on snow, moguls, canyons, kickers, rocks, 18 slalom gates, about 650
 solid pines, a ski jump, snowfall and tracks, the camera following the slope, and an avalanche at
 chaos. The AI lets the slope carry it and rides the canyons. In the lobby, the vote and quick race,
-racing to its own two tracks (`avalanche`, `winter-pursuit`, 2026-10-03) and the six any-map ones. Everything about it is [AVALANCHE.md](./AVALANCHE.md). The
+racing to its own two tracks (`avalanche`, `winter-pursuit`, 2026-10-03) and the seven any-map ones. Everything about it is [AVALANCHE.md](./AVALANCHE.md). The
 owner drove it ("it feels good"); phones aren't a target for it. The `/code-review` found two
 low-severity bugs, fixed before the merge.
 
