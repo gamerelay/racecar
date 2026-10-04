@@ -151,7 +151,9 @@ export function flankDrop(hit: TrackHit): number {
  * Surface at (x, y, z), `hit` its place on the road nearest: dynamic zones first (not in milestone 1),
  * then authored zones, then the road's own surface on the asphalt; beyond it, on open ground, what
  * the ground is there (ground/surface.ts: sand, wet sand), else the verge (the stretch's own, or the
- * layout's shoulder surface).
+ * layout's shoulder surface). A hit not beside the point (STRAY: a projection that stopped short
+ * round a bend, far off the road) says nothing about it: no zones, no road, and the verge of the
+ * main road's sample nearest the point.
  */
 export function surfaceAt(track: Track, hit: TrackHit, x: number, y: number, z: number, wet: boolean, shoulderSurface: number): number {
   let surface = engineSurface(track, hit, x, y, z, wet, shoulderSurface);
@@ -189,8 +191,9 @@ function engineSurface(track: Track, hit: TrackHit, x: number, y: number, z: num
     if (kind === KIND_SAND || kind === KIND_BEACH) return track.surfaceIndex.get('sand') ?? hit.surface;
     if (kind === KIND_SHORE) return track.surfaceIndex.get('shore') ?? hit.surface;
     if (kind === KIND_LAVA_ROCK) return track.surfaceIndex.get('lava-rock') ?? hit.surface;
-    // (Stray, the verge of the main road where the ground's drawn: its sample nearest the point.)
-    const verge = stray && g ? track.main.verge[g.nearAt(x, z)] : hit.verge;
+    // (Stray, the verge of the main road where the ground's drawn, its sample nearest the point;
+    // with no open ground, the layout's shoulder: not the far stretch the projection stopped on.)
+    const verge = !stray ? hit.verge : g ? track.main.verge[g.nearAt(x, z)] : VERGE_DEFAULT;
     return verge === VERGE_DEFAULT ? shoulderSurface : verge;
   }
   return hit.surface;
