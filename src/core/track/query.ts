@@ -154,6 +154,13 @@ export function flankDrop(hit: TrackHit): number {
  * layout's shoulder surface).
  */
 export function surfaceAt(track: Track, hit: TrackHit, x: number, y: number, z: number, wet: boolean, shoulderSurface: number): number {
+  let surface = engineSurface(track, hit, x, y, z, wet, shoulderSurface);
+  // An override has the last word inside its region (track/overrides.ts).
+  for (const o of track.overrides) if (o.surface && o.inside(x, z)) surface = o.surface(surface, x, y, z);
+  return surface;
+}
+
+function engineSurface(track: Track, hit: TrackHit, x: number, y: number, z: number, wet: boolean, shoulderSurface: number): number {
   const sp = track.splines[hit.spline];
   for (let k = 0; k < sp.zones.length; k++) {
     const z = sp.zones[k];

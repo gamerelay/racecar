@@ -5,6 +5,8 @@ import { LANDMARK_KINDS, type CarClass, type PieceDef, type SurfaceDef, type Tra
 import { KINDS } from '../world/hazards';
 import { SMASH_IDS } from '../world/smash';
 import { bakeTrack, sampleIndex, wrap } from './bake';
+import { OVERRIDES } from '../maps';
+import { regionProblem, respawnProblem, type OverrideCode } from './overrides';
 import { atan2, hypot } from '../math';
 
 export interface Problem {
@@ -18,8 +20,10 @@ export interface Problem {
 const GRID_LENGTH = 50;
 /** The sharpest a branch may leave or rejoin the main road at, in degrees. */
 const MAX_FORK = 35;
+/** Past this many overrides on one layout, a warning: they're meant to be rare, each a to-do for the engine. */
+const MANY_OVERRIDES = 5;
 
-export function validateLayout(layout: TrackLayout, surfaces: SurfaceDef[], classes: CarClass[]): Problem[] {
+export function validateLayout(layout: TrackLayout, surfaces: SurfaceDef[], classes: CarClass[], code: Readonly<Record<string, OverrideCode>> = OVERRIDES): Problem[] {
   const out: Problem[] = [];
   const err = (message: string, spline?: string, s?: number) => out.push({ level: 'error', message, spline, s });
   const warn = (message: string, spline?: string, s?: number) => out.push({ level: 'warning', message, spline, s });
@@ -42,8 +46,27 @@ export function validateLayout(layout: TrackLayout, surfaces: SurfaceDef[], clas
   for (const z of layout.zones ?? []) if (!surfaceIds.has(z.surface)) err(`zone: unknown surface "${z.surface}"`);
   if (out.some((p) => p.level === 'error')) return out;
 
-  const track = bakeTrack(layout, surfaces);
+  const track = bakeTrack(layout, surfaces, code);
   const L = track.main.length;
+
+  // Overrides (track/overrides.ts): each has its code, a reason and a region that can be built.
+  {
+    const seen = new Set<string>();
+    for (const o of layout.overrides ?? []) {
+      const name = `override "${o.id}"`;
+      if (seen.has(o.id)) err(`${name} is declared twice`);
+      seen.add(o.id);
+      if (!code[o.id]) err(`${name} has no code (core/maps/<map>/overrides.ts, added to core/maps/index.ts)`);
+      if (!o.reason?.trim()) err(`${name} has no reason: say what the engine can't do yet`);
+      const why = regionProblem(o, track.splines);
+      if (why) err(`${name}: ${why}`);
+      const c = code[o.id];
+      const spot = c ? respawnProblem(c, track.splines) : '';
+      if (spot) err(`${name}: ${spot}`);
+      if (c && (c.cast || c.hazard) && !layout.ground) warn(`${name}: its cast and hazard hooks only run on open ground, and this layout has none`);
+    }
+    if (seen.size > MANY_OVERRIDES) warn(`${seen.size} overrides: they're meant to be rare; turn a kind that repeats into an engine feature`);
+  }
 
   // Roads that cross (an overpass, a lap that loops over itself) need headroom; roads that meet at
   // one level must be a junction (a branch's ends), not two roads running through each other.

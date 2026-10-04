@@ -6,6 +6,10 @@ and where things stand is [docs/HANDOFF.md](./docs/HANDOFF.md).
 
 ## Unreleased
 
+- **Overrides** (Caldera's step 2c, [docs/CALDERA.md](docs/CALDERA.md)): a map can name its own
+  code for a small region, run only through fixed hooks (the floor, the surface, the hazard, a
+  respawn spot, a per-tick step). `tools/probe.ts` says which are active at a point, and
+  `tools/validate.ts` lists and checks them. No map uses one yet; driving is unchanged.
 - **Caldera, the engine's plan** ([docs/CALDERA.md](docs/CALDERA.md)), and its step 0, for whoever
   works on the game (people or Claude):
   - **Golden fingerprints** (`bun tools/fingerprint.ts`, and in the tests): every layout's bake,

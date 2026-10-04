@@ -228,18 +228,19 @@ type Motion =
   | { by: 'host' }
   | { by: 'relay' };
 
-/** The escape hatch: one map's code for one small region (see "Overrides"). */
+/** The escape hatch: one map's code for one small region (see "Overrides"; built in step 2c). */
 interface Override {
   id: string;
   reason: string;                            // why the engine can't do this yet
-  region: Box | { street: string; s: [number, number]; lateral?: [number, number] };
+  region: { box: [x0, z0, x1, z1] } | { road?: string; s: [number, number]; lateral?: [number, number] };
   // Each hook runs only inside the region, after every feature's, and wins. All optional.
-  cast?(out: Cast, x: number, y: number, z: number, t: number): void;   // floor, surface, hazard
-  tune?(out: CarTuning, car: number, sim: Sim): void;                   // lift cap, grip, gravity
-  walls?(x: number, z: number, on: boolean): boolean;               // on or off here
-  camera?: CameraHint;
-  respawn?: Pose;
+  cast?(out: Cast, x: number, y: number, z: number): void;               // floor, piece, space
+  surface?(surface: SurfaceId, x: number, y: number, z: number): SurfaceId;
+  hazard?(hazard: Hazard, x: number, y: number, z: number, t: number): Hazard;
+  respawn?: { road?: string; s: number; lateral: number };      // then the engine's rules apply
   step?(sim: Sim, car: number): void;        // per tick, for each car inside, no allocation
+  // Not yet, added with their first use: tune (lift cap, grip, gravity: there's no per-car
+  // tuning to change), walls (on or off), camera (camera hints aren't built).
 }
 ```
 
@@ -329,24 +330,27 @@ says.)
 - **Declared in the layout:** `overrides: [{ id, reason, region }]`. The region is a box, or a
   stretch of a street (a spline's id until the road graph) and a band across it. The reason says what the engine can't do yet:
   "the tube's exit crest throws cars, so cap the lift here".
-- **Its code lives with the map**, say `src/maps/<map>/overrides.ts`, keyed by id: never a patch
-  to the engine's files.
-- **Only through fixed hooks** (the `Override` type above): the cast's result (floor, surface,
-  hazard), a car's tuning while it's inside (the lift cap, grip, gravity), walls on or off, a
-  camera hint, a respawn spot, and a per-tick step for the cars inside. They run after every
+- **Its code lives with the map**, in `src/core/maps/<map>/overrides.ts` (core, because core
+  imports nothing outside it), keyed by id and listed in `core/maps/index.ts`: never a patch to
+  the engine's files.
+- **Only through fixed hooks** (the `Override` type above): the cast's result (floor), the
+  surface, the hazard, a respawn spot, and a per-tick step for the cars inside; later a car's
+  tuning while it's inside (the lift cap, grip, gravity), walls on or off, a camera hint. They run after every
   feature's hooks, inside the region only, and win. Nothing outside the region changes, and
   nothing outside those hooks can be reached.
 - **The same rules as everything else:** a pure function of position, time and seed; no
   allocation per tick; deterministic, so online and replays don't notice it's there.
 - **Visible everywhere:** `tools/probe.ts` says "override active: <id>" at a point inside;
-  `tools/map.ts` and the debug drawing outline the regions; `tools/validate.ts` lists every
-  override per map with its reason, and warns past a handful on one map.
+  `tools/validate.ts` lists every override per map with its reason, wants code, a reason and a
+  region for each, and warns past five on one map. The debug drawing (the HUD's debug key)
+  outlines each region in magenta.
 - **Each one is a to-do.** When the same kind of override turns up twice, it becomes an engine
   feature (a hook, a piece property, a module) and the overrides are deleted.
 
-They also give today's one-off fixes a home. The candidates, looked at in step 2: `pastGap`'s
-respawn rule for the Lava Tube's jump (it finds the kicker by its ramp heights), and the
-generator's `LAND` shaping of the tube's entry crest.
+They also give today's one-off fixes a home. The candidates looked at in step 2c stayed where
+they are: `pastGap`'s respawn rule is the engine's for any gap piece and its kicker (no longer the
+Lava Tube's alone), and the generator's `LAND` is how the tube is authored at build time, not
+anything at run time. So no map has an override yet.
 
 ## Tricks from the industry
 
@@ -673,8 +677,12 @@ stream across a route): then the new floor is recorded, with why.
      road (s and lateral): that is "along a named road", and a mogul field or a canyon belongs by
      its piste. So nothing moved: every fingerprint identical. World-space placement (a path)
      starts with the lava stream.
-   - **2c, overrides:** the layout field, the hooks, `validate`'s list; `pastGap` and the
-     tube's `LAND` looked at.
+   - **2c, overrides** (built): `TrackLayout.overrides`, `core/track/overrides.ts` (regions
+     as a box or a stretch of a road, bound to their code at bake), the hooks `cast`, `surface`,
+     `hazard`, `respawn` and `step`, probe's "override active", `validate`'s checks and list.
+     *Changed while building:* the code lives in `core/maps/` (core imports nothing outside
+     core); `tune`, `walls` and `camera` wait for a first use. `pastGap` and `LAND` stay (see
+     "Overrides"), so no map has one: a clean-up, every fingerprint identical.
    - **2d, the lava stream**, end to end as above.
 3. **Enclosed spaces done properly**: the camera under the ceiling (with hints where it's
    tricky), indoor light and fog, reverb, and breakable walls (smashables grown into wall

@@ -5,6 +5,7 @@
 
 import type { Track } from '../core/track/bake';
 import { newCast, type Space } from '../core/track/ground';
+import { activeAt } from '../core/track/overrides';
 import { newHit, projectGlobal, surfaceAt, type TrackHit } from '../core/track/query';
 
 export interface RoadSpot {
@@ -29,6 +30,8 @@ export interface Probe {
   near: RoadSpot;
   /** The surface a car here drives on (wet off). */
   surface: string;
+  /** The overrides whose regions it's inside (track/overrides.ts), by id: their hooks have the last word here. */
+  overrides: string[];
   /** Open ground only. */
   ground?: {
     /** In bounds (on the grid). */
@@ -80,7 +83,7 @@ export function probe(track: Track, x: number, z: number, y?: number): Probe {
   // Without open ground and no height asked, the road's found by where it is, not how high.
   const near = nearestRoad(track, x, z, g || y !== undefined ? yy : undefined, hit);
   const shoulder = track.surfaceIndex.get(track.layout.shoulderSurface ?? 'sidewalk') ?? 0;
-  const out: Probe = { x, z, y: yy, near, surface: track.surfaces[surfaceAt(track, hit, x, yy, z, false, shoulder)].id };
+  const out: Probe = { x, z, y: yy, near, surface: track.surfaces[surfaceAt(track, hit, x, yy, z, false, shoulder)].id, overrides: activeAt(track.overrides, x, z) };
   if (!g) {
     if (y === undefined) out.y = hit.ground;
     return out;
@@ -117,6 +120,7 @@ export function describeProbe(p: Probe): string {
     `road: ${p.near.road} (spline ${p.near.spline}) s ${f(p.near.s, 1)}, lateral ${f(p.near.lateral)} (${p.near.on}; road ${f(p.near.width, 1)} m wide, shoulder ${f(p.near.shoulder, 1)})`,
     `surface: ${p.surface}`,
   ];
+  for (const id of p.overrides) lines.push(`override active: ${id}`);
   const g = p.ground;
   if (g) {
     lines.push(`ground: ${f(g.height)} m, grade ${f(g.grade[0], 1)}% / ${f(g.grade[1], 1)}% (x / z)${g.inside ? '' : ', OUT OF BOUNDS'}`);

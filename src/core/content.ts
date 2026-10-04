@@ -225,6 +225,23 @@ export interface TrackLayout {
   skiJump?: { lip: number; landing: number };
   /** One run's avalanche, at chaos (core/world/avalanche.ts). */
   avalanche?: AvalancheDef;
+  /** The escape hatch (core/track/overrides.ts): the map's own code for a small region, by id (core/maps). Rare. */
+  overrides?: OverrideDef[];
+}
+
+/**
+ * An override (docs/CALDERA.md, "Overrides: the escape hatch"): its code is in
+ * core/maps/<map>/overrides.ts under `id`, and runs only inside `region`. `reason` says what the
+ * engine can't do yet ("the tube's exit crest throws cars, so cap the lift here").
+ */
+export interface OverrideDef {
+  id: string;
+  reason: string;
+  /**
+   * A box ([x0, z0, x1, z1], m), or a stretch of a road: `s` m along it (`road`: a branch's id;
+   * unset, the main road) and a band `lateral` m across it (default its road and shoulder).
+   */
+  region: { box: [number, number, number, number] } | { road?: string; s: [number, number]; lateral?: [number, number] };
 }
 
 /** A slalom gate: its middle `lateral` m across the main road at `s`, its flags `gap` m apart. */

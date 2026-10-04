@@ -445,6 +445,11 @@ export class Sim implements SimState {
       if (cars.remote[i]) locateCar(this, i);
       else stepCar(this, i, this.controlsFor(i, input), dt);
     }
+    // An override's own step, for each of your cars inside its region (track/overrides.ts).
+    for (const o of this.track.overrides) {
+      if (!o.step) continue;
+      for (let i = 0; i < cars.count; i++) if (cars.active[i] && !cars.remote[i] && o.inside(cars.x[i], cars.z[i])) o.step(this, i);
+    }
     // Systems 10–11: broadphase and collisions.
     this.grid.rebuild(cars.count, cars.x, cars.z, this.isActive);
     for (let i = 0; i < cars.count; i++) if (cars.active[i] && !cars.remote[i]) collideWalls(this, i);
