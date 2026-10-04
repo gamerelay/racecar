@@ -377,6 +377,17 @@ for the race); slower, they're a wall. A break pays no boost (it made the tube f
 breaks through; the floor 68.10 → 68.00 s (lap 1 about 0.2 s slower), the field 28 wrecks in 40
 seeds, none at the boards.
 
+**The berm out of the tube (2026-10-03, the owner's idea):** the left-hander at the top of the rim
+where the tube rejoins the road is banked 0.25 rad into itself (`EXIT_BERM` in the generator,
+3215–3255 m, easing out over 55 m so the descent after it doesn't hop). The tube comes in from the
+turn's outside, so its road climbs out of its tunnel all the way to the berm's high outside edge,
+still rising 12% there (`EXIT_KICK`), and tilts into the bank over its last 12 m. That edge is the
+crest: from 110 to 190 km/h, 0.85–1.1 s in the air, landing on the road 5–8.5 m inside its middle,
+no wrecks in any class. Going round, the berm drives as before (no new hop). The floor 68.00 →
+67.67 s (the AI flies it every lap, and a landing pays air boost); the field 39 wrecks in 40 seeds
+(28 before): more traffic hits just past the line (4 → 11), two cars bumping at the berm.
+`test/deck.test.ts`'s mouth check allows 0.6 m (not 0.7) where the road climbs over 20%.
+
 **Numbers** (best AI lap, solo hard coupe): Paradise Open 68.07 s with the jump (67.68 s with the
 tube before it, 70.03 s without the tube, 71.52 s for today's Paradise); the field's wrecks at 0 a
 race (2026-10-03). Every other map's floor is unchanged: Downtown 57.9, Backroads 62.82, Avalanche
