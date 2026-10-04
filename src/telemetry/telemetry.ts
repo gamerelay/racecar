@@ -179,6 +179,10 @@ export class Telemetry {
       case Ev.Land:
         if (e.a > 0.3) this.record('air', { ...who, time: r2(e.a), impact: r1(e.b), s: r1(c.s[e.car]) });
         break;
+      case Ev.WallBreak:
+        // (Car -1: another screen's car broke it.)
+        if (e.car === focus) this.record('wall_break', { ...who, panel: e.b, speed: r1(e.a), s: r1(c.s[e.car]) });
+        break;
       case Ev.WallHit:
         if (e.car === focus && e.a > 5) this.record('wall', { ...who, impact: r1(e.a), s: r1(c.s[e.car]) });
         break;

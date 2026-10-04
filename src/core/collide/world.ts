@@ -13,8 +13,10 @@ import { hash01 } from '../rng';
 import type { SimState } from '../state';
 import { mainDistance, signedGap } from '../track/bake';
 import { Solid, type Hazards } from '../world/hazards';
+import type { Breakables } from '../world/breakables';
 import { SMASH_KINDS, type Smashables } from '../world/smash';
 import { laneActive, TRAFFIC_KINDS, type Traffic } from '../world/traffic';
+import { collideBreakables } from './breakables';
 import { newContact, obbOverlap } from './obb';
 import { cos, hypot, sin } from '../math';
 
@@ -24,6 +26,7 @@ export interface WorldCtx {
   traffic: Traffic;
   hazards: Hazards;
   smash: Smashables;
+  breakables: Breakables;
   /** Race time now and last tick. */
   t: number;
   tPrev: number;
@@ -97,6 +100,9 @@ export function collideWorld(sim: SimState, i: number, ctx: WorldCtx): void {
       sim.events.push(tick, Ev.CarContact, i, contact.x, c.y[i] + 0.6, contact.z, closing, 0, -1);
     }
   }
+
+  // ---- breakable walls: a wall, or through it ----
+  if (ctx.breakables.n) collideBreakables(sim, i, ctx.breakables, ctx.t);
 
   // ---- smashables: a car through one bursts it (a respawning ghost goes through) ----
   if (!ghost) {

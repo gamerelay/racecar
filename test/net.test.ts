@@ -5,6 +5,8 @@ import { createLobby, apply, encodeSeats, othersIn, roster, type Lobby } from '.
 import { NetCars, predict, remoteSteer, type NetEntity, type NetKind, type NetRoom } from '../src/net/cars';
 import { CLOCK_SNAP, startDelay, syncClock } from '../src/net/clock';
 import { HOLD_S, NetTraffic, readHit, RELEASE_S, TRAFFIC_HIT } from '../src/net/traffic';
+import { NetBreakables, NEWS_S, WALL_BREAK } from '../src/net/breakables';
+import { Breakables } from '../src/core/world/breakables';
 import { BUMP, carNames, NetContact, TAKEDOWN } from '../src/net/contact';
 import { MAX_CLOSING, readBump, readHandover, readTakedown } from '../src/net/wire';
 import { Ev } from '../src/core/events';
@@ -794,6 +796,78 @@ describe('traffic hits online', () => {
     const read = (d: unknown) => readHit(d, sim.world.traffic.count, sim.time, HOLD_S);
     expect(read(ok)).toEqual({ ...ok, a: 100 });
     for (const bad of [null, 'x', { ...ok, k: -1 }, { ...ok, k: 1.5 }, { ...ok, k: sim.world.traffic.count }, { ...ok, t: 40 + HOLD_S + 1 }, { ...ok, x: NaN }, { ...ok, y: '2' }]) expect(read(bad)).toBeNull();
+  });
+});
+
+describe('breakable walls online', () => {
+  /** Two screens of one race, each with a 15 m wall of 6 panels (down for the race, or standing again after `again` s). */
+  function pair(again?: number) {
+    const hub = new Hub();
+    const make = (me: 'ada' | 'bo') => {
+      const sim = citySim(4);
+      sim.addCar(me === 'ada' ? { cls: 'coupe', human: true } : { cls: 'coupe', remote: true });
+      sim.addCar(me === 'bo' ? { cls: 'coupe', human: true } : { cls: 'coupe', remote: true });
+      sim.world.breakables = new Breakables([{ id: 'w', look: 'boards', from: [0, 0, 0], to: [15, 0, 0], height: 3, breaks: 12, standsAgain: again }]);
+      sim.time = 40;
+      return { sim, net: new NetBreakables(hub.room(me), sim, '4:0') };
+    };
+    return { hub, ada: make('ada'), bo: make('bo') };
+  }
+  /** Car `i` breaks panel k on this screen now (as collideBreakables does). */
+  const smash = (p: { sim: Sim }, i: number, k: number) => {
+    p.sim.world.breakables.brokenAt[k] = p.sim.time;
+    p.sim.events.push(p.sim.tick, Ev.WallBreak, i, 5, 1.5, 0, 30, k, -1);
+  };
+  const settle = () => new Promise((r) => setTimeout(r, 0));
+
+  test("your car breaks a panel: you claim it, every other screen has it down from your time (and bursts it), and it's held for the race", async () => {
+    const { hub, ada, bo } = pair();
+    smash(ada, 0, 2);
+    ada.net.afterStep();
+    await settle();
+    expect(hub.claims.get(ada.net.key(2))).toBe('ada');
+    expect(hub.sent.map((e) => e.type)).toEqual([WALL_BREAK]);
+    expect(bo.sim.world.breakables.brokenAt[2]).toBe(40);
+    expect(bo.sim.world.breakables.standing(2, 1e6)).toBe(false);
+    const seen: number[] = [];
+    bo.sim.events.read(0, (e) => e.type === Ev.WallBreak && seen.push(e.b));
+    expect(seen).toEqual([2]);
+    ada.sim.time = 1e5;
+    ada.net.afterStep();
+    expect(hub.claims.size).toBe(1);
+    ada.net.close();
+    expect(hub.claims.size).toBe(0);
+  });
+
+  test('both screens break it: one claim wins and both have its time; one that stands again lets go a second before', async () => {
+    const { hub, ada, bo } = pair(20);
+    bo.sim.time = 40.05;
+    smash(ada, 0, 4);
+    smash(bo, 1, 4);
+    ada.net.afterStep();
+    bo.net.afterStep();
+    await settle();
+    expect(hub.sent).toHaveLength(1);
+    expect(bo.sim.world.breakables.brokenAt[4]).toBe(40);
+    let n = 0;
+    bo.sim.events.read(0, (e) => e.type === Ev.WallBreak && n++);
+    expect(n).toBe(1);
+    ada.sim.time = 40 + 19 - 0.01;
+    ada.net.afterStep();
+    expect(hub.claims.size).toBe(1);
+    ada.sim.time = 40 + 19;
+    ada.net.afterStep();
+    expect(hub.claims.size).toBe(0);
+  });
+
+  test("not claimed: another player's car's break (their screen does); a word that isn't a panel, or isn't now, is dropped", async () => {
+    const { hub, ada, bo } = pair();
+    smash(ada, 1, 1);
+    ada.net.afterStep();
+    await settle();
+    expect(hub.sent).toHaveLength(0);
+    for (const bad of [{ k: 6, t: 40 }, { k: 1, t: 40 + NEWS_S + 1 }, { k: -1, t: 40 }]) ada.net['room'].emit(WALL_BREAK, { ...bad, x: 0, y: 0, z: 0, a: 5, b: 0 });
+    expect([...bo.sim.world.breakables.brokenAt].every((t) => t === -Infinity)).toBe(true);
   });
 });
 

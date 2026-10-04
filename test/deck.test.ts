@@ -451,8 +451,11 @@ describe('Paradise Open: the Lava Tube, after review', () => {
           ni = i;
         }
       }
-      // (Against the nearest sample's road: the mouth's own sample is within a step of it.)
-      expect(g.h[k]).toBeGreaterThan(tube.py[ni] + 0.7);
+      // (Against the nearest sample's road: the mouth's own sample is within a step of it. Where the
+      // road climbs steeply out of a mouth, the berm's way out at 27%, that sample's off by up to
+      // half a step's climb: 0.6 there.)
+      const climb = Math.abs(tube.py[Math.min(tube.n - 1, ni + 1)] - tube.py[Math.max(0, ni - 1)]) / (2 * tube.step);
+      expect(g.h[k]).toBeGreaterThan(tube.py[ni] + (climb > 0.2 ? 0.6 : 0.7));
     }
   });
 });

@@ -545,6 +545,11 @@ export class GameAudio {
           this.horn(0.14, pan);
         }
         break;
+      case Ev.WallBreak:
+        // Planks going: a crack and a woody thud.
+        this.play(at(0.5), pan, (s) => noiseShot(s, 'bandpass', 900, 300, 0.002, 0.3, 1.1));
+        this.play(at(0.4), pan, (s) => toneShot(s, 'triangle', 140, 55, 0.004, 0.25));
+        break;
       case Ev.Smash:
         this.play(at(0.3), pan, (s) => noiseShot(s, 'bandpass', 1500, 500, 0.002, 0.16, 1.2));
         break;

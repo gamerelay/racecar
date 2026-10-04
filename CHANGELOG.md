@@ -8,6 +8,13 @@ and where things stand is [docs/HANDOFF.md](./docs/HANDOFF.md).
 
 - **Four new tracks** (the owner's): Avalanche gets two of its own, *Avalanche* and *Winter
   Pursuit*, and any race can now play *Propulsion* and *Escape* too.
+- **A berm out of the Lava Tube** (the owner's idea): the left-hander at the top of the rim, where
+  the tube rejoins the road, is banked hard into itself. Going round, it's a berm to lean on.
+  Coming out of the volcano, the tube's road climbs to its high outside edge, and you fly across
+  the turn (about a second in the air) and land on the road below.
+- **The Lava Tube is boarded up** (Caldera's step 3b, breakable walls): a barricade of planks
+  across its mouth. Hit it at speed (from about 43 km/h) and the boards in your way burst; the
+  hole stays open for the race. Slower, it's a wall. Online, everyone sees who broke what.
 - **Indoors feels indoors** (Caldera's step 3a): in the Lava Tube the light goes to the lava's warm
   glow and a smoky haze, the sun's gone, and your engine rings off the rock. It eases in at the
   mouth and back out under the sky. The camera keeps under a tunnel's ceiling.

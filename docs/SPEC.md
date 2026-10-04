@@ -2202,6 +2202,12 @@ Caldera, the engine (2026-10-03; the plan is docs/CALDERA.md):
   sampled points 3 m+ off the roads driving as asphalt, Paradise Open 304 (the lava stream's
   rock among them): none now. And the Lava Tube's verge is `ash` (it was the layout's `beach`).
   Drives, lap floors and the field unchanged; Paradise Open's fingerprints re-recorded.
+- **Breakable walls** (CALDERA's step 3b): smashables grown into wall panels in world space
+  (`TrackLayout.breakables`), each a wall to a car slower than its `breaks` and burst by a faster
+  one, down for the race or standing again. Unlike a smashable a break pays **no boost** (the
+  wall's across a line, and paid, the line got faster), and it's **a trigger online**, claimed
+  like a traffic hit, since it changes where everyone can drive. The first boards up the Lava
+  Tube's first mouth: Paradise Open's floor 68.10 → 68.00 s, the field 28 wrecks in 40 seeds.
 - **A lava stream on Paradise Open** (CALDERA's step 2d, the owner's ask): a `lava-stream`
   feature in world space, a channel down the volcano's south-west flank to the sea, crossing no
   road. Down in it is a wreck (a hazard); it's jumped from about 130 km/h. Its banks are rock

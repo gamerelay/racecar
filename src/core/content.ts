@@ -165,6 +165,28 @@ export interface SmashDef {
   spline?: string;
 }
 
+/**
+ * A breakable wall (docs/CALDERA.md, step 3b): smashables grown into wall panels, placed in world
+ * space. Each panel is a wall until a car meets it at `breaks` m/s or more, then it bursts and the
+ * car goes through. Down for the race, or standing again `standsAgain` s later. Needs `ground`.
+ */
+export interface BreakableDef {
+  id: string;
+  /** How it's drawn, a key of the skin's looks ('boards': a barricade of planks). */
+  look: string;
+  /** Its foot, end to end: [x, y, z], y the floor it stands on there. */
+  from: [number, number, number];
+  to: [number, number, number];
+  /** How tall it stands (m). */
+  height: number;
+  /** Panels about this wide (m; default 2.5): each breaks on its own. */
+  panel?: number;
+  /** The speed (m/s) a car has to meet it at, square on, to break a panel; slower, it's a wall. */
+  breaks: number;
+  /** Seconds a broken panel stays down; unset, for the rest of the race. */
+  standsAgain?: number;
+}
+
 export interface TrackLayout {
   id: string;
   name: string;
@@ -183,6 +205,8 @@ export interface TrackLayout {
   props?: PropDef[];
   landmarks?: LandmarkDef[];
   smashables?: SmashDef[];
+  /** Breakable walls, in world space (on open ground). */
+  breakables?: BreakableDef[];
   takedownSpots?: { s: number; name: string }[];
   /** Scenery the skin fills in beyond the walls (not gameplay). */
   scenery?: string;

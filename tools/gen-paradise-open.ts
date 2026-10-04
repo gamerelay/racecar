@@ -25,6 +25,8 @@ const DIR = 'content/maps/paradise-open';
 /** The Freeway: where it leaves the land on its ramp up, and where it comes back down to it. */
 const FREEWAY: [number, number] = [1200, 2060];
 
+/** The berm's flat stretch along the rim road (m): where the tube's road meets its lip. */
+const EXIT_BERM: [number, number] = [3215, 3255];
 /**
  * Banked turns to drift into (the owner): off the Freeway, the right-hander into the jungle and
  * the left-hander after it, each banked steeply into itself (TUNING.bankHold holds you into the
@@ -33,6 +35,10 @@ const FREEWAY: [number, number] = [1200, 2060];
 const BANKS: { s: [number, number]; bank: number; ease: [number, number] }[] = [
   { s: [2190, 2345], bank: 0.25, ease: [50, 29] },
   { s: [2395, 2500], bank: -0.25, ease: [21, 40] },
+  // The berm at the Lava Tube's exit (the owner): the left-hander at the top of the rim banked into
+  // itself like the jungle's, so it's a berm going round, and its high outside edge the lip that
+  // throws cars coming out of the tube (EXIT_KICK) across it.
+  { s: [EXIT_BERM[0], EXIT_BERM[1]], bank: -0.25, ease: [30, 55] },
 ];
 const bankAt = (s: number): number | undefined => {
   for (const b of BANKS) {
@@ -118,6 +124,8 @@ const TUBE = { from: 2685, to: 3255, bridge: VOLCANO.lava + 4, width: 12, should
 const JUMP = { gap: 40, kicker: 12, lift: 2.5 };
 // (40 m takes 150 km/h off the lip, the bus 160: flat out, the slowest car gets there at 175. Off
 // the throttle, or off a wall, it's the lava.)
+/** The barricade across the tube's first mouth: this far in past it (m), this tall, broken by a car meeting it at this (m/s, about 43 km/h). */
+const BOARDS = { in: 4, height: 3, breaks: 12 };
 /** Its tunnels run where the volcano is at least this far over the road (the ceiling and a roof). */
 const TUBE_COVER = TUBE_H + 1.5;
 
@@ -186,23 +194,44 @@ const beside = (x: number, z: number, s: number) => {
   }
   const lat = across(main, k, x, z);
   const verge = main.width[k] / 2 + main.shoulder[k];
-  return { y: main.py[k] - lat * Math.tan(main.bank[k]), clear: Math.abs(lat) - verge - TUBE.width / 2 };
+  // (`tilt`: the rim road's bank carried across the tube's way, for a tube point there to lie in
+  // its plane: the tangent of the bank the tube needs, given its own direction.)
+  return { y: main.py[k] - lat * Math.tan(main.bank[k]), clear: Math.abs(lat) - verge - TUBE.width / 2, k };
 };
+/**
+ * The way out onto the berm: the tube's road climbs all the way out of its tunnel to the berm's lip
+ * (the rim road's banked edge, its outside high), still rising at `rise` (a grade) as it gets
+ * there, so it crests on the lip and the banked road falls away beyond it: a kicker coming out, a
+ * berm going round. (Its points every `step` m there, so the lip is where it's meant to be.)
+ */
+const EXIT_KICK = { rise: 0.12, step: 4, tilt: 12 };
 /** Within this far of the rim road's verge, the tube runs at the rim road's ground. */
 const LAND = 10;
 const tubePoints: { p: [number, number, number]; width: number; lanes: number; shoulder: number; surface: string; verge: string }[] = [];
 for (const [k, [p, q]] of legs.entries()) {
   const len = Math.hypot(q.x - p.x, q.z - p.z);
-  const n = Math.ceil(len / 15);
-  const pts = [];
+  const n = Math.ceil(len / (k === 2 ? EXIT_KICK.step : 15));
+  const pts: ({ x: number; z: number; fromMid: number } & ReturnType<typeof beside>)[] = [];
   for (let j = k === 0 ? 0 : 1; j <= n; j++) {
     const t = j / n;
     const x = p.x + (q.x - p.x) * t;
     const z = p.z + (q.z - p.z) * t;
     pts.push({ x, z, fromMid: Math.hypot(x - C.x, z - C.z), ...beside(x, z, k === 0 ? TUBE.from : TUBE.to) });
   }
-  const point = (x: number, y: number, z: number) =>
-    tubePoints.push({ p: [Math.round(x * 10) / 10, Math.round(y * 10) / 10, Math.round(z * 10) / 10], width: TUBE.width, lanes: 1, shoulder: TUBE.shoulder, surface: 'lava-rock', verge: 'ash' });
+  const point = (x: number, y: number, z: number, bank?: number) =>
+    tubePoints.push({ p: [Math.round(x * 10) / 10, Math.round(y * 10) / 10, Math.round(z * 10) / 10], width: TUBE.width, lanes: 1, shoulder: TUBE.shoulder, surface: 'lava-rock', verge: 'ash', ...(bank ? { bank: Math.round(bank * 1000) / 1000 } : {}) });
+  // Out onto the berm, the tube's road tilts into the rim road's banked plane (easing in over
+  // EXIT_KICK.tilt m before its edge reaches the verge), so it meets it flush across its width.
+  const tiltAt = (pt: (typeof pts)[number]): number => {
+    if (k !== 2 || pt.clear > EXIT_KICK.tilt) return 0;
+    const m = pt.k;
+    const dx = q.x - p.x;
+    const dz = q.z - p.z;
+    const l = Math.hypot(dx, dz);
+    // The tube's right (-tz, tx) against the rim road's.
+    const across = (-dz / l) * -main.tz[m] + (dx / l) * main.tx[m];
+    return Math.atan(Math.tan(main.bank[m]) * across) * smoothstep(0, 1, (EXIT_KICK.tilt - pt.clear) / EXIT_KICK.tilt);
+  };
   if (k === 1) {
     for (const pt of pts) point(pt.x, TUBE.bridge, pt.z);
     continue;
@@ -214,9 +243,16 @@ for (const [k, [p, q]] of legs.entries()) {
   // launched you at full speed; a smaller one going in.)
   const flat = CROSS;
   const held = pts.filter((pt) => pt.clear <= LAND);
-  const land = held.length ? held.reduce((a, b) => (b.fromMid < a.fromMid ? b : a)) : pts[k === 0 ? 0 : pts.length - 1];
+  let land = held.length ? held.reduce((a, b) => (b.fromMid < a.fromMid ? b : a)) : pts[k === 0 ? 0 : pts.length - 1];
   const next = pts[pts.indexOf(land) + (k === 0 ? -1 : 1)] ?? land;
-  const grade = next === land ? 0 : (next.y - land.y) / (next.fromMid - land.fromMid);
+  let grade = next === land ? 0 : (next.y - land.y) / (next.fromMid - land.fromMid);
+  // On the way out, it lands where the bake starts holding it to the rim road's banked plane (its
+  // edge at the verge: joinBranch), on that plane, still climbing: that's the berm's lip.
+  if (k === 2) {
+    const out = pts.filter((pt) => pt.clear >= 0);
+    land = out.reduce((a, b) => (b.clear < a.clear ? b : a));
+    grade = EXIT_KICK.rise;
+  }
   const span = land.fromMid - flat;
   for (const pt of pts) {
     let y = pt.y;
@@ -224,7 +260,7 @@ for (const [k, [p, q]] of legs.entries()) {
       const u = Math.min(1, Math.max(0, (pt.fromMid - flat) / span));
       y = (2 * u ** 3 - 3 * u ** 2 + 1) * TUBE.bridge + (3 * u ** 2 - 2 * u ** 3) * land.y + (u ** 3 - u ** 2) * span * grade;
     }
-    point(pt.x, y, pt.z);
+    point(pt.x, y, pt.z, tiltAt(pt));
   }
 }
 // It leaves the road a little before its first point and rejoins a little past its last (the
@@ -322,6 +358,19 @@ layout.pieces = [
   { id: 'lava-tube-out', road: 'lava-tube', s: [far, Math.round(portalOut + 6)], ceiling: TUBE_H, indoor: 'lava' },
 ];
 
+// The tube's boarded up (CALDERA step 3b): a barricade of planks across its first mouth, just in
+// under the arch. The first car in at speed smashes it open, for the rest of the race; slower, it's
+// a wall. Wall to wall across the road and its shoulders, on the road.
+{
+  const k = Math.round((portalIn + BOARDS.in) / tube.step);
+  const edge = tube.width[k] / 2 + tube.shoulder[k];
+  const foot = (lat: number): [number, number, number] => [
+    +(tube.px[k] - tube.tz[k] * lat).toFixed(2),
+    +(tube.py[k] + tube.ramp[k] - lat * Math.tan(tube.bank[k])).toFixed(2),
+    +(tube.pz[k] + tube.tx[k] * lat).toFixed(2),
+  ];
+  layout.breakables = [{ id: 'lava-tube-boards', look: 'boards', from: foot(-edge), to: foot(edge), height: BOARDS.height, breaks: BOARDS.breaks }];
+}
 
 // The lava stream keeps clear of every road: its path LAVA_CLEAR m from every road's edge (the
 // validator wants less: its rock and bare ground, LAVA_REACH m past its floor, off every shoulder).
