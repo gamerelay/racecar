@@ -7,8 +7,8 @@ building". This file is "where are we"; the spec is "what are we making".
 **Last updated:** 2026-10-03 (Paradise Open merged in #81, untagged; the plan for the engine,
 [CALDERA.md](./CALDERA.md), merged in #82; steps 0 and 0b merged in #83 and #84; 1a, 1b and 1c in
 PRs #85, #86 and #87, merged; 1d merged in #88; 2a and 2b (feature modules) in #89 and #90; the
-jungle's uneven mud in #91 and #92; all merged, untagged; 2c, overrides, and 2d, the lava stream, in
-their PRs; next is step 3; see "Next: Caldera" below). Before that, `alpha-1.30`: Avalanche's snow and rumble quieter. The last tag is **`alpha-1.30`** (PR #77: the snow under the wheels and the avalanche's rumble about 4.5 dB down, the owner's ask). Before it, **`alpha-1.29`** (PRs #71–#74): **Avalanche**, the first open map, one 6.1 km run down a mountain (#74), and the Leap's kicker rounded and launchable from its sides (#71, #72), and PLAN's "Open, freeform maps" direction (#73).
+jungle's uneven mud in #91 and #92; 2c, overrides, in #93 and 2d, the lava stream, in #94; all
+merged, untagged; next is step 3; see "Next: Caldera" below). Before that, `alpha-1.30`: Avalanche's snow and rumble quieter. The last tag is **`alpha-1.30`** (PR #77: the snow under the wheels and the avalanche's rumble about 4.5 dB down, the owner's ask). Before it, **`alpha-1.29`** (PRs #71–#74): **Avalanche**, the first open map, one 6.1 km run down a mountain (#74), and the Leap's kicker rounded and launchable from its sides (#71, #72), and PLAN's "Open, freeform maps" direction (#73).
 Before it, `alpha-1.28` (PRs #67–#70: a press flash and a click on the menus' buttons; the title's
 music from the start; Logger's Leap smoothed and bermed), `alpha-1.27` (PRs #63–#65), `alpha-1.26`
 (PR #62: two new tracks), `alpha-1.25` (PR #61: boost, Overdrive, the slipstream) and `alpha-1.24`
@@ -98,31 +98,34 @@ turns (at 0.7 the drift test fails: the bank's hold is lost). The island's road 
 strips across there, following them. Floor 68.10 and the field unchanged. If the owner says it
 still feels flat: `MUD` in `gen-paradise-open.ts` (height, size), and `ON_BANK` in `uneven.ts`.
 
-**Step 2c, overrides, is built** (in its PR, 2026-10-03; CALDERA's "Overrides: the escape hatch"). A
-layout's `overrides: [{ id, reason, region }]` (a box `[x0, z0, x1, z1]`, or a stretch of a road:
-`road`, `s`, `lateral`; `s[0]` past `s[1]` runs through a loop's start line) name a map's code in
-`core/maps/<map>/overrides.ts` (listed in `core/maps/index.ts`; core, because core imports nothing
-outside it). `core/track/overrides.ts` binds them at bake (`track.overrides`) and their hooks have
-the last word inside the region: `cast` (the floor: `ground.cast`, `top`, `topSlope`), `surface`
-(`surfaceAt`), `hazard` (`ground.hazard`), `respawn` (a spot, then the engine's rules: the
+**Step 2c, overrides, is built** (PR #93, merged 2026-10-03; CALDERA's "Overrides: the escape
+hatch"). A layout's `overrides: [{ id, reason, region }]` (a box `[x0, z0, x1, z1]`, or a stretch of
+a road: `road`, `s`, `lateral`; `s[0]` past `s[1]` runs through a loop's start line) name a map's
+code in `core/maps/<map>/overrides.ts` (listed in `core/maps/index.ts`; core, because core imports
+nothing outside it). `core/track/overrides.ts` binds them at bake (`track.overrides`) and their
+hooks have the last word inside the region: `cast` (the floor: `ground.cast`, `top`, `topSlope`),
+`surface` (`surfaceAt`), `hazard` (`ground.hazard`), `respawn` (a spot, then the engine's rules: the
 avalanche, gaps), `step` (per tick, per car inside). `tune`, `walls` and `camera` wait for a first
 use. `probe` says "override active: <id>", the debug drawing outlines them; `validate` wants code, a
 reason and a region for each, lists them, and warns past five. The candidates stayed put: `pastGap`
 is the engine's for any gap piece, and `LAND` is build-time authoring. No map has one: a clean-up,
 every fingerprint identical. Tests: `test/overrides.test.ts`.
 
-**Step 2d, the lava stream, is built** (in its PR, stacked on 2c's, 2026-10-03; CALDERA's "A
-feature, end to end"). `features/lava-stream.ts`: a channel along a path in world space (the
-first feature placed there), its floor `width` m across and `depth` m down, banks eased over
-LAVA_BANK m of rock (`KIND_LAVA_ROCK`, driven as `lava-rock`), lava LAVA_FILL m deep that wrecks
-you (`Cause.Hazard`), no trees on it, coming out of the ground over its first 25 m. The skin
-draws it from a table by kind (`render/skins/greybox/features.ts`; the cone's lava shader,
-shared). Paradise Open's runs from the volcano's south-west flank to the sea by the bay (`LAVA`
-in the generator), the one way down that crosses no road; the validator refuses one that
-crosses a road (bridges come with pieces). Driven: below 100 km/h you're in it, from about 130
-you clear it. Lap floor 68.1 and the field (30 wrecks in 40 seeds) unchanged. Tests:
-`test/lava-stream.test.ts`. `tools/drive.ts` gained `--heading` and puts `--at` exactly there.
-Found on the way, left for the owner (TECH_DEBT): the Lava Tube's verge is `beach`.
+**Step 2d, the lava stream, is built** (PR #94, merged 2026-10-03; CALDERA's "A feature, end to
+end"). `features/lava-stream.ts`: a channel along a path in world space (the first feature placed
+there), its floor `width` m across and `depth` m down, banks eased over LAVA_BANK m of rock
+(`KIND_LAVA_ROCK`, driven as `lava-rock`), lava LAVA_FILL m deep that wrecks you (`Cause.Hazard`),
+no trees on it, coming out of the ground over its first 25 m. The skin draws it from a table by kind
+(`render/skins/greybox/features.ts`; the cone's lava shader, shared). Paradise Open's runs from the
+volcano's south-west flank to the sea by the bay (`LAVA` in the generator), the one way down that
+crosses no road; the validator refuses one that crosses a road (bridges come with pieces). Driven:
+below 100 km/h you're in it, from about 130 you clear it. Lap floor 68.1 and the field (30 wrecks in
+40 seeds) unchanged. Tests: `test/lava-stream.test.ts`. `tools/drive.ts` gained `--heading` and puts
+`--at` exactly there. Found on the way, left for the owner (TECH_DEBT): the Lava Tube's verge is
+`beach`.
+
+**#94's fresh review was still running when the owner merged it**: its findings come as a follow-up
+PR (check `gh pr list`, or ask). #93's review found nothing serious; its five small fixes are in.
 
 **Next: step 3, enclosed spaces done properly** (CALDERA's "Build order"): the camera under the
 ceiling (with hints where it's tricky), indoor light and fog, reverb, breakable walls; then a
