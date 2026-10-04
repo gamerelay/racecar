@@ -92,7 +92,7 @@ export function validateLayout(layout: TrackLayout, surfaces: SurfaceDef[], clas
         continue;
       }
       if (!(hypot(b.to[0] - b.from[0], b.to[2] - b.from[2]) > 0)) err(`${name}: its ends are in the same place`);
-      if (!(b.height > 0) || !(b.breaks > 0) || (b.panel !== undefined && !(b.panel > 0)) || (b.standsAgain !== undefined && !(b.standsAgain > 0))) err(`${name}: its height, "breaks", "panel" and "standsAgain" must be over 0`);
+      if (!(b.height > 0) || !(b.breaks > 0) || (b.panel !== undefined && !(b.panel > 0)) || (b.standsAgain !== undefined && !(b.standsAgain >= 1))) err(`${name}: its height, "breaks" and "panel" must be over 0, "standsAgain" at least 1 s`);
       if (!b.look) err(`${name}: it needs a look (how it's drawn)`);
       // Each panel's foot on a floor (a road, a piece, the ground), not in the air or under it. (Its
       // middle: a wall's ends may well be in a tunnel's rock walls, as the Lava Tube's are.)

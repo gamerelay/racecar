@@ -76,7 +76,8 @@ export class NetBreakables {
     if (was > hit.t + br.down[hit.k]) return;
     const standing = br.standing(hit.k, this.sim.time);
     br.brokenAt[hit.k] = hit.t;
-    if (standing) this.sim.events.push(this.sim.tick, Ev.WallBreak, -1, hit.x, hit.y, hit.z, hit.a, hit.k, -1);
+    // A burst only if it was up here and is down now (a late word, past its standing again, isn't one).
+    if (standing && !br.standing(hit.k, this.sim.time)) this.sim.events.push(this.sim.tick, Ev.WallBreak, -1, hit.x, hit.y, hit.z, hit.a, hit.k, -1);
   }
 
   /** The race page is done with it. */

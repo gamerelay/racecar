@@ -72,6 +72,28 @@ describe('breakable walls', () => {
     expect(run(150, 1, 2.5, { lat: -5 }).down).not.toEqual(run(150, 1, 2.5, { lat: 2 }).down);
   });
 
+  test('just over its speed on a seam between two panels, a car breaks both and goes on (it broke one and bounced off the other)', () => {
+    // The seams are every 2.5 m across from the wall's end at 7.5 m.
+    for (const lat of [-5, -2.5, 0, 2.5]) {
+      const r = run(46, 0, 2.5, { lat, s: 55 });
+      expect([lat, r.down.length]).toEqual([lat, 2]);
+      expect(r.sim.cars.s[r.c]).toBeGreaterThan(70);
+    }
+  });
+
+  test('a car inside a standing panel (one standing again round it) goes on through, not thrown out along the wall', () => {
+    for (const cls of ['coupe', 'bus']) {
+      const sim = new Sim(track, CLASSES, SURFACES, { seed: 1, traffic: 0, mayhem: 'off' });
+      const c = sim.addCar({ cls, human: true });
+      const k = Math.round(64 / tube.step);
+      sim.placeCar(c, tube.index, 64, 0, 0);
+      const [x, z] = [sim.cars.x[c], sim.cars.z[c]];
+      sim.step([neutralControls()]);
+      expect([cls, Math.hypot(sim.cars.x[c] - x, sim.cars.z[c] - z) < 0.5]).toEqual([cls, true]);
+      expect(Math.abs(sim.cars.y[c] - tube.py[k]) < 1).toBe(true);
+    }
+  });
+
   test('a wide car through a one-panel hole breaks the panels it pushes into (it wedged on their ends)', () => {
     // The AI's bus from rest just short of it: it backs off and goes again, breaking one panel, and
     // then it met the next ones on their ends, slowly, and stuck there.
