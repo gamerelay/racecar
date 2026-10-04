@@ -585,15 +585,16 @@ function roadLines(track: Track): Mesh | null {
     quad(i, wa - 0.5, wa - 0.35, white);
     if (s % 10 < 3.5) quad(i, -0.09, 0.09, yellow);
   }
-  // A branch's road on the ground (not its decks or gaps, nor where it's on the main road), just
-  // under the main road's where they meet.
+  // A branch's road on the ground (not its decks or gaps), just under the main road's where they
+  // meet: drawn on into the junction, so its edge there is its own, not the ground's cells (left to
+  // the ground's colours, it was a staircase where it peeled off the main road).
   if (isle)
     for (const sp of track.splines) {
       if (sp === main) continue;
       const floors = g.pieces.floors(sp.index);
       const gaps = g.pieces.gaps(sp.index);
       for (let i = 0; i + 1 < sp.n; i++) {
-        if (floors?.[i] || floors?.[i + 1] || gaps?.[i] || sp.merge[i] > 0.5) continue;
+        if (floors?.[i] || floors?.[i + 1] || gaps?.[i]) continue;
         quad(i, -sp.width[i] / 2, sp.width[i] / 2, surfaceColor(sp.surface[i]), sp, LIFT * 0.4);
       }
     }

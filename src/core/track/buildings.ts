@@ -7,6 +7,7 @@
 import type { BakedProp, BakedSpline } from './bake';
 import type { Pieces } from './ground/pieces';
 import { atan2 } from '../math';
+import { newHit, sampleAt } from './query';
 
 /** How thick a building's walls are (m), out from its road's edge. */
 export const BUILDING_WALL = 0.8;
@@ -16,18 +17,26 @@ export const BUILDING_ROOF = 1.2;
 const CHUNK = 4;
 const OVERLAP = 0.2;
 
-/** The walls of the buildings among `pieces`, as solid props (kind 'building-wall', spline -1). */
+/**
+ * The walls of the buildings among `pieces`, as solid props (kind 'building-wall', spline -1): from
+ * its first sample to its last, as the skin draws them, overlapping each other a little.
+ */
 export function buildingWalls(pieces: Pieces, splines: readonly BakedSpline[]): BakedProp[] {
   const out: BakedProp[] = [];
+  const at = newHit();
   for (const p of pieces.list) {
     if (!p.building) continue;
     const sp = splines[p.spline];
-    const len = p.s[1] - p.s[0];
-    const n = Math.max(1, Math.round(len / CHUNK));
+    const a = Math.ceil(p.s[0] / sp.step) * sp.step;
+    const b = Math.min(sp.n - 1, Math.floor(p.s[1] / sp.step)) * sp.step;
+    const n = Math.max(1, Math.round((b - a) / CHUNK));
     for (let c = 0; c < n; c++) {
-      const s = p.s[0] + (len * (c + 0.5)) / n;
-      const k = Math.min(sp.n - 1, Math.max(0, Math.round(s / sp.step)));
-      const out0 = sp.width[k] / 2 + sp.shoulder[k] + BUILDING_WALL / 2;
+      // (Overlapping the next only between them: its ends are its first and last samples.)
+      const lo = a + ((b - a) * c) / n - (c > 0 ? OVERLAP : 0);
+      const hi = a + ((b - a) * (c + 1)) / n + (c < n - 1 ? OVERLAP : 0);
+      const s = (lo + hi) / 2;
+      sampleAt(sp, s, at);
+      const out0 = at.width / 2 + at.shoulder + BUILDING_WALL / 2;
       for (const side of [-1, 1]) {
         const lat = side * out0;
         // right = (-tz, tx)
@@ -38,13 +47,13 @@ export function buildingWalls(pieces: Pieces, splines: readonly BakedSpline[]): 
           spline: -1,
           s,
           lateral: lat,
-          x: sp.px[k] - sp.tz[k] * lat,
-          y: sp.py[k],
-          z: sp.pz[k] + sp.tx[k] * lat,
+          x: at.cx - at.tz * lat,
+          y: at.cy,
+          z: at.cz + at.tx * lat,
           hx: BUILDING_WALL / 2,
           hy: (p.ceiling + BUILDING_ROOF) / 2,
-          hz: len / n / 2 + OVERLAP,
-          heading: atan2(sp.tx[k], sp.tz[k]),
+          hz: (hi - lo) / 2,
+          heading: atan2(at.tx, at.tz),
         });
       }
     }

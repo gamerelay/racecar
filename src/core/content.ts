@@ -326,7 +326,7 @@ export interface PieceDef {
   ceiling?: number;
   /**
    * How it's lit and sounds inside, an enclosed piece's: a key of the skin's indoor looks ('lava':
-   * the Lava Tube's glow; unset, 'tunnel'). Drawing and sound only: the sim never reads it.
+   * the Lava Tube's glow; unset, a building's own look, else 'tunnel'). Drawing and sound only: the sim never reads it.
    */
   indoor?: string;
   /**

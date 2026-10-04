@@ -45,8 +45,10 @@ describe('buildings', () => {
       expect(w.s).toBeGreaterThanOrEqual(hall.s[0]);
       expect(w.s).toBeLessThanOrEqual(hall.s[1]);
     }
-    // Every metre of it walled on each side.
-    for (let s = hall.s[0] + 0.5; s < hall.s[1]; s += 1)
+    // Every metre of it walled on each side, from its first sample to its last (as it's drawn).
+    const first = Math.ceil(hall.s[0] / street.step) * street.step;
+    const last = Math.floor(hall.s[1] / street.step) * street.step;
+    for (let s = first; s <= last; s += 1)
       for (const side of [-1, 1]) {
         const p = at(s, side * (edge + BUILDING_WALL / 2));
         const inside = walls.some((w) => {
@@ -54,7 +56,7 @@ describe('buildings', () => {
           const dz = p.z - w.z;
           const along = dx * Math.sin(w.heading) + dz * Math.cos(w.heading);
           const across = dx * Math.cos(w.heading) - dz * Math.sin(w.heading);
-          return Math.abs(along) <= w.hz && Math.abs(across) <= w.hx + 0.01;
+          return Math.abs(along) <= w.hz + 0.01 && Math.abs(across) <= w.hx + 0.01;
         });
         expect([s, side, inside]).toEqual([s, side, true]);
       }
@@ -148,5 +150,13 @@ describe('buildings', () => {
     const bad = { ...open, pieces: open.pieces!.map((p) => (p.id === 'market-hall' ? { ...p, ceiling: undefined, indoor: undefined } : p)) };
     const problems = validateLayout(bad, SURFACES, CLASSES).map((p) => `${p.level}: ${p.message}`);
     expect(problems.some((p) => p.startsWith('error: piece market-hall: "building"'))).toBe(true);
+    // Its walls on another road (the AI and a respawn don't see them): at the tube's end, over the main road.
+    const over = { ...open, pieces: [...open.pieces!, { id: 'x', road: 'lava-tube', s: [462, 482] as [number, number], ceiling: 7, building: 'market' }] };
+    expect(validateLayout(over, SURFACES, CLASSES).some((p) => p.level === 'error' && p.message.startsWith("a building's walls stand on the main road"))).toBe(true);
   }, 60_000);
+
+  test('its floor is sand blown in off the beach (a zone), wall to wall, door to door', () => {
+    const zone = street.zones.find((z) => track.surfaces[z.surface].id === 'sand')!;
+    expect([zone.s0, zone.s1]).toEqual(hall.s);
+  });
 });

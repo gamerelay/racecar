@@ -126,10 +126,10 @@ const JUMP = { gap: 40, kicker: 12, lift: 2.5 };
 // the throttle, or off a wall, it's the lava.)
 /**
  * Harbor Town's market street: where it leaves the harbour front and rejoins it (m), the hall on it
- * (its length and ceiling, m), its road, and the glass across the hall's doors (how tall, the speed
+ * (its length and ceiling, m, and what its floor drives as), its road, and the glass across the hall's doors (how tall, the speed
  * that smashes it, m/s, and how far in from each end, m).
  */
-const MARKET = { from: 170, to: 455, hall: 80, ceiling: 7, width: 12, shoulder: 1.5, glass: { height: 4, breaks: 8, in: 1.5 } };
+const MARKET = { from: 170, to: 455, hall: 80, ceiling: 7, width: 12, shoulder: 1.5, floor: 'sand', glass: { height: 4, breaks: 8, in: 1.5 } };
 /** The barricade across the tube's first mouth: this far in past it (m), this tall, broken by a car meeting it at this (m/s, about 43 km/h). */
 const BOARDS = { in: 4, height: 3, breaks: 12 };
 /** Its tunnels run where the volcano is at least this far over the road (the ceiling and a roof). */
@@ -408,7 +408,11 @@ layout.pieces = [
   // The hall in its middle.
   const h0 = Math.round((sp.length - MARKET.hall) / 2);
   const h1 = h0 + MARKET.hall;
-  layout.pieces = [...(layout.pieces ?? []), { id: 'market-hall', road: street.id, s: [h0, h1], ceiling: MARKET.ceiling, indoor: 'market', building: 'market' }];
+  layout.pieces = [...(layout.pieces ?? []), { id: 'market-hall', road: street.id, s: [h0, h1], ceiling: MARKET.ceiling, building: 'market' }];
+  // Its floor's sand blown in off the beach (the owner: through it flat out was a little too good):
+  // wall to wall, door to door.
+  const edge = MARKET.width / 2 + MARKET.shoulder;
+  layout.zones = [...(layout.zones ?? []), { spline: street.id, s: [h0, h1], lateral: [-edge, edge], surface: MARKET.floor }];
   // Its glass doors: wall to wall across the road and its shoulders, just inside each end.
   const door = (s: number) => {
     const k = Math.round(s / sp.step);

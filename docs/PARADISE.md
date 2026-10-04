@@ -395,8 +395,10 @@ through the town where the road swings south round its S-bend. It's 251 m agains
 80 m long, its ceiling 7 m up. Inside are pastel plaster, timber beams, lanterns, bunting and striped
 awnings, the `market` indoor look and its echo. Its walls are solid from both sides, and shopfront
 glass stands across both doors (`look: 'glass'`): smashed from 8 m/s (about 29 km/h), down for
-the race; slower, a wall. The hard AI takes it: the floor 67.67 → 66.72 s. The field has 33 wrecks
-in 40 seeds (39 before), none on the street.
+the race; slower, a wall. Its floor drives as sand (a zone; the owner: flat out through it was a
+little too good), drawn as sand blown in over its tiles. The hard AI still takes it: the floor 67.67
+→ 67.27 s (66.72 on a tiled floor). The field has 37 wrecks in 40 seeds (39 before), one on the
+street, two cars touching where it leaves the road.
 
 **Numbers** (best AI lap, solo hard coupe): Paradise Open 68.07 s with the jump (67.68 s with the
 tube before it, 70.03 s without the tube, 71.52 s for today's Paradise); the field's wrecks at 0 a

@@ -9,7 +9,7 @@ import { bakeTrack, sampleIndex, wrap } from './bake';
 import { OVERRIDES } from '../maps';
 import { regionProblem, respawnProblem, type OverrideCode } from './overrides';
 import { LAVA_REACH, pathDistance } from './features/lava-stream';
-import { atan2, hypot } from '../math';
+import { atan2, cos, hypot, sin } from '../math';
 import { newCast } from './ground';
 
 export interface Problem {
@@ -255,6 +255,30 @@ export function validateLayout(layout: TrackLayout, surfaces: SurfaceDef[], clas
     const sorted = [...list].sort((a, b) => a.s[0] - b.s[0]);
     for (let k = 1; k < sorted.length; k++)
       if (sorted[k].s[0] < sorted[k - 1].s[1] - sp.step) err(`pieces ${sorted[k - 1].id} and ${sorted[k].id} overlap on ${road || 'the main road'}`, sp.id, sorted[k].s[0]);
+  }
+  // A building's walls stand beside its own road, on no other: the AI's line and a respawn don't
+  // see them (they're on no road), so across another road they'd be a wall nobody steers round.
+  {
+    const crossed = new Set<string>();
+    for (const w of track.props) {
+      if (w.kind !== 'building-wall') continue;
+      const ux = sin(w.heading);
+      const uz = cos(w.heading);
+      for (const t of [-1, 0, 1]) {
+        const x = w.x + ux * w.hz * t;
+        const z = w.z + uz * w.hz * t;
+        for (const sp of track.splines)
+          for (let i = 0; i < sp.n; i++) {
+            const e = sp.width[i] / 2 + sp.shoulder[i] + w.hx;
+            if (Math.abs(sp.px[i] - x) > e + sp.step || Math.abs(sp.pz[i] - z) > e + sp.step) continue;
+            const along = (x - sp.px[i]) * sp.tx[i] + (z - sp.pz[i]) * sp.tz[i];
+            const across = (x - sp.px[i]) * -sp.tz[i] + (z - sp.pz[i]) * sp.tx[i];
+            // (Its face on the road's edge is its own road's: in from it by more than a hair is on it.)
+            if (Math.abs(along) <= sp.step / 2 && Math.abs(across) < e - 0.05) crossed.add(sp.id);
+          }
+      }
+    }
+    for (const id of crossed) err(`a building's walls stand on ${id === track.main.id ? 'the main road' : `road "${id}"`}: they're walls nobody steers round`);
   }
   for (const z of layout.zones ?? []) if (z.s[0] < 0 || z.s[1] > L) warn(`zone ${z.surface} runs past the spline's length`);
   for (const d of layout.smashables ?? []) {

@@ -2216,7 +2216,7 @@ Caldera, the engine (2026-10-03; the plan is docs/CALDERA.md):
   the AI's line and a respawn don't step round them. Under its roof is indoors with nothing over
   it, and the chase camera stays out of its walls. The first: Paradise Open's market hall, on a
   street through Harbor Town, with shopfront glass (`look: 'glass'`) across its doors. Floor
-  67.67 → 66.72 s (the AI takes the street); the field 33 wrecks in 40 seeds (39), none on it.
+  67.67 → 67.27 s (the AI takes the street, its floor sand); the field 37 wrecks in 40 seeds (39).
 - **A lava stream on Paradise Open** (CALDERA's step 2d, the owner's ask): a `lava-stream`
   feature in world space, a channel down the volcano's south-west flank to the sea, crossing no
   road. Down in it is a wreck (a hazard); it's jumped from about 130 km/h. Its banks are rock

@@ -588,7 +588,7 @@ For each change, in this order:
 ## Build order
 
 Each step ships on its own. The existing maps keep their lap floors (the best AI lap, in
-seconds: Downtown 57.9, Backroads 62.82, Avalanche 93.07, Paradise 71.52, Paradise Open 66.72 (68.07 before step 1d's
+seconds: Downtown 57.9, Backroads 62.82, Avalanche 93.07, Paradise 71.52, Paradise Open 67.27 (68.07 before step 1d's
 sand, 68.10 before 3b's boards, 68.00 before the tube's berm, 67.67 before 3c's market street), as of 2026-10-03), unless a step means to change a map (the coast's sand driving as sand, a lava
 stream across a route): then the new floor is recorded, with why.
 
@@ -747,8 +747,10 @@ stream across a route): then the new floor is recorded, with why.
      look, plus a `glass` look for breakable walls, with its own shards and smash. The first:
      Paradise Open's **market hall**, on a 251 m street (`market-street`) through Harbor Town,
      about 34 m shorter than the road round: an 80 m hall with a 7 m ceiling, shopfront glass
-     across both doors, smashed from 8 m/s (about 29 km/h). Paradise Open's floor 67.67 → 66.72 s (the
-     AI takes it), and the field 33 wrecks in 40 seeds (39), none on the street.
+     across both doors, smashed from 8 m/s (about 29 km/h), its floor sand (a zone). Paradise
+     Open's floor 67.67 → 67.27 s (the AI takes it), and the field 37 wrecks in 40 seeds (39).
+     A building's indoor look is its own unless it says (`indoor` defaults to `building`), and the
+     validator wants its walls on no other road (the AI and a respawn don't see them).
      *Changed while building:*
      - **A building has no floor of its own.** Drawn as a deck, its plane at the doors kicked cars
        into the air: a car's rear wheels were still on the ground while its middle was on the
@@ -759,6 +761,11 @@ stream across a route): then the new floor is recorded, with why.
      - **No mall, and no camera hints yet:** the owner's mall waits for another map. The hall is
        straight, and the chase camera needs no hint in it. The `camera` override hook still waits.
      - **It stands on the beach:** the sea side of the harbour front is sand.
+     - **Its floor is sand** (the owner, having driven it: through it flat out felt a little broken
+       for racing). On tiles the floor was 66.72 s, the street a second quicker than the road round;
+       on sand about 0.4 s.
+     - **A branch's road is drawn on into its junctions** (the skin's draped strip): left to the
+       ground's cells there, its edge was a staircase where it peeled off the main road.
 4. **Moving pieces**: a drawbridge.
 5. **A quick chase mode on Downtown as it is** (optional): the mode only (roles, busted,
    escape, a timer), with AI cops that chase along the track. A cheap playtest of whether a

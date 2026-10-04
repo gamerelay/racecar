@@ -20,9 +20,10 @@ interface BuildingLook {
   plaster: string[];
   trim: string;
   glass: string;
-  /** Inside: its walls, its floor's two tiles, its ceiling and beams. */
+  /** Inside: its walls, its floor's two tiles and the sand over them (sand: what's left showing of each, 0–1), its ceiling and beams. */
   inner: string;
   tiles: [string, string];
+  sand?: { colors: [string, string]; showing: number };
   ceiling: string;
   beam: string;
   /** Its roof's tiles, and the stripes of its awnings and its bunting's flags. */
@@ -40,6 +41,8 @@ const LOOKS: Record<string, BuildingLook> = {
     glass: '#7fb6c4',
     inner: '#ead9b8',
     tiles: ['#b9643e', '#d8a072'],
+    // Blown in off the beach (it drives as sand: the layout's zone), the tiles showing through here and there.
+    sand: { colors: ['#e8d4a2', '#dcc48e'], showing: 0.2 },
     ceiling: '#5e4130',
     beam: '#45301f',
     roof: ['#b5523a', '#c4613f', '#a84a35'],
@@ -112,7 +115,9 @@ function hall(geo: Geo, glow: number[], sp: BakedSpline, p: Piece, look: Buildin
       const b = -ei + (2 * ei * (t + 1)) / across;
       const a2 = -ej + (2 * ej * t) / across;
       const b2 = -ej + (2 * ej * (t + 1)) / across;
-      geo.face(at(i, a, LIFT), at(i, b, LIFT), at(j, b2, LIFT), at(j, a2, LIFT), look.tiles[(tile + t) % 2]);
+      const bare = !look.sand || hash01(sp.index, i * 31 + t, 9) < look.sand.showing;
+      const color = bare ? look.tiles[(tile + t) % 2] : look.sand!.colors[Math.floor(hash01(sp.index, Math.floor(s / 6) * 31 + (t >> 1), 13) * 2)];
+      geo.face(at(i, a, LIFT), at(i, b, LIFT), at(j, b2, LIFT), at(j, a2, LIFT), color);
     }
     for (const side of [-1, 1]) {
       const wi = side * ei;

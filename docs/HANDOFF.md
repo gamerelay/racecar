@@ -178,7 +178,7 @@ built on the ground. Their walls are solid props on no road (`core/track/buildin
 road's wall is from either side. A car in one stands on the ground, and the cast finds the room
 (`Cast.room`). The first is Paradise Open's market hall on a street through Harbor Town
 (`MARKET` in the generator), with shopfront glass (`look: 'glass'`) across its doors. Paradise Open
-67.67 → 66.72 s (the AI takes the street); the field 33 wrecks in 40 seeds (39); fingerprints
+67.67 → 67.27 s (the AI takes the street; its floor's sand, the owner's call, slows it); the field 37 wrecks in 40 seeds (39); fingerprints
 re-recorded for it only. CALDERA's 3c has what changed while building.
 
 **Next, step 4:** moving pieces (a drawbridge), per CALDERA's build order. Or first, whatever the
