@@ -6,6 +6,13 @@ and where things stand is [docs/HANDOFF.md](./docs/HANDOFF.md).
 
 ## Unreleased
 
+- **Paradise Open, tidied after a drive** (the owner's notes):
+  - The road round the volcano has edge lines and a centre line now. Its dark rock was hard to
+    read against the ash beside it. Every paved stretch of the island has them.
+  - No more green line across the road where the Freeway comes down to the land.
+  - The bank beside the Freeway's land end is a gentle green slope, not a dark cliff.
+  - The jungle's mud is slippery instead of sticky: less grip, much less drag. It's a little
+    quicker, and harder to hold a line on. On Paradise too.
 - **A market hall on Paradise Open** (Caldera's step 3c): off the harbour front, just after the
   start, a street runs straight on through Harbor Town where the road swings south, and through a
   market hall on the beach on the way: pastel walls, a tiled roof, lanterns and bunting inside,

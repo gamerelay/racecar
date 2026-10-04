@@ -588,7 +588,8 @@ For each change, in this order:
 ## Build order
 
 Each step ships on its own. The existing maps keep their lap floors (the best AI lap, in
-seconds: Downtown 57.9, Backroads 62.82, Avalanche 93.07, Paradise 71.52, Paradise Open 67.27 (68.07 before step 1d's
+seconds: Downtown 57.9, Backroads 62.82, Avalanche 93.07, Paradise 70.3 (71.52 before the mud went slippery), Paradise Open 66.35 (67.27 before the mud
+and the Freeway's bank, 68.07 before step 1d's
 sand, 68.10 before 3b's boards, 68.00 before the tube's berm, 67.67 before 3c's market street), as of 2026-10-03), unless a step means to change a map (the coast's sand driving as sand, a lava
 stream across a route): then the new floor is recorded, with why.
 

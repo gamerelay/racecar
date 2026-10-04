@@ -181,6 +181,11 @@ road's wall is from either side. A car in one stands on the ground, and the cast
 67.67 → 67.27 s (the AI takes the street; its floor's sand, the owner's call, slows it); the field 37 wrecks in 40 seeds (39); fingerprints
 re-recorded for it only. CALDERA's 3c has what changed while building.
 
+**Paradise Open tidied** (stacked on #102, the owner's notes after a drive): lines on the island's
+paved road (the rim road was hard to see), the green line at the Freeway's end, the dark cliff
+beside it (`under.reach` 90 → 40), and slippery mud (`red-earth` grip 0.58, drag 0.1). Floors:
+Paradise 71.52 → 70.3 s, Paradise Open 67.27 → 66.35 s. PARADISE.md has the why.
+
 **Next, step 4:** moving pieces (a drawbridge), per CALDERA's build order. Or first, whatever the
 owner says after driving the hall: its glass's speed (`MARKET.glass.breaks`), the hall's length,
 and whether the street should be slower (it's about a second quicker than the road round). Camera

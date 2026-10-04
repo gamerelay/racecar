@@ -292,7 +292,7 @@ const layout: TrackLayout = {
   scenery: undefined,
   terrain: undefined,
   // The Freeway: a deck over the bay, the ground falling away to the sea bed under it.
-  pieces: [{ id: 'freeway', s: FREEWAY, under: { floor: -6, ease: 80, reach: 90 } }],
+  pieces: [{ id: 'freeway', s: FREEWAY, under: { floor: -6, ease: 80, reach: 40 } }],
   ground: {
     cell: 2.5,
     // No walls: the island's coast is its edge, and past it deep water (a respawn).

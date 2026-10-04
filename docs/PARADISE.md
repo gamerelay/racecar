@@ -400,6 +400,23 @@ little too good), drawn as sand blown in over its tiles. The hard AI still takes
 → 67.27 s (66.72 on a tiled floor). The field has 37 wrecks in 40 seeds (39 before), one on the
 street, two cars touching where it leaves the road.
 
+**Tidied after a drive (2026-10-03, the owner's notes):**
+- **Lines on the paved road.** The island's draped road had no lines, and the rim road's dark
+  `lava-rock` was lost against its `ash`. Every paved stretch (not the jungle's earth) now has
+  edge lines and a dashed centre line, as on the Freeway's deck.
+- **The deck's end.** The draped road started a sample after the deck's last one, which left a
+  metre of the ground's cells across the road: a green line.
+- **The Freeway's bank.** The ground falls away under the deck within `under.reach` of it. Past
+  about 45 m on its land end's inside, the jungle road's left-hander is the nearer road, and the
+  fall stopped dead there: a 12 m cliff over 5 m, dark as a crag. A 40 m reach (it was 90) ends it
+  before then: a slope of about 50% over 30 m. The bay beside the deck is a little shallower.
+- **The mud** (`red-earth`): grip 0.74 → 0.58, drag 0.2 → 0.1, looseness 1.5 → 1.9. It's slippery
+  rather than sticky. Paradise 71.52 → 70.3 s, Paradise Open 67.27 → 66.35 s (with the bank).
+  The field: Paradise Open 34 wrecks in 40 seeds (37), Paradise 56 (52). The off-road tyres (the
+  rally car, the van, the bus) still win back part of it, but the rally car's edge on the map
+  is smaller (1.1% under the class average, from 1.8%). Its `offroad` is the knob if that should
+  be more.
+
 **Numbers** (best AI lap, solo hard coupe): Paradise Open 68.07 s with the jump (67.68 s with the
 tube before it, 70.03 s without the tube, 71.52 s for today's Paradise); the field's wrecks at 0 a
 race (2026-10-03). Every other map's floor is unchanged: Downtown 57.9, Backroads 62.82, Avalanche

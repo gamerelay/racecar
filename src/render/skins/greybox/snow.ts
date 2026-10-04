@@ -575,12 +575,17 @@ function roadLines(track: Track): Mesh | null {
       continue;
     }
     if (isle) {
+      // Not on a deck (it's the deck's road), but on to the ground where one ends: from the deck's
+      // last sample to the next was left to the ground's cells, a green line across the road.
+      const j = main.closed ? (i + 1) % main.n : Math.min(main.n - 1, i + 1);
+      if (decks?.[i] && decks[j]) continue;
       // Where it's uneven, in strips across, so it follows the lumps and doesn't cut through them.
       const strips = lumpy(s) ? STRIPS : 1;
-      if (!decks?.[i]) for (let k = 0; k < strips; k++) quad(i, -wa + (k * 2 * wa) / strips, -wa + ((k + 1) * 2 * wa) / strips, surfaceColor(main.surface[i]), main, LIFT * 0.6);
-      continue;
-    }
-    if (track.surfaces[main.surface[i]].slide) continue;
+      for (let k = 0; k < strips; k++) quad(i, -wa + (k * 2 * wa) / strips, -wa + ((k + 1) * 2 * wa) / strips, surfaceColor(main.surface[i]), main, LIFT * 0.6);
+      // Paved (not the jungle's earth), its lines: the owner lost the dark rim road against its ash.
+      const surf = track.surfaces[main.surface[i]];
+      if (surf.offroad || surf.slide || decks?.[i]) continue;
+    } else if (track.surfaces[main.surface[i]].slide) continue;
     quad(i, -wa + 0.35, -wa + 0.5, white);
     quad(i, wa - 0.5, wa - 0.35, white);
     if (s % 10 < 3.5) quad(i, -0.09, 0.09, yellow);

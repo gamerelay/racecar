@@ -2,8 +2,8 @@
  "paradise/island": {
   "track": "6cdc262cd169f8b3",
   "ground": null,
-  "drive": "7949302a61119ff9",
-  "branches": "3dfca64e139f4c32",
+  "drive": "ae43607596bd2cc6",
+  "branches": "df9654b4c16430d0",
   "marks": [
    {
     "t": 10,
@@ -31,11 +31,11 @@
    },
    {
     "t": 40,
-    "s": 2175.08,
-    "x": 386.94,
-    "y": 7.76,
-    "z": -367.38,
-    "kmh": 159.81
+    "s": 2175.81,
+    "x": 387.52,
+    "y": 7.73,
+    "z": -367.13,
+    "kmh": 157.56
    }
   ],
   "wrecks": 0
@@ -164,10 +164,10 @@
   "wrecks": 0
  },
  "paradise-open/open": {
-  "track": "8e26c92009977d6d",
-  "ground": "37d0f4b9a1b298ac",
-  "drive": "2bf03ca16b3edd43",
-  "branches": "b810e113b262850c",
+  "track": "ef821c6beae68690",
+  "ground": "fd99f73e10b37549",
+  "drive": "220ccc56503902cb",
+  "branches": "14e04e4c6320cbc5",
   "marks": [
    {
     "t": 10,
@@ -195,11 +195,11 @@
    },
    {
     "t": 40,
-    "s": 2182.61,
-    "x": 392.76,
-    "y": 6.15,
-    "z": -364.01,
-    "kmh": 156.05
+    "s": 2183.02,
+    "x": 393.08,
+    "y": 6.12,
+    "z": -363.83,
+    "kmh": 155.27
    }
   ],
   "wrecks": 0
