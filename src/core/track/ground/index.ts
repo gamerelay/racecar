@@ -83,6 +83,8 @@ export interface Ground {
   readonly kind: Uint8Array;
   /** What the ground is at (x, z) (its nearest grid point's kind), -1 off the grid. */
   kindAt(x: number, z: number): number;
+  /** The main road's sample nearest (x, z) (its nearest grid point's, clamped onto the grid). */
+  nearAt(x: number, z: number): number;
   /** Per grid point, 1 where the slope comes down into a tunnel's space at its mouth (no trees there; the drawing cuts the ground to the tunnel's own outline: render's portal.ts). */
   readonly hole: Uint8Array;
   /** The sea's level (GroundDef.sea), if the ground has one. */
@@ -153,6 +155,11 @@ export function buildGround(def: GroundDef, main: BakedSpline, branches: BakedSp
     onBranch,
     branchSurface,
     kind,
+    nearAt(x, z) {
+      const gx = Math.min(nx - 1, Math.max(0, Math.round((x - x0) / cell)));
+      const gz = Math.min(nz - 1, Math.max(0, Math.round((z - z0) / cell)));
+      return land.near[gz * nx + gx];
+    },
     kindAt(x, z) {
       const gx = Math.round((x - x0) / cell);
       const gz = Math.round((z - z0) / cell);

@@ -190,7 +190,7 @@ const beside = (x: number, z: number, s: number) => {
 };
 /** Within this far of the rim road's verge, the tube runs at the rim road's ground. */
 const LAND = 10;
-const tubePoints: { p: [number, number, number]; width: number; lanes: number; shoulder: number; surface: string }[] = [];
+const tubePoints: { p: [number, number, number]; width: number; lanes: number; shoulder: number; surface: string; verge: string }[] = [];
 for (const [k, [p, q]] of legs.entries()) {
   const len = Math.hypot(q.x - p.x, q.z - p.z);
   const n = Math.ceil(len / 15);
@@ -202,7 +202,7 @@ for (const [k, [p, q]] of legs.entries()) {
     pts.push({ x, z, fromMid: Math.hypot(x - C.x, z - C.z), ...beside(x, z, k === 0 ? TUBE.from : TUBE.to) });
   }
   const point = (x: number, y: number, z: number) =>
-    tubePoints.push({ p: [Math.round(x * 10) / 10, Math.round(y * 10) / 10, Math.round(z * 10) / 10], width: TUBE.width, lanes: 1, shoulder: TUBE.shoulder, surface: 'lava-rock' });
+    tubePoints.push({ p: [Math.round(x * 10) / 10, Math.round(y * 10) / 10, Math.round(z * 10) / 10], width: TUBE.width, lanes: 1, shoulder: TUBE.shoulder, surface: 'lava-rock', verge: 'ash' });
   if (k === 1) {
     for (const pt of pts) point(pt.x, TUBE.bridge, pt.z);
     continue;

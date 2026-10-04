@@ -130,6 +130,13 @@ below about 100 km/h you're in it, from about 130 you clear it. Lap floor 68.1 a
 far from every road projecting "onto" one). #93's review found nothing serious; its five small
 fixes are in.
 
+**Off-road surfaces** (a tech-debt pass, the owner's choice before step 3; in its PR): `surfaceAt`
+ignores a projection that stopped short of the point (round a bend, far off the road: `STRAY` in
+`query.ts`), using the ground's kind or the nearest main-road sample's verge instead, and the Lava
+Tube's verge is `ash`. No sampled point 3 m+ off the roads drives as asphalt now on Avalanche or
+Paradise Open (416 and 304 before). Drives, floors, field unchanged. The rest of TECH_DEBT is code
+shape, left for when steps 3 and 6 touch it.
+
 **Next: step 3, enclosed spaces done properly** (CALDERA's "Build order"): the camera under the
 ceiling (with hints where it's tricky), indoor light and fog, reverb, breakable walls; then a
 short indoor stretch on a map. The `camera` and `walls` override hooks wait for it. TECH_DEBT has

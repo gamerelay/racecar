@@ -45,7 +45,11 @@ describe('one surface function', () => {
       const z = g.z0 + Math.floor(k / g.nx) * g.cell;
       projectGlobal(track.main, x, z, hit, g.h[k]);
       if (Math.abs(hit.lateral) <= hit.width / 2 || Math.abs(hit.lateral) > 40) continue;
-      expect(surfaceAt(track, hit, x, g.h[k] + 0.3, z, false, shoulder)).toBe(hit.verge === VERGE_DEFAULT ? shoulder : hit.verge);
+      // (A projection that stopped short of the point, round a bend, isn't beside it: the verge of
+      // the main road's sample nearest the point, as drawn.)
+      const stray = Math.hypot(x - hit.cx, z - hit.cz) - Math.abs(hit.lateral) > 1;
+      const v = stray ? track.main.verge[g.nearAt(x, z)] : hit.verge;
+      expect(surfaceAt(track, hit, x, g.h[k] + 0.3, z, false, shoulder)).toBe(v === VERGE_DEFAULT ? shoulder : v);
       verge++;
     }
     expect(verge).toBeGreaterThan(1000);
@@ -85,5 +89,43 @@ describe('one surface function', () => {
       }
     }
     expect(under).toBeGreaterThan(20);
+  });
+
+  test("far off the roads, a projection that stops short of the point (round a bend) isn't the road", () => {
+    // (From 170 m off, the main road's projection can end with a small lateral and its centre far
+    // along from the point: the lava stream's rock drove as the jungle road's red earth.)
+    const hit = newHit();
+    let rock = 0;
+    for (let k = 0; k < g.nx * g.nz; k++) {
+      if (g.kind[k] !== KIND_LAVA_ROCK) continue;
+      const x = g.x0 + (k % g.nx) * g.cell;
+      const z = g.z0 + Math.floor(k / g.nx) * g.cell;
+      projectGlobal(track.main, x, z, hit, g.h[k]);
+      expect([x, z, id(surfaceAt(track, hit, x, g.h[k] + 0.3, z, false, shoulder))]).toEqual([x, z, 'lava-rock']);
+      rock++;
+    }
+    expect(rock).toBeGreaterThan(1000);
+    // Avalanche's slope: nowhere 5 m or more past every road's asphalt drives as asphalt.
+    const slope = bakeTrack(layout('avalanche/slope'), SURFACES);
+    const sg = slope.ground!;
+    const sh = slope.surfaceIndex.get(slope.layout.shoulderSurface ?? 'sidewalk') ?? 0;
+    let far = 0;
+    for (let k = 0; k < sg.nx * sg.nz; k += 61) {
+      const x = sg.x0 + (k % sg.nx) * sg.cell;
+      const z = sg.z0 + Math.floor(k / sg.nx) * sg.cell;
+      let past = Infinity;
+      for (const sp of slope.splines) for (let i = 0; i < sp.n; i += 2) past = Math.min(past, Math.hypot(sp.px[i] - x, sp.pz[i] - z) - sp.width[i] / 2);
+      if (past < 5) continue;
+      projectGlobal(slope.main, x, z, hit, sg.h[k]);
+      expect(slope.surfaces[surfaceAt(slope, hit, x, sg.h[k] + 0.3, z, false, sh)].offroad).toBe(true);
+      far++;
+    }
+    expect(far).toBeGreaterThan(1000);
+  }, 30_000);
+
+  test("off the Lava Tube on the volcano's flank, its verge is ash (not the layout's beach)", () => {
+    const hit = newHit();
+    projectGlobal(track.splines[1], 98, -104, hit, g.height(98, -104));
+    expect(id(surfaceAt(track, hit, 98, g.height(98, -104) + 0.3, -104, false, shoulder))).toBe('ash');
   });
 });
