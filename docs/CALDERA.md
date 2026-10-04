@@ -6,14 +6,16 @@ where tubes, gaps and rock faces were first needed, hence the name). **It's a di
 spec.** Details will change while building; note those changes in [SPEC.md](./SPEC.md) under
 "Changed while building", as usual.
 
-**Status (2026-10-03):** reviewed and agreed (PR #82, merged). **Step 0 is built and merged** (PR #83): the
-golden fingerprints, the allocation test on the open maps, `tools/drive.ts`, `tools/probe.ts`,
-`tools/shot.ts` and `window.__rc.dev`, over `src/dev/`. **Step 0b, the sim's own math**, is merged (PR #84):
-see "Same math in every browser"; one fingerprint file for every platform. **Step 1a, the move
-onto pieces**, and **1b, portals**, are merged (#85, #86; fingerprints identical), and **1c,
-branches own their heights** (#87; Paradise Open re-recorded, its drive the same). **1d, one
-surface function**, is merged (#88) (the coast's sand drives as sand). Next: step 2, feature modules.
-HANDOFF has the detail.
+**Status (2026-10-03):** reviewed and agreed (PR #82, merged). **Steps 0 to 3c are built and
+merged** (#83–#98, #102) and released in `alpha-1.31` (#78–#105), on the hosted build:
+- **0, 0b:** the safety net and tools, and the sim's own math (one fingerprint file for every
+  platform).
+- **1a–1d:** pieces, portals, branches' own heights, one surface function.
+- **2a–2d:** feature modules, overrides and the lava stream.
+- **3a–3c:** indoors, breakable walls and buildings (Paradise Open's market hall).
+
+**Next: step 4, moving pieces** (a drawbridge): see "Build order". HANDOFF has the detail and the
+lap floors.
 
 **Reading it:** "Principles" and "The core idea: pieces" are the design; "Build order" and "How
 to work on it" are what to do; the rest is reference (moving things, routes, a worked example,
@@ -703,7 +705,7 @@ stream across a route): then the new floor is recorded, with why.
        about 2.5 g); a 6 m floor 4 m deep with 0.6 m of lava is cleared from about 130 km/h,
        and below about 100 km/h you're in it. It comes out of the flank over its first 25 m (a vent,
        not a pit).
-3. **Enclosed spaces done properly**: the camera under the ceiling (with hints where it's
+3. **Enclosed spaces done properly** (built: 3a–3c, #97, #98, #102): the camera under the ceiling (with hints where it's
    tricky), indoor light and fog, reverb, and breakable walls (smashables grown into wall
    panels, placed in world space, staying broken or standing again as each says, their break a
    trigger online). Then a short indoor stretch on a map: a mall to cut through.
@@ -770,7 +772,25 @@ stream across a route): then the new floor is recorded, with why.
        both. Only the hall has walls.
      - **A branch's road is drawn on into its junctions** (the skin's draped strip): left to the
        ground's cells there, its edge was a staircase where it peeled off the main road.
-4. **Moving pieces**: a drawbridge.
+4. **Moving pieces**: a drawbridge. *Not started.* Where to begin (the owner picks the spot):
+   - **What it is:** a piece with a motion, World authority ("Things that move"): its pose at
+     race time t is a formula of the seed and the clock, the same on every screen, nothing sent.
+     A car on it rides it; a car arriving while it's up jumps the gap off its lip or hits its
+     edge (a wall, by the road walls' `bounce`). Its state needs nothing in snapshots if it's a
+     pure function of t.
+   - **The likely first one:** a lifting span in the middle of Paradise Open's Freeway, over the
+     bay (boats under it, the seaplanes). The Freeway is already a piece on the main road, so a
+     moving span is a second piece over part of it. Downtown's canal drawbridge (SPEC,
+     "Downtown's five") is a landmark only and Downtown isn't open ground, so it waits for the
+     road graph.
+   - **What it touches:** `PieceDef` (a motion: its hinge, its up and down times, its angle), the
+     floor query and `ground.cast` (a floor that tilts with t: the cast takes t, or the span's
+     pose is set each tick before the cars step), `topSlope` (the tilt), the gap's `pastGap`
+     respawn rule, the AI (it should know a raised span: lift off, or slow), the skin (the span
+     drawn at its pose, its counterweight and towers), the fingerprints (a moving piece's pose at
+     a few t), and probe and drive (`--t`).
+   - **The rules to keep:** a pure function of t (no state, no allocation per tick), core's own
+     math, and the lap floors (a raised span on the line may move the AI's lap: say so if it does).
 5. **A quick chase mode on Downtown as it is** (optional): the mode only (roles, busted,
    escape, a timer), with AI cops that chase along the track. A cheap playtest of whether a
    chase is fun, before the road graph.
