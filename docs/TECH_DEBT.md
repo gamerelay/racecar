@@ -324,6 +324,12 @@ shared `lateralOf`").
 - **The Lava Tube's verge is `beach`** (the layout's `shoulderSurface`, Paradise's), so off the
   tube on the volcano's flank you drive "beach" (probe at 98, -104). Give the tube's points a
   `verge` (ash). *Small, but it changes driving there.*
+- **A point far from every road can project "onto" one** (`projectGlobal`: |lateral| under half
+  the road's width while it's 170 m away, along the road past a bend), and `surfaceAt` then gives
+  the road's own surface: 4 of 79 of the lava stream's rock cells drive as `red-earth` (#94's
+  review). `locate.ts` falls back to `projectGlobal` past 60 m off a road. Treat a hit as off the
+  road when the point is far from the hit's centre, not just across it. *Medium: changes
+  driving off the roads.*
 - **A lava stream can't cross a road** (the validator refuses it): a bridge over one, a deck
   piece where the road crosses the channel (CALDERA's "A feature, end to end", item 3), when a
   stream needs to. *Medium.*

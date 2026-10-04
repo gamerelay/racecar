@@ -5,7 +5,7 @@
 import { describe, expect, test } from 'bun:test';
 import type { LavaStreamDef } from '../src/core/content';
 import { bakeTrack } from '../src/core/track/bake';
-import { LAVA_BANK, LAVA_FILL } from '../src/core/track/ground';
+import { LAVA_BANK, LAVA_EDGE, LAVA_FILL } from '../src/core/track/ground';
 import { newHit, projectGlobal, surfaceAt } from '../src/core/track/query';
 import { validateLayout } from '../src/core/track/validate';
 import { run, setup } from '../src/dev/drive';
@@ -52,6 +52,22 @@ describe('a lava stream', () => {
       // Well past it, the ground as it was.
       const past = across(k, half + LAVA_BANK + 15);
       expect(g.height(past.x, past.z)).toBeCloseTo(plain.height(past.x, past.z), 6);
+    }
+  });
+
+  test("the lava is where it is drawn: level across, at the floor's height on its path, to LAVA_EDGE past the floor", () => {
+    // (The ground's own height off the path isn't the floor: the grid's cells round the channel's
+    // edges, and the lava was felt up to 1.3 m over where it's drawn.)
+    for (let k = 3; k < stream.path.length - 3; k++) {
+      const mid = across(k, 0);
+      const level = g.height(mid.x, mid.z) + LAVA_FILL;
+      for (const off of [-(half + LAVA_EDGE) + 0.2, -half, -1.5, 0, 1.5, half, half + LAVA_EDGE - 0.2]) {
+        const p = across(k, off);
+        expect([k, off, g.hazard(p.x, level - 0.2, p.z)]).toEqual([k, off, 'lava']);
+        expect([k, off, g.hazard(p.x, level + 0.5, p.z)]).toEqual([k, off, 'none']);
+      }
+      const out = across(k, half + LAVA_EDGE + 0.3);
+      expect(g.hazard(out.x, level - 0.2, out.z)).toBe('none');
     }
   });
 

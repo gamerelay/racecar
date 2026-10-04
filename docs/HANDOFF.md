@@ -119,13 +119,16 @@ no trees on it, coming out of the ground over its first 25 m. The skin draws it 
 (`render/skins/greybox/features.ts`; the cone's lava shader, shared). Paradise Open's runs from the
 volcano's south-west flank to the sea by the bay (`LAVA` in the generator), the one way down that
 crosses no road; the validator refuses one that crosses a road (bridges come with pieces). Driven:
-below 100 km/h you're in it, from about 130 you clear it. Lap floor 68.1 and the field (30 wrecks in
+below about 100 km/h you're in it, from about 130 you clear it. Lap floor 68.1 and the field (30 wrecks in
 40 seeds) unchanged. Tests: `test/lava-stream.test.ts`. `tools/drive.ts` gained `--heading` and puts
 `--at` exactly there. Found on the way, left for the owner (TECH_DEBT): the Lava Tube's verge is
 `beach`.
 
-**#94's fresh review was still running when the owner merged it**: its findings come as a follow-up
-PR (check `gh pr list`, or ask). #93's review found nothing serious; its five small fixes are in.
+**#94's fresh review finished after the owner merged it**; its findings are in a follow-up PR
+(#95): the lava felt where it's drawn (level from the path's floor, not the grid's rounded edge),
+`drive --at` on the ground far from roads, the validator's reach. One went to TECH_DEBT (a point
+far from every road projecting "onto" one). #93's review found nothing serious; its five small
+fixes are in.
 
 **Next: step 3, enclosed spaces done properly** (CALDERA's "Build order"): the camera under the
 ceiling (with hints where it's tricky), indoor light and fog, reverb, breakable walls; then a

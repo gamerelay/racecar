@@ -7,7 +7,7 @@ import type { Object3D } from 'three';
 import { BufferGeometry, Float32BufferAttribute, Mesh } from 'three';
 import type { LavaStreamDef } from '../../../core/content';
 import type { Track } from '../../../core/track/bake';
-import { LAVA_FILL, lavaSource, type Feature, type Ground } from '../../../core/track/ground';
+import { LAVA_EDGE, LAVA_FILL, lavaSource, type Feature, type Ground } from '../../../core/track/ground';
 import { lavaMaterial } from './island';
 import { glowPoints } from './scenery';
 
@@ -37,7 +37,7 @@ const GLOW_EVERY = 18;
 
 /**
  * A lava stream: molten rock filling its channel, LAVA_FILL m over the floor and level across it
- * (out a little past the floor, to meet the banks), narrow at its source, scrolling down the path,
+ * (out LAVA_EDGE m past the floor, to meet the banks: where the sim's lava is too), narrow at its source, scrolling down the path,
  * with a glow along it.
  */
 function lavaStream(f: LavaStreamDef, ground: Ground, time: { value: number }): Object3D[] {
@@ -50,7 +50,7 @@ function lavaStream(f: LavaStreamDef, ground: Ground, time: { value: number }): 
     for (let j = 0; j < n; j++) pts.push([ax + ((bx - ax) * j) / n, az + ((bz - az) * j) / n]);
   }
   pts.push(f.path[f.path.length - 1]);
-  const half = f.width / 2 + 0.8;
+  const half = f.width / 2 + LAVA_EDGE;
   let total = 0;
   for (let k = 1; k < pts.length; k++) total += Math.hypot(pts[k][0] - pts[k - 1][0], pts[k][1] - pts[k - 1][1]);
   const pos: number[] = [];

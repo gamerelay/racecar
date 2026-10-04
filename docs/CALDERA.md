@@ -700,7 +700,7 @@ stream across a route): then the new floor is recorded, with why.
      - **The numbers came from driving it** (`tools/drive.ts`, which gained `--heading` and an
        exact `--at`): a 10 m floor 3 m deep couldn't be jumped at all (the sim's gravity is
        about 2.5 g); a 6 m floor 4 m deep with 0.6 m of lava is cleared from about 130 km/h,
-       and below 100 km/h you're in it. It comes out of the flank over its first 25 m (a vent,
+       and below about 100 km/h you're in it. It comes out of the flank over its first 25 m (a vent,
        not a pit).
 3. **Enclosed spaces done properly**: the camera under the ceiling (with hints where it's
    tricky), indoor light and fog, reverb, and breakable walls (smashables grown into wall
