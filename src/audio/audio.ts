@@ -14,6 +14,7 @@ import { Vector3, type PerspectiveCamera } from 'three';
 import { clamp, damp } from '../core/math';
 import { Cause, Ev, type GameEvent } from '../core/events';
 import type { Sim } from '../core/sim';
+import { panelLook } from '../core/world/breakables';
 import { doppler, engineHz, engineSound, gearbox, musicMix, spatial, type Gear, type Spatial } from './model';
 import { Music, type Intensity } from './music';
 import type { Soundtrack } from './soundtrack';
@@ -546,6 +547,12 @@ export class GameAudio {
         }
         break;
       case Ev.WallBreak:
+        if (this.sim.world && panelLook(this.sim.track.layout.breakables, this.sim.world.breakables, e.b) === 'glass') {
+          // A pane going: a bright smash, and the tinkle of it falling.
+          this.play(at(0.5), pan, (s) => noiseShot(s, 'highpass', 3200, 1800, 0.001, 0.22, 0.8));
+          this.play(at(0.25), pan, (s) => noiseShot(s, 'bandpass', 6000, 4200, 0.03, 0.5, 6));
+          break;
+        }
         // Planks going: a crack and a woody thud.
         this.play(at(0.5), pan, (s) => noiseShot(s, 'bandpass', 900, 300, 0.002, 0.3, 1.1));
         this.play(at(0.4), pan, (s) => toneShot(s, 'triangle', 140, 55, 0.004, 0.25));

@@ -8,6 +8,7 @@ import { Cause, Ev, type GameEvent } from '../core/events';
 import { clamp, damp, wrapAngle } from '../core/math';
 import type { Sim } from '../core/sim';
 import { newHit, project, sampleAt } from '../core/track/query';
+import type { BakedProp, Track } from '../core/track/bake';
 import { Particles } from './fx';
 import { cameraCeiling, cameraFloor, chaseOffset, clearView, GROUND_CLEAR, indoorAt, inRock, lookBackOffset, slopeRise, slopeView, type ChaseOffset } from './camera';
 import { InkPass } from './ink';
@@ -16,6 +17,7 @@ import { Showroom } from './showroom';
 import type { CarPlate, CarVisual, Indoor, SceneLive, Skin, TrackVisual, WorldVisual } from './skin';
 import { positions } from '../core/rules/progress';
 import { SMASH_IDS } from '../core/world/smash';
+import { panelLook } from '../core/world/breakables';
 import { Skids } from './skids';
 
 const STAGE_COLORS = [0xffffff, 0x35a8ff, 0xff8a1a, 0xff2e88];
@@ -459,7 +461,7 @@ export class GameRenderer {
         this.camPos.y += (car.y + height - this.camPos.y) * damp(5, dt);
         if (ground) {
           this.camPos.y = Math.min(this.camPos.y, cameraCeiling(ground, this.camPos.x, car.y, this.camPos.z));
-          clearView(ground, car.x, car.y, car.z, this.camPos);
+          clearView(ground, car.x, car.y, car.z, this.camPos, this.buildingWalls);
           this.camPos.y = Math.max(this.camPos.y, cameraFloor(ground, this.camPos.x, this.camPos.y, this.camPos.z) + GROUND_CLEAR);
         }
         cam.position.copy(this.camPos);
@@ -475,6 +477,13 @@ export class GameRenderer {
     cam.fov += (fov - cam.fov) * damp(3, dt);
     cam.updateProjectionMatrix();
   }
+
+  /** The buildings' walls (track/buildings.ts), which the chase camera stays out of. */
+  private get buildingWalls(): readonly BakedProp[] {
+    if (this.walls?.track !== this.sim.track) this.walls = { track: this.sim.track, list: this.sim.track.props.filter((p) => p.kind === 'building-wall') };
+    return this.walls.list;
+  }
+  private walls?: { track: Track; list: BakedProp[] };
 
   private updateIndoor(dt: number): void {
     const g = this.sim.track.ground;
@@ -669,9 +678,15 @@ export class GameRenderer {
         if (mine) this.shake = Math.max(this.shake, 0.12);
         break;
       case Ev.WallBreak:
-        // Splinters and dust, thrown on the way the car went (a breakable wall's panel).
-        this.fx.burst(e.x, e.y, e.z, 45, 6 + Math.min(10, e.a * 0.15), 0x8a5a33);
-        this.fx.burst(e.x, e.y, e.z, 20, 4, 0xd8c8a8);
+        if (this.sim.world && panelLook(this.sim.track.layout.breakables, this.sim.world.breakables, e.b) === 'glass') {
+          // Shards, glinting, and a spray of fine glass (a shopfront's pane).
+          this.fx.burst(e.x, e.y, e.z, 60, 7 + Math.min(10, e.a * 0.15), 0xbfe6f0);
+          this.fx.burst(e.x, e.y, e.z, 25, 4, 0xffffff);
+        } else {
+          // Splinters and dust, thrown on the way the car went (a breakable wall's panel).
+          this.fx.burst(e.x, e.y, e.z, 45, 6 + Math.min(10, e.a * 0.15), 0x8a5a33);
+          this.fx.burst(e.x, e.y, e.z, 20, 4, 0xd8c8a8);
+        }
         if (mine) {
           this.shake = Math.max(this.shake, 0.35);
           this.impact = Math.max(this.impact, 0.2);

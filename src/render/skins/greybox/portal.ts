@@ -41,7 +41,8 @@ export function tubeSegments(track: Track, sp: BakedSpline): Uint8Array | null {
   let any = false;
   for (let k = 0; k + 1 < sp.n; k++) {
     const p = at[k] >= 0 ? g.pieces.list[at[k]] : undefined;
-    if (p && p.ceiling > 0 && floors[k + 1] === 1 && g.height(sp.px[k], sp.pz[k]) > sp.py[k] - 0.5) {
+    // (Not a building: it stands on the ground, which isn't cut for it.)
+    if (p && p.ceiling > 0 && !p.building && floors[k + 1] === 1 && g.height(sp.px[k], sp.pz[k]) > sp.py[k] - 0.5) {
       seg[k] = 1;
       any = true;
     }

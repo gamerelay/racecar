@@ -186,4 +186,7 @@ export const INDOOR: Record<string, IndoorLook> = {
   tunnel: { fog: 0x3a3228, fogNear: 40, fogFar: 420, hemiSky: 0xffd49a, hemiGround: 0x5a4a36, hemiIntensity: 1.7, sun: 0.1 },
   // The Lava Tube: dark rock, lit from below by the lava in its cracks, in a smoky red haze.
   lava: { fog: 0x4a1c0c, fogNear: 30, fogFar: 380, hemiSky: 0xd6a088, hemiGround: 0xff7a2a, hemiIntensity: 2.1, sun: 0.08 },
+  // Harbor Town's market hall: lanterns strung under a timber roof, a little daylight through its
+  // skylights, a warm haze of cooking smoke.
+  market: { fog: 0x6a4e34, fogNear: 50, fogFar: 460, hemiSky: 0xffe2b0, hemiGround: 0xc0844a, hemiIntensity: 1.9, sun: 0.3 },
 };

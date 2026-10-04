@@ -691,12 +691,13 @@ describe('pieces and the cast (docs/CALDERA.md, step 1a)', () => {
   const piece = (id: string) => g.pieces.list.findIndex((p) => p.id === id);
   const c = newCast();
 
-  test("the layout's pieces: the Freeway, the tube's two tunnels and the jump's gap between them", () => {
-    expect(g.pieces.list.map((p) => [p.id, p.floor, p.ceiling])).toEqual([
-      ['freeway', true, NaN],
-      ['lava-tube-in', true, TUBE_H],
-      ['lava-jump', false, NaN],
-      ['lava-tube-out', true, TUBE_H],
+  test("the layout's pieces: the Freeway, the tube's two tunnels and the jump's gap between them, and the market hall", () => {
+    expect(g.pieces.list.map((p) => [p.id, p.floor, p.ceiling, p.building])).toEqual([
+      ['freeway', true, NaN, ''],
+      ['lava-tube-in', true, TUBE_H, ''],
+      ['lava-jump', false, NaN, ''],
+      ['lava-tube-out', true, TUBE_H, ''],
+      ['market-hall', true, 7, 'market'],
     ]);
   });
 

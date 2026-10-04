@@ -2208,6 +2208,15 @@ Caldera, the engine (2026-10-03; the plan is docs/CALDERA.md):
   wall's across a line, and paid, the line got faster), and it's **a trigger online**, claimed
   like a traffic hit, since it changes where everyone can drive. The first boards up the Lava
   Tube's first mouth: Paradise Open's floor 68.10 → 68.00 s, the field 28 wrecks in 40 seeds.
+- **Buildings** (CALDERA's step 3c): an enclosed piece can be a building (`PieceDef.building`), a
+  hall a road runs through, built on the ground, not dug into it. **It has no floor of its own**:
+  the branch shapes the ground under it, and that's what's driven (a deck's plane at its doors,
+  with the rear wheels still on the ground, kicked cars into the air). Its walls are **solid props
+  on no road**, met as a road's wall is from either side (the road's own walls are off along it);
+  the AI's line and a respawn don't step round them. Under its roof is indoors with nothing over
+  it, and the chase camera stays out of its walls. The first: Paradise Open's market hall, on a
+  street through Harbor Town, with shopfront glass (`look: 'glass'`) across its doors. Floor
+  67.67 → 67.27 s (the AI takes the street, its floor sand); the field 37 wrecks in 40 seeds (39).
 - **A lava stream on Paradise Open** (CALDERA's step 2d, the owner's ask): a `lava-stream`
   feature in world space, a channel down the volcano's south-west flank to the sea, crossing no
   road. Down in it is a wreck (a hazard); it's jumped from about 130 km/h. Its banks are rock

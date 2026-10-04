@@ -33,6 +33,9 @@ export function buildTubes(track: Track): Object3D[] {
   for (const sp of track.splines) {
     const decks = g.pieces.floors(sp.index);
     if (!decks || sp === track.main) continue;
+    // (A building's stretch is building.ts's.)
+    const at = g.pieces.at(sp.index)!;
+    const built = (k: number) => at[k] >= 0 && g.pieces.list[at[k]].building !== '';
     const surface = track.surfaces[sp.surface[0]].color;
     // A tunnel where an enclosed piece has the ground over its road, a bridge where it's fallen
     // away (or the piece is open: it has no ceiling).
@@ -41,7 +44,7 @@ export function buildTubes(track: Track): Object3D[] {
     /** Whether the tube's walls run from sample k to the next (as portal.ts cuts the ground for them). */
     const walled = (k: number) => k >= 0 && !!seg?.[k];
     for (let i = 0; i + 1 < sp.n; i++) {
-      if (!decks[i] || !decks[i + 1]) continue;
+      if (!decks[i] || !decks[i + 1] || built(i) || built(i + 1)) continue;
       const j = i + 1;
       const covered = walled(i);
       const rock = ROCK[Math.floor(hash01(sp.index, i >> 2, 7) * ROCK.length)];

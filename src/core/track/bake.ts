@@ -5,6 +5,7 @@
 import { buildGround, type Ground } from './ground';
 import { across, along } from './frame';
 import { buildPines, type Pines } from './pines';
+import { buildingWalls } from './buildings';
 import { bindOverrides, type Override, type OverrideCode } from './overrides';
 import { OVERRIDES } from '../maps';
 import type { BranchDef, SurfaceDef, TrackLayout, TrackPoint, Vec3, ZoneDef } from '../content';
@@ -86,7 +87,9 @@ export interface BakedProp {
   heading: number;
   /** On the road (a pillar): cars collide with it. Beyond the wall: scenery only. */
   solid: boolean;
-  /** Where along its spline, for the AI. */
+  /** Met as a road's wall is (scraped along, a wreck only hit hard), not a pillar: a building's walls. */
+  wall?: boolean;
+  /** Where along its spline, for the AI; -1 on none (a building's wall, beside its road). */
   spline: number;
   s: number;
   lateral: number;
@@ -138,6 +141,11 @@ export function bakeTrack(layout: TrackLayout, surfaces: SurfaceDef[], code: Rea
   for (const g of layout.walls?.gaps ?? []) {
     const sp = pick(g.spline);
     if (sp) gapsAuto.push({ spline: sp, s0: g.s[0], s1: g.s[1], side: g.side === 'left' ? -1 : g.side === 'right' ? 1 : 0 });
+  }
+  // A building's own walls stand along its road (track/buildings.ts): the road's are off there.
+  for (const p of layout.pieces ?? []) {
+    const sp = p.building && p.ceiling !== undefined ? pick(p.road) : undefined;
+    if (sp) gapsAuto.push({ spline: sp, s0: p.s[0], s1: p.s[1], side: 0 });
   }
   for (const g of gapsAuto) {
     forRange(g.spline, g.s0, g.s1, (i) => {
@@ -222,6 +230,7 @@ export function bakeTrack(layout: TrackLayout, surfaces: SurfaceDef[], code: Rea
   const overrides = bindOverrides(layout.overrides ?? [], code, splines);
   const ground = layout.ground ? buildGround(layout.ground, main, splines.slice(1), layout.pieces, overrides) : undefined;
   if (ground) for (const sp of splines) sp.ground = ground;
+  if (ground) props.push(...buildingWalls(ground.pieces, splines));
   // On open ground a prop stands on it (a rock on a swell, or a deck), not on the road's line beneath.
   if (ground) for (const p of props) p.y = ground.top(p.x, p.z);
   const pines = ground && layout.ground!.pines ? buildPines(layout.ground!.pines, layout, main, ground, (i) => surfaces[main.verge[i] === VERGE_DEFAULT ? (surfaceIndex.get(layout.shoulderSurface ?? '') ?? 0) : main.verge[i]].id) : undefined;

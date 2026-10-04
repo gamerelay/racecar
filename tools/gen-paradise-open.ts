@@ -124,6 +124,12 @@ const TUBE = { from: 2685, to: 3255, bridge: VOLCANO.lava + 4, width: 12, should
 const JUMP = { gap: 40, kicker: 12, lift: 2.5 };
 // (40 m takes 150 km/h off the lip, the bus 160: flat out, the slowest car gets there at 175. Off
 // the throttle, or off a wall, it's the lava.)
+/**
+ * Harbor Town's market street: where it leaves the harbour front and rejoins it (m), the hall on it
+ * (its length and ceiling, m, and what its floor drives as), its road, and the glass across the hall's doors (how tall, the speed
+ * that smashes it, m/s, and how far in from each end, m).
+ */
+const MARKET = { from: 170, to: 455, hall: 80, ceiling: 7, width: 12, shoulder: 1.5, floor: 'sand', glass: { height: 4, breaks: 8, in: 1.5 } };
 /** The barricade across the tube's first mouth: this far in past it (m), this tall, broken by a car meeting it at this (m/s, about 43 km/h). */
 const BOARDS = { in: 4, height: 3, breaks: 12 };
 /** Its tunnels run where the volcano is at least this far over the road (the ceiling and a roof). */
@@ -370,6 +376,59 @@ layout.pieces = [
     +(tube.pz[k] + tube.tx[k] * lat).toFixed(2),
   ];
   layout.breakables = [{ id: 'lava-tube-boards', look: 'boards', from: foot(-edge), to: foot(edge), height: BOARDS.height, breaks: BOARDS.breaks }];
+}
+
+// Harbor Town's market hall (CALDERA step 3c; the owner: a mall waits for another map): off the
+// harbour front a street straight on through the town, where the road dips south round it, and
+// through a market hall on the way (PieceDef.building): its own walls and roof, lanterns inside,
+// and shopfront glass across both its doors, smashed by the first car through each (slower than
+// `glass.breaks` m/s, it's a wall). Straight on where the road bends round, a little quicker for the
+// first car through the glass, a second for the rest.
+{
+  const street = { id: 'market-street', from: MARKET.from, to: MARKET.to };
+  const roads = bakeTrack(layout, surfaces);
+  const g = roads.ground!;
+  const a = sampleAt(roads.main, street.from + 12, newHit());
+  const b = sampleAt(roads.main, street.to - 12, newHit());
+  const len = Math.hypot(b.cx - a.cx, b.cz - a.cz);
+  const n = Math.ceil(len / 10);
+  // Its heights the town's ground's, evened out over 30 m (the island's swell, not its bumps).
+  const ground = (x: number, z: number) => {
+    let sum = 0;
+    for (let d = -15; d <= 15; d += 5) sum += g.height(x + ((b.cx - a.cx) / len) * d, z + ((b.cz - a.cz) / len) * d);
+    return sum / 7;
+  };
+  const points = Array.from({ length: n + 1 }, (_, j) => {
+    const x = a.cx + ((b.cx - a.cx) * j) / n;
+    const z = a.cz + ((b.cz - a.cz) * j) / n;
+    return { p: [+x.toFixed(1), +ground(x, z).toFixed(1), +z.toFixed(1)] as [number, number, number], width: MARKET.width, lanes: 2, shoulder: MARKET.shoulder, surface: 'asphalt', verge: 'sidewalk' };
+  });
+  layout.branches = [...(layout.branches ?? []), { ...street, kind: 'shortcut', points }];
+  // Open, as every road on the island but the Freeway (the hall has its own walls): its road walls
+  // were invisible rails along the beach either side of the hall (the owner ran into both).
+  layout.walls = { gaps: [...(layout.walls?.gaps ?? []), { spline: street.id, s: [0, 1e4], side: 'both' }] };
+  const sp = bakeTrack(layout, surfaces).splines.find((r) => r.id === street.id)!;
+  // The hall in its middle.
+  const h0 = Math.round((sp.length - MARKET.hall) / 2);
+  const h1 = h0 + MARKET.hall;
+  layout.pieces = [...(layout.pieces ?? []), { id: 'market-hall', road: street.id, s: [h0, h1], ceiling: MARKET.ceiling, building: 'market' }];
+  // Its floor's sand blown in off the beach (the owner: through it flat out was a little too good):
+  // wall to wall, door to door.
+  const edge = MARKET.width / 2 + MARKET.shoulder;
+  layout.zones = [...(layout.zones ?? []), { spline: street.id, s: [h0, h1], lateral: [-edge, edge], surface: MARKET.floor }];
+  // Its glass doors: wall to wall across the road and its shoulders, just inside each end.
+  const door = (s: number) => {
+    const k = Math.round(s / sp.step);
+    const edge = sp.width[k] / 2 + sp.shoulder[k];
+    const foot = (lat: number): [number, number, number] => [+(sp.px[k] - sp.tz[k] * lat).toFixed(2), +(sp.py[k] - lat * Math.tan(sp.bank[k])).toFixed(2), +(sp.pz[k] + sp.tx[k] * lat).toFixed(2)];
+    return { from: foot(-edge), to: foot(edge) };
+  };
+  layout.breakables = [
+    ...(layout.breakables ?? []),
+    { id: 'market-hall-in', look: 'glass', ...door(h0 + MARKET.glass.in), height: MARKET.glass.height, breaks: MARKET.glass.breaks },
+    { id: 'market-hall-out', look: 'glass', ...door(h1 - MARKET.glass.in), height: MARKET.glass.height, breaks: MARKET.glass.breaks },
+  ];
+  console.log(`  market street: ${Math.round(sp.length)} m (the road round: ${street.to - street.from} m), the hall ${h0}–${h1} m`);
 }
 
 // The lava stream keeps clear of every road: its path LAVA_CLEAR m from every road's edge (the

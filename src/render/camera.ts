@@ -5,7 +5,8 @@
 // The coupe (0.65 m half height, 2.15 m half length) is the base.
 
 import type { Vec3 } from '../core/content';
-import { DECK_CATCH, newCast, type Ground, type Piece } from '../core/track/ground';
+import type { BakedProp } from '../core/track/bake';
+import { DECK_CATCH, newCast, type Cast, type Ground, type Piece } from '../core/track/ground';
 
 export interface ChaseOffset {
   /** Meters behind the car's center, and above its base. */
@@ -114,17 +115,25 @@ export function cameraFloor(g: Ground, x: number, y: number, z: number): number 
  */
 export function cameraCeiling(g: Ground, x: number, carY: number, z: number): number {
   const c = g.cast(x, carY + 1, z, CAST);
-  return c.space === 'enclosed' && c.ground > carY + 1 ? c.ceiling - UNDER_CEILING : Infinity;
+  return c.space === 'enclosed' && covered(g, c, carY + 1) ? c.ceiling - UNDER_CEILING : Infinity;
+}
+
+/**
+ * Whether what's over an enclosed piece at height `y` is a roof: the rock over a tunnel, or a
+ * building's own (it stands on the ground: nothing's over it but its roof).
+ */
+function covered(g: Ground, c: Cast, y: number): boolean {
+  return c.ground > y || (c.room >= 0 && g.pieces.list[c.room].building !== '');
 }
 
 /**
  * The enclosed piece the camera at (x, y, z) is inside (over its floor, under its ceiling, with the
- * rock over it), or null: what's lit and heard as indoors. (An enclosed piece runs on out over the
- * open shaft as a bridge, under the sky: that's outdoors.)
+ * rock or a building's roof over it), or null: what's lit and heard as indoors. (An enclosed piece
+ * runs on out over the open shaft as a bridge, under the sky: that's outdoors.)
  */
 export function indoorAt(g: Ground, x: number, y: number, z: number): Piece | null {
   const c = g.cast(x, y, z, CAST);
-  return c.space === 'enclosed' && c.piece >= 0 && c.ground > y ? g.pieces.list[c.piece] : null;
+  return c.room >= 0 && covered(g, c, y) ? g.pieces.list[c.room] : null;
 }
 
 /** Whether (x, y, z) is in the rock: under the ground and in no piece (the wreck camera's orbit, out through a tube's wall). */
@@ -135,15 +144,34 @@ export function inRock(g: Ground, x: number, y: number, z: number): boolean {
 /** On open ground the camera stays this far above the snow under it (behind a car on a steep pitch, it would be in the slope). */
 export const GROUND_CLEAR = 1.2;
 
+/** A building's wall keeps the camera this far (m) off it. */
+const OFF_WALL = 0.3;
+
+/** Whether (x, y, z) is in one of `walls` (a building's: BakedProp boxes), or within OFF_WALL of it. */
+function inWall(walls: readonly BakedProp[], x: number, y: number, z: number): boolean {
+  for (const w of walls) {
+    const dx = x - w.x;
+    const dz = z - w.z;
+    if (y < w.y - 1 || y > w.y + w.hy * 2 + OFF_WALL || Math.abs(dx) > w.hx + w.hz + 1 || Math.abs(dz) > w.hx + w.hz + 1) continue;
+    // Its across (x) and along (z) axes: along = (sin h, cos h), across = (cos h, -sin h).
+    const sh = Math.sin(w.heading);
+    const ch = Math.cos(w.heading);
+    if (Math.abs(dx * ch - dz * sh) < w.hx + OFF_WALL && Math.abs(dx * sh + dz * ch) < w.hz + OFF_WALL) return true;
+  }
+  return false;
+}
+
 /**
  * Keeps the chase camera at (x, y, z) in the open: from a little over the car at (cx, cy, cz) back
  * toward it, the camera stops short of the first point in the rock (under the ground and not
  * inside a tunnel's tube), so in a tunnel it stays in the tube. Behind a car turned in one, it sat
  * in the rock beside it and the ground clearance then lifted it out over the volcano: a black screen.
+ * Likewise short of a building's wall (`walls`), in the hall or outside it.
  */
-export function clearView(g: Ground, cx: number, cy: number, cz: number, cam: { x: number; y: number; z: number }): void {
+export function clearView(g: Ground, cx: number, cy: number, cz: number, cam: { x: number; y: number; z: number }, walls: readonly BakedProp[] = []): void {
   const y0 = cy + 1;
   const open = (x: number, y: number, z: number) => {
+    if (walls.length && inWall(walls, x, y, z)) return false;
     if (g.height(x, z) < y - 0.3) return true;
     const c = g.cast(x, y, z, CAST);
     return c.space === 'enclosed' && y > c.over && y < c.ceiling - UNDER_CEILING;

@@ -47,6 +47,8 @@ export interface Probe {
     on: string;
     /** Where a car at `y` is: open air, inside an enclosed piece (a tunnel), or in the rock. */
     space: Space;
+    /** The enclosed piece it's in, by id (a tunnel, a building), else null. */
+    room: string | null;
     /** The highest piece floor over the point, if any (a car on the ground under it is under a bridge or over a tunnel). */
     floor: number | null;
     /** The slope's opened here (a tunnel's mouth), the main road's beach side (-1, 1, 0), meters inland, in the lava. */
@@ -123,6 +125,7 @@ export function probe(track: Track, x: number, z: number, y?: number): Probe {
     stand: cast.floor,
     on: cast.piece >= 0 ? g.pieces.list[cast.piece].id : 'ground',
     space: cast.space,
+    room: cast.room >= 0 ? g.pieces.list[cast.room].id + (g.pieces.list[cast.room].building ? ` (a building: ${g.pieces.list[cast.room].building})` : '') : null,
     floor: floor === floor ? floor : null,
     hole: k >= 0 && g.hole[k] === 1,
     beach: nearMain >= 0 ? Math.sign(g.beach[nearMain]) : 0,
@@ -145,7 +148,7 @@ export function describeProbe(p: Probe): string {
   const g = p.ground;
   if (g) {
     lines.push(`ground: ${f(g.height)} m, grade ${f(g.grade[0], 1)}% / ${f(g.grade[1], 1)}% (x / z)${g.inside ? '' : ', OUT OF BOUNDS'}`);
-    lines.push(`stands on: ${g.on} at ${f(g.stand)} m, in ${g.space === 'enclosed' ? 'an enclosed piece' : g.space === 'rock' ? 'THE ROCK' : 'the open'}${g.floor !== null ? `; highest piece floor here ${f(g.floor)} m` : ''}`);
+    lines.push(`stands on: ${g.on} at ${f(g.stand)} m, in ${g.space === 'enclosed' ? (g.room ?? 'an enclosed piece') : g.space === 'rock' ? 'THE ROCK' : 'the open'}${g.floor !== null ? `; highest piece floor here ${f(g.floor)} m` : ''}`);
     const flags = [g.hole && "a tunnel's mouth (the slope's open)", g.lava && 'IN THE LAVA', g.beach && `beach (${g.beach < 0 ? 'left' : 'right'} of the main road)`, g.coast !== null && `${f(g.coast, 0)} m inland`].filter(Boolean);
     if (flags.length) lines.push(flags.join('; '));
   }

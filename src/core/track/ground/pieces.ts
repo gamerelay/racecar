@@ -28,8 +28,10 @@ export interface Piece {
   floor: boolean;
   /** Its ceiling's height over its floor (m), NaN if it's open. */
   ceiling: number;
-  /** How it's lit and sounds inside (PieceDef.indoor), an enclosed piece's ('tunnel' by default); '' if it's open. */
+  /** How it's lit and sounds inside (PieceDef.indoor), an enclosed piece's (by default a building's own look, else 'tunnel'); '' if it's open. */
   indoor: string;
+  /** Its building's look (PieceDef.building), '' if it isn't one: walls and a roof of its own, standing on the ground. */
+  building: string;
   /** How the ground under it falls away (PieceDef.under), if it says. */
   under?: { floor: number; ease: number; reach: number };
 }
@@ -43,7 +45,7 @@ export interface Pieces {
   gaps(spline: number): Uint8Array | undefined;
   /** Per sample of the road, the piece with a floor carrying it (its index), -1 for none. */
   at(spline: number): Int16Array | undefined;
-  /** Whether a piece of the road has a floor or a gap at sample `i`: either way, a branch doesn't shape the ground there. */
+  /** Whether a piece of the road has a floor or a gap at sample `i`: either way, a branch doesn't shape the ground there (but under a building it does: it stands on the ground). */
   covers(spline: number, i: number): boolean;
 }
 
@@ -52,20 +54,24 @@ export function definePieces(defs: readonly PieceDef[], splines: readonly BakedS
   const floors = new Map<number, Uint8Array>();
   const gaps = new Map<number, Uint8Array>();
   const at = new Map<number, Int16Array>();
+  const built = new Map<number, Uint8Array>();
   const list: Piece[] = [];
   for (const def of defs) {
     const sp = def.road === undefined ? splines[0] : splines.find((b) => b.id === def.road && b.index !== 0);
     if (!sp) continue;
-    const p: Piece = { id: def.id, index: list.length, spline: sp.index, s: def.s, floor: def.floor !== false, ceiling: def.ceiling ?? NaN, indoor: def.ceiling !== undefined ? (def.indoor ?? 'tunnel') : '', under: def.under };
+    const p: Piece = { id: def.id, index: list.length, spline: sp.index, s: def.s, floor: def.floor !== false, ceiling: def.ceiling ?? NaN, indoor: def.ceiling !== undefined ? (def.indoor ?? def.building ?? 'tunnel') : '', building: def.ceiling !== undefined ? (def.building ?? '') : '', under: def.under };
     list.push(p);
     const masks = p.floor ? floors : gaps;
     let m = masks.get(sp.index);
     if (!m) masks.set(sp.index, (m = new Uint8Array(sp.n)));
     let who = at.get(sp.index);
     if (!who) at.set(sp.index, (who = new Int16Array(sp.n).fill(-1)));
+    let b = built.get(sp.index);
+    if (p.building && !b) built.set(sp.index, (b = new Uint8Array(sp.n)));
     for (let i = Math.max(0, Math.ceil(p.s[0] / sp.step)); i <= Math.min(sp.n - 1, Math.floor(p.s[1] / sp.step)); i++) {
       m[i] = 1;
       if (p.floor) who[i] = p.index;
+      if (b && p.building) b[i] = 1;
     }
   }
   return {
@@ -73,7 +79,7 @@ export function definePieces(defs: readonly PieceDef[], splines: readonly BakedS
     floors: (k) => floors.get(k),
     gaps: (k) => gaps.get(k),
     at: (k) => at.get(k),
-    covers: (k, i) => !!(floors.get(k)?.[i] || gaps.get(k)?.[i]),
+    covers: (k, i) => !!((floors.get(k)?.[i] && !built.get(k)?.[i]) || gaps.get(k)?.[i]),
   };
 }
 
@@ -122,6 +128,8 @@ const BUCKET = 8;
  * The pieces' floors as a query: `floor(x, z, slack, top)` is the floor of a piece over (x, z),
  * within `slack` m past its edges (the road and its shoulder), the highest at or below `top` (by
  * DECK_CATCH) if there's more than one; NaN if none. `found()` is that floor's piece (-1 for none).
+ * A building has no floor of its own (it stands on the ground): only with `rooms`, for the cast to
+ * find the room a point is in.
  */
 export function floorQuery(pieces: Pieces, main: BakedSpline, branches: readonly BakedSpline[], grid: GridRef) {
   const { x0, z0, cell, nx, nz, near } = grid;
@@ -148,7 +156,7 @@ export function floorQuery(pieces: Pieces, main: BakedSpline, branches: readonly
   let found = -1;
   let branchFound = -1;
   /** The highest of the branches' floors over (x, z) within `slack`, at or below `top`. */
-  const branchFloor = (x: number, z: number, slack: number, top: number) => {
+  const branchFloor = (x: number, z: number, slack: number, top: number, rooms: boolean) => {
     branchFound = -1;
     if (!floored.length) return NaN;
     near2.fill(Infinity);
@@ -177,18 +185,20 @@ export function floorQuery(pieces: Pieces, main: BakedSpline, branches: readonly
       const i = nearI[k];
       // Past the floor's end it isn't over it (its nearest floor sample is its last one).
       if (Math.abs(along(sp, i, x, z)) > sp.step || Math.abs(across(sp, i, x, z)) > sp.width[i] / 2 + sp.shoulder[i] + slack) continue;
+      const p = pieces.at(sp.index)![i];
+      if (!rooms && pieces.list[p].building) continue;
       const y = planeOf(sp, i, x, z);
       if (y <= top + DECK_CATCH && !(y <= best)) {
         best = y;
-        branchFound = pieces.at(sp.index)![i];
+        branchFound = p;
       }
     }
     return best;
   };
   const d2 = (i: number, x: number, z: number) => sq(main.px[i] - x) + sq(main.pz[i] - z);
   const next = (i: number, by: number) => (main.closed ? (i + by + main.n) % main.n : Math.min(main.n - 1, Math.max(0, i + by)));
-  const floor = (x: number, z: number, slack = 0, top = Infinity): number => {
-    const other = branchFloor(x, z, slack, top);
+  const floor = (x: number, z: number, slack = 0, top = Infinity, rooms = false): number => {
+    const other = branchFloor(x, z, slack, top, rooms);
     found = branchFound;
     if (!hasMain) return other;
     const gx = Math.min(nx - 1, Math.max(0, Math.round((x - x0) / cell)));
