@@ -98,18 +98,18 @@ turns (at 0.7 the drift test fails: the bank's hold is lost). The island's road 
 strips across there, following them. Floor 68.10 and the field unchanged. If the owner says it
 still feels flat: `MUD` in `gen-paradise-open.ts` (height, size), and `ON_BANK` in `uneven.ts`.
 
-**Step 2c, overrides, is built** (in its PR, 2026-10-03; CALDERA's "Overrides: the escape
-hatch"). A layout's `overrides: [{ id, reason, region }]` (a box `[x0, z0, x1, z1]`, or a stretch
-of a road: `road`, `s`, `lateral`; `s[0]` past `s[1]` runs through a loop's start line) name a map's code in `core/maps/<map>/overrides.ts` (listed in
-`core/maps/index.ts`; core, because core imports nothing outside it). `core/track/overrides.ts`
-binds them at bake (`track.overrides`) and their hooks have the last word inside the region:
-`cast` (the floor: `ground.cast`, `top`, `topSlope`), `surface` (`surfaceAt`), `hazard`
-(`ground.hazard`), `respawn` (a spot, then the engine's rules: the avalanche, gaps), `step`
-(per tick, per car inside). `tune`, `walls` and
-`camera` wait for a first use. `probe` says "override active: <id>"; `validate` wants code, a
-reason and a region for each, lists them, and warns past five. The candidates stayed put:
-`pastGap` is the engine's for any gap piece, and `LAND` is build-time authoring. No map has one:
-a clean-up, every fingerprint identical. Tests: `test/overrides.test.ts`.
+**Step 2c, overrides, is built** (in its PR, 2026-10-03; CALDERA's "Overrides: the escape hatch"). A
+layout's `overrides: [{ id, reason, region }]` (a box `[x0, z0, x1, z1]`, or a stretch of a road:
+`road`, `s`, `lateral`; `s[0]` past `s[1]` runs through a loop's start line) name a map's code in
+`core/maps/<map>/overrides.ts` (listed in `core/maps/index.ts`; core, because core imports nothing
+outside it). `core/track/overrides.ts` binds them at bake (`track.overrides`) and their hooks have
+the last word inside the region: `cast` (the floor: `ground.cast`, `top`, `topSlope`), `surface`
+(`surfaceAt`), `hazard` (`ground.hazard`), `respawn` (a spot, then the engine's rules: the
+avalanche, gaps), `step` (per tick, per car inside). `tune`, `walls` and `camera` wait for a first
+use. `probe` says "override active: <id>"; `validate` wants code, a reason and a region for each,
+lists them, and warns past five. The candidates stayed put: `pastGap` is the engine's for any gap
+piece, and `LAND` is build-time authoring. No map has one: a clean-up, every fingerprint identical.
+Tests: `test/overrides.test.ts`.
 
 **Next: 2d, the lava stream**, end to end (CALDERA's "A feature, end to end"): world-space
 placement (a path) starts there, and a feature `draw` hook in the skin, and its rock banks need a
