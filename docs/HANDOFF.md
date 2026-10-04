@@ -7,8 +7,8 @@ building". This file is "where are we"; the spec is "what are we making".
 **Last updated:** 2026-10-03 (Paradise Open merged in #81, untagged; the plan for the engine,
 [CALDERA.md](./CALDERA.md), merged in #82; steps 0 and 0b merged in #83 and #84; 1a, 1b and 1c in
 PRs #85, #86 and #87, merged; 1d merged in #88; 2a and 2b (feature modules) in #89 and #90; the
-jungle's uneven mud in #91 and #92; all merged, untagged; next is 2c, overrides; see "Next:
-Caldera" below). Before that, `alpha-1.30`: Avalanche's snow and rumble quieter. The last tag is **`alpha-1.30`** (PR #77: the snow under the wheels and the avalanche's rumble about 4.5 dB down, the owner's ask). Before it, **`alpha-1.29`** (PRs #71–#74): **Avalanche**, the first open map, one 6.1 km run down a mountain (#74), and the Leap's kicker rounded and launchable from its sides (#71, #72), and PLAN's "Open, freeform maps" direction (#73).
+jungle's uneven mud in #91 and #92; all merged, untagged; 2c, overrides, in its PR; next is
+2d, the lava stream; see "Next: Caldera" below). Before that, `alpha-1.30`: Avalanche's snow and rumble quieter. The last tag is **`alpha-1.30`** (PR #77: the snow under the wheels and the avalanche's rumble about 4.5 dB down, the owner's ask). Before it, **`alpha-1.29`** (PRs #71–#74): **Avalanche**, the first open map, one 6.1 km run down a mountain (#74), and the Leap's kicker rounded and launchable from its sides (#71, #72), and PLAN's "Open, freeform maps" direction (#73).
 Before it, `alpha-1.28` (PRs #67–#70: a press flash and a click on the menus' buttons; the title's
 music from the start; Logger's Leap smoothed and bermed), `alpha-1.27` (PRs #63–#65), `alpha-1.26`
 (PR #62: two new tracks), `alpha-1.25` (PR #61: boost, Overdrive, the slipstream) and `alpha-1.24`
@@ -98,17 +98,22 @@ turns (at 0.7 the drift test fails: the bank's hold is lost). The island's road 
 strips across there, following them. Floor 68.10 and the field unchanged. If the owner says it
 still feels flat: `MUD` in `gen-paradise-open.ts` (height, size), and `ON_BANK` in `uneven.ts`.
 
-**Next: step 2c, overrides** (CALDERA's "Overrides: the escape hatch" and its `Override` type):
-`overrides: [{ id, reason, region }]` in the layout (a box, or a stretch of a road and a band across
-it), the code in `src/maps/<map>/overrides.ts` keyed by id, run only through fixed hooks (the
-cast's result, a car's tuning inside, walls, a camera hint, a respawn, a per-tick step), after
-every feature's and inside the region only. `probe` says "override active", `validate` lists them
-with their reasons. The candidates to look at: `pastGap`'s respawn rule for the Lava Tube's jump
-(it finds the kicker by its ramp heights) and the generator's `LAND` shaping of the tube's entry.
-A clean-up if nothing moves onto one; say so in the PR. Then **2d, the lava stream**, end to end
-(CALDERA's "A feature, end to end"): world-space placement (a path) starts there, and a feature
-`draw` hook in the skin, and its rock banks need a surface (a new kind, or `surface` returning a
-surface id: decide then). TECH_DEBT has the small things the reviews left (overlapping features).
+**Step 2c, overrides, is built** (in its PR, 2026-10-03; CALDERA's "Overrides: the escape
+hatch"). A layout's `overrides: [{ id, reason, region }]` (a box `[x0, z0, x1, z1]`, or a stretch
+of a road: `road`, `s`, `lateral`) name a map's code in `core/maps/<map>/overrides.ts` (listed in
+`core/maps/index.ts`; core, because core imports nothing outside it). `core/track/overrides.ts`
+binds them at bake (`track.overrides`) and their hooks have the last word inside the region:
+`cast` (the floor: `ground.cast`, `top`, `topSlope`), `surface` (`surfaceAt`), `hazard`
+(`ground.hazard`), `respawn` (a spot), `step` (per tick, per car inside). `tune`, `walls` and
+`camera` wait for a first use. `probe` says "override active: <id>"; `validate` wants code, a
+reason and a region for each, lists them, and warns past five. The candidates stayed put:
+`pastGap` is the engine's for any gap piece, and `LAND` is build-time authoring. No map has one:
+a clean-up, every fingerprint identical. Tests: `test/overrides.test.ts`.
+
+**Next: 2d, the lava stream**, end to end (CALDERA's "A feature, end to end"): world-space
+placement (a path) starts there, and a feature `draw` hook in the skin, and its rock banks need a
+surface (a new kind, or `surface` returning a surface id: decide then). TECH_DEBT has the small
+things the reviews left (overlapping features).
 
 **Working notes (2026-10-03):**
 - One PR per step, a fresh reviewer at the end (it found real bugs every time: in 0b, 1a and 1b),

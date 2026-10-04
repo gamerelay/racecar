@@ -5,6 +5,8 @@
 import { buildGround, type Ground } from './ground';
 import { across, along } from './frame';
 import { buildPines, type Pines } from './pines';
+import { bindOverrides, type Override, type OverrideCode } from './overrides';
+import { OVERRIDES } from '../maps';
 import type { BranchDef, SurfaceDef, TrackLayout, TrackPoint, Vec3, ZoneDef } from '../content';
 import { atan2, cos, hypot, pow, smoothstep, sq, tan } from '../math';
 import { sampleDense, type DenseSample } from './spline';
@@ -107,9 +109,12 @@ export interface Track {
   ground?: Ground;
   /** Pines on the open ground (layout.ground.pines), solid. */
   pines?: Pines;
+  /** The layout's overrides (track/overrides.ts) bound to their code: usually none. */
+  overrides: Override[];
 }
 
-export function bakeTrack(layout: TrackLayout, surfaces: SurfaceDef[]): Track {
+/** The track for `layout`; its overrides' code is looked up by id in `code` (core/maps; a test passes its own). */
+export function bakeTrack(layout: TrackLayout, surfaces: SurfaceDef[], code: Readonly<Record<string, OverrideCode>> = OVERRIDES): Track {
   const surfaceIndex = new Map(surfaces.map((s, i) => [s.id, i]));
   const main = bakeSpline(layout.id, 0, layout.main.points, !layout.run, surfaceIndex);
   const splines = [main];
@@ -214,12 +219,13 @@ export function bakeTrack(layout: TrackLayout, surfaces: SurfaceDef[]): Track {
   if (layout.trestles) props.push(...supports(splines));
 
   // Open ground: shaped round the main road, and every spline's ground query reads it.
-  const ground = layout.ground ? buildGround(layout.ground, main, splines.slice(1), layout.pieces) : undefined;
+  const overrides = bindOverrides(layout.overrides ?? [], code, splines);
+  const ground = layout.ground ? buildGround(layout.ground, main, splines.slice(1), layout.pieces, overrides) : undefined;
   if (ground) for (const sp of splines) sp.ground = ground;
   // On open ground a prop stands on it (a rock on a swell, or a deck), not on the road's line beneath.
   if (ground) for (const p of props) p.y = ground.top(p.x, p.z);
   const pines = ground && layout.ground!.pines ? buildPines(layout.ground!.pines, layout, main, ground, (i) => surfaces[main.verge[i] === VERGE_DEFAULT ? (surfaceIndex.get(layout.shoulderSurface ?? '') ?? 0) : main.verge[i]].id) : undefined;
-  return { layout, splines, main, surfaces, surfaceIndex, checkpoints, props, version: layoutVersion(layout), ground, pines, run };
+  return { layout, splines, main, surfaces, surfaceIndex, checkpoints, props, version: layoutVersion(layout), ground, pines, run, overrides };
 }
 
 /** A high bridge stands on a timber bent this often (m along it), on legs across it (SPEC, "Trestle legs"). */

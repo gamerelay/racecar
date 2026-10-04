@@ -2192,4 +2192,10 @@ Caldera, the engine (2026-10-03; the plan is docs/CALDERA.md):
   fingerprints moved.
 - **Paradise Open's jungle mud is uneven** (the owner): an `uneven` feature, lumps on the
   red-earth road, calmer on the banked turns so a drift still leans on them.
+- **Overrides, the escape hatch** (CALDERA's step 2c): a layout's `overrides` name a map's own
+  code for a small region (a box, or a stretch of a road), run only through fixed hooks (the
+  cast's floor, the surface, the hazard, a respawn spot, a per-tick step), inside the region, after
+  every feature's. The code is in `core/maps/<map>/overrides.ts`, not `src/maps/` as planned: core
+  imports nothing outside core. No map has one yet: `pastGap` is the engine's for any gap, and
+  the generator's `LAND` is build-time authoring. Nothing drives differently.
 - **Smashables break per screen**, not "the same online": each screen collides only its own cars.

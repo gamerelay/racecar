@@ -23,6 +23,7 @@ import { buildLand } from './land';
 import { DECK_CATCH, definePieces, floorQuery, type Pieces } from './pieces';
 import { groundKinds } from './surface';
 import { groundFeatures, type Feature, type Hazard } from '../features';
+import type { Override } from '../overrides';
 
 export { DECK_CATCH, DECK_SLACK, type Piece, type Pieces } from './pieces';
 export { canyonDepth, groundShape, noise } from './shape';
@@ -116,8 +117,8 @@ export interface Ground {
   topSlope(x: number, z: number, y: number, out: { x: number; z: number }): { x: number; z: number };
 }
 
-/** The ground for `def` round `main`, its `branches` and the layout's `pieces`. */
-export function buildGround(def: GroundDef, main: BakedSpline, branches: BakedSpline[] = [], pieceDefs: readonly PieceDef[] = []): Ground {
+/** The ground for `def` round `main`, its `branches` and the layout's `pieces`; `overrides` have the last word on its casts and hazards, inside their regions. */
+export function buildGround(def: GroundDef, main: BakedSpline, branches: BakedSpline[] = [], pieceDefs: readonly PieceDef[] = [], overrides: readonly Override[] = []): Ground {
   const pieces = definePieces(pieceDefs, [main, ...branches]);
   const features = groundFeatures(def, main);
   const land = buildLand(def, main, pieces, features);
@@ -131,6 +132,8 @@ export function buildGround(def: GroundDef, main: BakedSpline, branches: BakedSp
   const kind = groundKinds(land, main, { onBranch, branchSurface, hole }, pieces, features);
   const hazards = features.filter((f) => f.hazard);
   const coastOf = features.find((f) => f.coast);
+  const casters = overrides.filter((o) => o.cast);
+  const endangerers = overrides.filter((o) => o.hazard);
   const at = (gx: number, gz: number) => h[Math.min(nz - 1, Math.max(0, gz)) * nx + Math.min(nx - 1, Math.max(0, gx))];
   const scratch = newCast();
   return {
@@ -166,11 +169,10 @@ export function buildGround(def: GroundDef, main: BakedSpline, branches: BakedSp
       return features.some((f) => f.bare?.(s, lat));
     },
     hazard(x, y, z, t = 0) {
-      for (const f of hazards) {
-        const h = f.hazard!(x, y, z, t);
-        if (h !== 'none') return h;
-      }
-      return 'none';
+      let h: Hazard = 'none';
+      for (let f = 0; f < hazards.length && h === 'none'; f++) h = hazards[f].hazard!(x, y, z, t);
+      for (const o of endangerers) if (o.inside(x, z)) h = o.hazard!(h, x, y, z, t);
+      return h;
     },
     pieceFloor: floors.floor,
     cast(x, y, z, out) {
@@ -189,6 +191,7 @@ export function buildGround(def: GroundDef, main: BakedSpline, branches: BakedSp
       out.piece = on ? p : -1;
       // Inside from its floor (a car on it, or sunk into it by a hard landing) up to its ceiling.
       out.space = y >= d - DECK_CATCH && y < out.ceiling ? 'enclosed' : y < gh ? 'rock' : 'open';
+      for (const o of casters) if (o.inside(x, z)) o.cast!(out, x, y, z);
       return out;
     },
     top(x, z, y = Infinity) {

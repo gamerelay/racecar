@@ -710,8 +710,20 @@ export function respawn(sim: SimState, i: number): void {
   // Not with no run-up at a gap in the road (a piece with no floor, the Lava Tube's jump): past it.
   const gap = sim.track.ground?.pieces.gaps(cars.lastSpline[i]);
   if (gap) cars.lastS[i] = pastGap(sim.track.splines[cars.lastSpline[i]], gap, cars.lastS[i]);
-  const sp = sim.track.splines[cars.lastSpline[i]];
-  const at = sampleAt(sp, cars.lastS[i], sim.hitA);
+  let sp = sim.track.splines[cars.lastSpline[i]];
+  let at = sampleAt(sp, cars.lastS[i], sim.hitA);
+  // An override's spot, if the one found is inside its region (track/overrides.ts).
+  for (const o of sim.track.overrides) {
+    if (!o.respawn || !o.inside(at.cx - at.tz * cars.lastLat[i], at.cz + at.tx * cars.lastLat[i])) continue;
+    const to = o.respawn.road ? sim.track.splines.find((s) => s.id === o.respawn!.road) : sim.track.main;
+    if (!to) continue;
+    sp = to;
+    cars.lastSpline[i] = sp.index;
+    cars.lastS[i] = o.respawn.s;
+    cars.lastLat[i] = o.respawn.lateral;
+    at = sampleAt(sp, cars.lastS[i], sim.hitA);
+    break;
+  }
   const half = at.width / 2 - 2;
   let lat = clamp(cars.lastLat[i], -half, half);
   // Not on top of a pillar: step sideways until clear of every solid prop nearby.

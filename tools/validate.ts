@@ -39,6 +39,8 @@ for (const key of LAYOUT_KEYS) {
       if (r.lapFloor! < 55) problems.push({ level: 'warning', message: `lap floor ${r.lapFloor} s is short: people will lap in ~${Math.round(r.lapFloor! * 1.15)} s; full layouts aim for 70–100 s` });
     }
   }
+  // Every override, with its reason: each is a to-do for the engine (docs/CALDERA.md, "Overrides").
+  for (const o of track.overrides ?? []) console.log(`  override ${o.id}: ${o.reason}`);
   for (const p of problems) {
     console.log(`  ${p.level === 'error' ? '✗' : '!'} ${p.message}${p.s !== undefined ? ` (${p.spline} @ ${p.s.toFixed(0)} m)` : ''}`);
     if (p.level === 'error') errors++;
