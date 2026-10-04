@@ -764,6 +764,9 @@ stream across a route): then the new floor is recorded, with why.
      - **Its floor is sand** (the owner, having driven it: through it flat out felt a little broken
        for racing). On tiles the floor was 66.72 s, the street a second quicker than the road round;
        on sand about 0.4 s.
+     - **The street's road walls are off** (as every road's on the island but the Freeway's): on,
+       they were invisible rails along the beach either side of the hall, and the owner ran into
+       both. Only the hall has walls.
      - **A branch's road is drawn on into its junctions** (the skin's draped strip): left to the
        ground's cells there, its edge was a staircase where it peeled off the main road.
 4. **Moving pieces**: a drawbridge.

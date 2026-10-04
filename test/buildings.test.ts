@@ -137,6 +137,20 @@ describe('buildings', () => {
     expect(lat).toBeLessThan(-(edge + BUILDING_WALL));
   }, 30_000);
 
+  test('off the beach onto the street beside the hall, no wall: only the hall has walls', () => {
+    for (const s of [hall.s[0] - 30, hall.s[0] - 4, hall.s[1] + 4, hall.s[1] + 30])
+      for (const side of [-1, 1]) {
+        expect([s, side, street.wallL[Math.round(s / street.step)], street.wallR[Math.round(s / street.step)]]).toEqual([s, side, 0, 0]);
+        const p = at(s, side * (edge + 6));
+        const input = { throttle: 0.4 };
+        const d = run(setup(track, CLASSES, SURFACES, { x: p.x, z: p.z, heading: at(s).heading + side * 90 }, input, { kmh: 40 }), input, 1.2, 0.25);
+        // (Across it, toward and over it.)
+        expect([s, side, d.events.filter((e) => e.type === 'wall_hit').length]).toEqual([s, side, 0]);
+        const end = d.summary.end;
+        expect(Math.hypot(end.x - at(s).x, end.z - at(s).z)).toBeLessThan(edge + 6);
+      }
+  }, 30_000);
+
   test("scraped along inside, it's a road's wall: a hit as it's met, not one a tick (a pillar's)", () => {
     const input = { throttle: 0.5, steer: 0.6 };
     const d = run(setup(track, CLASSES, SURFACES, { road: 'market-street', s: hall.s[0] + 20, lateral: 2 }, input, { kmh: 80 }), input, 2, 0.25);
