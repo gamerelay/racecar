@@ -114,13 +114,22 @@ export function cameraFloor(g: Ground, x: number, y: number, z: number): number 
  */
 export function cameraCeiling(g: Ground, x: number, carY: number, z: number): number {
   const c = g.cast(x, carY + 1, z, CAST);
-  return c.space === 'enclosed' ? c.ceiling - UNDER_CEILING : Infinity;
+  return c.space === 'enclosed' && c.ground > carY + 1 ? c.ceiling - UNDER_CEILING : Infinity;
 }
 
-/** The enclosed piece the camera at (x, y, z) is inside (over its floor, under its ceiling), or null: what's lit and heard as indoors. */
+/**
+ * The enclosed piece the camera at (x, y, z) is inside (over its floor, under its ceiling, with the
+ * rock over it), or null: what's lit and heard as indoors. (An enclosed piece runs on out over the
+ * open shaft as a bridge, under the sky: that's outdoors.)
+ */
 export function indoorAt(g: Ground, x: number, y: number, z: number): Piece | null {
   const c = g.cast(x, y, z, CAST);
-  return c.space === 'enclosed' && c.piece >= 0 ? g.pieces.list[c.piece] : null;
+  return c.space === 'enclosed' && c.piece >= 0 && c.ground > y ? g.pieces.list[c.piece] : null;
+}
+
+/** Whether (x, y, z) is in the rock: under the ground and in no piece (the wreck camera's orbit, out through a tube's wall). */
+export function inRock(g: Ground, x: number, y: number, z: number): boolean {
+  return g.cast(x, y, z, CAST).space === 'rock';
 }
 
 /** On open ground the camera stays this far above the snow under it (behind a car on a steep pitch, it would be in the slope). */

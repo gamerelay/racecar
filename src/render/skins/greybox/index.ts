@@ -145,8 +145,6 @@ export class GreyboxSkin implements Skin {
       this.fog.far = p.fogFar * (1 - 0.55 * thick);
       if (snow) this.fog.color.setHex(p.fog).lerp(SNOW_FOG, wetness * 0.8);
       else this.fog.color.setHex(p.fog).lerp(RAIN_FOG, wetness * 0.6 * (0.4 + 0.6 * (p.overcast ?? 1)));
-      // What shows past the sky's reach is the fog's color, in any weather.
-      if (this.background) this.background.copy(this.fog.color);
       if (this.hemi) this.hemi.intensity = p.hemiIntensity * (1 - 0.35 * cloud);
       if (this.sun) this.sun.intensity = p.dirIntensity * (1 - 0.6 * cloud);
       // Indoors (an enclosed piece), the space's own haze and light, eased in with the camera.
@@ -161,6 +159,8 @@ export class GreyboxSkin implements Skin {
         this.hemi.intensity += (look.hemiIntensity - this.hemi.intensity) * k;
       }
       if (this.sun) this.sun.intensity *= 1 - (1 - look.sun) * k;
+      // What shows past the sky's reach is the fog's color, in any weather.
+      if (this.background) this.background.copy(this.fog.color);
     }
     this.sky?.position.set(x, y, z);
     if (this.sun) {

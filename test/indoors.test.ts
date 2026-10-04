@@ -27,8 +27,9 @@ describe('indoors', () => {
       const p = at(s, 3);
       expect([s, indoorAt(g, p.x, p.y, p.z)?.indoor]).toEqual([s, 'lava']);
     }
-    // Before the rock comes over the road, and out over the shaft's lava (open to the sky).
-    for (const s of [20, 250]) {
+    // Before the rock comes over the road, and out over the shaft's lava (open to the sky): over the
+    // gap, and on the bridges either side of it (enclosed pieces still, but no rock over them).
+    for (const s of [20, 220, 250, 280]) {
       const p = at(s, 3);
       expect([s, indoorAt(g, p.x, p.y, p.z)]).toEqual([s, null]);
     }
@@ -39,14 +40,18 @@ describe('indoors', () => {
   test("the camera stays a metre under the tube's ceiling; out under the sky, no limit", () => {
     const p = at(150, 0);
     expect(cameraCeiling(g, p.x, p.road, p.z)).toBeCloseTo(p.road + 7 - 1, 3);
-    const out = at(20, 0);
-    expect(cameraCeiling(g, out.x, out.road, out.z)).toBe(Infinity);
+    for (const s of [20, 220, 280]) {
+      const out = at(s, 0);
+      expect([s, cameraCeiling(g, out.x, out.road, out.z)]).toEqual([s, Infinity]);
+    }
   });
 
-  test('the validator wants a ceiling for an indoor look', () => {
-    const pieces = [...open.pieces!, { id: 'shed', road: 'lava-tube', s: [10, 30] as [number, number], indoor: 'tunnel' }];
+  test('the validator wants a ceiling for an indoor look, and room under a ceiling', () => {
+    // (And a ceiling with room under it for a car and the camera.)
+    const pieces = [...open.pieces!, { id: 'shed', road: 'lava-tube', s: [10, 30] as [number, number], indoor: 'tunnel' }, { id: 'low', road: 'lava-tube', s: [430, 450] as [number, number], ceiling: 2 }];
     const problems = validateLayout({ ...open, pieces }, SURFACES, CLASSES).map((p) => p.message);
     expect(problems.some((m) => m.includes('"indoor" is how an enclosed piece is lit inside'))).toBe(true);
+    expect(problems.some((m) => m.startsWith('piece low') && m.includes('at least 3 m over it'))).toBe(true);
   }, 30_000);
 });
 

@@ -628,7 +628,7 @@ export class GameAudio {
     const g = this.g;
     if (!g) return;
     const now = g.ctx.currentTime;
-    for (const p of [g.engines.gain, g.sfx.gain, g.musicLevel.gain]) {
+    for (const p of [g.engines.gain, g.sfx.gain, g.musicLevel.gain, g.reverb.gain]) {
       p.cancelScheduledValues(now);
       p.value = 0;
     }

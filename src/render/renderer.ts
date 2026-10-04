@@ -9,7 +9,7 @@ import { clamp, damp, wrapAngle } from '../core/math';
 import type { Sim } from '../core/sim';
 import { newHit, project, sampleAt } from '../core/track/query';
 import { Particles } from './fx';
-import { cameraCeiling, cameraFloor, chaseOffset, clearView, GROUND_CLEAR, indoorAt, lookBackOffset, slopeRise, slopeView, type ChaseOffset } from './camera';
+import { cameraCeiling, cameraFloor, chaseOffset, clearView, GROUND_CLEAR, indoorAt, inRock, lookBackOffset, slopeRise, slopeView, type ChaseOffset } from './camera';
 import { InkPass } from './ink';
 import { PostPass } from './post';
 import { Showroom } from './showroom';
@@ -479,7 +479,12 @@ export class GameRenderer {
   private updateIndoor(dt: number): void {
     const g = this.sim.track.ground;
     const p = this.camera.position;
-    const inside = g && !this.showroom.visible ? indoorAt(g, p.x, p.y, p.z) : null;
+    let inside = g && !this.showroom.visible ? indoorAt(g, p.x, p.y, p.z) : null;
+    // In the rock (the wreck camera orbits out through a tube's walls), where the car is instead.
+    if (g && !inside && !this.showroom.visible && inRock(g, p.x, p.y, p.z)) {
+      const car = this.visuals[this.focus].root.position;
+      inside = indoorAt(g, car.x, car.y + 1.5, car.z);
+    }
     if (inside) this.indoor.look = inside.indoor;
     this.indoor.amount += ((inside ? 1 : 0) - this.indoor.amount) * damp(INDOOR_RATE, dt);
   }
