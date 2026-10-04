@@ -8,9 +8,10 @@ building". This file is "where are we"; the spec is "what are we making".
 [CALDERA.md](./CALDERA.md), merged in #82; steps 0 and 0b merged in #83 and #84; 1a, 1b and 1c in
 PRs #85, #86 and #87, merged; 1d merged in #88; 2a and 2b (feature modules) in #89 and #90; the
 jungle's uneven mud in #91 and #92; 2c, overrides, in #93 and 2d, the lava stream, in #94, its
-review's fixes in #95; off-road surfaces in #96; all merged, untagged; step 3a, indoors, in #97; 3b, breakable walls, in #98; the berm out of the Lava Tube in #100;
-four new tracks in #99; all merged, untagged; see "Next:
-Caldera" below). Before that, `alpha-1.30`: Avalanche's snow and rumble quieter. The last tag is **`alpha-1.30`** (PR #77: the snow under the wheels and the avalanche's rumble about 4.5 dB down, the owner's ask). Before it, **`alpha-1.29`** (PRs #71–#74): **Avalanche**, the first open map, one 6.1 km run down a mountain (#74), and the Leap's kicker rounded and launchable from its sides (#71, #72), and PLAN's "Open, freeform maps" direction (#73).
+review's fixes in #95; off-road surfaces in #96; step 3a, indoors, in #97; 3b, breakable walls,
+in #98; the berm out of the Lava Tube in #100; four new tracks in #99; all merged, untagged and
+not deployed; a fifth track, `forward`, in #101, open; all five on the CDN; see "Next: Caldera"
+below). Before that, `alpha-1.30`: Avalanche's snow and rumble quieter. The last tag is **`alpha-1.30`** (PR #77: the snow under the wheels and the avalanche's rumble about 4.5 dB down, the owner's ask). Before it, **`alpha-1.29`** (PRs #71–#74): **Avalanche**, the first open map, one 6.1 km run down a mountain (#74), and the Leap's kicker rounded and launchable from its sides (#71, #72), and PLAN's "Open, freeform maps" direction (#73).
 Before it, `alpha-1.28` (PRs #67–#70: a press flash and a click on the menus' buttons; the title's
 music from the start; Logger's Leap smoothed and bermed), `alpha-1.27` (PRs #63–#65), `alpha-1.26`
 (PR #62: two new tracks), `alpha-1.25` (PR #61: boost, Overdrive, the slipstream) and `alpha-1.24`
@@ -163,12 +164,22 @@ Paradise Open 68.00 → 67.67 s; the field 39 wrecks in 40 seeds (28): more traf
 line. The owner may want it toned down after driving it (no air boost from it, or a lower lip).
 PARADISE.md has the numbers.
 
-**Four new tracks** (#99, merged): `avalanche` and `winter-pursuit` are Avalanche's own, `propulsion`
-and `escape` go anywhere. **Not on the CDN yet:** run `tools/publish-assets.ts` before the next
-deploy, or production plays the synth for them.
+**New tracks** (the owner's, 2026-10-03): `avalanche` and `winter-pursuit` are Avalanche's own,
+`propulsion` and `escape` go anywhere (#99, merged), and `forward` too (#101, open: merge it). Each
+WAV levelled to −15.8/−15.9 LUFS (ffmpeg's `ebur128`) and encoded with `afconvert -f m4af -d aac -b
+128000`. All five are published to https://cdn.gamerelay.io/racecar/music/ (`tools/publish-assets.ts`,
+checked: 200 with CORS); production plays them from the next deploy.
 
-**Next, step 3c:** a short indoor stretch on Paradise Open (a mall waits for another map), with
-camera hints if it needs them. TECH_DEBT has the small things the reviews left.
+**Not deployed:** everything since `alpha-1.30` (Paradise Open, Caldera's steps, the boards, the berm,
+the tracks) is on main only. Deploy and tag only when the owner asks.
+
+**Next, step 3c:** a short indoor stretch on Paradise Open (a mall waits for another map: the owner's
+call), with camera hints if it needs them (the `camera` override hook waits for one). Ideas that fit
+the island: a market hall or a resort lobby with breakable windows (3b's `breakables`, a `look` of
+their own), lit by an `indoor` look of its own (3a's `INDOOR` table). It needs an enclosed piece on a
+road: pieces are on branches only today (`validate`: "gaps and ceilings are on branches only"), so a
+short branch through a building is the natural first cut. TECH_DEBT has the small things the reviews
+left.
 
 **Working notes (2026-10-03):**
 - One PR per step, a fresh reviewer at the end (it found real bugs every time: in 0b, 1a and 1b),
