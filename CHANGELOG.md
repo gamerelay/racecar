@@ -6,6 +6,9 @@ and where things stand is [docs/HANDOFF.md](./docs/HANDOFF.md).
 
 ## Unreleased
 
+- **The Lava Tube is boarded up** (Caldera's step 3b, breakable walls): a barricade of planks
+  across its mouth. Hit it at speed (from about 43 km/h) and the boards in your way burst; the
+  hole stays open for the race. Slower, it's a wall. Online, everyone sees who broke what.
 - **Indoors feels indoors** (Caldera's step 3a): in the Lava Tube the light goes to the lava's warm
   glow and a smoky haze, the sun's gone, and your engine rings off the rock. It eases in at the
   mouth and back out under the sky. The camera keeps under a tunnel's ceiling.

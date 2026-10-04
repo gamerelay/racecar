@@ -3,12 +3,14 @@
 
 import { LANDMARK_KINDS, type CarClass, type PieceDef, type SurfaceDef, type TrackLayout } from '../content';
 import { KINDS } from '../world/hazards';
+import { Breakables } from '../world/breakables';
 import { SMASH_IDS } from '../world/smash';
 import { bakeTrack, sampleIndex, wrap } from './bake';
 import { OVERRIDES } from '../maps';
 import { regionProblem, respawnProblem, type OverrideCode } from './overrides';
 import { LAVA_REACH, pathDistance } from './features/lava-stream';
 import { atan2, hypot } from '../math';
+import { newCast } from './ground';
 
 export interface Problem {
   level: 'error' | 'warning';
@@ -65,6 +67,41 @@ export function validateLayout(layout: TrackLayout, surfaces: SurfaceDef[], clas
       for (let i = 0; i < sp.n; i++) {
         if (dist(sp.px[i], sp.pz[i]) - sp.width[i] / 2 - sp.shoulder[i] >= f.width / 2 + LAVA_REACH) continue;
         err(`a lava stream crosses or touches the road (bridges over one aren't built yet)`, sp.id, i * sp.step);
+        break;
+      }
+    }
+  }
+
+  // Breakable walls (world/breakables.ts): on open ground, standing on a floor, each with a size,
+  // what breaks it and how long it's down.
+  {
+    const ids = new Set<string>();
+    const g = track.ground;
+    const cast = newCast();
+    for (const b of layout.breakables ?? []) {
+      const name = `breakable wall ${b.id}`;
+      if (!g) {
+        err(`${name}: breakable walls need open ground ("ground")`);
+        continue;
+      }
+      if (ids.has(b.id)) err(`${name}: there's another with that id`);
+      ids.add(b.id);
+      const feet = [b.from, b.to];
+      if (feet.some((f) => !Array.isArray(f) || f.length !== 3 || f.some((n) => !Number.isFinite(n)))) {
+        err(`${name}: "from" and "to" must be [x, y, z]`);
+        continue;
+      }
+      if (!(hypot(b.to[0] - b.from[0], b.to[2] - b.from[2]) > 0)) err(`${name}: its ends are in the same place`);
+      if (!(b.height > 0) || !(b.breaks > 0) || (b.panel !== undefined && !(b.panel > 0)) || (b.standsAgain !== undefined && !(b.standsAgain > 0))) err(`${name}: its height, "breaks", "panel" and "standsAgain" must be over 0`);
+      if (!b.look) err(`${name}: it needs a look (how it's drawn)`);
+      // Each panel's foot on a floor (a road, a piece, the ground), not in the air or under it. (Its
+      // middle: a wall's ends may well be in a tunnel's rock walls, as the Lava Tube's are.)
+      const panels = new Breakables([b]);
+      for (let k = 0; k < panels.n; k++) {
+        const [x, y, z] = [panels.x[k], panels.y[k], panels.z[k]];
+        const floor = g.cast(x, y + 0.5, z, cast).floor;
+        if (Math.abs(floor - y) <= 0.6) continue;
+        err(`${name}: its foot at (${x.toFixed(1)}, ${z.toFixed(1)}) is at ${y.toFixed(1)} m, the floor there at ${floor.toFixed(1)} m`);
         break;
       }
     }

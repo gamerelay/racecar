@@ -668,6 +668,15 @@ export class GameRenderer {
         this.fx.burst(e.x, e.y, e.z, 28, 5 + Math.min(8, e.a * 0.12), SMASH_BURST[SMASH_IDS[e.b]] ?? 0xffffff);
         if (mine) this.shake = Math.max(this.shake, 0.12);
         break;
+      case Ev.WallBreak:
+        // Splinters and dust, thrown on the way the car went (a breakable wall's panel).
+        this.fx.burst(e.x, e.y, e.z, 45, 6 + Math.min(10, e.a * 0.15), 0x8a5a33);
+        this.fx.burst(e.x, e.y, e.z, 20, 4, 0xd8c8a8);
+        if (mine) {
+          this.shake = Math.max(this.shake, 0.35);
+          this.impact = Math.max(this.impact, 0.2);
+        }
+        break;
       case Ev.CarContact:
         this.fx.burst(e.x, e.y, e.z, Math.min(40, 6 + e.a * 2), 6 + e.a * 0.2, 0xffc060);
         if (mine) this.shake = Math.max(this.shake, Math.min(1, e.a / 15));

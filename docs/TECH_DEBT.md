@@ -27,7 +27,11 @@ contact, join). It works and each part is tested, but some patterns repeat.
   (`carNames`); rivals.ts goes by seat, cars.ts by owner id, and join.ts holds the maps. One
   `CarNames` made in join.ts and handed to every layer would remove the parallel lookups, and
   the net overlay (HANDOFF) would want it too. *Small.*
-- **One event pump for the net layers.** `NetTraffic`, `NetContact` (and telemetry) each keep a
+- **A late joiner doesn't hear earlier wall breaks** (`net/breakables.ts`): a break is sent once,
+  when it's claimed. Someone joining mid-race sees the Lava Tube's boards whole where others broke
+  them (and meets them, on their own screen). Sending what's down on join (the host, from its
+  sim) would fix it. *Small.*
+- **One event pump for the net layers.** `NetTraffic`, `NetBreakables`, `NetContact` (and telemetry) each keep a
   cursor on the sim's event queue and filter it themselves. A single after-step dispatch (event
   type → handlers) would read the queue once and make it obvious who reacts to what. *Medium.*
 - **`RoomLike` (lobby/relay.ts) and `NetRoom` (net/cars.ts) are two views of the SDK's room**, and

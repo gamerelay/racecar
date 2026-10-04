@@ -370,6 +370,13 @@ half height on the banked turns (at full height they took the bank's hold off a 
 `test/deck.test.ts`'s drift test). Where it's uneven, the island's road is laid over the ground in 6
 strips across, so it follows them. The floor (68.10 s) and the field (30 wrecks in 40 seeds) are unchanged.
 
+**The Lava Tube is boarded up (2026-10-03, CALDERA's step 3b):** a barricade of planks across
+its first mouth, 4 m in under the arch (`BOARDS` in the generator): 15 m wall to wall, 3 m tall,
+six panels. A car through at about 43 km/h or more bursts the panels in its way (the hole stays
+for the race); slower, they're a wall. A break pays no boost (it made the tube faster). Every AI
+breaks through; the floor 68.10 → 68.00 s (lap 1 about 0.2 s slower), the field 28 wrecks in 40
+seeds, none at the boards.
+
 **Numbers** (best AI lap, solo hard coupe): Paradise Open 68.07 s with the jump (67.68 s with the
 tube before it, 70.03 s without the tube, 71.52 s for today's Paradise); the field's wrecks at 0 a
 race (2026-10-03). Every other map's floor is unchanged: Downtown 57.9, Backroads 62.82, Avalanche

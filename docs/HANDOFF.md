@@ -8,7 +8,7 @@ building". This file is "where are we"; the spec is "what are we making".
 [CALDERA.md](./CALDERA.md), merged in #82; steps 0 and 0b merged in #83 and #84; 1a, 1b and 1c in
 PRs #85, #86 and #87, merged; 1d merged in #88; 2a and 2b (feature modules) in #89 and #90; the
 jungle's uneven mud in #91 and #92; 2c, overrides, in #93 and 2d, the lava stream, in #94, its
-review's fixes in #95; off-road surfaces in #96; all merged, untagged; step 3a, indoors, in a PR; see "Next:
+review's fixes in #95; off-road surfaces in #96; all merged, untagged; step 3a, indoors, in #97, merged; 3b, breakable walls, in a PR; see "Next:
 Caldera" below). Before that, `alpha-1.30`: Avalanche's snow and rumble quieter. The last tag is **`alpha-1.30`** (PR #77: the snow under the wheels and the avalanche's rumble about 4.5 dB down, the owner's ask). Before it, **`alpha-1.29`** (PRs #71–#74): **Avalanche**, the first open map, one 6.1 km run down a mountain (#74), and the Leap's kicker rounded and launchable from its sides (#71, #72), and PLAN's "Open, freeform maps" direction (#73).
 Before it, `alpha-1.28` (PRs #67–#70: a press flash and a click on the menus' buttons; the title's
 music from the start; Logger's Leap smoothed and bermed), `alpha-1.27` (PRs #63–#65), `alpha-1.26`
@@ -146,10 +146,16 @@ engines and effects ring in a room's echo (`roomImpulse`). The chase camera is c
 ceiling over the car (`cameraCeiling`). Drawing and sound only: fingerprints identical. Camera hints
 wait for a spot that needs one.
 
-**Next, the rest of step 3** (CALDERA's "Build order"): breakable walls (smashables grown into
-wall panels in world space, their break a trigger online; the `walls` override hook waits for
-them), then a short indoor stretch on a map, with camera hints if it needs them. TECH_DEBT has the
-small things the reviews left.
+**Step 3b, breakable walls** (in a PR): `TrackLayout.breakables`, walls in world space cut into
+panels that each break on their own (`core/world/breakables.ts`, `collide/breakables.ts`): a wall
+to a car slower than `breaks`, burst by a faster one (no boost, unlike smashables). Online a break is
+a trigger, claimed like a traffic hit (`net/breakables.ts`). The first boards up the Lava Tube's
+first mouth (`BOARDS` in the generator). Paradise Open 68.10 → 68.00 s, the field 28 wrecks in 40
+seeds; fingerprints re-recorded for it only. A player joining mid-race doesn't hear earlier breaks
+(TECH_DEBT).
+
+**Next, step 3c:** a short indoor stretch on Paradise Open (a mall waits for another map), with
+camera hints if it needs them. TECH_DEBT has the small things the reviews left.
 
 **Working notes (2026-10-03):**
 - One PR per step, a fresh reviewer at the end (it found real bugs every time: in 0b, 1a and 1b),

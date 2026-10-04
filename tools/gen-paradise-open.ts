@@ -118,6 +118,8 @@ const TUBE = { from: 2685, to: 3255, bridge: VOLCANO.lava + 4, width: 12, should
 const JUMP = { gap: 40, kicker: 12, lift: 2.5 };
 // (40 m takes 150 km/h off the lip, the bus 160: flat out, the slowest car gets there at 175. Off
 // the throttle, or off a wall, it's the lava.)
+/** The barricade across the tube's first mouth: this far in past it (m), this tall, broken by a car meeting it at this (m/s, about 43 km/h). */
+const BOARDS = { in: 4, height: 3, breaks: 12 };
 /** Its tunnels run where the volcano is at least this far over the road (the ceiling and a roof). */
 const TUBE_COVER = TUBE_H + 1.5;
 
@@ -322,6 +324,19 @@ layout.pieces = [
   { id: 'lava-tube-out', road: 'lava-tube', s: [far, Math.round(portalOut + 6)], ceiling: TUBE_H, indoor: 'lava' },
 ];
 
+// The tube's boarded up (CALDERA step 3b): a barricade of planks across its first mouth, just in
+// under the arch. The first car in at speed smashes it open, for the rest of the race; slower, it's
+// a wall. Wall to wall across the road and its shoulders, on the road.
+{
+  const k = Math.round((portalIn + BOARDS.in) / tube.step);
+  const edge = tube.width[k] / 2 + tube.shoulder[k];
+  const foot = (lat: number): [number, number, number] => [
+    +(tube.px[k] - tube.tz[k] * lat).toFixed(2),
+    +(tube.py[k] + tube.ramp[k] - lat * Math.tan(tube.bank[k])).toFixed(2),
+    +(tube.pz[k] + tube.tx[k] * lat).toFixed(2),
+  ];
+  layout.breakables = [{ id: 'lava-tube-boards', look: 'boards', from: foot(-edge), to: foot(edge), height: BOARDS.height, breaks: BOARDS.breaks }];
+}
 
 // The lava stream keeps clear of every road: its path LAVA_CLEAR m from every road's edge (the
 // validator wants less: its rock and bare ground, LAVA_REACH m past its floor, off every shoulder).
