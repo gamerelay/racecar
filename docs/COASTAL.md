@@ -112,8 +112,9 @@ with the counterweight stands at the hinge, and a short fixed approach span sits
 Its angle is a pure function of the race clock and the seed: World authority, the same on every
 screen, nothing sent online.
 
-**Its cycle** (numbers to tune):
-- **Down** most of the time: about 60–90 s, so most laps find it down and some find it up.
+**Its cycle** (numbers to tune). It lifts **once or twice a race** (the owner), so a lift is an
+event, not a nuisance:
+- **Down** the rest of the time.
 - **Warning** (about 4 s): bells, flashing red lights and barrier arms coming down at both ends.
   The arms are drawn only: a car goes through them.
 - **Lifting** (about 6 s): the leaf rises from flat to about 70°.
@@ -121,14 +122,17 @@ screen, nothing sent online.
   from the same clock.
 - **Lowering** (about 6 s), then down again.
 
-A seeded phase means two races don't lift at the same moment.
+The lift times are drawn from the seed's stream at the start: the first one is never in lap 1's
+opening seconds, and the two are at least a lap apart. So two races don't lift at the same moment,
+and the leaf's angle at t is still a closed-form function of t and those times. A countdown is
+possible later (a light on the tower that changes a lap ahead), so a sharp driver plans for it.
 
 **What a car feels:**
 - **On it while it lifts:** it rides the leaf up. A car that's quick enough off the lip flies the
   gap, and a slow one rolls back, or off the lip into the water (a respawn).
 - **Arriving while it's up:** the leaf stands as a wall. Hitting it bounces you, the road walls'
   way.
-- **The jump:** in the first second or two of a lift, the leaf is a ramp of 10–20° and the gap
+- **The jump** (in from the start, the owner): in the first second or two of a lift, the leaf is a ramp of 10–20° and the gap
   opening past its tip is a few metres. That's catchable at speed, like the Lava Tube's kicker
   (gravity is 24 m/s², so tune it in the sim for every class and a sweep of speeds, not on
   paper). Later in a lift, the gap is too wide and the ramp too steep: a wreck.
@@ -172,12 +176,29 @@ The engine already has most of what the lap needs. Coastal mostly arranges it:
   feature may be new: a sheer drop from the corniche to the sea, rock faces drawn and solid.
 - **Surfaces:** tarmac; `beach` and `sand`; rock for the point. **Cobbles** may be new (grippy and
   rough, like `lava-rock` but drawn as setts).
-- **Traffic** on the Quay and the Promenade (never through the fast bends: MAPS.md's rule).
+- **Traffic** on the Quay and the Promenade (never through the fast bends: MAPS.md's rule),
+  coming and going by side streets (below).
 
 **New, beyond the drawbridge:**
-- **A riviera palette:** a blue sky most of the time, sharp sun, and a deep blue sea that's
-  turquoise in the shallows. Its weather is clear, with a sunset; maybe a rare shower or a
-  sea mist on the point.
+- **A riviera palette:** blue skies, sharp sun, and a deep blue sea that's turquoise in the
+  shallows. Its weather is clear, with a sunset, and a **rare shower** (the owner): the streets
+  and the cobbles wet and shiny, then the sun back out.
+- **Traffic from side streets** (the owner): today a traffic car fades in and out (dithered) over
+  `FADE` metres at its lane's section ends, on the main road itself, so it seems to pop. On
+  Coastal the town has short side streets off the Quay, the Promenade and the Old Town. A traffic
+  car comes down one, turns onto the main road, drives its section and turns off up another.
+  Its fade happens up the side street, out of sight behind the houses.
+  - **Still closed-form:** a lane becomes a fixed route (in by one street, along part of the main
+    road, out by another), and a car's place on it is a function of the seed and t, as now. It
+    keeps its spacing, so nobody overtakes. Nothing is sent online.
+  - **Turning across the other lane:** cars only turn in and out on their own side, so no turn
+    crosses oncoming traffic.
+  - **The side streets are roads** (short branches, not shortcuts): drawn, driveable a little way,
+    blocked off by houses or bollards at the far end. Their walls are gapped, as for any branch on
+    open ground.
+  - **Engine work:** `core/world/traffic.ts` places cars on the main spline only. A lane needs a
+    route over more than one spline. That's a step towards CALDERA's road graph, so it's worth
+    doing there first.
 - **The town on a hill:** houses stacked up a slope, terraced, with red tile roofs. The greybox
   skin's houses stand on flat ground today. Stepped plots or a retaining wall per house may be
   needed.
@@ -210,7 +231,7 @@ The engine already has most of what the lap needs. Coastal mostly arranges it:
   placed in world space: nodes for the road's corners, with the headland, the harbour and the
   beach as shapes in x and z. Nothing is placed by distance along the main road.
 - **It stays experimental** until the owner says otherwise. Open it with
-  `?mode=free&map=coastal/<layout>`.
+  `?mode=free&map=coastal/riviera`.
 - **Fingerprints:** Coastal's entry is re-recorded freely in a Coastal PR (say so in the PR). Every
   other map's must say identical, or the PR explains why.
 - **No lap floor to hold yet.** The first PR records one with `lap-report`. After that it's tracked
@@ -229,23 +250,30 @@ The engine already has most of what the lap needs. Coastal mostly arranges it:
    it and say whether the shape is right.
 3. **The drawbridge** (CALDERA's step 4): the moving leaf, its cycle and the physics, then the
    detour, the AI, and the bells and the boat.
-4. **The Cape Tunnel and the corniche:** the indoor look in the tunnel, and the cliff road with
+4. **Traffic from side streets:** the side streets as short roads, traffic lanes as routes over
+   them and the main road, and the fade moved out of sight.
+5. **The Cape Tunnel and the corniche:** the indoor look in the tunnel, and the cliff road with
    its parapet and the drop.
-5. **The town:** the Old Town's houses on the hill, the plaza, the arcade, the café glass.
-6. **The cuts:** the Stairs, the Rocks, the Sand, each measured.
-7. **The look:** the riviera palette, yachts, the lighthouse, the beach club, music.
-8. **Into the lobby** when the owner's happy: experimental off, a poster, a CHANGELOG line.
+6. **The town:** the Old Town's houses on the hill, the plaza, the arcade, the café glass.
+7. **The cuts:** the Stairs, the Rocks, the Sand, each measured.
+8. **The look:** the riviera palette, yachts, the lighthouse, the beach club, the rare shower,
+   music.
+9. **Into the lobby** when the owner's happy: experimental off, a poster, a CHANGELOG line.
 
 The drawbridge comes right after the greybox lap, because it's why the map exists now. The town
 and the look can wait.
 
+## The owner's answers (2026-10-04)
+
+- **The shape:** the sketch is right (quay, bridge, Old Town, tunnel, corniche, lighthouse, beach,
+  promenade).
+- **Side streets for traffic,** so it doesn't pop in and out on the main road (above, "Traffic from
+  side streets").
+- **The bridge lifts once or twice a race.**
+- **Jumping it is in from the start.**
+- **The layout is `coastal/riviera`.**
+- **Blue skies, and a rare shower.**
+
 ## Questions for the owner
 
-1. **The shape:** is the sketch above the right lap (quay, bridge, Old Town, tunnel, corniche,
-   lighthouse, beach, promenade)? A sketch like Paradise Open's would settle it fastest.
-2. **The bridge's cycle:** about one lift a minute, with most laps finding it down? Or rarer and
-   bigger: up once or twice a race?
-3. **Jumping it:** should the early-lift jump be in from the start, or should the leaf be a wall
-   once it's off the ground?
-4. **The name:** "Coastal" for the map? Its one layout could be `coastal/harbour` (or `riviera`).
-5. **Rain:** blue skies only, or a rare shower like Paradise's?
+None yet. New ones go here as building raises them.
