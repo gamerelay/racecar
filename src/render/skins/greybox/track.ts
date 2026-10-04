@@ -16,6 +16,8 @@ import {
   Float32BufferAttribute,
   Group,
   InstancedMesh,
+  LineBasicMaterial,
+  LineLoop,
   Matrix4,
   Mesh,
   MeshBasicMaterial,
@@ -707,8 +709,31 @@ function debugVolumes(track: Track): Object3D {
       group.add(post);
     }
   }
+  // Each override's region (core/track/overrides.ts), outlined a little over what's there: where
+  // a map's own code has the last word.
+  const overMat = new LineBasicMaterial({ color: 0xff3fd2, depthTest: false });
+  for (const o of track.overrides) {
+    const pts: Vector3[] = [];
+    for (let k = 0; k < o.outline.length; k += 2) {
+      const x = o.outline[k];
+      const z = o.outline[k + 1];
+      pts.push(new Vector3(x, (track.ground ? track.ground.top(x, z) : nearestY(main, x, z)) + 1.5, z));
+    }
+    group.add(new LineLoop(new BufferGeometry().setFromPoints(pts), overMat));
+  }
   group.visible = false;
   return group;
+}
+
+/** The main road's height at its sample nearest (x, z): for drawing over it off open ground. */
+function nearestY(sp: BakedSpline, x: number, z: number): number {
+  let best = Infinity;
+  let y = 0;
+  for (let i = 0; i < sp.n; i++) {
+    const d = (sp.px[i] - x) ** 2 + (sp.pz[i] - z) ** 2;
+    if (d < best) [best, y] = [d, sp.py[i]];
+  }
+  return y;
 }
 
 /**

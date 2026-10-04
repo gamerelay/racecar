@@ -106,10 +106,10 @@ outside it). `core/track/overrides.ts` binds them at bake (`track.overrides`) an
 the last word inside the region: `cast` (the floor: `ground.cast`, `top`, `topSlope`), `surface`
 (`surfaceAt`), `hazard` (`ground.hazard`), `respawn` (a spot, then the engine's rules: the
 avalanche, gaps), `step` (per tick, per car inside). `tune`, `walls` and `camera` wait for a first
-use. `probe` says "override active: <id>"; `validate` wants code, a reason and a region for each,
-lists them, and warns past five. The candidates stayed put: `pastGap` is the engine's for any gap
-piece, and `LAND` is build-time authoring. No map has one: a clean-up, every fingerprint identical.
-Tests: `test/overrides.test.ts`.
+use. `probe` says "override active: <id>", the debug drawing outlines them; `validate` wants code, a
+reason and a region for each, lists them, and warns past five. The candidates stayed put: `pastGap`
+is the engine's for any gap piece, and `LAND` is build-time authoring. No map has one: a clean-up,
+every fingerprint identical. Tests: `test/overrides.test.ts`.
 
 **Next: 2d, the lava stream**, end to end (CALDERA's "A feature, end to end"): world-space
 placement (a path) starts there, and a feature `draw` hook in the skin, and its rock banks need a

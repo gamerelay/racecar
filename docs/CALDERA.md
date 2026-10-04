@@ -342,8 +342,8 @@ says.)
   allocation per tick; deterministic, so online and replays don't notice it's there.
 - **Visible everywhere:** `tools/probe.ts` says "override active: <id>" at a point inside;
   `tools/validate.ts` lists every override per map with its reason, wants code, a reason and a
-  region for each, and warns past five on one map. Each has its region's outline
-  (`Override.outline`) for the debug drawing, when there is one.
+  region for each, and warns past five on one map. The debug drawing (the HUD's debug key)
+  outlines each region in magenta.
 - **Each one is a to-do.** When the same kind of override turns up twice, it becomes an engine
   feature (a hook, a piece property, a module) and the overrides are deleted.
 
