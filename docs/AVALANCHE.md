@@ -906,7 +906,7 @@ The sketches as they were:
     - **Done (2026-10-02, the owner):**
       - `experimental` is off. The tests that list the maps now include it.
       - The music: two tracks of its own since 2026-10-03 (`avalanche` and `winter-pursuit`, the
-        owner's), with the six for any map. (The old synth the owner heard was a test tab's `&music=0`, not the map.)
+        owner's), with the seven for any map. (The old synth the owner heard was a test tab's `&music=0`, not the map.)
       - A race from a lobby-style link starts clean.
 
 ### Later

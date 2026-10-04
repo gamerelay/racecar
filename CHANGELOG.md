@@ -21,7 +21,7 @@ and where things stand is [docs/HANDOFF.md](./docs/HANDOFF.md).
   so it's only a little quicker than the road round. Where the street meets the road, its edges are
   clean now.
 - **Four new tracks** (the owner's): Avalanche gets two of its own, *Avalanche* and *Winter
-  Pursuit*, and any race can now play *Propulsion* and *Escape* too.
+  Pursuit*, and any race can now play *Propulsion*, *Escape* and *Forward* too.
 - **A berm out of the Lava Tube** (the owner's idea): the left-hander at the top of the rim, where
   the tube rejoins the road, is banked hard into itself. Going round, it's a berm to lean on.
   Coming out of the volcano, the tube's road climbs to its high outside edge, and you fly across
