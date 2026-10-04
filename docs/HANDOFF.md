@@ -8,7 +8,8 @@ building". This file is "where are we"; the spec is "what are we making".
 [CALDERA.md](./CALDERA.md), merged in #82; steps 0 and 0b merged in #83 and #84; 1a, 1b and 1c in
 PRs #85, #86 and #87, merged; 1d merged in #88; 2a and 2b (feature modules) in #89 and #90; the
 jungle's uneven mud in #91 and #92; 2c, overrides, in #93 and 2d, the lava stream, in #94, its
-review's fixes in #95; off-road surfaces in #96; all merged, untagged; step 3a, indoors, in #97, merged; 3b, breakable walls, in a PR; see "Next:
+review's fixes in #95; off-road surfaces in #96; all merged, untagged; step 3a, indoors, in #97; 3b, breakable walls, in #98; the berm out of the Lava Tube in #100;
+four new tracks in #99; all merged, untagged; see "Next:
 Caldera" below). Before that, `alpha-1.30`: Avalanche's snow and rumble quieter. The last tag is **`alpha-1.30`** (PR #77: the snow under the wheels and the avalanche's rumble about 4.5 dB down, the owner's ask). Before it, **`alpha-1.29`** (PRs #71–#74): **Avalanche**, the first open map, one 6.1 km run down a mountain (#74), and the Leap's kicker rounded and launchable from its sides (#71, #72), and PLAN's "Open, freeform maps" direction (#73).
 Before it, `alpha-1.28` (PRs #67–#70: a press flash and a click on the menus' buttons; the title's
 music from the start; Logger's Leap smoothed and bermed), `alpha-1.27` (PRs #63–#65), `alpha-1.26`
@@ -146,12 +147,25 @@ engines and effects ring in a room's echo (`roomImpulse`). The chase camera is c
 ceiling over the car (`cameraCeiling`). Drawing and sound only: fingerprints identical. Camera hints
 wait for a spot that needs one.
 
-**Step 3b, breakable walls** (in a PR): `TrackLayout.breakables`, walls in world space cut into
+**Step 3b, breakable walls** (#98, merged; the owner's review fixed in it): `TrackLayout.breakables`, walls in world space cut into
 panels that each break on their own (`core/world/breakables.ts`, `collide/breakables.ts`): a wall
 to a car slower than `breaks`, burst by a faster one (no boost, unlike smashables). Online a break is
 a trigger, claimed like a traffic hit (`net/breakables.ts`). The first boards up the Lava Tube's
 first mouth (`BOARDS` in the generator). Paradise Open 68.10 → 68.00 s, the field 28 wrecks in 40
-seeds; fingerprints re-recorded for it only.
+seeds; fingerprints re-recorded for it only. A car through a panel breaks a hole its width at once
+(every panel its footprint covers, at its angle), and a car deep in a panel goes through it only if
+it was in it last tick too. The boards are inked like cars, in darker wood.
+
+**The berm out of the Lava Tube** (#100, merged; the owner's idea): the left-hander where the tube
+rejoins the rim road is banked into itself (`EXIT_BERM`), and the tube's road climbs to its high
+outside edge (`EXIT_KICK`), so coming out you fly across the turn and going round it's a berm.
+Paradise Open 68.00 → 67.67 s; the field 39 wrecks in 40 seeds (28): more traffic hits just past the
+line. The owner may want it toned down after driving it (no air boost from it, or a lower lip).
+PARADISE.md has the numbers.
+
+**Four new tracks** (#99, merged): `avalanche` and `winter-pursuit` are Avalanche's own, `propulsion`
+and `escape` go anywhere. **Not on the CDN yet:** run `tools/publish-assets.ts` before the next
+deploy, or production plays the synth for them.
 
 **Next, step 3c:** a short indoor stretch on Paradise Open (a mall waits for another map), with
 camera hints if it needs them. TECH_DEBT has the small things the reviews left.
