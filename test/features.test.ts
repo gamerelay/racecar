@@ -11,7 +11,7 @@ describe('feature modules', () => {
   const open = bakeTrack(layout('paradise-open/open'), SURFACES).ground!;
 
   test("a layout's features, in the order they shape the ground", () => {
-    expect(open.features.map((f) => f.kind)).toEqual(['volcano', 'coast', 'beach', 'uneven']);
+    expect(open.features.map((f) => f.kind)).toEqual(['volcano', 'coast', 'beach', 'uneven', 'lava-stream']);
     expect(bakeTrack(layout('avalanche/slope'), SURFACES).ground!.features.map((f) => f.kind)).toEqual(['moguls', 'moguls', 'canyon', 'canyon']);
   });
 
@@ -24,13 +24,14 @@ describe('feature modules', () => {
     // Its floor is its depth down; far across from it, nothing.
     expect(slope.sunk(mid, c.lateral)).toBeCloseTo(c.depth, 6);
     expect(slope.sunk(mid, -c.lateral)).toBe(0);
-    expect(slope.bare(mid, c.lateral)).toBe(true);
+    // (By s and lateral: the slope has no feature placed in world space, so x and z are any.)
+    expect(slope.bare(mid, c.lateral, 0, 0)).toBe(true);
     const [moguls] = slope.features.filter((f) => f.kind === 'moguls');
     const m = moguls.def!;
     if (m.kind !== 'moguls') throw new Error('not moguls');
-    expect(slope.bare((m.s[0] + m.s[1]) / 2, (m.lateral[0] + m.lateral[1]) / 2)).toBe(true);
+    expect(slope.bare((m.s[0] + m.s[1]) / 2, (m.lateral[0] + m.lateral[1]) / 2, 0, 0)).toBe(true);
     // Well clear of every feature (on the piste, between the mogul fields and the canyons), trees may grow.
-    expect(slope.bare(400, 0)).toBe(false);
+    expect(slope.bare(400, 0, 0, 0)).toBe(false);
   });
 
   test('the volcano says where its lava is; nothing else does', () => {

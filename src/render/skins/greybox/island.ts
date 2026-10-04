@@ -122,16 +122,25 @@ function lavaFlows(
   g.setAttribute('uv', new Float32BufferAttribute(uv, 2));
   g.setIndex(idx);
   g.computeBoundingSphere();
-  const mesh = new Mesh(g, new ShaderMaterial({
+  const mesh = new Mesh(g, lavaMaterial(time));
+  mesh.name = 'lava-flows';
+  return [mesh, glowPoints(glow, 0xff5a14, 14)];
+}
+
+/**
+ * Molten rock running downhill, over a ribbon whose uv runs 0 to 1 across it and 0 to 1 down its
+ * run: bright streaks scrolling down the middle, a dark crust at the edges, cooling toward the
+ * end. The cone's lava flows and a lava stream (features.ts) share it.
+ */
+export function lavaMaterial(time: { value: number }): ShaderMaterial {
+  return new ShaderMaterial({
     uniforms: { uTime: time },
     side: DoubleSide,
-    // Over the cone's slope: pulled toward the camera, so it never flickers into the land.
+    // Over the slope it runs down: pulled toward the camera, so it never flickers into the land.
     polygonOffset: true,
     polygonOffsetFactor: -2,
     polygonOffsetUnits: -4,
     vertexShader: `varying vec2 vUv;void main(){vUv=uv;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);}`,
-    // Molten rock running downhill: bright streaks scrolling down the middle, a dark crust at the
-    // edges, cooling toward the end of the run.
     fragmentShader: `uniform float uTime;varying vec2 vUv;
       void main(){
         float across=abs(vUv.x-0.5)*2.0;
@@ -141,9 +150,7 @@ function lavaFlows(
         vec3 col=mix(hot,vec3(0.2,0.06,0.04),smoothstep(0.5,1.0,across+0.25*n+0.35*vUv.y));
         gl_FragColor=vec4(col*(1.0-0.35*vUv.y),1.0);
       }`,
-  }));
-  mesh.name = 'lava-flows';
-  return [mesh, glowPoints(glow, 0xff5a14, 14)];
+  });
 }
 
 /**

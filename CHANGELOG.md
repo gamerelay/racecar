@@ -6,6 +6,10 @@ and where things stand is [docs/HANDOFF.md](./docs/HANDOFF.md).
 
 ## Unreleased
 
+- **Paradise Open's lava stream** (Caldera's step 2d): a river of lava out of the volcano's
+  south-west flank and down to the sea by the bay, in a channel with rock banks. Drive round it,
+  or jump it flat out (from about 130 km/h); fall in and you wreck. The first feature placed
+  anywhere on the map rather than along the road. `tools/drive.ts` takes `--heading`.
 - **Overrides** (Caldera's step 2c, [docs/CALDERA.md](docs/CALDERA.md)): a map can name its own
   code for a small region, run only through fixed hooks (the floor, the surface, the hazard, a
   respawn spot, a per-tick step). `tools/probe.ts` says which are active at a point, and

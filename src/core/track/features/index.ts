@@ -1,25 +1,26 @@
 // Feature modules (docs/CALDERA.md step 2, "The types, sketched"): a map's features (a volcano, a
-// coast, mogul fields, canyons, beaches; later lava streams and a drawbridge), each placed in world
-// space (the volcano, the coast) or along the main road (the rest), and each saying, through a few
+// coast, mogul fields, canyons, beaches, lava streams; later a drawbridge), each placed in world
+// space (the volcano, the coast, a lava stream) or along the main road (the rest), and each saying, through a few
 // optional hooks, what it does to the ground, what the ground is, and what's dangerous there. The
 // ground (track/ground) runs every feature's hooks in order (`groundFeatures`); it knows features
 // only by these hooks. (A feature may use the ground's constants and its kinds.)
 //
 // Hooks run at load (rise, shape, surface, bare, side), or per query (hazard and sunk, every tick
-// for the cars they concern: pure functions of position (and time), no allocation, deterministic). The renderer's part stays out of core: today the skin still draws
-// the volcano and the coast from the layout; a `draw` hook comes with the first feature that needs
-// one (the lava stream).
+// for the cars they concern: pure functions of position (and time), no allocation, deterministic). What
+// a feature looks like past the ground's colours is the skin's (render/skins/greybox/features.ts,
+// by kind): core has no Three.js.
 
 import type { FeatureDef, GroundDef } from '../../content';
 import type { BakedSpline } from '../bake';
 import { beachFeature } from './beach';
 import { canyonFeature } from './canyon';
 import { coastFeature } from './coast';
+import { lavaStreamFeature } from './lava-stream';
 import { mogulsFeature } from './moguls';
 import { unevenFeature } from './uneven';
 import { volcanoFeature } from './volcano';
 
-/** What's dangerous at a point: lava wrecks a car (the volcano's lake). */
+/** What's dangerous at a point: lava wrecks a car (the volcano's lake, a lava stream). */
 export type Hazard = 'none' | 'lava';
 
 /**
@@ -63,12 +64,12 @@ export interface Feature {
    * kind, or this becomes a surface id then.)
    */
   surface?(x: number, z: number, h: number, n: number, i: number, lat: number): number;
-  /** What's dangerous at (x, y, z) at time `t` (s into the race), if anything ('none' to leave it to the next). */
-  hazard?(x: number, y: number, z: number, t: number): Hazard;
+  /** What's dangerous at (x, y, z) at time `t` (s into the race), the ground there `ground` m high, if anything ('none' to leave it to the next). */
+  hazard?(x: number, y: number, z: number, t: number, ground: number): Hazard;
   /** How far it has sunk the ground `s` m along the main road and `lat` across it (m): down in a canyon, the avalanche goes over you. */
   sunk?(s: number, lat: number): number;
-  /** Whether no tree grows `s` m along the main road and `lat` across it (a canyon and its mouth, a mogul field). */
-  bare?(s: number, lat: number): boolean;
+  /** Whether no tree grows `s` m along the main road and `lat` across it, at (x, z) (a canyon and its mouth, a mogul field, a lava stream). */
+  bare?(s: number, lat: number, x: number, z: number): boolean;
   /** A beach's side at the main road's sample `i` (-1 left, 1 right) times how far in from its ends (0–1); 0 off it. */
   side?(i: number): number;
   /** Signed distance to the coast, positive inland: the coast's own query (trees and the sea's colour ask it), not a pattern for others. */
@@ -89,6 +90,7 @@ export function groundFeatures(def: GroundDef, main: BakedSpline): Feature[] {
     else if (f.kind === 'canyon') out.push(canyonFeature(f));
     else if (f.kind === 'beach') out.push(beachFeature(f, main));
     else if (f.kind === 'uneven') out.push(unevenFeature(f));
+    else if (f.kind === 'lava-stream') out.push(lavaStreamFeature(f));
   }
   return out;
 }

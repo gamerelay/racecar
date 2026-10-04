@@ -321,6 +321,14 @@ shared `lateralOf`").
 - **`terrain.ts` re-exports `coneHeight` and `loopDist`** from `core/track/island.ts`; import
   them from there. And `bake.ts`'s `buildPines` verge callback is a dense inline expression
   (a named helper). *Small.*
+- **The Lava Tube's verge is `beach`** (the layout's `shoulderSurface`, Paradise's), so off the
+  tube on the volcano's flank you drive "beach" (probe at 98, -104). Give the tube's points a
+  `verge` (ash). *Small, but it changes driving there.*
+- **A lava stream can't cross a road** (the validator refuses it): a bridge over one, a deck
+  piece where the road crosses the channel (CALDERA's "A feature, end to end", item 3), when a
+  stream needs to. *Medium.*
+- **The ground's kinds are per grid point** (2.5 m): a lava stream's rock meets the grass in
+  steps, softened by the surface noise; the sand's edges too. *Small.*
 - **Paradise Open's tests live in `deck.test.ts`** (~700 lines: decks, the island, the tube, the
   jump). A `paradise-open.test.ts` of their own. *Small.*
 

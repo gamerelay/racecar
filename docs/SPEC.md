@@ -2192,6 +2192,11 @@ Caldera, the engine (2026-10-03; the plan is docs/CALDERA.md):
   fingerprints moved.
 - **Paradise Open's jungle mud is uneven** (the owner): an `uneven` feature, lumps on the
   red-earth road, calmer on the banked turns so a drift still leans on them.
+- **A lava stream on Paradise Open** (CALDERA's step 2d, the owner's ask): a `lava-stream`
+  feature in world space, a channel down the volcano's south-west flank to the sea, crossing no
+  road. Down in it is a wreck (a hazard); it's jumped from about 130 km/h. Its banks are rock
+  (`lava-rock`), with no trees. A stream across a road waits for bridges as pieces. The lap
+  floor (68.1 s) and the field (30 wrecks in 40 seeds) are unchanged: the AI keeps to the roads.
 - **Overrides, the escape hatch** (CALDERA's step 2c): a layout's `overrides` name a map's own
   code for a small region (a box, or a stretch of a road), run only through fixed hooks (the
   cast's floor, the surface, the hazard, a respawn spot, a per-tick step), inside the region, after

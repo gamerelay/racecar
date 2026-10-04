@@ -5,7 +5,7 @@
 import { VERGE_DEFAULT, wrap, type BakedSpline, type Track } from './bake';
 import { hypot, sq, tan } from '../math';
 import { DECK_SLACK } from './ground/pieces';
-import { KIND_BEACH, KIND_SAND, KIND_SHORE } from './ground/surface';
+import { KIND_BEACH, KIND_SAND, KIND_SHORE, KIND_LAVA_ROCK } from './ground/surface';
 
 export interface TrackHit {
   spline: number;
@@ -178,6 +178,7 @@ function engineSurface(track: Track, hit: TrackHit, x: number, y: number, z: num
     const kind = g && floor !== floor ? g.kindAt(x, z) : -1;
     if (kind === KIND_SAND || kind === KIND_BEACH) return track.surfaceIndex.get('sand') ?? hit.surface;
     if (kind === KIND_SHORE) return track.surfaceIndex.get('shore') ?? hit.surface;
+    if (kind === KIND_LAVA_ROCK) return track.surfaceIndex.get('lava-rock') ?? hit.surface;
     return hit.verge === VERGE_DEFAULT ? shoulderSurface : hit.verge;
   }
   return hit.surface;

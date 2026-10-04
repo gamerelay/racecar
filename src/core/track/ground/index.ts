@@ -30,7 +30,8 @@ export { canyonDepth, groundShape, noise } from './shape';
 export { BEACH_FADE } from '../features/beach';
 export { OUTLINE_POINTS, outlineAt } from './outline';
 export type { Feature, Hazard } from '../features';
-export { KIND_BEACH, KIND_BRANCH, KIND_ROAD, KIND_SAND, KIND_SHORE, KIND_VERGE, surfaceNoise } from './surface';
+export { KIND_BEACH, KIND_BRANCH, KIND_LAVA_ROCK, KIND_ROAD, KIND_SAND, KIND_SHORE, KIND_VERGE, surfaceNoise } from './surface';
+export { LAVA_BANK, LAVA_FILL, lavaSource } from '../features/lava-stream';
 
 /** A tunnel's usual ceiling over its road (m): the Lava Tube's (PieceDef.ceiling). */
 export const TUBE_H = 7;
@@ -99,8 +100,8 @@ export interface Ground {
   readonly features: readonly Feature[];
   /** How far the features have sunk the ground `s` m along the main road and `lat` across it (m: down in a canyon). */
   sunk(s: number, lat: number): number;
-  /** Whether no tree grows `s` m along the main road and `lat` across it (a feature says so: a canyon, a mogul field). */
-  bare(s: number, lat: number): boolean;
+  /** Whether no tree grows `s` m along the main road and `lat` across it, at (x, z) (a feature says so: a canyon, a mogul field, a lava stream). */
+  bare(s: number, lat: number, x: number, z: number): boolean;
   /** What's dangerous at (x, y, z) at time `t` (s; default 0): a feature's say (the volcano's lava lake), else 'none'. */
   hazard(x: number, y: number, z: number, t?: number): Hazard;
   /**
@@ -165,12 +166,13 @@ export function buildGround(def: GroundDef, main: BakedSpline, branches: BakedSp
       for (const f of sunkers) d += f.sunk!(s, lat);
       return d;
     },
-    bare(s, lat) {
-      return features.some((f) => f.bare?.(s, lat));
+    bare(s, lat, x, z) {
+      return features.some((f) => f.bare?.(s, lat, x, z));
     },
     hazard(x, y, z, t = 0) {
       let h: Hazard = 'none';
-      for (let f = 0; f < hazards.length && h === 'none'; f++) h = hazards[f].hazard!(x, y, z, t);
+      const gh = hazards.length ? this.height(x, z) : 0;
+      for (let f = 0; f < hazards.length && h === 'none'; f++) h = hazards[f].hazard!(x, y, z, t, gh);
       for (const o of endangerers) if (o.inside(x, z)) h = o.hazard!(h, x, y, z, t);
       return h;
     },

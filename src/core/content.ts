@@ -396,7 +396,19 @@ export interface UnevenDef {
   size: number;
 }
 
-export type FeatureDef = MogulsDef | CanyonDef | BeachDef | UnevenDef;
+/**
+ * A lava stream (docs/CALDERA.md, "A feature, end to end"): a channel `width` m wide (its floor)
+ * and `depth` m deep along `path` ([x, z] points, in world space), its banks rock, lava in it.
+ * Off the roads: the validator wants it clear of every road.
+ */
+export interface LavaStreamDef {
+  kind: 'lava-stream';
+  path: [number, number][];
+  width: number;
+  depth: number;
+}
+
+export type FeatureDef = MogulsDef | CanyonDef | BeachDef | UnevenDef | LavaStreamDef;
 
 export interface MapDef {
   id: string;
