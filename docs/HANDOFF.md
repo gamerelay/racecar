@@ -177,7 +177,7 @@ camera hints if it needs them. TECH_DEBT has the small things the reviews left.
 everywhere, slope gravity on snow, moguls, canyons, kickers, rocks, 18 slalom gates, about 650
 solid pines, a ski jump, snowfall and tracks, the camera following the slope, and an avalanche at
 chaos. The AI lets the slope carry it and rides the canyons. In the lobby, the vote and quick race,
-racing to the four any-map tracks. Everything about it is [AVALANCHE.md](./AVALANCHE.md). The
+racing to its own two tracks (`avalanche`, `winter-pursuit`, 2026-10-03) and the six any-map ones. Everything about it is [AVALANCHE.md](./AVALANCHE.md). The
 owner drove it ("it feels good"); phones aren't a target for it. The `/code-review` found two
 low-severity bugs, fixed before the merge.
 

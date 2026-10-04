@@ -6,6 +6,8 @@ and where things stand is [docs/HANDOFF.md](./docs/HANDOFF.md).
 
 ## Unreleased
 
+- **Four new tracks** (the owner's): Avalanche gets two of its own, *Avalanche* and *Winter
+  Pursuit*, and any race can now play *Propulsion* and *Escape* too.
 - **A berm out of the Lava Tube** (the owner's idea): the left-hander at the top of the rim, where
   the tube rejoins the road, is banked hard into itself. Going round, it's a berm to lean on.
   Coming out of the volcano, the tube's road climbs to its high outside edge, and you fly across
