@@ -2192,6 +2192,14 @@ Caldera, the engine (2026-10-03; the plan is docs/CALDERA.md):
   fingerprints moved.
 - **Paradise Open's jungle mud is uneven** (the owner): an `uneven` feature, lumps on the
   red-earth road, calmer on the banked turns so a drift still leans on them.
+- **Off the roads, the ground's own surface** (a tech-debt pass after CALDERA's 2d): far from
+  every road, a projection onto one can stop short round a bend (its lateral small, the point
+  hundreds of meters off), and `surfaceAt` took the road's own surface, zones or verge from it.
+  Now a hit whose centre isn't beside the point (STRAY, 1 m along) says nothing: it's the ground's
+  kind, else the verge of the main road's sample nearest the point (as drawn). Avalanche had 416
+  sampled points 3 m+ off the roads driving as asphalt, Paradise Open 304 (the lava stream's
+  rock among them): none now. And the Lava Tube's verge is `ash` (it was the layout's `beach`).
+  Drives, lap floors and the field unchanged; Paradise Open's fingerprints re-recorded.
 - **A lava stream on Paradise Open** (CALDERA's step 2d, the owner's ask): a `lava-stream`
   feature in world space, a channel down the volcano's south-west flank to the sea, crossing no
   road. Down in it is a wreck (a hazard); it's jumped from about 130 km/h. Its banks are rock

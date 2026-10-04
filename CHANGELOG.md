@@ -6,6 +6,9 @@ and where things stand is [docs/HANDOFF.md](./docs/HANDOFF.md).
 
 ## Unreleased
 
+- **Off-road surfaces fixed on the open maps:** a few patches far from any road drove as the road
+  (the lava stream's rock as the jungle's red earth, bits of Avalanche's snow as asphalt); now
+  they drive as what they are. Off the Lava Tube on the volcano's flank is ash, not beach.
 - **Paradise Open's lava stream** (Caldera's step 2d): a river of lava out of the volcano's
   south-west flank and down to the sea by the bay, in a channel with rock banks. Drive round it,
   or jump it flat out (from about 130 km/h); fall in and you wreck. The first feature placed

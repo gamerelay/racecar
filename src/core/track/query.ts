@@ -160,16 +160,26 @@ export function surfaceAt(track: Track, hit: TrackHit, x: number, y: number, z: 
   return surface;
 }
 
+/**
+ * How far along the road (m) a hit's centre can be from the point and the hit still say where the
+ * point is: from far off a curving road the projection can stop short, the hit's lateral small
+ * while the point is 170 m away round the bend (#94's review: the lava stream's rock driven as the
+ * jungle road's red earth). Beside the road it's ~0.
+ */
+const STRAY = 1;
+
 function engineSurface(track: Track, hit: TrackHit, x: number, y: number, z: number, wet: boolean, shoulderSurface: number): number {
   const sp = track.splines[hit.spline];
-  for (let k = 0; k < sp.zones.length; k++) {
+  // A hit not beside the point says nothing about it: not on the road, its zones or its verge.
+  const stray = hypot(x - hit.cx, z - hit.cz) - Math.abs(hit.lateral) > STRAY;
+  for (let k = 0; k < sp.zones.length && !stray; k++) {
     const z = sp.zones[k];
     if (z.when === 1 && !wet) continue;
     if (z.when === 2 && wet) continue;
     const inS = z.s0 <= z.s1 ? hit.s >= z.s0 && hit.s <= z.s1 : hit.s >= z.s0 || hit.s <= z.s1;
     if (inS && hit.lateral >= z.l0 && hit.lateral <= z.l1) return z.surface;
   }
-  if (Math.abs(hit.lateral) > hit.width / 2) {
+  if (stray || Math.abs(hit.lateral) > hit.width / 2) {
     // Off the asphalt on open ground, what the ground is there (the same as it's drawn): sand
     // along the coast and on the beaches, wet sand at the water's edge; else the road's verge. Not
     // on a piece (over the Freeway's shoulder): that's the piece's verge, not the ground under it.
@@ -179,7 +189,9 @@ function engineSurface(track: Track, hit: TrackHit, x: number, y: number, z: num
     if (kind === KIND_SAND || kind === KIND_BEACH) return track.surfaceIndex.get('sand') ?? hit.surface;
     if (kind === KIND_SHORE) return track.surfaceIndex.get('shore') ?? hit.surface;
     if (kind === KIND_LAVA_ROCK) return track.surfaceIndex.get('lava-rock') ?? hit.surface;
-    return hit.verge === VERGE_DEFAULT ? shoulderSurface : hit.verge;
+    // (Stray, the verge of the main road where the ground's drawn: its sample nearest the point.)
+    const verge = stray && g ? track.main.verge[g.nearAt(x, z)] : hit.verge;
+    return verge === VERGE_DEFAULT ? shoulderSurface : verge;
   }
   return hit.surface;
 }
