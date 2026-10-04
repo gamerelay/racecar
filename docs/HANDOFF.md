@@ -7,8 +7,9 @@ building". This file is "where are we"; the spec is "what are we making".
 **Last updated:** 2026-10-03 (Paradise Open merged in #81, untagged; the plan for the engine,
 [CALDERA.md](./CALDERA.md), merged in #82; steps 0 and 0b merged in #83 and #84; 1a, 1b and 1c in
 PRs #85, #86 and #87, merged; 1d merged in #88; 2a and 2b (feature modules) in #89 and #90; the
-jungle's uneven mud in #91 and #92; 2c, overrides, in #93 and 2d, the lava stream, in #94; all
-merged, untagged; next is step 3; see "Next: Caldera" below). Before that, `alpha-1.30`: Avalanche's snow and rumble quieter. The last tag is **`alpha-1.30`** (PR #77: the snow under the wheels and the avalanche's rumble about 4.5 dB down, the owner's ask). Before it, **`alpha-1.29`** (PRs #71–#74): **Avalanche**, the first open map, one 6.1 km run down a mountain (#74), and the Leap's kicker rounded and launchable from its sides (#71, #72), and PLAN's "Open, freeform maps" direction (#73).
+jungle's uneven mud in #91 and #92; 2c, overrides, in #93 and 2d, the lava stream, in #94, its
+review's fixes in #95; off-road surfaces in #96; all merged, untagged; next is step 3; see "Next:
+Caldera" below). Before that, `alpha-1.30`: Avalanche's snow and rumble quieter. The last tag is **`alpha-1.30`** (PR #77: the snow under the wheels and the avalanche's rumble about 4.5 dB down, the owner's ask). Before it, **`alpha-1.29`** (PRs #71–#74): **Avalanche**, the first open map, one 6.1 km run down a mountain (#74), and the Leap's kicker rounded and launchable from its sides (#71, #72), and PLAN's "Open, freeform maps" direction (#73).
 Before it, `alpha-1.28` (PRs #67–#70: a press flash and a click on the menus' buttons; the title's
 music from the start; Logger's Leap smoothed and bermed), `alpha-1.27` (PRs #63–#65), `alpha-1.26`
 (PR #62: two new tracks), `alpha-1.25` (PR #61: boost, Overdrive, the slipstream) and `alpha-1.24`
@@ -124,18 +125,18 @@ below about 100 km/h you're in it, from about 130 you clear it. Lap floor 68.1 a
 `--at` exactly there. Found on the way, left for the owner (TECH_DEBT): the Lava Tube's verge is
 `beach`.
 
-**#94's fresh review finished after the owner merged it**; its findings are in a follow-up PR
-(#95): the lava felt where it's drawn (level from the path's floor, not the grid's rounded edge),
-`drive --at` on the ground far from roads, the validator's reach. One went to TECH_DEBT (a point
-far from every road projecting "onto" one). #93's review found nothing serious; its five small
-fixes are in.
+**#94's fresh review finished after the owner merged it**; its findings are in #95 (merged): the
+lava felt where it's drawn (level from the path's floor, not the grid's rounded edge), `drive --at`
+on the ground far from roads, the validator's reach. The one it left for later (a point far from
+every road projecting "onto" one) was fixed in #96. #93's review found nothing serious; its five small fixes are in.
 
-**Off-road surfaces** (a tech-debt pass, the owner's choice before step 3; in its PR): `surfaceAt`
-ignores a projection that stopped short of the point (round a bend, far off the road: `STRAY` in
-`query.ts`), using the ground's kind or the nearest main-road sample's verge instead, and the Lava
-Tube's verge is `ash`. No sampled point 3 m+ off the roads drives as asphalt now on Avalanche or
-Paradise Open (416 and 304 before). Drives, floors, field unchanged. The rest of TECH_DEBT is code
-shape, left for when steps 3 and 6 touch it.
+**Off-road surfaces** (a tech-debt pass, the owner's choice before step 3; PR #96, merged
+2026-10-03; the owner drove it: "this feels good"): `surfaceAt` ignores a projection that stopped
+short of the point (round a bend, far off the road: `STRAY` in `query.ts`), using the ground's kind
+or the nearest main-road sample's verge instead, and the Lava Tube's verge is `ash`. No sampled
+point 3 m+ off the roads drives as asphalt now on Avalanche or Paradise Open (416 and 304 before).
+Drives, floors, field unchanged. The rest of TECH_DEBT is code shape, left for when steps 3 and 6
+touch it.
 
 **Next: step 3, enclosed spaces done properly** (CALDERA's "Build order"): the camera under the
 ceiling (with hints where it's tricky), indoor light and fog, reverb, breakable walls; then a
