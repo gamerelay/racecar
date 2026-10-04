@@ -67,6 +67,7 @@ export class OnlineRace {
     l.cars.afterStep();
     l.rivals?.afterStep();
     l.traffic?.afterStep();
+    l.walls?.afterStep();
     l.contact?.afterStep();
   }
 

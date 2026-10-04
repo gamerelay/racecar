@@ -446,7 +446,7 @@ What the engine struggles with now, and the build step that lifts it (if any):
 | No road network: one loop plus branches, progress by distance along the main road | Branches leave and rejoin the main road; checkpoints are main-road distances | Step 6 (the road graph) |
 | Indoors looks and sounds like outdoors | One light for everything; the camera only knows the Lava Tube | Step 3 (3a built: indoor light, fog, echo) |
 | Nothing you drive on moves (only the avalanche, traffic and hazards do) | No moving surfaces | Step 4 |
-| Only small round props break (smashables), in rows along a road | `smash.ts` touches a radius, and a prop is hit only from its own spline | Step 3 (breakable walls, placed in world space) |
+| Only small round props break (smashables), in rows along a road | `smash.ts` touches a radius, and a prop is hit only from its own spline | Step 3 (3b built: breakable walls, placed in world space) |
 | Big air is hard: the road lifts a car at most 8 m/s | The vertical speed cap keeps cars on the road over bumps | Tuning per feature (the jump's kicker was sized by a sweep) |
 | The car is one body with a heading: no wheels leaving the ground one by one, no rolling over, no stacking | Our own simple car model | Not planned |
 | Contact between players' cars is approximate online: another player's car is a pose 30 times a second, and a bump is agreed between the two screens (`net/contact.ts`) | Each player owns their car | Not planned (it's the right trade for 8 players) |
@@ -588,8 +588,8 @@ For each change, in this order:
 ## Build order
 
 Each step ships on its own. The existing maps keep their lap floors (the best AI lap, in
-seconds: Downtown 57.9, Backroads 62.82, Avalanche 93.07, Paradise 71.52, Paradise Open 68.10 (68.07 before step 1d's
-sand), as of 2026-10-03), unless a step means to change a map (the coast's sand driving as sand, a lava
+seconds: Downtown 57.9, Backroads 62.82, Avalanche 93.07, Paradise 71.52, Paradise Open 68.00 (68.07 before step 1d's
+sand, 68.10 before 3b's boards), as of 2026-10-03), unless a step means to change a map (the coast's sand driving as sand, a lava
 stream across a route): then the new floor is recorded, with why.
 
 0. **A safety net and tools first** (built, PR #83), and **0b, the sim's own math** (built, PR #84), so
@@ -717,6 +717,24 @@ stream across a route): then the new floor is recorded, with why.
      identical. *Changed while building:* camera hints wait for a spot that needs one (the
      tube's camera already works it out, the jump included), so the `camera` override hook waits
      too; `tools/shot.ts` draws a still fully indoors.
+   - **3b, breakable walls** (built): `TrackLayout.breakables` (`BreakableDef`: a wall in world
+     space, its foot `from` and `to`, a `height`, a `look`, the speed that `breaks` it, and
+     `standsAgain` or down for the race), cut into panels (`core/world/breakables.ts`) that each
+     break on their own (`collide/breakables.ts`): slower than `breaks` a panel is a wall (the road
+     walls' `bounce`), faster it bursts (`Ev.WallBreak`) and the car keeps 93% of its speed. Saved
+     in snapshots. Online it's a trigger, claimed as traffic hits are (`net/breakables.ts`). Probe
+     lists walls near a point; the validator wants open ground, a size and each panel's foot on a
+     floor. The first one boards up the Lava Tube's first mouth (`BOARDS` in the generator: 15 m,
+     six planked panels, broken from about 43 km/h, down for the race). Paradise Open re-recorded:
+     its floor 68.10 → 68.00 s (lap 1 about 0.2 s slower through the boards; the next laps' boost
+     falls differently), the field 28 wrecks in 40 seeds (30), none at the boards.
+     *Changed while building:*
+     - **No boost for a break**, unlike a smashable: paid for it, the tube got faster (67.98 s,
+       top speed up 8 km/h), and it's already a strong line.
+     - **A panel breaks by how fast the car goes across the wall's line**, not into the panel where
+       they touch: a wide car (the bus) through a one-panel hole met the next panels on their ends,
+       slowly, and wedged there.
+     - **The `walls` override hook still waits:** walls on or off in a region has no first use.
 4. **Moving pieces**: a drawbridge.
 5. **A quick chase mode on Downtown as it is** (optional): the mode only (roles, busted,
    escape, a timer), with AI cops that chase along the track. A cheap playtest of whether a

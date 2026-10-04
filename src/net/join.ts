@@ -7,6 +7,7 @@ import type { Sim } from '../core/sim';
 import { NetCars, type NetRoom } from './cars';
 import { NetRivals } from './rivals';
 import type { Tick } from './stepper';
+import { NetBreakables } from './breakables';
 import { NetTraffic } from './traffic';
 import { carNames, NetContact } from './contact';
 
@@ -37,6 +38,8 @@ export interface NetLayers {
   rivals: NetRivals | null;
   /** Traffic hits, and bumps and takedown credit between screens: null for a race on its own clock. */
   traffic: NetTraffic | null;
+  /** Breakable walls broken (claimed like traffic hits): null for a race on its own clock, or a map without any. */
+  walls: NetBreakables | null;
   contact: NetContact | null;
   tick: Tick | null;
 }
@@ -69,8 +72,9 @@ export async function joinRace(j: RaceJoin): Promise<boolean> {
     // fallback started it, or the link had no time) has nothing to compare, so it keeps them to itself.
     const shared = !ownClock && j.at !== undefined;
     const traffic = shared ? new NetTraffic(room, sim, race) : null;
+    const walls = shared && sim.world.breakables.n ? new NetBreakables(room, sim, race) : null;
     const contact = shared ? new NetContact(room, sim, carNames(j.me, room.me, j.remote, j.aiSeats)) : null;
-    j.onNet({ cars: net, rivals, traffic, contact, tick: relay.tick ? (rate, fn) => relay.tick!(rate, fn) : null });
+    j.onNet({ cars: net, rivals, traffic, walls, contact, tick: relay.tick ? (rate, fn) => relay.tick!(rate, fn) : null });
     // No time from the link: green 3 s from now (once racing, it's too late to matter).
     if (sim.race.phase === 'countdown' && !j.at) sim.race.goTime = sim.time + 3;
     timers.clear(fallback);

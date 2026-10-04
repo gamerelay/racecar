@@ -50,8 +50,8 @@ export function hitFace(sim: SimState, i: number, ox: number, oz: number): void 
   bounce(sim, i, ox, oz, 0, sim.classes[sim.cars.cls[i]].size[1], 0);
 }
 
-/** A car `depth` m into a wall it's moving into along (ox, oz): out of it, bounced and scraped, maybe wrecked. */
-function bounce(sim: SimState, i: number, ox: number, oz: number, depth: number, reach: number, side: number): void {
+/** A car `depth` m into a wall it's moving into along (ox, oz): out of it, bounced and scraped, maybe wrecked. `reach`: how far from its middle it touched; `side`: the road's side (0: none). */
+export function bounce(sim: SimState, i: number, ox: number, oz: number, depth: number, reach: number, side: number): void {
   const cars = sim.cars;
   cars.x[i] -= ox * depth;
   cars.z[i] -= oz * depth;

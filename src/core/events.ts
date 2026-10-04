@@ -54,6 +54,8 @@ export const Ev = {
   Overdrive: 31,
   /** Through a slalom gate (rules/slalom.ts). a = boost paid, b = gates in a row, other = the gate. */
   Gate: 32,
+  /** car broke a breakable wall's panel (world/breakables.ts). a = how fast it went through (m/s), b = the panel (no `other`: listeners read it as a car). car -1: another screen's break. */
+  WallBreak: 33,
 } as const;
 export type Ev = (typeof Ev)[keyof typeof Ev];
 
@@ -90,6 +92,7 @@ export const EV_NAMES: Record<number, string> = {
   30: 'slingshot',
   31: 'overdrive',
   32: 'gate',
+  33: 'wall_break',
 };
 
 /**

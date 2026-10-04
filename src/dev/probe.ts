@@ -5,6 +5,7 @@
 
 import type { Track } from '../core/track/bake';
 import { newCast, type Space } from '../core/track/ground';
+import { hypot } from '../core/math';
 import { activeAt } from '../core/track/overrides';
 import { newHit, projectGlobal, surfaceAt, type TrackHit } from '../core/track/query';
 
@@ -32,6 +33,8 @@ export interface Probe {
   surface: string;
   /** The overrides whose regions it's inside (track/overrides.ts), by id: their hooks have the last word here. */
   overrides: string[];
+  /** Breakable walls within PROBE_WALLS m (world/breakables.ts): which, how far to it (m), and what breaks it. */
+  walls: { id: string; dist: number; breaks: number; standsAgain: number | null }[];
   /** Open ground only. */
   ground?: {
     /** In bounds (on the grid). */
@@ -76,6 +79,23 @@ export function nearestRoad(track: Track, x: number, z: number, y?: number, out:
   return { road: track.splines[out.spline].id, spline: out.spline, s: out.s, lateral: out.lateral, width: out.width, shoulder: out.shoulder, on };
 }
 
+/** Breakable walls this near a point (m) are listed. */
+const PROBE_WALLS = 30;
+
+function wallsNear(track: Track, x: number, z: number): Probe['walls'] {
+  const out: Probe['walls'] = [];
+  for (const b of track.layout.breakables ?? []) {
+    // The nearest point of its foot's line.
+    const [ax, , az] = b.from;
+    const dx = b.to[0] - ax;
+    const dz = b.to[2] - az;
+    const t = Math.max(0, Math.min(1, ((x - ax) * dx + (z - az) * dz) / (dx * dx + dz * dz || 1)));
+    const dist = hypot(x - ax - dx * t, z - az - dz * t);
+    if (dist <= PROBE_WALLS) out.push({ id: b.id, dist, breaks: b.breaks, standsAgain: b.standsAgain ?? null });
+  }
+  return out;
+}
+
 export function probe(track: Track, x: number, z: number, y?: number): Probe {
   const hit = newHit();
   const g = track.ground;
@@ -83,7 +103,7 @@ export function probe(track: Track, x: number, z: number, y?: number): Probe {
   // Without open ground and no height asked, the road's found by where it is, not how high.
   const near = nearestRoad(track, x, z, g || y !== undefined ? yy : undefined, hit);
   const shoulder = track.surfaceIndex.get(track.layout.shoulderSurface ?? 'sidewalk') ?? 0;
-  const out: Probe = { x, z, y: yy, near, surface: track.surfaces[surfaceAt(track, hit, x, yy, z, false, shoulder)].id, overrides: activeAt(track.overrides, x, z) };
+  const out: Probe = { x, z, y: yy, near, surface: track.surfaces[surfaceAt(track, hit, x, yy, z, false, shoulder)].id, overrides: activeAt(track.overrides, x, z), walls: wallsNear(track, x, z) };
   if (!g) {
     if (y === undefined) out.y = hit.ground;
     return out;
@@ -121,6 +141,7 @@ export function describeProbe(p: Probe): string {
     `surface: ${p.surface}`,
   ];
   for (const id of p.overrides) lines.push(`override active: ${id}`);
+  for (const w of p.walls) lines.push(`breakable wall ${w.id} ${f(w.dist, 1)} m away: broken at ${f(w.breaks * 3.6, 0)} km/h or more, then down ${w.standsAgain === null ? 'for the race' : `${w.standsAgain} s`}`);
   const g = p.ground;
   if (g) {
     lines.push(`ground: ${f(g.height)} m, grade ${f(g.grade[0], 1)}% / ${f(g.grade[1], 1)}% (x / z)${g.inside ? '' : ', OUT OF BOUNDS'}`);
