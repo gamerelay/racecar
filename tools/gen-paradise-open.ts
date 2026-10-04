@@ -404,6 +404,9 @@ layout.pieces = [
     return { p: [+x.toFixed(1), +ground(x, z).toFixed(1), +z.toFixed(1)] as [number, number, number], width: MARKET.width, lanes: 2, shoulder: MARKET.shoulder, surface: 'asphalt', verge: 'sidewalk' };
   });
   layout.branches = [...(layout.branches ?? []), { ...street, kind: 'shortcut', points }];
+  // Open, as every road on the island but the Freeway (the hall has its own walls): its road walls
+  // were invisible rails along the beach either side of the hall (the owner ran into both).
+  layout.walls = { gaps: [...(layout.walls?.gaps ?? []), { spline: street.id, s: [0, 1e4], side: 'both' }] };
   const sp = bakeTrack(layout, surfaces).splines.find((r) => r.id === street.id)!;
   // The hall in its middle.
   const h0 = Math.round((sp.length - MARKET.hall) / 2);
