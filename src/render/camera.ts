@@ -5,7 +5,7 @@
 // The coupe (0.65 m half height, 2.15 m half length) is the base.
 
 import type { Vec3 } from '../core/content';
-import { DECK_CATCH, newCast, type Ground } from '../core/track/ground';
+import { DECK_CATCH, newCast, type Ground, type Piece } from '../core/track/ground';
 
 export interface ChaseOffset {
   /** Meters behind the car's center, and above its base. */
@@ -105,6 +105,22 @@ const UNDER_CEILING = 1;
 export function cameraFloor(g: Ground, x: number, y: number, z: number): number {
   const c = g.cast(x, y, z, CAST);
   return y < c.ceiling - UNDER_CEILING ? c.over : c.floor;
+}
+
+/**
+ * The highest the chase camera may sit over (x, z) for a car at `carY`: under the ceiling of an
+ * enclosed piece the car's in there, by UNDER_CEILING; else no limit. (Lifted for a slope ahead, it
+ * would otherwise rise into a low roof and clearView would then pull it in to the car.)
+ */
+export function cameraCeiling(g: Ground, x: number, carY: number, z: number): number {
+  const c = g.cast(x, carY + 1, z, CAST);
+  return c.space === 'enclosed' ? c.ceiling - UNDER_CEILING : Infinity;
+}
+
+/** The enclosed piece the camera at (x, y, z) is inside (over its floor, under its ceiling), or null: what's lit and heard as indoors. */
+export function indoorAt(g: Ground, x: number, y: number, z: number): Piece | null {
+  const c = g.cast(x, y, z, CAST);
+  return c.space === 'enclosed' && c.piece >= 0 ? g.pieces.list[c.piece] : null;
 }
 
 /** On open ground the camera stays this far above the snow under it (behind a car on a steep pitch, it would be in the slope). */

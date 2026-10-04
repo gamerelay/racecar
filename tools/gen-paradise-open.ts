@@ -317,9 +317,9 @@ const far = Math.round(mid + JUMP.gap / 2);
 layout.ramps = [...(layout.ramps ?? []), { spline: 'lava-tube', s: lip - JUMP.kicker, length: JUMP.kicker, height: JUMP.lift }];
 layout.pieces = [
   ...(layout.pieces ?? []),
-  { id: 'lava-tube-in', road: 'lava-tube', s: [Math.round(portalIn - 6), lip], ceiling: TUBE_H },
+  { id: 'lava-tube-in', road: 'lava-tube', s: [Math.round(portalIn - 6), lip], ceiling: TUBE_H, indoor: 'lava' },
   { id: 'lava-jump', road: 'lava-tube', s: [lip, far], floor: false },
-  { id: 'lava-tube-out', road: 'lava-tube', s: [far, Math.round(portalOut + 6)], ceiling: TUBE_H },
+  { id: 'lava-tube-out', road: 'lava-tube', s: [far, Math.round(portalOut + 6)], ceiling: TUBE_H, indoor: 'lava' },
 ];
 
 

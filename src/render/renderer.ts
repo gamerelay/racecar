@@ -9,11 +9,11 @@ import { clamp, damp, wrapAngle } from '../core/math';
 import type { Sim } from '../core/sim';
 import { newHit, project, sampleAt } from '../core/track/query';
 import { Particles } from './fx';
-import { cameraFloor, chaseOffset, clearView, GROUND_CLEAR, lookBackOffset, slopeRise, slopeView, type ChaseOffset } from './camera';
+import { cameraCeiling, cameraFloor, chaseOffset, clearView, GROUND_CLEAR, indoorAt, lookBackOffset, slopeRise, slopeView, type ChaseOffset } from './camera';
 import { InkPass } from './ink';
 import { PostPass } from './post';
 import { Showroom } from './showroom';
-import type { CarPlate, CarVisual, SceneLive, Skin, TrackVisual, WorldVisual } from './skin';
+import type { CarPlate, CarVisual, Indoor, SceneLive, Skin, TrackVisual, WorldVisual } from './skin';
 import { positions } from '../core/rules/progress';
 import { SMASH_IDS } from '../core/world/smash';
 import { Skids } from './skids';
@@ -24,6 +24,9 @@ const emits = (rate: number, dt: number): number => {
   const n = rate * dt;
   return Math.floor(n) + (Math.random() < n % 1 ? 1 : 0);
 };
+/** How fast the light and sound go indoor and back (per second): about half a second, at a tunnel's mouth. */
+const INDOOR_RATE = 5;
+
 /** Cars further from the camera than this (m) make no particles (they're in the fog, and would crowd out the near ones). */
 const FX_RANGE = 400;
 /** Skid marks: how far from the camera cars lay them (m), how wide, and the tint each multiplies the ground by. */
@@ -124,6 +127,12 @@ export class GameRenderer {
   private camPos = new Vector3();
   /** On open ground: the ground ahead's height over the ground under the focus car, smoothed (camera.ts slopeView). */
   private slopeRise = 0;
+  /**
+   * How indoors the camera is (0 out under the sky, 1 inside an enclosed piece), eased like eyes
+   * adjusting, and the look of the last one it was in (kept while it eases back out). The skin's
+   * light and fog and the sound's reverb follow it.
+   */
+  readonly indoor: Indoor = { amount: 0, look: 'tunnel' };
   private readonly offset: ChaseOffset = { dist: 0, height: 0, ahead: 0, lookUp: 0 };
   /** Paused: the camera still settles, but nothing in the world moves (smoke, wheels, debris). */
   paused = false;
@@ -331,6 +340,7 @@ export class GameRenderer {
     this.skids.update(sdt, haze?.near, haze?.far);
     this.snowTracks?.update(sdt, haze?.near, haze?.far);
     this.updateCamera(dt);
+    this.updateIndoor(dt);
     // The turntable rides in front of the camera, so it's placed once the camera has moved.
     if (this.showroom.visible) {
       this.camera.updateMatrixWorld();
@@ -346,7 +356,7 @@ export class GameRenderer {
     this.live.leader = this.opts.plates?.[positions(this.sim, this.order)[0]]?.text ?? null;
     this.live.wetness = this.sim.wetness;
     this.trackVisual.update?.(this.worldTime, sdt, this.camera.position, this.live);
-    this.skin.update?.(this.worldTime, this.camera.position.x, this.camera.position.y, this.camera.position.z, this.sim.wetness, this.sim.snowing);
+    this.skin.update?.(this.worldTime, this.camera.position.x, this.camera.position.y, this.camera.position.z, this.sim.wetness, this.sim.snowing, this.indoor);
 
     const stage = this.showroom.visible ? this.showroom : null;
     if (stage) {
@@ -448,6 +458,7 @@ export class GameRenderer {
         }
         this.camPos.y += (car.y + height - this.camPos.y) * damp(5, dt);
         if (ground) {
+          this.camPos.y = Math.min(this.camPos.y, cameraCeiling(ground, this.camPos.x, car.y, this.camPos.z));
           clearView(ground, car.x, car.y, car.z, this.camPos);
           this.camPos.y = Math.max(this.camPos.y, cameraFloor(ground, this.camPos.x, this.camPos.y, this.camPos.z) + GROUND_CLEAR);
         }
@@ -463,6 +474,14 @@ export class GameRenderer {
     const fov = 60 + clamp((speed - 20) / 50, 0, 1) * 4 + this.boostVis * 3.5;
     cam.fov += (fov - cam.fov) * damp(3, dt);
     cam.updateProjectionMatrix();
+  }
+
+  private updateIndoor(dt: number): void {
+    const g = this.sim.track.ground;
+    const p = this.camera.position;
+    const inside = g && !this.showroom.visible ? indoorAt(g, p.x, p.y, p.z) : null;
+    if (inside) this.indoor.look = inside.indoor;
+    this.indoor.amount += ((inside ? 1 : 0) - this.indoor.amount) * damp(INDOOR_RATE, dt);
   }
 
   /**

@@ -17,7 +17,7 @@ import type { Sim } from '../core/sim';
 import { doppler, engineHz, engineSound, gearbox, musicMix, spatial, type Gear, type Spatial } from './model';
 import { Music, type Intensity } from './music';
 import type { Soundtrack } from './soundtrack';
-import { EngineVoice, glide, NoiseVoice, noiseShot, note, Out, toneShot, type Shot } from './synth';
+import { EngineVoice, glide, NoiseVoice, noiseShot, note, Out, roomImpulse, toneShot, type Shot } from './synth';
 
 const RIVALS = 3;
 /** Rivals are heard within this of the camera. */
@@ -41,6 +41,8 @@ const MASTER_LEVEL = 0.8;
 /** Snow under the wheels and the avalanche's rumble: the owner heard them first in a race (2026-10-02) and asked for both a little down (from 1, about 4.5 dB). */
 const SNOW_LEVEL = 0.6;
 const RUMBLE_LEVEL = 0.6;
+/** Indoors (an enclosed piece: docs/CALDERA.md step 3), the engines and effects ring this much in the room's echo. */
+const REVERB_LEVEL = 0.55;
 
 /** The player's volumes (settings.ts), 0 to 1 each: they scale the levels above. */
 export interface Volumes {
@@ -71,6 +73,8 @@ export interface AudioFrame {
   paused: boolean;
   /** Behind a menu (attract mode): music only. */
   menu: boolean;
+  /** How indoors the camera is, 0 to 1 (the renderer's `indoor`): the room's echo. */
+  indoor?: number;
 }
 
 /** Everything made once the context exists. */
@@ -100,6 +104,8 @@ interface Graph {
   music: Music;
   /** The recorded track's level (`TRACK_LEVEL`), into the music bus. */
   trackLevel: GainNode;
+  /** The echo's level: the engines and effects, through a room's echo, into the master. */
+  reverb: GainNode;
 }
 
 export class GameAudio {
@@ -194,6 +200,14 @@ export class GameAudio {
     };
     const sfx = bus(SFX_LEVEL);
     const engines = bus(ENGINES_LEVEL);
+    // Indoors, they ring: sent through a room's echo too (not the menus' clicks, nor the music).
+    const reverb = ctx.createGain();
+    reverb.gain.value = 0;
+    const room = ctx.createConvolver();
+    room.buffer = roomImpulse(ctx, 1.6, 3);
+    sfx.connect(room);
+    engines.connect(room);
+    room.connect(reverb).connect(master);
     const musicTone = ctx.createBiquadFilter();
     musicTone.type = 'lowpass';
     musicTone.frequency.value = 12000;
@@ -236,6 +250,7 @@ export class GameAudio {
       rivals: Array.from({ length: RIVALS }, () => new EngineVoice(ctx, engines)),
       music: new Music(ctx, musicLevel),
       trackLevel: ctx.createGain(),
+      reverb,
     };
     this.g.trackLevel.gain.value = TRACK_LEVEL;
     this.g.trackLevel.connect(musicLevel);
@@ -347,6 +362,7 @@ export class GameAudio {
 
     // Engines and the world only behind a menu when there's no menu.
     glide(g.engines.gain, f.menu ? 0 : ENGINES_LEVEL * this.vol.engines, now, 0.2);
+    glide(g.reverb.gain, f.menu ? 0 : REVERB_LEVEL * (f.indoor ?? 0), now, 0.1);
     glide(g.sfx.gain, f.menu ? 0 : SFX_LEVEL * this.vol.effects, now, 0.2);
 
     // ---- the focus car ----

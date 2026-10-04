@@ -10,6 +10,7 @@ import { bakeTrack, type Track } from '../core/track/bake';
 import { newHit, project, sampleAt, type TrackHit } from '../core/track/query';
 import { TRAFFIC_KINDS } from '../core/world/traffic';
 import type { CarVisual, TrackVisual, WorldVisual } from '../render/skin';
+import { indoorAt } from '../render/camera';
 import { Particles } from '../render/fx';
 import { InkPass } from '../render/ink';
 import { PostPass } from '../render/post';
@@ -299,7 +300,10 @@ export class Stage {
     }
     pos.needsUpdate = true;
     this.worldVisual.update(0, camera.position, this.time);
-    this.skin.update(this.time, camera.position.x, camera.position.y, camera.position.z, this.wet);
+    // A still: fully indoors inside an enclosed piece, as the game is once it's eased in.
+    const g = this.track.ground;
+    const inside = g ? indoorAt(g, camera.position.x, camera.position.y, camera.position.z) : null;
+    this.skin.update(this.time, camera.position.x, camera.position.y, camera.position.z, this.wet, false, { amount: inside ? 1 : 0, look: inside?.indoor ?? 'tunnel' });
   }
 
   dispose(): void {

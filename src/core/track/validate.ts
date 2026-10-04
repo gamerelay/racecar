@@ -201,6 +201,7 @@ export function validateLayout(layout: TrackLayout, surfaces: SurfaceDef[], clas
     if (!(p.s[0] < p.s[1]) || p.s[0] < 0 || p.s[1] > sp.length) err(`${name}: s ${p.s[0]}–${p.s[1]} m isn't a stretch of ${sp === track.main ? 'the main road' : sp.id} (0–${sp.length.toFixed(0)})`, sp.id, p.s[0]);
     if (p.under && sp !== track.main) err(`${name}: "under" shapes the ground under the main road only, for now`, sp.id, p.s[0]);
     if (p.ceiling !== undefined && (p.floor === false || !(p.ceiling > 0))) err(`${name}: a ceiling needs a floor under it, and a height over it`, sp.id, p.s[0]);
+    if (p.indoor !== undefined && p.ceiling === undefined) err(`${name}: "indoor" is how an enclosed piece is lit inside, and it has no ceiling`, sp.id, p.s[0]);
     // On the main road the ground is the road's, so a gap or a tunnel there would do nothing yet.
     if (sp === track.main && (p.floor === false || p.ceiling !== undefined)) err(`${name}: gaps and ceilings are on branches only, for now`, sp.id, p.s[0]);
     if (p.under && !(p.under.ease > 0 && p.under.reach > 0)) err(`${name}: "under" needs an ease and a reach over 0 m`, sp.id, p.s[0]);
