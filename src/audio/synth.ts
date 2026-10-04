@@ -147,3 +147,18 @@ export function toneShot(s: Shot, wave: Wave, f0: number, f1: number, attack: nu
 
 /** Semitones above A4 to Hz. */
 export const note = (semis: number): number => 440 * 2 ** (semis / 12);
+
+/**
+ * A room's echo for a ConvolverNode: stereo noise dying away over `seconds`, `decay` times faster
+ * than linear toward the end (a tunnel's hard rock rings, then it's gone). Made once; the noise is
+ * the local kind (sound is never in the sim).
+ */
+export function roomImpulse(ctx: BaseAudioContext, seconds: number, decay: number): AudioBuffer {
+  const n = Math.round(ctx.sampleRate * seconds);
+  const buf = ctx.createBuffer(2, n, ctx.sampleRate);
+  for (let ch = 0; ch < 2; ch++) {
+    const d = buf.getChannelData(ch);
+    for (let i = 0; i < n; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / n, decay);
+  }
+  return buf;
+}

@@ -362,7 +362,7 @@ function frame(now: number): void {
     braking[i] = i === human ? controls.brake > 0 : sim.controls[i].brake > 0;
   }
   // Silent while paused or in the editor.
-  audio.update(dt, { focus: renderer.focus, camera: renderer.camera, paused: paused || editorOpen, menu: attract });
+  audio.update(dt, { focus: renderer.focus, camera: renderer.camera, paused: paused || editorOpen, menu: attract, indoor: renderer.indoor.amount });
   if (!editorOpen) {
     renderer.paused = paused;
     // The turntable goes where the lobby leaves room for it.

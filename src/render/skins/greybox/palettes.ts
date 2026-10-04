@@ -165,3 +165,25 @@ export const PALETTES: Record<string, Palette> = {
     windows: 1.35,
   },
 };
+
+/**
+ * Inside an enclosed piece (PieceDef.indoor; docs/CALDERA.md step 3): the fog and the light the
+ * map's palette eases to as the camera goes in. The sun is mostly gone (`sun`: what share of it
+ * still reaches in, round the mouths); the sky light becomes the space's own.
+ */
+export interface IndoorLook {
+  fog: number;
+  fogNear: number;
+  fogFar: number;
+  hemiSky: number;
+  hemiGround: number;
+  hemiIntensity: number;
+  sun: number;
+}
+
+export const INDOOR: Record<string, IndoorLook> = {
+  // A road tunnel: sodium lamps overhead, a sooty haze.
+  tunnel: { fog: 0x3a3228, fogNear: 40, fogFar: 420, hemiSky: 0xffd49a, hemiGround: 0x5a4a36, hemiIntensity: 1.7, sun: 0.1 },
+  // The Lava Tube: dark rock, lit from below by the lava in its cracks, in a smoky red haze.
+  lava: { fog: 0x4a1c0c, fogNear: 30, fogFar: 380, hemiSky: 0xd6a088, hemiGround: 0xff7a2a, hemiIntensity: 2.1, sun: 0.08 },
+};

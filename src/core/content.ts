@@ -301,6 +301,11 @@ export interface PieceDef {
   /** Enclosed: a ceiling this high (m) over its floor, a tunnel's (the camera stays under it, and at its mouths the ground's drawn cut to its outline). */
   ceiling?: number;
   /**
+   * How it's lit and sounds inside, an enclosed piece's: a key of the skin's indoor looks ('lava':
+   * the Lava Tube's glow; unset, 'tunnel'). Drawing and sound only: the sim never reads it.
+   */
+  indoor?: string;
+  /**
    * The ground under it falls to `floor` (its height, m), easing in over `ease` m from each end and
    * back up over `reach` m past the piece's edges (the bay under the Freeway). The main road only,
    * for now: there the ground is the road's, so it has to be told to fall away.

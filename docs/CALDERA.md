@@ -444,7 +444,7 @@ What the engine struggles with now, and the build step that lifts it (if any):
 | One height per point of land: no overhangs, arches or caves in the ground itself | The ground is a heightfield | Step 1 (pieces over the ground) |
 | The ground, off-road surfaces and out of bounds are measured from the main road | `ground.ts` places every point by its nearest main-road sample | Steps 1d and 2 (surfaces, then features), then 6 |
 | No road network: one loop plus branches, progress by distance along the main road | Branches leave and rejoin the main road; checkpoints are main-road distances | Step 6 (the road graph) |
-| Indoors looks and sounds like outdoors | One light for everything; the camera only knows the Lava Tube | Step 3 |
+| Indoors looks and sounds like outdoors | One light for everything; the camera only knows the Lava Tube | Step 3 (3a built: indoor light, fog, echo) |
 | Nothing you drive on moves (only the avalanche, traffic and hazards do) | No moving surfaces | Step 4 |
 | Only small round props break (smashables), in rows along a road | `smash.ts` touches a radius, and a prop is hit only from its own spline | Step 3 (breakable walls, placed in world space) |
 | Big air is hard: the road lifts a car at most 8 m/s | The vertical speed cap keeps cars on the road over bumps | Tuning per feature (the jump's kicker was sized by a sweep) |
@@ -706,6 +706,17 @@ stream across a route): then the new floor is recorded, with why.
    tricky), indoor light and fog, reverb, and breakable walls (smashables grown into wall
    panels, placed in world space, staying broken or standing again as each says, their break a
    trigger online). Then a short indoor stretch on a map: a mall to cut through.
+   - **3a, indoors** (built): inside an enclosed piece the light, fog and sound change, and the
+     camera stays under the ceiling. *Built:* `PieceDef.indoor` names the look (the skin's
+     `INDOOR` table in `palettes.ts`: `tunnel` by default, `lava` for the Lava Tube); the renderer
+     eases `indoor` (0 to 1, about half a second) from `indoorAt` at the camera (the cast: enclosed,
+     over the piece's floor); the skin eases the fog and the sky light to the look's and dims the
+     sun to a sliver; the engines and effects get a room's echo (a convolver, `roomImpulse`);
+     `cameraCeiling` caps the chase camera a metre under a ceiling over the car (the tube's 7 m
+     never needed it; a mall's lower one will). Drawing and sound only: every fingerprint
+     identical. *Changed while building:* camera hints wait for a spot that needs one (the
+     tube's camera already works it out, the jump included), so the `camera` override hook waits
+     too; `tools/shot.ts` draws a still fully indoors.
 4. **Moving pieces**: a drawbridge.
 5. **A quick chase mode on Downtown as it is** (optional): the mode only (roles, busted,
    escape, a timer), with AI cops that chase along the track. A cheap playtest of whether a

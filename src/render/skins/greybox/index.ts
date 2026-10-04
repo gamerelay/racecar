@@ -15,11 +15,11 @@ import {
 import type { CarClass, PaintDef } from '../../../core/content';
 import type { Track } from '../../../core/track/bake';
 import type { Sim } from '../../../core/sim';
-import type { CarPlate, CarVisual, Grade, Skin, TrackVisual, WorldVisual } from '../../skin';
+import type { CarPlate, CarVisual, Grade, Indoor, Skin, TrackVisual, WorldVisual } from '../../skin';
 import { buildCar } from './car/build';
 import { WET } from './toon';
 import { buildWorldVisual } from './world';
-import { PALETTES, type Palette } from './palettes';
+import { INDOOR, PALETTES, type Palette } from './palettes';
 import { buildTrackVisual } from './track';
 
 const RAIN_FOG = new Color(0x3a4460);
@@ -28,6 +28,8 @@ const SNOW_FOG = new Color(0xdfe6ee);
 /** Rain cloud, for the sky. */
 const RAIN_SKY = 0x6d7488;
 const SUN_FROM: [number, number, number] = [-300, 400, -800];
+/** Scratch for the indoor look's colors. */
+const INDOOR_COLOR = new Color();
 
 export class GreyboxSkin implements Skin {
   readonly id = 'greybox';
@@ -127,7 +129,7 @@ export class GreyboxSkin implements Skin {
     return buildWorldVisual(scene, sim, track?.roof);
   }
 
-  update(time: number, x: number, y: number, z: number, wetness = 0, snow = false): void {
+  update(time: number, x: number, y: number, z: number, wetness = 0, snow = false, indoor?: Indoor): void {
     WET.value = snow ? 0 : wetness;
     if (this.skyTime) this.skyTime.value = time;
     const p = this.palette;
@@ -143,10 +145,22 @@ export class GreyboxSkin implements Skin {
       this.fog.far = p.fogFar * (1 - 0.55 * thick);
       if (snow) this.fog.color.setHex(p.fog).lerp(SNOW_FOG, wetness * 0.8);
       else this.fog.color.setHex(p.fog).lerp(RAIN_FOG, wetness * 0.6 * (0.4 + 0.6 * (p.overcast ?? 1)));
-      // What shows past the sky's reach is the fog's color, in any weather.
-      if (this.background) this.background.copy(this.fog.color);
       if (this.hemi) this.hemi.intensity = p.hemiIntensity * (1 - 0.35 * cloud);
       if (this.sun) this.sun.intensity = p.dirIntensity * (1 - 0.6 * cloud);
+      // Indoors (an enclosed piece), the space's own haze and light, eased in with the camera.
+      const k = indoor?.amount ?? 0;
+      const look = INDOOR[indoor?.look ?? ''] ?? INDOOR.tunnel;
+      this.fog.near += (look.fogNear - this.fog.near) * k;
+      this.fog.far += (look.fogFar - this.fog.far) * k;
+      this.fog.color.lerp(INDOOR_COLOR.setHex(look.fog), k);
+      if (this.hemi) {
+        this.hemi.color.setHex(p.hemiSky).lerp(INDOOR_COLOR.setHex(look.hemiSky), k);
+        this.hemi.groundColor.setHex(p.hemiGround).lerp(INDOOR_COLOR.setHex(look.hemiGround), k);
+        this.hemi.intensity += (look.hemiIntensity - this.hemi.intensity) * k;
+      }
+      if (this.sun) this.sun.intensity *= 1 - (1 - look.sun) * k;
+      // What shows past the sky's reach is the fog's color, in any weather.
+      if (this.background) this.background.copy(this.fog.color);
     }
     this.sky?.position.set(x, y, z);
     if (this.sun) {

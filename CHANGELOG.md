@@ -6,6 +6,9 @@ and where things stand is [docs/HANDOFF.md](./docs/HANDOFF.md).
 
 ## Unreleased
 
+- **Indoors feels indoors** (Caldera's step 3a): in the Lava Tube the light goes to the lava's warm
+  glow and a smoky haze, the sun's gone, and your engine rings off the rock. It eases in at the
+  mouth and back out under the sky. The camera keeps under a tunnel's ceiling.
 - **Off-road surfaces fixed on the open maps:** a few patches far from any road drove as the road
   (the lava stream's rock as the jungle's red earth, bits of Avalanche's snow as asphalt); now
   they drive as what they are. Off the Lava Tube on the volcano's flank is ash, not beach.

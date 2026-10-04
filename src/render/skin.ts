@@ -71,8 +71,14 @@ export interface Skin {
   car(cls: CarClass, paint: PaintDef, plate?: CarPlate): CarVisual;
   /** `track` is this track's visual, for what it covers (rain stops under a roof). */
   world(scene: Scene, sim: Sim, track?: TrackVisual): WorldVisual;
-  /** Per frame, for animated skies and the like; `snow`: what's falling (wetness of it) is snow. */
-  update?(time: number, cameraX: number, cameraY: number, cameraZ: number, wetness: number, snow?: boolean): void;
+  /** Per frame, for animated skies and the like; `snow`: what's falling (wetness of it) is snow; `indoor`: how far inside an enclosed piece the camera is, for the light and fog. */
+  update?(time: number, cameraX: number, cameraY: number, cameraZ: number, wetness: number, snow?: boolean, indoor?: Indoor): void;
+}
+
+/** How indoors the camera is (docs/CALDERA.md, step 3): 0 under the sky to 1 inside, eased, and the enclosed piece's look (PieceDef.indoor). */
+export interface Indoor {
+  amount: number;
+  look: string;
 }
 
 /** A map's look in the post pass: saturation and contrast (1: as rendered), a tint multiplied into the shadows, and the vignette's strength (0.5 by default). */

@@ -73,6 +73,9 @@ export class FakeAudioContext {
   createBiquadFilter() {
     return new FakeNode('filter');
   }
+  createConvolver() {
+    return new FakeNode('convolver');
+  }
   createDynamicsCompressor() {
     return new FakeNode('compressor');
   }

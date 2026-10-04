@@ -5,7 +5,7 @@
 // The coupe (0.65 m half height, 2.15 m half length) is the base.
 
 import type { Vec3 } from '../core/content';
-import { DECK_CATCH, newCast, type Ground } from '../core/track/ground';
+import { DECK_CATCH, newCast, type Ground, type Piece } from '../core/track/ground';
 
 export interface ChaseOffset {
   /** Meters behind the car's center, and above its base. */
@@ -105,6 +105,31 @@ const UNDER_CEILING = 1;
 export function cameraFloor(g: Ground, x: number, y: number, z: number): number {
   const c = g.cast(x, y, z, CAST);
   return y < c.ceiling - UNDER_CEILING ? c.over : c.floor;
+}
+
+/**
+ * The highest the chase camera may sit over (x, z) for a car at `carY`: under the ceiling of an
+ * enclosed piece the car's in there, by UNDER_CEILING; else no limit. (Lifted for a slope ahead, it
+ * would otherwise rise into a low roof and clearView would then pull it in to the car.)
+ */
+export function cameraCeiling(g: Ground, x: number, carY: number, z: number): number {
+  const c = g.cast(x, carY + 1, z, CAST);
+  return c.space === 'enclosed' && c.ground > carY + 1 ? c.ceiling - UNDER_CEILING : Infinity;
+}
+
+/**
+ * The enclosed piece the camera at (x, y, z) is inside (over its floor, under its ceiling, with the
+ * rock over it), or null: what's lit and heard as indoors. (An enclosed piece runs on out over the
+ * open shaft as a bridge, under the sky: that's outdoors.)
+ */
+export function indoorAt(g: Ground, x: number, y: number, z: number): Piece | null {
+  const c = g.cast(x, y, z, CAST);
+  return c.space === 'enclosed' && c.piece >= 0 && c.ground > y ? g.pieces.list[c.piece] : null;
+}
+
+/** Whether (x, y, z) is in the rock: under the ground and in no piece (the wreck camera's orbit, out through a tube's wall). */
+export function inRock(g: Ground, x: number, y: number, z: number): boolean {
+  return g.cast(x, y, z, CAST).space === 'rock';
 }
 
 /** On open ground the camera stays this far above the snow under it (behind a car on a steep pitch, it would be in the slope). */
