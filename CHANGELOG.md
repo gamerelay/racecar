@@ -4,7 +4,9 @@ What changed in each release of racecar, newest first. Releases are git tags on 
 reasons behind each change are in [docs/SPEC.md](./docs/SPEC.md) under "Changed while building",
 and where things stand is [docs/HANDOFF.md](./docs/HANDOFF.md).
 
-## Unreleased
+## alpha-1.31: Paradise Open, the Caldera engine and the market hall
+
+PRs #78–#105.
 
 - **A new track, *Coastal*** (the owner's), for the island: Paradise plays it, and Paradise Open
   now plays the island's own three (*Paradise*, *Hawaiian Vibes*, *Coastal*) as well as the ones

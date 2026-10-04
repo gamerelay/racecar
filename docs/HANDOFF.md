@@ -4,14 +4,12 @@ Where racecar stands and what's next, for whoever picks it up (a person or a fre
 The design is [SPEC.md](./SPEC.md): decisions in §17, and what building changed in "Changed while
 building". This file is "where are we"; the spec is "what are we making".
 
-**Last updated:** 2026-10-03 (Paradise Open merged in #81, untagged; the plan for the engine,
-[CALDERA.md](./CALDERA.md), merged in #82; steps 0 and 0b merged in #83 and #84; 1a, 1b and 1c in
-PRs #85, #86 and #87, merged; 1d merged in #88; 2a and 2b (feature modules) in #89 and #90; the
-jungle's uneven mud in #91 and #92; 2c, overrides, in #93 and 2d, the lava stream, in #94, its
-review's fixes in #95; off-road surfaces in #96; step 3a, indoors, in #97; 3b, breakable walls,
-in #98; the berm out of the Lava Tube in #100; four new tracks in #99; all merged, untagged and
-not deployed; a fifth track, `forward`, in #101; all five on the CDN; step 3c, the market
-hall, in #102, Paradise Open tidied in #103 and the Freeway's end seam in #104, all merged, untagged and not deployed; see "Next: Caldera" below). Before that, `alpha-1.30`: Avalanche's snow and rumble quieter. The last tag is **`alpha-1.30`** (PR #77: the snow under the wheels and the avalanche's rumble about 4.5 dB down, the owner's ask). Before it, **`alpha-1.29`** (PRs #71–#74): **Avalanche**, the first open map, one 6.1 km run down a mountain (#74), and the Leap's kicker rounded and launchable from its sides (#71, #72), and PLAN's "Open, freeform maps" direction (#73).
+**Last updated:** 2026-10-03. The last tag is **`alpha-1.31`** (PRs #78–#105), on the hosted
+build: Paradise Open (#81), the engine's plan, [CALDERA.md](./CALDERA.md) (#82), and its steps 0
+to 3c (#83–#98, #102): the fingerprints and tools, the sim's own math, pieces, portals, feature
+modules, overrides, the lava stream, off-road surfaces, indoors, breakable walls and buildings
+(the market hall); the berm out of the Lava Tube (#100), Paradise Open tidied (#103, #104), and
+six new tracks (#99, #101, #105), all on the CDN. See "Next: Caldera" below. Before it, `alpha-1.30` (PR #77: the snow under the wheels and the avalanche's rumble about 4.5 dB down, the owner's ask). Before it, **`alpha-1.29`** (PRs #71–#74): **Avalanche**, the first open map, one 6.1 km run down a mountain (#74), and the Leap's kicker rounded and launchable from its sides (#71, #72), and PLAN's "Open, freeform maps" direction (#73).
 Before it, `alpha-1.28` (PRs #67–#70: a press flash and a click on the menus' buttons; the title's
 music from the start; Logger's Leap smoothed and bermed), `alpha-1.27` (PRs #63–#65), `alpha-1.26`
 (PR #62: two new tracks), `alpha-1.25` (PR #61: boost, Overdrive, the slipstream) and `alpha-1.24`
@@ -171,8 +169,9 @@ WAV levelled to −15.8/−15.9 LUFS (ffmpeg's `ebur128`) and encoded with `afco
 128000`. All five are published to https://cdn.gamerelay.io/racecar/music/ (`tools/publish-assets.ts`,
 checked: 200 with CORS); production plays them from the next deploy.
 
-**Not deployed:** everything since `alpha-1.30` (Paradise Open, Caldera's steps, the boards, the berm,
-the tracks) is on main only. Deploy and tag only when the owner asks.
+**Deployed:** `alpha-1.31` (2026-10-03, PRs #78–#105) is on the hosted build: Paradise Open,
+Caldera's steps, the boards, the berm, the market hall and the tracks. Deploy and tag only when the
+owner asks.
 
 **Step 3c, the market hall** (#102, merged): buildings, `PieceDef.building`, enclosed pieces
 built on the ground. Their walls are solid props on no road (`core/track/buildings.ts`), met as a
@@ -254,8 +253,8 @@ zany, and no lighthouse. The owner's answers are in it: about today's length, ex
 then replacing today's Paradise, some traffic, fresh shortcuts, the beach as open sand, one lava
 spurt a race, and the crater jump in place of the Lava Tube.
 
-**Paradise Open, where it stands (2026-10-03):** **merged** (#81, `faed2bc`, untagged: it's
-in CHANGELOG's "Unreleased"). It began as four stacked PRs (#78–#81); #78–#80 are closed and folded into
+**Paradise Open, where it stands (2026-10-03):** **merged** (#81, `faed2bc`, released in
+`alpha-1.31`). It began as four stacked PRs (#78–#81); #78–#80 are closed and folded into
 #81. Its parts, in the order they were built:
 - **The plan** (was #78): PARADISE.md and this file.
 - **Step 0** (was #79): a road over the ground (decks), the sea, the Freeway as a
@@ -616,8 +615,8 @@ the cone's far flanks.
     the track for an hour. The proxy always sends it.
   - **CORS on the Space** (GET and HEAD from any origin) stays: it lets a build read the Space's
     origin directly too, if the CDN is ever down.
-- **What's there now:** `alpha-1.30` (PR #77, quieter snow; before it `alpha-1.29`, Avalanche), updated 2026-10-02 by the owner
-  (the production database is theirs to write), with every track on the CDN. Keep it the one row: update Z442EE in place rather than adding a game.
+- **What's there now:** `alpha-1.31` (PRs #78–#105: Paradise Open, Caldera's steps 0–3c, the market hall,
+  the new tracks), updated 2026-10-03, with every track on the CDN. Keep it the one row: update Z442EE in place rather than adding a game.
 
 ## Next, in order
 
