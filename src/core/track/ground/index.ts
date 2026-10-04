@@ -31,7 +31,7 @@ export { BEACH_FADE } from '../features/beach';
 export { OUTLINE_POINTS, outlineAt } from './outline';
 export type { Feature, Hazard } from '../features';
 export { KIND_BEACH, KIND_BRANCH, KIND_LAVA_ROCK, KIND_ROAD, KIND_SAND, KIND_SHORE, KIND_VERGE, surfaceNoise } from './surface';
-export { LAVA_BANK, LAVA_FILL, lavaSource } from '../features/lava-stream';
+export { LAVA_BANK, LAVA_EDGE, LAVA_FILL, lavaSource } from '../features/lava-stream';
 
 /** A tunnel's usual ceiling over its road (m): the Lava Tube's (PieceDef.ceiling). */
 export const TUBE_H = 7;
@@ -137,7 +137,9 @@ export function buildGround(def: GroundDef, main: BakedSpline, branches: BakedSp
   const endangerers = overrides.filter((o) => o.hazard);
   const at = (gx: number, gz: number) => h[Math.min(nz - 1, Math.max(0, gz)) * nx + Math.min(nx - 1, Math.max(0, gx))];
   const scratch = newCast();
-  return {
+  // The ground's height, for a feature's hazard (one function, made once: no allocation per tick).
+  const heightAt = (x: number, z: number) => ground.height(x, z);
+  const ground: Ground = {
     x0,
     z0,
     cell,
@@ -171,8 +173,7 @@ export function buildGround(def: GroundDef, main: BakedSpline, branches: BakedSp
     },
     hazard(x, y, z, t = 0) {
       let h: Hazard = 'none';
-      const gh = hazards.length ? this.height(x, z) : 0;
-      for (let f = 0; f < hazards.length && h === 'none'; f++) h = hazards[f].hazard!(x, y, z, t, gh);
+      for (let f = 0; f < hazards.length && h === 'none'; f++) h = hazards[f].hazard!(x, y, z, t, heightAt);
       for (const o of endangerers) if (o.inside(x, z)) h = o.hazard!(h, x, y, z, t);
       return h;
     },
@@ -248,4 +249,5 @@ export function buildGround(def: GroundDef, main: BakedSpline, branches: BakedSp
       return out;
     },
   };
+  return ground;
 }

@@ -13,18 +13,25 @@ import type { Feature } from '.';
 export const LAVA_BANK = 7;
 /** How deep the lava is over its floor (m). */
 export const LAVA_FILL = 0.6;
+/** The lava reaches this far past the floor's edge (m), to meet the banks: drawn and felt. */
+export const LAVA_EDGE = 0.8;
 /** The lava's surface is this far over its level (m): a car's wheels in it are in it. */
 const LAVA_SKIN = 0.3;
 /** Past its banks, rock this much farther (m), and no trees a little farther still. */
 const ROCK_OUT = 1.5;
 const BARE_OUT = 5;
+/** How far its rock and its bare ground reach past its floor's edge (m): the validator keeps roads past it. */
+export const LAVA_REACH = LAVA_BANK + BARE_OUT;
 /** At its source it comes out of the ground over this many meters: the channel deepening, the lava widening (a vent, not a pit). */
 export const LAVA_SOURCE = 25;
 /** How far its rock's edge wanders with the surface noise (m), so it isn't stepped cell by cell. */
 const ROCK_WANDER = 3;
 
-/** The distance (m) from (x, z) to a path's nearest point, within `reach` of it, else Infinity. A box round the path first. */
-export function pathDistance(path: readonly (readonly [number, number])[], reach: number): (x: number, z: number) => number {
+/**
+ * The distance (m) from (x, z) to a path's nearest point, within `reach` of it, else Infinity (a
+ * box round the path first); within reach, that point into `near`, if given.
+ */
+export function pathDistance(path: readonly (readonly [number, number])[], reach: number, near?: { x: number; z: number }): (x: number, z: number) => number {
   let minX = Infinity;
   let minZ = Infinity;
   let maxX = -Infinity;
@@ -41,16 +48,24 @@ export function pathDistance(path: readonly (readonly [number, number])[], reach
   return (x, z) => {
     if (x < minX || x > maxX || z < minZ || z > maxZ) return Infinity;
     let best = Infinity;
+    let bx = 0;
+    let bz = 0;
     for (let k = 0; k < n - 1; k++) {
       const dx = ax[k + 1] - ax[k];
       const dz = az[k + 1] - az[k];
       const t = Math.max(0, Math.min(1, ((x - ax[k]) * dx + (z - az[k]) * dz) / (dx * dx + dz * dz || 1)));
-      const ex = ax[k] + dx * t - x;
-      const ez = az[k] + dz * t - z;
-      best = Math.min(best, ex * ex + ez * ez);
+      const px = ax[k] + dx * t;
+      const pz = az[k] + dz * t;
+      const d = (px - x) * (px - x) + (pz - z) * (pz - z);
+      if (d < best) [best, bx, bz] = [d, px, pz];
     }
     best = Math.sqrt(best);
-    return best <= reach ? best : Infinity;
+    if (best > reach) return Infinity;
+    if (near) {
+      near.x = bx;
+      near.z = bz;
+    }
+    return best;
   };
 }
 
@@ -59,7 +74,8 @@ export const lavaSource = (d: number) => smooth(0, LAVA_SOURCE, d);
 
 export function lavaStreamFeature(f: LavaStreamDef): Feature {
   const half = f.width / 2;
-  const dist = pathDistance(f.path, half + LAVA_BANK + BARE_OUT);
+  const near = { x: 0, z: 0 };
+  const dist = pathDistance(f.path, half + LAVA_REACH, near);
   const [x0, z0] = f.path[0];
   const source = (x: number, z: number) => lavaSource(hypot(x - x0, z - z0));
   return {
@@ -72,9 +88,13 @@ export function lavaStreamFeature(f: LavaStreamDef): Feature {
     surface(x, z, _h, n) {
       return dist(x, z) <= half + LAVA_BANK + ROCK_OUT + ROCK_WANDER * (n - 0.5) ? KIND_LAVA_ROCK : -1;
     },
-    hazard(x, y, z, _t, ground) {
-      // Over its floor, in the lava: not over it in the air (a jump), nor under it (a tunnel).
-      return y < ground + LAVA_FILL + LAVA_SKIN && y > ground - 3 && dist(x, z) < half * source(x, z) ? 'lava' : 'none';
+    hazard(x, y, z, _t, height) {
+      // In the lava (as drawn: level across, at the floor's height on its path): not over it in
+      // the air (a jump), nor under it (a tunnel). (The ground's own height off the path isn't
+      // the floor: the grid's 2.5 m cells round the channel's edges.)
+      if (!(dist(x, z) < (half + LAVA_EDGE) * source(x, z))) return 'none';
+      const level = height(near.x, near.z) + LAVA_FILL;
+      return y < level + LAVA_SKIN && y > level - LAVA_FILL - 3 ? 'lava' : 'none';
     },
     bare(_s, _lat, x, z) {
       return dist(x, z) !== Infinity;

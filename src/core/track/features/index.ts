@@ -64,8 +64,8 @@ export interface Feature {
    * kind, or this becomes a surface id then.)
    */
   surface?(x: number, z: number, h: number, n: number, i: number, lat: number): number;
-  /** What's dangerous at (x, y, z) at time `t` (s into the race), the ground there `ground` m high, if anything ('none' to leave it to the next). */
-  hazard?(x: number, y: number, z: number, t: number, ground: number): Hazard;
+  /** What's dangerous at (x, y, z) at time `t` (s into the race), if anything ('none' to leave it to the next); `height` is the ground's (x, z). */
+  hazard?(x: number, y: number, z: number, t: number, height: (x: number, z: number) => number): Hazard;
   /** How far it has sunk the ground `s` m along the main road and `lat` across it (m): down in a canyon, the avalanche goes over you. */
   sunk?(s: number, lat: number): number;
   /** Whether no tree grows `s` m along the main road and `lat` across it, at (x, z) (a canyon and its mouth, a mogul field, a lava stream). */

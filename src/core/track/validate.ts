@@ -7,7 +7,7 @@ import { SMASH_IDS } from '../world/smash';
 import { bakeTrack, sampleIndex, wrap } from './bake';
 import { OVERRIDES } from '../maps';
 import { regionProblem, respawnProblem, type OverrideCode } from './overrides';
-import { LAVA_BANK, pathDistance } from './features/lava-stream';
+import { LAVA_REACH, pathDistance } from './features/lava-stream';
 import { atan2, hypot } from '../math';
 
 export interface Problem {
@@ -50,18 +50,18 @@ export function validateLayout(layout: TrackLayout, surfaces: SurfaceDef[], clas
   const track = bakeTrack(layout, surfaces, code);
   const L = track.main.length;
 
-  // A lava stream (features/lava-stream.ts) is off the roads: its banks clear of every road's
-  // shoulder. (Where one crosses a road, a bridge over it is a piece: not built yet.)
+  // A lava stream (features/lava-stream.ts) is off the roads: its rock and bare ground clear of
+  // every road's shoulder. (Where one crosses a road, a bridge over it is a piece: not built yet.)
   for (const f of layout.ground?.features ?? []) {
     if (f.kind !== 'lava-stream') continue;
     if (f.path.length < 2 || !(f.width > 0) || !(f.depth > 0)) {
       err('a lava stream needs a path of 2 points or more, a width and a depth');
       continue;
     }
-    const dist = pathDistance(f.path, f.width / 2 + LAVA_BANK + 60);
+    const dist = pathDistance(f.path, f.width / 2 + LAVA_REACH + 60);
     for (const sp of track.splines) {
       for (let i = 0; i < sp.n; i++) {
-        if (dist(sp.px[i], sp.pz[i]) - sp.width[i] / 2 - sp.shoulder[i] >= f.width / 2 + LAVA_BANK) continue;
+        if (dist(sp.px[i], sp.pz[i]) - sp.width[i] / 2 - sp.shoulder[i] >= f.width / 2 + LAVA_REACH) continue;
         err(`a lava stream crosses or touches the road (bridges over one aren't built yet)`, sp.id, i * sp.step);
         break;
       }

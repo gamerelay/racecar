@@ -108,17 +108,20 @@ export function place(sim: Sim, i: number, spot: Spot, kmh = 0): void {
   }
   sim.placeCar(i, spline, s, lateral, 0);
   const c = sim.cars;
-  // At the point itself: far off a road its place along it doesn't map back exactly.
-  if (spot.x !== undefined && spot.z !== undefined) {
-    c.x[i] = spot.x;
-    c.z[i] = spot.z;
+  const at = spot.x !== undefined && spot.z !== undefined;
+  // At the point itself, on what a car dropped there lands on (as probe's): far off a road its
+  // place along the road doesn't map back exactly, nor its height.
+  if (at) {
+    c.x[i] = spot.x!;
+    c.z[i] = spot.z!;
   }
-  // Past the road and its shoulder (where placeCar left it, at the road's height), it goes on
+  // By a road, past it and its shoulder (where placeCar left it, at the road's height), it goes on
   // whatever's under it near that height: not the volcano over a tunnel, nor a bridge over it.
   const sp = track.splines[spline];
   const k = Math.min(sp.n - 1, Math.max(0, Math.round(c.s[i] / sp.step)));
   const onRoad = Math.abs(lateral) <= sp.width[k] / 2 + sp.shoulder[k];
   if (spot.y !== undefined) c.y[i] = spot.y;
+  else if (track.ground && at) c.y[i] = track.ground.top(c.x[i], c.z[i]);
   else if (track.ground && !onRoad) c.y[i] = track.ground.top(c.x[i], c.z[i], c.y[i] + 0.5);
   if (spot.reverse) c.h[i] += Math.PI;
   if (spot.heading !== undefined) c.h[i] = (spot.heading * Math.PI) / 180;

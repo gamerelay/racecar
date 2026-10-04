@@ -323,7 +323,8 @@ layout.pieces = [
 ];
 
 
-// The lava stream keeps clear of every road (the validator checks the same, at its edge).
+// The lava stream keeps clear of every road: its path LAVA_CLEAR m from every road's edge (the
+// validator wants less: its rock and bare ground, LAVA_REACH m past its floor, off every shoulder).
 {
   const roads = bakeTrack(layout, surfaces).splines;
   const stream = layout.ground!.features!.find((f) => f.kind === 'lava-stream')!;
