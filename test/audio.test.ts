@@ -71,12 +71,12 @@ describe('audio model', () => {
 });
 
 describe('the soundtrack', () => {
-  test("the title's tracks behind the menus; in a race the map's own and the four for any map; a file for every one", () => {
+  test("the title's tracks behind the menus; in a race the map's own and the six for any map; a file for every one", () => {
     expect(playlistFor('downtown', true)).toEqual(['title', 'pursuit-orchestra']);
     expect(playlistFor('backroads', false)).toEqual(['backroads', 'backroads-acoustic', ...ANY_MAP]);
-    // A map with its own has them first (named after it), and every track is someone's. Avalanche
-    // races to the four for any map (the owner, 2026-10-02).
-    for (const m of MAPS) expect(playlistFor(m.id, false)).toEqual(m.id === 'avalanche' ? [...ANY_MAP] : [m.id as (typeof TRACKS)[number], ...MAP_TRACKS[m.id]!.slice(1), ...ANY_MAP]);
+    // A map with its own has them first (named after it), and every track is someone's.
+    for (const m of MAPS) expect(playlistFor(m.id, false)).toEqual([m.id as (typeof TRACKS)[number], ...MAP_TRACKS[m.id]!.slice(1), ...ANY_MAP]);
+    expect(playlistFor('avalanche', false)).toEqual(['avalanche', 'winter-pursuit', ...ANY_MAP]);
     expect(playlistFor('downtown', false)).toEqual(['downtown', 'tokyo-dubstep', ...ANY_MAP]);
     expect(playlistFor('paradise', false)).toEqual(['paradise', 'hawaiian-vibes', ...ANY_MAP]);
     expect(new Set([...TITLE_TRACKS, ...Object.values(MAP_TRACKS).flat(), ...ANY_MAP])).toEqual(new Set(TRACKS));
@@ -89,7 +89,8 @@ describe('the soundtrack', () => {
     const list = playlistFor('paradise', false);
     for (const last of list) for (const r of [0, 0.34, 0.67, 0.999]) expect(pickTrack(list, last, () => r)).not.toBe(last);
     // Every other track comes up.
-    expect(new Set([0, 0.2, 0.4, 0.6, 0.99].map((r) => pickTrack(list, 'paradise', () => r)))).toEqual(new Set(['hawaiian-vibes', ...ANY_MAP]));
+    const others = list.length - 1;
+    expect(new Set(Array.from({ length: others }, (_, k) => pickTrack(list, 'paradise', () => (k + 0.5) / others)))).toEqual(new Set(['hawaiian-vibes', ...ANY_MAP]));
     // A playlist of one (the title's) is that one.
     expect(pickTrack(['title'], 'title')).toBe('title');
   });

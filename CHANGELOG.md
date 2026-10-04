@@ -6,6 +6,8 @@ and where things stand is [docs/HANDOFF.md](./docs/HANDOFF.md).
 
 ## Unreleased
 
+- **Four new tracks** (the owner's): Avalanche gets two of its own, *Avalanche* and *Winter
+  Pursuit*, and any race can now play *Propulsion* and *Escape* too.
 - **Indoors feels indoors** (Caldera's step 3a): in the Lava Tube the light goes to the lava's warm
   glow and a smoky haze, the sun's gone, and your engine rings off the rock. It eases in at the
   mouth and back out under the sky. The camera keeps under a tunnel's ceiling.

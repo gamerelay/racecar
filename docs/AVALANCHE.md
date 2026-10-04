@@ -905,8 +905,8 @@ The sketches as they were:
       (worth a look once it's in the lobby), then taking `experimental: true` off.
     - **Done (2026-10-02, the owner):**
       - `experimental` is off. The tests that list the maps now include it.
-      - The music: it races to the four tracks for any map, the generic ones; it has none of its
-        own. (The old synth the owner heard was a test tab's `&music=0`, not the map.)
+      - The music: two tracks of its own since 2026-10-03 (`avalanche` and `winter-pursuit`, the
+        owner's), with the six for any map. (The old synth the owner heard was a test tab's `&music=0`, not the map.)
       - A race from a lobby-style link starts clean.
 
 ### Later
