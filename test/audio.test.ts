@@ -78,7 +78,9 @@ describe('the soundtrack', () => {
     for (const m of MAPS) expect(playlistFor(m.id, false)).toEqual([m.id as (typeof TRACKS)[number], ...MAP_TRACKS[m.id]!.slice(1), ...ANY_MAP]);
     expect(playlistFor('avalanche', false)).toEqual(['avalanche', 'winter-pursuit', ...ANY_MAP]);
     expect(playlistFor('downtown', false)).toEqual(['downtown', 'tokyo-dubstep', ...ANY_MAP]);
-    expect(playlistFor('paradise', false)).toEqual(['paradise', 'hawaiian-vibes', ...ANY_MAP]);
+    expect(playlistFor('paradise', false)).toEqual(['paradise', 'hawaiian-vibes', 'coastal', ...ANY_MAP]);
+    // Paradise Open is the island too: the island's own.
+    expect(playlistFor('paradise-open', false)).toEqual(['paradise', 'hawaiian-vibes', 'coastal', ...ANY_MAP]);
     expect(new Set([...TITLE_TRACKS, ...Object.values(MAP_TRACKS).flat(), ...ANY_MAP])).toEqual(new Set(TRACKS));
     expect(playlistFor('volcano', false)).toEqual([...ANY_MAP]);
     expect(playlistFor('constructor', false)).toEqual([...ANY_MAP]);
@@ -90,7 +92,7 @@ describe('the soundtrack', () => {
     for (const last of list) for (const r of [0, 0.34, 0.67, 0.999]) expect(pickTrack(list, last, () => r)).not.toBe(last);
     // Every other track comes up.
     const others = list.length - 1;
-    expect(new Set(Array.from({ length: others }, (_, k) => pickTrack(list, 'paradise', () => (k + 0.5) / others)))).toEqual(new Set(['hawaiian-vibes', ...ANY_MAP]));
+    expect(new Set(Array.from({ length: others }, (_, k) => pickTrack(list, 'paradise', () => (k + 0.5) / others)))).toEqual(new Set(['hawaiian-vibes', 'coastal', ...ANY_MAP]));
     // A playlist of one (the title's) is that one.
     expect(pickTrack(['title'], 'title')).toBe('title');
   });

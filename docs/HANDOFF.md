@@ -165,7 +165,8 @@ line. The owner may want it toned down after driving it (no air boost from it, o
 PARADISE.md has the numbers.
 
 **New tracks** (the owner's, 2026-10-03): `avalanche` and `winter-pursuit` are Avalanche's own,
-`propulsion` and `escape` go anywhere (#99, merged), and `forward` too (#101, merged). Each
+`propulsion` and `escape` go anywhere (#99, merged), and `forward` too (#101, merged); `coastal` is the island's (Paradise and Paradise Open,
+which now has the island's three; in its own PR, not yet on the CDN). Each
 WAV levelled to −15.8/−15.9 LUFS (ffmpeg's `ebur128`) and encoded with `afconvert -f m4af -d aac -b
 128000`. All five are published to https://cdn.gamerelay.io/racecar/music/ (`tools/publish-assets.ts`,
 checked: 200 with CORS); production plays them from the next deploy.

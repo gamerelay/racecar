@@ -6,6 +6,9 @@ and where things stand is [docs/HANDOFF.md](./docs/HANDOFF.md).
 
 ## Unreleased
 
+- **A new track, *Coastal*** (the owner's), for the island: Paradise plays it, and Paradise Open
+  now plays the island's own three (*Paradise*, *Hawaiian Vibes*, *Coastal*) as well as the ones
+  for any map.
 - **Paradise Open, tidied after a drive** (the owner's notes):
   - The road round the volcano has edge lines and a centre line now. Its dark rock was hard to
     read against the ash beside it. Every paved stretch of the island has them.
