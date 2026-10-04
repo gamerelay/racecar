@@ -6,6 +6,10 @@ and where things stand is [docs/HANDOFF.md](./docs/HANDOFF.md).
 
 ## Unreleased
 
+- **A berm out of the Lava Tube** (the owner's idea): the left-hander at the top of the rim, where
+  the tube rejoins the road, is banked hard into itself. Going round, it's a berm to lean on.
+  Coming out of the volcano, the tube's road climbs to its high outside edge, and you fly across
+  the turn (about a second in the air) and land on the road below.
 - **The Lava Tube is boarded up** (Caldera's step 3b, breakable walls): a barricade of planks
   across its mouth. Hit it at speed (from about 43 km/h) and the boards in your way burst; the
   hole stays open for the race. Slower, it's a wall. Online, everyone sees who broke what.
