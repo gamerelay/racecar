@@ -20,11 +20,18 @@ const tube = track.splines.find((s) => s.id === 'lava-tube')!;
 const boards = open.breakables!.find((b) => b.id === 'lava-tube-boards')!;
 
 /** A coupe on the tube `s` m along, `lat` across, at `kmh`, held at `throttle` for `seconds`: its sim. */
-function run(kmh: number, throttle: number, seconds: number, opts: { lat?: number; s?: number; layout?: typeof open; cls?: string } = {}) {
+function run(kmh: number, throttle: number, seconds: number, opts: { lat?: number; s?: number; layout?: typeof open; cls?: string; turn?: number } = {}) {
   const t = opts.layout ? bakeTrack(opts.layout, SURFACES) : track;
   const sim = new Sim(t, CLASSES, SURFACES, { seed: 1, traffic: 0, mayhem: 'off' });
   const c = sim.addCar({ cls: opts.cls ?? 'coupe', human: true });
   sim.placeCar(c, tube.index, opts.s ?? 50, opts.lat ?? 0, kmh / 3.6);
+  if (opts.turn) {
+    // Angled to the road (and so to the wall), going the way it points.
+    const v = Math.hypot(sim.cars.vx[c], sim.cars.vz[c]);
+    sim.cars.h[c] += opts.turn;
+    sim.cars.vx[c] = Math.sin(sim.cars.h[c]) * v;
+    sim.cars.vz[c] = Math.cos(sim.cars.h[c]) * v;
+  }
   const breaks: number[] = [];
   let cursor = sim.events.head;
   for (let k = 0; k < 60 * seconds; k++) {
@@ -78,6 +85,25 @@ describe('breakable walls', () => {
       const r = run(46, 0, 2.5, { lat, s: 55 });
       expect([lat, r.down.length]).toEqual([lat, 2]);
       expect(r.sim.cars.s[r.c]).toBeGreaterThan(70);
+    }
+  });
+
+  test('angled into a seam just over its speed, a car breaks a hole its width at once and goes on (its nose met the second panel a tick later, slowed, and bounced)', () => {
+    for (const lat of [-2.5, 0, 2.5])
+      for (const turn of [-0.2, -0.1, 0.1, 0.2]) {
+        const r = run(46, 0, 2.5, { lat, s: 55, turn });
+        expect([lat, turn, r.down.length >= 2, r.sim.cars.s[r.c] > 68]).toEqual([lat, turn, true, true]);
+      }
+  });
+
+  test("a fast car into a wall that takes more than it has is stopped, however deep it gets in a tick", () => {
+    // 200 km/h is 0.93 m a tick, past a panel's thickness and more: into a wall that breaks at
+    // 250 km/h, it bounces off.
+    const strong = { ...open, breakables: [{ ...boards, breaks: 250 / 3.6 }] };
+    // (From a few starts a fraction of a tick apart: how deep it gets in its first tick hangs on it.)
+    for (const s of [50, 50.3, 50.6, 50.9]) {
+      const r = run(200, 0, 1.5, { layout: strong, s });
+      expect([s, r.down, r.sim.cars.s[r.c] < 64]).toEqual([s, [], true]);
     }
   });
 
