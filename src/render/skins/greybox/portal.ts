@@ -23,6 +23,13 @@ const NEAR = 0.6;
 const SUB = 4;
 /** Bisection steps for a cut point (a 2.5 m cell split in four: about a millimetre). */
 const BISECT = 10;
+/**
+ * A clipped triangle with a side through the outline is split again, up to this many times: up a
+ * sheer face (Coastal's Rock Tunnel, 30 m up in a cell) one ran from under the road to over the
+ * ceiling, across the mouth. Through it is this far (m) inside it, past a chord's sag on its curve.
+ */
+const THROUGH = 0.05;
+const SPLITS = 6;
 
 /** How far each way along the tube a mouth's arch reaches (tube.ts): past a tube's open end the cut goes on this far, inside it. */
 export const ARCH_DEPTH = 1.5;
@@ -230,11 +237,7 @@ export function buildPortals(track: Track): Portals | null {
     for (let a = 0; a < VERTEX; a++) verts.push(v[a]);
     return verts.length / VERTEX - 1;
   };
-  const small = (p: number[], fp: number, q: number[], fq: number, r: number[], fr: number, verts: number[], tris: number[]) => {
-    if (fp >= 0 && fq >= 0 && fr >= 0) {
-      tris.push(push(verts, p), push(verts, q), push(verts, r));
-      return;
-    }
+  const small = (p: number[], fp: number, q: number[], fq: number, r: number[], fr: number, verts: number[], tris: number[], depth = 0) => {
     if (fp < 0 && fq < 0 && fr < 0) return;
     // Sutherland–Hodgman against the outside of the outline.
     const poly: number[][] = [];
@@ -249,6 +252,24 @@ export function buildPortals(track: Track): Portals | null {
       if (fu >= 0) poly.push(u);
       if (fu >= 0 !== fv >= 0) poly.push(cross(u, fu, v, fv));
     }
+    // What's kept must be outside all over: a side of it through the outline (up a sheer face, from
+    // under the road to over the ceiling, between its corners or its two cut points) and it's split
+    // in four by its sides' middles, again.
+    // (Not where a corner's past the arch's outer face, where the cut stops: no further in to find.)
+    if (depth < SPLITS && fp !== Infinity && fq !== Infinity && fr !== Infinity)
+      for (let s = 0; s < poly.length; s++) {
+        const m = mix(poly[s], poly[(s + 1) % poly.length], 0.5);
+        if (dist(m[0], m[1], m[2]) >= -THROUGH) continue;
+        const pq = mix(p, q, 0.5);
+        const qr = mix(q, r, 0.5);
+        const rp = mix(r, p, 0.5);
+        const [fpq, fqr, frp] = [dist(pq[0], pq[1], pq[2]), dist(qr[0], qr[1], qr[2]), dist(rp[0], rp[1], rp[2])];
+        small(p, fp, pq, fpq, rp, frp, verts, tris, depth + 1);
+        small(pq, fpq, q, fq, qr, fqr, verts, tris, depth + 1);
+        small(rp, frp, qr, fqr, r, fr, verts, tris, depth + 1);
+        small(pq, fpq, qr, fqr, rp, frp, verts, tris, depth + 1);
+        return;
+      }
     const first = push(verts, poly[0]);
     let prev = push(verts, poly[1]);
     for (let s = 2; s < poly.length; s++) {

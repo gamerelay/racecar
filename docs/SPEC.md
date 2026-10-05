@@ -1685,7 +1685,8 @@ The soundtrack (owner's tracks, 2026-10-01 and 10-02):
   (`pursuit-orchestra`, `TITLE_TRACKS`) and Backroads one of its own (`backroads-acoustic`), both
   2026-10-02 and at −15.8 LUFS. Four more, 2026-10-03 (the owner's): Avalanche's own
   (`avalanche`, `winter-pursuit`: `MAP_TRACKS`, it had none) and the fifth and sixth for any map
-  (`propulsion`, `escape`, and a seventh, `forward`, the same day), their WAVs 0.1 to 3 dB down to −15.8 to −15.9 LUFS; the menus remember their last track apart from the races
+  (`propulsion`, `escape`, and a seventh, `forward`, the same day), their WAVs 0.1 to 3 dB down to −15.8 to −15.9 LUFS; an eighth, `crashout`
+  (2026-10-05, the owner's), its WAV 1.7 dB down from −14.2 to −16.0 LUFS; the menus remember their last track apart from the races
   (`racecar.lastTitleTrack`), so neither starts on the one it played last. Never the same song twice in a row: a race starts on one the
   last race didn't play (`racecar.lastTrack` on the device), and when a track ends another one
   follows. The title's track isn't muffled behind the menu (the synth was, under the attract race).

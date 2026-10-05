@@ -1,16 +1,16 @@
 // The recorded soundtrack: the title's tracks behind the menus, and in a race a playlist of the
-// map's own tracks and the seven that go anywhere, so the same song never plays twice in a row (from
+// map's own tracks and the eight that go anywhere, so the same song never plays twice in a row (from
 // one race to the next either). A streamed <audio> element played through the music bus (so N, M,
 // the slow-mo duck and the level all apply to it). A track that can't load (not hosted where the
 // page is, say) falls back to the synth music (music.ts), the same as before there were tracks.
 
-/** The tracks, by name: the title's, each map's own, and the seven any race may play. */
-export const TRACKS = ['title', 'pursuit-orchestra', 'downtown', 'tokyo-dubstep', 'backroads', 'backroads-acoustic', 'paradise', 'hawaiian-vibes', 'coastal', 'avalanche', 'winter-pursuit', 'finish-line', 'final-sprint', 'relentless-pursuit', 'half-time-surge', 'propulsion', 'escape', 'forward'] as const;
+/** The tracks, by name: the title's, each map's own, and the eight any race may play. */
+export const TRACKS = ['title', 'pursuit-orchestra', 'downtown', 'tokyo-dubstep', 'backroads', 'backroads-acoustic', 'paradise', 'hawaiian-vibes', 'coastal', 'avalanche', 'winter-pursuit', 'finish-line', 'final-sprint', 'relentless-pursuit', 'half-time-surge', 'propulsion', 'escape', 'forward', 'crashout'] as const;
 export type TrackName = (typeof TRACKS)[number];
 /** Behind the menus (the attract page): the title's own, and the orchestral one (the owner's, 2026-10-02). */
 export const TITLE_TRACKS: readonly TrackName[] = ['title', 'pursuit-orchestra'];
-/** Tracks for any map's race (`relentless-pursuit` and `half-time-surge`, the owner's, 2026-10-02; `propulsion`, `escape` and `forward`, 2026-10-03). */
-export const ANY_MAP: readonly TrackName[] = ['finish-line', 'final-sprint', 'relentless-pursuit', 'half-time-surge', 'propulsion', 'escape', 'forward'];
+/** Tracks for any map's race (`relentless-pursuit` and `half-time-surge`, the owner's, 2026-10-02; `propulsion`, `escape` and `forward`, 2026-10-03; `crashout`, 2026-10-05). */
+export const ANY_MAP: readonly TrackName[] = ['finish-line', 'final-sprint', 'relentless-pursuit', 'half-time-surge', 'propulsion', 'escape', 'forward', 'crashout'];
 /**
  * Each map's own tracks: the city has the Tokyo dubstep too, the island the Hawaiian one (2026-10-01)
  * and the coastal one (2026-10-03), the valley an acoustic one (2026-10-02), the mountain its two
@@ -26,7 +26,7 @@ export const MAP_TRACKS: Readonly<Record<string, readonly TrackName[]>> = {
   coastal: ['coastal'],
 };
 
-/** The page's playlist: the title's behind the menus (attract mode), else the map's own and the seven for any map. */
+/** The page's playlist: the title's behind the menus (attract mode), else the map's own and the eight for any map. */
 export function playlistFor(mapId: string, attract: boolean): TrackName[] {
   if (attract) return [...TITLE_TRACKS];
   return [...(Object.hasOwn(MAP_TRACKS, mapId) ? MAP_TRACKS[mapId] : []), ...ANY_MAP];

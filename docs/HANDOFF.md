@@ -5,9 +5,10 @@ The design is [SPEC.md](./SPEC.md): decisions in §17, and what building changed
 building". This file is "where are we"; the spec is "what are we making".
 
 **Last updated:** 2026-10-05. Since the tag, all merged: the engine's review fixes (#107), and a new
-experimental map, **Coastal** (#106–#115: its plan and lap, the drawbridge, the lap reworked, the
-Basin Road, traffic from side streets, the Rock Tunnel, rock rails and the Riviera town; see "Next:
-Coastal" below). Open: the sea wall along the waterfront (#117, on top of this file's #116). The last tag is **`alpha-1.31`** (PRs #78–#105), on the hosted
+experimental map, **Coastal** (#106–#117: its plan and lap, the drawbridge, the lap reworked, the
+Basin Road, traffic from side streets, the Rock Tunnel, rock rails, the Riviera town and the sea
+wall; see "Next: Coastal" below). Open: a clean-up pass (#118: the Rock Tunnel's mouth cleared, an
+eighth track for any map, `crashout`). The last tag is **`alpha-1.31`** (PRs #78–#105), on the hosted
 build: Paradise Open (#81), the engine's plan, [CALDERA.md](./CALDERA.md) (#82), and its steps 0
 to 3c (#83–#98, #102): the fingerprints and tools, the sim's own math, pieces, portals, feature
 modules, overrides, the lava stream, off-road surfaces, indoors, breakable walls and buildings
@@ -198,7 +199,7 @@ harbour town on a headland, the Riviera in feel (Villefranche-sur-Mer, the owner
 skies and a rare shower, the `coastal` track. Open it with `?mode=free&map=coastal/riviera`;
 `tools/gen-coastal.ts` writes it.
 
-**What's built** (merged, #106–#115; the sea wall open, #117):
+**What's built** (merged, #106–#117):
 - **The lap** (#108, reworked in #110 after the owner drove it): 5.0 km. The Quay and the Harbour
   Bridge, the Old Town's climb, the Mountain Road's five S-bends up to 130 m, the Descent's five
   long switchback rows down the mountainside over the sea, the Corniche, the Lighthouse Point
@@ -223,7 +224,7 @@ skies and a rare shower, the `coastal` track. Open it with `?mode=free&map=coast
   with shutters and terracotta roofs; trees keep off them, the validator keeps roads clear). 295
   of them terraced up the hill from a four-lane boulevard (the home straight, 20 m) and along the
   Old Town (467 since #117: see the sea wall).
-- **The sea wall** (#117, open; COASTAL's step 6b, the owner with the Villefranche photo: water on
+- **The sea wall** (#117; COASTAL's step 6b, the owner with the Villefranche photo: water on
   the right, not a beach, with a retaining wall): a `seawall` ground feature
   (`core/track/features/seawall.ts`). The ground keeps its height to a quay's edge 3.75 m past the
   verge (a grid cell's diagonal: dropping at the verge sagged the shoulder up to 5 m), then drops
