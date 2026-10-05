@@ -1,7 +1,7 @@
 // Game audio (SPEC §13): the focus car's engine, tyres, gravel, snow, wind, boost and an avalanche's
 // rumble as continuous voices; the three nearest rivals' engines, panned and Doppler-shifted;
 // one-shots from sim events (hits, wrecks, landings, boost, chimes, near-miss horns, hazard alerts,
-// the countdown); and the music:
+// the countdown); a drawbridge's bells; and the music:
 // the recorded soundtrack (soundtrack.ts), or the synth (music.ts) where there's no track. The rest
 // is synthesized (synth.ts). All presentation: it reads the sim and never writes to it.
 //
@@ -14,6 +14,7 @@ import { Vector3, type PerspectiveCamera } from 'three';
 import { clamp, damp } from '../core/math';
 import { Cause, Ev, type GameEvent } from '../core/events';
 import type { Sim } from '../core/sim';
+import { newHit, sampleAt } from '../core/track/query';
 import { panelLook } from '../core/world/breakables';
 import { doppler, engineHz, engineSound, gearbox, musicMix, spatial, type Gear, type Spatial } from './model';
 import { Music, type Intensity } from './music';
@@ -21,6 +22,10 @@ import type { Soundtrack } from './soundtrack';
 import { EngineVoice, glide, NoiseVoice, noiseShot, note, Out, roomImpulse, toneShot, type Shot } from './synth';
 
 const RIVALS = 3;
+/** A drawbridge's bells ring this often (s) through its warning, and half as often until it's down. */
+const BELL = 0.5;
+/** They're heard this far (m: half as loud at this distance). */
+const BELL_HEAR = 70;
 /** Rivals are heard within this of the camera. */
 const HEAR = 90;
 const SETTINGS_KEY = 'racecar.audio';
@@ -124,6 +129,10 @@ export class GameAudio {
   private readonly fwd = new Vector3();
   private rpm = 0;
   private beeped = 0;
+  /** Each drawbridge's middle (x, z) on `bellsOf`'s track, for its bells; and the last ring heard, per bridge. */
+  private bells: { x: number; z: number }[] = [];
+  private bellsOf?: object;
+  private rung: number[] = [];
   private hidden = false;
   /** The track should be playing (as of the last frame). */
   private wantTrack = false;
@@ -465,6 +474,31 @@ export class GameAudio {
       gearbox(Math.hypot(c.vx[k], c.vz[k]), rc.topSpeed, rs.gears, this.gear);
       voice.set(engineHz(this.gear.rpm, rs) * shift * slow, rs.growl, 600 + 2200 * this.gear.rpm, now);
       voice.out.set(this.where.gain * 0.35, this.where.pan, now, 0.08);
+    }
+
+    // ---- drawbridges: their bells, from the warning till they're down ----
+    const lifts = sim.world?.lifts;
+    if (lifts?.pieces.length && !f.menu) {
+      if (this.bellsOf !== sim.track) {
+        const hit = newHit();
+        this.bellsOf = sim.track;
+        this.bells = lifts.defs.map((d) => (sampleAt(sim.track.main, (d.s[0] + d.s[1]) / 2, hit), { x: hit.cx, z: hit.cz }));
+      }
+      for (let k = 0; k < lifts.pieces.length; k++) {
+        // From its warning till it's down: a ring at once, then every BELL s, every 2 BELL once it's lifting.
+        const u = lifts.since(k, sim.time);
+        if (!(u >= 0)) continue;
+        const warn = lifts.defs[k].warn;
+        const ring = u < warn ? Math.floor(u / BELL) : 1000 + Math.floor((u - warn) / (BELL * 2));
+        if (ring === this.rung[k]) continue;
+        this.rung[k] = ring;
+        const b = this.bells[k];
+        spatial(b.x - cam.x, b.z - cam.z, fx, fz, BELL_HEAR, this.where);
+        this.play(0.3 * this.where.gain, this.where.pan, (s) => {
+          toneShot(s, 'triangle', 1320, 1320, 0.002, 0.55);
+          toneShot(s, 'sine', 2650, 2650, 0.002, 0.25);
+        });
+      }
     }
 
     // ---- moments ----

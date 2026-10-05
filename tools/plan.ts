@@ -3,6 +3,7 @@
 // main road. For laying out a lap in world space and seeing its shape (docs/MAPS.md).
 //
 //   bun tools/plan.ts coastal/riviera [--out telemetry/plans/coastal-riviera.svg] [--cell 10]
+//   bun tools/plan.ts coastal/riviera --at 200,250 --size 500 --cell 3     a square 500 m across, closer up
 
 import { spawnSync } from 'node:child_process';
 import { mkdirSync, writeFileSync } from 'node:fs';
@@ -14,6 +15,9 @@ import { SURFACES, layout } from './content';
 
 const a = args();
 const cell = a.num('cell') ?? 10;
+const at = a.str('at')?.split(',').map(Number);
+const size = a.num('size') ?? 500;
+const outFlag = a.str('out');
 const key = a.rest()[0];
 if (!key) {
   console.error('usage: bun tools/plan.ts <map/layout> [--out file.svg] [--cell m]');
@@ -22,7 +26,7 @@ if (!key) {
 const def = layout(key);
 const track = bakeTrack(def, SURFACES);
 const g = track.ground;
-const out = a.str('out') ?? join('telemetry', 'plans', `${key.replace('/', '-')}.svg`);
+const out = outFlag ?? join('telemetry', 'plans', `${key.replace('/', '-')}.svg`);
 
 // The bounds: every road's points, and a margin.
 let [x0, x1, z0, z1] = [Infinity, -Infinity, Infinity, -Infinity];
@@ -36,7 +40,7 @@ for (const sp of track.splines)
     z1 = Math.max(z1, hit.cz);
   }
 const pad = 200;
-[x0, x1, z0, z1] = [x0 - pad, x1 + pad, z0 - pad, z1 + pad];
+[x0, x1, z0, z1] = at ? [at[0] - size / 2, at[0] + size / 2, at[1] - size / 2, at[1] + size / 2] : [x0 - pad, x1 + pad, z0 - pad, z1 + pad];
 let top = 1;
 for (const sp of track.splines)
   for (let s = 0; s < sp.length; s += 10) top = Math.max(top, sampleAt(sp, s, hit).cy);
@@ -88,13 +92,13 @@ for (const p of g?.pieces.list ?? []) {
 for (let s = 0; s < track.main.length; s += 250) {
   sampleAt(track.main, s, hit);
   parts.push(`<circle cx="${hit.cx}" cy="${hit.cz}" r="6" fill="white" stroke="black"/>`);
-  parts.push(`<text x="${hit.cx + 9}" y="${hit.cz + 6}" font-size="22" font-family="sans-serif" fill="black" stroke="white" stroke-width="0.6">${s} · ${Math.round(hit.cy)}m</text>`);
+  parts.push(`<text x="${hit.cx + 9}" y="${hit.cz + 6}" font-size="${Math.round((x1 - x0) / 75)}" font-family="sans-serif" fill="black" stroke="white" stroke-width="0.6">${s} · ${Math.round(hit.cy)}m</text>`);
 }
 const w = x1 - x0;
 const h = z1 - z0;
 const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${x0} ${z0} ${w} ${h}" width="${Math.round(w)}" height="${Math.round(h)}">${parts.join('')}<text x="${x0 + 20}" y="${z0 + 40}" font-size="32" font-family="sans-serif">${key}: ${Math.round(track.main.length)} m, top ${Math.round(top)} m (north up)</text></svg>`;
 mkdirSync(dirname(out), { recursive: true });
 writeFileSync(out, svg);
-const png = out.replace(/\.svg$/, '.png');
+const png = out.replace(/\.svg$/, '') + '.png';
 const r = spawnSync('rsvg-convert', ['-w', '1400', '-o', png, out]);
 console.log(r.status === 0 ? png : out);

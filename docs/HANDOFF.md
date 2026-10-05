@@ -216,13 +216,13 @@ feel, blue skies and a rare shower, the `coastal` track. Open it with
   130 m, the Descent five long bowed rows, then the Corniche. Floor 98.70 s. `tools/plan.ts` draws
   a layout from above (heights, roads, pieces), for laying one out.
 - **Next, in about this order:**
-  1. (#109 merged 2026-10-05.)
-  2. The drawbridge's rest: the boat under it and the bells, and the Basin Road detour round the
-     harbour (a branch; mind its walls: gap them in the generator).
-  3. COASTAL's step 4, traffic from side streets (traffic lanes as routes over more than one road,
+  1. (#109 merged 2026-10-05.) The lap reworked (#110) and the drawbridge's rest (#111, stacked
+     on it: the Basin Road detour the AI takes when the bridge would stop it, the bells, the boat
+     under the leaves) wait for the owner.
+  2. COASTAL's step 4, traffic from side streets (traffic lanes as routes over more than one road,
      a step towards CALDERA's road graph), or step 5, the Rock Tunnel: the main road needs to take
      a ceiling (pieces on it are decks only; COASTAL's "Built so far" has why).
-  4. The town, the cuts, the riviera look (COASTAL's steps 6–8), then into the lobby.
+  3. The town, the cuts, the riviera look (COASTAL's steps 6–8), then into the lobby.
 - **Known rough edges:** a car crawling up a leaf as it passes 30° loses its floor and falls in (the
   AI never does); hills are cut back to the main road only, so keep branches and decks off them;
   the lap is long (98.7 s, from the owner's S and switchbacks): trim a Descent row or the S, or
@@ -235,8 +235,10 @@ feel, blue skies and a rare shower, the `coastal` track. Open it with
 **Working notes (2026-10-03, 2026-10-04):**
 - An AI held at a standstill on the brake reverses (brake past zero is reverse): to hold a car still,
   brake only while it rolls forward. It cost a long chase on the drawbridge's queue.
-- `drive`'s `t` option and `shot --t` put the world at a race time (a drawbridge up); `poster.ts
-  --url "poster.html?scout=…&t=…"` directly when `shot.ts` flakes.
+- `drive`'s `t` option and `shot --t` put the world at a race time (a drawbridge up). (`shot --t`
+  was refused until #111: a tool's flags must all be read before `a.rest()`, which rejects any left.)
+- `tools/plan.ts` draws a layout from above (`--at x,z --size m` for a close-up): the quickest way
+  to see a lap's shape while laying it out.
 - One PR per step, a fresh reviewer at the end (it found real bugs every time: in 0b, 1a and 1b),
   then the owner merges. The PR says whether it's a clean-up (fingerprints identical) or a change.
 - After moving a file into a folder, restart `bun run dev`: Vite keeps the old path cached and

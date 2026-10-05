@@ -16,8 +16,9 @@
 //   bun tools/gen-coastal.ts
 
 import { mkdirSync, writeFileSync } from 'node:fs';
-import type { TrackLayout } from '../src/core/content';
+import type { TrackLayout, TrackPoint } from '../src/core/content';
 import { bakeTrack } from '../src/core/track/bake';
+import { newHit, sampleAt } from '../src/core/track/query';
 import surfaces from '../content/surfaces.json';
 import { type Crest, type Node, lapPoints, onLap } from './lib/lap';
 
@@ -178,9 +179,11 @@ const deck: [number, number] = [sAt(BRIDGE.from - 25, BRIDGE.z), sAt(BRIDGE.to +
 /**
  * The drawbridge (COASTAL.md, "The drawbridge"): two leaves over the harbour's middle, each half the
  * span, hinged at its own end. Lifted once or twice a race (the owner): a warning, rising to `angle`,
- * up while a boat passes, down. Up to `wall` a leaf is a ramp to jump off; steeper, a wall.
+ * up while a boat passes, down. Up to `wall` a leaf is a ramp to jump off; steeper, a wall. The
+ * boat waits at the harbour's head (left of the road, north) and sails out to sea under the first
+ * lift, back in under a second.
  */
-const LIFT = { width: 60, angle: 1.2, wall: 0.52, warn: 4, rise: 6, up: 8, fall: 6, first: [45, 110] as [number, number], again: [80, 130] as [number, number], twice: 0.5 };
+const LIFT = { width: 60, angle: 1.2, wall: 0.52, warn: 4, rise: 6, up: 8, fall: 6, first: [45, 110] as [number, number], again: [80, 130] as [number, number], twice: 0.5, boat: [-125, 120] as [number, number] };
 const mid = sAt((HARBOUR.west + HARBOUR.east) / 2, BRIDGE.z);
 const { width, ...lift } = LIFT;
 layout.pieces = [{ id: 'harbour-bridge', s: deck, under: { floor: SEA - 6, ease: 20, reach: 15 }, lift: { ...lift, s: [mid - width / 2, mid + width / 2] } }];
@@ -208,9 +211,72 @@ layout.ground = {
   pines: { kind: 'tropic', seed: 41, spacing: 9, clear: 8, thicken: 30, density: 0.25, glade: 80 },
 };
 
+/**
+ * The Basin Road (COASTAL.md, "The detour"): round the inner harbour's head when the bridge is up,
+ * always open. Off the Quay to the left before the bridge, up the harbour's west side, a hairpin
+ * round its head by the fish market, down its east side and back onto the far quay. Slow and safe:
+ * a clean bridge beats it by a few seconds, and a lift doesn't ruin a race. Its corners (x, z),
+ * between the main road at `from` and `to` (x along the Quay's line).
+ */
+const BASIN = { from: -45, to: 392, width: 11, shoulder: 2, rise: 4, corners: [
+  [12, 302],
+  [62, 276],
+  [94, 236],
+  [100, 190],
+  [110, 156],
+  [145, 140],
+  [205, 136],
+  [265, 140],
+  [300, 156],
+  [310, 190],
+  [316, 236],
+  [340, 276],
+  [365, 302],
+] as [number, number][] };
+{
+  const g = bakeTrack(layout, surfaces);
+  const hit = newHit();
+  const from = sAt(BASIN.from, BRIDGE.z);
+  const to = sAt(BASIN.to, BRIDGE.z);
+  // Its ends a little in off the main road, to the left (north), so it forks off gently.
+  const end = (s: number): [number, number] => (sampleAt(g.main, s, hit), [hit.cx + hit.tz * 5, hit.cz - hit.tx * 5]);
+  const corners = [end(from + 14), ...BASIN.corners, end(to - 14)];
+  // Its corners rounded off (Chaikin: each pass cuts every corner at a quarter and three quarters).
+  let line: [number, number][] = corners;
+  for (let pass = 0; pass < 4; pass++)
+    line = [line[0], ...line.slice(0, -1).flatMap(([ax, az], k) => {
+      const [bx, bz] = line[k + 1];
+      return [[0.75 * ax + 0.25 * bx, 0.75 * az + 0.25 * bz], [0.25 * ax + 0.75 * bx, 0.25 * az + 0.75 * bz]] as [number, number][];
+    }), line[line.length - 1]];
+  // Every 8 m along them. A harbour road, low along the water: from the quay's height up a
+  // few metres round the head and down again (the land behind it rises to the Mountain Road, so
+  // it's cut into the slope there; branches shape the ground to their own heights).
+  const along: [number, number][] = [];
+  let left = 0;
+  for (let k = 0; k + 1 < line.length; k++) {
+    const [ax, az] = line[k];
+    const [bx, bz] = line[k + 1];
+    const len = Math.hypot(bx - ax, bz - az);
+    for (; left < len; left += 8) along.push([ax + ((bx - ax) * left) / len, az + ((bz - az) * left) / len]);
+    left -= len;
+  }
+  along.push(line[line.length - 1]);
+  const r1 = (v: number) => Math.round(v * 10) / 10;
+  const points: TrackPoint[] = along.map(([x, z], k) => ({
+    p: [r1(x), r1(BRIDGE.y - 3.5 + BASIN.rise * Math.sin((Math.PI * k) / (along.length - 1))), r1(z)],
+    width: BASIN.width,
+    lanes: 2,
+    shoulder: BASIN.shoulder,
+    surface: 'asphalt',
+  }));
+  layout.branches = [{ id: 'basin-road', from, to, kind: 'alternate', points }];
+  // Open, as every road here but the bridge.
+  layout.walls = { gaps: [...(layout.walls?.gaps ?? []), { spline: 'basin-road', s: [0, 1e4], side: 'both' }] };
+}
+
 mkdirSync(DIR, { recursive: true });
 writeFileSync(`${DIR}/riviera.track.json`, `${JSON.stringify(layout)}\n`);
 writeFileSync(`${DIR}/map.json`, `${JSON.stringify({ id: 'coastal', name: 'Coastal', layouts: ['riviera'], palette: 'tropic', sunset: 'sunset', weather: ['clear', 'rain', 'shower', 'rare'], experimental: true })}\n`);
 const track = bakeTrack(layout, surfaces);
 const spur = [sAt(TUNNEL.from[0], TUNNEL.from[1]), sAt(TUNNEL.to[0], TUNNEL.to[1])];
-console.log(`coastal/riviera: ${Math.round(track.main.length)} m, ${pts.length} points, ground ${track.ground!.nx}×${track.ground!.nz}, bridge deck ${deck.join('–')} m (the drawbridge ${mid - width / 2}–${mid + width / 2} m), the spur (a tunnel later) ${spur.join('–')} m`);
+console.log(`coastal/riviera: ${Math.round(track.main.length)} m, ${pts.length} points, ground ${track.ground!.nx}×${track.ground!.nz}, bridge deck ${deck.join('–')} m (the drawbridge ${mid - width / 2}–${mid + width / 2} m), the spur (a tunnel later) ${spur.join('–')} m, the Basin Road ${Math.round(track.splines[1].length)} m (${layout.branches![0].from}–${layout.branches![0].to} m)`);

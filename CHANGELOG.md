@@ -21,7 +21,9 @@ and where things stand is [docs/HANDOFF.md](./docs/HANDOFF.md).
   (docs/COASTAL.md).
 - **Coastal's drawbridge** (experimental): the Harbour Bridge lifts once or twice a race, with
   a warning, barrier arms and flashing lights. Catch it early in a lift and jump it off the near
-  leaf; too late and it's a wall. The AI waits for it, or a hard one jumps it.
+  leaf; too late and it's a wall, and the Basin Road goes round the harbour instead, a few seconds
+  slower. Bells ring from the warning, and a yacht sails out under the raised leaves (and back in
+  when it lifts again). The AI goes round when the bridge would stop it, or a hard one jumps it.
 
 ## alpha-1.31: Paradise Open, the Caldera engine and the market hall
 

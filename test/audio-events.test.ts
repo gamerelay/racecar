@@ -6,7 +6,10 @@ import { note } from '../src/audio/synth';
 import type { Soundtrack } from '../src/audio/soundtrack';
 import { Ev } from '../src/core/events';
 import { fakeBrowser, FakeAudioContext, type FakeTarget } from './fake-audio';
-import { citySim } from './helpers';
+import { Sim } from '../src/core/sim';
+import { bakeTrack } from '../src/core/track/bake';
+import { newHit, sampleAt } from '../src/core/track/query';
+import { CLASSES, citySim, layout, SURFACES } from './helpers';
 
 // The audio's event handling and the synth's sequencer, on a fake Web Audio (fake-audio.ts): what
 // would play, counted as the oscillators and noise sources made.
@@ -160,6 +163,35 @@ describe('game audio', () => {
     const before = ctx.made;
     audio.update(1 / 60, { focus: 0, camera: new PerspectiveCamera(), paused: false, menu: false });
     expect(ctx.made - before).toBe(3);
+  });
+
+  test("a drawbridge's bells: from its warning till it's down, quicker in the warning, and only near it", () => {
+    const sim = new Sim(bakeTrack(layout('coastal/riviera'), SURFACES), CLASSES, SURFACES, { seed: 7 });
+    const audio = new GameAudio(sim);
+    (browser.window as FakeTarget).fire('keydown');
+    const ctx = FakeAudioContext.all.at(-1)!;
+    audio.settings.music = false;
+    if (audio.settings.muted) audio.toggleMute();
+    const lifts = sim.world!.lifts;
+    const def = lifts.defs[0];
+    const mid = sampleAt(sim.track.main, (def.s[0] + def.s[1]) / 2, newHit());
+    const camera = new PerspectiveCamera();
+    /** Sounds made over `secs` from `from` s after the race's green, the camera `off` m from the bridge. */
+    const over = (from: number, secs: number, off = 20) => {
+      camera.position.set(mid.cx + off, mid.cy + 5, mid.cz);
+      const before = ctx.made;
+      for (let k = 0; k < secs * 60; k++) {
+        sim.time = lifts.origin + from + k / 60;
+        audio.update(1 / 60, { focus: 0, camera, paused: false, menu: false });
+      }
+      return ctx.made - before;
+    };
+    const t0 = lifts.starts[0][0];
+    // Down: none. The warning: twice a second (two tones a ring). Up: once a second. Far off: none heard.
+    expect(over(t0 - 4, 3.9)).toBe(0);
+    expect(over(t0 + 0.05, def.warn - 0.1)).toBe(2 * 8);
+    expect(over(t0 + def.warn + def.rise + 0.05, 3.9)).toBe(2 * 4);
+    expect(over(t0 + def.warn + def.rise + 0.05, 3.9, 900)).toBe(0);
   });
 });
 

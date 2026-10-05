@@ -11,7 +11,7 @@ import { bakeTrack } from '../src/core/track/bake';
 import { newCast } from '../src/core/track/ground';
 import { newHit, sampleAt } from '../src/core/track/query';
 import { validateLayout } from '../src/core/track/validate';
-import { buildLifts, cycle, liftAngleAt, liftStarts } from '../src/core/world/lifts';
+import { boatAt, buildLifts, cycle, liftAngleAt, liftStarts } from '../src/core/world/lifts';
 import { run, setup } from '../src/dev/drive';
 import { CLASSES, SURFACES, layout } from './helpers';
 
@@ -64,6 +64,26 @@ describe('drawbridge', () => {
     expect(lifts.phase(0, t0 + def.warn + def.rise + def.up + 1)).toBe('falling');
     expect(lifts.angle(0, t0 + cycle(def) + 0.01)).toBe(0);
     expect(lifts.phase(0, t0 + cycle(def) + 0.01)).toBe('down');
+  });
+
+  test('its boat: moored in the harbour, out under the leaves in the first lift, back in the second', () => {
+    const [inner, outer] = def.boat!;
+    // The harbour's side of the road (its head, left of the road east over the bridge), and the sea's.
+    expect(inner).toBeLessThan(0);
+    expect(outer).toBeGreaterThan(0);
+    const starts = [60, 160];
+    const at = (t: number) => boatAt(def, starts, t).across;
+    const under = def.warn + def.rise + def.up / 2;
+    expect(at(0)).toBe(inner);
+    expect(at(60)).toBe(inner);
+    // Under the road halfway through the leaves' time up (they're up the whole time it's near), and on out.
+    expect(at(60 + under)).toBeCloseTo(0, 9);
+    for (const u of [def.warn + def.rise, def.warn + def.rise + def.up]) expect(Math.abs(at(60 + u))).toBeGreaterThan(20);
+    expect(at(150)).toBe(outer);
+    expect(at(160 + under)).toBeCloseTo(0, 9);
+    expect(at(300)).toBe(inner);
+    // Steady, no jumps.
+    for (let t = 0; t < 300; t += 0.1) expect(Math.abs(at(t + 0.1) - at(t))).toBeLessThan(1.2);
   });
 
   test("the leaves' floor: flat down; tilted about each hinge up to the wall angle, nothing past their tips; steeper, nothing at all", () => {
@@ -136,10 +156,12 @@ describe('drawbridge', () => {
     expect(slow.summary.end.s).toBeLessThan(def.s[0] + 1);
   }, 30_000);
 
-  test('the AI waits for it when it would get there up, then goes on once it is down', () => {
-    // A hard AI 250 m out, the leaves rising as it would get there: too late to jump.
+  test('past the Basin Road, the AI waits for it when it would get there up, then goes on once it is down', () => {
+    // A hard AI 150 m out (past the turn for the Basin Road), the leaves rising as it would get
+    // there: too late to jump, and too late to go round.
     const up = t0 + def.warn + def.rise / 2;
-    const sim = setup(track, CLASSES, SURFACES, { s: def.s[0] - 250 }, 'ai', { kmh: 100, t: up - 5 });
+    expect(track.splines.find((sp) => sp.id === 'basin-road')!.mainFrom + 60).toBeLessThan(def.s[0] - 150);
+    const sim = setup(track, CLASSES, SURFACES, { s: def.s[0] - 150 }, 'ai', { kmh: 100, t: up - 5 });
     let stopped = false;
     let crossed = -1;
     let hits = 0;
@@ -159,6 +181,39 @@ describe('drawbridge', () => {
     expect(sim.cars.wreck[0]).toBe(0);
     expect(crossed).toBeGreaterThan(t0 + cycle(def) - 3);
   }, 30_000);
+
+  test('the Basin Road: the AI goes round the harbour when the bridge would stop it, over it when it is down', () => {
+    const basin = track.splines.find((sp) => sp.id === 'basin-road')!;
+    expect(riviera.branches!.find((b) => b.id === 'basin-road')!.kind).toBe('alternate');
+    // Round the inner harbour: it leaves before the bridge's deck and rejoins past it.
+    expect(basin.mainFrom).toBeLessThan(bridge.s[0]);
+    expect(basin.mainTo).toBeGreaterThan(bridge.s[1]);
+    for (const [phase, t, round] of [
+      ['down', 5, false],
+      ['rising', t0 + def.warn + 2, true],
+      ['up', t0 + def.warn + def.rise + 2, true],
+    ] as const) {
+      const sim = setup(track, CLASSES, SURFACES, { s: basin.mainFrom - 150 }, 'ai', { kmh: 120, t });
+      let took = false;
+      let hits = 0;
+      let crossed = -1;
+      let cursor = sim.events.head;
+      for (let k = 0; k < 60 * 30 && crossed < 0; k++) {
+        sim.step([]);
+        const c = sim.cars;
+        if (c.spline[0] === basin.index) took = true;
+        cursor = sim.events.read(cursor, (e) => {
+          if (e.car === 0 && e.type === Ev.WallHit) hits++;
+        });
+        if (c.spline[0] === 0 && c.s[0] > basin.mainTo + 20 && c.s[0] < basin.mainTo + 300) crossed = sim.time - t;
+      }
+      expect([phase, took, hits, sim.cars.wreck[0]]).toEqual([phase, round, 0, 0]);
+      // Never held up: on round it without stopping, a few seconds slower than the bridge.
+      expect([phase, crossed]).toEqual([phase, expect.any(Number)]);
+      expect(crossed).toBeGreaterThan(0);
+      expect(crossed).toBeLessThan(round ? 20 : 14);
+    }
+  }, 60_000);
 
   test('a respawn on it, or just before it, while it lifts goes back to its approach', () => {
     const input = { throttle: 0 };
@@ -185,5 +240,8 @@ describe('drawbridge', () => {
     expect(errors(riviera)).toEqual([]);
     expect(errors(withLift({ wall: 1.3 })).length).toBe(1);
     expect(errors(withLift({ s: [bridge.s[0] - 10, def.s[1]] })).length).toBe(1);
+    // Its boat: a mooring either side of the road, and across before a second lift.
+    expect(errors(withLift({ boat: [-100, -50] })).length).toBe(1);
+    expect(errors(withLift({ again: [25, 130] })).length).toBe(1);
   }, 60_000);
 });

@@ -24,6 +24,8 @@ export interface Lifts {
   angle(k: number, t: number): number;
   /** Where lift `k` is in its cycle at sim time `t`. */
   phase(k: number, t: number): LiftPhase;
+  /** How far (s) lift `k` is into the cycle running at sim time `t`, from its warning; NaN while none runs. */
+  since(k: number, t: number): number;
   /** Every leaf's angle at sim time `t`, onto the ground (before the cars step), the race having gone green at `origin`. */
   update(t: number, origin: number): void;
 }
@@ -61,6 +63,35 @@ function phaseAt(def: LiftDef, u: number): LiftPhase {
 /** How long one cycle runs, warning to down. */
 export const cycle = (def: LiftDef) => def.warn + def.rise + def.up + def.fall;
 
+/**
+ * Where a lift's boat is (LiftDef.boat; drawn only), `t` s after the race's green, its lifts
+ * starting at `starts`: metres across the road (+ right), and which way it's heading (+1 toward
+ * the right). Moored at `boat[0]` before the first lift; in each, it sails steadily across, under
+ * the road halfway through the leaves' time up, to the other mooring, and the next lift brings it
+ * back. NaN with no boat.
+ */
+export function boatAt(def: LiftDef, starts: readonly number[], t: number, out = { across: 0, dir: 0 }): { across: number; dir: number } {
+  out.across = NaN;
+  out.dir = 0;
+  if (!def.boat) return out;
+  let j = -1;
+  while (j + 1 < starts.length && t >= starts[j + 1]) j++;
+  if (j < 0) {
+    out.across = def.boat[0];
+    return out;
+  }
+  const from = def.boat[j % 2];
+  const to = def.boat[(j + 1) % 2];
+  // Under the road (across 0, a fraction `mid` of the way) at the middle of the leaves' time up,
+  // and on at the same pace to the far mooring.
+  const under = def.warn + def.rise + def.up / 2;
+  const mid = from / (from - to);
+  const k = ((t - starts[j]) / under) * (t - starts[j] < under ? mid : 1 - mid) + (t - starts[j] < under ? 0 : 2 * mid - 1);
+  out.across = from + (to - from) * Math.min(1, Math.max(0, k));
+  out.dir = k < 1 ? (to > from ? 1 : -1) : 0;
+  return out;
+}
+
 export function buildLifts(track: Track, seed: number): Lifts {
   const g = track.ground;
   const pieces: number[] = [];
@@ -94,6 +125,9 @@ export function buildLifts(track: Track, seed: number): Lifts {
     phase(k, t) {
       const t0 = current(k, t);
       return t0 === t0 ? phaseAt(defs[k], t - origin - t0) : 'down';
+    },
+    since(k, t) {
+      return t - origin - current(k, t);
     },
     get origin() {
       return origin;

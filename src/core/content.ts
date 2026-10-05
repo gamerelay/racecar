@@ -368,6 +368,12 @@ export interface LiftDef {
   first: [number, number];
   again: [number, number];
   twice: number;
+  /**
+   * The boat it lifts for (drawn only): moored `boat[0]` m across the road (+ right) before the
+   * first lift, and sailing under it to `boat[1]` m across in each lift, crossing the road halfway
+   * through the leaves' time up; the next lift brings it back.
+   */
+  boat?: [number, number];
 }
 
 /** Open ground round the main road (core/track/ground). Distances are along the main road (s) and across it (lateral, + right). */
