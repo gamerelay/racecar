@@ -83,16 +83,19 @@ describe('the Rock Tunnel', () => {
       });
       sampleAt(track.main, sim.cars.s[0], hit);
       widest = Math.max(widest, Math.abs(sim.cars.lateral[0]));
+      // On its floor, in its space: not out into the rock.
+      expect(Math.abs(sim.cars.y[0] - hit.cy)).toBeLessThan(1.5);
     }
     expect(hits).toBeGreaterThan(0);
     expect(widest).toBeLessThan(hit.width / 2 + hit.shoulder + 1.5);
   }, 30_000);
 
   test('the validator: a ceiling on the main road is fine now; a gap or a building there is not', () => {
-    const errors = (l: TrackLayout) => validateLayout(l, SURFACES, CLASSES).filter((p) => p.level === 'error' && p.message.includes('branches only'));
+    const errors = (l: TrackLayout) => validateLayout(l, SURFACES, CLASSES).filter((p) => p.level === 'error' && (p.message.includes('branches only') || p.message.includes('tunnel on the main road')));
     const withTunnel = (more: object) => ({ ...riviera, pieces: riviera.pieces!.map((p) => (p.id === 'rock-tunnel' ? { ...p, ...more } : p)) });
     expect(errors(riviera)).toEqual([]);
     expect(errors(withTunnel({ building: 'market' })).length).toBe(1);
     expect(errors(withTunnel({ floor: false, ceiling: undefined })).length).toBe(1);
+    expect(errors(withTunnel({ s: [tunnel.s[0], tunnel.s[0] + 10] })).length).toBe(1);
   }, 60_000);
 });

@@ -85,7 +85,8 @@ export function shapeBranches(land: Land, main: BakedSpline, branches: readonly 
       });
     }
   }
-  // A main-road tunnel's mouths the same (its rock kept over it: land.ts).
+  // A main-road tunnel's mouths the same (its rock kept over it: land.ts). Its rock rises sheer 4 m
+  // in (TUNNEL_MOUTH), so this marks little but the slivers of shoulder at the face.
   const mainAt = pieces.at(main.index);
   if (mainAt)
     for (let i = 0; i < main.n; i++) {

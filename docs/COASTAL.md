@@ -447,13 +447,17 @@ piece on the main road, which was branches-only).
   (at the very end, the face fell a grid cell short of the cut: a wall across the mouth). The cast
   needed nothing new: a floor under the ground by more than a hard landing was already a tunnel's.
   The ground over it is rock, not road (`groundKinds`), and its mouths are marked like a branch
-  tunnel's (no trees). The validator allows a ceiling on the main road (gaps and buildings stay on
+  tunnel's (no trees). **Mind:** `top(x, z)` with no height is from the sky: over a main-road tunnel
+  that's the rock's top, so anything placed by it (props, slalom gates, `drive`'s x/z spots) must
+  pass the road's height (`top(x, z, roadY + 1)`). The validator wants a main tunnel 20 m or more,
+  not across the lap's start. The validator allows a ceiling on the main road (gaps and buildings stay on
   branches).
 - **The drawing:** the tube (walls, vault, arches, portals cut to its outline) for a main-road
   tunnel too, its road and verge in it (the island's road is draped over the ground, and there's
   none at its height in there); limestone and orange lamps high on its walls for `indoor: 'tunnel'`
   (the Lava Tube keeps its black rock and lava); no deck pillars under it; the road's lines on its
-  own floor, not on the rock over it.
+  own floor, not on the rock over it; its road isn't drawn as a deck too (the review: a concrete
+  bridge's verge and barriers showed in the tube).
 - **Coastal's:** through the spur on the Mountain Road, 1321–1521 m (200 m), 7.5 m high, wherever
   the spur's rock stands 18 m or more over the road (`TUNNEL` in the generator); the spur is three
   domes along the road now (one dome stood over only 80 m of it). Its walls are solid (the rest of

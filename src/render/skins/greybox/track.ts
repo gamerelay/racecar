@@ -209,7 +209,8 @@ export function buildTrackVisual(track: Track, palette: Palette, seed: number): 
     // (Not a building's: it stands on the ground, and building.ts draws it.)
     const deckSample = Uint8Array.from(ground.pieces.floors(main.index) ?? new Uint8Array(main.n));
     const at = ground.pieces.at(main.index);
-    if (at) for (let i = 0; i < main.n; i++) if (at[i] >= 0 && ground.pieces.list[at[i]].building) deckSample[i] = 0;
+    // (Nor a tunnel's: its road is drawn in its tube, tube.ts, and it's no bridge.)
+    if (at) for (let i = 0; i < main.n; i++) if (at[i] >= 0 && (ground.pieces.list[at[i]].building || ground.pieces.list[at[i]].ceiling > 0)) deckSample[i] = 0;
     // (Nor a drawbridge's span: its leaves are its road, lifts.ts.)
     for (const p of ground.pieces.list) if (p.spline === main.index && p.lift) for (let i = Math.ceil(p.lift.s[0] / main.step); i <= Math.floor(p.lift.s[1] / main.step); i++) deckSample[i] = 0;
     for (let i = 0; i < main.n; i++) {
@@ -224,10 +225,7 @@ export function buildTrackVisual(track: Track, palette: Palette, seed: number): 
       i = j;
     }
     const sea = ground.sea;
-    // (Not under a tunnel's road: the rock's over it, not under.)
-    const legs = Uint8Array.from(deckSample);
-    if (at) for (let i = 0; i < main.n; i++) if (at[i] >= 0 && ground.pieces.list[at[i]].ceiling > 0) legs[i] = 0;
-    const { pillars, caps } = deckPillars(main, legs, (x, z) => ground.height(x, z) - 0.5, (x, z) => sea === undefined || ground.height(x, z) > sea, 0xd9d0bd, 0xbdb3a0);
+    const { pillars, caps } = deckPillars(main, deckSample, (x, z) => ground.height(x, z) - 0.5, (x, z) => sea === undefined || ground.height(x, z) > sea, 0xd9d0bd, 0xbdb3a0);
     if (pillars.length) decks.push(boxes(pillars, toon()), boxes(caps, toon()));
   }
 

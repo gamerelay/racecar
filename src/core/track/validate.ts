@@ -273,6 +273,8 @@ export function validateLayout(layout: TrackLayout, surfaces: SurfaceDef[], clas
     // On the main road the ground is the road's, so a gap or a tunnel there would do nothing yet.
     // (A main-road tunnel, Coastal's Rock Tunnel, has rock kept over it: ground/land.ts. A building
     // stands on the ground its road shapes, a branch's.)
+    // A main-road tunnel keeps its rock from 4 m in at each end (land.ts): long enough for some, and not across the lap's end.
+    if (sp === track.main && p.ceiling !== undefined && !(p.s[0] >= 0 && p.s[1] <= track.main.length && p.s[1] - p.s[0] >= 20)) err(`${name}: a tunnel on the main road wants 20 m or more, inside the lap (not across its start)`, sp.id, p.s[0]);
     if (sp === track.main && (p.floor === false || p.building !== undefined)) err(`${name}: gaps and buildings are on branches only, for now`, sp.id, p.s[0]);
     if (p.lift) {
       const l = p.lift;
