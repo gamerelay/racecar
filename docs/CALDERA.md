@@ -17,7 +17,10 @@ merged** (#83–#98, #102) and released in `alpha-1.31` (#78–#105), on the hos
 **Step 4, moving pieces, is built** on a new map, Coastal ([COASTAL.md](./COASTAL.md)): its
 drawbridge (`PieceDef.lift`, #109), and the Basin Road round it (#111). Traffic now runs over more
 than one road: a lane by side streets (`TrafficLaneDef.streets`, #112), towards step 6's road graph.
-The main road takes a ceiling now (Coastal's Rock Tunnel, #113: its rock kept over it). Next: step 5.
+The main road takes a ceiling now (Coastal's Rock Tunnel, #113: its rock kept over it).
+**Step 6, the road graph, is under way** (the owner's call, 2026-10-05: on Coastal, before step 5):
+6a, the graph as data (`Track.graph`, `core/track/graph.ts`): every map's roads as streets between
+nodes, and its race as a route, its checkpoints gates on streets. Nothing reads it in the sim yet.
 HANDOFF has the detail and the lap floors.
 
 **Reading it:** "Principles" and "The core idea: pieces" are the design; "Build order" and "How
@@ -809,6 +812,18 @@ stream across a route): then the new floor is recorded, with why.
 6. **The road graph and routes**: streets, junctions, and checkpoints as gates on streets (the
    bake's checkpoints and `rules/progress.ts` carried over); `locate` and the road-edge walls
    move onto pieces and streets, and the spline position goes; today's maps as routes.
+   In slices, each with every map's fingerprint identical until one is meant to move:
+   - **6a, the graph as data** (built): `Track.graph` from the baked roads: nodes (a junction where
+     a branch leaves or rejoins, two at one spot one; the line; an open road's ends), streets (the
+     main road cut at every node on it, none wrapping; each branch whole), and the route (its
+     streets in order, its gates the checkpoints and the finish). `tools/plan.ts` draws it.
+   - **6b, where a car is:** located over the graph (any street to any other at a node), not a
+     branch handing back to the main road only.
+   - **6c, progress by gates:** laps, positions and gaps by distance along the route, not a
+     branch's distance squeezed onto the main road's.
+   - **6d, the AI picks streets by cost** at each node (the time each way), for the branch kinds'
+     rules and the drawbridge's detour rule.
+   - Then Coastal uses it: streets meeting streets (the Old Town's), not only the main road.
 7. **A city map**, and if the chase is wanted, the chase in it: AI cops pathfinding over the
    graph.
 

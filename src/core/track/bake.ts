@@ -7,6 +7,7 @@ import { across, along } from './frame';
 import { buildPines, type Pines } from './pines';
 import { buildingWalls } from './buildings';
 import { bindOverrides, type Override, type OverrideCode } from './overrides';
+import { buildGraph, type RoadGraph } from './graph';
 import { OVERRIDES } from '../maps';
 import type { BranchDef, SurfaceDef, TrackLayout, TrackPoint, Vec3, ZoneDef } from '../content';
 import { atan2, cos, hypot, pow, sin, smoothstep, sq, tan } from '../math';
@@ -114,6 +115,8 @@ export interface Track {
   pines?: Pines;
   /** The layout's overrides (track/overrides.ts) bound to their code: usually none. */
   overrides: Override[];
+  /** The roads as a graph: streets between junctions, and the race's route through them (track/graph.ts). */
+  graph: RoadGraph;
 }
 
 /** The track for `layout`; its overrides' code is looked up by id in `code` (core/maps; a test passes its own). */
@@ -246,7 +249,9 @@ export function bakeTrack(layout: TrackLayout, surfaces: SurfaceDef[], code: Rea
       props.push({ kind: 'house', solid: true, wall: true, spline: -1, s: 0, lateral: 0, x: h.at[0], y, z: h.at[1], hx: w / 2, hy: high / 2, hz: d / 2, heading: h.rot });
     }
   const pines = ground && layout.ground!.pines ? buildPines(layout.ground!.pines, layout, main, ground, (i) => surfaces[main.verge[i] === VERGE_DEFAULT ? (surfaceIndex.get(layout.shoulderSurface ?? '') ?? 0) : main.verge[i]].id) : undefined;
-  return { layout, splines, main, surfaces, surfaceIndex, checkpoints, props, version: layoutVersion(layout), ground, pines, run, overrides };
+  const track: Track = { layout, splines, main, surfaces, surfaceIndex, checkpoints, props, version: layoutVersion(layout), ground, pines, run, overrides, graph: undefined! };
+  track.graph = buildGraph(track);
+  return track;
 }
 
 /** A high bridge stands on a timber bent this often (m along it), on legs across it (SPEC, "Trestle legs"). */
