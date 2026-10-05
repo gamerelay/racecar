@@ -235,6 +235,30 @@ describe('progress along the route (6c)', () => {
     }
   });
 
+  test('a run with branches, one past its finish: exactly the old distance, and never NaN', () => {
+    const a = layout('avalanche/slope');
+    const t0 = tracks.get('avalanche/slope')!;
+    const fin = t0.run!.finish;
+    const side = (from: number, to: number) =>
+      [0.3, 0.5, 0.7].map((f) => {
+        const h = sampleAt(t0.main, from + (to - from) * f, newHit());
+        return { p: [h.cx - h.tz * 16, h.cy, h.cz + h.tx * 16] as [number, number, number], width: 7, lanes: 1, shoulder: 1, surface: 'powder' };
+      });
+    const t = bakeTrack({ ...a, branches: [{ id: 'gully', kind: 'shortcut', from: 2000, to: 2200, points: side(2000, 2200) }, { id: 'runout', kind: 'shortcut', from: fin + 20, to: fin + 180, points: side(fin + 20, fin + 180) }] }, SURFACES);
+    for (const sp of t.splines.slice(1))
+      for (let s = 0; s <= sp.length; s += 2.3) expect([sp.id, s, t.graph.along(sp.index, s)]).toEqual([sp.id, s, mainDistance(t, sp.index, s) - t.run!.start]);
+  });
+
+  test('where one node stands for two ends of roads under a metre apart, off by no more than that', () => {
+    const v = layout('backroads/valley');
+    // A second branch leaving 0.6 m after the barn shortcut does (80 m): one junction for both.
+    const barn = v.branches![0];
+    const t = bakeTrack({ ...v, branches: [...v.branches!, { ...barn, id: 'barn-2', from: barn.from + 0.6 }] }, SURFACES);
+    const sp = t.splines.find((x) => x.id === 'barn-2')!;
+    expect(t.graph.streets.find((st) => st.road === 'barn-2')!.from).toBe(t.graph.streets.find((st) => st.road === 'barn')!.from);
+    for (let s = 0; s <= sp.length; s += 5) expect(Math.abs(t.graph.along(sp.index, s) - mainDistance(t, sp.index, s))).toBeLessThanOrEqual(0.6 + 1e-9);
+  });
+
   test("the gates: each as far along the route as its checkpoint, the finish at the route's end", () => {
     for (const [, t] of tracks) {
       const start = t.run?.start ?? 0;
