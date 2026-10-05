@@ -67,6 +67,13 @@ export function validateLayout(layout: TrackLayout, surfaces: SurfaceDef[], clas
       // A beach may wrap past the line (s[0] the larger).
       if (!Array.isArray(f.s) || f.s.length !== 2 || !f.s.every(Number.isFinite) || f.s[0] === f.s[1]) bad('its s must be [from, to]');
       if (f.side !== 'left' && f.side !== 'right') bad('its side must be left or right');
+    } else if (f.kind === 'seawall') {
+      // Like a beach, it may wrap past the line; its floor under the sea.
+      if (!Array.isArray(f.s) || f.s.length !== 2 || !f.s.every(Number.isFinite) || f.s[0] === f.s[1]) bad('its s must be [from, to]');
+      if (f.side !== 'left' && f.side !== 'right') bad('its side must be left or right');
+      if (!Number.isFinite(f.floor) || f.floor >= (layout.ground?.sea ?? 0)) bad('its floor must be under the sea');
+      // (Its ledge is one cell's diagonal: a coarser grid's cells would slope under the shoulder.)
+      if (!((layout.ground?.cell ?? Infinity) <= 2.5)) bad('needs ground cells of 2.5 m or less');
     } else if (f.kind === 'uneven') {
       if (!ordered(f.s)) bad('its s must be [from, to], from the smaller');
       if (!(f.height > 0) || !(f.size > 0)) bad('needs a height and a size');

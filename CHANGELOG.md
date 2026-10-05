@@ -19,6 +19,9 @@ and where things stand is [docs/HANDOFF.md](./docs/HANDOFF.md).
   a mountain road winding up in S-bends, five long switchbacks down the mountainside over the sea and a lighthouse hairpin, under mostly blue skies (a shower about
   one race in seven). It plays the *Coastal* track. A greybox for now: the drawbridge comes next
   (docs/COASTAL.md).
+- **Coastal's waterfront is a sea wall** (experimental): from the lighthouse to the bridge, the
+  sea comes right up to a stone retaining wall on the right, with a paved ledge along it, instead
+  of a beach. The traffic there is now the oncoming lane only.
 - **Coastal's drawbridge** (experimental): the Harbour Bridge lifts once or twice a race, with
   a warning, barrier arms and flashing lights. Catch it early in a lift and jump it off the near
   leaf; too late and it's a wall, and the Basin Road goes round the harbour instead, a few seconds

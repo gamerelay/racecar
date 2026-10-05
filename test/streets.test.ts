@@ -16,9 +16,10 @@ const riviera = layout('coastal/riviera');
 const track = bakeTrack(riviera, SURFACES);
 
 describe('side streets', () => {
-  test("Coastal's traffic comes and goes by side streets: a lane each way, its streets on its own side", () => {
+  test("Coastal's traffic comes and goes by side streets: a lane against the lap, its streets on its own side (the sea side is the sea wall's)", () => {
     const lanes = riviera.traffic!.lanes;
-    expect(lanes.length).toBe(2);
+    expect(lanes.length).toBe(1);
+    expect(lanes[0].dir).toBe(-1);
     for (const lane of lanes) {
       expect(lane.streets!.length).toBeGreaterThanOrEqual(2);
       expect(lane.sections).toBeUndefined();
@@ -26,7 +27,7 @@ describe('side streets', () => {
     }
     // Run as one route per pair of streets, each with its main stretch as its section.
     const tr = new Traffic(track, 7);
-    expect(tr.lanes.length).toBe(2);
+    expect(tr.lanes.length).toBe(1);
     expect(tr.routes.every((r) => r !== null)).toBe(true);
     expect(tr.count).toBeGreaterThan(0);
   });
@@ -108,7 +109,7 @@ describe('side streets', () => {
 
   test('the AI keeps to the main road past them', () => {
     const streets = track.splines.filter((sp) => riviera.branches!.find((b) => b.id === sp.id)?.kind === 'street');
-    // Past all four, round the line.
+    // Past both, round the line.
     const from = Math.max(...streets.map((sp) => sp.mainFrom));
     const sim = setup(track, CLASSES, SURFACES, { s: from - 100 }, 'ai', { kmh: 100 });
     for (let k = 0; k < 60 * 12; k++) {
@@ -121,14 +122,15 @@ describe('side streets', () => {
     const errors = (l: TrackLayout) => validateLayout(l, SURFACES, CLASSES).filter((p) => p.level === 'error' && p.message.includes('traffic lane'));
     const withLane = (lane: object) => ({ ...riviera, traffic: { ...riviera.traffic!, lanes: [{ ...riviera.traffic!.lanes[0], ...lane }] } });
     expect(errors(riviera)).toEqual([]);
-    // In order, but across the road from its lane (the other lane's streets): only the side errs.
-    const across = errors(withLane({ streets: ['rue-des-pins', 'rue-du-port'] }));
+    // In order, but across the road from its lane (a lane with the lap, on the right, by the town
+    // side's streets): only the side errs.
+    const across = errors(withLane({ pos: 0.7, dir: 1, streets: ['rue-des-pins', 'rue-du-port'] }));
     expect(across.length).toBe(2);
     expect(across.every((p) => p.message.includes('across the road'))).toBe(true);
     // Not a street, and both streets and sections.
-    expect(errors(withLane({ streets: ['basin-road', 'quai-sud'] })).length).toBeGreaterThan(0);
+    expect(errors(withLane({ streets: ['basin-road', 'rue-du-port'] })).length).toBeGreaterThan(0);
     expect(errors(withLane({ sections: [[100, 200]] })).length).toBeGreaterThan(0);
-    // Out of order: off the main road before it's on it.
-    expect(errors(withLane({ streets: ['quai-sud', 'lido'] })).length).toBeGreaterThan(0);
+    // Out of order: off the main road before it's on it (against the lap, rue-du-port comes first).
+    expect(errors(withLane({ streets: ['rue-des-pins', 'rue-du-port'] })).length).toBeGreaterThan(0);
   }, 60_000);
 });

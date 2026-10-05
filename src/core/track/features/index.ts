@@ -18,6 +18,7 @@ import { coastFeature } from './coast';
 import { hillsFeature } from './hills';
 import { lavaStreamFeature } from './lava-stream';
 import { mogulsFeature } from './moguls';
+import { seawallFeature } from './seawall';
 import { unevenFeature } from './uneven';
 import { volcanoFeature } from './volcano';
 
@@ -51,7 +52,7 @@ export interface ShapePoint {
 }
 
 export interface Feature {
-  /** What it is ('volcano', 'coast', 'moguls', 'canyon', 'beach', 'uneven'). */
+  /** What it is ('volcano', 'coast', 'moguls', 'canyon', 'beach', 'uneven', 'seawall'). */
   readonly kind: string;
   /** The layout's own entry for it (GroundDef.features), for anything that reads its numbers (the AI's line down a canyon). */
   readonly def?: FeatureDef;
@@ -98,6 +99,7 @@ export function groundFeatures(def: GroundDef, main: BakedSpline): Feature[] {
     else if (f.kind === 'beach') out.push(beachFeature(f, main));
     else if (f.kind === 'uneven') out.push(unevenFeature(f));
     else if (f.kind === 'lava-stream') out.push(lavaStreamFeature(f));
+    else if (f.kind === 'seawall') out.push(seawallFeature(f, main));
   }
   return out;
 }
