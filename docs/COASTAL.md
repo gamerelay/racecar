@@ -482,6 +482,27 @@ tight corners up top, rock-themed.
 - **Numbers:** floor 97.73 s (the AI's line was inside them already). The field over 8 seeds: no
   more wrecks than before. Every other map's fingerprints identical.
 
+**Step 6a, the Riviera waterfront (2026-10-05):** the owner, with a photo of Villefranche-sur-Mer:
+the town more Riviera, Mediterranean; the downtown streets four lanes, the waterfront one side and
+colourful buildings the other.
+- **The boulevard:** the home straight (the end of the Promenade, along the Quay to the harbour) is
+  four lanes on 20 m (`TrackPoint.lanes`; the lap's `Node.lanes`), a double yellow down the middle
+  and white dashes between each way's two. Its traffic keeps to the outer lanes (`pos` ±0.7), the
+  middle two for racing. (At 22 m the grid's outer column stood 7.9 m out and cut across the car
+  behind at the green, every seed: 20 m doesn't.)
+- **Houses** (`TrackLayout.houses`, new: world-space footprints with a height): solid blocks in
+  the sim (baked as props met like a building's wall, on the lowest ground under their corners, so
+  a slope leaves no gap under them), trees keep off them, and the validator keeps every road clear
+  of them. Drawn (`render/skins/greybox/houses.ts`) in stucco ochre, salmon, rose, cream and
+  yellow, tall green-shuttered windows, shopfronts on the ground floor, under low terracotta
+  roofs.
+- **Coastal's town** (`TOWN` in the generator): 295 houses, terraced five rows deep up the hill on
+  the town side of the boulevard, and three deep both sides of the Old Town's climb, each facing
+  the road, 5 m back (a pavement) and clear of every road (the side streets and the Basin Road
+  too), the water and each other. The sea side is the sea's: the beach and its palms.
+- **Numbers:** floor 97.83 s. The field over 8 seeds: 2 wrecks, between cars, away from the
+  town. Every other map's fingerprints identical.
+
 ## The owner's answers (2026-10-04)
 
 - **The shape:** the sketch is right (quay, bridge, Old Town, tunnel, corniche, lighthouse, beach,

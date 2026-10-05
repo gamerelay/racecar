@@ -152,6 +152,22 @@ export interface LandmarkDef {
   label?: string;
 }
 
+/**
+ * A house on open ground (docs/COASTAL.md: the Riviera town): a solid block in world space, standing
+ * on the lowest ground under it, met as a building's wall is (scraped along, a wreck only hit hard).
+ * Trees keep off it; the validator keeps every road clear of it. The skin draws its look (a key of
+ * its own, the Riviera's stucco houses by default).
+ */
+export interface HouseDef {
+  /** Its middle, [x, z] (m). */
+  at: [number, number];
+  /** Across its front, deep, and high to its eaves (m). */
+  size: [number, number, number];
+  /** Which way its front faces, radians about y (0: toward +z). */
+  rot: number;
+  look?: string;
+}
+
 /** The landmark kinds a layout can use. */
 export const LANDMARK_KINDS = [
   // Downtown
@@ -216,6 +232,8 @@ export interface TrackLayout {
   hazards?: HazardDef[];
   props?: PropDef[];
   landmarks?: LandmarkDef[];
+  /** Houses on open ground (docs/COASTAL.md, the Riviera waterfront): solid, in world space. */
+  houses?: HouseDef[];
   smashables?: SmashDef[];
   /** Breakable walls, in world space (on open ground). */
   breakables?: BreakableDef[];

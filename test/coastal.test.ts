@@ -98,6 +98,52 @@ describe('coastal', () => {
     expect(open).toBeGreaterThan(200);
   });
 
+  test('the Riviera town: solid houses stacked up from the boulevard, clear of the roads, no trees in them', () => {
+    const houses = riviera.houses!;
+    expect(houses.length).toBeGreaterThan(200);
+    // The boulevard: four lanes.
+    expect(track.main.lanes[Math.round(10 / track.main.step)]).toBe(4);
+    // Each a solid block, on the lowest ground under it.
+    const solid = track.props.filter((p) => p.kind === 'house');
+    expect(solid.length).toBe(houses.length);
+    expect(solid.every((p) => p.solid && p.wall && p.y <= g.height(p.x, p.z) + 0.01)).toBe(true);
+    // No tree stands in one.
+    const pines = track.pines!;
+    for (const h of houses) {
+      const fx = Math.sin(h.rot);
+      const fz = Math.cos(h.rot);
+      pines.near(h.at[0], h.at[1], (k) => {
+        const dx = pines.x[k] - h.at[0];
+        const dz = pines.z[k] - h.at[1];
+        expect(Math.abs(dx * fz - dz * fx) < h.size[0] / 2 && Math.abs(dx * fx + dz * fz) < h.size[1] / 2).toBe(false);
+      });
+    }
+  });
+
+  test('driven into a house, a car is stopped at its wall, not through it', () => {
+    // The house nearest the start line, and a car aimed at its middle from 25 m out in front of it.
+    const h = riviera.houses!.reduce((a, b) => (Math.hypot(b.at[0] + 210, b.at[1] - 322) < Math.hypot(a.at[0] + 210, a.at[1] - 322) ? b : a));
+    const fx = Math.sin(h.rot);
+    const fz = Math.cos(h.rot);
+    const spot = { x: h.at[0] + fx * (h.size[1] / 2 + 25), z: h.at[1] + fz * (h.size[1] / 2 + 25), heading: ((h.rot + Math.PI) * 180) / Math.PI };
+    const input = { throttle: 1 };
+    const sim = setup(track, CLASSES, SURFACES, spot, input, { kmh: 40 });
+    let closest = Infinity;
+    let inside = false;
+    for (let k = 0; k < 60 * 3; k++) {
+      run(sim, input, 1 / 60, 1);
+      const dx = sim.cars.x[0] - h.at[0];
+      const dz = sim.cars.z[0] - h.at[1];
+      const across = Math.abs(dx * fz - dz * fx);
+      const along = dx * fx + dz * fz;
+      closest = Math.min(closest, along - h.size[1] / 2);
+      if (across < h.size[0] / 2 - 1 && Math.abs(along) < h.size[1] / 2 - 1) inside = true;
+    }
+    // It got there (its nose at the wall), and never into it.
+    expect(closest).toBeLessThan(3);
+    expect(inside).toBe(false);
+  }, 30_000);
+
   test('mostly blue skies: a shower one race in about seven (`rare`), against more than half on Paradise', () => {
     const showers = (allowed: string[]) => Array.from({ length: 400 }, (_, seed) => planWeather('random', seed + 1, allowed)).filter((p) => p.to > 0).length / 400;
     expect(map.weather).toContain('rare');

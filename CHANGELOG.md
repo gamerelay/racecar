@@ -31,6 +31,9 @@ and where things stand is [docs/HANDOFF.md](./docs/HANDOFF.md).
   lit by orange lamps.
 - **Coastal's rock rails**: a low limestone parapet round the outside of the tight corners up the
   mountain and down the switchbacks; the straights between are still open to fly off.
+- **Coastal's Riviera town**: the home straight is a four-lane waterfront boulevard, the beach
+  and palms on one side and terraces of ochre, rose and yellow houses with green shutters and
+  terracotta roofs climbing the hill on the other; the Old Town's climb runs between them too.
 
 ## alpha-1.31: Paradise Open, the Caldera engine and the market hall
 
