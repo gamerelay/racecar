@@ -214,14 +214,53 @@ layout.pieces = [
   { id: 'harbour-bridge', s: deck, under: { floor: SEA - 6, ease: 20, reach: 15 }, lift: { ...lift, s: [mid - width / 2, mid + width / 2] } },
   { id: 'rock-tunnel', s: tunnel, ceiling: TUNNEL.ceiling, indoor: 'tunnel' },
 ];
-// Open everywhere but the bridge, which has its rails, and the tunnel, its walls.
-layout.walls = {
-  gaps: [
-    { s: [0, deck[0]], side: 'both' },
-    { s: [deck[1], tunnel[0]], side: 'both' },
-    { s: [tunnel[1], Math.ceil(L)], side: 'both' },
-  ],
-};
+/**
+ * Rock rails (the owner, 2026-10-05: rails on the tight corners up top, rock-themed): a stone
+ * parapet on the outside of every corner tighter than `radius` m from the middle of the Old Town to
+ * Lighthouse Point (`from`–`to`, x and z of a point on each), `run` m on past each end. The straights
+ * between stay open: run wide there and you're off onto the row below, or into the sea.
+ */
+const RAILS = { radius: 110, run: 15, from: [395, 85], to: [-755, 255] };
+/** Where the walls stand, per main-road sample and side: the bridge's rails, the tunnel's walls, the rock rails; open elsewhere. */
+const walled = (() => {
+  const n = baked.main.n;
+  const step = baked.main.step;
+  const left = new Uint8Array(n);
+  const right = new Uint8Array(n);
+  const mark = (a: number, b: number, side: Uint8Array) => {
+    for (let i = Math.max(0, Math.ceil(a / step)); i <= Math.min(n - 1, Math.floor(b / step)); i++) side[i] = 1;
+  };
+  for (const [a, b] of [deck, tunnel]) {
+    mark(a, b, left);
+    mark(a, b, right);
+  }
+  const [a, b] = [sAt(RAILS.from[0], RAILS.from[1]), sAt(RAILS.to[0], RAILS.to[1])];
+  const m = baked.main;
+  const w = Math.round(10 / step);
+  for (let i = Math.ceil(a / step) + w; i < Math.floor(b / step) - w; i++) {
+    // The turn over ±10 m: toward the right (its tangent moving onto the right, (-tz, tx)) or the left.
+    const turn = (m.tx[i + w] - m.tx[i - w]) * -m.tz[i] + (m.tz[i + w] - m.tz[i - w]) * m.tx[i];
+    const radius = (2 * w * step) / Math.max(1e-6, Math.abs(turn));
+    if (radius < RAILS.radius) mark(i * step - RAILS.run, i * step + RAILS.run, turn > 0 ? left : right);
+  }
+  return { left, right };
+})();
+// Gaps wherever a side has no wall.
+const gaps: { s: [number, number]; side: 'left' | 'right' }[] = [];
+for (const [side, on] of [['left', walled.left], ['right', walled.right]] as const) {
+  for (let i = 0; i < on.length; ) {
+    if (on[i]) {
+      i++;
+      continue;
+    }
+    let j = i;
+    while (j + 1 < on.length && !on[j + 1]) j++;
+    // (Up to the last open sample: the bake clears a gap's ends too, and the first walled one was lost.)
+    gaps.push({ s: [i * baked.main.step, j === on.length - 1 ? Math.ceil(L) : j * baked.main.step], side });
+    i = j + 1;
+  }
+}
+layout.walls = { gaps };
 layout.takedownSpots = [
   { s: sAt(BRIDGE.from + 70, BRIDGE.z), name: 'The Harbour Bridge' },
   { s: sAt(-545, DESCENT.z + DESCENT.step), name: 'The Descent' },

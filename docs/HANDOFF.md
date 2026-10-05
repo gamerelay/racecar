@@ -219,9 +219,9 @@ feel, blue skies and a rare shower, the `coastal` track. Open it with
   1. (#109–#112 merged 2026-10-05: the drawbridge, the lap reworked, the Basin Road, the bells,
      the boat, traffic from side streets.) The Rock Tunnel (#113, the main road taking a ceiling)
      waits for the owner.
-  2. The owner's next asks (2026-10-05): rock rails on the outsides of the tight corners up top
-     (the Descent's hairpins, the S), and the town a Riviera waterfront: four lanes along the water,
-     colourful buildings on the other side.
+  2. Rock rails on the tight corners up top (#114, stacked on #113), then the owner's other ask
+     (2026-10-05): the town a Riviera waterfront, four lanes along the water, colourful buildings
+     on the other side.
   3. The town, the cuts, the riviera look (COASTAL's steps 6–8), then into the lobby.
 - **Known rough edges:** a car crawling up a leaf as it passes 30° loses its floor and falls in (the
   AI never does); hills are cut back to the main road only, so keep branches and decks off them;
