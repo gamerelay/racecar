@@ -62,25 +62,27 @@ respawn), and the land behind the town rises into hills you can't usefully climb
    - **When it's up,** you have two choices. The **Basin Road** turns hard inland round the inner
      harbour's head: a hairpin by the fish market, slow and safe. Or you **jump it**: in the first
      seconds of a lift, the leaf is a ramp and the gap is short.
-3. **The Old Town**: a climb up the hill in three switchbacks, narrow and cobbled, between ochre
+3. **The Old Town**: a climb up the hill, a bend each way, narrow and cobbled, between ochre
    and pastel houses.
    - **A plaza** with a fountain, round it either way: a roundabout.
    - **An arcade** (a building piece, step 3c's kind): a covered gallery one switchback runs
      through. Its café glass smashes.
    - **The Stairs** (a risky cut): a stepped lane straight up the hill that skips a switchback.
      It's steep, bumpy and narrow; the AI only takes it on a good line.
-4. **The Mountain Road** (the owner, 2026-10-04: the hillside was too linear): on up past the
-   town into the hills in S-bends, to about 95 m.
+4. **The Mountain Road** (the owner, 2026-10-04: the hillside was too linear; 2026-10-05: wind
+   it like an S, and climb more): on up past the town in big S-bends, each the other way, to the
+   top of the mountain at about 130 m.
    - **The Rock Tunnel** on it: through a spur of rock, lit by orange lamps. It's dark inside and
      bright at the far end, so you come out of it blinking (indoors, step 3a: the light, the fog
      and the echo).
 5. **The Descent** (the owner: like the Bond film's chase down the mountain roads above the
-   Riviera): from the top, switchbacks down a steep mountainside over the sea, rows stacked down
-   the slope with the town and the sea below. The ground falls steeply between the rows, so a car
+   Riviera; 2026-10-05: several long, winding switchbacks, not a straight down the cliff): from
+   the top, five rows down a steep mountainside over the sea, stacked down the slope with the
+   town and the sea below. The ground falls steeply between the rows, so a car
    that runs wide at a hairpin flies off onto the row below: quicker if you land it, a wreck if you
    don't. Later, a low stone parapet on some of the outsides, and gaps in it.
-6. **Lighthouse Point**: down the cliffs to a tight hairpin round the lighthouse at the cape's
-   tip, the lap's landmark.
+6. **Lighthouse Point**: down the Corniche along the last of the cliffs, a bend each way, to a
+   tight hairpin round the lighthouse at the cape's tip, the lap's landmark.
    - **The Rocks** (the cut): straight across the flat rocks below the lighthouse instead of round
      it. It's shorter, but the rock is rough and the sea is on both sides.
 7. **The Beach**: down off the cape to a beach club, with umbrellas, a pool and a jetty.
@@ -301,6 +303,24 @@ experimental, so open it with `?mode=free&map=coastal/riviera`.
   identical.
 - **The look is borrowed:** Paradise's `tropic` palette and its palms and jungle trees. The
   riviera look is step 8.
+
+**The lap reworked (2026-10-05):** the owner, after driving it: not a solid race track yet, parts too
+linear; the cliff should be several long winding switchbacks, and the top should wind like an S and
+climb more. Now 5.0 km (from 3.96), top 130 m (from 95):
+- **The Mountain Road** is five S-bends, each about 110° the other way, climbing at about 8% from
+  the Old Town (27 m) to the top of the mountain, through the spur (`TUNNEL`, about 1320–1570 m).
+- **The Descent** is five rows across the mountainside (`DESCENT`), 255 m long and 100 m apart,
+  each bowed 18 m along the contour so it's a bend each way, not a straight; 24 m lower a row,
+  joined by hairpins of two 28 m corners. It replaces the old three short rows and the 500 m
+  straight down the west cliffs.
+- **The Corniche** is what's left of the cliffs: a bend each way down to Lighthouse Point, which
+  moved 180 m north (the coast with it) to keep the lap shorter. The west coast is jagged now
+  (headlands and coves), 70–150 m off the road.
+- **The Old Town** is a bend each way (it was four switchbacks), since the S does the climbing.
+- **`tools/plan.ts`** (new) draws a layout from above: the ground shaded by height, the sea, the
+  roads coloured by height, the pieces, and a mark every 250 m. It's how the shape was laid out.
+- **Numbers:** floor 98.70 s (from 76.33; a race of three laps is about five minutes). The field
+  over four seeds: no wrecks. Every other map's fingerprints identical.
 
 **What the engine can't do yet** (it shapes step 5): on the main road a piece is a deck only.
 Ceilings are on branches only (PieceDef's doc), because there the ground is the road's own. The

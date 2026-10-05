@@ -4,10 +4,10 @@
 //
 //   The Quay           the start on the harbour front, heading east to the harbour mouth
 //   The Harbour Bridge over the harbour on a deck, a drawbridge in its middle (lifts once or twice a race)
-//   The Old Town       up the hill in switchbacks to the top of the town
-//   The Mountain Road  on up into the hills in S-bends, through a spur (a cutting; a rock tunnel later)
-//   The Descent        switchbacks down the mountainside over the sea, rows stacked down the slope
-//   Lighthouse Point   down the cliffs to a hairpin round the lighthouse, then down to the sea
+//   The Old Town       up the hill, a bend each way, to the top of the town
+//   The Mountain Road  on up in big S-bends to the top of the mountain, through a spur (a cutting; a rock tunnel later)
+//   The Descent        five long switchbacks down the mountainside over the sea, rows stacked down the slope
+//   Lighthouse Point   down the Corniche along the cliffs to a hairpin round the lighthouse, then down to the sea
 //   The Beach          along the beach, a chicane by the pool, and the Promenade back onto the Quay
 //
 // Experimental (map.json), so it's out of the lobby: open it from a link,
@@ -42,19 +42,22 @@ const HARBOUR = { west: 120, east: 290, head: 170 };
 const BRIDGE = { z: 322, from: 95, to: 315, y: 7 };
 
 /**
- * The Descent: rows from `west` to `east` (x), the first at `z` and `top` m up, each `step` m
- * further south and `drop` m lower (half of it along the row, half round its hairpin).
+ * The Descent: rows across the mountainside from `east` to `west` (x), the first at `z` heading
+ * west and `top` m up, each `step` m further south (down the slope) and `drop` m lower (half of it
+ * along the row, half round its hairpin), every row winding `wind` m north and back at its middle.
  */
-const DESCENT = { west: -650, east: -440, z: -95, step: 55, top: 92, drop: 22, rows: 3, r: 24 };
+const DESCENT = { east: -400, west: -655, z: -545, step: 100, top: 130, drop: 24, rows: 5, r: 28, wind: 18 };
 function descent(): Node[] {
   const d = DESCENT;
   const out: Node[] = [];
   let y = d.top;
   for (let k = 0; k < d.rows; k++) {
     const z = d.z + k * d.step;
-    // East along even rows, west along odd ones; the hairpin at the row's far end.
-    const [from, to] = k % 2 ? [d.east, d.west] : [d.west, d.east];
+    // West along even rows, east along odd ones; the hairpin at the row's far end.
+    const [from, to] = k % 2 ? [d.west, d.east] : [d.east, d.west];
     out.push(C(from, z, y, d.r));
+    // Its middle, bowed out along the contour (a bend each way, not a straight).
+    out.push(C((from + to) / 2, z - d.wind * (k % 2 ? -1 : 1), y - d.drop / 4, 160));
     y -= d.drop / 2;
     if (k < d.rows - 1) {
       out.push(C(to, z, y, d.r));
@@ -65,7 +68,7 @@ function descent(): Node[] {
 }
 
 /** Where the Mountain Road runs through the spur (its corners either side): a cutting now, a rock tunnel when the main road takes a ceiling (COASTAL.md). */
-const TUNNEL = { from: [-80, -320], to: [-300, -285] };
+const TUNNEL = { from: [310, -120], to: [170, -400] };
 
 const nodes: Node[] = [
   // The Quay: east along the harbour front to the bridge.
@@ -75,30 +78,33 @@ const nodes: Node[] = [
   Q(BRIDGE.from, BRIDGE.z, BRIDGE.y),
   Q(BRIDGE.to, BRIDGE.z, BRIDGE.y),
   // The far quay, and left up into the Old Town.
-  Q(420, 318, 3.5, 45),
-  // The Old Town: up the hill in switchbacks.
-  T(440, 165, 11, 32),
-  T(305, 125, 18, 32),
-  T(290, -15, 27, 32),
-  T(450, -55, 35, 34),
-  T(470, -205, 43, 50),
-  // The Mountain Road: on up past the town into the hills, in S-bends, through the spur (TUNNEL).
-  C(320, -300, 54, 80),
-  C(130, -240, 64, 80),
-  C(-80, -320, 76, 90),
-  C(-300, -285, 88, 90),
-  C(-560, -235, 95, 80),
-  // The Descent (the owner: a Bond film's switchbacks down a mountainside above the sea): rows across
-  // the slope, each a hairpin (two corners, so its radius holds) and DESCENT.drop lower than the last,
-  // the ground falling steeply between them. Run wide and you're off onto the row below.
+  Q(430, 318, 4, 40),
+  // The Old Town: up the hill between the houses, a bend each way, to the foot of the S.
+  T(475, 190, 12, 45),
+  T(395, 85, 19, 40),
+  T(470, -15, 27, 45),
+  // The Mountain Road (the owner, 2026-10-05: the top should wind like an S and climb): S-bends
+  // up the hillside to the top of the mountain, each bend the other way, through the spur (TUNNEL).
+  C(470, -230, 42, 70),
+  C(310, -120, 55, 75),
+  C(170, -400, 72, 75),
+  C(-10, -150, 86, 75),
+  C(-190, -300, 102, 65),
+  C(-110, -470, 118, 60),
+  // The Descent (the owner: Bond's switchbacks down a mountainside above the sea, long and
+  // winding): rows across the slope, each a hairpin (two corners, so its radius holds) and
+  // DESCENT.drop lower than the last, the ground falling steeply between them. Run wide at a
+  // hairpin and you're off onto the row below.
   ...descent(),
-  // Down the cliffs to Lighthouse Point: the hairpin round the lighthouse, and down to the sea.
-  C(-668, 250, 18, 90),
-  C(-690, 445, 9, 28),
-  C(-560, 440, 6, 60),
+  // The Corniche: down the last of the cliffs above the sea to Lighthouse Point.
+  C(-735, -30, 20, 55),
+  C(-665, 100, 14, 55),
+  // The hairpin round the lighthouse, and down to the sea.
+  C(-755, 255, 7, 30),
+  C(-610, 300, 5, 60),
   // The Beach: along it, the chicane by the pool, and the Promenade onto the Quay.
-  Q(-440, 392, 3, 80),
-  Q(-345, 352, 3, 40),
+  Q(-470, 352, 3, 80),
+  Q(-360, 345, 3, 40),
   Q(-285, 335, 3, 45),
 ];
 
@@ -119,24 +125,34 @@ const COAST: [number, number][] = [
   [HARBOUR.west, 368],
   [-150, 370],
   [-300, 395],
-  [-450, 430],
-  [-580, 480],
-  [-690, 525],
-  [-760, 490],
-  [-750, 330],
-  [-715, 140],
-  [-715, -80],
-  [-740, -400],
-  [-780, -950],
+  [-450, 400],
+  [-590, 380],
+  [-700, 350],
+  // The cape: Lighthouse Point.
+  [-800, 320],
+  [-815, 230],
+  // The jagged cliffs under the Corniche: headlands and coves.
+  [-785, 150],
+  [-805, 60],
+  [-770, -30],
+  [-795, -130],
+  [-765, -230],
+  [-800, -360],
+  [-790, -520],
+  [-830, -950],
 ];
 
-/** The hills: the town's, the mountain behind the Descent, the spur the Mountain Road runs through (TUNNEL), and the land behind. */
+/**
+ * The hills: the town's, the mountain over the Descent, the spur the Mountain Road runs through
+ * (TUNNEL), and the land behind. Off them the land between the roads is the roads' own heights,
+ * relaxed, so the S's bands make a slope up to the top and the Descent's rows a steep one down.
+ */
 const HILLS = [
-  { x: 380, z: -80, h: 52, r: 300 },
-  { x: -380, z: -520, h: 150, r: 460 },
-  { x: -190, z: -370, h: 115, r: 130 },
-  { x: 100, z: -650, h: 80, r: 420 },
-  { x: 650, z: -500, h: 60, r: 380 },
+  { x: 380, z: -80, h: 45, r: 260 },
+  { x: -520, z: -700, h: 190, r: 380 },
+  { x: 260, z: -250, h: 100, r: 110 },
+  { x: 120, z: -760, h: 185, r: 360 },
+  { x: 620, z: -560, h: 140, r: 330 },
 ];
 
 const layout: TrackLayout = {

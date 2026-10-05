@@ -211,8 +211,12 @@ feel, blue skies and a rare shower, the `coastal` track. Open it with
   The fingerprint drives the AI at a lift. Its review found real bugs (the AI coasting onto a
   rising leaf, ghosts through a raised one, the lift clock); all fixed, and the field over 16 seeds
   has one nudge at the bridge.
+- **The lap reworked** (2026-10-05, after the owner drove it: too linear, the cliff should be long
+  winding switchbacks, the top an S that climbs more): 5.0 km, the Mountain Road five S-bends up to
+  130 m, the Descent five long bowed rows, then the Corniche. Floor 98.70 s. `tools/plan.ts` draws
+  a layout from above (heights, roads, pieces), for laying one out.
 - **Next, in about this order:**
-  1. Merge #109 when the owner's driven it.
+  1. (#109 merged 2026-10-05.)
   2. The drawbridge's rest: the boat under it and the bells, and the Basin Road detour round the
      harbour (a branch; mind its walls: gap them in the generator).
   3. COASTAL's step 4, traffic from side streets (traffic lanes as routes over more than one road,
@@ -221,11 +225,12 @@ feel, blue skies and a rare shower, the `coastal` track. Open it with
   4. The town, the cuts, the riviera look (COASTAL's steps 6–8), then into the lobby.
 - **Known rough edges:** a car crawling up a leaf as it passes 30° loses its floor and falls in (the
   AI never does); hills are cut back to the main road only, so keep branches and decks off them;
-  the lap is long (76 s) for the hairpins, and a descent row could go if the owner wants it shorter.
+  the lap is long (98.7 s, from the owner's S and switchbacks): trim a Descent row or the S, or
+  race fewer laps, if the owner wants it shorter.
 - Camera hints still wait for a spot that needs one; TECH_DEBT has the small things the reviews left.
 
 **Lap floors now** (the best AI lap, solo hard coupe): Downtown 57.9, Backroads 62.82, Avalanche
-93.07, Paradise 70.3, Paradise Open 66.35, Coastal 76.33 s (experimental). Paradise Open's field: 34 wrecks in 40 seeds.
+93.07, Paradise 70.3, Paradise Open 66.35, Coastal 98.70 s (experimental). Paradise Open's field: 34 wrecks in 40 seeds.
 
 **Working notes (2026-10-03, 2026-10-04):**
 - An AI held at a standstill on the brake reverses (brake past zero is reverse): to hold a car still,
