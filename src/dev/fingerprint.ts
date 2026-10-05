@@ -18,6 +18,7 @@ import { bakeTrack, type Track } from '../core/track/bake';
 import { newHit, sampleAt, surfaceAt } from '../core/track/query';
 import { Hasher, hashOf } from './hash';
 import { buildLifts, cycle } from '../core/world/lifts';
+import { newTrafficPose, Traffic } from '../core/world/traffic';
 
 /** The fixed drive: the hard AI in a coupe, alone, no traffic or hazards, clear, this long. */
 export const DRIVE_SECONDS = 40;
@@ -43,6 +44,8 @@ export interface Fingerprint {
   wrecks: number;
   /** The drawbridges (PieceDef.lift): their lift times for a few seeds, their angles through a cycle, and their leaves' floors at a few angles. Only for a layout with one. */
   lifts?: string;
+  /** Traffic by side streets (TrafficLaneDef.streets): every car's pose and visibility through a couple of minutes, for a few seeds. Only for a layout with a lane that uses them. */
+  streets?: string;
 }
 
 export function fingerprint(layout: TrackLayout, classes: CarClass[], surfaces: SurfaceDef[]): Fingerprint {
@@ -63,6 +66,7 @@ export function fingerprint(layout: TrackLayout, classes: CarClass[], surfaces: 
     marks,
     wrecks: main.wrecks,
     ...(track.ground?.pieces.list.some((p) => p.lift) ? { lifts: liftsHash(track, classes, surfaces) } : {}),
+    ...(layout.traffic?.lanes.some((l) => l.streets) ? { streets: streetsHash(track) } : {}),
   };
 }
 
@@ -96,6 +100,23 @@ function drive(track: Track, classes: CarClass[], surfaces: SurfaceDef[], spline
 }
 
 /** The drawbridges, by their answers: when they lift (seeds 1, 7, 42), their angle every half second through each cycle, and the floor along and across each span at a few angles. */
+function streetsHash(track: Track): string {
+  const h = new Hasher();
+  const pose = newTrafficPose();
+  for (const seed of [1, 7, 42]) {
+    const tr = new Traffic(track, seed);
+    for (let t = 0; t < 120; t += 0.25)
+      for (let k = 0; k < tr.count; k++) {
+        const v = tr.visibility(k, t);
+        h.num(v);
+        if (v <= 0) continue;
+        tr.poseAt(k, t, pose);
+        for (const n of [pose.s, pose.lat, pose.x, pose.y, pose.z, pose.h, pose.vx, pose.vz]) h.num(n);
+      }
+  }
+  return h.hex();
+}
+
 function liftsHash(track: Track, classes: CarClass[], surfaces: SurfaceDef[]): string {
   const g = track.ground!;
   const h = new Hasher();

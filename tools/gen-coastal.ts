@@ -27,6 +27,8 @@ const DIR = 'content/maps/coastal';
 const node = (w: number, surface: string, shoulder: number, verge?: string) => (x: number, z: number, y: number, r?: number, more: Partial<Node> = {}): Node => ({ x, z, y, w, r, surface, shoulder, verge, ...more });
 /** The Quay, the bridge and the Promenade: wide. */
 const Q = node(16, 'asphalt', 3);
+/** The home straight, the Promenade's end onto the Quay: wider, for its traffic both ways (two-way on 16 m, the AI was boxed in). */
+const H = node(20, 'asphalt', 3);
 /** The Old Town: narrower, between the houses. */
 const T = node(13, 'asphalt', 2);
 /** The hillside, the cutting and the Corniche: a fast road. */
@@ -73,8 +75,8 @@ const TUNNEL = { from: [310, -120], to: [170, -400] };
 
 const nodes: Node[] = [
   // The Quay: east along the harbour front to the bridge.
-  Q(-210, 322, 3),
-  Q(20, 322, 3.5),
+  H(-210, 322, 3),
+  H(20, 322, 3.5),
   // The Harbour Bridge: straight over the mouth.
   Q(BRIDGE.from, BRIDGE.z, BRIDGE.y),
   Q(BRIDGE.to, BRIDGE.z, BRIDGE.y),
@@ -105,8 +107,8 @@ const nodes: Node[] = [
   C(-610, 300, 5, 60),
   // The Beach: along it, the chicane by the pool, and the Promenade onto the Quay.
   Q(-470, 352, 3, 80),
-  Q(-360, 345, 3, 40),
-  Q(-285, 335, 3, 45),
+  H(-360, 345, 3, 40),
+  H(-285, 335, 3, 45),
 ];
 
 const crests: Crest[] = [];
@@ -272,6 +274,72 @@ const BASIN = { from: -45, to: 392, width: 11, shoulder: 2, rise: 4, corners: [
   layout.branches = [{ id: 'basin-road', from, to, kind: 'alternate', points }];
   // Open, as every road here but the bridge.
   layout.walls = { gaps: [...(layout.walls?.gaps ?? []), { spline: 'basin-road', s: [0, 1e4], side: 'both' }] };
+}
+
+/**
+ * Side streets (COASTAL.md, "Traffic from side streets"; the owner: so traffic doesn't pop in and
+ * out on the main road): short loops off the main road and back, round behind where the houses
+ * will stand, that the traffic comes and goes by. Each is [id, from, to (main distances), side
+ * (+1 right, -1 left)]. A lane's streets are on its own side, so nobody turns across the other
+ * lane: with the lap (eastbound on the Promenade) on the right, against it on the left. Open to
+ * drive; the AI keeps to the main road.
+ */
+const STREETS: [string, number, number, 1 | -1][] = [
+  // Round the line on the home straight, from the end of the Promenade onto the Quay: the lido's car
+  // park and the harbour's on the sea side, two streets up into the town. Straight between them (the
+  // traffic once ran through the Promenade's kink, and the AI's line there cut into the oncoming
+  // lane: head-ons; MAPS.md's rule, no traffic through fast bends); short of the Basin Road's turn.
+  // (The Old Town's come with its houses, COASTAL's step 6: its road bends too much for loops.)
+  ['lido', 4775, 4895, 1],
+  ['quai-sud', 30, 150, 1],
+  ['rue-du-port', 30, 150, -1],
+  ['rue-des-pins', 4775, 4895, -1],
+];
+/** How far off the main road's middle a street runs (m), how wide it is, and the traffic on it. */
+const STREET = { depth: 32, width: 8, shoulder: 1.5, speed: 14, density: 8 };
+{
+  const g = bakeTrack(layout, surfaces);
+  const hit = newHit();
+  for (const [id, from, to, side] of STREETS) {
+    // Out from just past the main road's verge 30 m along, across to `depth`, along, and back in.
+    const at = (s: number, lat: number): [number, number] => (sampleAt(g.main, s, hit), [hit.cx - hit.tz * lat * side, hit.cz + hit.tx * lat * side]);
+    const edge = () => hit.width / 2 + hit.shoulder + STREET.width / 2 + 1;
+    sampleAt(g.main, from + 30, hit);
+    const near = edge();
+    const corners: [number, number][] = [at(from + 30, near), at(from + 55, STREET.depth)];
+    for (let s = from + 80; s < to - 55; s += 25) corners.push(at(s, STREET.depth));
+    corners.push(at(to - 55, STREET.depth));
+    sampleAt(g.main, to - 30, hit);
+    corners.push(at(to - 30, edge()));
+    let line = corners;
+    for (let pass = 0; pass < 3; pass++)
+      line = [line[0], ...line.slice(0, -1).flatMap(([ax, az], k) => {
+        const [bx, bz] = line[k + 1];
+        return [[0.75 * ax + 0.25 * bx, 0.75 * az + 0.25 * bz], [0.25 * ax + 0.75 * bx, 0.25 * az + 0.75 * bz]] as [number, number][];
+      }), line[line.length - 1]];
+    // Every 6 m, at the main road's height beside it (the ground is cut and filled to it).
+    const points: TrackPoint[] = [];
+    let left = 0;
+    for (let k = 0; k + 1 < line.length; k++) {
+      const [ax, az] = line[k];
+      const [bx, bz] = line[k + 1];
+      const len = Math.hypot(bx - ax, bz - az);
+      for (; left < len; left += 6) points.push(streetPoint(ax + ((bx - ax) * left) / len, az + ((bz - az) * left) / len));
+      left -= len;
+    }
+    points.push(streetPoint(...line[line.length - 1]));
+    function streetPoint(x: number, z: number): TrackPoint {
+      const s = sAt(x, z);
+      sampleAt(g.main, s, hit);
+      return { p: [Math.round(x * 10) / 10, Math.round(hit.cy * 10) / 10, Math.round(z * 10) / 10], width: STREET.width, lanes: 2, shoulder: STREET.shoulder, surface: 'asphalt' };
+    }
+    layout.branches!.push({ id, from, to, kind: 'street', points });
+    layout.walls!.gaps!.push({ spline: id, s: [0, 1e4], side: 'both' });
+  }
+  // A lane each way: with the lap on the right (in by the first street, out by the second),
+  // against it on the left.
+  const lane = (dir: 1 | -1, streets: string[]) => ({ pos: dir * 0.5, dir, speed: STREET.speed, streets });
+  layout.traffic = { density: STREET.density, lanes: [lane(1, ['lido', 'quai-sud']), lane(-1, ['rue-du-port', 'rue-des-pins'])] };
 }
 
 mkdirSync(DIR, { recursive: true });

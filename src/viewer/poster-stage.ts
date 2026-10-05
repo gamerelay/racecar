@@ -113,11 +113,13 @@ export class Stage {
   constructor(
     readonly mapKey: string,
     palette?: string,
+    /** Traffic's density (0: none, the posters'). */
+    traffic = 0,
   ) {
     const layout = structuredClone(LAYOUTS[mapKey]);
     const map = ALL_MAPS.find((m) => mapKey.startsWith(m.id + '/')) ?? MAPS[0];
     this.track = bakeTrack(layout, SURFACES);
-    this.sim = new Sim(this.track, CLASSES, SURFACES, { seed: 7, weather: 'clear', mayhem: 'off', traffic: 0 });
+    this.sim = new Sim(this.track, CLASSES, SURFACES, { seed: 7, weather: 'clear', mayhem: 'off', traffic });
     this.skin.environment(this.scene, palette ?? map.palette);
     this.trackVisual = this.skin.track(this.track, this.sim.seed);
     for (const c of this.trackVisual.chunks) this.scene.add(c);

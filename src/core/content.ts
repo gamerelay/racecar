@@ -30,7 +30,12 @@ export interface BranchDef extends SplineDef {
   /** Main-spline distance where the branch leaves, and where it rejoins. */
   from: number;
   to: number;
-  kind: 'shortcut' | 'alternate';
+  /**
+   * 'shortcut': the AI takes it now and then. 'alternate': the long way round something (a
+   * drawbridge), taken when that's in the way. 'street': a side street, a loop off the main road and
+   * back that traffic comes and goes by (TrafficLaneDef.streets); open to drive, never the AI's.
+   */
+  kind: 'shortcut' | 'alternate' | 'street';
   /** A secret one: no sign at its mouth, and not on the minimap or the map's thumbnail. */
   secret?: boolean;
   /**
@@ -105,6 +110,13 @@ export interface TrafficLaneDef {
    * left out. Traffic belongs on the traffic-heavy section of a lap, not in every hairpin.
    */
   sections?: [number, number][];
+  /**
+   * Side streets it comes and goes by (docs/COASTAL.md, "Traffic from side streets"; branches of
+   * kind 'street', on its own side of the road, in the order it passes them), instead of `sections`:
+   * its cars come down the far half of each street but the last, along the main road, and off up
+   * the near half of the next, fading in and out at the streets' middles, out of sight.
+   */
+  streets?: string[];
 }
 
 export interface HazardDef {
