@@ -54,6 +54,8 @@ export interface Gate {
   x: number;
   y: number;
   z: number;
+  /** How far along the route it is (m): the finish at the route's length. */
+  at: number;
   /** The road's direction there (a car crosses it going this way), and half its width to the walls. */
   tx: number;
   tz: number;
@@ -106,6 +108,15 @@ export interface RoadGraph {
   route: Route;
   /** The street that `spline` is on at `s` (its road's stretch holding it), or -1. */
   streetAt(spline: number, s: number): number;
+  /**
+   * How far along the route (m) a car on `spline` at `s` is (6c: what progress counts): on the main
+   * road, its distance from the start; on a branch or a side street, as far between its two nodes'
+   * places on the main road as it is through the street (on the route or not: never NaN on a road).
+   * A lap's wraps to [0, length); a run's goes on past its start and finish (negative before it).
+   * The old main-road distance to the bit, but where one node stands for two ends of roads within
+   * SAME (1 m), as far off as they were apart.
+   */
+  along(spline: number, s: number): number;
 }
 
 /** The distance from a to b along a closed road of length L, going forward (or back). */
@@ -171,8 +182,13 @@ export function buildGraph(track: Track): RoadGraph {
   }
   const branchStreets = ends.map((e) => street(e.sp, 0, e.sp.length, e.from, e.to));
 
+  // Each road's streets in order along it (a branch has one).
+  const bySpline: number[][] = splines.map(() => []);
+  for (const st of streets) bySpline[st.spline].push(st.index);
   const streetAt = (spline: number, s: number): number => {
-    for (const st of streets) if (st.spline === spline && s >= st.s0 && s <= st.s1) return st.index;
+    const mine = bySpline[spline];
+    if (!mine) return -1;
+    for (const k of mine) if (s >= streets[k].s0 && s <= streets[k].s1) return k;
     return -1;
   };
 
@@ -197,10 +213,29 @@ export function buildGraph(track: Track): RoadGraph {
     sampleAt(main, s, hit);
     // (The finish of a lap is the line: the end of the last street, not the start of the first.)
     const st = finish ? way[way.length - 1] : streetAt(0, s);
-    return { street: st, spline: 0, s, x: hit.cx, y: hit.cy, z: hit.cz, tx: hit.tx, tz: hit.tz, half: hit.width / 2 + hit.shoulder, finish };
+    return { street: st, spline: 0, s, at: s - startS, x: hit.cx, y: hit.cy, z: hit.cz, tx: hit.tx, tz: hit.tz, half: hit.width / 2 + hit.shoulder, finish };
   };
   const gates = [...track.checkpoints.map((s) => gate(s, false)), gate(finishS, true)];
   const route: Route = { closed: main.closed && !run, start: startNode, finish: finishNode, at, way, streets: routeStreets, gates, length: finishS - startS };
+
+  // A street off the main road: where its two nodes are on the main road (every node is, on the
+  // route or not: a branch past a run's finish still has a distance), and how far between them (a
+  // lap's round the line the long way, as the branch goes).
+  const mainS = nodes.map(() => NaN);
+  for (const m of onMain) mainS[m.node] = m.s;
+  const span = streets.map((st) => (st.spline === 0 ? NaN : wrapAround(mainS[st.to] - mainS[st.from], L, true)));
+  const along = (spline: number, s: number): number => {
+    // (The main road's own distance, so a lap's is exactly what it always was.)
+    if (spline === 0) return s - startS;
+    const k = streetAt(spline, s);
+    if (k < 0) return NaN;
+    const st = streets[k];
+    // (In the order mainDistance did it, then from the start: the same to the last bit, but where a
+    // node stands for two ends within SAME of each other, as far off as they were apart.)
+    const d = mainS[st.from] + ((s - st.s0) / st.length) * span[k];
+    // (Wrapped on an open road too, as mainDistance did: adding and taking off its length rounds.)
+    return wrapAround(d, L, true) - startS;
+  };
 
   // Each road's links: at every node on it, every other road there (both ways round).
   const links: Link[][] = splines.map(() => []);
@@ -225,5 +260,5 @@ export function buildGraph(track: Track): RoadGraph {
         }
   for (const l of links) l.sort((p, q) => p.other - q.other || p.s - q.s);
 
-  return { nodes, line, links, streets, route, streetAt };
+  return { nodes, line, links, streets, route, streetAt, along };
 }

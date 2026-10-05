@@ -1,31 +1,34 @@
-// Race progress (SPEC §5): laps, checkpoints and positions, all measured on the main spline.
-// Checkpoints stop a shortcut back across the finish line from counting as a lap.
+// Race progress (SPEC §5): laps, checkpoints and positions, all measured along the race's route
+// through the road graph (core/track/graph.ts, step 6c), its checkpoints gates on it. Checkpoints
+// stop a shortcut back across the finish line from counting as a lap.
 
 import { Ev } from '../events';
 import type { SimState } from '../state';
-import { mainDistance, wrap } from '../track/bake';
+import { wrap } from '../track/bake';
 
 export function updateProgress(sim: SimState, i: number): void {
-  if (sim.track.run) return runProgress(sim, i, sim.track.run);
+  if (sim.track.run) return runProgress(sim, i);
   const cars = sim.cars;
-  const track = sim.track;
-  const L = track.main.length;
-  const cps = track.checkpoints;
-  const sMain = mainDistance(track, cars.spline[i], cars.s[i]);
+  const route = sim.track.graph.route;
+  const L = route.length;
+  const gates = route.gates;
+  // (The finish is the last gate: the checkpoints are the ones before it.)
+  const cps = gates.length - 1;
+  const d = sim.track.graph.along(cars.spline[i], cars.s[i]);
   const lap = cars.lap[i];
   const next = cars.nextCp[i];
   const prevProgress = cars.progress[i];
   const prevS = wrap(prevProgress, L);
 
-  if (next < cps.length) {
+  if (next < cps) {
     // A shortcut's exit can jump past more than one checkpoint in a tick.
     let n = next;
-    while (n < cps.length && crossed(prevS, sMain, cps[n], L)) {
+    while (n < cps && crossed(prevS, d, gates[n].at, L)) {
       sim.events.push(sim.tick, Ev.Checkpoint, i, cars.x[i], cars.y[i], cars.z[i], n, lap);
       n++;
     }
     cars.nextCp[i] = n;
-  } else if (crossed(prevS, sMain, 0, L)) {
+  } else if (crossed(prevS, d, 0, L)) {
     // World time, like the race clock: slow-mo stretches it for everyone alike.
     const time = sim.time - cars.lapStartTime[i];
     cars.lap[i] = lap + 1;
@@ -37,32 +40,34 @@ export function updateProgress(sim: SimState, i: number): void {
   }
   // Progress keeps counting forward through the finish line so positions sort across it.
   const base = cars.lap[i] * L;
-  let p = base + sMain;
-  if (cars.nextCp[i] === 0 && sMain > L / 2) p -= L; // just before the line on a new lap
-  if (cars.nextCp[i] >= cps.length && sMain < L / 2) p += L; // just past the line, lap not yet counted
+  let p = base + d;
+  if (cars.nextCp[i] === 0 && d > L / 2) p -= L; // just before the line on a new lap
+  if (cars.nextCp[i] >= cps && d < L / 2) p += L; // just past the line, lap not yet counted
   cars.progress[i] = p;
 }
 
 /**
- * One run (layout.run): progress is the distance from the start, the checkpoints in order, and
- * crossing the finish after them is the run's one "lap". Nothing wraps.
+ * One run (layout.run): progress is the distance along the route from its start, the checkpoints in
+ * order, and crossing the finish after them is the run's one "lap". Nothing wraps.
  */
-function runProgress(sim: SimState, i: number, run: { start: number; finish: number }): void {
+function runProgress(sim: SimState, i: number): void {
   const cars = sim.cars;
-  const cps = sim.track.checkpoints;
-  const sMain = mainDistance(sim.track, cars.spline[i], cars.s[i]);
-  const prevS = cars.progress[i] + run.start;
+  const route = sim.track.graph.route;
+  const gates = route.gates;
+  const cps = gates.length - 1;
+  const d = sim.track.graph.along(cars.spline[i], cars.s[i]);
+  const prev = cars.progress[i];
   let n = cars.nextCp[i];
   // Only forward (a respawn, back on the road behind, isn't a crossing). A jump ahead counts what it
   // skipped: a respawn ahead of an avalanche, or a leap over a ridge onto a later stretch (open
   // ground is all in bounds), a shortcut you earned.
-  const ahead = sMain > prevS;
-  while (ahead && n < cps.length && prevS < cps[n] && sMain >= cps[n]) {
+  const ahead = d > prev;
+  while (ahead && n < cps && prev < gates[n].at && d >= gates[n].at) {
     sim.events.push(sim.tick, Ev.Checkpoint, i, cars.x[i], cars.y[i], cars.z[i], n, cars.lap[i]);
     n++;
   }
   cars.nextCp[i] = n;
-  if (ahead && n >= cps.length && cars.lap[i] === 0 && prevS < run.finish && sMain >= run.finish) {
+  if (ahead && n >= cps && cars.lap[i] === 0 && prev < route.length && d >= route.length) {
     const time = sim.time - cars.lapStartTime[i];
     cars.lap[i] = 1;
     cars.lastLap[i] = time;
@@ -70,7 +75,7 @@ function runProgress(sim: SimState, i: number, run: { start: number; finish: num
     cars.lapStartTime[i] = sim.time;
     sim.events.push(sim.tick, Ev.Lap, i, cars.x[i], cars.y[i], cars.z[i], time, 1);
   }
-  cars.progress[i] = sMain - run.start;
+  cars.progress[i] = d;
 }
 
 /** True if moving forward from a to b (a short step, wrapping at L) passes point c. */

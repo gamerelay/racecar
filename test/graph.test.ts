@@ -3,12 +3,13 @@
 // alongside what drives today: nothing in the sim reads it yet.
 
 import { describe, expect, test } from 'bun:test';
-import { bakeTrack, type Track } from '../src/core/track/bake';
+import { bakeTrack, mainDistance, type Track } from '../src/core/track/bake';
 import { newHit, sampleAt } from '../src/core/track/query';
 import type { TrackLayout } from '../src/core/content';
 import { validateLayout } from '../src/core/track/validate';
 import { locateCar } from '../src/core/track/locate';
 import { setup } from '../src/dev/drive';
+import { Ev } from '../src/core/events';
 import { CLASSES, SURFACES, layout } from './helpers';
 
 const MAPS = ['coastal/riviera', 'downtown/downtown', 'backroads/valley', 'paradise/island', 'paradise-open/open', 'avalanche/slope'];
@@ -220,4 +221,65 @@ describe('locate over the graph (6b)', () => {
     const main = atLine.graph.links[0].filter((l) => l.other === 1);
     expect(main.map((l) => l.s)).toEqual([0, 254]);
   });
+});
+
+describe('progress along the route (6c)', () => {
+  test("along(): on every road of every map, exactly the old main-road distance (from a run's start)", () => {
+    for (const [key, t] of tracks) {
+      const start = t.run?.start ?? 0;
+      for (const sp of t.splines)
+        for (let s = 0; s <= sp.length; s += 3.7) {
+          const want = mainDistance(t, sp.index, s) - start;
+          expect([key, sp.id, s, t.graph.along(sp.index, s)]).toEqual([key, sp.id, s, want]);
+        }
+    }
+  });
+
+  test('a run with branches, one past its finish: exactly the old distance, and never NaN', () => {
+    const a = layout('avalanche/slope');
+    const t0 = tracks.get('avalanche/slope')!;
+    const fin = t0.run!.finish;
+    const side = (from: number, to: number) =>
+      [0.3, 0.5, 0.7].map((f) => {
+        const h = sampleAt(t0.main, from + (to - from) * f, newHit());
+        return { p: [h.cx - h.tz * 16, h.cy, h.cz + h.tx * 16] as [number, number, number], width: 7, lanes: 1, shoulder: 1, surface: 'powder' };
+      });
+    const t = bakeTrack({ ...a, branches: [{ id: 'gully', kind: 'shortcut', from: 2000, to: 2200, points: side(2000, 2200) }, { id: 'runout', kind: 'shortcut', from: fin + 20, to: fin + 180, points: side(fin + 20, fin + 180) }] }, SURFACES);
+    for (const sp of t.splines.slice(1))
+      for (let s = 0; s <= sp.length; s += 2.3) expect([sp.id, s, t.graph.along(sp.index, s)]).toEqual([sp.id, s, mainDistance(t, sp.index, s) - t.run!.start]);
+  });
+
+  test('where one node stands for two ends of roads under a metre apart, off by no more than that', () => {
+    const v = layout('backroads/valley');
+    // A second branch leaving 0.6 m after the barn shortcut does (80 m): one junction for both.
+    const barn = v.branches![0];
+    const t = bakeTrack({ ...v, branches: [...v.branches!, { ...barn, id: 'barn-2', from: barn.from + 0.6 }] }, SURFACES);
+    const sp = t.splines.find((x) => x.id === 'barn-2')!;
+    expect(t.graph.streets.find((st) => st.road === 'barn-2')!.from).toBe(t.graph.streets.find((st) => st.road === 'barn')!.from);
+    for (let s = 0; s <= sp.length; s += 5) expect(Math.abs(t.graph.along(sp.index, s) - mainDistance(t, sp.index, s))).toBeLessThanOrEqual(0.6 + 1e-9);
+  });
+
+  test("the gates: each as far along the route as its checkpoint, the finish at the route's end", () => {
+    for (const [, t] of tracks) {
+      const start = t.run?.start ?? 0;
+      const g = t.graph.route.gates;
+      expect(g.slice(0, -1).map((x) => x.at)).toEqual(t.checkpoints.map((c) => c - start));
+      expect(g[g.length - 1].at).toBeCloseTo(t.graph.route.length, 9);
+    }
+  });
+
+  test("a race's laps and positions count the route's gates: a lap's checkpoints in order, then the line", () => {
+    const t = tracks.get('coastal/riviera')!;
+    const sim = setup(t, CLASSES, SURFACES, { s: t.main.length - 30 }, 'ai', { kmh: 120 });
+    const seen: number[] = [];
+    let cursor = sim.events.head;
+    for (let k = 0; k < 60 * 110 && sim.cars.lap[0] < 1; k++) {
+      sim.step([]);
+      cursor = sim.events.read(cursor, (e) => {
+        if (e.car === 0 && e.type === Ev.Checkpoint) seen.push(e.a);
+      });
+    }
+    expect(seen).toEqual(t.graph.route.gates.slice(0, -1).map((_, k) => k));
+    expect(sim.cars.lap[0]).toBe(1);
+  }, 60_000);
 });

@@ -199,7 +199,8 @@ export class RaceUi {
    */
   private rows(): void {
     const c = this.sim.cars;
-    const L = this.sim.track.main.length;
+    // A lap: the race's route round (core/track/graph.ts).
+    const L = this.sim.track.graph.route.length;
     const off = this.official();
     // Each car's own screen's word where the lobby has it (online), this screen's otherwise.
     const done = (i: number): number | null => {
