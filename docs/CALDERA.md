@@ -17,7 +17,7 @@ merged** (#83–#98, #102) and released in `alpha-1.31` (#78–#105), on the hos
 **Step 4, moving pieces, is built** on a new map, Coastal ([COASTAL.md](./COASTAL.md)): its
 drawbridge (`PieceDef.lift`, #109), and the Basin Road round it (#111). Traffic now runs over more
 than one road: a lane by side streets (`TrafficLaneDef.streets`, #112), towards step 6's road graph.
-Next: the main road taking a ceiling (Coastal's Rock Tunnel), or step 5.
+The main road takes a ceiling now (Coastal's Rock Tunnel, #113: its rock kept over it). Next: step 5.
 HANDOFF has the detail and the lap floors.
 
 **Reading it:** "Principles" and "The core idea: pieces" are the design; "Build order" and "How

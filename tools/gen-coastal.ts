@@ -18,6 +18,7 @@
 import { mkdirSync, writeFileSync } from 'node:fs';
 import type { TrackLayout, TrackPoint } from '../src/core/content';
 import { bakeTrack } from '../src/core/track/bake';
+import { hillHeight } from '../src/core/track/features/hills';
 import { newHit, sampleAt } from '../src/core/track/query';
 import surfaces from '../content/surfaces.json';
 import { type Crest, type Node, lapPoints, onLap } from './lib/lap';
@@ -70,8 +71,12 @@ function descent(): Node[] {
   return out;
 }
 
-/** Where the Mountain Road runs through the spur (its corners either side): a cutting now, a rock tunnel when the main road takes a ceiling (COASTAL.md). */
-const TUNNEL = { from: [310, -120], to: [170, -400] };
+/**
+ * The Rock Tunnel (COASTAL.md): where the Mountain Road runs through the spur (between its corners
+ * either side, `from` and `to`), the stretch the spur's rock stands at least `clear` m over the
+ * road is a tunnel, `ceiling` m high (the main road's rock kept over it: ground/land.ts).
+ */
+const TUNNEL = { from: [310, -120], to: [170, -400], clear: 18, ceiling: 7.5 };
 
 const nodes: Node[] = [
   // The Quay: east along the harbour front to the bridge.
@@ -153,7 +158,9 @@ const COAST: [number, number][] = [
 const HILLS = [
   { x: 380, z: -80, h: 45, r: 260 },
   { x: -520, z: -700, h: 190, r: 380 },
-  { x: 260, z: -250, h: 100, r: 110 },
+  { x: 294, z: -170, h: 100, r: 110 },
+  { x: 256, z: -229, h: 104, r: 110 },
+  { x: 225, z: -290, h: 110, r: 110 },
   { x: 120, z: -760, h: 185, r: 360 },
   { x: 620, z: -560, h: 140, r: 330 },
 ];
@@ -188,12 +195,31 @@ const deck: [number, number] = [sAt(BRIDGE.from - 25, BRIDGE.z), sAt(BRIDGE.to +
 const LIFT = { width: 60, angle: 1.2, wall: 0.52, warn: 4, rise: 6, up: 8, fall: 6, first: [45, 110] as [number, number], again: [80, 130] as [number, number], twice: 0.5, boat: [-125, 120] as [number, number] };
 const mid = sAt((HARBOUR.west + HARBOUR.east) / 2, BRIDGE.z);
 const { width, ...lift } = LIFT;
-layout.pieces = [{ id: 'harbour-bridge', s: deck, under: { floor: SEA - 6, ease: 20, reach: 15 }, lift: { ...lift, s: [mid - width / 2, mid + width / 2] } }];
-// Open everywhere but the bridge, which has its rails.
+// The Rock Tunnel: through the spur where its rock stands well over the road (the hills are set
+// below, HILLS: the same ones the ground's shaped by).
+const tunnel = ((): [number, number] => {
+  const hit = newHit();
+  const [a, b] = [sAt(TUNNEL.from[0], TUNNEL.from[1]), sAt(TUNNEL.to[0], TUNNEL.to[1])];
+  let from = Infinity;
+  let to = -Infinity;
+  for (let s = a; s <= b; s += 2) {
+    sampleAt(baked.main, s, hit);
+    if (hillHeight(HILLS, hit.cx, hit.cz) - hit.cy < TUNNEL.clear) continue;
+    from = Math.min(from, s);
+    to = Math.max(to, s);
+  }
+  return [from, to];
+})();
+layout.pieces = [
+  { id: 'harbour-bridge', s: deck, under: { floor: SEA - 6, ease: 20, reach: 15 }, lift: { ...lift, s: [mid - width / 2, mid + width / 2] } },
+  { id: 'rock-tunnel', s: tunnel, ceiling: TUNNEL.ceiling, indoor: 'tunnel' },
+];
+// Open everywhere but the bridge, which has its rails, and the tunnel, its walls.
 layout.walls = {
   gaps: [
     { s: [0, deck[0]], side: 'both' },
-    { s: [deck[1], Math.ceil(L)], side: 'both' },
+    { s: [deck[1], tunnel[0]], side: 'both' },
+    { s: [tunnel[1], Math.ceil(L)], side: 'both' },
   ],
 };
 layout.takedownSpots = [
@@ -346,5 +372,4 @@ mkdirSync(DIR, { recursive: true });
 writeFileSync(`${DIR}/riviera.track.json`, `${JSON.stringify(layout)}\n`);
 writeFileSync(`${DIR}/map.json`, `${JSON.stringify({ id: 'coastal', name: 'Coastal', layouts: ['riviera'], palette: 'tropic', sunset: 'sunset', weather: ['clear', 'rain', 'shower', 'rare'], experimental: true })}\n`);
 const track = bakeTrack(layout, surfaces);
-const spur = [sAt(TUNNEL.from[0], TUNNEL.from[1]), sAt(TUNNEL.to[0], TUNNEL.to[1])];
-console.log(`coastal/riviera: ${Math.round(track.main.length)} m, ${pts.length} points, ground ${track.ground!.nx}×${track.ground!.nz}, bridge deck ${deck.join('–')} m (the drawbridge ${mid - width / 2}–${mid + width / 2} m), the spur (a tunnel later) ${spur.join('–')} m, the Basin Road ${Math.round(track.splines[1].length)} m (${layout.branches![0].from}–${layout.branches![0].to} m)`);
+console.log(`coastal/riviera: ${Math.round(track.main.length)} m, ${pts.length} points, ground ${track.ground!.nx}×${track.ground!.nz}, bridge deck ${deck.join('–')} m (the drawbridge ${mid - width / 2}–${mid + width / 2} m), the Rock Tunnel ${tunnel.join('–')} m, the Basin Road ${Math.round(track.splines[1].length)} m (${layout.branches![0].from}–${layout.branches![0].to} m)`);

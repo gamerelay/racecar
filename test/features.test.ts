@@ -74,7 +74,7 @@ describe('feature modules', () => {
     expect(track.main.surface[mid]).toBe(red);
     expect(track.main.surface[Math.round((u.s[0] - 30) / track.main.step)]).not.toBe(red);
     // What it adds on the road: lumps both ways, within its height; nothing outside its stretch.
-    const at = (s: number, x: number, z: number) => mud.rise!({ x, z, s, lat: 0, d: 0, half: 6, shoulder: 2, edge: 8, bank: 0, keep: 1 });
+    const at = (s: number, x: number, z: number) => mud.rise!({ x, z, s, lat: 0, d: 0, half: 6, shoulder: 2, edge: 8, bank: 0, keep: 1, rock: 0 });
     let lo = 0;
     let hi = 0;
     for (let k = 0; k < 400; k++) {

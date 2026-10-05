@@ -24,7 +24,6 @@ export function shapeBranches(land: Land, main: BakedSpline, branches: readonly 
   const onBranch = new Uint8Array(nx * nz);
   const branchSurface = new Uint8Array(nx * nz);
   const hole = new Uint8Array(nx * nz);
-  if (!branches.length) return { onBranch, branchSurface, hole };
   const bestD = new Float32Array(nx * nz).fill(Infinity);
   const bestY = new Float32Array(nx * nz);
   const bestEdge = new Float32Array(nx * nz);
@@ -86,5 +85,17 @@ export function shapeBranches(land: Land, main: BakedSpline, branches: readonly 
       });
     }
   }
+  // A main-road tunnel's mouths the same (its rock kept over it: land.ts).
+  const mainAt = pieces.at(main.index);
+  if (mainAt)
+    for (let i = 0; i < main.n; i++) {
+      const p = mainAt[i] >= 0 ? pieces.list[mainAt[i]] : undefined;
+      if (!p || !(p.ceiling > 0) || p.building) continue;
+      const road = main.py[i];
+      each(main, i, main.width[i] / 2 + main.shoulder[i], (g, x, z) => {
+        if (Math.abs(along(main, i, x, z)) > main.step * 0.75) return;
+        if (h[g] > road + 0.8 && h[g] < road + p.ceiling) hole[g] = 1;
+      });
+    }
   return { onBranch, branchSurface, hole };
 }

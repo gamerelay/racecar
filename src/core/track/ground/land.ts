@@ -1,8 +1,9 @@
 // The heightfield (docs/AVALANCHE.md): built once from the main road. On the road and its
 // shoulder, the road's own height; off it, the land between the roads (relaxed smooth, so two
 // stretches meet in a slope, not a cliff); then what the layout adds (shape.ts), the features
-// (track/features: the volcano, the coast falling into the sea), and the ground falling away under
-// a piece that says so (the bay under the Freeway).
+// (track/features: the volcano, the coast falling into the sea), the ground falling away under
+// a piece that says so (the bay under the Freeway), and rock over a main-road tunnel (Coastal's
+// Rock Tunnel: there the road runs under the land, not the land down to the road).
 
 import type { GroundDef } from '../../content';
 import { smoothstep as smooth } from '../../math';
@@ -16,6 +17,20 @@ import { ROUGH_IN, groundShape } from './shape';
 
 /** Past the walls' foot (`wallFrom`), the grid reaches this far up them, and 20 m more, at its narrowest (GroundDef.wallOut). */
 const WALL_OUT = 25;
+/**
+ * Over a main-road tunnel (an enclosed piece, not a building) the rock stands at least this far
+ * (m) over its ceiling across its road and verge and this far past them either side (TUNNEL_SIDE),
+ * then falls away at 45°, under whatever the land is (a hill, uncut).
+ */
+const TUNNEL_ROOF = 4;
+const TUNNEL_SIDE = 3;
+/**
+ * And starts this far (m) in from each end: the rock's face stands inside the tunnel's own
+ * outline, where the drawing cuts the ground to it (render's portal.ts), under the tube's vault.
+ * (At its very end, the face fell within a grid cell short of the cut: a wall across the mouth.)
+ */
+const TUNNEL_MOUTH = 4;
+
 /** The land between the roads is relaxed on a grid this coarse (m), this many passes. */
 const BASE_CELL = 8;
 const RELAX = 300;
@@ -53,9 +68,10 @@ export function buildLand(def: GroundDef, main: BakedSpline, pieces: Pieces, fea
   const nearest = sampleSearch(main, x0, z0, nx * cell, nz * cell, 24);
   const shapers = features.filter((f) => f.shape);
   const risers = features.filter((f) => f.rise);
-  const at: ShapePoint = { x: 0, z: 0, s: 0, lat: 0, d: 0, half: 0, shoulder: 0, edge: 0, bank: 0, keep: 1 };
+  const at: ShapePoint = { x: 0, z: 0, s: 0, lat: 0, d: 0, half: 0, shoulder: 0, edge: 0, bank: 0, keep: 1, rock: 0 };
   const plane = (i: number, x: number, z: number) => planeOf(main, i, x, z);
   const shaping = pieces.list.filter((p) => p.spline === main.index && p.under);
+  const tunnels = pieces.list.filter((p) => p.spline === main.index && p.ceiling > 0 && !p.building);
 
   // The land between the roads, on a coarse grid: the road's height on the road, and off it relaxed
   // smooth from the road's plane carried out. Carried out alone, the plane jumps where two stretches
@@ -128,10 +144,20 @@ export function buildLand(def: GroundDef, main: BakedSpline, pieces: Pieces, fea
       at.edge = edge;
       at.bank = main.bank[i];
       at.keep = runIn(pieces, s, d, edge);
+      // Over a main-road tunnel, near its road: in the rock (the features leave the land uncut).
+      let roof = -Infinity;
+      at.rock = 0;
+      for (let t = 0; t < tunnels.length; t++) {
+        const p = tunnels[t];
+        if (s < p.s[0] + TUNNEL_MOUTH || s > p.s[1] - TUNNEL_MOUTH) continue;
+        at.rock = 1;
+        roof = Math.max(roof, road + p.ceiling + TUNNEL_ROOF - Math.max(0, d - edge - TUNNEL_SIDE));
+      }
       let gy = y + groundShape(def, at, risers) * at.keep;
       // The features, in order (the volcano rising off the roads, the coast falling into the sea):
       // off the roads, the road's own height on them.
       for (const f of shapers) gy = f.shape!(at, gy);
+      if (gy < roof) gy = roof;
       // Under a piece that says so, the ground falls away to its floor.
       for (const p of shaping) {
         const k = pull(p, s, d, edge);

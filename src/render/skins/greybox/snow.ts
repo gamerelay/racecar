@@ -532,7 +532,8 @@ function roadLines(track: Track): Mesh | null {
     const p = (k: number, l: number) => {
       const x = sp.px[k] - sp.tz[k] * l;
       const z = sp.pz[k] + sp.tx[k] * l;
-      pos.push(x, (sp === main ? g.top(x, z) : g.height(x, z)) + lift, z);
+      // (The main road's floor, the one at its own height: not a tunnel's rock over it.)
+      pos.push(x, (sp === main ? g.top(x, z, sp.py[k] + 1) : g.height(x, z)) + lift, z);
       col.push(color.r, color.g, color.b);
     };
     // Two triangles, facing up (right × along is up): (i, l0) (i, l1) (j, l0), then (i, l1) (j, l1) (j, l0).

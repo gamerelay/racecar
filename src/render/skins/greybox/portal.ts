@@ -36,7 +36,7 @@ export function tubeSegments(track: Track, sp: BakedSpline): Uint8Array | null {
   const g = track.ground;
   const at = g?.pieces.at(sp.index);
   const floors = g?.pieces.floors(sp.index);
-  if (!g || !at || !floors || sp === track.main) return null;
+  if (!g || !at || !floors) return null;
   const seg = new Uint8Array(sp.n);
   let any = false;
   for (let k = 0; k + 1 < sp.n; k++) {

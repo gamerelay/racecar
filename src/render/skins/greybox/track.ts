@@ -224,7 +224,10 @@ export function buildTrackVisual(track: Track, palette: Palette, seed: number): 
       i = j;
     }
     const sea = ground.sea;
-    const { pillars, caps } = deckPillars(main, deckSample, (x, z) => ground.height(x, z) - 0.5, (x, z) => sea === undefined || ground.height(x, z) > sea, 0xd9d0bd, 0xbdb3a0);
+    // (Not under a tunnel's road: the rock's over it, not under.)
+    const legs = Uint8Array.from(deckSample);
+    if (at) for (let i = 0; i < main.n; i++) if (at[i] >= 0 && ground.pieces.list[at[i]].ceiling > 0) legs[i] = 0;
+    const { pillars, caps } = deckPillars(main, legs, (x, z) => ground.height(x, z) - 0.5, (x, z) => sea === undefined || ground.height(x, z) > sea, 0xd9d0bd, 0xbdb3a0);
     if (pillars.length) decks.push(boxes(pillars, toon()), boxes(caps, toon()));
   }
 

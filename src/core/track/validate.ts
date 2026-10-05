@@ -271,7 +271,9 @@ export function validateLayout(layout: TrackLayout, surfaces: SurfaceDef[], clas
     if (p.indoor !== undefined && p.ceiling === undefined) err(`${name}: "indoor" is how an enclosed piece is lit inside, and it has no ceiling`, sp.id, p.s[0]);
     if (p.building !== undefined && p.ceiling === undefined) err(`${name}: "building" is how an enclosed piece is built, and it has no ceiling`, sp.id, p.s[0]);
     // On the main road the ground is the road's, so a gap or a tunnel there would do nothing yet.
-    if (sp === track.main && (p.floor === false || p.ceiling !== undefined)) err(`${name}: gaps and ceilings are on branches only, for now`, sp.id, p.s[0]);
+    // (A main-road tunnel, Coastal's Rock Tunnel, has rock kept over it: ground/land.ts. A building
+    // stands on the ground its road shapes, a branch's.)
+    if (sp === track.main && (p.floor === false || p.building !== undefined)) err(`${name}: gaps and buildings are on branches only, for now`, sp.id, p.s[0]);
     if (p.lift) {
       const l = p.lift;
       if (sp !== track.main) err(`${name}: a drawbridge ("lift") is on the main road only, for now`, sp.id, p.s[0]);
