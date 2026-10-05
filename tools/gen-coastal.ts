@@ -5,9 +5,9 @@
 //   The Quay           the start on the harbour front, heading east to the harbour mouth
 //   The Harbour Bridge over the harbour mouth on a deck (the drawbridge, COASTAL's step 3: fixed for now)
 //   The Old Town       up the hill in switchbacks to the top of the town
-//   The Cape Tunnel    west along the hillside and through the cape's ridge (a cutting for now)
-//   The Corniche       south along the cliffs high over the sea, fast sweepers
-//   Lighthouse Point   a hairpin round the lighthouse on the cape's tip, then down to the sea
+//   The Mountain Road  on up into the hills in S-bends, through a spur (a cutting; a rock tunnel later)
+//   The Descent        switchbacks down the mountainside over the sea, rows stacked down the slope
+//   Lighthouse Point   down the cliffs to a hairpin round the lighthouse, then down to the sea
 //   The Beach          along the beach, a chicane by the pool, and the Promenade back onto the Quay
 //
 // Experimental (map.json), so it's out of the lobby: open it from a link,
@@ -41,6 +41,32 @@ const HARBOUR = { west: 120, east: 290, head: 170 };
 /** The bridge over its mouth, along the Quay's line (z): where its deck starts and ends (x), and how high. */
 const BRIDGE = { z: 322, from: 95, to: 315, y: 7 };
 
+/**
+ * The Descent: rows from `west` to `east` (x), the first at `z` and `top` m up, each `step` m
+ * further south and `drop` m lower (half of it along the row, half round its hairpin).
+ */
+const DESCENT = { west: -650, east: -440, z: -95, step: 55, top: 92, drop: 22, rows: 3, r: 24 };
+function descent(): Node[] {
+  const d = DESCENT;
+  const out: Node[] = [];
+  let y = d.top;
+  for (let k = 0; k < d.rows; k++) {
+    const z = d.z + k * d.step;
+    // East along even rows, west along odd ones; the hairpin at the row's far end.
+    const [from, to] = k % 2 ? [d.east, d.west] : [d.west, d.east];
+    out.push(C(from, z, y, d.r));
+    y -= d.drop / 2;
+    if (k < d.rows - 1) {
+      out.push(C(to, z, y, d.r));
+      y -= d.drop / 2;
+    }
+  }
+  return out;
+}
+
+/** Where the Mountain Road runs through the spur (its corners either side): a cutting now, a rock tunnel when the main road takes a ceiling (COASTAL.md). */
+const TUNNEL = { from: [-80, -320], to: [-300, -285] };
+
 const nodes: Node[] = [
   // The Quay: east along the harbour front to the bridge.
   Q(-210, 322, 3),
@@ -56,17 +82,20 @@ const nodes: Node[] = [
   T(290, -15, 27, 32),
   T(450, -55, 35, 34),
   T(470, -205, 43, 50),
-  // The hillside west, and the cutting through the cape's ridge.
-  C(160, -265, 46, 140),
-  C(-160, -235, 46, 160),
-  C(-470, -205, 44, 95),
-  // The Corniche: south along the cliffs.
-  C(-640, -60, 40, 110),
-  C(-605, 150, 34, 100),
-  C(-665, 330, 26, 85),
-  // Lighthouse Point: the hairpin round the lighthouse, and down to the sea.
-  C(-690, 455, 17, 28),
-  C(-560, 440, 8, 60),
+  // The Mountain Road: on up past the town into the hills, in S-bends, through the spur (TUNNEL).
+  C(320, -300, 54, 80),
+  C(130, -240, 64, 80),
+  C(-80, -320, 76, 90),
+  C(-300, -285, 88, 90),
+  C(-560, -235, 95, 80),
+  // The Descent (the owner: a Bond film's switchbacks down a mountainside above the sea): rows across
+  // the slope, each a hairpin (two corners, so its radius holds) and DESCENT.drop lower than the last,
+  // the ground falling steeply between them. Run wide and you're off onto the row below.
+  ...descent(),
+  // Down the cliffs to Lighthouse Point: the hairpin round the lighthouse, and down to the sea.
+  C(-668, 250, 18, 90),
+  C(-690, 445, 9, 28),
+  C(-560, 440, 6, 60),
   // The Beach: along it, the chicane by the pool, and the Promenade onto the Quay.
   Q(-440, 392, 3, 80),
   Q(-345, 352, 3, 40),
@@ -101,12 +130,12 @@ const COAST: [number, number][] = [
   [-780, -950],
 ];
 
-/** The hills: the town's, the cape's ridge (two, end to end), and the land behind. */
+/** The hills: the town's, the mountain behind the Descent, the spur the Mountain Road runs through (TUNNEL), and the land behind. */
 const HILLS = [
   { x: 380, z: -80, h: 52, r: 300 },
-  { x: -270, z: -270, h: 78, r: 210 },
-  { x: -420, z: -330, h: 70, r: 200 },
-  { x: 0, z: -620, h: 70, r: 420 },
+  { x: -380, z: -520, h: 150, r: 460 },
+  { x: -190, z: -370, h: 115, r: 130 },
+  { x: 100, z: -650, h: 80, r: 420 },
   { x: 650, z: -500, h: 60, r: 380 },
 ];
 
@@ -140,7 +169,7 @@ layout.walls = {
 };
 layout.takedownSpots = [
   { s: sAt(BRIDGE.from + 70, BRIDGE.z), name: 'The Harbour Bridge' },
-  { s: sAt(-640, -60), name: 'The Corniche' },
+  { s: sAt(-545, DESCENT.z + DESCENT.step), name: 'The Descent' },
 ];
 layout.ground = {
   cell: 2.5,
@@ -159,4 +188,5 @@ mkdirSync(DIR, { recursive: true });
 writeFileSync(`${DIR}/riviera.track.json`, `${JSON.stringify(layout)}\n`);
 writeFileSync(`${DIR}/map.json`, `${JSON.stringify({ id: 'coastal', name: 'Coastal', layouts: ['riviera'], palette: 'tropic', sunset: 'sunset', weather: ['clear', 'rain', 'shower', 'rare'], experimental: true })}\n`);
 const track = bakeTrack(layout, surfaces);
-console.log(`coastal/riviera: ${Math.round(track.main.length)} m, ${pts.length} points, ground ${track.ground!.nx}×${track.ground!.nz}, bridge deck ${deck.join('–')} m`);
+const spur = [sAt(TUNNEL.from[0], TUNNEL.from[1]), sAt(TUNNEL.to[0], TUNNEL.to[1])];
+console.log(`coastal/riviera: ${Math.round(track.main.length)} m, ${pts.length} points, ground ${track.ground!.nx}×${track.ground!.nz}, bridge deck ${deck.join('–')} m, the spur (a tunnel later) ${spur.join('–')} m`);
