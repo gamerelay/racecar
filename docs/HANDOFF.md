@@ -7,7 +7,7 @@ building". This file is "where are we"; the spec is "what are we making".
 **Last updated:** 2026-10-05. Since the tag, all merged: the engine's review fixes (#107), and a new
 experimental map, **Coastal** (#106–#115: its plan and lap, the drawbridge, the lap reworked, the
 Basin Road, traffic from side streets, the Rock Tunnel, rock rails and the Riviera town; see "Next:
-Coastal" below). Nothing is open. The last tag is **`alpha-1.31`** (PRs #78–#105), on the hosted
+Coastal" below). Open: the sea wall along the waterfront (#117, on top of this file's #116). The last tag is **`alpha-1.31`** (PRs #78–#105), on the hosted
 build: Paradise Open (#81), the engine's plan, [CALDERA.md](./CALDERA.md) (#82), and its steps 0
 to 3c (#83–#98, #102): the fingerprints and tools, the sim's own math, pieces, portals, feature
 modules, overrides, the lava stream, off-road surfaces, indoors, breakable walls and buildings
@@ -198,11 +198,12 @@ harbour town on a headland, the Riviera in feel (Villefranche-sur-Mer, the owner
 skies and a rare shower, the `coastal` track. Open it with `?mode=free&map=coastal/riviera`;
 `tools/gen-coastal.ts` writes it.
 
-**What's built** (all merged, #106–#115):
+**What's built** (merged, #106–#115; the sea wall open, #117):
 - **The lap** (#108, reworked in #110 after the owner drove it): 5.0 km. The Quay and the Harbour
   Bridge, the Old Town's climb, the Mountain Road's five S-bends up to 130 m, the Descent's five
   long switchback rows down the mountainside over the sea, the Corniche, the Lighthouse Point
-  hairpin, the Beach and home. `GroundDef.hills` (domes off the roads) and `rare` weather.
+  hairpin, the waterfront (the Beach and the Promenade along the sea wall) and home.
+  `GroundDef.hills` (domes off the roads) and `rare` weather.
 - **The drawbridge** (#109, #111; CALDERA's step 4, the first moving piece): `PieceDef.lift`, two
   leaves lifting once or twice a race at seeded times, their angle a pure function of the race
   clock; a ramp to jump early in a lift, a wall when up. The **Basin Road** round the harbour (the
@@ -210,8 +211,8 @@ skies and a rare shower, the `coastal` track. Open it with `?mode=free&map=coast
   warning; a yacht that sails out under the raised leaves (`LiftDef.boat`).
 - **Traffic from side streets** (#112): `TrafficLaneDef.streets` (branches of kind `street`, loops
   off the main road the AI never takes): cars come down one, drive the main road and turn off up
-  the next, fading in and out out of sight. Coastal's run both ways round the line on the home
-  straight.
+  the next, fading in and out out of sight. Coastal's ran both ways round the line on the home
+  straight; since the sea wall (#117) only the town side's, against the lap.
 - **The Rock Tunnel** (#113): the main road takes a ceiling. Over a main-road enclosed piece the
   land keeps its rock (`ShapePoint.rock`, ground/land.ts); the tube's walls, arches and portals
   drawn for it, limestone and orange lamps (`indoor: 'tunnel'`). 200 m through the spur.
@@ -221,18 +222,31 @@ skies and a rare shower, the `coastal` track. Open it with `?mode=free&map=coast
 - **The Riviera town** (#115): `TrackLayout.houses` (solid world-space blocks, drawn as stucco houses
   with shutters and terracotta roofs; trees keep off them, the validator keeps roads clear). 295
   of them terraced up the hill from a four-lane boulevard (the home straight, 20 m) and along the
-  Old Town.
+  Old Town (467 since #117: see the sea wall).
+- **The sea wall** (#117, open; COASTAL's step 6b, the owner with the Villefranche photo: water on
+  the right, not a beach, with a retaining wall): a `seawall` ground feature
+  (`core/track/features/seawall.ts`). The ground keeps its height to a quay's edge 3.75 m past the
+  verge (a grid cell's diagonal: dropping at the verge sagged the shoulder up to 5 m), then drops
+  to 10 m under the sea and eases back to the sea bed. Drawn as the parapet, a paved ledge and a
+  stone face into the water, the face a metre past the drop so the drop's sloped cell stays behind
+  it (`rails.ts`). On Coastal from the lighthouse hairpin through the line to the bridge, the coast
+  along it, pavements (`sidewalk` verges) both sides. The sea-side streets (`lido`, `quai-sud`) went
+  with the beach, so one traffic lane; that freed about 170 house spots the streets' ends had kept
+  empty (the houses' road check measures across a street from past its end).
 - **Tools:** `tools/plan.ts` (a layout from above; `--at x,z --size m` to zoom), `shot --t` (the
   world at a race time) and `shot --traffic`, fingerprint parts `lifts` and `streets` (only for
   layouts with them).
-- **Numbers:** floor 97.83 s (solo hard coupe); the field over 8 seeds about 2 wrecks a race at
-  most, none at the bridge, the tunnel or the town.
+- **Numbers:** floor 97.83 s (solo hard coupe); the field over 8 seeds: no wrecks since the sea
+  wall (2 before, between cars), none at the bridge, the tunnel or the town.
 
 **Next, in about this order** (COASTAL's steps):
 1. **The cuts:** the Stairs (a stepped lane up the Old Town), the Rocks (across the flats under the
-   lighthouse), the Sand (along the beach), each measured: clean saves 2–4 s, fluffed costs more.
-2. **The look:** yachts moored in the harbour, the lighthouse on its point, the riviera palette (it
-   borrows Paradise's `tropic` now), the beach club; the Old Town's side streets with its houses.
+   lighthouse), each measured: clean saves 2–4 s, fluffed costs more. The Sand (across the beach)
+   lost its beach to the sea wall: it needs a new home (the cape?) or drops, the owner's call.
+2. **The look:** yachts moored in the harbour (and along the sea wall), the lighthouse on its
+   point, the riviera palette (it borrows Paradise's `tropic` now), the beach club (somewhere new,
+   with the Sand); the Old Town's side streets with its houses; lamp posts and palms along the
+   waterfront's pavement.
 3. **Into the lobby** when the owner's happy: experimental off, a poster, a CHANGELOG line.
 
 **Known rough edges:**
@@ -241,6 +255,11 @@ skies and a rare shower, the `coastal` track. Open it with `?mode=free&map=coast
 - A car that runs wide just before a rock rail can end up behind it, grinding along to its end.
 - A car crawling up a drawbridge leaf as it passes 30° falls in (the AI never does).
 - Houses have no roof collider (walls to the eaves); nothing near the town flies that high.
+- The houses' road check (`free` in the generator) measures across a street from past its end, so a
+  street can block houses well beyond it: harmless now, but a new street may empty part of the town.
+- A thin white band of surf at the sea wall's foot (the water's shore foam along the coast): it
+  reads as water lapping from the race camera; the owner may want it gone.
+- With the oncoming lane only on the waterfront, the racers' side of the boulevard has no traffic.
 - Hills are cut back to the main road only: keep branches and decks off them.
 - `top(x, z)` with no height over a main-road tunnel is the rock's top: anything placed by it (props,
   slalom gates, `drive`'s x/z spots) must pass the road's height.
