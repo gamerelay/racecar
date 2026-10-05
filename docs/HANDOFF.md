@@ -4,9 +4,10 @@ Where racecar stands and what's next, for whoever picks it up (a person or a fre
 The design is [SPEC.md](./SPEC.md): decisions in §17, and what building changed in "Changed while
 building". This file is "where are we"; the spec is "what are we making".
 
-**Last updated:** 2026-10-04. Since the tag: the engine's review fixes (#107), and a new
-experimental map, **Coastal** (#106 the plan, #108 its lap, both merged; #109 the drawbridge, open):
-see "Next: Coastal" below. The last tag is **`alpha-1.31`** (PRs #78–#105), on the hosted
+**Last updated:** 2026-10-05. Since the tag, all merged: the engine's review fixes (#107), and a new
+experimental map, **Coastal** (#106–#115: its plan and lap, the drawbridge, the lap reworked, the
+Basin Road, traffic from side streets, the Rock Tunnel, rock rails and the Riviera town; see "Next:
+Coastal" below). Nothing is open. The last tag is **`alpha-1.31`** (PRs #78–#105), on the hosted
 build: Paradise Open (#81), the engine's plan, [CALDERA.md](./CALDERA.md) (#82), and its steps 0
 to 3c (#83–#98, #102): the fingerprints and tools, the sim's own math, pieces, portals, feature
 modules, overrides, the lava stream, off-road surfaces, indoors, breakable walls and buildings
@@ -188,56 +189,79 @@ paved road (the rim road was hard to see), the green line at the Freeway's end, 
 beside it (`under.reach` 90 → 40), and slippery mud (`red-earth` grip 0.58, drag 0.1). Floors:
 Paradise 71.52 → 70.3 s, Paradise Open 67.27 → 66.35 s. PARADISE.md has the why.
 
-**Next: Coastal (2026-10-04).** The owner's call: Caldera's next features are built on a new
-experimental map instead of Paradise Open, whose fingerprints, floors and tests made iterating
-slow. Coastal's own fingerprints are re-recorded as it changes; every other map's must stay
-identical (the check that the shared engine didn't move). The plan, what's built and the owner's
-answers are [COASTAL.md](./COASTAL.md): a harbour town on a headland, Monaco and the Riviera in
-feel, blue skies and a rare shower, the `coastal` track. Open it with
-`?mode=free&map=coastal/riviera` (`tools/gen-coastal.ts` writes it).
-- **The lap** (#108, merged): 3.96 km in world space. The Quay, the Harbour Bridge, the Old Town's
-  switchbacks, the Mountain Road's S-bends up to 95 m through a spur (the Rock Tunnel's place, a
-  cutting for now), the Descent (Bond-style switchbacks down the mountainside over the sea, the
-  owner's ask after the first drive found the hillside too linear), the Lighthouse Point hairpin,
-  the Beach and the Promenade. New in the engine: `GroundDef.hills` (round domes off the roads,
-  shaped before the coast) and `rare` weather (a shower about one race in seven).
-- **The drawbridge** (#109, open; COASTAL's step 3, CALDERA's step 4, the first moving piece):
-  `PieceDef.lift`, two leaves over the harbour lifting once or twice a race, 45–110 s after green
-  and again 80–130 s later in half of races, from the seed's own stream. Its angle is a pure
-  function of the race clock (`core/world/lifts.ts`), set on the ground each tick before the cars
-  step; nothing sent online. Early in a lift a leaf is a ramp to jump (every class lands it); past
-  30° it's a wall (`collide/lifts.ts`). The AI waits short of it or, hard, jumps it with nobody
-  waiting ahead; respawns go back to the approach. Drawn with towers, arms and flashing lights.
-  The fingerprint drives the AI at a lift. Its review found real bugs (the AI coasting onto a
-  rising leaf, ghosts through a raised one, the lift clock); all fixed, and the field over 16 seeds
-  has one nudge at the bridge.
-- **The lap reworked** (2026-10-05, after the owner drove it: too linear, the cliff should be long
-  winding switchbacks, the top an S that climbs more): 5.0 km, the Mountain Road five S-bends up to
-  130 m, the Descent five long bowed rows, then the Corniche. Floor 98.70 s. `tools/plan.ts` draws
-  a layout from above (heights, roads, pieces), for laying one out.
-- **Next, in about this order:**
-  1. (#109–#112 merged 2026-10-05: the drawbridge, the lap reworked, the Basin Road, the bells,
-     the boat, traffic from side streets.) The Rock Tunnel (#113, the main road taking a ceiling)
-     waits for the owner.
-  2. Rock rails on the tight corners up top (#114, stacked on #113) and the Riviera waterfront
-     (#115, stacked on #114: a four-lane boulevard, 295 solid stucco houses up the hill and in the
-     Old Town) wait for the owner.
-  3. COASTAL's rest: the cuts (the Stairs, the Rocks, the Sand), the yachts and the lighthouse, the
-     riviera palette, then into the lobby.
-- **Known rough edges:** a car crawling up a leaf as it passes 30° loses its floor and falls in (the
-  AI never does); hills are cut back to the main road only, so keep branches and decks off them;
-  the lap is long (98.7 s, from the owner's S and switchbacks): trim a Descent row or the S, or
+**Next: Coastal (2026-10-04, as of 2026-10-05).** The owner's call: Caldera's next features are
+built on a new experimental map instead of Paradise Open, whose fingerprints, floors and tests made
+iterating slow. Coastal's own fingerprints are re-recorded as it changes; every other map's must
+stay identical (the check that the shared engine didn't move). The plan, what's built (step by
+step, with the numbers and the why) and the owner's answers are [COASTAL.md](./COASTAL.md): a
+harbour town on a headland, the Riviera in feel (Villefranche-sur-Mer, the owner's photo), blue
+skies and a rare shower, the `coastal` track. Open it with `?mode=free&map=coastal/riviera`;
+`tools/gen-coastal.ts` writes it.
+
+**What's built** (all merged, #106–#115):
+- **The lap** (#108, reworked in #110 after the owner drove it): 5.0 km. The Quay and the Harbour
+  Bridge, the Old Town's climb, the Mountain Road's five S-bends up to 130 m, the Descent's five
+  long switchback rows down the mountainside over the sea, the Corniche, the Lighthouse Point
+  hairpin, the Beach and home. `GroundDef.hills` (domes off the roads) and `rare` weather.
+- **The drawbridge** (#109, #111; CALDERA's step 4, the first moving piece): `PieceDef.lift`, two
+  leaves lifting once or twice a race at seeded times, their angle a pure function of the race
+  clock; a ramp to jump early in a lift, a wall when up. The **Basin Road** round the harbour (the
+  first `alternate` branch), which the AI takes when the bridge would stop it; bells from the
+  warning; a yacht that sails out under the raised leaves (`LiftDef.boat`).
+- **Traffic from side streets** (#112): `TrafficLaneDef.streets` (branches of kind `street`, loops
+  off the main road the AI never takes): cars come down one, drive the main road and turn off up
+  the next, fading in and out out of sight. Coastal's run both ways round the line on the home
+  straight.
+- **The Rock Tunnel** (#113): the main road takes a ceiling. Over a main-road enclosed piece the
+  land keeps its rock (`ShapePoint.rock`, ground/land.ts); the tube's walls, arches and portals
+  drawn for it, limestone and orange lamps (`indoor: 'tunnel'`). 200 m through the spur.
+- **Rock rails** (#114): the road's walls kept on the outside of every corner tighter than 110 m up
+  the mountain and down the switchbacks, drawn as a limestone parapet (`render/skins/greybox/rails.ts`);
+  the straights between stay open to fly off.
+- **The Riviera town** (#115): `TrackLayout.houses` (solid world-space blocks, drawn as stucco houses
+  with shutters and terracotta roofs; trees keep off them, the validator keeps roads clear). 295
+  of them terraced up the hill from a four-lane boulevard (the home straight, 20 m) and along the
+  Old Town.
+- **Tools:** `tools/plan.ts` (a layout from above; `--at x,z --size m` to zoom), `shot --t` (the
+  world at a race time) and `shot --traffic`, fingerprint parts `lifts` and `streets` (only for
+  layouts with them).
+- **Numbers:** floor 97.83 s (solo hard coupe); the field over 8 seeds about 2 wrecks a race at
+  most, none at the bridge, the tunnel or the town.
+
+**Next, in about this order** (COASTAL's steps):
+1. **The cuts:** the Stairs (a stepped lane up the Old Town), the Rocks (across the flats under the
+   lighthouse), the Sand (along the beach), each measured: clean saves 2–4 s, fluffed costs more.
+2. **The look:** yachts moored in the harbour, the lighthouse on its point, the riviera palette (it
+   borrows Paradise's `tropic` now), the beach club; the Old Town's side streets with its houses.
+3. **Into the lobby** when the owner's happy: experimental off, a poster, a CHANGELOG line.
+
+**Known rough edges:**
+- The lap is long (97.8 s, against 58–93 for the rest): a Descent row or an S-bend could go, or the
   race fewer laps, if the owner wants it shorter.
+- A car that runs wide just before a rock rail can end up behind it, grinding along to its end.
+- A car crawling up a drawbridge leaf as it passes 30° falls in (the AI never does).
+- Houses have no roof collider (walls to the eaves); nothing near the town flies that high.
+- Hills are cut back to the main road only: keep branches and decks off them.
+- `top(x, z)` with no height over a main-road tunnel is the rock's top: anything placed by it (props,
+  slalom gates, `drive`'s x/z spots) must pass the road's height.
 - Camera hints still wait for a spot that needs one; TECH_DEBT has the small things the reviews left.
 
 **Lap floors now** (the best AI lap, solo hard coupe): Downtown 57.9, Backroads 62.82, Avalanche
-93.07, Paradise 70.3, Paradise Open 66.35, Coastal 98.70 s (experimental). Paradise Open's field: 34 wrecks in 40 seeds.
+93.07, Paradise 70.3, Paradise Open 66.35, Coastal 97.83 s (experimental). Paradise Open's field: 34 wrecks in 40 seeds.
 
-**Working notes (2026-10-03, 2026-10-04):**
+**Working notes (2026-10-03 to 2026-10-05):**
+- Two-way traffic on a narrow road, or through a bend, boxes the AI in: it brakes rather than move
+  over, into head-ons. Keep it on straights, 20 m wide or more (MAPS.md's rule, and #112's lesson).
+- A tool's flags must all be read before `a.rest()`, which refuses any left over (`shot --t` was
+  refused until #111).
+- Don't `git checkout <file>` to undo one edit in a file with other uncommitted work: it threw away
+  a session's generator changes once. Commit work in progress first.
+- Check a drive tool's option names (`Spot` is `x`, `z`, `heading`): an unknown one is silently
+  ignored, and a test can pass without doing what it says.
 - An AI held at a standstill on the brake reverses (brake past zero is reverse): to hold a car still,
   brake only while it rolls forward. It cost a long chase on the drawbridge's queue.
-- `drive`'s `t` option and `shot --t` put the world at a race time (a drawbridge up). (`shot --t`
-  was refused until #111: a tool's flags must all be read before `a.rest()`, which rejects any left.)
+- `drive`'s `t` option and `shot --t` put the world at a race time (a drawbridge up); `shot
+  --traffic` shows the traffic (the poster stage has none by default).
 - `tools/plan.ts` draws a layout from above (`--at x,z --size m` for a close-up): the quickest way
   to see a lap's shape while laying it out.
 - One PR per step, a fresh reviewer at the end (it found real bugs every time: in 0b, 1a and 1b),
