@@ -86,7 +86,9 @@ respawn), and the land behind the town rises into hills you can't usefully climb
    tight hairpin round the lighthouse at the cape's tip, the lap's landmark.
    - **The Rocks** (the cut): straight across the flat rocks below the lighthouse instead of round
      it. It's shorter, but the rock is rough and the sea is on both sides.
-7. **The Beach**: down off the cape to a beach club, with umbrellas, a pool and a jetty.
+7. **The Beach**: down off the cape to a beach club, with umbrellas, a pool and a jetty. (2026-10-05,
+   the owner: the waterfront is water against a sea wall, not a beach; see "Step 6b". The beach
+   club and the Sand cut need a new home, maybe on the cape.)
    - **A chicane** by the pool, a nod to Monaco's.
    - **The Sand** (the cut): across the beach instead of the road's curve along it, on packed
      sand by the waterline (PARADISE's Sandbar idea, `beach` through the loose `sand`).
@@ -499,12 +501,35 @@ colourful buildings the other.
 - **Coastal's town** (`TOWN` in the generator): 295 houses, terraced five rows deep up the hill on
   the town side of the boulevard, and three deep both sides of the Old Town's climb, each facing
   the road, 5 m back (a pavement) and clear of every road (the side streets and the Basin Road
-  too), the water and each other. The sea side is the sea's: the beach and its palms.
+  too), the water and each other. The sea side is the sea's: the beach and its palms (since step
+  6b, the sea wall).
 - **From the review:** the chase camera pulls in from a house as from a building's wall (spun
   or reversed against one, it ended up inside); the validator checks the middles of a house's walls
   too. Its roof has no collider (only its walls, to the eaves): nothing near the town flies that high.
 - **Numbers:** floor 97.83 s. The field over 8 seeds: 2 wrecks, between cars, away from the
   town. Every other map's fingerprints identical.
+
+**Step 6b, the sea wall (2026-10-05):** the owner, with the photo of Villefranche again: along the
+bottom of the map, the right side just water, not beach, with a retaining wall.
+- **A `seawall` feature** (`GroundDef.features`, `core/track/features/seawall.ts`): off one side of
+  the main road over a stretch, the ground keeps its height to a quay's edge `SEAWALL_LEDGE`
+  (3.75 m) past the verge and drops past it to `floor` (here 10 m under the sea), easing back to
+  the coast's sea bed 40 m out. The ledge is a grid cell's diagonal (cells of 2.5 m; the validator
+  insists): dropping at the verge tilted the last cell, and the shoulder sagged up to 5 m.
+- **Drawn** (`render/skins/greybox/rails.ts`): the parapet as on the rock rails, then a paved
+  ledge to the sea face `SEAWALL_FACE` (a metre past the drop, so the slope across the drop's cell
+  stays behind it: it showed as dark notches at the wall's foot) and the face down to the floor.
+- **Coastal** (`SEAWALL` in the generator): from the lighthouse hairpin's way out, through the
+  line, to the bridge's deck (4.5 km of the lap to 0.28), a wall on the right all along and the
+  coast following the sea face. The lido's and the harbour's sea-side streets went with the beach,
+  so the traffic is one lane, against the lap on the town side. With those streets gone the town
+  has 467 houses (295): the houses' road check measured across a street from past its end, and
+  the sea-side streets' ends kept about 170 spots across the boulevard empty.
+- **Pavements:** the waterfront's verges are `sidewalk` (from the hairpin's corner round to the
+  Quay, both sides), not grass: between the road and the wall, and in front of the houses.
+- **Numbers:** floor 97.83 s (unchanged). The field over 8 seeds: no wrecks. Every other map's
+  fingerprints identical. Tests: `test/seawall.test.ts` (the shoulder as it was without it, water
+  past the ledge for 40 m, the town's land kept, the validator).
 
 ## The owner's answers (2026-10-04)
 

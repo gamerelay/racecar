@@ -8,7 +8,7 @@
 //   The Mountain Road  on up in big S-bends to the top of the mountain, through a spur (a cutting; a rock tunnel later)
 //   The Descent        five long switchbacks down the mountainside over the sea, rows stacked down the slope
 //   Lighthouse Point   down the Corniche along the cliffs to a hairpin round the lighthouse, then down to the sea
-//   The Beach          along the beach, a chicane by the pool, and the Promenade back onto the Quay
+//   The Beach          along the sea wall, a chicane by the pool, and the Promenade back onto the Quay
 //
 // Experimental (map.json), so it's out of the lobby: open it from a link,
 // `?mode=free&map=coastal/riviera`.
@@ -21,6 +21,7 @@ import { newContact, obbOverlap } from '../src/core/collide/obb';
 import { Rng } from '../src/core/rng';
 import { bakeTrack } from '../src/core/track/bake';
 import { hillHeight } from '../src/core/track/features/hills';
+import { SEAWALL_FACE } from '../src/core/track/features/seawall';
 import { newHit, projectGlobal, sampleAt } from '../src/core/track/query';
 import surfaces from '../content/surfaces.json';
 import { type Crest, type Node, lapPoints, onLap } from './lib/lap';
@@ -32,10 +33,10 @@ const node = (w: number, surface: string, shoulder: number, verge?: string) => (
 const Q = node(16, 'asphalt', 3);
 /**
  * The home straight, the Promenade's end onto the Quay: the Riviera's waterfront boulevard (the
- * owner, 2026-10-05), four lanes, the sea one side and the town the other. (Two-way traffic on 16 m
- * boxed the AI in: it's in the outer lanes here, the middle two for racing.)
+ * owner, 2026-10-05), four lanes, the sea one side and the town the other, pavements both sides.
+ * (Two-way traffic on 16 m boxed the AI in: it's in the outer lanes here, the middle two for racing.)
  */
-const H = (x: number, z: number, y: number, r?: number): Node => ({ ...node(20, 'asphalt', 3)(x, z, y, r), lanes: 4 });
+const H = (x: number, z: number, y: number, r?: number): Node => ({ ...node(20, 'asphalt', 3, 'sidewalk')(x, z, y, r), lanes: 4 });
 /** The Old Town: narrower, between the houses. */
 const T = node(13, 'asphalt', 2);
 /** The hillside, the cutting and the Corniche: a fast road. */
@@ -84,6 +85,16 @@ function descent(): Node[] {
  */
 const TUNNEL = { from: [310, -120], to: [170, -400], clear: 18, ceiling: 7.5 };
 
+/**
+ * The sea wall (the owner, 2026-10-05, with the photo of Villefranche: water on the right, not a
+ * beach, against a retaining wall): on the sea side of the waterfront, from the lighthouse
+ * hairpin's way out (`from`, x and z on it) along the Beach, the Promenade and the Quay to where
+ * the bridge's deck starts. A stone wall stands along it (the rock rails' parapet, a ledge to the
+ * quay's edge) with the sea `floor` m deep against it, and the coast runs along it `out` m past
+ * the road's verge, at the sea face.
+ */
+const SEAWALL = { from: [-700, 272], floor: SEA - 10, out: SEAWALL_FACE };
+
 const nodes: Node[] = [
   // The Quay: east along the harbour front to the bridge.
   H(-210, 322, 3),
@@ -115,9 +126,10 @@ const nodes: Node[] = [
   C(-665, 100, 14, 55),
   // The hairpin round the lighthouse, and down to the sea.
   C(-755, 255, 7, 30),
-  C(-610, 300, 5, 60),
-  // The Beach: along it, the chicane by the pool, and the Promenade onto the Quay.
-  Q(-470, 352, 3, 80),
+  C(-610, 300, 5, 60, { verge: 'sidewalk' }),
+  // The Beach: along the sea wall, the chicane by the pool, and the Promenade onto the Quay
+  // (pavements from here round to the Quay: the waterfront's).
+  Q(-470, 352, 3, 80, { verge: 'sidewalk' }),
   H(-360, 345, 3, 40),
   H(-285, 335, 3, 45),
 ];
@@ -137,11 +149,7 @@ const COAST: [number, number][] = [
   [HARBOUR.west + 12, HARBOUR.head],
   [HARBOUR.west, HARBOUR.head + 10],
   [HARBOUR.west, 368],
-  [-150, 370],
-  [-300, 395],
-  [-450, 400],
-  [-590, 380],
-  [-700, 350],
+  // (Then west along the sea wall to the cape: SEAWALL, filled in once the road's baked.)
   // The cape: Lighthouse Point.
   [-800, 320],
   [-815, 230],
@@ -191,6 +199,19 @@ const { sAt } = onLap(baked);
 
 /** The bridge's deck: from where it leaves the quay to where it lands. */
 const deck: [number, number] = [sAt(BRIDGE.from - 25, BRIDGE.z), sAt(BRIDGE.to + 25, BRIDGE.z)];
+/** The sea wall: from the hairpin's way out, through the lap's end, to the deck. */
+const seawall: [number, number] = [sAt(SEAWALL.from[0], SEAWALL.from[1]), deck[0]];
+{
+  // The coast along it, west from the deck to its start, every 10 m (into COAST after the harbour's west side).
+  const hit = newHit();
+  const along: [number, number][] = [];
+  for (let s = seawall[1]; s > seawall[0] - L; s -= 10) {
+    sampleAt(baked.main, (s + L) % L, hit);
+    const off = hit.width / 2 + hit.shoulder + SEAWALL.out;
+    along.push([Math.round((hit.cx - hit.tz * off) * 10) / 10, Math.round((hit.cz + hit.tx * off) * 10) / 10]);
+  }
+  COAST.splice(COAST.findIndex(([x, z]) => x === HARBOUR.west && z === 368) + 1, 0, ...along);
+}
 /**
  * The drawbridge (COASTAL.md, "The drawbridge"): two leaves over the harbour's middle, each half the
  * span, hinged at its own end. Lifted once or twice a race (the owner): a warning, rising to `angle`,
@@ -240,6 +261,9 @@ const walled = (() => {
     mark(a, b, left);
     mark(a, b, right);
   }
+  // The sea wall, through the lap's end.
+  mark(seawall[0], L, right);
+  mark(0, seawall[1], right);
   const [a, b] = [sAt(RAILS.from[0], RAILS.from[1]), sAt(RAILS.to[0], RAILS.to[1])];
   const m = baked.main;
   const w = Math.round(10 / step);
@@ -281,6 +305,7 @@ layout.ground = {
   sea: SEA,
   coast: COAST,
   hills: HILLS,
+  features: [{ kind: 'seawall', s: seawall, side: 'right', floor: SEAWALL.floor }],
   pines: { kind: 'tropic', seed: 41, spacing: 9, clear: 8, thicken: 30, density: 0.25, glade: 80 },
 };
 
@@ -356,13 +381,13 @@ const BASIN = { from: -45, to: 392, width: 11, shoulder: 2, rise: 4, corners: [
  * drive; the AI keeps to the main road.
  */
 const STREETS: [string, number, number, 1 | -1][] = [
-  // Round the line on the home straight, from the end of the Promenade onto the Quay: the lido's car
-  // park and the harbour's on the sea side, two streets up into the town. Straight between them (the
-  // traffic once ran through the Promenade's kink, and the AI's line there cut into the oncoming
-  // lane: head-ons; MAPS.md's rule, no traffic through fast bends); short of the Basin Road's turn.
+  // Round the line on the home straight, from the end of the Promenade onto the Quay: two streets
+  // up into the town. Straight between them (the traffic once ran through the Promenade's kink, and
+  // the AI's line there cut into the oncoming lane: head-ons; MAPS.md's rule, no traffic through
+  // fast bends); short of the Basin Road's turn. The sea side is the sea wall's, so no streets
+  // there (the lido's and the harbour's car parks went with the beach, 2026-10-05), and only the
+  // town-side lane has traffic: the lap's own lane is the racers'.
   // (The Old Town's come with its houses, COASTAL's step 6: its road bends too much for loops.)
-  ['lido', 4775, 4895, 1],
-  ['quai-sud', 30, 150, 1],
   ['rue-du-port', 30, 150, -1],
   ['rue-des-pins', 4775, 4895, -1],
 ];
@@ -407,11 +432,10 @@ const STREET = { depth: 32, width: 8, shoulder: 1.5, speed: 14, density: 8 };
     layout.branches!.push({ id, from, to, kind: 'street', points });
     layout.walls!.gaps!.push({ spline: id, s: [0, 1e4], side: 'both' });
   }
-  // A lane each way: with the lap on the right (in by the first street, out by the second),
-  // against it on the left.
-  // (In the boulevard's outer lanes; a street's two lanes are narrower: the same fraction of it.)
+  // A lane against the lap, on the left (in by the first street, out by the second).
+  // (In the boulevard's outer lane; a street's two lanes are narrower: the same fraction of it.)
   const lane = (dir: 1 | -1, streets: string[]) => ({ pos: dir * 0.7, dir, speed: STREET.speed, streets });
-  layout.traffic = { density: STREET.density, lanes: [lane(1, ['lido', 'quai-sud']), lane(-1, ['rue-du-port', 'rue-des-pins'])] };
+  layout.traffic = { density: STREET.density, lanes: [lane(-1, ['rue-du-port', 'rue-des-pins'])] };
 }
 
 /**

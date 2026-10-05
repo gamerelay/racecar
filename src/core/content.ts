@@ -492,6 +492,21 @@ export interface BeachDef {
 }
 
 /**
+ * A sea wall (docs/COASTAL.md, "The sea wall"; Coastal's waterfront, the owner: water, not a
+ * beach, against a retaining wall): off one side of the main road from `s[0]` to `s[1]` m (through
+ * the lap's end if `s[0]` > `s[1]`), the ground drops sheer just past the road's verge (a quay's
+ * edge, features/seawall.ts SEAWALL_LEDGE) to `floor` m (under the sea), easing back to the
+ * ground's own a few tens of meters out. The layout keeps a wall on that side there; a stone ledge
+ * runs from it to the quay's edge and a stone face down into the water.
+ */
+export interface SeawallDef {
+  kind: 'seawall';
+  s: [number, number];
+  side: 'left' | 'right';
+  floor: number;
+}
+
+/**
  * An uneven stretch of the main road (Paradise Open's jungle mud), from `s[0]` to `s[1]` m: lumps
  * up to about `height` m peak to trough, `size` m across, on the road and its shoulder.
  */
@@ -514,7 +529,7 @@ export interface LavaStreamDef {
   depth: number;
 }
 
-export type FeatureDef = MogulsDef | CanyonDef | BeachDef | UnevenDef | LavaStreamDef;
+export type FeatureDef = MogulsDef | CanyonDef | BeachDef | UnevenDef | LavaStreamDef | SeawallDef;
 
 export interface MapDef {
   id: string;
