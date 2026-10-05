@@ -458,4 +458,45 @@ describe('editing', () => {
     }
     expect(validateLayout(moved, SURFACES, CLASSES).filter((p) => p.level === 'error' && p.message.includes('branch'))).toEqual([]);
   });
+
+  test('a lane off a branch keeps its ends where they were: each along its own road', async () => {
+    const { reanchor } = await import('../src/core/track/anchor');
+    const { laneLayout } = await import('./fixtures-lane');
+    const def = laneLayout();
+    const before = bakeTrack(def, SURFACES);
+    const edited = structuredClone(def);
+    // Bulge the grid's straight (before the barn leaves at 80 m) 15 m west: every main-road distance
+    // after it grows, the barn's own don't.
+    edited.main.points[1].p[0] -= 15;
+    const moved = reanchor(before, edited, SURFACES);
+    const after = bakeTrack(moved, SURFACES);
+    expect(after.main.length).toBeGreaterThan(before.main.length + 5);
+    const lane = (d: typeof def) => d.branches!.find((b) => b.id === 'lane')!;
+    const road = (t: typeof before, id: string) => (id === 'main' ? t.main : t.splines.find((sp) => sp.id === id)!);
+    for (const [id, a, b] of [
+      ['barn', lane(def).from, lane(moved).from],
+      ['main', lane(def).to, lane(moved).to],
+    ] as const) {
+      const p = sampleAt(road(before, id), a, newHit());
+      const q = sampleAt(road(after, id), b, newHit());
+      expect([id, Math.hypot(p.cx - q.cx, p.cz - q.cz) < 1.5]).toEqual([id, true]);
+    }
+  });
+
+  test("a branch naming a later one: its end follows the main road, as the bake reads it", async () => {
+    const { reanchor } = await import('../src/core/track/anchor');
+    const { laneLayout } = await import('./fixtures-lane');
+    const l = laneLayout();
+    // The lane listed before the barn: the bake puts it off the main road (the validator objects).
+    const def = { ...l, branches: [l.branches!.find((b) => b.id === 'lane')!, ...l.branches!.filter((b) => b.id !== 'lane')] };
+    const before = bakeTrack(def, SURFACES);
+    expect(before.splines.find((sp) => sp.id === 'lane')!.fromRoad).toBe(0);
+    const edited = structuredClone(def);
+    edited.main.points[1].p[0] -= 15;
+    const moved = reanchor(before, edited, SURFACES);
+    const after = bakeTrack(moved, SURFACES);
+    const p = sampleAt(before.main, def.branches![0].from, newHit());
+    const q = sampleAt(after.main, moved.branches![0].from, newHit());
+    expect(Math.hypot(p.cx - q.cx, p.cz - q.cz)).toBeLessThan(1.5);
+  });
 });

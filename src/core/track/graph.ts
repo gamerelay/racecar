@@ -275,11 +275,12 @@ export function buildGraph(track: Track): RoadGraph {
     }
     for (const [a, sa] of here) for (const [b, sb] of here) if (a !== b) links[a].push({ node: n.index, s: sa, other: b, os: sb, scale: 1 });
   }
-  // From a branch onto the road it spans (meeting it at both its ends), the scale between them.
-  for (const l of links.slice(1))
+  // From a branch onto the road it spans (the one it leaves and rejoins), the scale between them.
+  // (Not from that road onto a lane that spans it: the lane's the one that spans.)
+  for (const [a, l] of links.entries())
     for (const p of l)
       for (const q of l)
-        if (q !== p && q.other === p.other && q.s !== p.s) {
+        if (p.other === splines[a].fromRoad && p.other === splines[a].toRoad && q !== p && q.other === p.other && q.s !== p.s) {
           const mine = Math.abs(q.s - p.s);
           const theirs = splines[p.other].closed ? wrapAround(q.os - p.os, splines[p.other].length, q.s > p.s) : Math.abs(q.os - p.os);
           if (mine > 0 && theirs > 0) p.scale = theirs / mine;

@@ -4,30 +4,45 @@
 // old track, and look up that spot's distance on the new one.
 
 import type { TrackLayout } from '../content';
-import { bakeTrack, sampleIndex, type BakedSpline, type Track } from './bake';
+import { bakeRoads, sampleIndex, type BakedSpline, type Track } from './bake';
 import { newHit, projectGlobal } from './query';
 import type { SurfaceDef } from '../content';
 
 /** Returns `next` with its main-spline distances moved to follow the geometry of `prev`. */
 export function reanchor(prev: Track, next: TrackLayout, surfaces: SurfaceDef[]): TrackLayout {
   const out = structuredClone(next);
-  const fresh = bakeTrack(out, surfaces);
+  // (The roads are all it needs: only those are baked, not the ground and the rest.)
+  let fresh = bakeRoads(out, surfaces);
   const hit = newHit();
-  const mapS = (s: number, from: BakedSpline = prev.main, to: BakedSpline = fresh.main): number => {
+  const mapS = (s: number, from: BakedSpline = prev.main, to: BakedSpline = fresh[0]): number => {
     const i = sampleIndex(from, s);
     projectGlobal(to, from.px[i], from.pz[i], hit, from.py[i]);
     return Math.round(hit.s * 10) / 10;
   };
   const oldSpline = (id?: string) => (id ? prev.splines.find((s) => s.id === id) : prev.main);
-  const newSpline = (id?: string) => (id ? fresh.splines.find((s) => s.id === id) : fresh.main);
+  const newSpline = (id?: string) => (id ? fresh.find((s) => s.id === id) : fresh[0]);
   const map = (s: number, id?: string) => {
     const a = oldSpline(id);
     const b = newSpline(id);
     return a && b ? mapS(s, a, b) : s;
   };
-  for (const b of out.branches ?? []) {
-    b.from = mapS(b.from);
-    b.to = mapS(b.to);
+  // Branch ends, each along its own road, in rounds: a branch is baked joined to its roads at its
+  // ends, so one leaving another is mapped once that one's ends have moved and it's baked again.
+  // (As the bake reads them: a road that isn't an earlier branch is the main road.)
+  const branches = out.branches ?? [];
+  const road = (id: string | undefined, k: number) => (id && branches.slice(0, k).some((b) => b.id === id) ? id : undefined);
+  const moved = new Set<string | undefined>([undefined]);
+  let todo = branches.map((b, k) => ({ b, leaves: road(b.leaves, k), rejoins: road(b.rejoins, k) }));
+  while (todo.length) {
+    // (Never none ready: every branch's roads are earlier ones.)
+    const ready = todo.filter((x) => moved.has(x.leaves) && moved.has(x.rejoins));
+    for (const { b, leaves, rejoins } of ready) {
+      b.from = map(b.from, leaves);
+      b.to = map(b.to, rejoins);
+    }
+    for (const { b } of ready) moved.add(b.id);
+    todo = todo.filter((x) => !moved.has(x.b.id));
+    fresh = bakeRoads(out, surfaces);
   }
   for (const r of out.ramps ?? []) r.s = map(r.s, r.spline);
   for (const z of out.zones ?? []) z.s = [map(z.s[0], z.spline), map(z.s[1], z.spline)];
