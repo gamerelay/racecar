@@ -2,12 +2,14 @@
 // at its own end and tilted to the sim's angle at the render time (a formula of the clock, like
 // traffic), a tower either side of each hinge, and barrier arms and red lights at both ends that
 // come down and flash from the warning until it's down again. The deck's road stops at the hinges
-// (track.ts, snow.ts): the leaves are the road between them.
+// (track.ts, snow.ts): the leaves are the road between them. Its boat (LiftDef.boat), a motor
+// yacht, waits at its mooring and sails under the leaves in each lift (core's boatAt).
 
 import { BoxGeometry, type BufferGeometry, Color, Float32BufferAttribute, Group, Mesh, type Object3D } from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import type { SimState } from '../../../core/state';
 import { newHit, sampleAt } from '../../../core/track/query';
+import { boatAt } from '../../../core/world/lifts';
 import { INK, markInk } from '../../ink';
 import { toon } from './toon';
 
@@ -67,6 +69,21 @@ function arm(len: number): BufferGeometry {
   return merge(parts);
 }
 
+/** A motor yacht, its bow toward local +z, its waterline at y 0. */
+function yacht(): BufferGeometry {
+  return merge([
+    box(5, 1.6, 15, WHITE, 0, 0.3, 0),
+    box(3.4, 1.6, 3, WHITE, 0, 0.3, 8.5),
+    box(5.1, 0.35, 15.1, '#1d2b4f', 0, 0.7, 0),
+    box(4.4, 0.12, 13, '#a87a4f', 0, 1.15, 0),
+    box(3.6, 1.5, 6, WHITE, 0, 1.95, -1.5),
+    box(3.65, 0.5, 5.5, '#26323d', 0, 2.2, -1.2),
+    box(3, 0.9, 3.5, WHITE, 0, 3.15, -2),
+    box(0.25, 6, 0.25, '#d8d8d8', 0, 6, -2.5),
+    box(0.05, 0.9, 1.4, '#c8322b', 0, 8.4, -3.2),
+  ]);
+}
+
 export function buildLiftsVisual(sim: SimState): { objects: Object3D[]; update(time: number): void } {
   const lifts = sim.world?.lifts;
   const g = sim.track.ground;
@@ -75,12 +92,20 @@ export function buildLiftsVisual(sim: SimState): { objects: Object3D[]; update(t
   const material = toon({ vertexColors: true });
   const lamp = toon({ color: 0x441111, emissive: 0xff2a1a, emissiveIntensity: 0 });
   const at = newHit();
-  type Bridge = { leaves: Group[]; arms: Group[]; lamps: Mesh[] };
+  type Bridge = { leaves: Group[]; arms: Group[]; lamps: Mesh[]; boat?: Mesh; mid: { x: number; z: number; rx: number; rz: number } };
+  const sea = sim.track.layout.ground?.sea ?? 0;
+  const where = { across: 0, dir: 0 };
   const bridges: Bridge[] = [];
   for (let k = 0; k < lifts.pieces.length; k++) {
     const def = lifts.defs[k];
     const half = (def.s[1] - def.s[0]) / 2;
-    const b: Bridge = { leaves: [], arms: [], lamps: [] };
+    sampleAt(sim.track.main, (def.s[0] + def.s[1]) / 2, at);
+    const b: Bridge = { leaves: [], arms: [], lamps: [], mid: { x: at.cx, z: at.cz, rx: -at.tz, rz: at.tx } };
+    if (def.boat) {
+      b.boat = new Mesh(yacht(), material);
+      markInk(b.boat, INK.trim);
+      objects.push(b.boat);
+    }
     // Each end: its hinge, facing the middle (the far one turned round).
     for (const [s, back] of [
       [def.s[0], false],
@@ -131,6 +156,14 @@ export function buildLiftsVisual(sim: SimState): { objects: Object3D[]; update(t
         for (const h of b.arms) h.rotation.z = closed ? 0 : Math.PI / 2.2;
         const on = closed && Math.floor(time * 2) % 2 === 0;
         lamp.emissiveIntensity = on ? 2 : 0;
+        if (b.boat) {
+          boatAt(lifts.defs[k], lifts.starts[k], time - lifts.origin, where);
+          const m = b.mid;
+          b.boat.position.set(m.x + m.rx * where.across, sea + 0.15 * Math.sin(time * 1.3 + k), m.z + m.rz * where.across);
+          // Bow along its way (moored, toward the far side); a little roll on the swell.
+          const way = where.dir || (where.across < 0 ? 1 : -1);
+          b.boat.rotation.set(0, Math.atan2(m.rx * way, m.rz * way), 0.03 * Math.sin(time * 0.9 + k));
+        }
       }
     },
   };

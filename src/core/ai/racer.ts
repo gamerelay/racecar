@@ -262,8 +262,11 @@ export function driveRacer(sim: SimState, i: number, d: RacerDriver, out: Contro
       // Approaching the branch, or just past its start but not yet more on it than on the main road.
       const past = wrap(s - br.mainFrom, L);
       const toFrom = past < 60 ? -past : wrap(br.mainFrom - s, L);
+      if (toFrom >= 70) continue;
+      // A detour round a drawbridge (the Basin Road): taken when the bridge would stop us, and only then.
+      const detour = sim.track.layout.branches?.[b - 1]?.kind === 'alternate';
       // A secret one, seldom: now and then a rival vanishes into the trees, and you learn it's there.
-      if (toFrom < 70 && hash01(sim.seed, i * 131 + b, c.lap[i]) < skill.shortcut * (br.secret ? SECRET_TAKE : 1)) {
+      if (detour ? liftBlocks(sim, i, speed, d.difficulty, br) : hash01(sim.seed, i * 131 + b, c.lap[i]) < skill.shortcut * (br.secret ? SECRET_TAKE : 1)) {
         sp = br;
         s = -toFrom;
         break;
@@ -353,7 +356,7 @@ export function driveRacer(sim: SimState, i: number, d: RacerDriver, out: Contro
   vb *= k;
   // A drawbridge ahead (core/world/lifts.ts): down when it gets there and while it crosses, on;
   // a hard driver also jumps it early in a lift, at speed; otherwise stop short of it and wait.
-  const lift = liftCap(sim, i, speed, d.difficulty);
+  const lift = liftCap(sim, i, speed, d.difficulty, sp);
   if (lift < v) {
     v = lift;
     vb = Math.min(vb, lift);
@@ -423,13 +426,46 @@ function waiting(sim: SimState, i: number, hinge: number, ds: number): boolean {
   return false;
 }
 
+/** Whether a road round (`round`, a branch) skips main-road distance `s` (a lift's hinge). */
+function skips(round: BakedSpline, s: number, L: number): boolean {
+  return wrap(s - round.mainFrom, L) < wrap(round.mainTo - round.mainFrom, L);
+}
+
 /**
- * How fast car `i` may go for the drawbridges ahead (Infinity: no limit). Each leaf's angle is a
- * function of the race clock, so the AI knows it ahead: it goes on if the bridge is down when it
- * gets there and while it crosses (a hard driver: low enough to jump, and it's fast), and otherwise
- * slows to stop short of it.
+ * Whether drawbridge `k` stops car `i`, `ds` m short of its near hinge: not down when it gets there
+ * and while it crosses, and (a hard driver, fast) not low enough to jump with nobody waiting.
  */
-function liftCap(sim: SimState, i: number, speed: number, difficulty: number): number {
+function liftStops(sim: SimState, i: number, speed: number, difficulty: number, k: number, ds: number): boolean {
+  const lifts = sim.world!.lifts;
+  const span = lifts.defs[k].s;
+  const pace = Math.max(speed, 12);
+  const t = sim.time + ds / pace;
+  const there = lifts.angle(k, t);
+  const across = lifts.angle(k, t + (span[1] - span[0] + 20) / pace);
+  if (there === 0 && across === 0) return false;
+  return !(difficulty === 2 && speed >= LIFT_JUMP_SPEED && there <= LIFT_JUMP && across <= lifts.defs[k].wall && !waiting(sim, i, span[0], ds));
+}
+
+/** Whether a drawbridge that `round` (a detour) goes round would stop car `i`: then it takes the detour. */
+function liftBlocks(sim: SimState, i: number, speed: number, difficulty: number, round: BakedSpline): boolean {
+  const lifts = sim.world?.lifts;
+  if (!lifts) return false;
+  const L = sim.track.main.length;
+  const here = mainDistance(sim.track, sim.cars.spline[i], sim.cars.s[i]);
+  for (let k = 0; k < lifts.pieces.length; k++) {
+    const hinge = lifts.defs[k].s[0];
+    if (skips(round, hinge, L) && liftStops(sim, i, speed, difficulty, k, wrap(hinge - here, L))) return true;
+  }
+  return false;
+}
+
+/**
+ * How fast car `i`, following `sp`, may go for the drawbridges ahead (Infinity: no limit). Each
+ * leaf's angle is a function of the race clock, so the AI knows it ahead: it goes on if the bridge
+ * is down when it gets there and while it crosses (a hard driver: low enough to jump, and it's
+ * fast), round it on a detour it's taking, and otherwise slows to stop short of it.
+ */
+function liftCap(sim: SimState, i: number, speed: number, difficulty: number, sp: BakedSpline): number {
   const lifts = sim.world?.lifts;
   if (!lifts || !lifts.pieces.length) return Infinity;
   const L = sim.track.main.length;
@@ -437,20 +473,16 @@ function liftCap(sim: SimState, i: number, speed: number, difficulty: number): n
   let cap = Infinity;
   for (let k = 0; k < lifts.pieces.length; k++) {
     const span = lifts.defs[k].s;
+    // Going round it (the Basin Road): not ours to stop for.
+    if (sp.index > 0 && skips(sp, span[0], L)) continue;
     // Already on its span (past the near hinge): nothing to stop for now, on across. (Past the
     // hinge the distance to it wraps to nearly a lap: it read as no bridge at all.)
     if (wrap(here - span[0], L) < span[1] - span[0]) continue;
     const ds = wrap(span[0] - here, L);
     if (ds > LIFT_LOOK) continue;
-    const pace = Math.max(speed, 12);
-    const t = sim.time + ds / pace;
-    const there = lifts.angle(k, t);
-    const across = lifts.angle(k, t + (span[1] - span[0] + 20) / pace);
-    const down = there === 0 && across === 0;
-    const jump = difficulty === 2 && speed >= LIFT_JUMP_SPEED && there <= LIFT_JUMP && across <= lifts.defs[k].wall && !waiting(sim, i, span[0], ds);
-    if (down || jump) continue;
+    if (!liftStops(sim, i, speed, difficulty, k, ds)) continue;
     // Too close to stop short of its hinge, and down when we get there: on across, not stopped on a leaf.
-    if (there === 0 && sq(speed) > 2 * LIFT_BRAKE * ds) continue;
+    if (lifts.angle(k, sim.time + ds / Math.max(speed, 12)) === 0 && sq(speed) > 2 * LIFT_BRAKE * ds) continue;
     cap = Math.min(cap, Math.sqrt(2 * LIFT_BRAKE * Math.max(0, ds - LIFT_STOP)));
   }
   return cap;

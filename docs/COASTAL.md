@@ -59,8 +59,9 @@ respawn), and the land behind the town rises into hills you can't usefully climb
    mouth on a bascule drawbridge: one leaf, hinged on the far side, with a tower and a
    counterweight. See "The drawbridge".
    - **When it's down,** it's just a bridge: a slight hump and a fast kink onto the far quay.
-   - **When it's up,** you have two choices. The **Basin Road** turns hard inland round the inner
-     harbour's head: a hairpin by the fish market, slow and safe. Or you **jump it**: in the first
+   - **When it's up,** you have two choices. The **Basin Road** turns inland round the inner
+     harbour: up one side, a long bend round its head by the fish market and down the other,
+     slow and safe. Or you **jump it**: in the first
      seconds of a lift, the leaf is a ramp and the gap is short.
 3. **The Old Town**: a climb up the hill, a bend each way, narrow and cobbled, between ochre
    and pastel houses.
@@ -168,8 +169,8 @@ few seconds, and fast enough that a lift doesn't ruin a race.
 - the probe and drive tools at a chosen `--t`.
 
 **Starting simpler:** step 3's first PR is the leaves, their cycle, the physics, the AI waiting
-or jumping, and a plain look (towers, arms, red lights). The detour, the bells and the boat come
-next.
+or jumping, and a plain look (towers, arms, red lights). The detour, the bells and the boat came
+next (step 3b, below).
 
 ## What else it uses from Caldera
 
@@ -364,7 +365,29 @@ deck, `core/world/lifts.ts`.
   Every other map's fingerprints are identical.
 - **Known rough edges:** a car crawling up a leaf as it passes 30° loses its floor and falls in
   (the AI never does; a respawn puts you back on the approach). The boat, the bells and the Basin
-  Road detour are still to come.
+  Road detour came in step 3b.
+
+**Step 3b, the drawbridge's rest (2026-10-05):**
+- **The Basin Road** (`BASIN` in the generator; branch `basin-road`, `kind: 'alternate'`, the
+  first): round the inner harbour, always open. It leaves the Quay to the left 220 m before the
+  bridge, runs up the harbour's west side, round its head by the fish market in one long bend and
+  down the east side onto the far quay: 636 m for the main road's 437, 11 m wide, rising 4 m round
+  the head (the land behind is cut into a bank). Round it is about 5.5 s slower than a clear bridge.
+  The validator's "longer than what it skips" warning is for shortcuts only now.
+- **The AI goes round when the bridge would stop it**, and only then: at the turn it asks the same
+  question as at the bridge (down when it gets there and while it crosses, or for a hard driver
+  low enough to jump with nobody waiting), and on the Basin Road the bridge isn't its business.
+  Past the turn, it waits as before. The field over 16 seeds: no wrecks (one nudge before).
+- **The bells:** from the warning till it's down, a two-tone ring twice a second through the
+  warning and once a second after, from the bridge's middle, heard within about 70 m at half
+  volume (the audio; nothing in the sim).
+- **The boat** (`LiftDef.boat`, drawn only): a motor yacht moored at the harbour's head
+  (`boat[0]`, 125 m left of the road) that sails out under the leaves in the first lift, under the
+  road halfway through their time up, to a mooring 120 m out at sea (`boat[1]`); a second lift
+  brings it back in. Its place is a pure function of the lift times (`boatAt`, core/world/lifts.ts).
+- **Fixed:** `shot --t` was refused as an unknown flag (read after the layout's name).
+- **Numbers:** floor 98.70 s (the solo lap's seed doesn't lift). Every other map's fingerprints
+  identical.
 
 ## The owner's answers (2026-10-04)
 

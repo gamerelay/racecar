@@ -41,6 +41,7 @@ for (const k of ['back', 'up', 'side', 'ahead', 'fov'] as const) cam[k] = a.num(
 const size = { w: a.num('w'), h: a.num('h') };
 const outFlag = a.str('out');
 const port = a.str('port') ?? '5178';
+const t = a.num('t');
 const key = a.rest()[0];
 if (!key || !s) {
   console.error('usage: bun tools/shot.ts <map/layout> --s m[,m…] [--road id] [--lat m] [--cam chase|high|side|top|front] [--out file] [--port 5178]');
@@ -51,7 +52,6 @@ const spline = roadIndex(track, road);
 const q = new URLSearchParams({ scout: key, s, spline: String(spline), lat: String(lat), cls });
 for (const [k, v] of Object.entries(cam)) q.set(k, String(v));
 for (const [k, v] of Object.entries(size)) if (v !== undefined) q.set(k, String(v));
-const t = a.num('t');
 if (t !== undefined) q.set('t', String(t));
 const out = outFlag ?? join('telemetry', 'shots', `${key.replace('/', '-')}-${s.split(',')[0]}.png`);
 const r = spawnSync('bun', [join(import.meta.dir, 'poster.ts'), '--url', `poster.html?${q}`, '--out', out, '--port', port], { stdio: ['ignore', 'pipe', 'inherit'], encoding: 'utf8' });

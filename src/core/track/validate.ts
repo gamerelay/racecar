@@ -245,7 +245,9 @@ export function validateLayout(layout: TrackLayout, surfaces: SurfaceDef[], clas
     for (const cp of track.checkpoints) {
       if (wrap(cp - sp.mainFrom, L) < span) err(`branch ${sp.id} skips checkpoint at ${cp.toFixed(0)} m; move the checkpoints (or list them in "checkpoints")`, 'main', cp);
     }
-    if (sp.length > span) warn(`branch ${sp.id} is longer (${sp.length.toFixed(0)} m) than what it skips (${span.toFixed(0)} m), so it isn't a shortcut`, sp.id);
+    // (An alternate, a detour round a drawbridge, is the long way on purpose.)
+    const kind = layout.branches?.find((b) => b.id === sp.id)?.kind;
+    if (sp.length > span && kind !== 'alternate') warn(`branch ${sp.id} is longer (${sp.length.toFixed(0)} m) than what it skips (${span.toFixed(0)} m), so it isn't a shortcut`, sp.id);
   }
 
   if (track.checkpoints.length < 5) warn(`only ${track.checkpoints.length} checkpoints after moving them off shortcuts; list them in "checkpoints"`);
