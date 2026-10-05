@@ -4,7 +4,7 @@
 
 import { VERGE_DEFAULT, wrap, type BakedSpline, type Track } from './bake';
 import { hypot, sq, tan } from '../math';
-import { DECK_SLACK } from './ground/pieces';
+import { DECK_CATCH, DECK_SLACK } from './ground/pieces';
 import { KIND_BEACH, KIND_SAND, KIND_SHORE, KIND_LAVA_ROCK } from './ground/surface';
 
 export interface TrackHit {
@@ -186,8 +186,10 @@ function engineSurface(track: Track, hit: TrackHit, x: number, y: number, z: num
     // along the coast and on the beaches, wet sand at the water's edge; else the road's verge. Not
     // on a piece (over the Freeway's shoulder): that's the piece's verge, not the ground under it.
     const g = track.ground;
+    // (A floor under the ground and well below the car, a tunnel's road under the slope it's on, isn't what it's on: the cast's rule.)
     const floor = g ? g.pieceFloor(x, z, DECK_SLACK, y) : NaN;
-    const kind = g && floor !== floor ? g.kindAt(x, z) : -1;
+    const onPiece = floor === floor && (floor >= g!.height(x, z) || Math.abs(y - floor) <= DECK_CATCH);
+    const kind = g && !onPiece ? g.kindAt(x, z) : -1;
     if (kind === KIND_SAND || kind === KIND_BEACH) return track.surfaceIndex.get('sand') ?? hit.surface;
     if (kind === KIND_SHORE) return track.surfaceIndex.get('shore') ?? hit.surface;
     if (kind === KIND_LAVA_ROCK) return track.surfaceIndex.get('lava-rock') ?? hit.surface;

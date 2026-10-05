@@ -5,6 +5,7 @@ import { describe, expect, test } from 'bun:test';
 import { bakeTrack } from '../src/core/track/bake';
 import { groundFeatures } from '../src/core/track/features';
 import { KIND_SAND, KIND_SHORE } from '../src/core/track/ground';
+import { curve, loopDist, loopDistance } from '../src/core/track/island';
 import { SURFACES, layout } from './helpers';
 
 describe('feature modules', () => {
@@ -100,5 +101,22 @@ describe('feature modules', () => {
     };
     expect(lumps(2520, 2590)).toBeGreaterThan(0.04);
     expect(lumps(2200, 2330)).toBeLessThan(lumps(2520, 2590));
+  });
+
+  test("the coast's distance from its grid is loopDist's to the bit, on the island and far off it", () => {
+    const line = layout('paradise-open/open').ground!.coast!;
+    const loop = curve([...line, line[0]], 12);
+    const fast = loopDistance(loop);
+    let seed = 7;
+    const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+    const bad: number[][] = [];
+    for (let k = 0; k < 20000; k++) {
+      const x = -2500 + 5000 * rnd();
+      const z = -2500 + 5000 * rnd();
+      if (!Object.is(fast(x, z), loopDist(loop, x, z))) bad.push([x, z]);
+    }
+    // On its points, and just off them.
+    for (const [x, z] of loop) for (const d of [0, 0.5, -0.5]) if (!Object.is(fast(x + d, z - d), loopDist(loop, x + d, z - d))) bad.push([x + d, z - d]);
+    expect(bad).toEqual([]);
   });
 });

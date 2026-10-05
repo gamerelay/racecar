@@ -11,6 +11,7 @@
 
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
+import { resolveLayout } from '../src/core/content';
 import { fingerprint, type Fingerprint } from '../src/dev/fingerprint';
 import { CLASSES, EXPERIMENTAL_KEYS, LAYOUT_KEYS, SURFACES, layout } from './content';
 
@@ -40,7 +41,16 @@ if (import.meta.main) {
   const update = args.includes('--update');
   const json = args.includes('--json');
   const print = args.includes('--print');
-  const keys = args.filter((a) => !a.startsWith('--'));
+  const unknown = args.filter((a) => a.startsWith('--') && !['--update', '--json', '--print'].includes(a));
+  if (unknown.length) throw new Error(`unknown flag${unknown.length > 1 ? 's' : ''}: ${unknown.join(' ')}`);
+  // Each as the golden file keys it ("downtown" is "downtown/downtown"): else it reads as never recorded, and --update writes a stray entry.
+  const keys = args
+    .filter((a) => !a.startsWith('--'))
+    .map((a) => {
+      const key = resolveLayout(a, GOLDEN_KEYS);
+      if (!key) throw new Error(`no layout "${a}" (layouts: ${GOLDEN_KEYS.join(', ')})`);
+      return key;
+    });
   if (print) {
     const all: Record<string, Fingerprint> = {};
     for (const key of keys.length ? keys : GOLDEN_KEYS) all[key] = fingerprint(layout(key), CLASSES, SURFACES);

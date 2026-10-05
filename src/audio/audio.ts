@@ -42,6 +42,8 @@ const MASTER_LEVEL = 0.8;
 /** Snow under the wheels and the avalanche's rumble: the owner heard them first in a race (2026-10-02) and asked for both a little down (from 1, about 4.5 dB). */
 const SNOW_LEVEL = 0.6;
 const RUMBLE_LEVEL = 0.6;
+/** The room's echo lasts this long (s). */
+const ROOM_S = 1.6;
 /** Indoors (an enclosed piece: docs/CALDERA.md step 3), the engines and effects ring this much in the room's echo. */
 const REVERB_LEVEL = 0.55;
 
@@ -107,6 +109,8 @@ interface Graph {
   trackLevel: GainNode;
   /** The echo's level: the engines and effects, through a room's echo, into the master. */
   reverb: GainNode;
+  /** The room's echo itself, fed the engines and effects only while it's heard (`roomFed`). */
+  room: ConvolverNode;
 }
 
 export class GameAudio {
@@ -204,10 +208,9 @@ export class GameAudio {
     // Indoors, they ring: sent through a room's echo too (not the menus' clicks, nor the music).
     const reverb = ctx.createGain();
     reverb.gain.value = 0;
+    // (Fed only while there's an echo to hear: a convolver works as hard at a gain of 0. See `roomFed`.)
     const room = ctx.createConvolver();
-    room.buffer = roomImpulse(ctx, 1.6, 3);
-    sfx.connect(room);
-    engines.connect(room);
+    room.buffer = roomImpulse(ctx, ROOM_S, 3);
     room.connect(reverb).connect(master);
     const musicTone = ctx.createBiquadFilter();
     musicTone.type = 'lowpass';
@@ -252,6 +255,7 @@ export class GameAudio {
       music: new Music(ctx, musicLevel),
       trackLevel: ctx.createGain(),
       reverb,
+      room,
     };
     this.g.trackLevel.gain.value = TRACK_LEVEL;
     this.g.trackLevel.connect(musicLevel);
@@ -270,6 +274,33 @@ export class GameAudio {
   }
 
   /** The master's level now: M's mute, then the player's master volume. */
+  /** Whether the engines and effects feed the room's echo, and since when it's been silent (ctx s; NaN: heard). */
+  private fed = false;
+  private quietFrom = NaN;
+
+  /**
+   * Feeds the room's echo while it's heard (`on`), and stops once it's been silent longer than the
+   * echo rings: outdoors, and on maps with no tunnel, the convolver then does no work.
+   */
+  private roomFed(on: boolean, now: number): void {
+    const g = this.g!;
+    if (on) {
+      this.quietFrom = NaN;
+      if (this.fed) return;
+      g.sfx.connect(g.room);
+      g.engines.connect(g.room);
+      this.fed = true;
+      return;
+    }
+    if (!this.fed) return;
+    if (this.quietFrom !== this.quietFrom) this.quietFrom = now;
+    // (The level glides to 0 over about 0.1 s; then the tail rings out.)
+    if (now - this.quietFrom < ROOM_S + 0.5) return;
+    g.sfx.disconnect(g.room);
+    g.engines.disconnect(g.room);
+    this.fed = false;
+  }
+
   private masterLevel(): number {
     return this.settings.muted ? 0 : MASTER_LEVEL * this.vol.master;
   }
@@ -363,7 +394,9 @@ export class GameAudio {
 
     // Engines and the world only behind a menu when there's no menu.
     glide(g.engines.gain, f.menu ? 0 : ENGINES_LEVEL * this.vol.engines, now, 0.2);
-    glide(g.reverb.gain, f.menu ? 0 : REVERB_LEVEL * (f.indoor ?? 0), now, 0.1);
+    const echo = f.menu ? 0 : REVERB_LEVEL * (f.indoor ?? 0);
+    glide(g.reverb.gain, echo, now, 0.1);
+    this.roomFed(echo > 0, now);
     glide(g.sfx.gain, f.menu ? 0 : SFX_LEVEL * this.vol.effects, now, 0.2);
 
     // ---- the focus car ----

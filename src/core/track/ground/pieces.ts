@@ -84,7 +84,7 @@ export function definePieces(defs: readonly PieceDef[], splines: readonly BakedS
 }
 
 /** The ground's swell and bumps fade out over this many meters of road before a piece that shapes the ground under it, so the road meets its floor at its own height. */
-const RUN_IN = 30;
+export const RUN_IN = 30;
 
 /**
  * How much of what the layout adds (swell, bumps) the ground keeps `s` m along the main road and
@@ -151,6 +151,12 @@ export function floorQuery(pieces: Pieces, main: BakedSpline, branches: readonly
       list.push(k * 65536 + i);
     }
   });
+  // How far round a point to look for a floor's samples: its widest road and shoulder, a sample's step along (at least 12 m).
+  let wide = 12;
+  for (const sp of floored) {
+    const m = pieces.floors(sp.index)!;
+    for (let i = 0; i < sp.n; i++) if (m[i]) wide = Math.max(wide, sp.width[i] / 2 + sp.shoulder[i] + sp.step);
+  }
   const near2 = new Float64Array(floored.length);
   const nearI = new Int32Array(floored.length);
   let found = -1;
@@ -160,7 +166,7 @@ export function floorQuery(pieces: Pieces, main: BakedSpline, branches: readonly
     branchFound = -1;
     if (!floored.length) return NaN;
     near2.fill(Infinity);
-    const r = Math.ceil((12 + slack) / BUCKET);
+    const r = Math.ceil((wide + slack) / BUCKET);
     const cx = Math.floor((x - x0) / BUCKET);
     const cz = Math.floor((z - z0) / BUCKET);
     for (let a = Math.max(0, cz - r); a <= Math.min(bz - 1, cz + r); a++)

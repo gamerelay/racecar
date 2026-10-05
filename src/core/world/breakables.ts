@@ -14,6 +14,8 @@ import { atan2, hypot } from '../math';
 export const PANEL_THICK = 0.3;
 /** A panel's default width (m). */
 export const PANEL_WIDTH = 2.5;
+/** The most panels a wall is cut into. */
+export const MAX_PANELS = 64;
 /** A car through a panel keeps this much of its speed (per panel: two at once take a little more). */
 export const BREAK_SLOW = 0.93;
 /**
@@ -53,7 +55,8 @@ export class Breakables {
       const [x1, y1, z1] = d.to;
       const len = hypot(x1 - x0, z1 - z0);
       if (!(len > 0) || !(d.height > 0) || !(d.breaks > 0)) return;
-      const n = Math.max(1, Math.round(len / (d.panel ?? PANEL_WIDTH)));
+      // (A panel of no width is the default's, and a wall at most MAX_PANELS: the validator says so.)
+      const n = Math.min(MAX_PANELS, Math.max(1, Math.round(len / (d.panel !== undefined && d.panel > 0 ? d.panel : PANEL_WIDTH))));
       const h = atan2(x1 - x0, z1 - z0);
       for (let k = 0; k < n; k++) {
         const t = (k + 0.5) / n;

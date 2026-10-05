@@ -25,8 +25,8 @@ import { groundKinds } from './surface';
 import { groundFeatures, type Feature, type Hazard } from '../features';
 import type { Override } from '../overrides';
 
-export { DECK_CATCH, DECK_SLACK, type Piece, type Pieces } from './pieces';
-export { canyonDepth, groundShape, noise } from './shape';
+export { DECK_CATCH, DECK_SLACK, RUN_IN, type Piece, type Pieces } from './pieces';
+export { canyonDepth, noise } from './shape';
 export { BEACH_FADE } from '../features/beach';
 export { OUTLINE_POINTS, outlineAt } from './outline';
 export type { Feature, Hazard } from '../features';
@@ -118,6 +118,8 @@ export interface Ground {
   cast(x: number, y: number, z: number, out: Cast): Cast;
   /** What's under (x, z) for something at height `y`: the highest floor at or below it (unset: the highest), else the ground. */
   top(x: number, z: number, y?: number): number;
+  /** Whether an override's `cast` changes what's under (x, z) (core/track/overrides.ts). */
+  overridden(x: number, z: number): boolean;
   /** The slope of `top` at (x, z) for something at height `y`, into `out`. */
   topSlope(x: number, z: number, y: number, out: { x: number; z: number }): { x: number; z: number };
 }
@@ -213,10 +215,13 @@ export function buildGround(def: GroundDef, main: BakedSpline, branches: BakedSp
     top(x, z, y = Infinity) {
       return this.cast(x, y, z, scratch).floor;
     },
+    overridden(x, z) {
+      for (const o of casters) if (o.inside(x, z)) return true;
+      return false;
+    },
     topSlope(x, z, y, out) {
       // Where an override changes the floor, the slope of the floor it says (by differences).
-      for (const o of casters) {
-        if (!o.inside(x, z)) continue;
+      if (this.overridden(x, z)) {
         const e = cell / 2;
         out.x = (this.top(x + e, z, y) - this.top(x - e, z, y)) / (2 * e);
         out.z = (this.top(x, z + e, y) - this.top(x, z - e, y)) / (2 * e);

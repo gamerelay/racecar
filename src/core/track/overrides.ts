@@ -26,7 +26,7 @@ export interface RespawnSpot {
  * (or a car) inside the region, after every feature's, and has the last word.
  */
 export interface OverrideCode {
-  /** What's under (x, y, z): change `out` (its floor, piece, space). Every `cast`, `top` and `topSlope` sees it. Open ground only. */
+  /** What's under (x, y, z): change `out` (its floor, piece, space). Every `cast`, `top` and `topSlope` sees it, and a car's wheels stand on it. Open ground only. */
   cast?(out: Cast, x: number, y: number, z: number): void;
   /** The surface a car at (x, y, z) drives on (an index into the track's surfaces), given what the engine found. */
   surface?(surface: number, x: number, y: number, z: number): number;
@@ -45,7 +45,7 @@ export interface OverrideCode {
 export interface Override extends OverrideCode {
   id: string;
   reason: string;
-  /** Whether (x, z) is inside its region. */
+  /** Whether (x, z) is inside its region (a box's low edges in, its high edges out: [x0, x1) × [z0, z1)). */
   inside(x: number, z: number): boolean;
   /** Its region's outline, [x, z] pairs in order (a box's four corners; a stretch's edges, out one side and back the other), for tools and drawing. */
   outline: Float64Array;

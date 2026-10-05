@@ -8,7 +8,7 @@ import { join } from 'node:path';
 import { CLASS_ORDER } from '../src/core/content';
 import { bakeTrack } from '../src/core/track/bake';
 import { validateLayout } from '../src/core/track/validate';
-import { CLASSES, CONTENT, LAYOUT_KEYS, SURFACES, layout } from './content';
+import { CLASSES, CONTENT, EXPERIMENTAL_KEYS, LAYOUT_KEYS, SURFACES, layout } from './content';
 import { lapReport } from './lap';
 
 // --ai also has the hard AI drive every layout (SPEC §5): it must finish, and its lap (the lap
@@ -26,7 +26,8 @@ if (files.join() !== [...CLASS_ORDER].sort().join()) {
   console.log(`✗ content/cars (${files.join(', ')}) doesn't match CLASS_ORDER (${CLASS_ORDER.join(', ')}) in src/core/content.ts`);
   errors++;
 }
-for (const key of LAYOUT_KEYS) {
+// The experimental maps too: Paradise Open is where the engine's pieces, features and walls are.
+for (const key of [...LAYOUT_KEYS, ...EXPERIMENTAL_KEYS]) {
   const track = layout(key);
   const problems = validateLayout(track, SURFACES, CLASSES);
   const L = problems.some((p) => p.level === 'error') ? 0 : bakeTrack(track, SURFACES).main.length;

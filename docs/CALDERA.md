@@ -737,6 +737,9 @@ stream across a route): then the new floor is recorded, with why.
      - **A panel breaks by how fast the car goes across the wall's line**, not into the panel where
        they touch: a wide car (the bus) through a one-panel hole met the next panels on their ends,
        slowly, and wedged there.
+     - **At an angle, the hole runs as far as the car slides along the wall while it crosses**
+       (the review, 2026-10-04): its footprint's hole fell behind it, and it met the next panel's
+       end slowed and bounced, often a wreck. The panels it sweeps past break without slowing it.
      - **The `walls` override hook still waits:** walls on or off in a region has no first use.
    - **3c, an indoor stretch** (built): a building, `PieceDef.building` (a key of the skin's
      building looks: `market`), an enclosed piece built on the ground rather than dug into it.

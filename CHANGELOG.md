@@ -4,6 +4,17 @@ What changed in each release of racecar, newest first. Releases are git tags on 
 reasons behind each change are in [docs/SPEC.md](./docs/SPEC.md) under "Changed while building",
 and where things stand is [docs/HANDOFF.md](./docs/HANDOFF.md).
 
+## Unreleased
+
+- **The engine, reviewed** (steps 0 to 3c): nothing on a map drives differently (every
+  fingerprint identical). Fixed: a car crossing a breakable wall at a shallow angle bouncing off
+  (often wrecking on) the panel past its hole, the wreck camera orbiting out through the market hall's walls,
+  the tunnel's haze fading in or out over the grid after a restart there, and, for the maps to
+  come, an override's floor not under the wheels, a breakable wall that froze the game with a
+  panel of no width, and validator holes (features, piece overlaps, the experimental maps
+  skipped). Paradise Open loads about a second faster, and the room's echo only runs indoors.
+  The rest is in docs/TECH_DEBT.md ("Caldera, the engine").
+
 ## alpha-1.31: Paradise Open, the Caldera engine and the market hall
 
 PRs #78–#105.

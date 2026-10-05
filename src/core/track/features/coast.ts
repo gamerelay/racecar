@@ -4,7 +4,7 @@
 import { smoothstep as smooth } from '../../math';
 import { ROUGH_IN } from '../ground/shape';
 import { KIND_SAND, KIND_SHORE } from '../ground/surface';
-import { curve, loopDist } from '../island';
+import { curve, loopDistance } from '../island';
 import type { Feature } from '.';
 
 /** The beach: the ground's height at the waterline over the sea, how steeply it rises inland of it (1:x), and the sea bed's depth (as the lapped island's land, terrain.ts). */
@@ -14,7 +14,7 @@ const SEA_BED = 9;
 
 export function coastFeature(line: [number, number][], sea: number): Feature {
   const loop = curve([...line, line[0]], 12);
-  const coast = (x: number, z: number) => loopDist(loop, x, z);
+  const coast = loopDistance(loop);
   return {
     kind: 'coast',
     coast,

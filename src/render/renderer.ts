@@ -207,6 +207,7 @@ export class GameRenderer {
 
   /** Another map behind the menu: its sky and light, then its track (the sim has the new one already). */
   setMap(palette: string): void {
+    this.snapIndoor = true;
     this.skin.environment(this.scene, palette);
     this.applyLook();
     this.setTrack();
@@ -281,6 +282,8 @@ export class GameRenderer {
   }
 
   snapCamera(): void {
+    // Indoors or out at once, not eased from where the camera was (a restart in the Lava Tube faded its haze off over the grid).
+    this.snapIndoor = true;
     if (this.freeCamera) return;
     const c = this.sim.cars;
     const i = this.focus;
@@ -423,6 +426,15 @@ export class GameRenderer {
       if (!this.lastWreck) this.orbit = c.h[i] + Math.PI * 0.6;
       this.orbit += dt * 0.7;
       cam.position.set(car.x + Math.sin(this.orbit) * 10, car.y + 3.5, car.z + Math.cos(this.orbit) * 10);
+      // In a building, inside its walls and under its roof, as the chase camera (orbiting out through
+      // a wall it lost the car behind it, and the light flicked indoors and out). (Out through a
+      // tunnel's rock, it still sees the car: updateIndoor lights it as the car's.)
+      const ground = this.sim.track.ground;
+      const room = ground && indoorAt(ground, car.x, car.y + 1.5, car.z);
+      if (ground && room && room.building) {
+        cam.position.y = Math.min(cam.position.y, cameraCeiling(ground, cam.position.x, car.y, cam.position.z));
+        clearView(ground, car.x, car.y, car.z, cam.position, this.buildingWalls);
+      }
       this.look.copy(car);
       this.camPos.copy(cam.position);
       this.camHeading = c.h[i];
@@ -495,8 +507,11 @@ export class GameRenderer {
       inside = indoorAt(g, car.x, car.y + 1.5, car.z);
     }
     if (inside) this.indoor.look = inside.indoor;
-    this.indoor.amount += ((inside ? 1 : 0) - this.indoor.amount) * damp(INDOOR_RATE, dt);
+    this.indoor.amount += ((inside ? 1 : 0) - this.indoor.amount) * (this.snapIndoor ? 1 : damp(INDOOR_RATE, dt));
+    this.snapIndoor = false;
   }
+  /** The next frame takes indoors or out at once (snapCamera, a new map). */
+  private snapIndoor = true;
 
   /**
    * Behind the car select: a slow crane down the lap, over the left edge of the road and above

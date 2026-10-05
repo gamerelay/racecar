@@ -3,14 +3,15 @@
 
 import { LANDMARK_KINDS, type CarClass, type PieceDef, type SurfaceDef, type TrackLayout } from '../content';
 import { KINDS } from '../world/hazards';
-import { Breakables } from '../world/breakables';
+import { Breakables, MAX_PANELS, PANEL_WIDTH } from '../world/breakables';
 import { SMASH_IDS } from '../world/smash';
 import { bakeTrack, sampleIndex, wrap } from './bake';
 import { OVERRIDES } from '../maps';
 import { regionProblem, respawnProblem, type OverrideCode } from './overrides';
 import { LAVA_REACH, pathDistance } from './features/lava-stream';
 import { atan2, cos, hypot, sin } from '../math';
-import { newCast } from './ground';
+import { along, across } from './frame';
+import { newCast, RUN_IN } from './ground';
 
 export interface Problem {
   level: 'error' | 'warning';
@@ -49,6 +50,29 @@ export function validateLayout(layout: TrackLayout, surfaces: SurfaceDef[], clas
   checkPoints(layout.main.points, 'main');
   for (const b of layout.branches ?? []) checkPoints(b.points, b.id);
   for (const z of layout.zones ?? []) if (!surfaceIds.has(z.surface)) err(`zone: unknown surface "${z.surface}"`);
+  // The ground's features (track/features), before baking: an unknown kind is dropped there, a
+  // zero spacing is NaN heights, and a stretch the wrong way round is nothing at all.
+  const ordered = (r: unknown) => Array.isArray(r) && r.length === 2 && r.every(Number.isFinite) && r[0] < r[1];
+  for (const [k, f] of (layout.ground?.features ?? []).entries()) {
+    const bad = (what: string) => err(`ground feature ${k} (${f.kind}): ${what}`);
+    if (f.kind === 'moguls') {
+      if (!ordered(f.s) || !ordered(f.lateral)) bad('its s and lateral must each be [from, to], from the smaller');
+      if (!(f.height > 0) || !(f.spacing > 0)) bad('needs a height and a spacing');
+    } else if (f.kind === 'canyon') {
+      if (!ordered(f.s)) bad('its s must be [from, to], from the smaller');
+      if (!Number.isFinite(f.lateral) || !(f.floor > 0) || !(f.depth > 0) || !(f.ease > 0)) bad('needs a lateral, a floor, a depth and an ease');
+    } else if (f.kind === 'beach') {
+      // A beach may wrap past the line (s[0] the larger).
+      if (!Array.isArray(f.s) || f.s.length !== 2 || !f.s.every(Number.isFinite) || f.s[0] === f.s[1]) bad('its s must be [from, to]');
+      if (f.side !== 'left' && f.side !== 'right') bad('its side must be left or right');
+    } else if (f.kind === 'uneven') {
+      if (!ordered(f.s)) bad('its s must be [from, to], from the smaller');
+      if (!(f.height > 0) || !(f.size > 0)) bad('needs a height and a size');
+    } else if (f.kind === 'lava-stream') {
+      if (!Array.isArray(f.path) || f.path.length < 2 || f.path.some((p) => !Array.isArray(p) || p.length !== 2 || !p.every(Number.isFinite)) || !(f.width > 0) || !(f.depth > 0))
+        bad('a lava stream needs a path of 2 points or more, a width and a depth');
+    } else err(`ground feature ${k}: unknown kind "${(f as { kind: unknown }).kind}"`);
+  }
   if (out.some((p) => p.level === 'error')) return out;
 
   const track = bakeTrack(layout, surfaces, code);
@@ -58,10 +82,6 @@ export function validateLayout(layout: TrackLayout, surfaces: SurfaceDef[], clas
   // every road's shoulder. (Where one crosses a road, a bridge over it is a piece: not built yet.)
   for (const f of layout.ground?.features ?? []) {
     if (f.kind !== 'lava-stream') continue;
-    if (f.path.length < 2 || !(f.width > 0) || !(f.depth > 0)) {
-      err('a lava stream needs a path of 2 points or more, a width and a depth');
-      continue;
-    }
     const dist = pathDistance(f.path, f.width / 2 + LAVA_REACH + 60);
     for (const sp of track.splines) {
       for (let i = 0; i < sp.n; i++) {
@@ -91,8 +111,13 @@ export function validateLayout(layout: TrackLayout, surfaces: SurfaceDef[], clas
         err(`${name}: "from" and "to" must be [x, y, z]`);
         continue;
       }
-      if (!(hypot(b.to[0] - b.from[0], b.to[2] - b.from[2]) > 0)) err(`${name}: its ends are in the same place`);
-      if (!(b.height > 0) || !(b.breaks > 0) || (b.panel !== undefined && !(b.panel > 0)) || (b.standsAgain !== undefined && !(b.standsAgain >= 1))) err(`${name}: its height, "breaks" and "panel" must be over 0, "standsAgain" at least 1 s`);
+      const len = hypot(b.to[0] - b.from[0], b.to[2] - b.from[2]);
+      if (!(len > 0)) err(`${name}: its ends are in the same place`);
+      if (!(b.height > 0) || !(b.breaks > 0) || (b.panel !== undefined && !(b.panel > 0)) || (b.standsAgain !== undefined && !(b.standsAgain >= 1))) {
+        err(`${name}: its height, "breaks" and "panel" must be over 0, "standsAgain" at least 1 s`);
+        continue;
+      }
+      if (len / (b.panel ?? PANEL_WIDTH) > MAX_PANELS + 0.5) err(`${name}: more than ${MAX_PANELS} panels; make them wider`);
       if (!b.look) err(`${name}: it needs a look (how it's drawn)`);
       // Each panel's foot on a floor (a road, a piece, the ground), not in the air or under it. (Its
       // middle: a wall's ends may well be in a tunnel's rock walls, as the Lava Tube's are.)
@@ -245,6 +270,8 @@ export function validateLayout(layout: TrackLayout, surfaces: SurfaceDef[], clas
     // On the main road the ground is the road's, so a gap or a tunnel there would do nothing yet.
     if (sp === track.main && (p.floor === false || p.ceiling !== undefined)) err(`${name}: gaps and ceilings are on branches only, for now`, sp.id, p.s[0]);
     if (p.under && !(p.under.ease > 0 && p.under.reach > 0)) err(`${name}: "under" needs an ease and a reach over 0 m`, sp.id, p.s[0]);
+    // Its run-in (ground/pieces.ts) doesn't wrap past the line: on a loop, the ground across it would meet the floor with a step.
+    if (p.under && sp.closed && (p.s[0] < RUN_IN || p.s[1] > sp.length - RUN_IN)) err(`${name}: a piece that shapes the ground under it must end at least ${RUN_IN} m from the start line`, sp.id, p.s[0]);
   }
   // Two pieces of one road may share an end, no more: which a sample belonged to would hang on the order.
   const byRoad = new Map<string, PieceDef[]>();
@@ -254,7 +281,7 @@ export function validateLayout(layout: TrackLayout, surfaces: SurfaceDef[], clas
     if (!sp) continue;
     const sorted = [...list].sort((a, b) => a.s[0] - b.s[0]);
     for (let k = 1; k < sorted.length; k++)
-      if (sorted[k].s[0] < sorted[k - 1].s[1] - sp.step) err(`pieces ${sorted[k - 1].id} and ${sorted[k].id} overlap on ${road || 'the main road'}`, sp.id, sorted[k].s[0]);
+      if (sorted[k].s[0] < sorted[k - 1].s[1]) err(`pieces ${sorted[k - 1].id} and ${sorted[k].id} overlap on ${road || 'the main road'}`, sp.id, sorted[k].s[0]);
   }
   // A building's walls stand beside its own road, on no other: the AI's line and a respawn don't
   // see them (they're on no road), so across another road they'd be a wall nobody steers round.
@@ -271,10 +298,8 @@ export function validateLayout(layout: TrackLayout, surfaces: SurfaceDef[], clas
           for (let i = 0; i < sp.n; i++) {
             const e = sp.width[i] / 2 + sp.shoulder[i] + w.hx;
             if (Math.abs(sp.px[i] - x) > e + sp.step || Math.abs(sp.pz[i] - z) > e + sp.step) continue;
-            const along = (x - sp.px[i]) * sp.tx[i] + (z - sp.pz[i]) * sp.tz[i];
-            const across = (x - sp.px[i]) * -sp.tz[i] + (z - sp.pz[i]) * sp.tx[i];
             // (Its face on the road's edge is its own road's: in from it by more than a hair is on it.)
-            if (Math.abs(along) <= sp.step / 2 && Math.abs(across) < e - 0.05) crossed.add(sp.id);
+            if (Math.abs(along(sp, i, x, z)) <= sp.step / 2 && Math.abs(across(sp, i, x, z)) < e - 0.05) crossed.add(sp.id);
           }
       }
     }

@@ -8,6 +8,7 @@ import type { LavaStreamDef } from '../../content';
 import { hypot, smoothstep as smooth } from '../../math';
 import { KIND_LAVA_ROCK } from '../ground/surface';
 import type { Feature } from '.';
+import { LAVA_SKIN } from './volcano';
 
 /** Its banks ease out over this many meters past its floor (rock: steeper than 1 in 1 is a face, GroundDef.face). */
 export const LAVA_BANK = 7;
@@ -15,15 +16,13 @@ export const LAVA_BANK = 7;
 export const LAVA_FILL = 0.6;
 /** The lava reaches this far past the floor's edge (m), to meet the banks: drawn and felt. */
 export const LAVA_EDGE = 0.8;
-/** The lava's surface is this far over its level (m): a car's wheels in it are in it. */
-const LAVA_SKIN = 0.3;
 /** Past its banks, rock this much farther (m), and no trees a little farther still. */
 const ROCK_OUT = 1.5;
 const BARE_OUT = 5;
 /** How far its rock and its bare ground reach past its floor's edge (m): the validator keeps roads past it. */
 export const LAVA_REACH = LAVA_BANK + BARE_OUT;
 /** At its source it comes out of the ground over this many meters: the channel deepening, the lava widening (a vent, not a pit). */
-export const LAVA_SOURCE = 25;
+const LAVA_SOURCE = 25;
 /** How far its rock's edge wanders with the surface noise (m), so it isn't stepped cell by cell. */
 const ROCK_WANDER = 3;
 
@@ -57,7 +56,11 @@ export function pathDistance(path: readonly (readonly [number, number])[], reach
       const px = ax[k] + dx * t;
       const pz = az[k] + dz * t;
       const d = (px - x) * (px - x) + (pz - z) * (pz - z);
-      if (d < best) [best, bx, bz] = [d, px, pz];
+      if (d < best) {
+        best = d;
+        bx = px;
+        bz = pz;
+      }
     }
     best = Math.sqrt(best);
     if (best > reach) return Infinity;
