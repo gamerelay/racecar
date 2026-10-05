@@ -38,14 +38,14 @@ describe('coastal', () => {
     expect(hillHeight(hills, 0, 101)).toBe(0);
   });
 
-  test("the town's hill rises off the road, and the road keeps its own height", () => {
-    const town = def.hills![0];
+  test('the mountain rises off the road, and the road keeps its own height', () => {
+    const town = def.hills!.reduce((a, b) => (b.h > a.h ? b : a));
     const plain = bakeTrack({ ...riviera, ground: { ...def, hills: undefined } }, SURFACES).ground!;
     // Near its top, well off any road: the hill.
     let risen = 0;
     for (let x = town.x - 60; x <= town.x + 60; x += 30)
       for (let z = town.z - 60; z <= town.z + 60; z += 30) risen = Math.max(risen, g.height(x, z) - plain.height(x, z));
-    expect(risen).toBeGreaterThan(15);
+    expect(risen).toBeGreaterThan(40);
     // On the road, as without the hills.
     const hit = newHit();
     for (let s = 0; s < track.main.length; s += 50) {
