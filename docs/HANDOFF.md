@@ -7,8 +7,10 @@ building". This file is "where are we"; the spec is "what are we making".
 **Last updated:** 2026-10-05. Since the tag, all merged: the engine's review fixes (#107), and a new
 experimental map, **Coastal** (#106–#117: its plan and lap, the drawbridge, the lap reworked, the
 Basin Road, traffic from side streets, the Rock Tunnel, rock rails, the Riviera town and the sea
-wall; see "Next: Coastal" below). Open: a clean-up pass (#118: the Rock Tunnel's mouth cleared, an
-eighth track for any map, `crashout`). The last tag is **`alpha-1.31`** (PRs #78–#105), on the hosted
+wall; see "Next: Coastal" below), a clean-up pass (#118: the Rock Tunnel's mouth cleared, an eighth
+track for any map, `crashout`, already on the CDN, playing from the next deploy), and Caldera's
+step 6, **the road graph**, 6a to 6e (#119–#123; see "The road graph" below). Nothing is open. The
+last tag is **`alpha-1.31`** (PRs #78–#105), on the hosted
 build: Paradise Open (#81), the engine's plan, [CALDERA.md](./CALDERA.md) (#82), and its steps 0
 to 3c (#83–#98, #102): the fingerprints and tools, the sim's own math, pieces, portals, feature
 modules, overrides, the lava stream, off-road surfaces, indoors, breakable walls and buildings
@@ -190,6 +192,50 @@ paved road (the rim road was hard to see), the green line at the Freeway's end, 
 beside it (`under.reach` 90 → 40), and slippery mud (`red-earth` grip 0.58, drag 0.1). Floors:
 Paradise 71.52 → 70.3 s, Paradise Open 67.27 → 66.35 s. PARADISE.md has the why.
 
+**The road graph (Caldera step 6, 2026-10-05).** The owner's call: step 6 before step 5 (the chase),
+proven on Coastal. CALDERA's "Build order" has each slice in full. Every map's fingerprints are
+identical through all five: each slice is the old behaviour on today's maps, with new reach.
+- **6a, the graph as data** (#119): `Track.graph` (`core/track/graph.ts`): nodes (junctions, the
+  line, a run's start and finish, open ends), streets (each road cut at its nodes, none wrapping),
+  the route (its way, each node's distance along it, every street between two of its nodes: the
+  Basin Road is, a side street isn't; its gates, the checkpoints and the finish). `tools/plan.ts`
+  draws it. The validator refuses a branch across the line.
+- **6b, where a car is** (#120): `locate` walks `RoadGraph.links` (at each node, every other road
+  there): any road to any other at a node.
+- **6c, progress** (#121): laps, checkpoints, positions, the finish, the grid and the results'
+  gaps count `RoadGraph.along` and `Gate.at`, the old main-road numbers to the bit (except within a
+  metre where two junctions merge, documented). Hazards, traffic, the avalanche and the AI's
+  marks still use main-road distances (they're on the main road).
+- **6d, the AI picks its way by cost** (#122): the quickest way it knows (`wayCosts`: street
+  times by the racing line, the quickest on to the finish from each node; `liftWait`: a
+  drawbridge's wait, to a hundredth, plus `STOP_COST` 4.28 s, so the Basin Road is taken for a wait
+  over 2 s, as before). A detour every driver knows, a shortcut on its roll; a shortcut slower than
+  what it skips is no one's.
+- **6e, branches off branches** (#123): `BranchDef.leaves`/`rejoins` (an earlier branch, or the
+  main road). The bake, the graph, `locate` and the AI's choice work from any road. Tested with a
+  lane off Backroads' barn shortcut (`test/fixtures-lane.ts`). No map uses one yet.
+
+**Next on the road graph, in order:**
+1. **#123's review, three small fixes** (it landed just after the merge; no map has a lane yet, so
+   nothing is wrong in play):
+   - `track/anchor.ts:28-31`: the editor's re-anchor maps a branch's `from`/`to` along the main
+     road even when it `leaves`/`rejoins` a branch (a lane's end slides 47 m along the barn when a
+     main-road point is added). Map each along its own road; add a `reanchor` test with a lane.
+   - `graph.ts`, the `Link.scale` loop over `links.slice(1)`: a lane that leaves and rejoins the
+     same branch gets that branch's span scale onto the lane (2.9, should be 1). Scale only onto the
+     road this branch leaves or rejoins. (Only `locate`'s hint.)
+   - `racer.ts` (the choice's window): on an open road `past === 60` passes; make it `<= -60`.
+   - Tests it asked for: a lane rejoining a branch, the AI on the main road ignoring a lane's node,
+     the exit-speed cap from a rejoined branch, a lane on a run.
+2. **The Stairs on Coastal** (COASTAL's step 7, the first real use of 6e): a stepped lane straight up
+   the Old Town (main road about 600–1010 m, `T(475,190)`, `T(395,85)`, `T(470,-15)` in
+   `tools/gen-coastal.ts`), forking halfway: one arm on up past the second bend, one across to
+   rejoin after the first. Steep, bumpy (`uneven`), narrow. Measure each arm with the lap report:
+   clean saves 2–4 s, fluffed costs more, taken slowly saves nothing. Watch the town's houses (the
+   generator's `free()` keeps them off roads) and the rock rails' list.
+3. Then CALDERA's step 6 leftovers when a map needs them: hazards, traffic and the AI's marks off
+   main-road distances; the road-edge walls onto streets; step 7, a city map.
+
 **Next: Coastal (2026-10-04, as of 2026-10-05).** The owner's call: Caldera's next features are
 built on a new experimental map instead of Paradise Open, whose fingerprints, floors and tests made
 iterating slow. Coastal's own fingerprints are re-recorded as it changes; every other map's must
@@ -241,8 +287,8 @@ skies and a rare shower, the `coastal` track. Open it with `?mode=free&map=coast
   wall (2 before, between cars), none at the bridge, the tunnel or the town.
 
 **Next, in about this order** (COASTAL's steps):
-1. **The cuts:** the Stairs (a stepped lane up the Old Town), the Rocks (across the flats under the
-   lighthouse), each measured: clean saves 2–4 s, fluffed costs more. The Sand (across the beach)
+1. **The cuts:** the Stairs (a stepped lane up the Old Town, forking halfway: see "Next on the road
+   graph"), the Rocks (across the flats under the lighthouse), each measured: clean saves 2–4 s, fluffed costs more. The Sand (across the beach)
    lost its beach to the sea wall: it needs a new home (the cape?) or drops, the owner's call.
 2. **The look:** yachts moored in the harbour (and along the sea wall), the lighthouse on its
    point, the riviera palette (it borrows Paradise's `tropic` now), the beach club (somewhere new,
@@ -270,6 +316,16 @@ skies and a rare shower, the `coastal` track. Open it with `?mode=free&map=coast
 93.07, Paradise 70.3, Paradise Open 66.35, Coastal 97.83 s (experimental). Paradise Open's field: 34 wrecks in 40 seeds.
 
 **Working notes (2026-10-03 to 2026-10-05):**
+- The fingerprints cover a solo lap and a drive down each branch, not the field: an AI change can
+  keep them identical and still move a race (#122's drawbridge window did). Check races too, and
+  check the check can tell: #122's 2-lap race reports couldn't see the bad version either. The
+  reviewer's sweep (8 cars through the drawbridge at 341 lift times, and 8 four-minute races,
+  hashed) did; it's a few lines with `setup(..., { t, rivals: 7 })`.
+- A tunnel's mouth up a sheer face: the ground cut (`portal.ts`) splits a clipped triangle with a
+  side through the outline (#118). If something stands in a mouth, raycast from the camera
+  (headless: build the skin's meshes with a stubbed `document`) to name the mesh before guessing.
+- The fingerprint's track hash hashes every field of every baked road: a new field moves every
+  map. Skip it in `src/dev/fingerprint.ts` only if it's derived from what's already hashed.
 - Two-way traffic on a narrow road, or through a bend, boxes the AI in: it brakes rather than move
   over, into head-ons. Keep it on straights, 20 m wide or more (MAPS.md's rule, and #112's lesson).
 - A tool's flags must all be read before `a.rest()`, which refuses any left over (`shot --t` was
@@ -413,7 +469,9 @@ old keys still resolve). The third map is **Paradise** (`content/maps/paradise`,
 3. The platform side is ready: SDK `0.1.0-alpha.5` has everything racecar uses (host controls,
    listings, parties, `lanRoute`), and the `racecar` instance has parties and Direct connections
    on (see "GameRelay side" below).
-4. Before changing anything: `bun test && bun run typecheck && bun tools/validate.ts --ai`. All
+4. Before changing anything: `bun run test && bun run typecheck && bun tools/validate.ts --ai`
+   (`bun run test`, never bare `bun test`: it sets the per-test timeout CI uses), and
+   `bun tools/fingerprint.ts` (every map `identical` unless a change means to move one). All
    three are green on `main`. Branch off `main`, one PR per change, with CI, then
    `/code-review` with the PR's full URL. Merge, tag and deploy only when the owner asks.
 
