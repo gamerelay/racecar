@@ -482,4 +482,21 @@ describe('editing', () => {
       expect([id, Math.hypot(p.cx - q.cx, p.cz - q.cz) < 1.5]).toEqual([id, true]);
     }
   });
+
+  test("a branch naming a later one: its end follows the main road, as the bake reads it", async () => {
+    const { reanchor } = await import('../src/core/track/anchor');
+    const { laneLayout } = await import('./fixtures-lane');
+    const l = laneLayout();
+    // The lane listed before the barn: the bake puts it off the main road (the validator objects).
+    const def = { ...l, branches: [l.branches!.find((b) => b.id === 'lane')!, ...l.branches!.filter((b) => b.id !== 'lane')] };
+    const before = bakeTrack(def, SURFACES);
+    expect(before.splines.find((sp) => sp.id === 'lane')!.fromRoad).toBe(0);
+    const edited = structuredClone(def);
+    edited.main.points[1].p[0] -= 15;
+    const moved = reanchor(before, edited, SURFACES);
+    const after = bakeTrack(moved, SURFACES);
+    const p = sampleAt(before.main, def.branches![0].from, newHit());
+    const q = sampleAt(after.main, moved.branches![0].from, newHit());
+    expect(Math.hypot(p.cx - q.cx, p.cz - q.cz)).toBeLessThan(1.5);
+  });
 });

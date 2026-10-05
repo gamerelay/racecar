@@ -127,16 +127,26 @@ export interface Track {
   graph: RoadGraph;
 }
 
-/** The track for `layout`; its overrides' code is looked up by id in `code` (core/maps; a test passes its own). */
-export function bakeTrack(layout: TrackLayout, surfaces: SurfaceDef[], code: Readonly<Record<string, OverrideCode>> = OVERRIDES): Track {
+/**
+ * The roads alone: the main road, and the branches joined to the roads they leave and rejoin. The
+ * rest of the bake builds on them; the editor's reanchor needs only these.
+ */
+export function bakeRoads(layout: TrackLayout, surfaces: SurfaceDef[]): BakedSpline[] {
   const surfaceIndex = new Map(surfaces.map((s, i) => [s.id, i]));
   const main = bakeSpline(layout.id, 0, layout.main.points, !layout.run, surfaceIndex);
   const splines = [main];
   // (A branch off another leaves an earlier one: the validator says so if not; here, the main road.)
   const road = (id?: string) => (id ? (splines.find((sp) => sp.id === id) ?? main) : main);
   for (const b of layout.branches ?? []) splines.push(bakeBranch(b, splines.length, road(b.leaves), road(b.rejoins), main, surfaceIndex));
-
   for (const [k, sp] of splines.slice(1).entries()) joinBranch(splines[sp.fromRoad], splines[sp.toRoad], sp, layout.branches![k].heights === 'own');
+  return splines;
+}
+
+/** The track for `layout`; its overrides' code is looked up by id in `code` (core/maps; a test passes its own). */
+export function bakeTrack(layout: TrackLayout, surfaces: SurfaceDef[], code: Readonly<Record<string, OverrideCode>> = OVERRIDES): Track {
+  const surfaceIndex = new Map(surfaces.map((s, i) => [s.id, i]));
+  const splines = bakeRoads(layout, surfaces);
+  const main = splines[0];
 
   const gapsAuto: { spline: BakedSpline; s0: number; s1: number; side: -1 | 0 | 1 }[] = [];
   for (const sp of splines.slice(1)) {
