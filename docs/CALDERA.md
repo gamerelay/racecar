@@ -14,8 +14,10 @@ merged** (#83–#98, #102) and released in `alpha-1.31` (#78–#105), on the hos
 - **2a–2d:** feature modules, overrides and the lava stream.
 - **3a–3c:** indoors, breakable walls and buildings (Paradise Open's market hall).
 
-**Next: step 4, moving pieces** (a drawbridge), on a new map, Coastal
-([COASTAL.md](./COASTAL.md)): see "Build order". HANDOFF has the detail and the lap floors.
+**Step 4, moving pieces, is built** on a new map, Coastal ([COASTAL.md](./COASTAL.md)): its
+drawbridge (`PieceDef.lift`, #109). Next: the main road taking a ceiling (Coastal's Rock Tunnel),
+traffic over more than one road (Coastal's side streets, towards step 6's road graph), or step 5.
+HANDOFF has the detail and the lap floors.
 
 **Reading it:** "Principles" and "The core idea: pieces" are the design; "Build order" and "How
 to work on it" are what to do; the rest is reference (moving things, routes, a worked example,
@@ -775,7 +777,8 @@ stream across a route): then the new floor is recorded, with why.
        both. Only the hall has walls.
      - **A branch's road is drawn on into its junctions** (the skin's draped strip): left to the
        ground's cells there, its edge was a staircase where it peeled off the main road.
-4. **Moving pieces**: a drawbridge. *Not started.* Where to begin:
+4. **Moving pieces**: a drawbridge. *Built on Coastal* (2026-10-04: `PieceDef.lift`,
+   `core/world/lifts.ts`; COASTAL "Built so far" has the detail). What it was planned as:
    - **What it is:** a piece with a motion, World authority ("Things that move"): its pose at
      race time t is a formula of the seed and the clock, the same on every screen, nothing sent.
      A car on it rides it; a car arriving while it's up jumps the gap off its lip or hits its

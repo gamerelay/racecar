@@ -210,6 +210,8 @@ export function buildTrackVisual(track: Track, palette: Palette, seed: number): 
     const deckSample = Uint8Array.from(ground.pieces.floors(main.index) ?? new Uint8Array(main.n));
     const at = ground.pieces.at(main.index);
     if (at) for (let i = 0; i < main.n; i++) if (at[i] >= 0 && ground.pieces.list[at[i]].building) deckSample[i] = 0;
+    // (Nor a drawbridge's span: its leaves are its road, lifts.ts.)
+    for (const p of ground.pieces.list) if (p.spline === main.index && p.lift) for (let i = Math.ceil(p.lift.s[0] / main.step); i <= Math.floor(p.lift.s[1] / main.step); i++) deckSample[i] = 0;
     for (let i = 0; i < main.n; i++) {
       if (!deckSample[i]) continue;
       let j = i;

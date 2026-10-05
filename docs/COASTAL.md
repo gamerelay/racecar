@@ -111,8 +111,11 @@ The lap report measures each one.
 This is CALDERA's step 4, built here. CALDERA has the engine side: what a moving piece is, what it
 touches, and the rules to keep. This section is what it should be like to drive.
 
-**What it is:** one leaf over the harbour mouth, about 40 m long, hinged at the far end. A tower
-with the counterweight stands at the hinge, and a short fixed approach span sits on each side.
+**What it is** (as built, step 3): **two leaves** over the harbour's middle, 30 m each, each
+hinged at its own end and meeting in the middle, like Tower Bridge. (The first sketch had one leaf
+hinged at the far end: rising, it would have put its edge in your face, not a ramp under you. Two
+leaves make the jump: off the near one's tip and down onto the far one.) Towers and a
+counterweight stand at each hinge, and the fixed deck runs on either side.
 Its angle is a pure function of the race clock and the seed: World authority, the same on every
 screen, nothing sent online.
 
@@ -136,10 +139,10 @@ possible later (a light on the tower that changes a lap ahead), so a sharp drive
   gap, and a slow one rolls back, or off the lip into the water (a respawn).
 - **Arriving while it's up:** the leaf stands as a wall. Hitting it bounces you, the road walls'
   way.
-- **The jump** (in from the start, the owner): in the first second or two of a lift, the leaf is a ramp of 10–20° and the gap
-  opening past its tip is a few metres. That's catchable at speed, like the Lava Tube's kicker
-  (gravity is 24 m/s², so tune it in the sim for every class and a sweep of speeds, not on
-  paper). Later in a lift, the gap is too wide and the ramp too steep: a wreck.
+- **The jump** (in from the start, the owner): in the first couple of seconds of a lift, the
+  near leaf is a ramp of 5–20°. Off its tip you fly over the gap and land on the far leaf or the
+  deck past it (about a second in the air, every class, measured). Past the wall angle (30°) the
+  leaf is a wall: driven into fast, a wreck.
 - **Lowering:** the leaf comes down toward the road. Until it's almost flat, the gap is still
   there.
 
@@ -162,8 +165,9 @@ few seconds, and fast enough that a lift doesn't ruin a race.
 - the AI taking the detour;
 - the probe and drive tools at a chosen `--t`.
 
-**Starting simpler:** the first PR can be the leaf, its cycle and the physics, with no AI and a
-plain look. The detour, the AI, the bells and the boat come next.
+**Starting simpler:** step 3's first PR is the leaves, their cycle, the physics, the AI waiting
+or jumping, and a plain look (towers, arms, red lights). The detour, the bells and the boat come
+next.
 
 ## What else it uses from Caldera
 
@@ -298,14 +302,49 @@ experimental, so open it with `?mode=free&map=coastal/riviera`.
 - **The look is borrowed:** Paradise's `tropic` palette and its palms and jungle trees. The
   riviera look is step 8.
 
-**What the engine can't do yet** (it shapes steps 3 and 5): on the main road a piece is a deck
-only. Gaps and ceilings are on branches only (PieceDef's doc), because there the ground is the
-road's own. The drawbridge's raised leaf leaves a gap on the main road, and the Rock Tunnel
-wants a ceiling on it, so both need the main road to take them:
-- under a ceiling, the ground stays the hill's over the road;
-- under a gap, there's nothing but what's below.
+**What the engine can't do yet** (it shapes step 5): on the main road a piece is a deck only.
+Ceilings are on branches only (PieceDef's doc), because there the ground is the road's own. The
+Rock Tunnel wants one on the main road: under it, the ground stays the hill's over the road.
+(The drawbridge didn't need a main-road gap after all: its leaves are part of the bridge's deck,
+and past their tips the floor query has none, so the water under the deck, `under`, is what's
+there.)
 
-Doing that once covers both.
+**Step 3, the drawbridge (2026-10-04):** `PieceDef.lift` (a `LiftDef`) on the Harbour Bridge's
+deck, `core/world/lifts.ts`.
+- **Its times:** from the seed's own stream (`lift:<piece>`): the first warning 45–110 s after
+  the race's green (`RaceState.goTime`; the sim's own clock started 30 s before green online, 4 s
+  offline), a second 80–130 s after it in half of races. Each cycle: a 4 s warning, rising to 1.2 rad (69°)
+  over 6 s (smoothstep), up 8 s, down over 6 s. Its angle is a pure function of those and the
+  race clock: nothing sent online, nothing in snapshots.
+- **The floor:** each tick, before the cars step, the sim sets each leaf's angle on the ground
+  (`Ground.setLift`), and the floor query tilts the deck's plane about each hinge: up to the wall
+  angle (0.52 rad, 30°), a ramp; past each tip, nothing (the water). Steeper, no floor at all.
+  The physics needed nothing new: a car follows a floor that rises less than a metre a tick.
+- **The wall:** past 30°, `collide/lifts.ts` bounces a car off the leaf at its hinge, as a road's
+  wall does (a wreck if fast).
+- **The AI:** it knows the angle ahead. If the bridge will be down when it gets there and while it
+  crosses, on; a hard driver also jumps it at 28 m/s or more if the leaf will be at 0.33 rad or
+  less, unless a car is waiting ahead of it (hard drivers went for the leaf as it came down, into
+  the cars still waiting); otherwise it brakes (8 m/s², gently, so the cars behind don't run into
+  it) to stop 8 m short and waits there, as does a car slowed in the queue behind it. Too close to
+  stop, with it still down when it gets there, it goes on across; on the span already, on.
+  Waiting, it brakes only while it still rolls forward: held at a standstill, the brake is reverse,
+  and cars backed out of the queue into the ones behind (most of the review's queue wrecks).
+- **Respawns:** on it or within 40 m before it while it's lifting or up, a respawn is 60 m back
+  on the approach (past a respawn's 1.5 s ghost run at 22 m/s; a ghost bounces off a raised leaf
+  too, without a wreck).
+- **The look:** the leaves (road lines, red and white bands at their tips), towers with a gantry
+  and counterweights, barrier arms that drop, and red lights that flash from the warning until
+  it's down. The deck's road stops at the hinges.
+- **Tools:** `drive`'s `t` option and `shot --t` show the world at a race time. The fingerprint
+  has a `lifts` part, only for a layout with one: times for three seeds, angles through a cycle,
+  the leaves' floors at five angles, and the hard AI driven at it from 150 m as a lift starts and
+  halfway up (a jump, a wait), every field every tick.
+- **Numbers:** floor 76.33 s (the solo lap misses the lifts on its seed). The field over 16 seeds: one wreck at the bridge, a nudge (5 m/s) as a queue moved off.
+  Every other map's fingerprints are identical.
+- **Known rough edges:** a car crawling up a leaf as it passes 30° loses its floor and falls in
+  (the AI never does; a respawn puts you back on the approach). The boat, the bells and the Basin
+  Road detour are still to come.
 
 ## The owner's answers (2026-10-04)
 

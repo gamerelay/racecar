@@ -114,6 +114,8 @@ export interface Ground {
    * more than one. NaN if there's none (a building has no floor of its own: it stands on the ground).
    */
   pieceFloor(x: number, z: number, slack?: number, y?: number): number;
+  /** Sets piece `piece`'s drawbridge to `angle` (rad): the sim, each tick before its cars step (core/world/lifts.ts). */
+  setLift(piece: number, angle: number): void;
   /** What's under (x, y, z) (y Infinity: from the sky), into `out`: see Cast. */
   cast(x: number, y: number, z: number, out: Cast): Cast;
   /** What's under (x, z) for something at height `y`: the highest floor at or below it (unset: the highest), else the ground. */
@@ -189,6 +191,9 @@ export function buildGround(def: GroundDef, main: BakedSpline, branches: BakedSp
       return h;
     },
     pieceFloor: (x, z, slack, y) => floors.floor(x, z, slack, y),
+    setLift(piece, angle) {
+      pieces.angle[piece] = angle;
+    },
     cast(x, y, z, out) {
       const d = floors.floor(x, z, 0, y, true);
       const p = floors.found();

@@ -351,8 +351,24 @@ export function driveRacer(sim: SimState, i: number, d: RacerDriver, out: Contro
   const k = catchup(sim, i, skill.catchup) * (grip < 0.95 ? 0.75 + 0.25 * grip : 1);
   v *= k;
   vb *= k;
+  // A drawbridge ahead (core/world/lifts.ts): down when it gets there and while it crosses, on;
+  // a hard driver also jumps it early in a lift, at speed; otherwise stop short of it and wait.
+  const lift = liftCap(sim, i, speed, d.difficulty);
+  if (lift < v) {
+    v = lift;
+    vb = Math.min(vb, lift);
+  }
   out.throttle = speed < v - 1 ? 1 : speed < v + 1 ? 0.35 : 0;
   out.brake = speed > vb + 2.5 ? clamp((speed - vb) / 8, 0.2, 1) : 0;
+  // Stopped (or all but) for a drawbridge, or in the queue for it: held there, not creeping on
+  // toward it (pressing on into the car ahead, the AI read itself as pinned and reversed out at
+  // speed into the car behind).
+  if (lift < LIFT_HOLD || (lift < Infinity && speed < LIFT_HOLD * 2)) {
+    out.throttle = 0;
+    // Braking while it still rolls forward, then nothing: held at a standstill, the brake is reverse
+    // (cars backed out of the queue into the ones behind).
+    out.brake = c.vx[i] * sin(c.h[i]) + c.vz[i] * cos(c.h[i]) > 0.3 ? 1 : 0;
+  }
   out.drift = false;
 
   // Boost on long fast stretches.
@@ -383,6 +399,61 @@ export function driveRacer(sim: SimState, i: number, d: RacerDriver, out: Contro
   out.lookBack = false;
   out.horn = false;
   return out;
+}
+
+/** A drawbridge further ahead than this (m) is none of the AI's business yet. */
+const LIFT_LOOK = 300;
+/** A hard driver jumps a leaf only up to this angle (rad) when it gets there, and only this fast (m/s). */
+const LIFT_JUMP = 0.33;
+const LIFT_JUMP_SPEED = 28;
+/** Allowed less than this (m/s) for a drawbridge, it holds where it is on the brakes. */
+const LIFT_HOLD = 1.5;
+/** It stops this far (m) short of the hinge, braking this hard (m/s²). */
+const LIFT_STOP = 8;
+const LIFT_BRAKE = 8;
+
+/** Whether a car is waiting (slow) between car `i` and a drawbridge's hinge at `hinge`, `ds` m ahead: then nobody jumps it (hard drivers went for the leaf as it came down, into the cars still waiting for it). */
+function waiting(sim: SimState, i: number, hinge: number, ds: number): boolean {
+  const c = sim.cars;
+  const L = sim.track.main.length;
+  for (let j = 0; j < c.count; j++) {
+    if (j === i || !c.active[j]) continue;
+    if (wrap(hinge - mainDistance(sim.track, c.spline[j], c.s[j]), L) < ds && sq(c.vx[j]) + sq(c.vz[j]) < sq(LIFT_JUMP_SPEED)) return true;
+  }
+  return false;
+}
+
+/**
+ * How fast car `i` may go for the drawbridges ahead (Infinity: no limit). Each leaf's angle is a
+ * function of the race clock, so the AI knows it ahead: it goes on if the bridge is down when it
+ * gets there and while it crosses (a hard driver: low enough to jump, and it's fast), and otherwise
+ * slows to stop short of it.
+ */
+function liftCap(sim: SimState, i: number, speed: number, difficulty: number): number {
+  const lifts = sim.world?.lifts;
+  if (!lifts || !lifts.pieces.length) return Infinity;
+  const L = sim.track.main.length;
+  const here = mainDistance(sim.track, sim.cars.spline[i], sim.cars.s[i]);
+  let cap = Infinity;
+  for (let k = 0; k < lifts.pieces.length; k++) {
+    const span = lifts.defs[k].s;
+    // Already on its span (past the near hinge): nothing to stop for now, on across. (Past the
+    // hinge the distance to it wraps to nearly a lap: it read as no bridge at all.)
+    if (wrap(here - span[0], L) < span[1] - span[0]) continue;
+    const ds = wrap(span[0] - here, L);
+    if (ds > LIFT_LOOK) continue;
+    const pace = Math.max(speed, 12);
+    const t = sim.time + ds / pace;
+    const there = lifts.angle(k, t);
+    const across = lifts.angle(k, t + (span[1] - span[0] + 20) / pace);
+    const down = there === 0 && across === 0;
+    const jump = difficulty === 2 && speed >= LIFT_JUMP_SPEED && there <= LIFT_JUMP && across <= lifts.defs[k].wall && !waiting(sim, i, span[0], ds);
+    if (down || jump) continue;
+    // Too close to stop short of its hinge, and down when we get there: on across, not stopped on a leaf.
+    if (there === 0 && sq(speed) > 2 * LIFT_BRAKE * ds) continue;
+    cap = Math.min(cap, Math.sqrt(2 * LIFT_BRAKE * Math.max(0, ds - LIFT_STOP)));
+  }
+  return cap;
 }
 
 /** The racing line's value at distance `dist` along `sp` (wrapping on a closed spline). */

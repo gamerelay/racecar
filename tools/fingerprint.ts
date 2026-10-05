@@ -32,6 +32,7 @@ export function moved(was: Fingerprint | undefined, now: Fingerprint): string[] 
     const at = now.marks.find((m, k) => JSON.stringify(m) !== JSON.stringify(was.marks[k]));
     out.push(`drive${at ? ` (by ${at.t} s: was ${JSON.stringify(was.marks.find((m) => m.t === at.t))}, now ${JSON.stringify(at)})` : ' (in the last bits)'}`);
   }
+  if (was.lifts !== now.lifts) out.push('lifts (the drawbridges: when, how far, their floors)');
   if (was.wrecks !== now.wrecks) out.push(`wrecks ${was.wrecks} → ${now.wrecks}`);
   return out;
 }

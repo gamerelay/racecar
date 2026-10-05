@@ -44,6 +44,8 @@ export interface DriveOptions {
   /** Other cars (the AI) on the road, and traffic. Default: alone. */
   rivals?: number;
   traffic?: boolean;
+  /** Race time to start at (s; default 0): the world as it is then (a drawbridge up, CALDERA step 4). */
+  t?: number;
 }
 
 export interface Row {
@@ -145,6 +147,10 @@ export function setup(track: Track, classes: CarClass[], surfaces: SurfaceDef[],
   const sim = new Sim(track, classes, surfaces, { seed: opts.seed ?? 7, slowmo: 'wreck', traffic: opts.traffic ? 1 : 0, mayhem: 'off', weather: 'clear' });
   sim.addCar({ cls: opts.cls ?? 'coupe', human: input !== 'ai', racer: input === 'ai' ? { difficulty: 2 } : undefined });
   for (let k = 0; k < (opts.rivals ?? 0); k++) sim.addCar({ cls: classes[k % classes.length].id, racer: { difficulty: 2 } });
+  if (opts.t) {
+    sim.time = opts.t;
+    sim.world.lifts.update(sim.time, sim.race.goTime);
+  }
   place(sim, 0, spot, opts.kmh ?? 0);
   return sim;
 }
