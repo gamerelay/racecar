@@ -79,8 +79,27 @@ export interface Route {
   length: number;
 }
 
+/**
+ * Where another road meets this one: at `s` along this one, `other` (a spline index) at `os` along
+ * it. What locate.ts (6b) checks near a node: a car on this road might be on that one.
+ */
+export interface Link {
+  node: number;
+  s: number;
+  other: number;
+  os: number;
+  /**
+   * How far along the other road a metre along this one goes from here. From a branch onto the road
+   * it leaves and rejoins, the other's distance between the two nodes over its own (where it is on
+   * that road is as far through its span); else 1 (leaving a road, a branch runs beside it at first).
+   */
+  scale: number;
+}
+
 export interface RoadGraph {
   nodes: GraphNode[];
+  /** By spline: where the other roads meet it, grouped by the other road (in spline order), each group in order along this one. */
+  links: Link[][];
   /** A closed main road's line (s = 0; a junction too if a branch leaves there), -1 on an open one. */
   line: number;
   streets: Street[];
@@ -88,6 +107,9 @@ export interface RoadGraph {
   /** The street that `spline` is on at `s` (its road's stretch holding it), or -1. */
   streetAt(spline: number, s: number): number;
 }
+
+/** The distance from a to b along a closed road of length L, going forward (or back). */
+const wrapAround = (d: number, L: number, forward: boolean) => (((forward ? d : -d) % L) + L) % L;
 
 /** Two ends of roads this close (m) on the main road are one junction. */
 const SAME = 1;
@@ -180,5 +202,28 @@ export function buildGraph(track: Track): RoadGraph {
   const gates = [...track.checkpoints.map((s) => gate(s, false)), gate(finishS, true)];
   const route: Route = { closed: main.closed && !run, start: startNode, finish: finishNode, at, way, streets: routeStreets, gates, length: finishS - startS };
 
-  return { nodes, line, streets, route, streetAt };
+  // Each road's links: at every node on it, every other road there (both ways round).
+  const links: Link[][] = splines.map(() => []);
+  for (const n of nodes) {
+    const here = new Map<number, number>();
+    for (const k of [...n.out, ...n.in]) {
+      const st = streets[k];
+      // (A closed road at its line both leaves it, s = 0, and comes back, s = L: it's at 0, so its
+      // link sorts with the rest from the start of the road.)
+      if (!here.has(st.spline)) here.set(st.spline, n.out.includes(k) ? st.s0 : st.s1);
+    }
+    for (const [a, sa] of here) for (const [b, sb] of here) if (a !== b) links[a].push({ node: n.index, s: sa, other: b, os: sb, scale: 1 });
+  }
+  // From a branch onto the road it spans (meeting it at both its ends), the scale between them.
+  for (const l of links.slice(1))
+    for (const p of l)
+      for (const q of l)
+        if (q !== p && q.other === p.other && q.s !== p.s) {
+          const mine = Math.abs(q.s - p.s);
+          const theirs = splines[p.other].closed ? wrapAround(q.os - p.os, splines[p.other].length, q.s > p.s) : Math.abs(q.os - p.os);
+          if (mine > 0 && theirs > 0) p.scale = theirs / mine;
+        }
+  for (const l of links) l.sort((p, q) => p.other - q.other || p.s - q.s);
+
+  return { nodes, line, links, streets, route, streetAt };
 }
