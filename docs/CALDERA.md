@@ -21,7 +21,8 @@ The main road takes a ceiling now (Coastal's Rock Tunnel, #113: its rock kept ov
 **Step 6, the road graph, is under way** (the owner's call, 2026-10-05: on Coastal, before step 5):
 6a, the graph as data (`Track.graph`, `core/track/graph.ts`, #119): every map's roads as streets
 between nodes, and its race as a route, its checkpoints gates on streets; 6b, a car located over it
-(any road to any other at a node, #120); 6c, progress counted along the route.
+(any road to any other at a node, #120); 6c, progress counted along the route (#121); 6d, the AI
+picks its way by cost.
 HANDOFF has the detail and the lap floors.
 
 **Reading it:** "Principles" and "The core idea: pieces" are the design; "Build order" and "How
@@ -834,8 +835,15 @@ stream across a route): then the new floor is recorded, with why.
      today (a test checks every road to the bit), so every fingerprint is identical; what changes
      is that a route needn't be the main road. Main-road distances still run the hazards, traffic,
      the avalanche and the AI's marks (they're on the main road).
-   - **6d, the AI picks streets by cost** at each node (the time each way), for the branch kinds'
-     rules and the drawbridge's detour rule.
+   - **6d, the AI picks its way by cost** (built): at a node ahead it takes the quickest way it
+     knows on to the finish: each street's time by the racing line, and from each node the quickest
+     on by the route's streets (`wayCosts` in ai/racer.ts), plus what a drawbridge would hold it
+     there (`liftWait`: the wait, to a hundredth, and 4.28 s for stopping and pulling away,
+     `STOP_COST`, set so the Basin Road's 6.28 s is taken for a wait over 2 s, as the old
+     `DETOUR_COST` swept: the same choice at every lift time). Every driver
+     knows the main road and a detour; a shortcut it knows on its roll (skill), as before. Every
+     shortcut today is quicker than what it skips, so every fingerprint is identical; one that
+     isn't, nobody takes (it was taken on a roll).
    - Then Coastal uses it: streets meeting streets (the Old Town's), not only the main road.
 7. **A city map**, and if the chase is wanted, the chase in it: AI cops pathfinding over the
    graph.
