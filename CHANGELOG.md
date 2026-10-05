@@ -16,7 +16,7 @@ and where things stand is [docs/HANDOFF.md](./docs/HANDOFF.md).
   The rest is in docs/TECH_DEBT.md ("Caldera, the engine").
 - **A new map, *Coastal*** (experimental, from a link: `?mode=free&map=coastal/riviera`): a
   harbour town on a headland, with a bridge over the harbour mouth, switchbacks up the Old Town,
-  a mountain road, switchbacks down the mountainside over the sea and a lighthouse hairpin, under mostly blue skies (a shower about
+  a mountain road winding up in S-bends, five long switchbacks down the mountainside over the sea and a lighthouse hairpin, under mostly blue skies (a shower about
   one race in seven). It plays the *Coastal* track. A greybox for now: the drawbridge comes next
   (docs/COASTAL.md).
 - **Coastal's drawbridge** (experimental): the Harbour Bridge lifts once or twice a race, with
