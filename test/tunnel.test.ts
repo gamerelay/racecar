@@ -5,6 +5,7 @@
 
 import { describe, expect, test } from 'bun:test';
 import type { TrackLayout } from '../src/core/content';
+import { neutralControls } from '../src/core/controls';
 import { Ev } from '../src/core/events';
 import { bakeTrack } from '../src/core/track/bake';
 import { KIND_ROAD, newCast } from '../src/core/track/ground';
@@ -69,7 +70,7 @@ describe('the Rock Tunnel', () => {
 
   test('its walls hold: steered into one, a car is turned back, not out into the rock', () => {
     const mid = (tunnel.s[0] + tunnel.s[1]) / 2;
-    const input = { throttle: 1, steer: 1 };
+    const input = { ...neutralControls(), throttle: 1, steer: 1 };
     const sim = setup(track, CLASSES, SURFACES, { s: mid - 40 }, input, { kmh: 60 });
     let hits = 0;
     let cursor = sim.events.head;
