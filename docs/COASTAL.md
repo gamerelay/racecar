@@ -500,6 +500,9 @@ colourful buildings the other.
   the town side of the boulevard, and three deep both sides of the Old Town's climb, each facing
   the road, 5 m back (a pavement) and clear of every road (the side streets and the Basin Road
   too), the water and each other. The sea side is the sea's: the beach and its palms.
+- **From the review:** the chase camera pulls in from a house as from a building's wall (spun
+  or reversed against one, it ended up inside); the validator checks the middles of a house's walls
+  too. Its roof has no collider (only its walls, to the eaves): nothing near the town flies that high.
 - **Numbers:** floor 97.83 s. The field over 8 seeds: 2 wrecks, between cars, away from the
   town. Every other map's fingerprints identical.
 

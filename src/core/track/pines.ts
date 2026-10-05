@@ -123,10 +123,10 @@ export function buildPines(def: PinesDef, layout: TrackLayout, main: BakedSpline
   };
 }
 
-/** Where no tree grows: where a feature says (a canyon and its mouth, a mogul field, a lava stream), beside a kicker. */
 /** Trees keep this far (m) off a house's walls. */
 const HOUSE_CLEAR = 3;
 
+/** Where no tree grows: where a feature says (a canyon and its mouth, a mogul field, a lava stream), beside a kicker. */
 function blocked(layout: TrackLayout, ground: Ground, s: number, lat: number, d: number, x: number, z: number): boolean {
   if (ground.bare(s, lat, x, z)) return true;
   // Not in a house, nor at its walls (TrackLayout.houses).

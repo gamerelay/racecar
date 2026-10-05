@@ -394,8 +394,8 @@ export function validateLayout(layout: TrackLayout, surfaces: SurfaceDef[], clas
     const fx = sin(h.rot);
     const fz = cos(h.rot);
     const at = newHit();
-    // Its corners and middle, against every road.
-    for (const [a, b] of [[0, 0], [-1, -1], [-1, 1], [1, -1], [1, 1]]) {
+    // Its corners, the middles of its walls and its middle, against every road.
+    for (const [a, b] of [[0, 0], [-1, -1], [-1, 1], [1, -1], [1, 1], [0, -1], [0, 1], [-1, 0], [1, 0]]) {
       const x = h.at[0] + (a * h.size[0] * fz) / 2 + (b * h.size[1] * fx) / 2;
       const z = h.at[1] - (a * h.size[0] * fx) / 2 + (b * h.size[1] * fz) / 2;
       for (const sp of track.splines) {
