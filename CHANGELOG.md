@@ -29,6 +29,8 @@ and where things stand is [docs/HANDOFF.md](./docs/HANDOFF.md).
   none appear or vanish on the road. The home straight is wider for them (20 m).
 - **Coastal's Rock Tunnel**: the Mountain Road runs 200 m through the spur, in a limestone tunnel
   lit by orange lamps.
+- **Coastal's rock rails**: a low limestone parapet round the outside of the tight corners up the
+  mountain and down the switchbacks; the straights between are still open to fly off.
 
 ## alpha-1.31: Paradise Open, the Caldera engine and the market hall
 

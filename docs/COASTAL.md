@@ -465,6 +465,23 @@ piece on the main road, which was branches-only).
 - **Numbers:** floor 97.73 s. Field over 8 seeds: no wrecks in or near it. Every other map's
   fingerprints identical.
 
+**Step 5b, rock rails (2026-10-05):** the owner, looking at the minimap's switchbacks: rails on the
+tight corners up top, rock-themed.
+- **Where:** a stone parapet on the outside of every corner tighter than 110 m from the middle of the
+  Old Town to Lighthouse Point, 15 m on past each end (`RAILS` in the generator, found from the baked
+  road's curvature): the S-bends, every hairpin of the Descent (alternate sides, row by row), the
+  Corniche's bends, the lighthouse hairpin. The straights between stay open, so running wide off a
+  row still drops you onto the one below (the owner's earlier "chances to fly off"); the inside of
+  each corner is open too.
+- **The engine:** they're the road's own walls, kept there (every other wall on the island is
+  gapped); nothing new in the sim.
+- **The drawing** (`render/skins/greybox/rails.ts`): a draped road's walls were never drawn (only a
+  built road's chunks draw walls). Now, on a coast map, wherever the main road has a wall off a deck,
+  limestone blocks along the wall's line, 2.1 m each with a joint, their tops following the road.
+  Paradise Open has no such walls, so nothing changes there.
+- **Numbers:** floor 97.73 s (the AI's line was inside them already). The field over 8 seeds: no
+  more wrecks than before. Every other map's fingerprints identical.
+
 ## The owner's answers (2026-10-04)
 
 - **The shape:** the sketch is right (quay, bridge, Old Town, tunnel, corniche, lighthouse, beach,

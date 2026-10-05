@@ -76,6 +76,28 @@ describe('coastal', () => {
     expect(d.summary.end.s).toBeGreaterThan(bridge.s[1]);
   }, 30_000);
 
+  test("rock rails: a wall on the outside of every tight corner up top, the inside open, and open between them", () => {
+    const m = track.main;
+    const w = Math.round(10 / m.step);
+    let corners = 0;
+    let open = 0;
+    // From the top of the Old Town to the lighthouse (roughly: the generator's RAILS).
+    for (let i = Math.round(1050 / m.step); i < Math.round(4400 / m.step); i++) {
+      const turn = (m.tx[i + w] - m.tx[i - w]) * -m.tz[i] + (m.tz[i + w] - m.tz[i - w]) * m.tx[i];
+      const radius = (2 * w * m.step) / Math.max(1e-6, Math.abs(turn));
+      // (Not in the tunnel: walls both sides.)
+      if (g.pieces.floors(0)?.[i]) continue;
+      if (radius < 80) {
+        corners++;
+        // Outside: turning right, the left.
+        expect([i * m.step, turn > 0 ? m.wallL[i] : m.wallR[i]]).toEqual([i * m.step, 1]);
+        expect([i * m.step, turn > 0 ? m.wallR[i] : m.wallL[i]]).toEqual([i * m.step, 0]);
+      } else if (radius > 400 && !m.wallL[i] && !m.wallR[i]) open++;
+    }
+    expect(corners).toBeGreaterThan(50);
+    expect(open).toBeGreaterThan(200);
+  });
+
   test('mostly blue skies: a shower one race in about seven (`rare`), against more than half on Paradise', () => {
     const showers = (allowed: string[]) => Array.from({ length: 400 }, (_, seed) => planWeather('random', seed + 1, allowed)).filter((p) => p.to > 0).length / 400;
     expect(map.weather).toContain('rare');
