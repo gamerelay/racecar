@@ -94,6 +94,21 @@ for (const h of def.houses ?? []) {
   const deg = (-h.rot * 180) / Math.PI;
   parts.push(`<rect x="${-h.size[0] / 2}" y="${-h.size[1] / 2}" width="${h.size[0]}" height="${h.size[1]}" fill="#e0904a" stroke="#6a3a1a" stroke-width="0.6" transform="translate(${h.at[0]} ${h.at[1]}) rotate(${deg.toFixed(1)})"/>`);
 }
+// The road graph (core/track/graph.ts): its nodes (a junction purple, the line black, an end grey),
+// each street's number at its middle, and the route's gates across the road (the finish red).
+const label = Math.round((x1 - x0) / 90);
+for (const st of track.graph.streets) {
+  sampleAt(track.splines[st.spline], (st.s0 + st.s1) / 2, hit);
+  parts.push(`<text x="${hit.cx.toFixed(1)}" y="${hit.cz.toFixed(1)}" font-size="${label}" font-family="sans-serif" fill="#3a1a6a" stroke="white" stroke-width="0.5" text-anchor="middle">#${st.index}</text>`);
+}
+for (const n of track.graph.nodes) {
+  const r = Math.max(4, label / 2);
+  parts.push(`<rect x="${(n.x - r).toFixed(1)}" y="${(n.z - r).toFixed(1)}" width="${2 * r}" height="${2 * r}" fill="${n.kind === 'junction' ? '#8a3ad8' : n.kind === 'line' ? '#111' : '#888'}" stroke="white" stroke-width="1"/>`);
+}
+for (const g of track.graph.route.gates) {
+  const [ax, az, bx, bz] = [g.x - g.tz * g.half, g.z + g.tx * g.half, g.x + g.tz * g.half, g.z - g.tx * g.half];
+  parts.push(`<line x1="${ax.toFixed(1)}" y1="${az.toFixed(1)}" x2="${bx.toFixed(1)}" y2="${bz.toFixed(1)}" stroke="${g.finish ? '#e22' : '#111'}" stroke-width="3"/>`);
+}
 for (let s = 0; s < track.main.length; s += 250) {
   sampleAt(track.main, s, hit);
   parts.push(`<circle cx="${hit.cx}" cy="${hit.cz}" r="6" fill="white" stroke="black"/>`);

@@ -251,6 +251,8 @@ export function validateLayout(layout: TrackLayout, surfaces: SurfaceDef[], clas
   for (const sp of track.splines.slice(1)) {
     const span = wrap(sp.mainTo - sp.mainFrom, L);
     if (span <= 0 || span > L / 2) err(`branch ${sp.id} must rejoin ahead of where it leaves`, sp.id);
+    // (Round the line, it would miss the finish: the road graph's route has no gate on it.)
+    if (track.main.closed && !track.run && sp.mainTo < sp.mainFrom) err(`branch ${sp.id} runs across the line (leaves at ${sp.mainFrom.toFixed(0)} m, rejoins at ${sp.mainTo.toFixed(0)} m); a car on it would never cross the finish`, sp.id);
     for (const cp of track.checkpoints) {
       if (wrap(cp - sp.mainFrom, L) < span) err(`branch ${sp.id} skips checkpoint at ${cp.toFixed(0)} m; move the checkpoints (or list them in "checkpoints")`, 'main', cp);
     }
