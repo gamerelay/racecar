@@ -156,7 +156,7 @@ describe('the road graph', () => {
         }
       // A branch onto the main road: its span there over its own length; the main road onto it, 1.
       for (const sp of t.splines.slice(1)) {
-        for (const l of g.links[sp.index]) if (l.other === 0) expect(l.scale).toBeCloseTo((sp.mainTo - sp.mainFrom) / sp.length, 9);
+        for (const l of g.links[sp.index]) if (l.other === 0) expect(l.scale).toBeCloseTo((((sp.mainTo - sp.mainFrom) % t.main.length) + t.main.length) % t.main.length / sp.length, 9);
         for (const l of g.links[0]) expect(l.scale).toBe(1);
       }
     }
@@ -198,5 +198,26 @@ describe('locate over the graph (6b)', () => {
     expect(cars.spline[0]).toBe(byway.index);
     expect(cars.s[0]).toBeCloseTo(40, 0);
     expect(Math.abs(cars.lateral[0])).toBeLessThan(0.5);
+  });
+
+  test('and back: off the start of the second, well onto the first, on the first', () => {
+    const sim = setup(t, CLASSES, SURFACES, { road: 'byway', s: 5 }, 'ai');
+    const { cars } = sim;
+    const at = sampleAt(barn, barn.length - 40, newHit());
+    cars.spline[0] = byway.index;
+    cars.s[0] = 0.5;
+    cars.x[0] = at.cx;
+    cars.y[0] = at.cy;
+    cars.z[0] = at.cz;
+    locateCar(sim, 0);
+    expect(cars.spline[0]).toBe(barn.index);
+    expect(cars.s[0]).toBeCloseTo(barn.length - 40, 0);
+  });
+
+  test("a branch from the line: the main road's link there is at 0, first of its group", () => {
+    const v = layout('backroads/valley');
+    const atLine = bakeTrack({ ...v, branches: v.branches!.map((b, k) => (k === 0 ? { ...b, from: 0, to: 254 } : b)) }, SURFACES);
+    const main = atLine.graph.links[0].filter((l) => l.other === 1);
+    expect(main.map((l) => l.s)).toEqual([0, 254]);
   });
 });

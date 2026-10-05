@@ -208,7 +208,9 @@ export function buildGraph(track: Track): RoadGraph {
     const here = new Map<number, number>();
     for (const k of [...n.out, ...n.in]) {
       const st = streets[k];
-      here.set(st.spline, n.out.includes(k) ? st.s0 : st.s1);
+      // (A closed road at its line both leaves it, s = 0, and comes back, s = L: it's at 0, so its
+      // link sorts with the rest from the start of the road.)
+      if (!here.has(st.spline)) here.set(st.spline, n.out.includes(k) ? st.s0 : st.s1);
     }
     for (const [a, sa] of here) for (const [b, sb] of here) if (a !== b) links[a].push({ node: n.index, s: sa, other: b, os: sb, scale: 1 });
   }

@@ -23,9 +23,9 @@ export function locateCar(sim: SimState, i: number): TrackHit {
   const links = track.graph.links[sp.index];
   if (links.length) {
     const curInside = Math.abs(cur.lateral) - cur.width / 2;
-    // Off the end of a road that stops at a node (a branch's ends): it's on another road there, however
-    // far inside it is.
-    const offEnd = !sp.closed && (cur.s <= 0.01 || cur.s >= sp.length - 0.01);
+    // Off the end of a branch (it stops at a node): it's on another road there, however far inside it
+    // is. (Not an open main road: past a run's end it's still the main road.)
+    const offEnd = sp.index > 0 && (cur.s <= 0.01 || cur.s >= sp.length - 0.01);
     let bestInside = curInside;
     let bestSpline = -1;
     let bestS = 0;
