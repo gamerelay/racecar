@@ -4,12 +4,13 @@
 
 import { describe, expect, test } from 'bun:test';
 import { bakeTrack, mainDistance, type Track } from '../src/core/track/bake';
-import { newHit, sampleAt } from '../src/core/track/query';
+import { newHit, projectGlobal, sampleAt } from '../src/core/track/query';
 import type { TrackLayout } from '../src/core/content';
 import { validateLayout } from '../src/core/track/validate';
 import { locateCar } from '../src/core/track/locate';
 import { setup } from '../src/dev/drive';
 import { Ev } from '../src/core/events';
+import { wayCosts } from '../src/core/ai/racer';
 import { CLASSES, SURFACES, layout } from './helpers';
 
 const MAPS = ['coastal/riviera', 'downtown/downtown', 'backroads/valley', 'paradise/island', 'paradise-open/open', 'avalanche/slope'];
@@ -283,3 +284,60 @@ describe('progress along the route (6c)', () => {
     expect(sim.cars.lap[0]).toBe(1);
   }, 60_000);
 });
+
+describe('the AI picks its way by cost (6d)', () => {
+  test("each street's time by the racing line; from each node the quickest on to the finish, 0 there", () => {
+    for (const [key, t] of tracks) {
+      const g = t.graph;
+      const { time, toGo } = wayCosts(t);
+      expect([key, toGo[g.route.finish]]).toEqual([key, 0]);
+      for (const k of g.route.streets) {
+        expect(time[k]).toBeGreaterThan(0);
+        // Never more than going this way (it's the quickest).
+        if (g.streets[k].from !== g.route.finish) expect(toGo[g.streets[k].from]).toBeLessThanOrEqual(time[k] + toGo[g.streets[k].to] + 1e-9);
+      }
+      // Every shortcut today is quicker than the main road it skips (so the roll decides, as before).
+      for (const k of g.route.streets) {
+        const st = g.streets[k];
+        if (st.spline === 0 || t.layout.branches![st.spline - 1].kind !== 'shortcut') continue;
+        const main = g.nodes[st.from].out.find((m) => g.streets[m].spline === 0)!;
+        expect([key, st.road, time[k] < time[main] + toGo[g.streets[main].to] - toGo[st.to]]).toEqual([key, st.road, true]);
+      }
+    }
+  });
+
+  test('a shortcut that is slower than the road it skips: no driver takes it, however often it rolls', () => {
+    // Backroads' barn shortcut dragged out into a long loop 120 m off the road: longer than the
+    // 254 m of main road it skips, by a lot.
+    const v = layout('backroads/valley');
+    const plain = tracks.get('backroads/valley')!;
+    const hit = newHit();
+    const loop = [110, 160, 210, 260, 300].map((s, k) => {
+      sampleAt(plain.main, s, hit);
+      const out = 40 + 80 * Math.sin((Math.PI * (k + 0.5)) / 5);
+      return { p: [hit.cx - hit.tz * out, hit.cy, hit.cz + hit.tx * out] as [number, number, number], width: 8, lanes: 1, shoulder: 1.5, surface: 'dirt' };
+    });
+    const t = bakeTrack({ ...v, branches: v.branches!.map((b, k) => (k === 0 ? { ...b, points: loop } : b)) }, SURFACES);
+    const barn = t.splines.find((sp) => sp.id === 'barn')!;
+    const { time, toGo } = wayCosts(t);
+    const g = t.graph;
+    const st = g.streets.find((x) => x.road === 'barn')!;
+    const main = g.nodes[st.from].out.find((m) => g.streets[m].spline === 0)!;
+    expect(time[st.index] + toGo[st.to]).toBeGreaterThan(time[main] + toGo[g.streets[main].to]);
+    // (Where the loop leaves along the main road a car can read as on it a moment: the fork's
+    // flicker. What matters is where it drives: never out onto the loop, and on past its end.)
+    for (const seed of [1, 2, 3, 4, 5, 6]) {
+      const sim = setup(t, CLASSES, SURFACES, { s: barn.mainFrom - 60 }, 'ai', { kmh: 90, seed });
+      let widest = 0;
+      for (let k = 0; k < 60 * 10; k++) {
+        sim.step([]);
+        projectGlobal(t.main, sim.cars.x[0], sim.cars.z[0], hit);
+        widest = Math.max(widest, Math.abs(hit.lateral));
+      }
+      expect([seed, widest < 12]).toEqual([seed, true]);
+      expect(sim.cars.spline[0]).toBe(0);
+      expect(sim.cars.s[0]).toBeGreaterThan(barn.mainTo);
+    }
+  }, 60_000);
+});
+

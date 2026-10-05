@@ -12,6 +12,7 @@ import { atan2, clamp, cos, hypot, sin, smoothstep, sq, wrapAngle } from '../mat
 import { hash01 } from '../rng';
 import type { SimState } from '../state';
 import { mainDistance, signedGap, wrap, type BakedSpline, type Track } from '../track/bake';
+import type { Street } from '../track/graph';
 import { newHit, sampleAt, type TrackHit } from '../track/query';
 import { laneActive, TRAFFIC_KINDS } from '../world/traffic';
 
@@ -256,20 +257,31 @@ export function driveRacer(sim: SimState, i: number, d: RacerDriver, out: Contro
   // Which spline to follow: the one we're on, or a shortcut we've chosen to take.
   let sp = track.splines[c.spline[i]];
   let s = c.s[i];
+  // At a node of the road graph ahead (core/track/graph.ts, step 6d), the quickest way it knows on
+  // to the finish: the main road, a detour (the Basin Road), or a shortcut it knows of (its roll).
   if (sp.index === 0) {
-    for (let b = 1; b < track.splines.length; b++) {
-      const br = track.splines[b];
+    const g = track.graph;
+    const costs = wayCosts(track);
+    for (const k of g.route.streets) {
+      const st = g.streets[k];
+      if (st.spline === 0) continue;
+      const br = track.splines[st.spline];
       // Approaching the branch, or just past its start but not yet more on it than on the main road.
       const past = wrap(s - br.mainFrom, L);
       const toFrom = past < 60 ? -past : wrap(br.mainFrom - s, L);
       if (toFrom >= 70) continue;
-      // A detour round a drawbridge (the Basin Road): taken when the bridge would stop us, and only
-      // then. A side street (traffic's): never.
-      const kind = sim.track.layout.branches?.[b - 1]?.kind;
-      if (kind === 'street') continue;
-      const detour = kind === 'alternate';
-      // A secret one, seldom: now and then a rival vanishes into the trees, and you learn it's there.
-      if (detour ? liftBlocks(sim, i, speed, d.difficulty, br) : hash01(sim.seed, i * 131 + b, c.lap[i]) < skill.shortcut * (br.secret ? SECRET_TAKE : 1)) {
+      // A detour every driver knows. A shortcut, now and then (its skill), a secret one seldom: now
+      // and then a rival vanishes into the trees, and you learn it's there. (A side street's not on
+      // the route: never.)
+      const detour = sim.track.layout.branches?.[br.index - 1]?.kind === 'alternate';
+      if (!detour && !(hash01(sim.seed, i * 131 + br.index, c.lap[i]) < skill.shortcut * (br.secret ? SECRET_TAKE : 1))) continue;
+      // Against the main road's way on from the same node, and what it would wait there for.
+      const node = g.nodes[st.from];
+      let main = -1;
+      for (const m of node.out) if (g.streets[m].spline === 0) main = m;
+      const mine = costs.time[k] + costs.toGo[st.to];
+      const theirs = main < 0 ? Infinity : costs.time[main] + costs.toGo[g.streets[main].to] + liftWait(sim, i, speed, d.difficulty, g.streets[main]);
+      if (mine < theirs) {
         sp = br;
         s = -toFrom;
         break;
@@ -451,25 +463,58 @@ function liftStops(sim: SimState, i: number, speed: number, difficulty: number, 
 }
 
 /**
- * A bridge down this much (s) after we'd get there is still quicker to slow for than the detour.
- * The Basin Road is about 5.5 s slower than a clear bridge, but stopping and pulling away cost
- * most of that back: swept over a lift's start times, 2 s takes the quicker way at every one (the
- * review: cars went round for a bridge coming down a second or two later).
+ * What stopping for a drawbridge costs on top of the wait (s): braking from speed short of the
+ * hinge and pulling away again. Set so the Basin Road (about 6.3 s slower than a clear bridge by
+ * the racing line, `wayCosts`) is taken for a wait over 2 s, as swept before (the review: cars went
+ * round for a bridge coming down a second or two later; 2 s took the quicker way at every start).
  */
-const DETOUR_COST = 2;
+const STOP_COST = 4.3;
+/** How far ahead (s) it looks for a drawbridge to come down, in steps of this. */
+const WAIT_LOOK = 60;
+const WAIT_STEP = 0.25;
 
-/** Whether a drawbridge that `round` (a detour) goes round would stop car `i`, and still would after the detour's cost: then it takes the detour. */
-function liftBlocks(sim: SimState, i: number, speed: number, difficulty: number, round: BakedSpline): boolean {
+/** How long (s) car `i` would wait at the drawbridges on main-road street `st` (0: none stop it), with stopping's cost; Infinity past WAIT_LOOK. */
+function liftWait(sim: SimState, i: number, speed: number, difficulty: number, st: Street): number {
   const lifts = sim.world?.lifts;
-  if (!lifts) return false;
+  if (!lifts) return 0;
   const L = sim.track.main.length;
   const here = mainDistance(sim.track, sim.cars.spline[i], sim.cars.s[i]);
+  let wait = 0;
   for (let k = 0; k < lifts.pieces.length; k++) {
     const hinge = lifts.defs[k].s[0];
+    if (hinge < st.s0 || hinge >= st.s1) continue;
     const ds = wrap(hinge - here, L);
-    if (skips(round, hinge, L) && liftStops(sim, i, speed, difficulty, k, ds) && liftStops(sim, i, speed, difficulty, k, ds, DETOUR_COST)) return true;
+    if (!liftStops(sim, i, speed, difficulty, k, ds)) continue;
+    let t = WAIT_STEP;
+    while (t <= WAIT_LOOK && liftStops(sim, i, speed, difficulty, k, ds, t)) t += WAIT_STEP;
+    wait = Math.max(wait, t > WAIT_LOOK ? Infinity : t + STOP_COST);
   }
-  return false;
+  return wait;
+}
+
+/** Per track: each street's time by the racing line (s), and from each node the quickest on to the finish by the route's streets. */
+const costsByTrack = new WeakMap<Track, { time: Float64Array; toGo: Float64Array }>();
+export function wayCosts(track: Track): { time: Float64Array; toGo: Float64Array } {
+  const had = costsByTrack.get(track);
+  if (had) return had;
+  const g = track.graph;
+  const time = new Float64Array(g.streets.length);
+  for (const st of g.streets) {
+    const sp = track.splines[st.spline];
+    const line = racingLine(track, sp);
+    for (let s = st.s0; s < st.s1; s += sp.step) time[st.index] += sp.step / Math.max(1, line.speed[Math.min(sp.n - 1, Math.round(s / sp.step))]);
+  }
+  // Back from the finish over the route's streets (a lap's finish is its line, 0 there).
+  const toGo = new Float64Array(g.nodes.length).fill(Infinity);
+  toGo[g.route.finish] = 0;
+  for (let pass = 0; pass < g.nodes.length; pass++)
+    for (const k of g.route.streets) {
+      const st = g.streets[k];
+      if (st.from !== g.route.finish) toGo[st.from] = Math.min(toGo[st.from], time[k] + toGo[st.to]);
+    }
+  const out = { time, toGo };
+  costsByTrack.set(track, out);
+  return out;
 }
 
 /**
