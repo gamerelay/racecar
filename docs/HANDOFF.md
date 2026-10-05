@@ -186,17 +186,23 @@ paved road (the rim road was hard to see), the green line at the Freeway's end, 
 beside it (`under.reach` 90 → 40), and slippery mud (`red-earth` grip 0.58, drag 0.1). Floors:
 Paradise 71.52 → 70.3 s, Paradise Open 67.27 → 66.35 s. PARADISE.md has the why.
 
-**Next, step 4: moving pieces** (a drawbridge), **on a new map, Coastal** (the owner, 2026-10-03):
-a harbour town on a headland, Monaco and Riviera in feel, with a drawbridge over the harbour mouth,
-a cape tunnel, a corniche and a lighthouse. The plan is [COASTAL.md](./COASTAL.md). It's
-experimental, and its own fingerprints get re-recorded as it changes; every other map's stay
-identical. So the drawbridge can be iterated on quickly without disturbing Paradise Open. The order:
-COASTAL's step 2 (a greybox lap, the bridge a fixed deck), then step 3 (the drawbridge: CALDERA's
-step 4 has what it touches). Camera hints still wait for a spot that needs one; TECH_DEBT has the
-small things the reviews left.
+**Next, step 4: moving pieces** (a drawbridge), **on a new map, Coastal** (the owner, 2026-10-03): a
+harbour town on a headland, Monaco and Riviera in feel, with a drawbridge over the harbour mouth, a
+mountain road with a rock tunnel, switchbacks down the mountainside and a lighthouse. The plan is
+[COASTAL.md](./COASTAL.md). It's experimental, and its own fingerprints get re-recorded as it
+changes; every other map's stay identical. So the drawbridge can be iterated on quickly without
+disturbing Paradise Open. The order: COASTAL's step 2 (a greybox lap, the bridge a fixed deck), then
+step 3 (the drawbridge: CALDERA's step 4 has what it touches). Camera hints still wait for a spot
+that needs one; TECH_DEBT has the small things the reviews left.
+
+**Coastal's greybox lap** (COASTAL's step 2, 2026-10-04): `coastal/riviera`, 3.96 km, experimental.
+It has the land in world space (the coast and the new `GroundDef.hills`), the Harbour Bridge as a
+fixed deck, the Descent's switchbacks, the Rock Tunnel as a cutting, `rare` showers and its music.
+Floor 76.33 s, no wrecks in the field. Next is the drawbridge. The main road needs gaps first (it
+takes decks only); COASTAL's "Built so far" has why.
 
 **Lap floors now** (the best AI lap, solo hard coupe): Downtown 57.9, Backroads 62.82, Avalanche
-93.07, Paradise 70.3, Paradise Open 66.35 s. Paradise Open's field: 34 wrecks in 40 seeds.
+93.07, Paradise 70.3, Paradise Open 66.35, Coastal 76.33 s (experimental). Paradise Open's field: 34 wrecks in 40 seeds.
 
 **Working notes (2026-10-03):**
 - One PR per step, a fresh reviewer at the end (it found real bugs every time: in 0b, 1a and 1b),

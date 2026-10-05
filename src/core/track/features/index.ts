@@ -15,6 +15,7 @@ import type { BakedSpline } from '../bake';
 import { beachFeature } from './beach';
 import { canyonFeature } from './canyon';
 import { coastFeature } from './coast';
+import { hillsFeature } from './hills';
 import { lavaStreamFeature } from './lava-stream';
 import { mogulsFeature } from './moguls';
 import { unevenFeature } from './uneven';
@@ -77,13 +78,14 @@ export interface Feature {
 }
 
 /**
- * The features of a layout's ground round `main`, in the order they shape it: GroundDef's `volcano`
- * and `coast` (the coast then falls into the sea round the volcano), then its `features` in their
+ * The features of a layout's ground round `main`, in the order they shape it: GroundDef's `volcano`,
+ * `hills` and `coast` (the coast then falls into the sea round them), then its `features` in their
  * order.
  */
 export function groundFeatures(def: GroundDef, main: BakedSpline): Feature[] {
   const out: Feature[] = [];
   if (def.volcano) out.push(volcanoFeature(def.volcano, def.sea ?? 0));
+  if (def.hills?.length) out.push(hillsFeature(def.hills, def.sea ?? 0));
   if (def.coast && def.coast.length > 2) out.push(coastFeature(def.coast, def.sea ?? 0));
   for (const f of def.features ?? []) {
     if (f.kind === 'moguls') out.push(mogulsFeature(f));

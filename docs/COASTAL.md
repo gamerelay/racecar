@@ -39,9 +39,9 @@ Coastal gives the engine a fresh place to grow:
 ## The idea in one paragraph
 
 A lap of a harbour town on a headland. From the start on the quay, the race crosses the harbour
-mouth on a drawbridge, climbs the old town's switchbacks and dives into a tunnel through the cape.
-It comes out on a corniche high over the sea, rounds the lighthouse on the point, drops to the
-beach and runs home along the promenade. Every few laps the drawbridge lifts for a boat. Then the
+mouth on a drawbridge, climbs the old town's switchbacks and carries on up a mountain road through
+a rock tunnel. From the top it dives down the mountainside over the sea in stacked switchbacks,
+rounds the lighthouse on the point, drops to the beach and runs home along the promenade. Every few laps the drawbridge lifts for a boat. Then the
 choice is:
 - go the long way round the inner harbour;
 - or catch the leaf while it's still low, and jump the gap.
@@ -69,14 +69,18 @@ respawn), and the land behind the town rises into hills you can't usefully climb
      through. Its café glass smashes.
    - **The Stairs** (a risky cut): a stepped lane straight up the hill that skips a switchback.
      It's steep, bumpy and narrow; the AI only takes it on a good line.
-4. **The Cape Tunnel**: a long, curving tunnel through the headland, lit by orange lamps. It's
-   dark inside and bright at the far end, so you come out of it blinking (indoors, step 3a: the
-   light, the fog and the echo). It's fast and sweeping, and the wall is close.
-5. **The Corniche**: out of the tunnel onto a road cut into the cliff, high over the sea, with a
-   stone parapet on the sea side. Long, fast sweepers to drift: the lap's flowing section. Umbrella
-   pines lean out over the road.
-6. **Lighthouse Point**: a tight hairpin round the lighthouse at the cape's tip, the lap's
-   landmark.
+4. **The Mountain Road** (the owner, 2026-10-04: the hillside was too linear): on up past the
+   town into the hills in S-bends, to about 95 m.
+   - **The Rock Tunnel** on it: through a spur of rock, lit by orange lamps. It's dark inside and
+     bright at the far end, so you come out of it blinking (indoors, step 3a: the light, the fog
+     and the echo).
+5. **The Descent** (the owner: like the Bond film's chase down the mountain roads above the
+   Riviera): from the top, switchbacks down a steep mountainside over the sea, rows stacked down
+   the slope with the town and the sea below. The ground falls steeply between the rows, so a car
+   that runs wide at a hairpin flies off onto the row below: quicker if you land it, a wreck if you
+   don't. Later, a low stone parapet on some of the outsides, and gaps in it.
+6. **Lighthouse Point**: down the cliffs to a tight hairpin round the lighthouse at the cape's
+   tip, the lap's landmark.
    - **The Rocks** (the cut): straight across the flat rocks below the lighthouse instead of round
      it. It's shorter, but the rock is rough and the sea is on both sides.
 7. **The Beach**: down off the cape to a beach club, with umbrellas, a pool and a jetty.
@@ -167,13 +171,12 @@ The engine already has most of what the lap needs. Coastal mostly arranges it:
 
 - **Open ground on a lap** and **the sea as the edge** (Paradise Open), with no walls round the
   lap.
-- **Pieces:** the drawbridge's approach spans and the corniche's cliff road. The corniche is a
-  road on a cut into the slope, or a deck on the cliff where it's sheer.
-- **Indoors** (3a): the Cape Tunnel, and the arcade.
+- **Pieces:** the drawbridge's approach spans, and the Rock Tunnel.
+- **Indoors** (3a): the Rock Tunnel, and the arcade.
 - **Breakable walls** (3b): café glass, and maybe market stalls and a stack of crates on the quay.
 - **Buildings** (3c): the arcade on the Old Town's switchback. Maybe a boathouse on the beach.
 - **Features** (2a–2d): `coast`, `beach` and `uneven` (on the Stairs and the Rocks). A `cliffs`
-  feature may be new: a sheer drop from the corniche to the sea, rock faces drawn and solid.
+  feature may be new: sheer drops on the Descent and down to the sea, rock faces drawn.
 - **Surfaces:** tarmac; `beach` and `sand`; rock for the point. **Cobbles** may be new (grippy and
   rough, like `lava-rock` but drawn as setts).
 - **Traffic** on the Quay and the Promenade (never through the fast bends: MAPS.md's rule),
@@ -252,8 +255,8 @@ The engine already has most of what the lap needs. Coastal mostly arranges it:
    detour, the AI, and the bells and the boat.
 4. **Traffic from side streets:** the side streets as short roads, traffic lanes as routes over
    them and the main road, and the fade moved out of sight.
-5. **The Cape Tunnel and the corniche:** the indoor look in the tunnel, and the cliff road with
-   its parapet and the drop.
+5. **The Rock Tunnel and the Descent:** the tunnel (the main road's ceilings, built with step 3's
+   gaps), its indoor look, and the Descent's rock faces and parapets.
 6. **The town:** the Old Town's houses on the hill, the plaza, the arcade, the café glass.
 7. **The cuts:** the Stairs, the Rocks, the Sand, each measured.
 8. **The look:** the riviera palette, yachts, the lighthouse, the beach club, the rare shower,
@@ -263,10 +266,52 @@ The engine already has most of what the lap needs. Coastal mostly arranges it:
 The drawbridge comes right after the greybox lap, because it's why the map exists now. The town
 and the look can wait.
 
+## Built so far
+
+**Step 2, the greybox lap (2026-10-04):** `tools/gen-coastal.ts` writes `coastal/riviera`. It's
+experimental, so open it with `?mode=free&map=coastal/riviera`.
+- **The lap:** 3.96 km, laid out from corner nodes in world space: the Quay, the Harbour Bridge,
+  the Old Town's four switchbacks up to 43 m, the Mountain Road's S-bends up to 95 m, the Descent,
+  the cliffs down to the Lighthouse Point hairpin, the Beach and its chicane, and the Promenade.
+- **The Descent** (`DESCENT` in the generator): three rows across the mountainside, 210 m long
+  and 55 m apart, each 22 m lower than the last, joined by hairpins of two 24 m corners. Between
+  rows the ground falls about 22 m over 30 m. Off the west end it's a cliff to the sea.
+- **The first version** (2026-10-04, 3.49 km, 64.78 s) ran along the hillside at 46 m in one
+  650 m near-straight, then a gentle corniche down the cliffs. The owner: too linear there; a
+  Bond-style descent, and a rock tunnel.
+- **The land:** the coast is one loop with a notch for the harbour, 170 m wide and 200 m deep
+  inland, about 8 m of water in its middle. (A 70 m channel was a sandy creek: the coast is
+  smoothed, and the sea only gets deep well out from it.) The
+  town's hill, the mountain, the spur and the hills behind are **`GroundDef.hills`**, a new feature
+  (`core/track/features/hills.ts`): round domes off the roads, cut back to the main road over
+  40 m (as the volcano is), shaped before the coast so the land still falls into the sea.
+- **The Harbour Bridge** is a deck on the main road (a piece with `under`: the ground falls to
+  6 m under the sea beneath it), 7 m over the water, with rails. It's fixed for now.
+- **The Rock Tunnel is a cutting** for now (`TUNNEL` in the generator, about 1930–2150 m, through
+  the spur): the main road takes no ceiling yet (below).
+- **Weather:** `rare` in `map.json`'s weather (new, `world/weather.ts`): a shower about one race
+  in seven, where Paradise's list has one in more than two.
+- **Music:** `coastal`, then the tracks for any map.
+- **Numbers:** floor 76.33 s (the best AI lap, solo hard coupe), top speed 220 km/h. The field:
+  no wrecks (there's no traffic and nothing to hit yet). Every other map's fingerprints are
+  identical.
+- **The look is borrowed:** Paradise's `tropic` palette and its palms and jungle trees. The
+  riviera look is step 8.
+
+**What the engine can't do yet** (it shapes steps 3 and 5): on the main road a piece is a deck
+only. Gaps and ceilings are on branches only (PieceDef's doc), because there the ground is the
+road's own. The drawbridge's raised leaf leaves a gap on the main road, and the Rock Tunnel
+wants a ceiling on it, so both need the main road to take them:
+- under a ceiling, the ground stays the hill's over the road;
+- under a gap, there's nothing but what's below.
+
+Doing that once covers both.
+
 ## The owner's answers (2026-10-04)
 
 - **The shape:** the sketch is right (quay, bridge, Old Town, tunnel, corniche, lighthouse, beach,
-  promenade).
+  promenade). After the first drive: the hillside was too linear; the way down the mountain should
+  be Bond-style switchbacks over the sea with chances to fly off; and a rock tunnel somewhere.
 - **Side streets for traffic,** so it doesn't pop in and out on the main road (above, "Traffic from
   side streets").
 - **The bridge lifts once or twice a race.**
