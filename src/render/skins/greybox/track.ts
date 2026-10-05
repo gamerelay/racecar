@@ -27,7 +27,7 @@ import {
   type Object3D,
 } from 'three';
 import { hash01 } from '../../../core/rng';
-import { VERGE_DEFAULT, type BakedSpline, type Track } from '../../../core/track/bake';
+import { sampleIndex, VERGE_DEFAULT, type BakedSpline, type Track } from '../../../core/track/bake';
 import { newHit, sampleAt } from '../../../core/track/query';
 import type { TrackVisual } from '../../skin';
 import { buildCityscape } from './cityscape';
@@ -719,10 +719,15 @@ function debugVolumes(track: Track): Object3D {
     group.add(gate);
   }
   for (const sp of track.splines.slice(1)) {
-    for (const s of [sp.mainFrom, sp.mainTo]) {
-      const i = Math.round(s / main.step) % main.n;
+    // (On the roads it leaves and rejoins: the main road, or another branch.)
+    for (const [r, s] of [
+      [sp.fromRoad, sp.fromS],
+      [sp.toRoad, sp.toS],
+    ]) {
+      const on = track.splines[r];
+      const i = sampleIndex(on, s);
       const post = new Mesh(new BoxGeometry(1, 8, 1), gapMat);
-      post.position.set(main.px[i], main.py[i] + 4, main.pz[i]);
+      post.position.set(on.px[i], on.py[i] + 4, on.pz[i]);
       group.add(post);
     }
   }

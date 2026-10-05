@@ -139,22 +139,26 @@ export function buildGraph(track: Track): RoadGraph {
     return nodes.length - 1;
   };
 
-  // The nodes on the main road, by distance along it: the line (closed) or its ends (open), a run's
-  // start and finish, and a junction wherever a branch leaves or rejoins it. One within SAME of
-  // another is that one (the first's distance, so a run of them doesn't creep).
+  // The nodes on each road, by distance along it: on the main road the line (closed) or its ends
+  // (open) and a run's start and finish; on a branch its two ends; and a junction wherever a branch
+  // leaves or rejoins a road (the main road, or another branch: 6e). One within SAME of another on
+  // the same road is that one (the first's distance, so a run of them doesn't creep).
   const run = track.run;
-  const onMain: { s: number; node: number }[] = [];
-  const atMain = (s: number, kind: NodeKind): number => {
-    const near = onMain.find((m) => Math.abs(m.s - s) < SAME || (main.closed && Math.abs(Math.abs(m.s - s) - L) < SAME));
+  const on: { s: number; node: number }[][] = splines.map(() => []);
+  const onMain = on[0];
+  const atRoad = (sp: BakedSpline, s: number, kind: NodeKind): number => {
+    const list = on[sp.index];
+    const near = list.find((m) => Math.abs(m.s - s) < SAME || (sp.closed && Math.abs(Math.abs(m.s - s) - sp.length) < SAME));
     if (near) {
       // (The more particular kind: a junction at a run's start is still where it starts.)
       if (RANK[kind] > RANK[nodes[near.node].kind]) nodes[near.node].kind = kind;
       return near.node;
     }
-    const n = node(kind, main, s);
-    onMain.push({ s, node: n });
+    const n = node(kind, sp, s);
+    list.push({ s, node: n });
     return n;
   };
+  const atMain = (s: number, kind: NodeKind): number => atRoad(main, s, kind);
   const line = main.closed ? atMain(0, 'line') : -1;
   if (!main.closed) {
     atMain(0, 'end');
@@ -162,8 +166,13 @@ export function buildGraph(track: Track): RoadGraph {
   }
   const startNode = run ? atMain(run.start, 'start') : line;
   const finishNode = run ? atMain(run.finish, 'finish') : line;
-  const ends = splines.slice(1).map((sp) => ({ sp, from: atMain(sp.mainFrom, 'junction'), to: atMain(sp.mainTo, 'junction') }));
-  onMain.sort((a, b) => a.s - b.s);
+  // Each branch's ends: on the roads it leaves and rejoins (earlier ones), and its own.
+  for (const sp of splines.slice(1)) {
+    const from = atRoad(splines[sp.fromRoad], sp.fromS, 'junction');
+    const to = atRoad(splines[sp.toRoad], sp.toS, 'junction');
+    on[sp.index].push({ s: 0, node: from }, { s: sp.length, node: to });
+  }
+  for (const list of on) list.sort((a, b) => a.s - b.s);
 
   const street = (sp: BakedSpline, s0: number, s1: number, from: number, to: number): number => {
     const k = streets.length;
@@ -180,7 +189,12 @@ export function buildGraph(track: Track): RoadGraph {
     if (b) mainStreets.push(street(main, a.s, b.s, a.node, b.node));
     else if (main.closed && L - a.s > 0) mainStreets.push(street(main, a.s, L, a.node, onMain[0].node));
   }
-  const branchStreets = ends.map((e) => street(e.sp, 0, e.sp.length, e.from, e.to));
+  // Each branch between each node on it and the next (a whole one, unless another leaves or joins it).
+  const branchStreets: number[] = [];
+  for (const sp of splines.slice(1)) {
+    const list = on[sp.index];
+    for (let k = 0; k + 1 < list.length; k++) branchStreets.push(street(sp, list[k].s, list[k + 1].s, list[k].node, list[k + 1].node));
+  }
 
   // Each road's streets in order along it (a branch has one).
   const bySpline: number[][] = splines.map(() => []);
@@ -205,6 +219,17 @@ export function buildGraph(track: Track): RoadGraph {
     if (st.to !== line) at[st.to] = st.s1 - startS;
   }
   if (line >= 0) at[line] = 0;
+  // A node partway along a branch (where another leaves or joins it, 6e): as far along the route as
+  // it is through the branch, between its ends' (each branch after the roads it leaves and rejoins).
+  const through = (vals: number[], sp: BakedSpline, wrapL: number) => {
+    const list = on[sp.index];
+    const a = list[0].node;
+    const b = list[list.length - 1].node;
+    if (Number.isNaN(vals[a]) || Number.isNaN(vals[b])) return;
+    const span = main.closed ? wrapAround(vals[b] - vals[a], wrapL, true) : vals[b] - vals[a];
+    for (let k = 1; k + 1 < list.length; k++) if (Number.isNaN(vals[list[k].node])) vals[list[k].node] = main.closed ? wrapAround(vals[a] + (list[k].s / sp.length) * span, wrapL, true) : vals[a] + (list[k].s / sp.length) * span;
+  };
+  for (const sp of splines.slice(1)) through(at, sp, finishS - startS);
   const onRoute = (n: number) => !Number.isNaN(at[n]);
   // (Not a side street: traffic's loop off the main road, not a way through; BranchDef.kind.)
   const kinds = new Map((track.layout.branches ?? []).map((b) => [b.id, b.kind]));
@@ -223,6 +248,7 @@ export function buildGraph(track: Track): RoadGraph {
   // lap's round the line the long way, as the branch goes).
   const mainS = nodes.map(() => NaN);
   for (const m of onMain) mainS[m.node] = m.s;
+  for (const sp of splines.slice(1)) through(mainS, sp, L);
   const span = streets.map((st) => (st.spline === 0 ? NaN : wrapAround(mainS[st.to] - mainS[st.from], L, true)));
   const along = (spline: number, s: number): number => {
     // (The main road's own distance, so a lap's is exactly what it always was.)

@@ -61,9 +61,17 @@ export interface BakedSpline {
   zones: BakedZone[];
   /** A secret shortcut (BranchDef.secret): unsigned, off the map, and the AI seldom takes it. */
   secret: boolean;
-  /** For branches: the main-spline distances it leaves and rejoins at. */
+  /**
+   * For branches: the main-spline distances it leaves and rejoins at (off another branch, where
+   * that is on the main road's span: what the main-road readers go by).
+   */
   mainFrom: number;
   mainTo: number;
+  /** For branches: the roads it leaves and rejoins (spline indices; the main road's 0) and where along them. */
+  fromRoad: number;
+  fromS: number;
+  toRoad: number;
+  toS: number;
   /**
    * 1 where that side's curb and verge are open because another road runs through them: a branch's
    * mouth across the main road's verge, and a branch's own edge while it's still on the main road.
@@ -124,18 +132,22 @@ export function bakeTrack(layout: TrackLayout, surfaces: SurfaceDef[], code: Rea
   const surfaceIndex = new Map(surfaces.map((s, i) => [s.id, i]));
   const main = bakeSpline(layout.id, 0, layout.main.points, !layout.run, surfaceIndex);
   const splines = [main];
-  for (const b of layout.branches ?? []) splines.push(bakeBranch(b, splines.length, main, surfaceIndex));
+  // (A branch off another leaves an earlier one: the validator says so if not; here, the main road.)
+  const road = (id?: string) => (id ? (splines.find((sp) => sp.id === id) ?? main) : main);
+  for (const b of layout.branches ?? []) splines.push(bakeBranch(b, splines.length, road(b.leaves), road(b.rejoins), main, surfaceIndex));
 
-  for (const [k, sp] of splines.slice(1).entries()) joinBranch(main, sp, layout.branches![k].heights === 'own');
+  for (const [k, sp] of splines.slice(1).entries()) joinBranch(splines[sp.fromRoad], splines[sp.toRoad], sp, layout.branches![k].heights === 'own');
 
   const gapsAuto: { spline: BakedSpline; s0: number; s1: number; side: -1 | 0 | 1 }[] = [];
   for (const sp of splines.slice(1)) {
     // Where a branch leaves and rejoins, open the main road's wall on the branch's side, and
     // leave the branch's own ends open where it overlaps the main road.
-    const departSide = sideOf(main, sp, Math.min(30, sp.length / 3), sp.mainFrom);
-    const rejoinSide = sideOf(main, sp, Math.max(0, sp.length - Math.min(30, sp.length / 3)), sp.mainTo);
-    gapsAuto.push({ spline: main, s0: sp.mainFrom - 5, s1: sp.mainFrom + 70, side: departSide });
-    gapsAuto.push({ spline: main, s0: sp.mainTo - 70, s1: sp.mainTo + 5, side: rejoinSide });
+    const leave = splines[sp.fromRoad];
+    const rejoin = splines[sp.toRoad];
+    const departSide = sideOf(leave, sp, Math.min(30, sp.length / 3), sp.fromS);
+    const rejoinSide = sideOf(rejoin, sp, Math.max(0, sp.length - Math.min(30, sp.length / 3)), sp.toS);
+    gapsAuto.push({ spline: leave, s0: sp.fromS - 5, s1: sp.fromS + 70, side: departSide });
+    gapsAuto.push({ spline: rejoin, s0: sp.toS - 70, s1: sp.toS + 5, side: rejoinSide });
     gapsAuto.push({ spline: sp, s0: 0, s1: 40, side: 0 });
     gapsAuto.push({ spline: sp, s0: sp.length - 40, s1: sp.length, side: 0 });
   }
@@ -363,17 +375,18 @@ export const VERGE_DEFAULT = 255;
 /** How far along the main road a branch runs beside it before turning off (and before rejoining). */
 const SLIP = 24;
 
-function bakeBranch(b: BranchDef, index: number, main: BakedSpline, surfaceIndex: Map<string, number>): BakedSpline {
-  // The branch starts and ends exactly on the main road. A slip point on each end keeps it running
-  // along the main road's heading for a stretch, so it forks off gently rather than at an angle.
-  const start = mainPoint(main, b.from);
-  const end = mainPoint(main, b.to);
-  const before = mainPoint(main, b.from - 20).p;
-  const after = mainPoint(main, b.to + 20).p;
+function bakeBranch(b: BranchDef, index: number, leave: BakedSpline, rejoin: BakedSpline, main: BakedSpline, surfaceIndex: Map<string, number>): BakedSpline {
+  // The branch starts and ends exactly on the roads it leaves and rejoins (the main road, or
+  // another branch). A slip point on each end keeps it running along that road's heading for a
+  // stretch, so it forks off gently rather than at an angle.
+  const start = mainPoint(leave, b.from);
+  const end = mainPoint(rejoin, b.to);
+  const before = mainPoint(leave, b.from - 20).p;
+  const after = mainPoint(rejoin, b.to + 20).p;
   const first = b.points[0];
   const last = b.points[b.points.length - 1];
-  const lead = first && slipPoint(main, b.from, first, 1);
-  const lag = last && slipPoint(main, b.to, last, -1);
+  const lead = first && slipPoint(leave, b.from, first, 1);
+  const lag = last && slipPoint(rejoin, b.to, last, -1);
   const pts: TrackPoint[] = [
     { ...start, width: first?.width ?? start.width },
     ...(lead ? [lead] : []),
@@ -382,10 +395,20 @@ function bakeBranch(b: BranchDef, index: number, main: BakedSpline, surfaceIndex
     { ...end, width: last?.width ?? end.width },
   ];
   const sp = bakeSpline(b.id, index, pts, false, surfaceIndex, before, after);
-  sp.mainFrom = wrap(b.from, main.length);
+  sp.fromRoad = leave.index;
+  sp.toRoad = rejoin.index;
+  sp.fromS = leave.closed ? wrap(b.from, leave.length) : b.from;
+  sp.toS = rejoin.closed ? wrap(b.to, rejoin.length) : b.to;
+  sp.mainFrom = onMain(leave, sp.fromS, main.length);
   sp.secret = b.secret === true;
-  sp.mainTo = wrap(b.to, main.length);
+  sp.mainTo = onMain(rejoin, sp.toS, main.length);
   return sp;
+}
+
+/** Where distance `s` along road `sp` is on the main road (`L` long): itself, or a branch's place through its span. */
+function onMain(sp: BakedSpline, s: number, L: number): number {
+  if (sp.index === 0) return s;
+  return wrap(sp.mainFrom + (s / sp.length) * wrap(sp.mainTo - sp.mainFrom, L), L);
 }
 
 /**
@@ -417,11 +440,13 @@ function slipPoint(main: BakedSpline, s: number, p: TrackPoint, dir: 1 | -1): Tr
  * branch with its own heights (`own`, BranchDef.heights) keeps them: its height is the main road's
  * ground only where it's on the main road or its verge, with no fade (its bank still fades).
  */
-function joinBranch(main: BakedSpline, sp: BakedSpline, own: boolean): void {
+function joinBranch(leave: BakedSpline, rejoin: BakedSpline, sp: BakedSpline, own: boolean): void {
   // From each end inward, until the branch has pulled clear (a branch may pass near some other
   // part of the main road in between: that's not a join).
   for (const [from, dir] of [[0, 1], [sp.n - 1, -1]] as const) {
-    let hint = dir > 0 ? sp.mainFrom : sp.mainTo;
+    // (The road it's on at that end: the main road, or the branch it leaves or rejoins.)
+    const main = dir > 0 ? leave : rejoin;
+    let hint = dir > 0 ? sp.fromS : sp.toS;
     for (let i = from; i >= 0 && i < sp.n; i += dir) {
       const k = nearestSample(main, sp.px[i], sp.pz[i], hint);
       hint = k * main.step;
@@ -454,7 +479,7 @@ function joinBranch(main: BakedSpline, sp: BakedSpline, own: boolean): void {
           const ml = across(main, m, x, z);
           if (Math.abs(ml) < mh - 0.5 || Math.abs(ml) > verge + 0.5) continue;
           const open = ml < 0 ? main.openL : main.openR;
-          for (let d = -2; d <= 2; d++) open[(m + d + main.n) % main.n] = 1;
+          for (let d = -2; d <= 2; d++) if (main.closed || (m + d >= 0 && m + d < main.n)) open[(m + d + main.n) % main.n] = 1;
         }
       }
     }
@@ -471,6 +496,8 @@ function nearestSample(main: BakedSpline, x: number, z: number, hint: number, wi
   let best = i0;
   let bestD = Infinity;
   for (let d = -reach; d <= reach; d++) {
+    // (Along an open road, a branch: not round past its ends.)
+    if (!main.closed && (i0 + d < 0 || i0 + d >= main.n)) continue;
     const i = (i0 + d + main.n) % main.n;
     const dd = sq(main.px[i] - x) + sq(main.pz[i] - z);
     if (dd < bestD) {
@@ -560,6 +587,10 @@ function emptySpline(id: string, index: number, closed: boolean, length: number,
     secret: false,
     mainFrom: 0,
     mainTo: 0,
+    fromRoad: -1,
+    fromS: 0,
+    toRoad: -1,
+    toS: 0,
     openL: u(),
     openR: u(),
     merge: f(),

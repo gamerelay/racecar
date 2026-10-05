@@ -22,7 +22,7 @@ The main road takes a ceiling now (Coastal's Rock Tunnel, #113: its rock kept ov
 6a, the graph as data (`Track.graph`, `core/track/graph.ts`, #119): every map's roads as streets
 between nodes, and its race as a route, its checkpoints gates on streets; 6b, a car located over it
 (any road to any other at a node, #120); 6c, progress counted along the route (#121); 6d, the AI
-picks its way by cost.
+picks its way by cost (#122); 6e, branches off branches.
 HANDOFF has the detail and the lap floors.
 
 **Reading it:** "Principles" and "The core idea: pieces" are the design; "Build order" and "How
@@ -844,7 +844,16 @@ stream across a route): then the new floor is recorded, with why.
      knows the main road and a detour; a shortcut it knows on its roll (skill), as before. Every
      shortcut today is quicker than what it skips, so every fingerprint is identical; one that
      isn't, nobody takes (it was taken on a roll).
-   - Then Coastal uses it: streets meeting streets (the Old Town's), not only the main road.
+   - **6e, branches off branches** (built): `BranchDef.leaves` and `rejoins` name the road a branch
+     leaves and rejoins (the main road unless they say, or an earlier branch), `from` and `to`
+     along those. The bake forks it off, joins its ground and opens the walls on those roads;
+     the graph cuts every road at the nodes on it (a junction partway along a branch, as far along
+     the route and the main road as it is through the branch); `locate` and the AI's choice work
+     from any road (a way off is a branch; where a road ends there's no choice). Main-road readers
+     still get `mainFrom`/`mainTo` (off a branch, where that is on its span). The validator keeps a
+     branch off an earlier one, not a side street, 30 m clear of its ends. Tested on Backroads with
+     a lane off the barn shortcut (`test/fixtures-lane.ts`); every fingerprint identical.
+   - Then Coastal uses it: the Stairs up the Old Town, forking halfway (COASTAL's step 7).
 7. **A city map**, and if the chase is wanted, the chase in it: AI cops pathfinding over the
    graph.
 

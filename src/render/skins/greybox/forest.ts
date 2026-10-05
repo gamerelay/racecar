@@ -656,6 +656,8 @@ export function buildForest(track: Track, palette: Palette, seed: number, land: 
   {
     const names: Record<string, string> = { barn: 'THE BARN', leap: "LOGGER'S LEAP", creek: 'CREEK BED' };
     for (const sp of track.splines.slice(1)) {
+      // (Off the main road: a lane off another branch has none.)
+      if (sp.fromRoad !== 0) continue;
       const i = at(main, (sp.mainFrom - 25 + L) % L);
       const side = branchSide(main, sp);
       const off = main.width[i] / 2 + main.shoulder[i] + 2;

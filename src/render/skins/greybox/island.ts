@@ -749,7 +749,8 @@ export function buildIsland(track: Track, seed: number, land: Terrain, marks: { 
   {
     const names: Record<string, string> = { sandbar: 'SANDBAR', 'lava-tube': 'LAVA TUBE' };
     for (const sp of track.splines.slice(1)) {
-      if (sp.secret) continue;
+      // (Off the main road: a lane off another branch has none yet.)
+      if (sp.secret || sp.fromRoad !== 0) continue;
       const i = at(main, (sp.mainFrom - 25 + L) % L);
       const side = branchSide(main, sp);
       const off = main.width[i] / 2 + main.shoulder[i] + 2;
