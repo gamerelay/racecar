@@ -11,7 +11,7 @@ import type { SurfaceDef } from '../content';
 /** Returns `next` with its main-spline distances moved to follow the geometry of `prev`. */
 export function reanchor(prev: Track, next: TrackLayout, surfaces: SurfaceDef[]): TrackLayout {
   const out = structuredClone(next);
-  const fresh = bakeTrack(out, surfaces);
+  let fresh = bakeTrack(out, surfaces);
   const hit = newHit();
   const mapS = (s: number, from: BakedSpline = prev.main, to: BakedSpline = fresh.main): number => {
     const i = sampleIndex(from, s);
@@ -25,9 +25,23 @@ export function reanchor(prev: Track, next: TrackLayout, surfaces: SurfaceDef[])
     const b = newSpline(id);
     return a && b ? mapS(s, a, b) : s;
   };
-  for (const b of out.branches ?? []) {
-    b.from = mapS(b.from);
-    b.to = mapS(b.to);
+  // Branch ends, each along its own road, in rounds: a branch is baked joined to its roads at its
+  // ends, so one leaving another is mapped once that one's ends have moved and it's baked again.
+  // (A road the bake doesn't know is the main road, as there.)
+  const branches = out.branches ?? [];
+  const road = (id?: string) => (id && branches.some((b) => b.id === id) ? id : undefined);
+  const moved = new Set<string | undefined>([undefined]);
+  let todo = branches;
+  while (todo.length) {
+    const ready = todo.filter((b) => moved.has(road(b.leaves)) && moved.has(road(b.rejoins)));
+    if (!ready.length) break; // (one naming a later branch: the validator's to say)
+    for (const b of ready) {
+      b.from = map(b.from, road(b.leaves));
+      b.to = map(b.to, road(b.rejoins));
+    }
+    for (const b of ready) moved.add(b.id);
+    todo = todo.filter((b) => !moved.has(b.id));
+    fresh = bakeTrack(out, surfaces);
   }
   for (const r of out.ramps ?? []) r.s = map(r.s, r.spline);
   for (const z of out.zones ?? []) z.s = [map(z.s[0], z.spline), map(z.s[1], z.spline)];

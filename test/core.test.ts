@@ -458,4 +458,28 @@ describe('editing', () => {
     }
     expect(validateLayout(moved, SURFACES, CLASSES).filter((p) => p.level === 'error' && p.message.includes('branch'))).toEqual([]);
   });
+
+  test('a lane off a branch keeps its ends where they were: each along its own road', async () => {
+    const { reanchor } = await import('../src/core/track/anchor');
+    const { laneLayout } = await import('./fixtures-lane');
+    const def = laneLayout();
+    const before = bakeTrack(def, SURFACES);
+    const edited = structuredClone(def);
+    // Bulge the grid's straight (before the barn leaves at 80 m) 15 m west: every main-road distance
+    // after it grows, the barn's own don't.
+    edited.main.points[1].p[0] -= 15;
+    const moved = reanchor(before, edited, SURFACES);
+    const after = bakeTrack(moved, SURFACES);
+    expect(after.main.length).toBeGreaterThan(before.main.length + 5);
+    const lane = (d: typeof def) => d.branches!.find((b) => b.id === 'lane')!;
+    const road = (t: typeof before, id: string) => (id === 'main' ? t.main : t.splines.find((sp) => sp.id === id)!);
+    for (const [id, a, b] of [
+      ['barn', lane(def).from, lane(moved).from],
+      ['main', lane(def).to, lane(moved).to],
+    ] as const) {
+      const p = sampleAt(road(before, id), a, newHit());
+      const q = sampleAt(road(after, id), b, newHit());
+      expect([id, Math.hypot(p.cx - q.cx, p.cz - q.cz) < 1.5]).toEqual([id, true]);
+    }
+  });
 });

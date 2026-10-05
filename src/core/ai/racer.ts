@@ -280,7 +280,7 @@ export function driveRacer(sim: SimState, i: number, d: RacerDriver, out: Contro
       // Approaching the node, or just past it but not yet more on the other road than on this one.
       const past = sp.closed ? wrap(s - at, L) : s - at;
       const toFrom = past >= 0 && past < 60 ? -past : sp.closed ? wrap(at - s, L) : at - s;
-      if (toFrom >= 70 || toFrom < -60) continue;
+      if (toFrom >= 70 || toFrom <= -60) continue;
       // A detour every driver knows. A shortcut, now and then (its skill), a secret one seldom: now
       // and then a rival vanishes into the trees, and you learn it's there. (A side street's not on
       // the route: never.)
@@ -571,7 +571,7 @@ function liftCap(sim: SimState, i: number, speed: number, difficulty: number, sp
 }
 
 /** The racing line's value at distance `dist` along `sp` (wrapping on a closed spline). */
-function lineAt(sp: BakedSpline, dist: number, arr: Float64Array): number {
+export function lineAt(sp: BakedSpline, dist: number, arr: Float64Array): number {
   const idx = sp.closed ? Math.round(wrap(dist, sp.length) / sp.step) % sp.n : Math.max(0, Math.min(sp.n - 1, Math.round(dist / sp.step)));
   return arr[idx];
 }

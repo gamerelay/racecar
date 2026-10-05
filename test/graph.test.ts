@@ -10,8 +10,8 @@ import { validateLayout } from '../src/core/track/validate';
 import { locateCar } from '../src/core/track/locate';
 import { setup } from '../src/dev/drive';
 import { Ev } from '../src/core/events';
-import { wayCosts } from '../src/core/ai/racer';
-import { LANE_FROM, LANE_TO, laneLayout } from './fixtures-lane';
+import { lineAt, racingLine, wayCosts } from '../src/core/ai/racer';
+import { LANE_FROM, LANE_TO, LOOP_FROM, LOOP_TO, laneLayout, loopLayout } from './fixtures-lane';
 import { CLASSES, SURFACES, layout } from './helpers';
 
 const MAPS = ['coastal/riviera', 'downtown/downtown', 'backroads/valley', 'paradise/island', 'paradise-open/open', 'avalanche/slope'];
@@ -427,4 +427,95 @@ describe('branches off branches (6e)', () => {
     expect(errs(withLane({ from: 10 })).length).toBe(1);
     expect(errs({ ...l, branches: [...l.branches!.filter((b) => b.id !== 'barn'), l.branches!.find((b) => b.id === 'barn')!] }).length).toBeGreaterThan(0);
   }, 60_000);
+
+  test("the AI on the main road ignores a lane's node (it's on the barn), and the lane's rejoin", () => {
+    // From past where the barn comes back, through where the lane does (480 m): on the main road.
+    for (const seed of [1, 2, 3]) {
+      const sim = setup(t, CLASSES, SURFACES, { s: barn.mainTo + 20 }, 'ai', { kmh: 80, seed });
+      for (let k = 0; k < 60 * 8; k++) {
+        sim.step([]);
+        expect(sim.cars.spline[0]).toBe(0);
+      }
+      expect(sim.cars.s[0]).toBeGreaterThan(LANE_TO + 40);
+    }
+  }, 60_000);
+
+  describe('a lane leaving and rejoining the same branch', () => {
+    const t = bakeTrack(loopLayout(), SURFACES);
+    const g = t.graph;
+    const barn = t.splines.find((sp) => sp.id === 'barn')!;
+    const loop = t.splines.find((sp) => sp.id === 'loop')!;
+
+    test('the barn cut in three at its two nodes; both on the route', () => {
+      expect([loop.fromRoad, loop.fromS, loop.toRoad, loop.toS]).toEqual([barn.index, LOOP_FROM, barn.index, LOOP_TO]);
+      const pieces = g.streets.filter((st) => st.spline === barn.index);
+      expect(pieces.map((st) => [st.s0, st.s1])).toEqual([
+        [0, LOOP_FROM],
+        [LOOP_FROM, LOOP_TO],
+        [LOOP_TO, barn.length],
+      ]);
+      const st = g.streets.find((s) => s.road === 'loop')!;
+      expect([st.from, st.to]).toEqual([pieces[0].to, pieces[1].to]);
+      for (const s of [...pieces, st]) expect(g.route.streets).toContain(s.index);
+    });
+
+    test("locate's hint: from the lane onto the barn scaled by their spans, from the barn onto the lane not", () => {
+      for (const l of g.links[barn.index].filter((l) => l.other === loop.index)) expect(l.scale).toBe(1);
+      const back = g.links[loop.index].filter((l) => l.other === barn.index);
+      expect(back.length).toBe(2);
+      for (const l of back) expect(l.scale).toBeCloseTo((LOOP_TO - LOOP_FROM) / loop.length, 9);
+      // And a car out on the lane, its hint stale on the barn, is found there.
+      const sim = setup(t, CLASSES, SURFACES, { road: 'barn', s: LOOP_FROM - 20 }, 'ai');
+      const at = sampleAt(loop, loop.length / 2, newHit());
+      sim.cars.spline[0] = barn.index;
+      sim.cars.s[0] = (LOOP_FROM + LOOP_TO) / 2;
+      [sim.cars.x[0], sim.cars.y[0], sim.cars.z[0]] = [at.cx, at.cy, at.cz];
+      locateCar(sim, 0);
+      expect(sim.cars.spline[0]).toBe(loop.index);
+      expect(sim.cars.s[0]).toBeCloseTo(loop.length / 2, 0);
+    });
+
+    test("the lane's last speed is what the barn's line allows where it comes back (not the main road's)", () => {
+      const own = racingLine(t, loop).speed;
+      expect(own[loop.n - 1]).toBeLessThanOrEqual(lineAt(barn, LOOP_TO, racingLine(t, barn).speed));
+    });
+  });
+
+  test('a lane on a run: off a branch of the slope and back onto it, on the route, along() rising', () => {
+    const a = layout('avalanche/slope');
+    const t0 = tracks.get('avalanche/slope')!;
+    const off = (sp: Track['main'], from: number, to: number, by: number, fs: number[]) =>
+      fs.map((f) => {
+        const h = sampleAt(sp, from + (to - from) * f, newHit());
+        return { p: [h.cx - h.tz * by, h.cy, h.cz + h.tx * by] as [number, number, number], width: 7, lanes: 1, shoulder: 1, surface: 'powder' };
+      });
+    const gully = { id: 'gully', kind: 'shortcut' as const, from: 2000, to: 2300, points: off(t0.main, 2000, 2300, 18, [0.25, 0.5, 0.75]) };
+    const t1 = bakeTrack({ ...a, branches: [gully] }, SURFACES);
+    const g1 = t1.splines.find((sp) => sp.id === 'gully')!;
+    // The lane: from 60 m along the gully, out further from the slope, back onto it at 2340 m (short of the checkpoint at 2357).
+    const h0 = sampleAt(g1, 90, newHit());
+    const h1 = sampleAt(t0.main, 2310, newHit());
+    const points = [0.2, 0.5, 0.8].map((f) => ({
+      p: [h0.cx + (h1.cx - h0.cx) * f - h0.tz * 10, h0.cy + (h1.cy - h0.cy) * f, h0.cz + (h1.cz - h0.cz) * f + h0.tx * 10] as [number, number, number],
+      width: 7,
+      lanes: 1,
+      shoulder: 1,
+      surface: 'powder',
+    }));
+    const def = { ...a, branches: [gully, { id: 'lane', kind: 'alternate' as const, leaves: 'gully', from: 60, to: 2340, points }] };
+    expect(validateLayout(def, SURFACES, CLASSES).filter((p) => p.level === 'error' && p.message.includes('lane'))).toEqual([]);
+    const t = bakeTrack(def, SURFACES);
+    const lane = t.splines.find((sp) => sp.id === 'lane')!;
+    const st = t.graph.streets.find((s) => s.road === 'lane')!;
+    expect(t.graph.route.streets).toContain(st.index);
+    let prev = -Infinity;
+    for (let s = 0; s <= lane.length; s += 2.3) {
+      const d = t.graph.along(lane.index, s);
+      expect(d).toBeGreaterThan(prev);
+      prev = d;
+    }
+    const gully2 = t.splines.find((sp) => sp.id === 'gully')!;
+    expect(t.graph.along(lane.index, 0)).toBeCloseTo(t.graph.along(gully2.index, 60), 9);
+    expect(t.graph.along(lane.index, lane.length)).toBeCloseTo(2340 - t.run!.start, 6);
+  });
 });

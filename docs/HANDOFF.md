@@ -216,17 +216,11 @@ identical through all five: each slice is the old behaviour on today's maps, wit
   lane off Backroads' barn shortcut (`test/fixtures-lane.ts`). No map uses one yet.
 
 **Next on the road graph, in order:**
-1. **#123's review, three small fixes** (it landed just after the merge; no map has a lane yet, so
-   nothing is wrong in play):
-   - `track/anchor.ts:28-31`: the editor's re-anchor maps a branch's `from`/`to` along the main
-     road even when it `leaves`/`rejoins` a branch (a lane's end slides 47 m along the barn when a
-     main-road point is added). Map each along its own road; add a `reanchor` test with a lane.
-   - `graph.ts`, the `Link.scale` loop over `links.slice(1)`: a lane that leaves and rejoins the
-     same branch gets that branch's span scale onto the lane (2.9, should be 1). Scale only onto the
-     road this branch leaves or rejoins. (Only `locate`'s hint.)
-   - `racer.ts` (the choice's window): on an open road `past === 60` passes; make it `<= -60`.
-   - Tests it asked for: a lane rejoining a branch, the AI on the main road ignoring a lane's node,
-     the exit-speed cap from a rejoined branch, a lane on a run.
+1. **#123's review's fixes** (#125): the editor's `reanchor` maps each branch end along its own
+   road, in rounds (a lane once the branch it leaves has moved and is baked again; ramps and the
+   rest on the final bake); `Link.scale` only from a branch onto the road it leaves and rejoins;
+   the AI's choice window shut at 60 m past on an open road too. Tested with a lane leaving and
+   rejoining the barn (`loopLayout`), a lane on a run, the AI on the main road past a lane's node.
 2. **The Stairs on Coastal** (COASTAL's step 7, the first real use of 6e): a stepped lane straight up
    the Old Town (main road about 600–1010 m, `T(475,190)`, `T(395,85)`, `T(470,-15)` in
    `tools/gen-coastal.ts`), forking halfway: one arm on up past the second bend, one across to
