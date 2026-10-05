@@ -464,11 +464,12 @@ function liftStops(sim: SimState, i: number, speed: number, difficulty: number, 
 
 /**
  * What stopping for a drawbridge costs on top of the wait (s): braking from speed short of the
- * hinge and pulling away again. Set so the Basin Road (about 6.3 s slower than a clear bridge by
- * the racing line, `wayCosts`) is taken for a wait over 2 s, as swept before (the review: cars went
+ * hinge and pulling away again. Set so the Basin Road (6.28 s slower than a clear bridge by the
+ * racing line, `wayCosts`) is taken for a wait over 2 s, as swept before (the review: cars went
  * round for a bridge coming down a second or two later; 2 s took the quicker way at every start).
+ * Retuning the racing line moves that 2 s with it (by as much as the Basin Road's time moves).
  */
-const STOP_COST = 4.3;
+const STOP_COST = 4.28;
 /** How far ahead (s) it looks for a drawbridge to come down, in steps of this. */
 const WAIT_LOOK = 60;
 const WAIT_STEP = 0.25;
@@ -487,7 +488,16 @@ function liftWait(sim: SimState, i: number, speed: number, difficulty: number, s
     if (!liftStops(sim, i, speed, difficulty, k, ds)) continue;
     let t = WAIT_STEP;
     while (t <= WAIT_LOOK && liftStops(sim, i, speed, difficulty, k, ds, t)) t += WAIT_STEP;
-    wait = Math.max(wait, t > WAIT_LOOK ? Infinity : t + STOP_COST);
+    if (t > WAIT_LOOK) return Infinity;
+    // Down to a hundredth inside the last step (a step's worth either way moved who went round).
+    let lo = t - WAIT_STEP;
+    let hi = t;
+    for (let n = 0; n < 5; n++) {
+      const mid = (lo + hi) / 2;
+      if (liftStops(sim, i, speed, difficulty, k, ds, mid)) lo = mid;
+      else hi = mid;
+    }
+    wait = Math.max(wait, hi + STOP_COST);
   }
   return wait;
 }

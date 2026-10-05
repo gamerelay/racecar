@@ -838,8 +838,9 @@ stream across a route): then the new floor is recorded, with why.
    - **6d, the AI picks its way by cost** (built): at a node ahead it takes the quickest way it
      knows on to the finish: each street's time by the racing line, and from each node the quickest
      on by the route's streets (`wayCosts` in ai/racer.ts), plus what a drawbridge would hold it
-     there (`liftWait`: the wait, and 4.3 s for stopping and pulling away, `STOP_COST`, set so the
-     Basin Road's 6.3 s is taken for a wait over 2 s, as the old `DETOUR_COST` swept). Every driver
+     there (`liftWait`: the wait, to a hundredth, and 4.28 s for stopping and pulling away,
+     `STOP_COST`, set so the Basin Road's 6.28 s is taken for a wait over 2 s, as the old
+     `DETOUR_COST` swept: the same choice at every lift time). Every driver
      knows the main road and a detour; a shortcut it knows on its roll (skill), as before. Every
      shortcut today is quicker than what it skips, so every fingerprint is identical; one that
      isn't, nobody takes (it was taken on a roll).
