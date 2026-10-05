@@ -22,6 +22,10 @@ and where things stand is [docs/HANDOFF.md](./docs/HANDOFF.md).
 - **Coastal's waterfront is a sea wall** (experimental): from the lighthouse to the bridge, the
   sea comes right up to a stone retaining wall on the right, with a paved ledge along it, instead
   of a beach. The traffic there is now the oncoming lane only.
+- **Coastal's Rock Tunnel has a clear way in**: slabs of the hillside no longer hang across its
+  mouth. (Up a sheer rock face, the ground cut round a tunnel's opening could leave strips
+  standing in it; the fix applies to every tunnel's mouth.)
+- **One more track** for every map's races: *Crashout*, the owner's.
 - **Coastal's drawbridge** (experimental): the Harbour Bridge lifts once or twice a race, with
   a warning, barrier arms and flashing lights. Catch it early in a lift and jump it off the near
   leaf; too late and it's a wall, and the Basin Road goes round the harbour instead, a few seconds

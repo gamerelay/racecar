@@ -71,7 +71,7 @@ describe('audio model', () => {
 });
 
 describe('the soundtrack', () => {
-  test("the title's tracks behind the menus; in a race the map's own and the seven for any map; a file for every one", () => {
+  test("the title's tracks behind the menus; in a race the map's own and the eight for any map; a file for every one", () => {
     expect(playlistFor('downtown', true)).toEqual(['title', 'pursuit-orchestra']);
     expect(playlistFor('backroads', false)).toEqual(['backroads', 'backroads-acoustic', ...ANY_MAP]);
     // A map with its own has them first (named after it), and every track is someone's.
