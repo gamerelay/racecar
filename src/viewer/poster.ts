@@ -21,7 +21,7 @@ import { cam, drawTitle, fonts, nativeRandom, offset, render, seedRandom, Stage 
  */
 function scout(): HTMLCanvasElement {
   const key = q.get('scout')!;
-  const stage = new Stage(key, q.get('palette') ?? undefined);
+  const stage = new Stage(key, q.get('palette') ?? undefined, Number(q.get('traffic') ?? 0));
   const lat = Number(q.get('lat') ?? 0);
   const spline = Number(q.get('spline') ?? 0);
   const list = (q.get('s') ?? '100').split(',').map(Number);

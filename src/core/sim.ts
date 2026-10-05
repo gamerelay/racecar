@@ -287,7 +287,8 @@ export class Sim implements SimState {
   /** Whether an oncoming traffic lane runs over the grid or just past the line. */
   private gridOncoming(): boolean {
     const L = this.track.main.length;
-    return (this.track.layout.traffic?.lanes ?? []).some((l) => l.dir < 0 && [L - 50, L - 10, 0, 30].some((s) => laneActive(l, s)));
+    // (The lanes as run: a lane by side streets is its routes, each with its main stretch.)
+    return this.world.traffic.lanes.some((l) => l.dir < 0 && [L - 50, L - 10, 0, 30].some((s) => laneActive(l, s)));
   }
 
   /** Puts everyone back on the grid and starts a countdown: the lights go green in `seconds`. */

@@ -237,7 +237,8 @@ const logTruck: HazardKind = {
     // The truck: the first truck in traffic inside the range at t0, picked by the formula alone.
     let truck = -1;
     for (let k = 0; k < traffic.count; k++) {
-      if (traffic.kind[k] !== TRUCK) continue;
+      // (Not one by side streets: its logs are dropped on the main road beside it, wherever it is.)
+      if (traffic.kind[k] !== TRUCK || traffic.onRoute(k)) continue;
       const s = traffic.sAt(k, occ.t0);
       if (inRange(s, def) && traffic.present(k, occ.t0)) {
         truck = k;

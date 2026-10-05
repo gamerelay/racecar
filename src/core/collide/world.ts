@@ -15,7 +15,7 @@ import { mainDistance, signedGap } from '../track/bake';
 import { Solid, type Hazards } from '../world/hazards';
 import type { Breakables } from '../world/breakables';
 import { SMASH_KINDS, type Smashables } from '../world/smash';
-import { laneActive, TRAFFIC_KINDS, type Traffic } from '../world/traffic';
+import { laneActive, newTrafficPose, TRAFFIC_KINDS, type Traffic } from '../world/traffic';
 import { collideBreakables } from './breakables';
 import { bounce as wallBounce } from './walls';
 import { newContact, obbOverlap } from './obb';
@@ -241,6 +241,8 @@ function nearMiss(sim: SimState, i: number, ctx: WorldCtx, p: number, ds: number
   sim.events.push(sim.tick, Ev.NearMiss, i, traffic.x[p], traffic.y[p] + 1, traffic.z[p], gap, oncoming ? 1 : 0, k);
 }
 
+const hazardPose = newTrafficPose();
+
 /**
  * Traffic caught by a hazard's pieces is wrecked on every screen: the check runs over every
  * traffic car near a piece, not only the posed ones, so it doesn't depend on who is nearby.
@@ -256,12 +258,13 @@ export function hazardsWreckTraffic(sim: SimState, ctx: WorldCtx): void {
       if (hazards.pSolid[p] !== Solid.Hard) continue;
       if (Math.abs(signedGap(s, hazards.pS[p], L)) > 4) continue;
       const lane = traffic.lanes[traffic.lane[k]];
-      // Close enough along the road; check across it.
+      // Close enough along the road; check across it. (A car by side streets may be on one: its pose.)
       const at = sim.track.main;
       const idx = Math.round(s / at.step) % at.n;
       const lat = (lane.pos * at.width[idx]) / 2;
-      const px = at.px[idx] - at.tz[idx] * lat;
-      const pz = at.pz[idx] + at.tx[idx] * lat;
+      const routed = traffic.onRoute(k) ? traffic.poseAt(k, ctx.t, hazardPose) : null;
+      const px = routed ? routed.x : at.px[idx] - at.tz[idx] * lat;
+      const pz = routed ? routed.z : at.pz[idx] + at.tx[idx] * lat;
       if (hypot(px - hazards.px[p], pz - hazards.pz[p]) < hazards.phl[p] + 2.5) {
         traffic.wreckedAt[k] = ctx.t;
         sim.events.push(sim.tick, Ev.TrafficWreck, -1, px, at.py[idx], pz, lane.speed, 2, k);

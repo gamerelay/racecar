@@ -34,7 +34,7 @@ import { hash01 } from '../../../core/rng';
 import type { Sim } from '../../../core/sim';
 import { sampleAt, newHit } from '../../../core/track/query';
 import { Piece } from '../../../core/world/hazards';
-import { TRAFFIC_KINDS, type TrafficPose } from '../../../core/world/traffic';
+import { newTrafficPose, TRAFFIC_KINDS, type TrafficPose } from '../../../core/world/traffic';
 import type { WorldVisual } from '../../skin';
 import { FADE_ATTR, fadeAttribute, fadeMaterial } from '../../fade';
 import { markInk, unmarkInk } from '../../ink';
@@ -213,6 +213,7 @@ export function buildWorldVisual(scene: Scene, sim: Sim, roof?: (x: number, z: n
 
   // Gantries for the signs: two posts and a beam over the road.
   const hit = newHit();
+  const wreckPose = newTrafficPose();
   const post = toon({ color: 0x5a5470 });
   for (const def of sim.world.hazards.defs) {
     if (def.use !== 'falling-sign' || typeof def.s !== 'number') continue;
@@ -271,9 +272,8 @@ export function buildWorldVisual(scene: Scene, sim: Sim, roof?: (x: number, z: n
     if (ev.type !== Ev.TrafficWreck) return;
     const k = ev.other;
     const tr = sim.world.traffic;
-    const lane = tr.lanes[tr.lane[k]];
-    const at = sampleAt(sim.track.main, tr.sAt(k, sim.time), hit);
-    const dir = lane.dir;
+    // Its way and speed as it was going (on a side street too).
+    const pose = tr.poseAt(k, sim.time, wreckPose);
     if (debris.length >= DEBRIS) debris.shift();
     const kick = 4 + Math.min(20, ev.a * 0.4);
     const carVx = ev.car >= 0 ? sim.cars.vx[ev.car] : 0;
@@ -284,17 +284,17 @@ export function buildWorldVisual(scene: Scene, sim: Sim, roof?: (x: number, z: n
       x: ev.x,
       y: ev.y + TRAFFIC_KINDS[tr.kind[k]].hh,
       z: ev.z,
-      vx: at.tx * dir * lane.speed * 0.3 + carVx * 0.6 + (Math.random() - 0.5) * 6,
+      vx: pose.vx * 0.3 + carVx * 0.6 + (Math.random() - 0.5) * 6,
       vy: kick,
-      vz: at.tz * dir * lane.speed * 0.3 + carVz * 0.6 + (Math.random() - 0.5) * 6,
-      h: Math.atan2(at.tx * dir, at.tz * dir),
+      vz: pose.vz * 0.3 + carVz * 0.6 + (Math.random() - 0.5) * 6,
+      h: pose.h,
       rx: 0,
       rz: 0,
       wx: (Math.random() - 0.5) * 8,
       wy: (Math.random() - 0.5) * 5,
       wz: (Math.random() - 0.5) * 10,
       life: 4,
-      ground: at.cy,
+      ground: pose.y,
     });
   }
 

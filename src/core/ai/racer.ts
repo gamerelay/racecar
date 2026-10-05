@@ -263,8 +263,11 @@ export function driveRacer(sim: SimState, i: number, d: RacerDriver, out: Contro
       const past = wrap(s - br.mainFrom, L);
       const toFrom = past < 60 ? -past : wrap(br.mainFrom - s, L);
       if (toFrom >= 70) continue;
-      // A detour round a drawbridge (the Basin Road): taken when the bridge would stop us, and only then.
-      const detour = sim.track.layout.branches?.[b - 1]?.kind === 'alternate';
+      // A detour round a drawbridge (the Basin Road): taken when the bridge would stop us, and only
+      // then. A side street (traffic's): never.
+      const kind = sim.track.layout.branches?.[b - 1]?.kind;
+      if (kind === 'street') continue;
+      const detour = kind === 'alternate';
       // A secret one, seldom: now and then a rival vanishes into the trees, and you learn it's there.
       if (detour ? liftBlocks(sim, i, speed, d.difficulty, br) : hash01(sim.seed, i * 131 + b, c.lap[i]) < skill.shortcut * (br.secret ? SECRET_TAKE : 1)) {
         sp = br;
@@ -566,10 +569,8 @@ function avoid(sim: SimState, i: number, sp: BakedSpline, s: number, target: num
     const tr = world.traffic;
     for (let l = 0; l < tr.lanes.length; l++) if (tr.lanes[l].dir < 0 && laneActive(tr.lanes[l], sMain)) oncomingSide = Math.sign(tr.lanes[l].pos);
     for (let p = 0; p < tr.posed; p++) {
-      const ds = signedGap(tr.s[p], sMain, L);
-      const k = tr.idx[p];
-      const lane = tr.lanes[tr.lane[k]];
-      mark(tr.lat[p], TRAFFIC_KINDS[tr.kind[k]].hw, ds, lane.dir * lane.speed);
+      // Where it's reckoned to be (a car about to pull out of a side street: in its lane already).
+      mark(tr.seenLat[p], TRAFFIC_KINDS[tr.kind[tr.idx[p]]].hw, signedGap(tr.seenS[p], sMain, L), tr.along[p]);
     }
     const hz = world.hazards;
     for (let p = 0; p < hz.pieces; p++) {

@@ -397,6 +397,47 @@ deck, `core/world/lifts.ts`.
 - **Numbers:** floor 98.70 s (the solo lap's seed doesn't lift). Every other map's fingerprints
   identical.
 
+**Step 4, traffic from side streets (2026-10-05):** the owner's ask, so traffic doesn't pop in and
+out on the main road.
+- **The engine:** a traffic lane may give `streets` (TrafficLaneDef) instead of `sections`: side
+  streets, branches of a new kind `street` (a loop off the main road and back; open to drive, the
+  AI never takes one). Each pair of a lane's streets is a route (`trafficLanes`,
+  core/world/traffic.ts): a car comes up the far half of the first, drives the main road between
+  them, and turns off up the near half of the next. Round its route and a 60 m stretch out of
+  sight, it fades in and out over 20 m at the streets' middles, and is blended from street to main
+  road over 24 m (`JOIN`). Still a formula of the seed and the race time; still no overtaking.
+  Main-road lanes run exactly the code they did (every other map's fingerprints identical).
+- **No turn across the other lane:** a lane's streets are on its own side (the validator checks:
+  streets, on the lane's side, long enough to fade before the join, passed in order).
+- **What reads traffic:** the posed pool's `s` is a main distance on a street too (its
+  `mainDistance`) and `lat` is across the main road, so collisions, near misses and the AI keep
+  working; a new `along` is its speed along the main road. The AI reckons a car on its way in from a
+  street already in its lane (`seenS`, `seenLat`): a driver sees a car about to pull out. Hazards and
+  the wreck debris use the car's pose.
+- **Coastal's streets:** round the line on the home straight, which runs from the end of the
+  Promenade onto the Quay: the lido's car park (4775–4895 m) and the harbour's (`quai-sud`, 30–150 m)
+  on the sea side for the lap's way, two town streets opposite for the other. 140 m of main road
+  between them (two cars a route, four in all), across the line (the grid's clear zone keeps the start clear; with an oncoming lane
+  at the line, the grid lines up in the race's half, as on Downtown).
+- **What it took:** first on the Promenade's two straights, then across its 24° kink, the field had
+  3–7 wrecks a race there: two-way traffic on a 16 m road, the AI's line cut into the oncoming lane
+  and, boxed in, braked instead of moving over (lighter traffic or a gentler bend didn't help; it
+  isn't the streets: plain sections did the same). MAPS.md's rule (no traffic through fast bends)
+  and a wider home straight (20 m, the `H` node) did: the field over 16 seeds, 3 traffic wrecks and
+  one between cars.
+- **From the review:** a car's main distance is its pose's through the blend at a street's mouth
+  (`sAt` and the pool disagreed by up to 1.7 m there, and a near miss flipped and paid out every
+  tick, up to nine times a pass); a wrecked car by streets stays gone until it next comes up a
+  street (back where it was hit was the pop this removes); a log truck by streets drops no logs;
+  the editor draws a lane by streets' main stretch; the validator judges a street's side by its
+  lane's (`pos`).
+- **The Old Town's** streets come with its houses (step 6): its road bends too much between them for
+  a loop beside it.
+- **Tools:** `shot --traffic` shows it (the poster stage's sim had none). The fingerprint has a
+  `streets` part, only for a layout with a lane by streets: every car's pose and visibility over
+  two minutes for three seeds.
+- **Numbers:** floor 98.60 s. Every other map's fingerprints identical.
+
 ## The owner's answers (2026-10-04)
 
 - **The shape:** the sketch is right (quay, bridge, Old Town, tunnel, corniche, lighthouse, beach,

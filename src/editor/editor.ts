@@ -12,6 +12,7 @@ import { reanchor } from '../core/track/anchor';
 import { bakeTrack, type BakedSpline, type Track } from '../core/track/bake';
 import { newHit, projectGlobal } from '../core/track/query';
 import { validateLayout, type Problem } from '../core/track/validate';
+import { trafficLanes } from '../core/world/traffic';
 import type { Input } from '../input/input';
 
 export interface EditorHost {
@@ -594,7 +595,8 @@ export class Editor {
     tick(0, '#fff6ee', 'start');
     this.track.checkpoints.forEach((cp, k) => tick(cp, '#35f0ff', `cp${k + 1}`));
     // Traffic sections: a green line down the middle of the road where traffic runs.
-    const lanes = this.layout.traffic?.lanes ?? [];
+    // (The lanes as run: a lane by side streets has its main stretch.)
+    const lanes = trafficLanes(this.track, this.layout.traffic?.lanes ?? []).lanes;
     const sections = lanes[0]?.sections ?? (lanes.length ? [[0, main.length] as [number, number]] : []);
     g.strokeStyle = 'rgba(124,255,107,.7)';
     g.lineWidth = 3 * devicePixelRatio;

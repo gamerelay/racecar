@@ -1,11 +1,12 @@
 // Layout checks (SPEC §5, "Validation"): shape first, then gameplay. The editor shows these on
 // the map as you edit, and CI runs them over every layout. Milestone 2 adds the AI lap checks.
 
-import { LANDMARK_KINDS, type CarClass, type PieceDef, type SurfaceDef, type TrackLayout } from '../content';
+import { LANDMARK_KINDS, type CarClass, type PieceDef, type SurfaceDef, type TrackLayout, type TrafficLaneDef } from '../content';
 import { KINDS } from '../world/hazards';
 import { Breakables, MAX_PANELS, PANEL_WIDTH } from '../world/breakables';
 import { SMASH_IDS } from '../world/smash';
-import { bakeTrack, sampleIndex, wrap } from './bake';
+import { JOIN, STREET_FADE } from '../world/traffic';
+import { bakeTrack, mainDistance, sampleIndex, wrap } from './bake';
 import { OVERRIDES } from '../maps';
 import { regionProblem, respawnProblem, type OverrideCode } from './overrides';
 import { LAVA_REACH, pathDistance } from './features/lava-stream';
@@ -245,9 +246,9 @@ export function validateLayout(layout: TrackLayout, surfaces: SurfaceDef[], clas
     for (const cp of track.checkpoints) {
       if (wrap(cp - sp.mainFrom, L) < span) err(`branch ${sp.id} skips checkpoint at ${cp.toFixed(0)} m; move the checkpoints (or list them in "checkpoints")`, 'main', cp);
     }
-    // (An alternate, a detour round a drawbridge, is the long way on purpose.)
+    // (An alternate, a detour round a drawbridge, is the long way on purpose; a street isn't a way at all.)
     const kind = layout.branches?.find((b) => b.id === sp.id)?.kind;
-    if (sp.length > span && kind !== 'alternate') warn(`branch ${sp.id} is longer (${sp.length.toFixed(0)} m) than what it skips (${span.toFixed(0)} m), so it isn't a shortcut`, sp.id);
+    if (sp.length > span && kind !== 'alternate' && kind !== 'street') warn(`branch ${sp.id} is longer (${sp.length.toFixed(0)} m) than what it skips (${span.toFixed(0)} m), so it isn't a shortcut`, sp.id);
   }
 
   if (track.checkpoints.length < 5) warn(`only ${track.checkpoints.length} checkpoints after moving them off shortcuts; list them in "checkpoints"`);
@@ -384,9 +385,45 @@ export function validateLayout(layout: TrackLayout, surfaces: SurfaceDef[], clas
     if (lane.dir !== 1 && lane.dir !== -1) err(`traffic lane ${k}: dir must be 1 or -1`);
     if (!(lane.speed > 0)) err(`traffic lane ${k}: speed must be positive`);
     for (const [a, b] of lane.sections ?? []) if (!(a >= 0 && a <= L && b >= 0 && b <= L)) err(`traffic lane ${k}: section [${a}, ${b}] is off the main spline`, 'main', a);
+    if (lane.streets) checkStreets(track, k, lane, err);
   }
 
   return out;
+}
+
+/**
+ * A lane by side streets (TrafficLaneDef.streets): two or more, each a street (a branch of kind
+ * 'street'), on the lane's side of the road (so no turn crosses the other lane), long
+ * enough to fade in its half before the join, passed in order and none past the next.
+ */
+function checkStreets(track: ReturnType<typeof bakeTrack>, k: number, lane: TrafficLaneDef, err: (m: string, sp?: string, s?: number) => void): void {
+  const L = track.main.length;
+  if (lane.sections) err(`traffic lane ${k}: streets or sections, not both (its streets say where it runs)`);
+  if (lane.streets!.length < 2) err(`traffic lane ${k}: at least two streets, one in and one out`);
+  const streets = lane.streets!.map((id) => track.splines.find((sp) => sp.id === id));
+  for (const [q, sp] of streets.entries()) {
+    const id = lane.streets![q];
+    if (!sp || track.layout.branches?.find((b) => b.id === id)?.kind !== 'street') {
+      err(`traffic lane ${k}: "${id}" isn't a street (a branch of kind "street")`);
+      continue;
+    }
+    if (sp.length / 2 < STREET_FADE + JOIN) err(`traffic lane ${k}: street ${id} is ${sp.length.toFixed(0)} m; ${2 * (STREET_FADE + JOIN)} or more, to fade in its half before it joins`, id);
+    // Its middle's side of the main road: the lane's own (right of its way).
+    const mid = Math.round(sp.n / 2);
+    const s = mainDistance(track, sp.index, sp.length / 2);
+    const i = Math.round(s / track.main.step) % track.main.n;
+    const side = (sp.px[mid] - track.main.px[i]) * -track.main.tz[i] + (sp.pz[mid] - track.main.pz[i]) * track.main.tx[i];
+    if (side * lane.pos < 0) err(`traffic lane ${k}: street ${id} is across the road from its lane (${lane.pos > 0 ? 'left' : 'right'}); its cars would turn across the other lane`, id);
+  }
+  for (let q = 0; q + 1 < streets.length; q++) {
+    const a = streets[q];
+    const b = streets[q + 1];
+    if (!a || !b) continue;
+    const on = lane.dir > 0 ? a.mainTo : a.mainFrom;
+    const off = lane.dir > 0 ? b.mainFrom : b.mainTo;
+    const run = wrap((off - on) * lane.dir, L);
+    if (!(run > 2 * JOIN && run < L / 2)) err(`traffic lane ${k}: from ${a.id} to ${b.id} is ${run.toFixed(0)} m of main road; the streets in the order it passes them, more than ${2 * JOIN} m apart`, 'main', on);
+  }
 }
 
 /** Past the finish, at least this much road (m) to stop on: the AI plans to stop by its end. */

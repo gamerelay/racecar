@@ -10,14 +10,20 @@
 // before its lane's section starts and out over FADE after it ends, out of and back into the start
 // grid's clear zone, and back in over a second after a wreck. Only a fully visible car is posed for
 // the sim (collisions, near misses, the AI); the renderer draws the fading ones dithered.
+//
+// A lane may come and go by side streets instead (TrafficLaneDef.streets, docs/COASTAL.md): each
+// pair of its streets is a route, in up the far half of one, along the main road, out by the near
+// half of the next. Its cars go round the route and a short stretch out of sight (HIDDEN) in turn,
+// fading at the streets' middles, and are blended from street to main road and back over JOIN m.
+// Still a formula of the seed and the race time, still no overtaking.
 
 import type { TrafficLaneDef } from '../content';
 import { hash01 } from '../rng';
-import type { Track } from '../track/bake';
+import type { BakedSpline, Track } from '../track/bake';
 import { sampleAt, type TrackHit } from '../track/query';
 import { newHit } from '../track/query';
-import { signedGap, wrap } from '../track/bake';
-import { atan2, sq, tan } from '../math';
+import { mainDistance, signedGap, wrap } from '../track/bake';
+import { atan2, hypot, smoothstep, sq, tan } from '../math';
 
 export interface TrafficKind {
   id: string;
@@ -49,6 +55,63 @@ export const TRAFFIC_RESPAWN = 12;
 /** No traffic within this much of the start line for the first `seconds` of sim time (the countdown and just after green). */
 export const GRID_CLEAR = { behind: 160, ahead: 60, seconds: 10 };
 const POOL = 128;
+/** A route's cars are out of sight for this much (m) of their loop, between leaving and coming back. */
+const HIDDEN = 60;
+/** Over this much (m) a route's car is blended from a street onto the main road, and back off it. */
+export const JOIN = 24;
+/** Over this much (m) of a street's middle a route's car fades in or out (not FADE: on a short street, that reached back toward the main road). */
+export const STREET_FADE = 20;
+
+/**
+ * A route (TrafficLaneDef.streets): in up `inSp` from its middle, along the main road from `on` to
+ * `off` (main distances, the lane's way), out by `outSp` to its middle. `a`, `b`, `c` are those
+ * three parts' lengths, `R` the route's, `C` its loop's (with the stretch out of sight).
+ */
+export interface TrafficRoute {
+  inSp: BakedSpline;
+  outSp: BakedSpline;
+  on: number;
+  off: number;
+  a: number;
+  b: number;
+  c: number;
+  R: number;
+  C: number;
+}
+
+/**
+ * The lanes as the traffic runs them: a lane by side streets is one per route (consecutive streets),
+ * each with its main stretch as its section (so `laneActive` and everything reading sections holds),
+ * and its route; any other lane as it is, with no route.
+ */
+export function trafficLanes(track: Track, defs: readonly TrafficLaneDef[]): { lanes: TrafficLaneDef[]; routes: (TrafficRoute | null)[] } {
+  const lanes: TrafficLaneDef[] = [];
+  const routes: (TrafficRoute | null)[] = [];
+  const L = track.main.length;
+  for (const def of defs) {
+    if (!def.streets) {
+      lanes.push(def);
+      routes.push(null);
+      continue;
+    }
+    for (let q = 0; q + 1 < def.streets.length; q++) {
+      const inSp = track.splines.find((sp) => sp.id === def.streets![q]);
+      const outSp = track.splines.find((sp) => sp.id === def.streets![q + 1]);
+      if (!inSp || !outSp) continue;
+      // With the road, onto it where the first street rejoins and off where the next leaves; against
+      // it, onto it where the first leaves (it's driven backwards) and off where the next rejoins.
+      const on = def.dir > 0 ? inSp.mainTo : inSp.mainFrom;
+      const off = def.dir > 0 ? outSp.mainFrom : outSp.mainTo;
+      const a = inSp.length / 2;
+      const b = wrap((off - on) * def.dir, L);
+      const c = outSp.length / 2;
+      const R = a + b + c;
+      lanes.push({ pos: def.pos, dir: def.dir, speed: def.speed, sections: [def.dir > 0 ? [on, off] : [off, on]] });
+      routes.push({ inSp, outSp, on, off, a, b, c, R, C: R + HIDDEN });
+    }
+  }
+  return { lanes, routes };
+}
 
 /** Whether a lane has traffic at main distance s (inside one of its sections, or it has none). */
 export function laneActive(lane: TrafficLaneDef, s: number): boolean {
@@ -76,7 +139,10 @@ export interface TrafficPose {
 export const newTrafficPose = (): TrafficPose => ({ s: 0, lat: 0, x: 0, y: 0, z: 0, h: 0, vx: 0, vz: 0 });
 
 export class Traffic {
+  /** The lanes as run (trafficLanes): one per route for a lane by side streets. */
   readonly lanes: TrafficLaneDef[];
+  /** Each lane's route, or null (it runs the whole lap, seen in its sections). */
+  readonly routes: (TrafficRoute | null)[];
   readonly count: number;
   /** Per traffic car (static for the race): lane, start distance, kind. */
   readonly lane: Uint8Array;
@@ -96,7 +162,19 @@ export class Traffic {
   readonly vz = new Float64Array(POOL);
   readonly s = new Float64Array(POOL);
   readonly lat = new Float64Array(POOL);
+  /** Its speed along the main road (m/s, the main road's way): its lane's, or on a street, what of it is along the road. */
+  readonly along = new Float64Array(POOL);
+  /**
+   * Where the AI reckons it is (main distance, across): where it is, but a car on its way in from a
+   * side street already in its lane, where it'll be when it joins (it pulled out under racers'
+   * noses: a driver sees a car about to pull out). Only the AI reads these: a hit is where it is.
+   */
+  readonly seenS = new Float64Array(POOL);
+  readonly seenLat = new Float64Array(POOL);
   private readonly hit: TrackHit = newHit();
+  /** A route's car's second road, while it's blended between two, and the main road beside it. */
+  private readonly joinHit: TrackHit = newHit();
+  private readonly mainHit: TrackHit = newHit();
   private readonly renderHit: TrackHit = newHit();
   private readonly scratch: TrafficPose = newTrafficPose();
 
@@ -106,11 +184,13 @@ export class Traffic {
     density = 1,
   ) {
     const def = track.layout.traffic;
-    this.lanes = def?.lanes ?? [];
+    const run = trafficLanes(track, def?.lanes ?? []);
+    this.lanes = run.lanes;
+    this.routes = run.routes;
     const L = track.main.length;
     // Cars loop the whole lap but only appear in their lane's sections, so size the fleet so the
-    // sections get `density` cars per km.
-    const perLane = this.lanes.map(() => Math.max(0, Math.round((L / 1000) * (def?.density ?? 0) * density)));
+    // sections get `density` cars per km. A route's cars loop the route: `density` per km of it.
+    const perLane = this.lanes.map((_, l) => Math.max(0, Math.round(((this.routes[l]?.R ?? L) / 1000) * (def?.density ?? 0) * density)));
     this.count = perLane.reduce((a, b) => a + b, 0);
     this.lane = new Uint8Array(this.count);
     this.s0 = new Float64Array(this.count);
@@ -119,10 +199,12 @@ export class Traffic {
     const totalWeight = TRAFFIC_KINDS.reduce((a, k) => a + k.weight, 0);
     let k = 0;
     perLane.forEach((n, l) => {
-      const spacing = L / Math.max(1, n);
+      // (A route's car's s0 is where it is round its loop, not a main distance.)
+      const loop = this.routes[l]?.C ?? L;
+      const spacing = loop / Math.max(1, n);
       for (let j = 0; j < n; j++, k++) {
         this.lane[k] = l;
-        this.s0[k] = wrap(j * spacing + (hash01(seed, k, 1) - 0.5) * spacing * 0.5, L);
+        this.s0[k] = wrap(j * spacing + (hash01(seed, k, 1) - 0.5) * spacing * 0.5, loop);
         let r = hash01(seed, k, 2) * totalWeight;
         let kind = 0;
         while (kind < TRAFFIC_KINDS.length - 1 && r > TRAFFIC_KINDS[kind].weight) r -= TRAFFIC_KINDS[kind++].weight;
@@ -131,10 +213,48 @@ export class Traffic {
     });
   }
 
-  /** Main-spline distance of traffic car k at race time t (pure). */
+  /** Main-spline distance of traffic car k at race time t (pure). On a street, the street's main distance there (mainDistance). */
   sAt(k: number, t: number): number {
     const lane = this.lanes[this.lane[k]];
+    const r = this.routes[this.lane[k]];
+    // (The pose's own s, blend and all: an s that differed from the pool's flipped a near miss's
+    // order every tick at a street's mouth, paying it out again and again.)
+    if (r) return this.routePose(r, lane, this.dAt(k, t), this.sScratch, this.sHit).s;
     return wrap(this.s0[k] + lane.dir * lane.speed * t, this.track.main.length);
+  }
+
+  private readonly sScratch: TrafficPose = newTrafficPose();
+  private readonly sHit: TrackHit = newHit();
+
+  /** How far round its route's loop car k is at race time t (a route's car only). */
+  private dAt(k: number, t: number): number {
+    const l = this.lane[k];
+    return wrap(this.s0[k] + this.lanes[l].speed * t, this.routes[l]!.C);
+  }
+
+  /** Where `d` round route `r` is: its road (0 the street in, 1 the main road, 2 the street out, 3 out of sight) and the distance along that road. */
+  private routeAt(r: TrafficRoute, lane: TrafficLaneDef, d: number, out: { road: number; s: number }): void {
+    const L = this.track.main.length;
+    if (d < r.a) {
+      out.road = 0;
+      out.s = lane.dir > 0 ? r.a + d : r.a - d;
+    } else if (d < r.a + r.b) {
+      out.road = 1;
+      out.s = wrap(r.on + (d - r.a) * lane.dir, L);
+    } else if (d <= r.R) {
+      out.road = 2;
+      out.s = lane.dir > 0 ? d - r.a - r.b : r.outSp.length - (d - r.a - r.b);
+    } else {
+      out.road = 3;
+      out.s = 0;
+    }
+  }
+
+  private readonly at = { road: 0, s: 0 };
+
+  /** Whether car k comes and goes by side streets. */
+  onRoute(k: number): boolean {
+    return this.routes[this.lane[k]] !== null;
   }
 
   /**
@@ -145,14 +265,26 @@ export class Traffic {
   visibility(k: number, t: number): number {
     const w = this.wreckedAt[k];
     let v = 1;
+    const lane = this.lanes[this.lane[k]];
+    const r = this.routes[this.lane[k]];
     if (w >= 0 && t >= w) {
       if (t < w + TRAFFIC_RESPAWN) return 0;
-      v = Math.min(1, (t - w - TRAFFIC_RESPAWN) / FADE_BACK);
+      if (r) {
+        // By side streets: gone until it next comes round to the first street's middle (back on
+        // the main road where it was hit would be the pop this is all to avoid), then in as ever.
+        const lap = r.C / lane.speed;
+        let back = w + (r.C - this.dAt(k, w)) / lane.speed;
+        if (back < w + TRAFFIC_RESPAWN) back += Math.ceil((w + TRAFFIC_RESPAWN - back) / lap) * lap;
+        if (t < back) return 0;
+      } else v = Math.min(1, (t - w - TRAFFIC_RESPAWN) / FADE_BACK);
     }
-    const lane = this.lanes[this.lane[k]];
     const s = this.sAt(k, t);
     const L = this.track.main.length;
-    if (lane.sections && !laneActive(lane, s)) {
+    if (r) {
+      // In from the first street's middle, out at the next one's, and gone in between.
+      const d = this.dAt(k, t);
+      v = d >= r.R ? 0 : Math.min(v, d / STREET_FADE, (r.R - d) / STREET_FADE);
+    } else if (lane.sections && !laneActive(lane, s)) {
       // Road still to go to the next section's start, or already gone past the last one's end.
       let best = 0;
       for (let q = 0; q < lane.sections.length; q++) {
@@ -186,6 +318,8 @@ export class Traffic {
    */
   poseAt(k: number, t: number, out: TrafficPose, hit = this.renderHit): TrafficPose {
     const lane = this.lanes[this.lane[k]];
+    const r = this.routes[this.lane[k]];
+    if (r) return this.routePose(r, lane, this.dAt(k, t), out, hit);
     const s = this.sAt(k, t);
     const at = sampleAt(this.track.main, s, hit);
     const lat = (lane.pos * at.width) / 2;
@@ -201,6 +335,57 @@ export class Traffic {
     return out;
   }
 
+  /** The pose of a car `d` round route `r`: on its road, blended over JOIN from a street onto the main road and back off it. */
+  private routePose(r: TrafficRoute, lane: TrafficLaneDef, d: number, out: TrafficPose, hit: TrackHit): TrafficPose {
+    const L = this.track.main.length;
+    const at = this.at;
+    this.routeAt(r, lane, Math.min(d, r.R), at);
+    // The road it's on, and (near a join) the other: the main road ahead of where it comes on, or
+    // past where it goes off.
+    const road = at.road === 0 ? r.inSp : at.road === 2 ? r.outSp : this.track.main;
+    const on = this.lanePose(road, at.s, lane, hit);
+    let w = 0;
+    let joinS = 0;
+    if (at.road === 0 && d > r.a - JOIN) {
+      w = smoothstep(r.a - JOIN, r.a, d);
+      joinS = wrap(r.on - (r.a - d) * lane.dir, L);
+      this.lanePose(this.track.main, joinS, lane, this.joinHit);
+    } else if (at.road === 2 && d < r.a + r.b + JOIN) {
+      w = 1 - smoothstep(r.a + r.b, r.a + r.b + JOIN, d);
+      joinS = wrap(r.off + (d - r.a - r.b) * lane.dir, L);
+      this.lanePose(this.track.main, joinS, lane, this.joinHit);
+    }
+    const j = this.joinHit;
+    out.x = on.cx + (j.cx - on.cx) * w;
+    out.y = on.cy + (j.cy - on.cy) * w;
+    out.z = on.cz + (j.cz - on.cz) * w;
+    // Its way: along each road the lane's way, blended.
+    let tx = (on.tx + (j.tx - on.tx) * w) * lane.dir;
+    let tz = (on.tz + (j.tz - on.tz) * w) * lane.dir;
+    const n = hypot(tx, tz) || 1;
+    tx /= n;
+    tz /= n;
+    out.h = atan2(tx, tz);
+    out.vx = tx * lane.speed;
+    out.vz = tz * lane.speed;
+    // Where it is on the main road: there (on it), or the main distance of where it is on the street.
+    out.s = at.road === 1 ? at.s : w >= 0.5 ? joinS : mainDistance(this.track, road.index, at.s);
+    const m = sampleAt(this.track.main, out.s, this.mainHit);
+    out.lat = (out.x - m.cx) * -m.tz + (out.z - m.cz) * m.tx;
+    return out;
+  }
+
+  /** `hit` set to road `sp` at `s`, its middle moved across to the lane (cx, cy, cz), tangent along the road. */
+  private lanePose(sp: BakedSpline, s: number, lane: TrafficLaneDef, hit: TrackHit): TrackHit {
+    sampleAt(sp, s, hit);
+    // The lane's side in the road's own frame (as on the main road: an oncoming lane's on its left).
+    const lat = (lane.pos * hit.width) / 2;
+    hit.cx -= hit.tz * lat;
+    hit.cz += hit.tx * lat;
+    hit.cy -= lat * tan(hit.bank);
+    return hit;
+  }
+
   /** Pose of traffic car k at time t into slot `p` of the posed pool. */
   private pose(k: number, t: number, p: number): void {
     const o = this.poseAt(k, t, this.scratch, this.hit);
@@ -213,6 +398,25 @@ export class Traffic {
     this.h[p] = o.h;
     this.vx[p] = o.vx;
     this.vz[p] = o.vz;
+    const lane = this.lanes[this.lane[k]];
+    const r = this.routes[this.lane[k]];
+    this.seenS[p] = o.s;
+    this.seenLat[p] = o.lat;
+    if (!r) this.along[p] = lane.dir * lane.speed;
+    else {
+      const m = this.mainHit;
+      const d = this.dAt(k, t);
+      if (d < r.a) {
+        // On its way in: on the main road already, as far before where it joins as it is up the street.
+        this.seenS[p] = wrap(r.on - (r.a - d) * lane.dir, this.track.main.length);
+        sampleAt(this.track.main, this.seenS[p], m);
+        this.seenLat[p] = (lane.pos * m.width) / 2;
+        this.along[p] = lane.dir * lane.speed;
+      } else {
+        sampleAt(this.track.main, o.s, m);
+        this.along[p] = o.vx * m.tx + o.vz * m.tz;
+      }
+    }
   }
 
   /**

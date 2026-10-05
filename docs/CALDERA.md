@@ -15,8 +15,9 @@ merged** (#83–#98, #102) and released in `alpha-1.31` (#78–#105), on the hos
 - **3a–3c:** indoors, breakable walls and buildings (Paradise Open's market hall).
 
 **Step 4, moving pieces, is built** on a new map, Coastal ([COASTAL.md](./COASTAL.md)): its
-drawbridge (`PieceDef.lift`, #109). Next: the main road taking a ceiling (Coastal's Rock Tunnel),
-traffic over more than one road (Coastal's side streets, towards step 6's road graph), or step 5.
+drawbridge (`PieceDef.lift`, #109), and the Basin Road round it (#111). Traffic now runs over more
+than one road: a lane by side streets (`TrafficLaneDef.streets`, #112), towards step 6's road graph.
+Next: the main road taking a ceiling (Coastal's Rock Tunnel), or step 5.
 HANDOFF has the detail and the lap floors.
 
 **Reading it:** "Principles" and "The core idea: pieces" are the design; "Build order" and "How
