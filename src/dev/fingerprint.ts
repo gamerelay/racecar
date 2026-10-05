@@ -99,7 +99,7 @@ function drive(track: Track, classes: CarClass[], surfaces: SurfaceDef[], spline
   return { hash: h.hex(), wrecks };
 }
 
-/** The drawbridges, by their answers: when they lift (seeds 1, 7, 42), their angle every half second through each cycle, and the floor along and across each span at a few angles. */
+/** Traffic by side streets: every car's visibility and pose every 0.25 s for two minutes, three seeds. */
 function streetsHash(track: Track): string {
   const h = new Hasher();
   const pose = newTrafficPose();
@@ -117,6 +117,7 @@ function streetsHash(track: Track): string {
   return h.hex();
 }
 
+/** The drawbridges, by their answers: when they lift (seeds 1, 7, 42), their angle every half second through each cycle, and the floor along and across each span at a few angles. */
 function liftsHash(track: Track, classes: CarClass[], surfaces: SurfaceDef[]): string {
   const g = track.ground!;
   const h = new Hasher();

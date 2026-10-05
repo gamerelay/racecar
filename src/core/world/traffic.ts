@@ -217,9 +217,14 @@ export class Traffic {
   sAt(k: number, t: number): number {
     const lane = this.lanes[this.lane[k]];
     const r = this.routes[this.lane[k]];
-    if (r) return this.routeS(r, lane, this.dAt(k, t));
+    // (The pose's own s, blend and all: an s that differed from the pool's flipped a near miss's
+    // order every tick at a street's mouth, paying it out again and again.)
+    if (r) return this.routePose(r, lane, this.dAt(k, t), this.sScratch, this.sHit).s;
     return wrap(this.s0[k] + lane.dir * lane.speed * t, this.track.main.length);
   }
+
+  private readonly sScratch: TrafficPose = newTrafficPose();
+  private readonly sHit: TrackHit = newHit();
 
   /** How far round its route's loop car k is at race time t (a route's car only). */
   private dAt(k: number, t: number): number {
@@ -236,7 +241,7 @@ export class Traffic {
     } else if (d < r.a + r.b) {
       out.road = 1;
       out.s = wrap(r.on + (d - r.a) * lane.dir, L);
-    } else if (d < r.R) {
+    } else if (d <= r.R) {
       out.road = 2;
       out.s = lane.dir > 0 ? d - r.a - r.b : r.outSp.length - (d - r.a - r.b);
     } else {
@@ -246,16 +251,6 @@ export class Traffic {
   }
 
   private readonly at = { road: 0, s: 0 };
-
-  /** The main distance of `d` round route `r`. */
-  private routeS(r: TrafficRoute, lane: TrafficLaneDef, d: number): number {
-    const at = this.at;
-    this.routeAt(r, lane, d, at);
-    if (at.road === 1) return at.s;
-    if (at.road === 0) return mainDistance(this.track, r.inSp.index, at.s);
-    if (at.road === 2) return mainDistance(this.track, r.outSp.index, at.s);
-    return r.off;
-  }
 
   /** Whether car k comes and goes by side streets. */
   onRoute(k: number): boolean {
@@ -270,14 +265,21 @@ export class Traffic {
   visibility(k: number, t: number): number {
     const w = this.wreckedAt[k];
     let v = 1;
+    const lane = this.lanes[this.lane[k]];
+    const r = this.routes[this.lane[k]];
     if (w >= 0 && t >= w) {
       if (t < w + TRAFFIC_RESPAWN) return 0;
-      v = Math.min(1, (t - w - TRAFFIC_RESPAWN) / FADE_BACK);
+      if (r) {
+        // By side streets: gone until it next comes round to the first street's middle (back on
+        // the main road where it was hit would be the pop this is all to avoid), then in as ever.
+        const lap = r.C / lane.speed;
+        let back = w + (r.C - this.dAt(k, w)) / lane.speed;
+        if (back < w + TRAFFIC_RESPAWN) back += Math.ceil((w + TRAFFIC_RESPAWN - back) / lap) * lap;
+        if (t < back) return 0;
+      } else v = Math.min(1, (t - w - TRAFFIC_RESPAWN) / FADE_BACK);
     }
-    const lane = this.lanes[this.lane[k]];
     const s = this.sAt(k, t);
     const L = this.track.main.length;
-    const r = this.routes[this.lane[k]];
     if (r) {
       // In from the first street's middle, out at the next one's, and gone in between.
       const d = this.dAt(k, t);

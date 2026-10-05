@@ -76,6 +76,36 @@ describe('side streets', () => {
       }
   });
 
+  test("its main distance is its pose's, through the blend at a street's mouth (or a near miss pays out every tick)", () => {
+    const tr = new Traffic(track, 7);
+    const p = newTrafficPose();
+    for (let k = 0; k < tr.count; k++) for (let t = 0; t < 120; t += 0.05) expect(tr.sAt(k, t)).toBe(tr.poseAt(k, t, p).s);
+  });
+
+  test('wrecked, it stays gone until it next comes up a street: never back where it was hit', () => {
+    const tr = new Traffic(track, 7);
+    const p = newTrafficPose();
+    const hit = newHit();
+    for (let k = 0; k < tr.count; k++) {
+      // Hit on the main road.
+      let w = 30;
+      while (true) {
+        tr.poseAt(k, w, p);
+        projectGlobal(track.main, p.x, p.z, hit);
+        if (tr.visibility(k, w) >= 1 && Math.abs(hit.lateral) < hit.width / 2) break;
+        w += 0.1;
+      }
+      tr.wreckedAt[k] = w;
+      let back = -1;
+      for (let t = w; t < w + 120 && back < 0; t += 0.05) if (tr.visibility(k, t) > 0) back = t;
+      expect(back).toBeGreaterThan(w + 12);
+      tr.poseAt(k, back, p);
+      projectGlobal(track.main, p.x, p.z, hit);
+      expect(Math.abs(hit.lateral) - hit.width / 2).toBeGreaterThan(15);
+      tr.wreckedAt[k] = -1;
+    }
+  });
+
   test('the AI keeps to the main road past them', () => {
     const streets = track.splines.filter((sp) => riviera.branches!.find((b) => b.id === sp.id)?.kind === 'street');
     // Past all four, round the line.
@@ -91,8 +121,10 @@ describe('side streets', () => {
     const errors = (l: TrackLayout) => validateLayout(l, SURFACES, CLASSES).filter((p) => p.level === 'error' && p.message.includes('traffic lane'));
     const withLane = (lane: object) => ({ ...riviera, traffic: { ...riviera.traffic!, lanes: [{ ...riviera.traffic!.lanes[0], ...lane }] } });
     expect(errors(riviera)).toEqual([]);
-    // The oncoming lane's streets for the lap's way: across the other lane.
-    expect(errors(withLane({ streets: riviera.traffic!.lanes[1].streets })).length).toBeGreaterThan(0);
+    // In order, but across the road from its lane (the other lane's streets): only the side errs.
+    const across = errors(withLane({ streets: ['rue-des-pins', 'rue-du-port'] }));
+    expect(across.length).toBe(2);
+    expect(across.every((p) => p.message.includes('across the road'))).toBe(true);
     // Not a street, and both streets and sections.
     expect(errors(withLane({ streets: ['basin-road', 'quai-sud'] })).length).toBeGreaterThan(0);
     expect(errors(withLane({ sections: [[100, 200]] })).length).toBeGreaterThan(0);

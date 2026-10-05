@@ -393,7 +393,7 @@ export function validateLayout(layout: TrackLayout, surfaces: SurfaceDef[], clas
 
 /**
  * A lane by side streets (TrafficLaneDef.streets): two or more, each a street (a branch of kind
- * 'street'), on the lane's side (to the right of its way, so no turn crosses the oncoming lane), long
+ * 'street'), on the lane's side of the road (so no turn crosses the other lane), long
  * enough to fade in its half before the join, passed in order and none past the next.
  */
 function checkStreets(track: ReturnType<typeof bakeTrack>, k: number, lane: TrafficLaneDef, err: (m: string, sp?: string, s?: number) => void): void {
@@ -413,7 +413,7 @@ function checkStreets(track: ReturnType<typeof bakeTrack>, k: number, lane: Traf
     const s = mainDistance(track, sp.index, sp.length / 2);
     const i = Math.round(s / track.main.step) % track.main.n;
     const side = (sp.px[mid] - track.main.px[i]) * -track.main.tz[i] + (sp.pz[mid] - track.main.pz[i]) * track.main.tx[i];
-    if (side * lane.dir < 0) err(`traffic lane ${k}: street ${id} is on the oncoming side (${lane.dir > 0 ? 'left' : 'right'}); its cars would turn across the other lane`, id);
+    if (side * lane.pos < 0) err(`traffic lane ${k}: street ${id} is across the road from its lane (${lane.pos > 0 ? 'left' : 'right'}); its cars would turn across the other lane`, id);
   }
   for (let q = 0; q + 1 < streets.length; q++) {
     const a = streets[q];
