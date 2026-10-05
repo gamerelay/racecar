@@ -145,4 +145,29 @@ describe('portals', () => {
     expect(checked).toBeGreaterThan(1000);
     expect(worst).toBeLessThan(0.08);
   });
+
+  test("Coastal's Rock Tunnel: up its sheer face (30 m in a cell), nothing left standing in its mouth", () => {
+    const t = bakeTrack(layout('coastal/riviera'), SURFACES);
+    const G = t.ground!;
+    const Q = buildPortals(t)!;
+    const verts: number[] = [];
+    const tris: number[] = [];
+    for (let k = 0; k < Q.cells.length; k++) {
+      if (!Q.cells[k]) continue;
+      const gx = k % G.nx;
+      const gz = (k - gx) / G.nx;
+      const v = (dx: number, dz: number) => [G.x0 + (gx + dx) * G.cell, G.h[k + dz * G.nx + dx], G.z0 + (gz + dz) * G.cell, 0, 1, 0, 1, 1, 1];
+      Q.clip(v(0, 0), v(0, 1), v(1, 0), verts, tris);
+      Q.clip(v(1, 0), v(0, 1), v(1, 1), verts, tris);
+    }
+    const tri = (n: number) => [verts[n * VERTEX], verts[n * VERTEX + 1], verts[n * VERTEX + 2]];
+    let worst = 0;
+    for (let n = 0; n < tris.length; n += 3) {
+      const [p, q, r] = [tri(tris[n]), tri(tris[n + 1]), tri(tris[n + 2])];
+      // Its edge middles and middle (before, a strip from under the road to over the ceiling: 2.6 m in).
+      const mid = (u: number[], v: number[], w = v) => [0, 1, 2].map((a) => (u[a] + v[a] + w[a]) / (w === v ? 2 : 3));
+      for (const m of [mid(p, q), mid(q, r), mid(r, p), mid(p, q, r)]) worst = Math.min(worst, Q.dist(m[0], m[1], m[2]));
+    }
+    expect(worst).toBeGreaterThan(-0.3);
+  });
 });

@@ -4,7 +4,7 @@
 // the slow-mo duck and the level all apply to it). A track that can't load (not hosted where the
 // page is, say) falls back to the synth music (music.ts), the same as before there were tracks.
 
-/** The tracks, by name: the title's, each map's own, and the seven any race may play. */
+/** The tracks, by name: the title's, each map's own, and the eight any race may play. */
 export const TRACKS = ['title', 'pursuit-orchestra', 'downtown', 'tokyo-dubstep', 'backroads', 'backroads-acoustic', 'paradise', 'hawaiian-vibes', 'coastal', 'avalanche', 'winter-pursuit', 'finish-line', 'final-sprint', 'relentless-pursuit', 'half-time-surge', 'propulsion', 'escape', 'forward', 'crashout'] as const;
 export type TrackName = (typeof TRACKS)[number];
 /** Behind the menus (the attract page): the title's own, and the orchestral one (the owner's, 2026-10-02). */

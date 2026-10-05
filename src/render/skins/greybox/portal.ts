@@ -255,7 +255,8 @@ export function buildPortals(track: Track): Portals | null {
     // What's kept must be outside all over: a side of it through the outline (up a sheer face, from
     // under the road to over the ceiling, between its corners or its two cut points) and it's split
     // in four by its sides' middles, again.
-    if (depth < SPLITS)
+    // (Not where a corner's past the arch's outer face, where the cut stops: no further in to find.)
+    if (depth < SPLITS && fp !== Infinity && fq !== Infinity && fr !== Infinity)
       for (let s = 0; s < poly.length; s++) {
         const m = mix(poly[s], poly[(s + 1) % poly.length], 0.5);
         if (dist(m[0], m[1], m[2]) >= -THROUGH) continue;
