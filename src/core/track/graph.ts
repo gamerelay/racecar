@@ -6,17 +6,19 @@
 // it in the steps after (6b–6d). Bake-time only: no per-tick work.
 //
 // - A **node** is where streets meet: a junction (a branch leaving or rejoining the main road; two at
-//   one spot are one junction), the line (a closed main road's s = 0, so no street wraps round it), or
-//   an open road's end (a run's top and bottom).
+//   one spot are one junction), the line (a closed main road's s = 0, so no street wraps round it), a
+//   run's start or finish, or an open road's end (past a run's start and finish, off its route).
 // - A **street** is a stretch of one road between two nodes, run in its road's direction: the main
 //   road cut at every node on it, and each branch whole.
-// - A **route** is the race's way through: its streets in order, and its gates (the checkpoints, and
-//   the finish) on them. Today's loops go round the main road; a run goes from its start to its finish.
+// - A **route** is the race's way through: its nodes, how far along it each is, every street between
+//   two of them (the main road's, and a branch the other way between the same two), and its gates
+//   (the checkpoints, and the finish) on the main road's. Today's loops go round the main road; a run
+//   goes from its start to its finish.
 
 import type { BakedSpline, Track } from './bake';
 import { newHit, sampleAt } from './query';
 
-export type NodeKind = 'junction' | 'line' | 'end';
+export type NodeKind = 'junction' | 'line' | 'start' | 'finish' | 'end';
 
 export interface GraphNode {
   index: number;
@@ -63,7 +65,14 @@ export interface Gate {
 export interface Route {
   /** Round and round (a lap) or once through (a run). */
   closed: boolean;
-  /** Its streets in order: a lap's from the line round to it again. */
+  /** Where it starts and finishes (a lap: both the line's node). */
+  start: number;
+  finish: number;
+  /** How far along it (m) each node is, by node: the start 0 (a lap's line too), NaN off it. */
+  at: number[];
+  /** Its main road's streets in order, from the start to the finish: they add up to its length. */
+  way: number[];
+  /** Every street on it: its way's, and each branch between two of its nodes (another way between them; not a side street). */
   streets: number[];
   /** Its gates in order: the checkpoints, then the finish. */
   gates: Gate[];
@@ -72,6 +81,8 @@ export interface Route {
 
 export interface RoadGraph {
   nodes: GraphNode[];
+  /** A closed main road's line (s = 0; a junction too if a branch leaves there), -1 on an open one. */
+  line: number;
   streets: Street[];
   route: Route;
   /** The street that `spline` is on at `s` (its road's stretch holding it), or -1. */
@@ -80,6 +91,8 @@ export interface RoadGraph {
 
 /** Two ends of roads this close (m) on the main road are one junction. */
 const SAME = 1;
+/** Which kind a node is when two meet at one spot: the most particular. */
+const RANK: Record<NodeKind, number> = { end: 0, junction: 1, line: 2, start: 2, finish: 2 };
 
 export function buildGraph(track: Track): RoadGraph {
   const { main, splines } = track;
@@ -93,25 +106,29 @@ export function buildGraph(track: Track): RoadGraph {
     return nodes.length - 1;
   };
 
-  // The nodes on the main road, by distance along it: the line (closed) or its ends (open), and a
-  // junction wherever a branch leaves or rejoins it.
+  // The nodes on the main road, by distance along it: the line (closed) or its ends (open), a run's
+  // start and finish, and a junction wherever a branch leaves or rejoins it. One within SAME of
+  // another is that one (the first's distance, so a run of them doesn't creep).
+  const run = track.run;
   const onMain: { s: number; node: number }[] = [];
   const atMain = (s: number, kind: NodeKind): number => {
     const near = onMain.find((m) => Math.abs(m.s - s) < SAME || (main.closed && Math.abs(Math.abs(m.s - s) - L) < SAME));
     if (near) {
-      // (A junction at the line: the line's node is the junction too.)
-      if (kind === 'junction' && nodes[near.node].kind !== 'junction') nodes[near.node].kind = 'junction';
+      // (The more particular kind: a junction at a run's start is still where it starts.)
+      if (RANK[kind] > RANK[nodes[near.node].kind]) nodes[near.node].kind = kind;
       return near.node;
     }
     const n = node(kind, main, s);
     onMain.push({ s, node: n });
     return n;
   };
-  if (main.closed) atMain(0, 'line');
-  else {
+  const line = main.closed ? atMain(0, 'line') : -1;
+  if (!main.closed) {
     atMain(0, 'end');
     atMain(L, 'end');
   }
+  const startNode = run ? atMain(run.start, 'start') : line;
+  const finishNode = run ? atMain(run.finish, 'finish') : line;
   const ends = splines.slice(1).map((sp) => ({ sp, from: atMain(sp.mainFrom, 'junction'), to: atMain(sp.mainTo, 'junction') }));
   onMain.sort((a, b) => a.s - b.s);
 
@@ -130,27 +147,38 @@ export function buildGraph(track: Track): RoadGraph {
     if (b) mainStreets.push(street(main, a.s, b.s, a.node, b.node));
     else if (main.closed && L - a.s > 0) mainStreets.push(street(main, a.s, L, a.node, onMain[0].node));
   }
-  for (const e of ends) street(e.sp, 0, e.sp.length, e.from, e.to);
+  const branchStreets = ends.map((e) => street(e.sp, 0, e.sp.length, e.from, e.to));
 
   const streetAt = (spline: number, s: number): number => {
     for (const st of streets) if (st.spline === spline && s >= st.s0 && s <= st.s1) return st.index;
     return -1;
   };
 
-  // The route: the main road's streets, from the line (or a run's start) round to the finish, its
-  // gates the checkpoints and the finish on the streets holding them.
-  const run = track.run;
+  // The route: the main road's streets from the start round (or down) to the finish, each node's
+  // distance along it, and the branches between two of its nodes; its gates the checkpoints and the
+  // finish, on the main road's streets holding them.
   const startS = run ? run.start : 0;
   const finishS = run ? run.finish : L;
-  const routeStreets = mainStreets.filter((k) => streets[k].s1 > startS && streets[k].s0 < finishS);
+  const way = mainStreets.filter((k) => streets[k].s0 >= startS - SAME && streets[k].s1 <= finishS + SAME);
+  const at = nodes.map(() => NaN);
+  for (const k of way) {
+    const st = streets[k];
+    at[st.from] = st.s0 - startS;
+    if (st.to !== line) at[st.to] = st.s1 - startS;
+  }
+  if (line >= 0) at[line] = 0;
+  const onRoute = (n: number) => !Number.isNaN(at[n]);
+  // (Not a side street: traffic's loop off the main road, not a way through; BranchDef.kind.)
+  const kinds = new Map((track.layout.branches ?? []).map((b) => [b.id, b.kind]));
+  const routeStreets = [...way, ...branchStreets.filter((k) => kinds.get(streets[k].road) !== 'street' && onRoute(streets[k].from) && onRoute(streets[k].to))];
   const gate = (s: number, finish: boolean): Gate => {
     sampleAt(main, s, hit);
     // (The finish of a lap is the line: the end of the last street, not the start of the first.)
-    const st = finish && main.closed ? mainStreets[mainStreets.length - 1] : streetAt(0, s);
+    const st = finish ? way[way.length - 1] : streetAt(0, s);
     return { street: st, spline: 0, s, x: hit.cx, y: hit.cy, z: hit.cz, tx: hit.tx, tz: hit.tz, half: hit.width / 2 + hit.shoulder, finish };
   };
   const gates = [...track.checkpoints.map((s) => gate(s, false)), gate(finishS, true)];
-  const route: Route = { closed: main.closed && !run, streets: routeStreets, gates, length: finishS - startS };
+  const route: Route = { closed: main.closed && !run, start: startNode, finish: finishNode, at, way, streets: routeStreets, gates, length: finishS - startS };
 
-  return { nodes, streets, route, streetAt };
+  return { nodes, line, streets, route, streetAt };
 }

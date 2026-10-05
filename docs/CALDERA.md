@@ -815,8 +815,11 @@ stream across a route): then the new floor is recorded, with why.
    In slices, each with every map's fingerprint identical until one is meant to move:
    - **6a, the graph as data** (built): `Track.graph` from the baked roads: nodes (a junction where
      a branch leaves or rejoins, two at one spot one; the line; an open road's ends), streets (the
-     main road cut at every node on it, none wrapping; each branch whole), and the route (its
-     streets in order, its gates the checkpoints and the finish). `tools/plan.ts` draws it.
+     main road cut at every node on it, none wrapping; each branch whole), and the route: its start
+     and finish (a run's are nodes, so its way adds up to it), each node's distance along it, its
+     way (the main road's streets in order), every street between two of its nodes (the Basin Road
+     is; a side street isn't), and its gates (the checkpoints and the finish). The validator now
+     refuses a branch across the line (it would miss the finish). `tools/plan.ts` draws it.
    - **6b, where a car is:** located over the graph (any street to any other at a node), not a
      branch handing back to the main road only.
    - **6c, progress by gates:** laps, positions and gaps by distance along the route, not a

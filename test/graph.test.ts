@@ -5,7 +5,9 @@
 import { describe, expect, test } from 'bun:test';
 import { bakeTrack, type Track } from '../src/core/track/bake';
 import { newHit, sampleAt } from '../src/core/track/query';
-import { SURFACES, layout } from './helpers';
+import type { TrackLayout } from '../src/core/content';
+import { validateLayout } from '../src/core/track/validate';
+import { CLASSES, SURFACES, layout } from './helpers';
 
 const MAPS = ['coastal/riviera', 'downtown/downtown', 'backroads/valley', 'paradise/island', 'paradise-open/open', 'avalanche/slope'];
 const tracks = new Map<string, Track>(MAPS.map((k) => [k, bakeTrack(layout(k), SURFACES)]));
@@ -70,17 +72,28 @@ describe('the road graph', () => {
       expect(r.gates[r.gates.length - 1].finish).toBe(true);
       for (const x of r.gates) {
         const st = t.graph.streets[x.street];
-        expect(r.streets).toContain(x.street);
+        expect(r.way).toContain(x.street);
         expect(x.s).toBeGreaterThanOrEqual(st.s0);
         expect(x.s).toBeLessThanOrEqual(st.s1);
         sampleAt(t.main, x.s, hit);
         expect([x.x, x.z]).toEqual([hit.cx, hit.cz]);
         expect(x.half).toBeGreaterThan(hit.width / 2);
       }
-      // Its streets in order along the main road, and as long as the race.
-      const sts = r.streets.map((k) => t.graph.streets[k]);
+      // Its way: the main road's streets in order from its start to its finish, adding up to the race.
+      const sts = r.way.map((k) => t.graph.streets[k]);
       for (let k = 1; k < sts.length; k++) expect(sts[k].s0).toBe(sts[k - 1].s1);
+      expect([sts[0].from, sts[sts.length - 1].to]).toEqual([r.start, r.finish]);
+      expect(sts.reduce((a, s) => a + s.length, 0)).toBeCloseTo(r.length, 6);
       expect(r.length).toBeCloseTo(t.run ? t.run.finish - t.run.start : t.main.length, 6);
+      // Each node on it as far along as its street says; a lap's line is its start and its finish.
+      for (const st of sts) expect(r.at[st.from]).toBeCloseTo(st.s0 - (t.run?.start ?? 0), 6);
+      if (r.closed) expect([r.start, r.finish, r.at[r.start]]).toEqual([t.graph.line, t.graph.line, 0]);
+      // Every branch between two of its nodes is on it too, the other way between them; a side street isn't.
+      for (const k of r.streets) {
+        const st = t.graph.streets[k];
+        expect([Number.isNaN(r.at[st.from]), Number.isNaN(r.at[st.to])]).toEqual([false, false]);
+        if (st.spline > 0) expect(t.layout.branches!.find((b) => b.id === st.road)!.kind).not.toBe('street');
+      }
     }
   });
 
@@ -94,7 +107,30 @@ describe('the road graph', () => {
     expect(t.layout.pieces!.find((p) => p.id === 'harbour-bridge')!.s[0]).toBeGreaterThanOrEqual(bridge[0].s0);
     expect(g.streets.filter((s) => s.spline > 0).map((s) => s.road).sort()).toEqual(['basin-road', 'rue-des-pins', 'rue-du-port']);
     expect(g.nodes.filter((n) => n.kind === 'junction').length).toBe(6);
+    // The Basin Road's a way round on the race's route; the side streets are traffic's.
+    expect(g.route.streets.filter((k) => g.streets[k].spline > 0).map((k) => g.streets[k].road)).toEqual(['basin-road']);
   });
+
+  test("Avalanche: a run, its start and finish nodes on the road, the road past them off its route", () => {
+    const t = tracks.get('avalanche/slope')!;
+    const g = t.graph;
+    expect([g.line, g.nodes[g.route.start].kind, g.nodes[g.route.finish].kind]).toEqual([-1, 'start', 'finish']);
+    expect(g.route.way.map((k) => [g.streets[k].s0, g.streets[k].s1])).toEqual([[t.run!.start, t.run!.finish]]);
+    const off = g.streets.filter((s) => !g.route.streets.includes(s.index));
+    expect(off.map((s) => [s.s0, s.s1])).toEqual([
+      [0, t.run!.start],
+      [t.run!.finish, t.main.length],
+    ]);
+  });
+
+  test('the validator: a branch round the line (it would miss the finish) is an error', () => {
+    const l = layout('backroads/valley');
+    const L = tracks.get('backroads/valley')!.main.length;
+    const errs = (x: TrackLayout) => validateLayout(x, SURFACES, CLASSES).filter((p) => p.level === 'error' && p.message.includes('across the line'));
+    expect(errs(l)).toEqual([]);
+    const round = { ...l, branches: l.branches!.map((b, k) => (k === 0 ? { ...b, from: L - 60, to: 80 } : b)) };
+    expect(errs(round).length).toBe(1);
+  }, 30_000);
 
   test('streetAt: the stretch holding a spot, and none off its road', () => {
     for (const [, t] of tracks)
