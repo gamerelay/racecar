@@ -775,7 +775,8 @@ stream across a route): then the new floor is recorded, with why.
        both. Only the hall has walls.
      - **A branch's road is drawn on into its junctions** (the skin's draped strip): left to the
        ground's cells there, its edge was a staircase where it peeled off the main road.
-4. **Moving pieces**: a drawbridge. *Not started.* Where to begin:
+4. **Moving pieces**: a drawbridge. *Built on Coastal* (2026-10-04: `PieceDef.lift`,
+   `core/world/lifts.ts`; COASTAL "Built so far" has the detail). What it was planned as:
    - **What it is:** a piece with a motion, World authority ("Things that move"): its pose at
      race time t is a formula of the seed and the clock, the same on every screen, nothing sent.
      A car on it rides it; a car arriving while it's up jumps the gap off its lip or hits its

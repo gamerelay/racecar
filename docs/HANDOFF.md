@@ -201,6 +201,13 @@ fixed deck, the Descent's switchbacks, the Rock Tunnel as a cutting, `rare` show
 Floor 76.33 s, no wrecks in the field. Next is the drawbridge. The main road needs gaps first (it
 takes decks only); COASTAL's "Built so far" has why.
 
+**The drawbridge** (COASTAL's step 3, CALDERA's step 4, 2026-10-04): two leaves over Coastal's
+harbour (`PieceDef.lift`, `core/world/lifts.ts`), lifting once or twice a race at seeded times, a
+pure function of the race clock. Early in a lift a leaf is a ramp to jump; past 30° it's a wall.
+The AI waits for it or (hard) jumps it; respawns go back to the approach. Next: the boat and the
+bells, the Basin Road detour, then COASTAL's step 4 (traffic from side streets) or step 5 (the
+Rock Tunnel, which needs the main road to take a ceiling).
+
 **Lap floors now** (the best AI lap, solo hard coupe): Downtown 57.9, Backroads 62.82, Avalanche
 93.07, Paradise 70.3, Paradise Open 66.35, Coastal 76.33 s (experimental). Paradise Open's field: 34 wrecks in 40 seeds.
 

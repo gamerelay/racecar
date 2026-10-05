@@ -343,6 +343,31 @@ export interface PieceDef {
    * for now: there the ground is the road's, so it has to be told to fall away.
    */
   under?: { floor: number; ease: number; reach: number };
+  /** A lifting span in it (docs/COASTAL.md's drawbridge): see LiftDef. The main road only, for now. */
+  lift?: LiftDef;
+}
+
+/**
+ * A drawbridge (docs/COASTAL.md, "The drawbridge"; World authority, docs/CALDERA.md "Things that
+ * move"): two leaves over `s` (m along the piece's road, inside the piece), each half of it, hinged
+ * at its own end and meeting in the middle. Its angle is a pure function of the seed and the race
+ * clock: nothing is sent online. It lifts `twice` of races twice, else once: the first warning
+ * `first` s into the race (a range, seeded), a second `again` s after the first. Each lift is a
+ * warning (`warn` s, down), rising to `angle` (rad) over `rise` s, up for `up` s, and down over `fall`.
+ * Up to `wall` (rad) a leaf is a ramp (a car rides it and flies off its tip); steeper, it's a wall
+ * and the span between is a gap.
+ */
+export interface LiftDef {
+  s: [number, number];
+  angle: number;
+  wall: number;
+  warn: number;
+  rise: number;
+  up: number;
+  fall: number;
+  first: [number, number];
+  again: [number, number];
+  twice: number;
 }
 
 /** Open ground round the main road (core/track/ground). Distances are along the main road (s) and across it (lateral, + right). */

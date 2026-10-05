@@ -41,6 +41,7 @@ import { markInk, unmarkInk } from '../../ink';
 import { LampPoints, lampSpots, trafficModel, trafficModels } from './car/traffic';
 import { disposeTree } from './dispose';
 import { buildBreakablesVisual } from './breakables';
+import { buildLiftsVisual } from './lifts';
 import { buildSmashVisual } from './smash';
 import { glow, toon } from './toon';
 
@@ -87,6 +88,8 @@ export function buildWorldVisual(scene: Scene, sim: Sim, roof?: (x: number, z: n
   for (const o of smash.objects) root.add(o);
   const walls = buildBreakablesVisual(sim);
   for (const o of walls.objects) root.add(o);
+  const bridges = buildLiftsVisual(sim);
+  for (const o of bridges.objects) root.add(o);
 
   // ---- traffic: each kind as instanced parts, with glowing lamps ----
   // A kind with a racer design is that car, flattened to one instanced mesh per material and ink
@@ -337,6 +340,7 @@ export function buildWorldVisual(scene: Scene, sim: Sim, roof?: (x: number, z: n
       cursor = sim.events.read(cursor, onEvent);
       smash.update(time);
       walls.update(time);
+      bridges.update(time);
       // The avalanche, at the render time (it's a formula, like traffic).
       const coming = sim.avalanche && sim.avalancheFront > -Infinity;
       blobs.visible = clouds.visible = !!coming;

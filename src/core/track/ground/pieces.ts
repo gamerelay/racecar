@@ -4,8 +4,8 @@
 // for the main road from the ground grid's nearest sample, for a branch by its piece samples
 // bucketed. A car is on the highest floor at or below it.
 
-import type { PieceDef } from '../../content';
-import { smoothstep as smooth, sq } from '../../math';
+import type { LiftDef, PieceDef } from '../../content';
+import { cos, smoothstep as smooth, sq, tan } from '../../math';
 import type { BakedSpline } from '../bake';
 import { across, along } from '../frame';
 import { planeOf } from './plane';
@@ -34,11 +34,15 @@ export interface Piece {
   building: string;
   /** How the ground under it falls away (PieceDef.under), if it says. */
   under?: { floor: number; ease: number; reach: number };
+  /** Its drawbridge (PieceDef.lift), if it has one: its leaves' angle is `Pieces.angle[index]`. */
+  lift?: LiftDef;
 }
 
 /** The pieces, and per road, which of its samples they're on. */
 export interface Pieces {
   readonly list: readonly Piece[];
+  /** Per piece, its drawbridge's angle now (rad; 0 for none, or down): set each tick by the sim (core/world/lifts.ts), before its cars step. */
+  readonly angle: Float64Array;
   /** Per sample of the road (by spline index), 1 where a piece with a floor carries it; undefined if none is on that road. */
   floors(spline: number): Uint8Array | undefined;
   /** Per sample of the road, 1 in a gap (a piece without a floor); undefined if it has none. */
@@ -59,7 +63,7 @@ export function definePieces(defs: readonly PieceDef[], splines: readonly BakedS
   for (const def of defs) {
     const sp = def.road === undefined ? splines[0] : splines.find((b) => b.id === def.road && b.index !== 0);
     if (!sp) continue;
-    const p: Piece = { id: def.id, index: list.length, spline: sp.index, s: def.s, floor: def.floor !== false, ceiling: def.ceiling ?? NaN, indoor: def.ceiling !== undefined ? (def.indoor ?? def.building ?? 'tunnel') : '', building: def.ceiling !== undefined ? (def.building ?? '') : '', under: def.under };
+    const p: Piece = { id: def.id, index: list.length, spline: sp.index, s: def.s, floor: def.floor !== false, ceiling: def.ceiling ?? NaN, indoor: def.ceiling !== undefined ? (def.indoor ?? def.building ?? 'tunnel') : '', building: def.ceiling !== undefined ? (def.building ?? '') : '', under: def.under, lift: def.lift };
     list.push(p);
     const masks = p.floor ? floors : gaps;
     let m = masks.get(sp.index);
@@ -76,6 +80,7 @@ export function definePieces(defs: readonly PieceDef[], splines: readonly BakedS
   }
   return {
     list,
+    angle: new Float64Array(list.length),
     floors: (k) => floors.get(k),
     gaps: (k) => gaps.get(k),
     at: (k) => at.get(k),
@@ -223,7 +228,21 @@ export function floorQuery(pieces: Pieces, main: BakedSpline, branches: readonly
     }
     if (!mainFloor![i]) return other;
     if (Math.abs(across(main, i, x, z)) > main.width[i] / 2 + main.shoulder[i] + slack) return other;
-    const mine = planeOf(main, i, x, z);
+    let mine = planeOf(main, i, x, z);
+    const lift = pieces.list[mainAt![i]].lift;
+    if (lift) {
+      const th = pieces.angle[mainAt![i]];
+      const s = i * main.step + along(main, i, x, z);
+      if (th > 0 && s > lift.s[0] && s < lift.s[1]) {
+        // A drawbridge's leaves, tilted up about their hinges at either end: a ramp up to `wall`,
+        // past each leaf's tip (half the span, foreshortened) nothing. Steeper, a wall: no floor.
+        if (th > lift.wall) return other;
+        const half = (lift.s[1] - lift.s[0]) / 2;
+        const out = s - lift.s[0] < half ? s - lift.s[0] : lift.s[1] - s;
+        if (out > half * cos(th)) return other;
+        mine += out * tan(th);
+      }
+    }
     if (mine > top + DECK_CATCH) return other;
     if (other > mine) return other;
     found = mainAt![i];

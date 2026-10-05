@@ -8,6 +8,7 @@ import type { Rng } from './rng';
 import type { Track } from './track/bake';
 import type { TrackHit } from './track/query';
 import type { Breakables } from './world/breakables';
+import type { Lifts } from './world/lifts';
 import type { Smashables } from './world/smash';
 import type { Hazards } from './world/hazards';
 import type { Traffic } from './world/traffic';
@@ -40,7 +41,7 @@ export interface SimState {
   weatherGrip: number;
   wet: boolean;
   wetness: number;
-  world?: { traffic: Traffic; hazards: Hazards; smash: Smashables; breakables: Breakables };
+  world?: { traffic: Traffic; hazards: Hazards; smash: Smashables; breakables: Breakables; lifts: Lifts };
   /** The avalanche's front down the main road (world/avalanche.ts); -Infinity when there's none coming. */
   avalancheFront: number;
   race: RaceState;

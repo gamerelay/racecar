@@ -4,6 +4,7 @@
 
 import { driveFollow, type FollowDriver } from './ai/follow';
 import { driveRacer, type RacerDriver } from './ai/racer';
+import { collideLifts } from './collide/lifts';
 import { stepCar, wreckCar } from './car/physics';
 import { createCarPool, restoreCars, snapshotCars, type CarPool } from './car/pool';
 import { TUNING } from './car/tuning';
@@ -22,6 +23,7 @@ import { mainDistance, type Track } from './track/bake';
 import { locateCar } from './track/locate';
 import { newHit, projectGlobal, sampleAt } from './track/query';
 import { Hazards, type Mayhem } from './world/hazards';
+import { buildLifts, type Lifts } from './world/lifts';
 import { Traffic, laneActive } from './world/traffic';
 import { Breakables } from './world/breakables';
 import { Smashables } from './world/smash';
@@ -105,7 +107,7 @@ export class Sim implements SimState {
   wetness = 0;
   weatherPlan: WeatherPlan;
   readonly weatherState: WeatherState = { wetness: 0, grip: 1, wet: false, visibility: 1 };
-  world: { traffic: Traffic; hazards: Hazards; smash: Smashables; breakables: Breakables };
+  world: { traffic: Traffic; hazards: Hazards; smash: Smashables; breakables: Breakables; lifts: Lifts };
   /** One run's avalanche, at chaos (world/avalanche.ts), and where its front is this tick. */
   avalanche: Avalanche | null = null;
   avalancheFront = -Infinity;
@@ -137,15 +139,16 @@ export class Sim implements SimState {
     this.controls = Array.from({ length: MAX_CARS }, neutralControls);
     this.weatherPlan = planWeather(opts.weather ?? 'clear', this.seed, opts.weatherAllowed);
     this.world = this.buildWorld(track);
+    this.world.lifts.update(this.time);
     this.ctx = { traffic: this.world.traffic, hazards: this.world.hazards, smash: this.world.smash, breakables: this.world.breakables, t: 0, tPrev: 0, prevMain: new Float64Array(MAX_CARS) };
     this.applyWeather();
   }
 
-  private buildWorld(track: Track): { traffic: Traffic; hazards: Hazards; smash: Smashables; breakables: Breakables } {
+  private buildWorld(track: Track): { traffic: Traffic; hazards: Hazards; smash: Smashables; breakables: Breakables; lifts: Lifts } {
     const def = track.layout.avalanche;
     this.avalanche = def && track.run && this.options.mayhem === 'chaos' ? new Avalanche(track, def) : null;
     const traffic = new Traffic(track, this.seed, this.options.traffic ?? 1);
-    return { traffic, hazards: new Hazards(track, traffic, this.seed, this.options.mayhem ?? 'normal'), smash: new Smashables(track), breakables: new Breakables(track.ground ? (track.layout.breakables ?? []) : []) };
+    return { traffic, hazards: new Hazards(track, traffic, this.seed, this.options.mayhem ?? 'normal'), smash: new Smashables(track), breakables: new Breakables(track.ground ? (track.layout.breakables ?? []) : []), lifts: buildLifts(track, this.seed) };
   }
 
   private applyWeather(): void {
@@ -305,6 +308,7 @@ export class Sim implements SimState {
     this.ctx.hazards = this.world.hazards;
     this.ctx.smash = this.world.smash;
     this.ctx.breakables = this.world.breakables;
+    this.world.lifts.update(this.time);
     const c = this.cars;
     for (let i = 0; i < c.count; i++) {
       c.spline[i] = 0;
@@ -412,6 +416,8 @@ export class Sim implements SimState {
     ctx.tPrev = this.time;
     this.time += dt;
     ctx.t = this.time;
+    // The drawbridges' leaves at this moment, before anything stands on them.
+    this.world.lifts.update(this.time);
     for (let i = 0; i < cars.count; i++) ctx.prevMain[i] = mainDistance(this.track, cars.spline[i], cars.s[i]);
     // Systems 3–5: weather, traffic, hazards (all functions of the seed and time).
     this.applyWeather();
@@ -455,6 +461,7 @@ export class Sim implements SimState {
     // Systems 10–11: broadphase and collisions.
     this.grid.rebuild(cars.count, cars.x, cars.z, this.isActive);
     for (let i = 0; i < cars.count; i++) if (cars.active[i] && !cars.remote[i]) collideWalls(this, i);
+    for (let i = 0; i < cars.count; i++) if (cars.active[i] && !cars.remote[i]) collideLifts(this, i);
     // Against another player's car too: yours takes its share of the bump (theirs, on their screen).
     collideCars(this, this.grid);
     for (let i = 0; i < cars.count; i++) if (!cars.remote[i]) collideWorld(this, i, ctx);
@@ -556,6 +563,7 @@ export class Sim implements SimState {
     this.world.breakables.restore(s.wallsBroken ?? []);
     restoreCars(this.cars, s.cars);
     this.applyWeather();
+    this.world.lifts.update(this.time);
   }
 }
 

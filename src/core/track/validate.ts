@@ -269,6 +269,14 @@ export function validateLayout(layout: TrackLayout, surfaces: SurfaceDef[], clas
     if (p.building !== undefined && p.ceiling === undefined) err(`${name}: "building" is how an enclosed piece is built, and it has no ceiling`, sp.id, p.s[0]);
     // On the main road the ground is the road's, so a gap or a tunnel there would do nothing yet.
     if (sp === track.main && (p.floor === false || p.ceiling !== undefined)) err(`${name}: gaps and ceilings are on branches only, for now`, sp.id, p.s[0]);
+    if (p.lift) {
+      const l = p.lift;
+      if (sp !== track.main) err(`${name}: a drawbridge ("lift") is on the main road only, for now`, sp.id, p.s[0]);
+      if (!(l.s[0] > p.s[0] && l.s[1] < p.s[1] && l.s[0] < l.s[1])) err(`${name}: its drawbridge's span ${l.s[0]}–${l.s[1]} m has to be inside it (${p.s[0]}–${p.s[1]} m), its ends the deck's`, sp.id, l.s[0]);
+      if (!(l.angle > 0 && l.angle < 1.5 && l.wall > 0 && l.wall < l.angle)) err(`${name}: its drawbridge wants an angle up to 1.5 rad, and a wall angle between 0 and that`, sp.id, l.s[0]);
+      if (!(l.warn >= 0 && l.rise > 0 && l.up >= 0 && l.fall > 0)) err(`${name}: its drawbridge's warning, rise, up and fall want times (s), the rise and fall over 0`, sp.id, l.s[0]);
+      if (!(l.first[0] >= 0 && l.first[0] <= l.first[1] && l.again[0] >= l.warn + l.rise + l.up + l.fall && l.again[0] <= l.again[1] && l.twice >= 0 && l.twice <= 1)) err(`${name}: its drawbridge's lift times want ranges (s), a second lift no sooner than the first is down`, sp.id, l.s[0]);
+    }
     if (p.under && !(p.under.ease > 0 && p.under.reach > 0)) err(`${name}: "under" needs an ease and a reach over 0 m`, sp.id, p.s[0]);
     // Its run-in (ground/pieces.ts) doesn't wrap past the line: on a loop, the ground across it would meet the floor with a step.
     if (p.under && sp.closed && (p.s[0] < RUN_IN || p.s[1] > sp.length - RUN_IN)) err(`${name}: a piece that shapes the ground under it must end at least ${RUN_IN} m from the start line`, sp.id, p.s[0]);

@@ -17,6 +17,7 @@ import { Sim } from '../core/sim';
 import { bakeTrack, type Track } from '../core/track/bake';
 import { newHit, sampleAt, surfaceAt } from '../core/track/query';
 import { Hasher, hashOf } from './hash';
+import { buildLifts, cycle } from '../core/world/lifts';
 
 /** The fixed drive: the hard AI in a coupe, alone, no traffic or hazards, clear, this long. */
 export const DRIVE_SECONDS = 40;
@@ -40,6 +41,8 @@ export interface Fingerprint {
   /** Where the car was every 10 s of the fixed drive (rounded: a readable hint at what moved). */
   marks: { t: number; s: number; x: number; y: number; z: number; kmh: number }[];
   wrecks: number;
+  /** The drawbridges (PieceDef.lift): their lift times for a few seeds, their angles through a cycle, and their leaves' floors at a few angles. Only for a layout with one. */
+  lifts?: string;
 }
 
 export function fingerprint(layout: TrackLayout, classes: CarClass[], surfaces: SurfaceDef[]): Fingerprint {
@@ -59,6 +62,7 @@ export function fingerprint(layout: TrackLayout, classes: CarClass[], surfaces: 
     branches,
     marks,
     wrecks: main.wrecks,
+    ...(track.ground?.pieces.list.some((p) => p.lift) ? { lifts: liftsHash(track) } : {}),
   };
 }
 
@@ -89,6 +93,34 @@ function drive(track: Track, classes: CarClass[], surfaces: SurfaceDef[], spline
     }
   }
   return { hash: h.hex(), wrecks };
+}
+
+/** The drawbridges, by their answers: when they lift (seeds 1, 7, 42), their angle every half second through each cycle, and the floor along and across each span at a few angles. */
+function liftsHash(track: Track): string {
+  const g = track.ground!;
+  const h = new Hasher();
+  for (const seed of [1, SEED, 42]) {
+    const lifts = buildLifts(track, seed);
+    for (let k = 0; k < lifts.pieces.length; k++)
+      for (const t0 of lifts.starts[k]) {
+        h.num(t0);
+        for (let u = -1; u <= cycle(lifts.defs[k]) + 1; u += 0.5) h.num(lifts.angle(k, t0 + u));
+      }
+  }
+  const lifts = buildLifts(track, SEED);
+  const hit = newHit();
+  for (let k = 0; k < lifts.pieces.length; k++) {
+    const def = lifts.defs[k];
+    for (const th of [0, 0.1, 0.3, def.wall, def.angle]) {
+      g.setLift(lifts.pieces[k], th);
+      for (let s = def.s[0] - 2; s <= def.s[1] + 2; s += 1.5) {
+        sampleAt(track.main, s, hit);
+        for (const l of [-3, 0, 3]) h.num(g.pieceFloor(hit.cx - hit.tz * l, hit.cz + hit.tx * l));
+      }
+    }
+    g.setLift(lifts.pieces[k], 0);
+  }
+  return h.hex();
 }
 
 /** Points across the ground (each way) where its questions are asked, besides along the roads. */

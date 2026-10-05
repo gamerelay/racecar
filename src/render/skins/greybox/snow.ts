@@ -560,9 +560,12 @@ function roadLines(track: Track): Mesh | null {
   const lumpy = (s: number) => uneven.some(([a, b]) => s >= a - 2 && s <= b + 2);
   const red = new Color('#e8433a');
   const blue = new Color('#2f6bff');
+  // A drawbridge's span is its leaves (lifts.ts): no road drawn there.
+  const lifted = g.pieces.list.flatMap((p) => (p.spline === main.index && p.lift ? [p.lift.s] : []));
   for (let i = 0; i < last; i++) {
     const s = i * main.step;
     const wa = main.width[i] / 2;
+    if (lifted.some(([a, b]) => s + main.step > a && s < b)) continue;
     if (lines.some((at) => s >= at && s < at + 4)) {
       const cells = 12;
       for (let k = 0; k < cells; k++) quad(i, -wa + (k * 2 * wa) / cells, -wa + ((k + 1) * 2 * wa) / cells, (k + Math.floor(s)) % 2 === 0 ? white : black);

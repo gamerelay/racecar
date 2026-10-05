@@ -3,7 +3,7 @@
 // in order:
 //
 //   The Quay           the start on the harbour front, heading east to the harbour mouth
-//   The Harbour Bridge over the harbour mouth on a deck (the drawbridge, COASTAL's step 3: fixed for now)
+//   The Harbour Bridge over the harbour on a deck, a drawbridge in its middle (lifts once or twice a race)
 //   The Old Town       up the hill in switchbacks to the top of the town
 //   The Mountain Road  on up into the hills in S-bends, through a spur (a cutting; a rock tunnel later)
 //   The Descent        switchbacks down the mountainside over the sea, rows stacked down the slope
@@ -159,7 +159,15 @@ const { sAt } = onLap(baked);
 
 /** The bridge's deck: from where it leaves the quay to where it lands. */
 const deck: [number, number] = [sAt(BRIDGE.from - 25, BRIDGE.z), sAt(BRIDGE.to + 25, BRIDGE.z)];
-layout.pieces = [{ id: 'harbour-bridge', s: deck, under: { floor: SEA - 6, ease: 20, reach: 15 } }];
+/**
+ * The drawbridge (COASTAL.md, "The drawbridge"): two leaves over the harbour's middle, each half the
+ * span, hinged at its own end. Lifted once or twice a race (the owner): a warning, rising to `angle`,
+ * up while a boat passes, down. Up to `wall` a leaf is a ramp to jump off; steeper, a wall.
+ */
+const LIFT = { width: 60, angle: 1.2, wall: 0.52, warn: 4, rise: 6, up: 8, fall: 6, first: [45, 110] as [number, number], again: [80, 130] as [number, number], twice: 0.5 };
+const mid = sAt((HARBOUR.west + HARBOUR.east) / 2, BRIDGE.z);
+const { width, ...lift } = LIFT;
+layout.pieces = [{ id: 'harbour-bridge', s: deck, under: { floor: SEA - 6, ease: 20, reach: 15 }, lift: { ...lift, s: [mid - width / 2, mid + width / 2] } }];
 // Open everywhere but the bridge, which has its rails.
 layout.walls = {
   gaps: [
@@ -189,4 +197,4 @@ writeFileSync(`${DIR}/riviera.track.json`, `${JSON.stringify(layout)}\n`);
 writeFileSync(`${DIR}/map.json`, `${JSON.stringify({ id: 'coastal', name: 'Coastal', layouts: ['riviera'], palette: 'tropic', sunset: 'sunset', weather: ['clear', 'rain', 'shower', 'rare'], experimental: true })}\n`);
 const track = bakeTrack(layout, surfaces);
 const spur = [sAt(TUNNEL.from[0], TUNNEL.from[1]), sAt(TUNNEL.to[0], TUNNEL.to[1])];
-console.log(`coastal/riviera: ${Math.round(track.main.length)} m, ${pts.length} points, ground ${track.ground!.nx}×${track.ground!.nz}, bridge deck ${deck.join('–')} m, the spur (a tunnel later) ${spur.join('–')} m`);
+console.log(`coastal/riviera: ${Math.round(track.main.length)} m, ${pts.length} points, ground ${track.ground!.nx}×${track.ground!.nz}, bridge deck ${deck.join('–')} m (the drawbridge ${mid - width / 2}–${mid + width / 2} m), the spur (a tunnel later) ${spur.join('–')} m`);

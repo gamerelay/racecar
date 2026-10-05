@@ -10,6 +10,7 @@
 //   --road id|index (default the main road)  --s m[,m…]  --lat m  --class coupe
 //   --cam chase|high|side|top|front, or by hand: --back m --up m --side m --ahead m --fov deg
 //   --w px --h px  --out file (default telemetry/shots/<map>-<s>.png)  --port 5178
+//   --t s  race time: the world then (a drawbridge up, its seed 7's)
 
 import { spawnSync } from 'node:child_process';
 import { join } from 'node:path';
@@ -50,6 +51,8 @@ const spline = roadIndex(track, road);
 const q = new URLSearchParams({ scout: key, s, spline: String(spline), lat: String(lat), cls });
 for (const [k, v] of Object.entries(cam)) q.set(k, String(v));
 for (const [k, v] of Object.entries(size)) if (v !== undefined) q.set(k, String(v));
+const t = a.num('t');
+if (t !== undefined) q.set('t', String(t));
 const out = outFlag ?? join('telemetry', 'shots', `${key.replace('/', '-')}-${s.split(',')[0]}.png`);
 const r = spawnSync('bun', [join(import.meta.dir, 'poster.ts'), '--url', `poster.html?${q}`, '--out', out, '--port', port], { stdio: ['ignore', 'pipe', 'inherit'], encoding: 'utf8' });
 const wrote = r.stdout.includes(`wrote ${out}`);

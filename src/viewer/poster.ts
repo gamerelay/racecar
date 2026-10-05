@@ -39,7 +39,9 @@ function scout(): HTMLCanvasElement {
     s = si;
     const p = car.pose(0);
     const c = cam(Number(q.get('fov') ?? 55), offset(p, Number(q.get('side') ?? 0), Number(q.get('up') ?? 3), -Number(q.get('back') ?? 9)), offset(p, 0, 1, Number(q.get('ahead') ?? 20)));
-    stage.run(0, 1 / 60, c.position);
+    // At race time `t` (default 0): the world then (a drawbridge up).
+    const t0 = Number(q.get('t') ?? 0);
+    stage.run(t0, t0 + 1 / 60, c.position);
     const img = render(stage, c, w, h, 1, {});
     g.drawImage(img, (k % cols) * w, Math.floor(k / cols) * h);
     g.font = '700 18px "Chakra Petch"';

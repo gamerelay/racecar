@@ -19,6 +19,9 @@ and where things stand is [docs/HANDOFF.md](./docs/HANDOFF.md).
   a mountain road, switchbacks down the mountainside over the sea and a lighthouse hairpin, under mostly blue skies (a shower about
   one race in seven). It plays the *Coastal* track. A greybox for now: the drawbridge comes next
   (docs/COASTAL.md).
+- **Coastal's drawbridge** (experimental): the Harbour Bridge lifts once or twice a race, with
+  a warning, barrier arms and flashing lights. Catch it early in a lift and jump it off the near
+  leaf; too late and it's a wall. The AI waits for it, or a hard one jumps it.
 
 ## alpha-1.31: Paradise Open, the Caldera engine and the market hall
 

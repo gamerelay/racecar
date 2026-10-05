@@ -679,6 +679,10 @@ function catchUp(sim: SimState, i: number): number {
   return paid;
 }
 
+/** A respawn this close (m) before a drawbridge that isn't down, or on it, goes back LIFT_BACK m before it. */
+const LIFT_RUNUP = 20;
+const LIFT_BACK = 60;
+
 /** How far before a gap in the road (or its kicker) a respawn is too close to it: no run-up. */
 const GAP_RUNUP = 20;
 
@@ -727,6 +731,13 @@ export function respawn(sim: SimState, i: number): void {
   // Not with no run-up at a gap in the road (a piece with no floor, the Lava Tube's jump): past it.
   const gap = sim.track.ground?.pieces.gaps(cars.lastSpline[i]);
   if (gap) cars.lastS[i] = pastGap(sim.track.splines[cars.lastSpline[i]], gap, cars.lastS[i]);
+  // Not on a drawbridge that's lifting or up (core/world/lifts.ts): back on its approach, to wait.
+  const lifts = sim.world?.lifts;
+  if (lifts && cars.lastSpline[i] === 0)
+    for (let k = 0; k < lifts.pieces.length; k++) {
+      const span = lifts.defs[k].s;
+      if (cars.lastS[i] > span[0] - LIFT_RUNUP && cars.lastS[i] < span[1] && lifts.phase(k, sim.time) !== 'down') cars.lastS[i] = Math.max(0, span[0] - LIFT_BACK);
+    }
   const sp = sim.track.splines[cars.lastSpline[i]];
   const at = sampleAt(sp, cars.lastS[i], sim.hitA);
   const half = at.width / 2 - 2;
