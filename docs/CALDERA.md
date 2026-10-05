@@ -14,8 +14,8 @@ merged** (#83–#98, #102) and released in `alpha-1.31` (#78–#105), on the hos
 - **2a–2d:** feature modules, overrides and the lava stream.
 - **3a–3c:** indoors, breakable walls and buildings (Paradise Open's market hall).
 
-**Next: step 4, moving pieces** (a drawbridge): see "Build order". HANDOFF has the detail and the
-lap floors.
+**Next: step 4, moving pieces** (a drawbridge), on a new map, Coastal
+([COASTAL.md](./COASTAL.md)): see "Build order". HANDOFF has the detail and the lap floors.
 
 **Reading it:** "Principles" and "The core idea: pieces" are the design; "Build order" and "How
 to work on it" are what to do; the rest is reference (moving things, routes, a worked example,
@@ -775,17 +775,18 @@ stream across a route): then the new floor is recorded, with why.
        both. Only the hall has walls.
      - **A branch's road is drawn on into its junctions** (the skin's draped strip): left to the
        ground's cells there, its edge was a staircase where it peeled off the main road.
-4. **Moving pieces**: a drawbridge. *Not started.* Where to begin (the owner picks the spot):
+4. **Moving pieces**: a drawbridge. *Not started.* Where to begin:
    - **What it is:** a piece with a motion, World authority ("Things that move"): its pose at
      race time t is a formula of the seed and the clock, the same on every screen, nothing sent.
      A car on it rides it; a car arriving while it's up jumps the gap off its lip or hits its
      edge (a wall, by the road walls' `bounce`). Its state needs nothing in snapshots if it's a
      pure function of t.
-   - **The likely first one:** a lifting span in the middle of Paradise Open's Freeway, over the
-     bay (boats under it, the seaplanes). The Freeway is already a piece on the main road, so a
-     moving span is a second piece over part of it. Downtown's canal drawbridge (SPEC,
-     "Downtown's five") is a landmark only and Downtown isn't open ground, so it waits for the
-     road graph.
+   - **Where:** on Coastal, a new experimental map built for it ([COASTAL.md](./COASTAL.md),
+     the owner, 2026-10-03): a bascule leaf over a harbour mouth, with a detour round the inner
+     harbour. Coastal's own fingerprints are re-recorded as it changes, while every other map's
+     stay identical, so the feature can be found fast without disturbing Paradise Open. (Paradise
+     Open's Freeway span was the earlier idea. Downtown's canal drawbridge, in SPEC's "Downtown's
+     five", is a landmark only and waits for the road graph.)
    - **What it touches:** `PieceDef` (a motion: its hinge, its up and down times, its angle), the
      floor query and `ground.cast` (a floor that tilts with t: the cast takes t, or the span's
      pose is set each tick before the cars step), `topSlope` (the tilt), the gap's `pastGap`

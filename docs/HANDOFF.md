@@ -186,11 +186,14 @@ paved road (the rim road was hard to see), the green line at the Freeway's end, 
 beside it (`under.reach` 90 → 40), and slippery mud (`red-earth` grip 0.58, drag 0.1). Floors:
 Paradise 71.52 → 70.3 s, Paradise Open 67.27 → 66.35 s. PARADISE.md has the why.
 
-**Next, step 4: moving pieces** (a drawbridge). CALDERA's build order, step 4, has what it is
-and what it touches. The likely first: a lifting span in the middle of Paradise Open's Freeway
-over the bay, a piece with a motion (its angle a pure function of race time, World authority:
-nothing sent). Ask the owner where before building. Camera hints still wait for a spot that needs
-one; TECH_DEBT has the small things the reviews left.
+**Next, step 4: moving pieces** (a drawbridge), **on a new map, Coastal** (the owner, 2026-10-03):
+a harbour town on a headland, Monaco and Riviera in feel, with a drawbridge over the harbour mouth,
+a cape tunnel, a corniche and a lighthouse. The plan is [COASTAL.md](./COASTAL.md). It's
+experimental, and its own fingerprints get re-recorded as it changes; every other map's stay
+identical. So the drawbridge can be iterated on quickly without disturbing Paradise Open. The order:
+COASTAL's step 2 (a greybox lap, the bridge a fixed deck), then step 3 (the drawbridge: CALDERA's
+step 4 has what it touches). Camera hints still wait for a spot that needs one; TECH_DEBT has the
+small things the reviews left.
 
 **Lap floors now** (the best AI lap, solo hard coupe): Downtown 57.9, Backroads 62.82, Avalanche
 93.07, Paradise 70.3, Paradise Open 66.35 s. Paradise Open's field: 34 wrecks in 40 seeds.
