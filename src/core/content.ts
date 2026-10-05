@@ -27,9 +27,15 @@ export interface SplineDef {
 
 export interface BranchDef extends SplineDef {
   id: string;
-  /** Main-spline distance where the branch leaves, and where it rejoins. */
+  /** Where the branch leaves, and where it rejoins: distances along `leaves` and `rejoins` (the main road's by default). */
   from: number;
   to: number;
+  /**
+   * The roads it leaves and rejoins, by id (the road graph, CALDERA step 6e: streets meeting
+   * streets): the main road unless it says, or an earlier branch (a lane off the Stairs).
+   */
+  leaves?: string;
+  rejoins?: string;
   /**
    * 'shortcut': the AI takes it now and then. 'alternate': the long way round something (a
    * drawbridge), taken when that's in the way. 'street': a side street, a loop off the main road and

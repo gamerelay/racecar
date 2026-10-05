@@ -120,9 +120,13 @@ export function racingLine(track: Track, sp: BakedSpline): Line {
   }
   // An open road (one run) ends: stop by its end, in the run-out past the finish.
   if (!sp.closed && sp.index === 0) speed[n - 1] = 0;
-  // A branch rejoins the main road at what the main road's line allows there, so its braking sees
-  // a corner just past the rejoin (out of the Lava Tube flat out, into the rim road's bend).
-  if (sp.index > 0) speed[n - 1] = Math.min(speed[n - 1], lineAt(track.main, sp.mainTo, racingLine(track, track.main).speed));
+  // A branch rejoins its road (the main road, or another branch) at what that road's line allows
+  // there, so its braking sees a corner just past the rejoin (out of the Lava Tube flat out, into
+  // the rim road's bend).
+  if (sp.index > 0) {
+    const rejoin = track.splines[sp.toRoad];
+    speed[n - 1] = Math.min(speed[n - 1], lineAt(rejoin, sp.toS, racingLine(track, rejoin).speed));
+  }
   for (let pass = 0; pass < (sp.closed ? 2 : 1); pass++) {
     for (let i = n - 2; i >= 0; i--) speed[i] = Math.min(speed[i], Math.sqrt(sq(speed[i + 1]) + 2 * brake[i] * sp.step));
     if (sp.closed) speed[n - 1] = Math.min(speed[n - 1], Math.sqrt(sq(speed[0]) + 2 * brake[n - 1] * sp.step));
@@ -257,30 +261,39 @@ export function driveRacer(sim: SimState, i: number, d: RacerDriver, out: Contro
   // Which spline to follow: the one we're on, or a shortcut we've chosen to take.
   let sp = track.splines[c.spline[i]];
   let s = c.s[i];
-  // At a node of the road graph ahead (core/track/graph.ts, step 6d), the quickest way it knows on
-  // to the finish: the main road, a detour (the Basin Road), or a shortcut it knows of (its roll).
-  if (sp.index === 0) {
+  // At a node of the road graph ahead on its road (core/track/graph.ts, step 6d; on any road, 6e),
+  // the quickest way it knows on to the finish: on along this road, a detour (the Basin Road), or a
+  // shortcut it knows of (its roll).
+  {
     const g = track.graph;
     const costs = wayCosts(track);
+    const links = g.links[sp.index];
     for (const k of g.route.streets) {
       const st = g.streets[k];
-      if (st.spline === 0) continue;
+      // (A way off is a branch: the main road is the way on, or where a branch comes back to.)
+      if (st.spline === sp.index || st.spline === 0) continue;
+      // Where its node is on our road (none: not a way off this one).
+      let at = -1;
+      for (const l of links) if (l.node === st.from) at = l.s;
+      if (at < 0) continue;
       const br = track.splines[st.spline];
-      // Approaching the branch, or just past its start but not yet more on it than on the main road.
-      const past = wrap(s - br.mainFrom, L);
-      const toFrom = past < 60 ? -past : wrap(br.mainFrom - s, L);
-      if (toFrom >= 70) continue;
+      // Approaching the node, or just past it but not yet more on the other road than on this one.
+      const past = sp.closed ? wrap(s - at, L) : s - at;
+      const toFrom = past >= 0 && past < 60 ? -past : sp.closed ? wrap(at - s, L) : at - s;
+      if (toFrom >= 70 || toFrom < -60) continue;
       // A detour every driver knows. A shortcut, now and then (its skill), a secret one seldom: now
       // and then a rival vanishes into the trees, and you learn it's there. (A side street's not on
       // the route: never.)
+      // Against this road's way on from the same node (none: our road ends there, no choice to make),
+      // and what it would wait there for.
+      const node = g.nodes[st.from];
+      let stay = -1;
+      for (const m of node.out) if (g.streets[m].spline === sp.index) stay = m;
+      if (stay < 0) continue;
       const detour = sim.track.layout.branches?.[br.index - 1]?.kind === 'alternate';
       if (!detour && !(hash01(sim.seed, i * 131 + br.index, c.lap[i]) < skill.shortcut * (br.secret ? SECRET_TAKE : 1))) continue;
-      // Against the main road's way on from the same node, and what it would wait there for.
-      const node = g.nodes[st.from];
-      let main = -1;
-      for (const m of node.out) if (g.streets[m].spline === 0) main = m;
       const mine = costs.time[k] + costs.toGo[st.to];
-      const theirs = main < 0 ? Infinity : costs.time[main] + costs.toGo[g.streets[main].to] + liftWait(sim, i, speed, d.difficulty, g.streets[main]);
+      const theirs = costs.time[stay] + costs.toGo[g.streets[stay].to] + (sp.index === 0 ? liftWait(sim, i, speed, d.difficulty, g.streets[stay]) : 0);
       if (mine < theirs) {
         sp = br;
         s = -toFrom;
@@ -327,7 +340,8 @@ export function driveRacer(sim: SimState, i: number, d: RacerDriver, out: Contro
   // heading and curvature a moment ahead, and steer out the sideways error.
   const lead = 2 + speed * 0.15;
   const onBranchAhead = s + lead >= 0;
-  const path = onBranchAhead ? sp : track.main;
+  // (Before the fork: the road it's on, the main road or a branch it leaves.)
+  const path = onBranchAhead ? sp : track.splines[c.spline[i]];
   const ps = onBranchAhead ? s + lead : c.s[i] + lead;
   sampleAt(path, ps, look);
   sampleAt(path, ps + 6, probe);

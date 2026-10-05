@@ -59,7 +59,9 @@ export function fingerprint(layout: TrackLayout, classes: CarClass[], surfaces: 
     branches = h.hex();
   }
   return {
-    track: hashOf({ splines: track.splines, checkpoints: track.checkpoints, props: track.props, pines: track.pines, run: track.run }, ['ground']),
+    // (Not a branch's roads and places on them, CALDERA 6e: off the main road they're its mainFrom and
+    // mainTo, hashed; off another branch, its geometry, hashed, says where. test/graph.test.ts has them.)
+    track: hashOf({ splines: track.splines, checkpoints: track.checkpoints, props: track.props, pines: track.pines, run: track.run }, ['ground', 'fromRoad', 'fromS', 'toRoad', 'toS']),
     ground: track.ground ? groundHash(track) : null,
     drive: main.hash,
     branches,

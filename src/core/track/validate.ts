@@ -28,6 +28,8 @@ const GRID_LENGTH = 50;
 const MIN_CEILING = 3;
 /** The sharpest a branch may leave or rejoin the main road at, in degrees. */
 const MAX_FORK = 35;
+/** A branch off another leaves and rejoins it at least this far (m) from its ends (its own forks there). */
+const BRANCH_CLEAR = 30;
 /** Past this many overrides on one layout, a warning: they're meant to be rare, each a to-do for the engine. */
 const MANY_OVERRIDES = 5;
 
@@ -231,19 +233,35 @@ export function validateLayout(layout: TrackLayout, surfaces: SurfaceDef[], clas
 
   // Branches fork off and rejoin gently: an end's nearest point well along the road, not out to
   // the side (the baker adds a slip point when there's room; a sharp fork is a hard kink).
-  for (const b of layout.branches ?? []) {
+  for (const [k, b] of (layout.branches ?? []).entries()) {
+    // Off another branch (6e): an earlier one, not a side street, the junction on it and clear of its ends.
+    for (const [id, at, what] of [
+      [b.leaves, b.from, 'leaves'],
+      [b.rejoins, b.to, 'rejoins'],
+    ] as const) {
+      if (id === undefined) continue;
+      const j = (layout.branches ?? []).findIndex((o) => o.id === id);
+      if (j < 0 || j >= k) {
+        err(`branch ${b.id} ${what} "${id}", which isn't a branch before it (a branch leaves or rejoins the main road or an earlier branch)`, b.id);
+        continue;
+      }
+      if (layout.branches![j].kind === 'street') err(`branch ${b.id} ${what} the side street ${id}; side streets are traffic's, not a way through`, b.id);
+      // (Traffic comes and goes by the main road: traffic.ts's routes.)
+      if (b.kind === 'street') err(`side street ${b.id} ${what} ${id}; a side street leaves and rejoins the main road`, b.id);
+      const on = track.splines[j + 1];
+      if (at < BRANCH_CLEAR || at > on.length - BRANCH_CLEAR) err(`branch ${b.id} ${what} ${id} at ${at.toFixed(0)} m; keep it ${BRANCH_CLEAR} m clear of that road's ends (0 to ${on.length.toFixed(0)} m)`, b.id);
+    }
     const ends = [
-      [b.from, b.points[0], 1],
-      [b.to, b.points[b.points.length - 1], -1],
+      [b.from, b.points[0], 1, track.splines[track.splines[k + 1].fromRoad]],
+      [b.to, b.points[b.points.length - 1], -1, track.splines[track.splines[k + 1].toRoad]],
     ] as const;
-    for (const [s, p, dir] of ends) {
+    for (const [s, p, dir, m] of ends) {
       if (!p) continue;
-      const i = sampleIndex(track.main, s);
-      const m = track.main;
+      const i = sampleIndex(m, s);
       const along = ((p.p[0] - m.px[i]) * m.tx[i] + (p.p[2] - m.pz[i]) * m.tz[i]) * dir;
       const lat = (p.p[0] - m.px[i]) * -m.tz[i] + (p.p[2] - m.pz[i]) * m.tx[i];
       const angle = (atan2(Math.abs(lat), along) * 180) / Math.PI;
-      if (angle > MAX_FORK) warn(`branch ${b.id} ${dir > 0 ? 'leaves' : 'rejoins'} the main road at ${angle.toFixed(0)}°; put its ${dir > 0 ? 'first' : 'last'} point further along and closer in (under ${MAX_FORK}°)`, b.id, dir > 0 ? 0 : undefined);
+      if (angle > MAX_FORK) warn(`branch ${b.id} ${dir > 0 ? 'leaves' : 'rejoins'} ${m.index === 0 ? 'the main road' : m.id} at ${angle.toFixed(0)}°; put its ${dir > 0 ? 'first' : 'last'} point further along and closer in (under ${MAX_FORK}°)`, b.id, dir > 0 ? 0 : undefined);
     }
   }
 
