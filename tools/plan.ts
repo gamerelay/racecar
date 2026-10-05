@@ -89,6 +89,11 @@ for (const p of g?.pieces.list ?? []) {
     parts.push(`<circle cx="${a.cx.toFixed(1)}" cy="${a.cz.toFixed(1)}" r="2" fill="${p.lift ? '#e33' : '#222'}"/>`);
   }
 }
+// Houses: their footprints.
+for (const h of def.houses ?? []) {
+  const deg = (-h.rot * 180) / Math.PI;
+  parts.push(`<rect x="${-h.size[0] / 2}" y="${-h.size[1] / 2}" width="${h.size[0]}" height="${h.size[1]}" fill="#e0904a" stroke="#6a3a1a" stroke-width="0.6" transform="translate(${h.at[0]} ${h.at[1]}) rotate(${deg.toFixed(1)})"/>`);
+}
 for (let s = 0; s < track.main.length; s += 250) {
   sampleAt(track.main, s, hit);
   parts.push(`<circle cx="${hit.cx}" cy="${hit.cz}" r="6" fill="white" stroke="black"/>`);

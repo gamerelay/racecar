@@ -492,7 +492,7 @@ export class GameRenderer {
 
   /** The buildings' walls (track/buildings.ts), which the chase camera stays out of. */
   private get buildingWalls(): readonly BakedProp[] {
-    if (this.walls?.track !== this.sim.track) this.walls = { track: this.sim.track, list: this.sim.track.props.filter((p) => p.kind === 'building-wall') };
+    if (this.walls?.track !== this.sim.track) this.walls = { track: this.sim.track, list: this.sim.track.props.filter((p) => p.kind === 'building-wall' || p.kind === 'house') };
     return this.walls.list;
   }
   private walls?: { track: Track; list: BakedProp[] };

@@ -12,7 +12,7 @@ import type { PinesDef, TrackLayout } from '../content';
 import { hash01 } from '../rng';
 import type { BakedSpline } from './bake';
 import { noise, type Ground } from './ground';
-import { hypot, pow, smoothstep as smooth } from '../math';
+import { cos, hypot, pow, sin, smoothstep as smooth } from '../math';
 
 /** The lookup grid's cell (m). */
 const CELL = 16;
@@ -123,9 +123,20 @@ export function buildPines(def: PinesDef, layout: TrackLayout, main: BakedSpline
   };
 }
 
+/** Trees keep this far (m) off a house's walls. */
+const HOUSE_CLEAR = 3;
+
 /** Where no tree grows: where a feature says (a canyon and its mouth, a mogul field, a lava stream), beside a kicker. */
 function blocked(layout: TrackLayout, ground: Ground, s: number, lat: number, d: number, x: number, z: number): boolean {
   if (ground.bare(s, lat, x, z)) return true;
+  // Not in a house, nor at its walls (TrackLayout.houses).
+  for (const h of layout.houses ?? []) {
+    const dx = x - h.at[0];
+    const dz = z - h.at[1];
+    const fx = sin(h.rot);
+    const fz = cos(h.rot);
+    if (Math.abs(dx * fz - dz * fx) < h.size[0] / 2 + HOUSE_CLEAR && Math.abs(dx * fx + dz * fz) < h.size[1] / 2 + HOUSE_CLEAR) return true;
+  }
   for (const r of layout.ramps ?? []) if (Math.abs(s - r.s) < r.length + (r.back ?? 0) + 12 && d < (r.flank ?? 8) + 8) return true;
   return false;
 }

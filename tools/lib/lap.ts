@@ -9,7 +9,7 @@ import type { Track } from '../../src/core/track/bake';
 import { newHit, projectGlobal, sampleAt } from '../../src/core/track/query';
 
 /** A corner of the lap: r is its radius (none: a plain point). Bank: unset banks into the turn. */
-export type Node = { x: number; z: number; y: number; w: number; r?: number; surface: string; shoulder: number; bank?: number; verge?: string };
+export type Node = { x: number; z: number; y: number; w: number; r?: number; surface: string; shoulder: number; bank?: number; verge?: string; lanes?: number };
 
 /** A bump in the height (meters) centered on the road nearest (x, z), over a length. */
 export interface Crest {
@@ -171,7 +171,7 @@ export function lapPoints(nodes: Node[], crests: Crest[], opts: LapOptions = {})
   return samples.map((s, k) => ({
     p: [r1(s.x), r1(heights[k]), r1(s.z)] as Vec3,
     width: Math.round(widths[k] * 10) / 10,
-    lanes: 2,
+    lanes: s.n.lanes ?? 2,
     shoulder: s.n.shoulder,
     ...(s.n.surface !== 'asphalt' ? { surface: s.n.surface } : {}),
     ...(s.n.verge ? { verge: s.n.verge } : {}),

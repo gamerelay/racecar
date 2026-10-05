@@ -16,10 +16,12 @@
 //   bun tools/gen-coastal.ts
 
 import { mkdirSync, writeFileSync } from 'node:fs';
-import type { TrackLayout, TrackPoint } from '../src/core/content';
+import type { HouseDef, TrackLayout, TrackPoint } from '../src/core/content';
+import { newContact, obbOverlap } from '../src/core/collide/obb';
+import { Rng } from '../src/core/rng';
 import { bakeTrack } from '../src/core/track/bake';
 import { hillHeight } from '../src/core/track/features/hills';
-import { newHit, sampleAt } from '../src/core/track/query';
+import { newHit, projectGlobal, sampleAt } from '../src/core/track/query';
 import surfaces from '../content/surfaces.json';
 import { type Crest, type Node, lapPoints, onLap } from './lib/lap';
 
@@ -28,8 +30,12 @@ const DIR = 'content/maps/coastal';
 const node = (w: number, surface: string, shoulder: number, verge?: string) => (x: number, z: number, y: number, r?: number, more: Partial<Node> = {}): Node => ({ x, z, y, w, r, surface, shoulder, verge, ...more });
 /** The Quay, the bridge and the Promenade: wide. */
 const Q = node(16, 'asphalt', 3);
-/** The home straight, the Promenade's end onto the Quay: wider, for its traffic both ways (two-way on 16 m, the AI was boxed in). */
-const H = node(20, 'asphalt', 3);
+/**
+ * The home straight, the Promenade's end onto the Quay: the Riviera's waterfront boulevard (the
+ * owner, 2026-10-05), four lanes, the sea one side and the town the other. (Two-way traffic on 16 m
+ * boxed the AI in: it's in the outer lanes here, the middle two for racing.)
+ */
+const H = (x: number, z: number, y: number, r?: number): Node => ({ ...node(20, 'asphalt', 3)(x, z, y, r), lanes: 4 });
 /** The Old Town: narrower, between the houses. */
 const T = node(13, 'asphalt', 2);
 /** The hillside, the cutting and the Corniche: a fast road. */
@@ -403,12 +409,84 @@ const STREET = { depth: 32, width: 8, shoulder: 1.5, speed: 14, density: 8 };
   }
   // A lane each way: with the lap on the right (in by the first street, out by the second),
   // against it on the left.
-  const lane = (dir: 1 | -1, streets: string[]) => ({ pos: dir * 0.5, dir, speed: STREET.speed, streets });
+  // (In the boulevard's outer lanes; a street's two lanes are narrower: the same fraction of it.)
+  const lane = (dir: 1 | -1, streets: string[]) => ({ pos: dir * 0.7, dir, speed: STREET.speed, streets });
   layout.traffic = { density: STREET.density, lanes: [lane(1, ['lido', 'quai-sud']), lane(-1, ['rue-du-port', 'rue-des-pins'])] };
+}
+
+/**
+ * The town (the owner, 2026-10-05: the Riviera, Villefranche from the water): houses stacked up the
+ * hill on the town side of the waterfront boulevard, from the end of the Promenade along the Quay to
+ * the harbour, and both sides of the Old Town's climb. Each stretch is [from, to] (main distances,
+ * through the lap's end if `from` > `to`), the side (+1 right, -1 left, 0 both) and how many rows
+ * deep. A house faces the road; it keeps `clear` m off every road's verge (streets and the Basin
+ * Road too), off the water and off its neighbours. The sea side stays the sea's.
+ */
+const TOWN = {
+  stretches: [
+    [4510, 270, -1, 5],
+    [600, 1010, 0, 3],
+  ] as [number, number, number, number][],
+  /** The first row's front this far past the road's verge (a pavement), each row this much further back. */
+  front: 5,
+  row: 14,
+  clear: 3,
+  /** Width across its front, depth, and storeys (3.2 m each); the rows further back a storey taller. */
+  width: [7, 12],
+  depth: [10, 13],
+  storeys: [3, 5],
+};
+{
+  const g = bakeTrack(layout, surfaces);
+  const ground = g.ground!;
+  const rng = Rng.stream(7, 'riviera-town');
+  const range = ([lo, hi]: number[]) => lo + (hi - lo) * rng.next();
+  const hit = newHit();
+  const houses: HouseDef[] = [];
+  const contact = newContact();
+  /** Whether a footprint (its corners and middle) is clear of every road's verge by `clear`, of the water, and of the houses so far. */
+  const free = (x: number, z: number, w: number, d: number, rot: number) => {
+    const fx = Math.sin(rot);
+    const fz = Math.cos(rot);
+    for (const [a, b] of [[0, 0], [-1, -1], [-1, 1], [1, -1], [1, 1], [0, -1], [0, 1], [-1, 0], [1, 0]]) {
+      const px = x + (a * w * fz) / 2 + (b * d * fx) / 2;
+      const pz = z - (a * w * fx) / 2 + (b * d * fz) / 2;
+      if (ground.coast(px, pz) < 6 || ground.height(px, pz) < SEA + 1.5) return false;
+      for (const sp of g.splines) {
+        projectGlobal(sp, px, pz, hit);
+        if (Math.abs(hit.lateral) < hit.width / 2 + hit.shoulder + TOWN.clear) return false;
+      }
+    }
+    // (Terraced: side by side is fine, overlapping isn't. Box against box, a hair smaller.)
+    return houses.every((h) => !obbOverlap(x, z, rot, w / 2 - 0.2, d / 2 - 0.2, h.at[0], h.at[1], h.rot, h.size[0] / 2 - 0.2, h.size[1] / 2 - 0.2, contact));
+  };
+  for (const [from, to, side, rows] of TOWN.stretches) {
+    const len = (to - from + L) % L;
+    for (const sd of side ? [side] : [-1, 1]) {
+      for (let row = 0; row < rows; row++) {
+        for (let u = 0; u < len; ) {
+          const w = range(TOWN.width);
+          const d = range(TOWN.depth);
+          sampleAt(g.main, (from + u + w / 2) % L, hit);
+          const off = hit.width / 2 + hit.shoulder + TOWN.front + row * TOWN.row + d / 2 + range([0, 2]);
+          const x = hit.cx - hit.tz * off * sd;
+          const z = hit.cz + hit.tx * off * sd;
+          // Facing the road.
+          const rot = Math.atan2(hit.tz * sd, -hit.tx * sd);
+          if (free(x, z, w, d, rot)) {
+            const storeys = Math.round(range(TOWN.storeys)) + row;
+            houses.push({ at: [Math.round(x * 10) / 10, Math.round(z * 10) / 10], size: [Math.round(w * 10) / 10, Math.round(d * 10) / 10, Math.round(storeys * 3.2 * 10) / 10], rot: Math.round(rot * 1000) / 1000 });
+          }
+          u += w + range([0.3, 1.5]);
+        }
+      }
+    }
+  }
+  layout.houses = houses;
 }
 
 mkdirSync(DIR, { recursive: true });
 writeFileSync(`${DIR}/riviera.track.json`, `${JSON.stringify(layout)}\n`);
 writeFileSync(`${DIR}/map.json`, `${JSON.stringify({ id: 'coastal', name: 'Coastal', layouts: ['riviera'], palette: 'tropic', sunset: 'sunset', weather: ['clear', 'rain', 'shower', 'rare'], experimental: true })}\n`);
 const track = bakeTrack(layout, surfaces);
-console.log(`coastal/riviera: ${Math.round(track.main.length)} m, ${pts.length} points, ground ${track.ground!.nx}×${track.ground!.nz}, bridge deck ${deck.join('–')} m (the drawbridge ${mid - width / 2}–${mid + width / 2} m), the Rock Tunnel ${tunnel.join('–')} m, the Basin Road ${Math.round(track.splines[1].length)} m (${layout.branches![0].from}–${layout.branches![0].to} m)`);
+console.log(`coastal/riviera: ${Math.round(track.main.length)} m, ${pts.length} points, ground ${track.ground!.nx}×${track.ground!.nz}, bridge deck ${deck.join('–')} m (the drawbridge ${mid - width / 2}–${mid + width / 2} m), the Rock Tunnel ${tunnel.join('–')} m, the Basin Road ${Math.round(track.splines[1].length)} m (${layout.branches![0].from}–${layout.branches![0].to} m), ${layout.houses!.length} houses`);

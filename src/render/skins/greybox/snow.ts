@@ -590,7 +590,13 @@ function roadLines(track: Track): Mesh | null {
     } else if (track.surfaces[main.surface[i]].slide) continue;
     quad(i, -wa + 0.35, -wa + 0.5, white);
     quad(i, wa - 0.5, wa - 0.35, white);
-    if (s % 10 < 3.5) quad(i, -0.09, 0.09, yellow);
+    if (main.lanes[i] >= 4) {
+      // Four lanes (the Riviera's boulevard): a double yellow down the middle, white dashes between
+      // each way's two.
+      quad(i, -0.3, -0.15, yellow);
+      quad(i, 0.15, 0.3, yellow);
+      if (s % 10 < 3.5) for (const at of [-wa / 2, wa / 2]) quad(i, at - 0.08, at + 0.08, white);
+    } else if (s % 10 < 3.5) quad(i, -0.09, 0.09, yellow);
   }
   // A branch's road on the ground (not its decks or gaps), just under the main road's where they
   // meet: drawn on into the junction, so its edge there is its own, not the ground's cells (left to

@@ -7,6 +7,7 @@ import { Breakables, MAX_PANELS, PANEL_WIDTH } from '../world/breakables';
 import { SMASH_IDS } from '../world/smash';
 import { JOIN, STREET_FADE } from '../world/traffic';
 import { bakeTrack, mainDistance, sampleIndex, wrap } from './bake';
+import { newHit, projectGlobal } from './query';
 import { OVERRIDES } from '../maps';
 import { regionProblem, respawnProblem, type OverrideCode } from './overrides';
 import { LAVA_REACH, pathDistance } from './features/lava-stream';
@@ -383,6 +384,30 @@ export function validateLayout(layout: TrackLayout, surfaces: SurfaceDef[], clas
     if ([a, b].some((s) => !(s >= 0 && s <= L))) err(`hazard ${h.use} at ${JSON.stringify(h.s)} is off the main spline (0–${L.toFixed(0)})`, 'main', a);
     if (kind.schedule === 'trigger' && typeof h.s !== 'number') err(`hazard ${h.use} is a trigger: it needs one point (s), not a range, or it never fires`, 'main', a);
   }
+  // Houses: on open ground, clear of every road and its verge, with some size.
+  for (const [k, h] of (layout.houses ?? []).entries()) {
+    if (!layout.ground) {
+      err(`house ${k}: houses stand on open ground (the layout has none)`);
+      break;
+    }
+    if (!(h.size.every((v) => v > 0.5) && h.size[2] < 80)) err(`house ${k}: its size [${h.size.join(', ')}] wants each over 0.5 m (and under 80 m high)`);
+    const fx = sin(h.rot);
+    const fz = cos(h.rot);
+    const at = newHit();
+    // Its corners, the middles of its walls and its middle, against every road.
+    for (const [a, b] of [[0, 0], [-1, -1], [-1, 1], [1, -1], [1, 1], [0, -1], [0, 1], [-1, 0], [1, 0]]) {
+      const x = h.at[0] + (a * h.size[0] * fz) / 2 + (b * h.size[1] * fx) / 2;
+      const z = h.at[1] - (a * h.size[0] * fx) / 2 + (b * h.size[1] * fz) / 2;
+      for (const sp of track.splines) {
+        projectGlobal(sp, x, z, at);
+        if (Math.abs(at.lateral) < at.width / 2 + at.shoulder + 1) {
+          err(`house ${k} at [${h.at.join(', ')}] stands on ${sp.index === 0 ? 'the main road' : sp.id} (${at.s.toFixed(0)} m)`, sp.id, at.s);
+          break;
+        }
+      }
+    }
+  }
+
   // Traffic lanes: inside the road, one way or the other, moving.
   for (const [k, lane] of (layout.traffic?.lanes ?? []).entries()) {
     if (!(Math.abs(lane.pos) <= 1)) err(`traffic lane ${k}: pos ${lane.pos} is off the road (-1 to 1)`);
