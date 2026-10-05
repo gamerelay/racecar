@@ -21,7 +21,7 @@ The main road takes a ceiling now (Coastal's Rock Tunnel, #113: its rock kept ov
 **Step 6, the road graph, is under way** (the owner's call, 2026-10-05: on Coastal, before step 5):
 6a, the graph as data (`Track.graph`, `core/track/graph.ts`, #119): every map's roads as streets
 between nodes, and its race as a route, its checkpoints gates on streets; 6b, a car located over it
-(any road to any other at a node).
+(any road to any other at a node, #120); 6c, progress counted along the route.
 HANDOFF has the detail and the lap floors.
 
 **Reading it:** "Principles" and "The core idea: pieces" are the design; "Build order" and "How
@@ -827,8 +827,13 @@ stream across a route): then the new floor is recorded, with why.
      not only from a branch back to the main road (a test has two branches meeting at one junction).
      Its guess at where it is on the other road: as far past the node, or from a branch onto the
      road it spans, as far through that span (`Link.scale`, as before). Every fingerprint identical.
-   - **6c, progress by gates:** laps, positions and gaps by distance along the route, not a
-     branch's distance squeezed onto the main road's.
+   - **6c, progress by gates** (built): laps, checkpoints, positions, the finish, the grid and the
+     results' gaps count the route (`RoadGraph.along`: how far along it a car is, on the main road
+     its distance from the start, on a street between two of its nodes as far through the route
+     between them; `Gate.at`), not the main road's distances. Exactly the old numbers on every map
+     today (a test checks every road to the bit), so every fingerprint is identical; what changes
+     is that a route needn't be the main road. Main-road distances still run the hazards, traffic,
+     the avalanche and the AI's marks (they're on the main road).
    - **6d, the AI picks streets by cost** at each node (the time each way), for the branch kinds'
      rules and the drawbridge's detour rule.
    - Then Coastal uses it: streets meeting streets (the Old Town's), not only the main road.

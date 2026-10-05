@@ -130,7 +130,7 @@ export class Hud {
     text('lapLabel', run ? 'To go' : 'Lap');
     if (run) {
       // One run: how far to the bottom, not a lap count.
-      const left = c.lap[i] > 0 ? 0 : Math.max(0, run.finish - run.start - c.progress[i]);
+      const left = c.lap[i] > 0 ? 0 : Math.max(0, this.sim.track.graph.route.length - c.progress[i]);
       text('lap', left >= 1000 ? `${(left / 1000).toFixed(1)} km` : `${Math.round(left / 10) * 10} m`);
     }
     // Free drive has no race length: just the lap you're on.

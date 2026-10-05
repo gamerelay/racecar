@@ -54,6 +54,8 @@ export interface Gate {
   x: number;
   y: number;
   z: number;
+  /** How far along the route it is (m): the finish at the route's length. */
+  at: number;
   /** The road's direction there (a car crosses it going this way), and half its width to the walls. */
   tx: number;
   tz: number;
@@ -106,6 +108,13 @@ export interface RoadGraph {
   route: Route;
   /** The street that `spline` is on at `s` (its road's stretch holding it), or -1. */
   streetAt(spline: number, s: number): number;
+  /**
+   * How far along the route (m) a car on `spline` at `s` is (6c: what progress counts): on the main
+   * road, its distance from the start; on a street between two of the route's nodes (a branch, a
+   * side street), as far through the route between them as it is through the street. A lap's wraps
+   * to [0, length); a run's goes on past its start and finish (negative before it).
+   */
+  along(spline: number, s: number): number;
 }
 
 /** The distance from a to b along a closed road of length L, going forward (or back). */
@@ -197,10 +206,25 @@ export function buildGraph(track: Track): RoadGraph {
     sampleAt(main, s, hit);
     // (The finish of a lap is the line: the end of the last street, not the start of the first.)
     const st = finish ? way[way.length - 1] : streetAt(0, s);
-    return { street: st, spline: 0, s, x: hit.cx, y: hit.cy, z: hit.cz, tx: hit.tx, tz: hit.tz, half: hit.width / 2 + hit.shoulder, finish };
+    return { street: st, spline: 0, s, at: s - startS, x: hit.cx, y: hit.cy, z: hit.cz, tx: hit.tx, tz: hit.tz, half: hit.width / 2 + hit.shoulder, finish };
   };
   const gates = [...track.checkpoints.map((s) => gate(s, false)), gate(finishS, true)];
   const route: Route = { closed: main.closed && !run, start: startNode, finish: finishNode, at, way, streets: routeStreets, gates, length: finishS - startS };
+
+  // A street off the main road: how far along the route its two nodes are, and between them (a
+  // lap's round the line the long way, as the branch goes).
+  const routeL = finishS - startS;
+  const span = streets.map((st) => (st.spline === 0 || Number.isNaN(at[st.from]) || Number.isNaN(at[st.to]) ? NaN : main.closed ? wrapAround(at[st.to] - at[st.from], L, true) : at[st.to] - at[st.from]));
+  const along = (spline: number, s: number): number => {
+    // (The main road's own distance, so a lap's is exactly what it always was.)
+    if (spline === 0) return s - startS;
+    const k = streetAt(spline, s);
+    const st = streets[k];
+    if (k < 0 || Number.isNaN(span[k])) return NaN;
+    // (In the order mainDistance did it: a lap's progress is unchanged to the last bit.)
+    const d = at[st.from] + ((s - st.s0) / st.length) * span[k];
+    return main.closed ? wrapAround(d, routeL, true) : d;
+  };
 
   // Each road's links: at every node on it, every other road there (both ways round).
   const links: Link[][] = splines.map(() => []);
@@ -225,5 +249,5 @@ export function buildGraph(track: Track): RoadGraph {
         }
   for (const l of links) l.sort((p, q) => p.other - q.other || p.s - q.s);
 
-  return { nodes, line, links, streets, route, streetAt };
+  return { nodes, line, links, streets, route, streetAt, along };
 }

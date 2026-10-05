@@ -184,7 +184,9 @@ export class Sim implements SimState {
   private finish(n: number): void {
     const cars = this.cars;
     const run = this.track.run;
-    const line = run ? run.finish - run.start : this.race.laps * this.track.main.length;
+    // (Along the race's route: core/track/graph.ts.)
+    const route = this.track.graph.route;
+    const line = run ? route.length : this.race.laps * route.length;
     for (let k = 0; k < n; k++) {
       const i = this.finishers[k];
       this.crossedAgo[k] = (cars.progress[i] - line) / Math.max(1, hypot(cars.vx[i], cars.vz[i]));
@@ -236,7 +238,8 @@ export class Sim implements SimState {
     const at = this.hitA;
     c.lap[i] = 0;
     c.nextCp[i] = 0;
-    c.progress[i] = at.s - (run ? run.start : main.length);
+    // Behind the line on the route (a lap's grid is its last metres, one lap back).
+    c.progress[i] = this.track.graph.along(0, at.s) - (run ? 0 : this.track.graph.route.length);
     c.lapStartTime[i] = this.time;
     c.boost[i] = TUNING.startBoost;
     c.finished[i] = 0;
@@ -258,7 +261,7 @@ export class Sim implements SimState {
     const c = this.cars;
     c.lap[i] = 0;
     c.nextCp[i] = 0;
-    c.progress[i] = at.s - run.start;
+    c.progress[i] = this.track.graph.along(0, at.s);
     c.lapStartTime[i] = this.time;
     this.slalom.reset(i);
   }
