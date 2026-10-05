@@ -376,8 +376,16 @@ deck, `core/world/lifts.ts`.
   The validator's "longer than what it skips" warning is for shortcuts only now.
 - **The AI goes round when the bridge would stop it**, and only then: at the turn it asks the same
   question as at the bridge (down when it gets there and while it crosses, or for a hard driver
-  low enough to jump with nobody waiting), and on the Basin Road the bridge isn't its business.
-  Past the turn, it waits as before. The field over 16 seeds: no wrecks (one nudge before).
+  low enough to jump with nobody waiting), and again 2 s later: a bridge down by then is quicker
+  to slow for (the review; swept over a lift's start times, it takes the quicker way at every
+  one). On the Basin Road the bridge isn't its business; past the turn, it waits as before. The
+  field over 16 seeds: no wrecks (one nudge before).
+- **The validator:** a boat wants a mooring either side of the road, and a second lift no sooner
+  than the boat's across.
+- **Known rough edges:** at either end of the Basin Road, a car in the main road's left lane is
+  read as on the branch for a few ticks (the branch overlaps that lane, and a car's road is the
+  one it's more inside: `locate.ts`, every fork's way). It cost nothing in the sweeps. A car
+  respawned just past the turn while the bridge is up picks the detour too late and waits.
 - **The bells:** from the warning till it's down, a two-tone ring twice a second through the
   warning and once a second after, from the bridge's middle, heard within about 70 m at half
   volume (the audio; nothing in the sim).

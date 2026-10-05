@@ -240,5 +240,8 @@ describe('drawbridge', () => {
     expect(errors(riviera)).toEqual([]);
     expect(errors(withLift({ wall: 1.3 })).length).toBe(1);
     expect(errors(withLift({ s: [bridge.s[0] - 10, def.s[1]] })).length).toBe(1);
+    // Its boat: a mooring either side of the road, and across before a second lift.
+    expect(errors(withLift({ boat: [-100, -50] })).length).toBe(1);
+    expect(errors(withLift({ again: [25, 130] })).length).toBe(1);
   }, 60_000);
 });

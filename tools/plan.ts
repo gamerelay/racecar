@@ -99,6 +99,6 @@ const h = z1 - z0;
 const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${x0} ${z0} ${w} ${h}" width="${Math.round(w)}" height="${Math.round(h)}">${parts.join('')}<text x="${x0 + 20}" y="${z0 + 40}" font-size="32" font-family="sans-serif">${key}: ${Math.round(track.main.length)} m, top ${Math.round(top)} m (north up)</text></svg>`;
 mkdirSync(dirname(out), { recursive: true });
 writeFileSync(out, svg);
-const png = out.replace(/\.svg$/, '.png');
+const png = out.replace(/\.svg$/, '') + '.png';
 const r = spawnSync('rsvg-convert', ['-w', '1400', '-o', png, out]);
 console.log(r.status === 0 ? png : out);

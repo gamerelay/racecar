@@ -277,6 +277,8 @@ export function validateLayout(layout: TrackLayout, surfaces: SurfaceDef[], clas
       if (!(l.s[0] > p.s[0] && l.s[1] < p.s[1] && l.s[0] < l.s[1])) err(`${name}: its drawbridge's span ${l.s[0]}–${l.s[1]} m has to be inside it (${p.s[0]}–${p.s[1]} m), its ends the deck's`, sp.id, l.s[0]);
       if (!(l.angle > 0 && l.angle < 1.5 && l.wall > 0 && l.wall < l.angle)) err(`${name}: its drawbridge wants an angle up to 1.5 rad, and a wall angle between 0 and that`, sp.id, l.s[0]);
       if (!(l.warn >= 0 && l.rise > 0 && l.up >= 0 && l.fall > 0)) err(`${name}: its drawbridge's warning, rise, up and fall want times (s), the rise and fall over 0`, sp.id, l.s[0]);
+      // Its boat sails until twice its time to the road (core/world/lifts.ts boatAt): from one side to the other.
+      if (l.boat && !(l.boat[0] * l.boat[1] < 0 && l.again[0] >= 2 * (l.warn + l.rise + l.up / 2))) err(`${name}: its drawbridge's boat wants a mooring either side of the road, and a second lift no sooner than it's across`, sp.id, l.s[0]);
       if (!(l.first[0] >= 0 && l.first[0] <= l.first[1] && l.again[0] >= l.warn + l.rise + l.up + l.fall && l.again[0] <= l.again[1] && l.twice >= 0 && l.twice <= 1)) err(`${name}: its drawbridge's lift times want ranges (s), a second lift no sooner than the first is down`, sp.id, l.s[0]);
     }
     if (p.under && !(p.under.ease > 0 && p.under.reach > 0)) err(`${name}: "under" needs an ease and a reach over 0 m`, sp.id, p.s[0]);

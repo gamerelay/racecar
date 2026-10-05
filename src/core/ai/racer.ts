@@ -432,21 +432,30 @@ function skips(round: BakedSpline, s: number, L: number): boolean {
 }
 
 /**
- * Whether drawbridge `k` stops car `i`, `ds` m short of its near hinge: not down when it gets there
- * and while it crosses, and (a hard driver, fast) not low enough to jump with nobody waiting.
+ * Whether drawbridge `k` stops car `i`, `ds` m short of its near hinge (arriving `later` s later
+ * than now's pace says): not down when it gets there and while it crosses, and (a hard driver,
+ * fast) not low enough to jump with nobody waiting.
  */
-function liftStops(sim: SimState, i: number, speed: number, difficulty: number, k: number, ds: number): boolean {
+function liftStops(sim: SimState, i: number, speed: number, difficulty: number, k: number, ds: number, later = 0): boolean {
   const lifts = sim.world!.lifts;
   const span = lifts.defs[k].s;
   const pace = Math.max(speed, 12);
-  const t = sim.time + ds / pace;
+  const t = sim.time + ds / pace + later;
   const there = lifts.angle(k, t);
   const across = lifts.angle(k, t + (span[1] - span[0] + 20) / pace);
   if (there === 0 && across === 0) return false;
   return !(difficulty === 2 && speed >= LIFT_JUMP_SPEED && there <= LIFT_JUMP && across <= lifts.defs[k].wall && !waiting(sim, i, span[0], ds));
 }
 
-/** Whether a drawbridge that `round` (a detour) goes round would stop car `i`: then it takes the detour. */
+/**
+ * A bridge down this much (s) after we'd get there is still quicker to slow for than the detour.
+ * The Basin Road is about 5.5 s slower than a clear bridge, but stopping and pulling away cost
+ * most of that back: swept over a lift's start times, 2 s takes the quicker way at every one (the
+ * review: cars went round for a bridge coming down a second or two later).
+ */
+const DETOUR_COST = 2;
+
+/** Whether a drawbridge that `round` (a detour) goes round would stop car `i`, and still would after the detour's cost: then it takes the detour. */
 function liftBlocks(sim: SimState, i: number, speed: number, difficulty: number, round: BakedSpline): boolean {
   const lifts = sim.world?.lifts;
   if (!lifts) return false;
@@ -454,7 +463,8 @@ function liftBlocks(sim: SimState, i: number, speed: number, difficulty: number,
   const here = mainDistance(sim.track, sim.cars.spline[i], sim.cars.s[i]);
   for (let k = 0; k < lifts.pieces.length; k++) {
     const hinge = lifts.defs[k].s[0];
-    if (skips(round, hinge, L) && liftStops(sim, i, speed, difficulty, k, wrap(hinge - here, L))) return true;
+    const ds = wrap(hinge - here, L);
+    if (skips(round, hinge, L) && liftStops(sim, i, speed, difficulty, k, ds) && liftStops(sim, i, speed, difficulty, k, ds, DETOUR_COST)) return true;
   }
   return false;
 }
