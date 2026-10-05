@@ -263,6 +263,39 @@ The engine already has most of what the lap needs. Coastal mostly arranges it:
 The drawbridge comes right after the greybox lap, because it's why the map exists now. The town
 and the look can wait.
 
+## Built so far
+
+**Step 2, the greybox lap (2026-10-04):** `tools/gen-coastal.ts` writes `coastal/riviera`. It's
+experimental, so open it with `?mode=free&map=coastal/riviera`.
+- **The lap:** 3.48 km, laid out from corner nodes in world space, as sketched: the Quay, the
+  Harbour Bridge, the Old Town's four switchbacks up to 43 m, the hillside west at 46 m, the
+  Corniche down the west cliffs, the Lighthouse Point hairpin, the Beach and its chicane, and the
+  Promenade.
+- **The land:** the coast is one loop with a notch for the harbour channel, 70 m wide. The
+  town's hill, the cape's ridge and the hills behind are **`GroundDef.hills`**, a new feature
+  (`core/track/features/hills.ts`): round domes off the roads, cut back to the main road over
+  40 m (as the volcano is), shaped before the coast so the land still falls into the sea.
+- **The Harbour Bridge** is a deck on the main road (a piece with `under`: the ground falls to
+  6 m under the sea beneath it), 7 m over the water, with rails. It's fixed for now.
+- **The Cape Tunnel is a cutting** for now: the main road takes no ceiling yet (below).
+- **Weather:** `rare` in `map.json`'s weather (new, `world/weather.ts`): a shower about one race
+  in seven, where Paradise's list has one in more than two.
+- **Music:** `coastal`, then the tracks for any map.
+- **Numbers:** floor 63.17 s (the best AI lap, solo hard coupe), top speed 220 km/h. The field:
+  no wrecks (there's no traffic and nothing to hit yet). Every other map's fingerprints are
+  identical.
+- **The look is borrowed:** Paradise's `tropic` palette and its palms and jungle trees. The
+  riviera look is step 8.
+
+**What the engine can't do yet** (it shapes steps 3 and 5): on the main road a piece is a deck
+only. Gaps and ceilings are on branches only (PieceDef's doc), because there the ground is the
+road's own. The drawbridge's raised leaf leaves a gap on the main road, and the Cape Tunnel
+wants a ceiling on it, so both need the main road to take them:
+- under a ceiling, the ground stays the hill's over the road;
+- under a gap, there's nothing but what's below.
+
+Doing that once covers both.
+
 ## The owner's answers (2026-10-04)
 
 - **The shape:** the sketch is right (quay, bridge, Old Town, tunnel, corniche, lighthouse, beach,

@@ -381,6 +381,12 @@ export interface GroundDef {
    */
   volcano?: { x: number; z: number; crater: number; h: number; r: number; lava: number; pit?: number };
   /**
+   * Hills (docs/COASTAL.md, core/track/features/hills.ts): round domes off the roads, each its
+   * middle, its height over the sea and its foot's radius (m). Shaped before the coast, so the
+   * land still falls into the sea past it.
+   */
+  hills?: { x: number; z: number; h: number; r: number }[];
+  /**
    * Ground rising steeper than this (rise over run) is a rock face: a car meets it as a wall instead
    * of being lifted up it (the volcano's faces round the Lava Tube's mouths). Unset: every slope is
    * driven up (Avalanche's snow walls).
@@ -454,7 +460,7 @@ export interface MapDef {
   palette: string;
   /** The palette for a race at sunset, if the map has one (the lobby's Time). */
   sunset?: string;
-  /** What weather it gets: `clear`, `rain`, and `shower` for rain that passes (world/weather.ts). */
+  /** What weather it gets: `clear`, `rain`, `shower` for rain that passes, and `rare` for it seldom (world/weather.ts). */
   weather: string[];
   /**
    * Not for a release (docs/AVALANCHE.md): out of the lobby, the map lists and the validator. Its

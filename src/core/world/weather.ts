@@ -44,7 +44,8 @@ function planFall(option: WeatherOption, seed: number, allowed: string[]): Weath
   if (option === 'rain') return { from: 1, to: 1, t0: 0, t1: 0 };
   const r = Rng.stream(seed, 'weather');
   const roll = r.next();
-  if (roll < 0.4) return { from: 0, to: 0, t0: 0, t1: 0 };
+  // (`rare`: mostly blue skies, Coastal's, a shower one race in about seven.)
+  if (roll < (allowed.includes('rare') ? 0.85 : 0.4)) return { from: 0, to: 0, t0: 0, t1: 0 };
   if (allowed.includes('shower')) {
     // A shower: in over 15 s somewhere in the first two laps, 35–60 s of it, out over 20 s.
     const t0 = r.range(40, 120);

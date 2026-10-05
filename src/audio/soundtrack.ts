@@ -14,7 +14,8 @@ export const ANY_MAP: readonly TrackName[] = ['finish-line', 'final-sprint', 're
 /**
  * Each map's own tracks: the city has the Tokyo dubstep too, the island the Hawaiian one (2026-10-01)
  * and the coastal one (2026-10-03), the valley an acoustic one (2026-10-02), the mountain its two
- * (2026-10-03). Paradise Open is the island too, so it has the island's.
+ * (2026-10-03). Paradise Open is the island too, so it has the island's. Coastal has the coastal
+ * one (2026-10-04; `forward` plays on every map).
  */
 export const MAP_TRACKS: Readonly<Record<string, readonly TrackName[]>> = {
   downtown: ['downtown', 'tokyo-dubstep'],
@@ -22,6 +23,7 @@ export const MAP_TRACKS: Readonly<Record<string, readonly TrackName[]>> = {
   paradise: ['paradise', 'hawaiian-vibes', 'coastal'],
   'paradise-open': ['paradise', 'hawaiian-vibes', 'coastal'],
   avalanche: ['avalanche', 'winter-pursuit'],
+  coastal: ['coastal'],
 };
 
 /** The page's playlist: the title's behind the menus (attract mode), else the map's own and the seven for any map. */

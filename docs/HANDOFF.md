@@ -195,8 +195,14 @@ COASTAL's step 2 (a greybox lap, the bridge a fixed deck), then step 3 (the draw
 step 4 has what it touches). Camera hints still wait for a spot that needs one; TECH_DEBT has the
 small things the reviews left.
 
+**Coastal's greybox lap** (COASTAL's step 2, 2026-10-04): `coastal/riviera`, 3.48 km,
+experimental. It has the land in world space (the coast and the new `GroundDef.hills`), the
+Harbour Bridge as a fixed deck, the Cape Tunnel as a cutting, `rare` showers and its music.
+Floor 63.17 s, no wrecks in the field. Next is the drawbridge. The main road needs gaps first
+(it takes decks only); COASTAL's "Built so far" has why.
+
 **Lap floors now** (the best AI lap, solo hard coupe): Downtown 57.9, Backroads 62.82, Avalanche
-93.07, Paradise 70.3, Paradise Open 66.35 s. Paradise Open's field: 34 wrecks in 40 seeds.
+93.07, Paradise 70.3, Paradise Open 66.35, Coastal 63.17 s (experimental). Paradise Open's field: 34 wrecks in 40 seeds.
 
 **Working notes (2026-10-03):**
 - One PR per step, a fresh reviewer at the end (it found real bugs every time: in 0b, 1a and 1b),

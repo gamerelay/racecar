@@ -787,6 +787,10 @@ stream across a route): then the new floor is recorded, with why.
      stay identical, so the feature can be found fast without disturbing Paradise Open. (Paradise
      Open's Freeway span was the earlier idea. Downtown's canal drawbridge, in SPEC's "Downtown's
      five", is a landmark only and waits for the road graph.)
+   - **First, the main road takes a gap** (found building Coastal's lap, COASTAL "Built so
+     far"): on the main road a piece is a deck only, because the ground there is the road's. A
+     raised leaf leaves a gap over the harbour, so the main road needs gaps (and, for Coastal's
+     tunnel, ceilings) as branches have them.
    - **What it touches:** `PieceDef` (a motion: its hinge, its up and down times, its angle), the
      floor query and `ground.cast` (a floor that tilts with t: the cast takes t, or the span's
      pose is set each tick before the cars step), `topSlope` (the tilt), the gap's `pastGap`
