@@ -267,11 +267,13 @@ and the look can wait.
 
 **Step 2, the greybox lap (2026-10-04):** `tools/gen-coastal.ts` writes `coastal/riviera`. It's
 experimental, so open it with `?mode=free&map=coastal/riviera`.
-- **The lap:** 3.48 km, laid out from corner nodes in world space, as sketched: the Quay, the
+- **The lap:** 3.49 km, laid out from corner nodes in world space, as sketched: the Quay, the
   Harbour Bridge, the Old Town's four switchbacks up to 43 m, the hillside west at 46 m, the
   Corniche down the west cliffs, the Lighthouse Point hairpin, the Beach and its chicane, and the
   Promenade.
-- **The land:** the coast is one loop with a notch for the harbour channel, 70 m wide. The
+- **The land:** the coast is one loop with a notch for the harbour, 170 m wide and 200 m deep
+  inland, about 8 m of water in its middle. (A 70 m channel was a sandy creek: the coast is
+  smoothed, and the sea only gets deep well out from it.) The
   town's hill, the cape's ridge and the hills behind are **`GroundDef.hills`**, a new feature
   (`core/track/features/hills.ts`): round domes off the roads, cut back to the main road over
   40 m (as the volcano is), shaped before the coast so the land still falls into the sea.
@@ -281,7 +283,7 @@ experimental, so open it with `?mode=free&map=coastal/riviera`.
 - **Weather:** `rare` in `map.json`'s weather (new, `world/weather.ts`): a shower about one race
   in seven, where Paradise's list has one in more than two.
 - **Music:** `coastal`, then the tracks for any map.
-- **Numbers:** floor 63.17 s (the best AI lap, solo hard coupe), top speed 220 km/h. The field:
+- **Numbers:** floor 64.78 s (the best AI lap, solo hard coupe), top speed 220 km/h. The field:
   no wrecks (there's no traffic and nothing to hit yet). Every other map's fingerprints are
   identical.
 - **The look is borrowed:** Paradise's `tropic` palette and its palms and jungle trees. The

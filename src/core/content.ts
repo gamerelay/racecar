@@ -384,6 +384,8 @@ export interface GroundDef {
    * Hills (docs/COASTAL.md, core/track/features/hills.ts): round domes off the roads, each its
    * middle, its height over the sea and its foot's radius (m). Shaped before the coast, so the
    * land still falls into the sea past it.
+   * Cut back to the main road only, as the volcano is: a branch or a deck across one gets its
+   * full height under it, so keep them off the hills until the road graph.
    */
   hills?: { x: number; z: number; h: number; r: number }[];
   /**

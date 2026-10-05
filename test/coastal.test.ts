@@ -61,6 +61,13 @@ describe('coastal', () => {
     expect(c.piece).toBe(bridge.index);
     expect(c.floor).toBeCloseTo(mid.cy, 1);
     expect(c.ground).toBeLessThan(def.sea! - 2);
+    // A harbour, not a pit under the deck: deep water up the channel, well off the bridge (the deck's
+    // `under` only reaches 15 m past its edges), and its sides still in the water.
+    for (const z of [240, 270]) {
+      expect(g.height(mid.cx, z)).toBeLessThan(def.sea! - 5);
+      expect(g.height(mid.cx - 35, z)).toBeLessThan(def.sea! - 1);
+      expect(g.height(mid.cx + 35, z)).toBeLessThan(def.sea! - 1);
+    }
     const input = { throttle: 1 };
     const d = run(setup(track, CLASSES, SURFACES, { s: bridge.s[0] - 40 }, input, { kmh: 120 }), input, 7, 0.5);
     expect(d.summary.wrecks).toEqual([]);

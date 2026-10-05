@@ -33,20 +33,23 @@ const C = node(15, 'asphalt', 3);
 
 /** The sea's level. */
 const SEA = 0;
-/** The harbour's channel: its sides (x) and its head (z), open to the sea to the south. */
-const HARBOUR = { west: 170, east: 240, head: 215 };
+/**
+ * The harbour: its sides (x) and its head (z), open to the sea to the south. Wide, since the coast
+ * is smoothed and the sea only gets deep well out from it: a narrow channel was a sandy creek.
+ */
+const HARBOUR = { west: 120, east: 290, head: 170 };
 /** The bridge over its mouth, along the Quay's line (z): where its deck starts and ends (x), and how high. */
-const BRIDGE = { z: 322, from: 135, to: 275, y: 7 };
+const BRIDGE = { z: 322, from: 95, to: 315, y: 7 };
 
 const nodes: Node[] = [
   // The Quay: east along the harbour front to the bridge.
   Q(-210, 322, 3),
-  Q(40, 322, 3.5),
+  Q(20, 322, 3.5),
   // The Harbour Bridge: straight over the mouth.
-  Q(BRIDGE.from, BRIDGE.z, BRIDGE.y - 1),
-  Q(BRIDGE.to, BRIDGE.z, BRIDGE.y - 1),
+  Q(BRIDGE.from, BRIDGE.z, BRIDGE.y),
+  Q(BRIDGE.to, BRIDGE.z, BRIDGE.y),
   // The far quay, and left up into the Old Town.
-  Q(410, 318, 3.5, 45),
+  Q(420, 318, 3.5, 45),
   // The Old Town: up the hill in switchbacks.
   T(440, 165, 11, 32),
   T(305, 125, 18, 32),
