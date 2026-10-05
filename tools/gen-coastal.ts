@@ -255,7 +255,8 @@ for (const [side, on] of [['left', walled.left], ['right', walled.right]] as con
     }
     let j = i;
     while (j + 1 < on.length && !on[j + 1]) j++;
-    gaps.push({ s: [i * baked.main.step, j === on.length - 1 ? Math.ceil(L) : (j + 1) * baked.main.step], side });
+    // (Up to the last open sample: the bake clears a gap's ends too, and the first walled one was lost.)
+    gaps.push({ s: [i * baked.main.step, j === on.length - 1 ? Math.ceil(L) : j * baked.main.step], side });
     i = j + 1;
   }
 }
