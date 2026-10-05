@@ -4,7 +4,9 @@ Where racecar stands and what's next, for whoever picks it up (a person or a fre
 The design is [SPEC.md](./SPEC.md): decisions in §17, and what building changed in "Changed while
 building". This file is "where are we"; the spec is "what are we making".
 
-**Last updated:** 2026-10-03. The last tag is **`alpha-1.31`** (PRs #78–#105), on the hosted
+**Last updated:** 2026-10-04. Since the tag: the engine's review fixes (#107), and a new
+experimental map, **Coastal** (#106 the plan, #108 its lap, both merged; #109 the drawbridge, open):
+see "Next: Coastal" below. The last tag is **`alpha-1.31`** (PRs #78–#105), on the hosted
 build: Paradise Open (#81), the engine's plan, [CALDERA.md](./CALDERA.md) (#82), and its steps 0
 to 3c (#83–#98, #102): the fingerprints and tools, the sim's own math, pieces, portals, feature
 modules, overrides, the lava stream, off-road surfaces, indoors, breakable walls and buildings
@@ -186,32 +188,50 @@ paved road (the rim road was hard to see), the green line at the Freeway's end, 
 beside it (`under.reach` 90 → 40), and slippery mud (`red-earth` grip 0.58, drag 0.1). Floors:
 Paradise 71.52 → 70.3 s, Paradise Open 67.27 → 66.35 s. PARADISE.md has the why.
 
-**Next, step 4: moving pieces** (a drawbridge), **on a new map, Coastal** (the owner, 2026-10-03): a
-harbour town on a headland, Monaco and Riviera in feel, with a drawbridge over the harbour mouth, a
-mountain road with a rock tunnel, switchbacks down the mountainside and a lighthouse. The plan is
-[COASTAL.md](./COASTAL.md). It's experimental, and its own fingerprints get re-recorded as it
-changes; every other map's stay identical. So the drawbridge can be iterated on quickly without
-disturbing Paradise Open. The order: COASTAL's step 2 (a greybox lap, the bridge a fixed deck), then
-step 3 (the drawbridge: CALDERA's step 4 has what it touches). Camera hints still wait for a spot
-that needs one; TECH_DEBT has the small things the reviews left.
-
-**Coastal's greybox lap** (COASTAL's step 2, 2026-10-04): `coastal/riviera`, 3.96 km, experimental.
-It has the land in world space (the coast and the new `GroundDef.hills`), the Harbour Bridge as a
-fixed deck, the Descent's switchbacks, the Rock Tunnel as a cutting, `rare` showers and its music.
-Floor 76.33 s, no wrecks in the field. Next is the drawbridge. The main road needs gaps first (it
-takes decks only); COASTAL's "Built so far" has why.
-
-**The drawbridge** (COASTAL's step 3, CALDERA's step 4, 2026-10-04): two leaves over Coastal's
-harbour (`PieceDef.lift`, `core/world/lifts.ts`), lifting once or twice a race at seeded times, a
-pure function of the race clock. Early in a lift a leaf is a ramp to jump; past 30° it's a wall.
-The AI waits for it or (hard) jumps it; respawns go back to the approach. Next: the boat and the
-bells, the Basin Road detour, then COASTAL's step 4 (traffic from side streets) or step 5 (the
-Rock Tunnel, which needs the main road to take a ceiling).
+**Next: Coastal (2026-10-04).** The owner's call: Caldera's next features are built on a new
+experimental map instead of Paradise Open, whose fingerprints, floors and tests made iterating
+slow. Coastal's own fingerprints are re-recorded as it changes; every other map's must stay
+identical (the check that the shared engine didn't move). The plan, what's built and the owner's
+answers are [COASTAL.md](./COASTAL.md): a harbour town on a headland, Monaco and the Riviera in
+feel, blue skies and a rare shower, the `coastal` track. Open it with
+`?mode=free&map=coastal/riviera` (`tools/gen-coastal.ts` writes it).
+- **The lap** (#108, merged): 3.96 km in world space. The Quay, the Harbour Bridge, the Old Town's
+  switchbacks, the Mountain Road's S-bends up to 95 m through a spur (the Rock Tunnel's place, a
+  cutting for now), the Descent (Bond-style switchbacks down the mountainside over the sea, the
+  owner's ask after the first drive found the hillside too linear), the Lighthouse Point hairpin,
+  the Beach and the Promenade. New in the engine: `GroundDef.hills` (round domes off the roads,
+  shaped before the coast) and `rare` weather (a shower about one race in seven).
+- **The drawbridge** (#109, open; COASTAL's step 3, CALDERA's step 4, the first moving piece):
+  `PieceDef.lift`, two leaves over the harbour lifting once or twice a race, 45–110 s after green
+  and again 80–130 s later in half of races, from the seed's own stream. Its angle is a pure
+  function of the race clock (`core/world/lifts.ts`), set on the ground each tick before the cars
+  step; nothing sent online. Early in a lift a leaf is a ramp to jump (every class lands it); past
+  30° it's a wall (`collide/lifts.ts`). The AI waits short of it or, hard, jumps it with nobody
+  waiting ahead; respawns go back to the approach. Drawn with towers, arms and flashing lights.
+  The fingerprint drives the AI at a lift. Its review found real bugs (the AI coasting onto a
+  rising leaf, ghosts through a raised one, the lift clock); all fixed, and the field over 16 seeds
+  has one nudge at the bridge.
+- **Next, in about this order:**
+  1. Merge #109 when the owner's driven it.
+  2. The drawbridge's rest: the boat under it and the bells, and the Basin Road detour round the
+     harbour (a branch; mind its walls: gap them in the generator).
+  3. COASTAL's step 4, traffic from side streets (traffic lanes as routes over more than one road,
+     a step towards CALDERA's road graph), or step 5, the Rock Tunnel: the main road needs to take
+     a ceiling (pieces on it are decks only; COASTAL's "Built so far" has why).
+  4. The town, the cuts, the riviera look (COASTAL's steps 6–8), then into the lobby.
+- **Known rough edges:** a car crawling up a leaf as it passes 30° loses its floor and falls in (the
+  AI never does); hills are cut back to the main road only, so keep branches and decks off them;
+  the lap is long (76 s) for the hairpins, and a descent row could go if the owner wants it shorter.
+- Camera hints still wait for a spot that needs one; TECH_DEBT has the small things the reviews left.
 
 **Lap floors now** (the best AI lap, solo hard coupe): Downtown 57.9, Backroads 62.82, Avalanche
 93.07, Paradise 70.3, Paradise Open 66.35, Coastal 76.33 s (experimental). Paradise Open's field: 34 wrecks in 40 seeds.
 
-**Working notes (2026-10-03):**
+**Working notes (2026-10-03, 2026-10-04):**
+- An AI held at a standstill on the brake reverses (brake past zero is reverse): to hold a car still,
+  brake only while it rolls forward. It cost a long chase on the drawbridge's queue.
+- `drive`'s `t` option and `shot --t` put the world at a race time (a drawbridge up); `poster.ts
+  --url "poster.html?scout=…&t=…"` directly when `shot.ts` flakes.
 - One PR per step, a fresh reviewer at the end (it found real bugs every time: in 0b, 1a and 1b),
   then the owner merges. The PR says whether it's a clean-up (fingerprints identical) or a change.
 - After moving a file into a folder, restart `bun run dev`: Vite keeps the old path cached and
