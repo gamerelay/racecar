@@ -8,8 +8,8 @@ import type { Feature } from '.';
 
 /** Off a road, the volcano's flank comes in over this many meters past its edge (a cutting, not a cliff). */
 const CONE_IN = 40;
-/** The lake's surface is this far over its level (m): a car's wheels in it are in it. */
-const LAVA_SKIN = 0.3;
+/** Lava's surface (the lake's, a stream's) is this far over its level (m): a car's wheels in it are in it. */
+export const LAVA_SKIN = 0.3;
 
 export function volcanoFeature(v: NonNullable<GroundDef['volcano']>, sea: number): Feature {
   return {

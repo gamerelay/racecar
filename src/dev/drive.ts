@@ -84,7 +84,12 @@ export interface DriveResult {
 /** Which road `road` names: an index, an id, or (undefined) the main road. */
 export function roadIndex(track: Track, road: string | number | undefined): number {
   if (road === undefined) return 0;
-  if (typeof road === 'number') return road;
+  // (From the command line an index is a string of digits.)
+  const index = typeof road === 'number' ? road : /^\d+$/.test(road) ? Number(road) : -1;
+  if (index >= 0 || typeof road === 'number') {
+    if (!(Number.isInteger(index) && index < track.splines.length)) throw new Error(`no road ${road} (roads 0 to ${track.splines.length - 1})`);
+    return index;
+  }
   const k = track.splines.findIndex((sp) => sp.id === road);
   if (k < 0) throw new Error(`no road "${road}" (roads: ${track.splines.map((sp) => sp.id).join(', ')})`);
   return k;

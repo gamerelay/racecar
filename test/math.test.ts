@@ -110,7 +110,7 @@ const BITS = '51599ab2928dd6e9';
 describe('the sim uses only its own math', () => {
   // Math's exactly-specified parts only; anything else (Math['sin'], `const { sin } = Math`) fails.
   const EXACT = /^\.(abs|min|max|floor|ceil|round|trunc|sqrt|sign|imul|fround|PI|SQRT2)\b/;
-  test('src/core and src/dev: no Math.sin and the like, no `**`, no Math.random', () => {
+  test('src/core and src/dev: no Math.sin and the like, no `**`, no Math.random, no clock', () => {
     const found: string[] = [];
     for (const dir of ['core', 'dev']) {
       const root = join(import.meta.dir, '../src', dir);
@@ -120,6 +120,8 @@ describe('the sim uses only its own math', () => {
           .replace(/\/\/.*$/gm, '');
         for (const m of code.matchAll(/\bMath\b/g)) if (!EXACT.test(code.slice(m.index + 4))) found.push(`${dir}/${f}: ${code.slice(m.index, m.index + 12)}`);
         if (code.includes('**')) found.push(`${dir}/${f}: **`);
+        // Nor the clock or the machine's randomness: the sim's time is its ticks, its chance the seed.
+        for (const m of code.matchAll(/\b(Date|performance|crypto)\b/g)) found.push(`${dir}/${f}: ${m[0]}`);
       }
     }
     expect(found).toEqual([]);

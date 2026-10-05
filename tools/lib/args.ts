@@ -16,7 +16,10 @@ export function args(argv = process.argv.slice(2)): Args {
     const i = a.indexOf(`--${name}`);
     if (i < 0) return undefined;
     const v = a[i + 1];
+    // (`--s --kmh 100` would read "--kmh" as the distance.)
+    if (v === undefined || v.startsWith('--')) throw new Error(`--${name} wants a value`);
     a.splice(i, 2);
+    if (a.includes(`--${name}`)) throw new Error(`--${name} given twice`);
     return v;
   };
   return {
@@ -44,7 +47,9 @@ export function args(argv = process.argv.slice(2)): Args {
 
 /** "x,z" or "x,z,y" as numbers. */
 export function point(v: string): number[] {
-  const p = v.split(',').map(Number);
-  if (p.length < 2 || p.some((n) => !Number.isFinite(n))) throw new Error(`a point is "x,z" or "x,z,y", got "${v}"`);
+  const parts = v.split(',');
+  const p = parts.map(Number);
+  // (An empty part, "129,-127,", is Number('') = 0: a height of 0, not the ground's.)
+  if (p.length < 2 || p.length > 3 || parts.some((x) => x.trim() === '') || p.some((n) => !Number.isFinite(n))) throw new Error(`a point is "x,z" or "x,z,y", got "${v}"`);
   return p;
 }

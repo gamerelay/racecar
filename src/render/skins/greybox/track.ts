@@ -206,7 +206,10 @@ export function buildTrackVisual(track: Track, palette: Palette, seed: number): 
     // (The island's road, draped over the ground, runs on over its decks: snow.ts. Two roads, one
     // on the other, made a line across it where they met and speckled where they fought.)
     const style: Style = { country: true, floor: (x, z) => ground.height(x, z), island: true, draped: !!ground.coast };
-    const deckSample = ground.pieces.floors(main.index) ?? new Uint8Array(main.n);
+    // (Not a building's: it stands on the ground, and building.ts draws it.)
+    const deckSample = Uint8Array.from(ground.pieces.floors(main.index) ?? new Uint8Array(main.n));
+    const at = ground.pieces.at(main.index);
+    if (at) for (let i = 0; i < main.n; i++) if (at[i] >= 0 && ground.pieces.list[at[i]].building) deckSample[i] = 0;
     for (let i = 0; i < main.n; i++) {
       if (!deckSample[i]) continue;
       let j = i;

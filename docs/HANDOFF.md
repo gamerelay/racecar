@@ -738,6 +738,11 @@ Bugs and gameplay gaps. Refactors, duplication, performance and tooling go in
     need to leave the land alone over its middle and draw portals.
   - The falling sign's and log truck's markers use the road's centre height, like the bombs did
     before; on a banked stretch their rings would sink. Neither sits on a steep bank today.
+- **Found in the engine's review (2026-10-04):**
+  - A car stopped in the hole of a panel that stands again round it is pushed out by up to 0.7 m
+    in one tick as it leaves. Only with `standsAgain`, which no wall uses yet.
+  - (Decided, the owner: Paradise Open's lava stream may end in the coast's sand, its last ~40 m,
+    and a car in the sea at its mouth may wreck as lava rather than out of bounds.)
 - **Found in the tech-debt pass (2026-10-02), not fixed yet** (the first three were, in PR #65):
   - A spurious run-off dust puff: `lastSurface` (renderer.ts) is only updated for cars in effects
     range and not wrecked, so a car that left the road out of range (or wrecked) and comes back

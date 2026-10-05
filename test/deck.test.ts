@@ -762,4 +762,16 @@ describe('pieces and the cast (docs/CALDERA.md, step 1a)', () => {
     expect(errors.some((m) => m.includes('overlap on lava-tube'))).toBe(true);
     expect(errors.some((m) => m.includes('an ease and a reach'))).toBe(true);
   });
+
+  test('the validator: a sample one step into the next piece is an overlap; ground shaping clear of the start line', () => {
+    const lay = layout('paradise-open/open');
+    const tube = lay.pieces!.find((p) => p.id === 'lava-tube-in')!;
+    // Half a meter into the jump: a sample would be both a floor and a gap (it used to pass, up to a step).
+    tube.s = [tube.s[0], tube.s[1] + 0.5];
+    // Its run-in doesn't wrap past the line, so the ground there would meet the floor with a step.
+    lay.pieces!.push({ id: 'start', s: [10, 100], under: { floor: 0, ease: 5, reach: 5 } });
+    const errors = validateLayout(lay, SURFACES, CLASSES).filter((p) => p.level === 'error').map((p) => p.message);
+    expect(errors.some((m) => m.includes('lava-tube-in and lava-jump overlap'))).toBe(true);
+    expect(errors.some((m) => m.includes('from the start line'))).toBe(true);
+  });
 });

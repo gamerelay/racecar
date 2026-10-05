@@ -8,7 +8,7 @@ import { bakeTrack } from '../src/core/track/bake';
 import { validateLayout } from '../src/core/track/validate';
 import { cameraCeiling, indoorAt } from '../src/render/camera';
 import { INDOOR } from '../src/render/skins/greybox/palettes';
-import { fakeBrowser, type FakeTarget } from './fake-audio';
+import { FakeAudioContext, fakeBrowser, type FakeNode, type FakeTarget } from './fake-audio';
 import { CLASSES, SURFACES, citySim, layout } from './helpers';
 
 const open = layout('paradise-open/open');
@@ -78,5 +78,30 @@ describe('the sound indoors', () => {
     // Behind a menu, none.
     audio.update(1 / 60, { ...frame, indoor: 1, menu: true });
     expect(echo()).toBe(0);
+  });
+
+  test('the room’s echo is fed only while it’s heard, and let go once its tail has rung out', () => {
+    const audio = new GameAudio(citySim());
+    (browser.window as FakeTarget).fire('keydown');
+    audio.settings.music = false;
+    if (audio.settings.muted) audio.toggleMute();
+    const frame: AudioFrame = { focus: 0, camera: new PerspectiveCamera(), paused: false, menu: false };
+    const g = (audio as unknown as { g: { room: FakeNode; engines: FakeNode; sfx: FakeNode } }).g;
+    const ctx = FakeAudioContext.all.at(-1)!;
+    const fed = () => g.engines.outs.has(g.room) && g.sfx.outs.has(g.room);
+    audio.update(1 / 60, frame);
+    // Outdoors (every map without a tunnel), the convolver gets nothing to work on.
+    expect(g.engines.outs.has(g.room) || g.sfx.outs.has(g.room)).toBe(false);
+    audio.update(1 / 60, { ...frame, indoor: 1 });
+    expect(fed()).toBe(true);
+    // Out again: still fed while its tail rings, then let go.
+    ctx.currentTime = 10;
+    audio.update(1 / 60, { ...frame, indoor: 0 });
+    ctx.currentTime = 11;
+    audio.update(1 / 60, { ...frame, indoor: 0 });
+    expect(fed()).toBe(true);
+    ctx.currentTime = 13;
+    audio.update(1 / 60, { ...frame, indoor: 0 });
+    expect(g.engines.outs.has(g.room) || g.sfx.outs.has(g.room)).toBe(false);
   });
 });

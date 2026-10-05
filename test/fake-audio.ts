@@ -32,11 +32,17 @@ export class FakeNode {
   onended: Listener | null = null;
   /** When `start` was called for (an oscillator or a buffer source), or -1. */
   startedAt = -1;
+  /** What it's connected to. */
+  readonly outs = new Set<unknown>();
   constructor(readonly kind: string) {}
   connect<T>(to: T): T {
+    this.outs.add(to);
     return to;
   }
-  disconnect() {}
+  disconnect(to?: unknown) {
+    if (to === undefined) this.outs.clear();
+    else this.outs.delete(to);
+  }
   start(when = 0) {
     this.startedAt = when;
   }

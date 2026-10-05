@@ -301,6 +301,12 @@ function wheelGround(g: Ground, x: number, z: number, h: number, y: number): num
   const fz = cos(h) * 1.3;
   const rx = -cos(h) * 0.8;
   const rz = sin(h) * 0.8;
+  // Where an override says what's under, each wheel stands on what it says.
+  if (g.overridden(x, z)) {
+    let sum = 0;
+    for (const [a, b] of WHEELS) sum += g.top(x + fx * a + rx * b, z + fz * a + rz * b, y);
+    return sum / 4;
+  }
   if (g.cast(x, y, z, WHEEL_CAST).piece >= 0) {
     const d = WHEEL_CAST.floor;
     let sum = 0;

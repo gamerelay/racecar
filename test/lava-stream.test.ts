@@ -109,4 +109,14 @@ describe('a lava stream', () => {
     expect(problems.some((p) => p.level === 'error' && p.message.includes('lava stream crosses'))).toBe(true);
     expect(validateLayout(open, SURFACES, CLASSES).filter((p) => p.message.includes('lava stream'))).toEqual([]);
   }, 60_000);
+
+  test("the validator checks every feature's shape before baking (an empty path threw; a zero spacing was NaN heights)", () => {
+    const features = (fs: unknown[]) => validateLayout({ ...open, ground: { ...open.ground!, features: fs as never } }, SURFACES, CLASSES).filter((p) => p.level === 'error').map((p) => p.message);
+    expect(features([{ kind: 'lava-stream', path: [], width: 6, depth: 4 }]).join()).toContain('needs a path of 2 points');
+    expect(features([{ kind: 'lava_stream', path: [], width: 6, depth: 4 }]).join()).toContain('unknown kind "lava_stream"');
+    expect(features([{ kind: 'moguls', s: [100, 200], lateral: [-5, 5], height: 1, spacing: 0 }]).join()).toContain('a height and a spacing');
+    expect(features([{ kind: 'uneven', s: [300, 200], height: 0.3, size: 4 }]).join()).toContain('from the smaller');
+    expect(features([{ kind: 'canyon', s: [100, 200], lateral: 10, floor: 4, depth: 3, ease: 0 }]).join()).toContain('an ease');
+    expect(features([{ kind: 'beach', s: [2000, 100], side: 'left' }])).toEqual([]);
+  }, 60_000);
 });

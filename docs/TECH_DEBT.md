@@ -14,8 +14,9 @@ How to use it:
 - **Each item says roughly what it'd take** (small, medium, large) and what it would buy, so it
   can be weighed against features later.
 
-Last updated 2026-10-03 ("Open ground and Paradise Open", from a review of PRs #79–#81). Before
-that, 2026-10-02: a quick pass over the whole codebase after alpha-1.26 (the sim, the rendering
+Last updated 2026-10-04 ("Caldera, the engine", from a review of the engine's steps 0 to 3c, PRs
+#83–#105; its fixes are under "Done"). Before that, 2026-10-03 ("Open ground and Paradise Open",
+from a review of PRs #79–#81), and 2026-10-02: a quick pass over the whole codebase after alpha-1.26 (the sim, the rendering
 and the page; its bugs went to HANDOFF's "Smaller follow-ups").
 
 ## Online (`src/net`, `src/lobby`)
@@ -82,6 +83,9 @@ contact, join). It works and each part is tested, but some patterns repeat.
   (−2, 3 m), the straight test (0.98, about 11°), "beside" (3 × `slipWidth`), the ease (3/s), the
   drag cut's 0.85 of top, Overdrive's throttle 0.9 (`physics.ts`). The F4 panel can't reach them
   and a replay's TUNING copy doesn't carry them. *Small.*
+- **`shoulderSurface` is looked up five times** (`track.surfaceIndex.get(layout.shoulderSurface ??
+  'sidewalk') ?? 0`: `sim.ts` twice, `dev/probe.ts`, `dev/fingerprint.ts`, the skin's `track.ts`).
+  Once, on `Track` (see also "The validator doesn't check … the verges" below). *Small.*
 - **"The sample at distance s" by hand:** `sampleIndex` (`bake.ts`) exists, but `lineAt`
   (`racer.ts`), `slipstream` (`physics.ts`, clamps without wrapping) and `straightenSections`
   (`validate.ts`) each work it out again. One place to decide the wrap. *Small.*
@@ -223,8 +227,10 @@ From the two code reviews of the art work (moved from HANDOFF; none of it is a b
 - **Split the two biggest functions:** `buildCar` (`car/build.ts`, ~680 lines: body, cabin,
   lamps, wheels, glows) and `buildCityscape` (`cityscape.ts`, ~680: buildings, signs, streets,
   ambience). *Medium.*
-- **A shared `lateralOf(sp, i, x, z)`** in `query.ts` for the ~8 hand-written lateral
-  projections. *Small.*
+- **The lateral projection by hand:** `track/frame.ts` has `along` and `across` (step 1a), but
+  `bake.ts` (`slipPoint`, `sideOf`), `validate.ts`'s older checks and the skin's `track.ts` (which
+  also re-derives `planeOf`) still write it out; the TrackHit forms (`sim.ts`, `collide/walls.ts`,
+  `ai/racer.ts`, `query.ts`, `smash.ts`) want a hit variant. *Small.*
 - **`src/content.ts` (the bundle loader) and `src/core/content.ts` (types) share a name**, and
   `src/content.ts` (Vite's glob) and `tools/content.ts` (readdir) each build the classes, surfaces,
   paints and maps, with the map order from glob order in one and readdir order in the other. One
@@ -292,9 +298,9 @@ From the two code reviews of the art work (moved from HANDOFF; none of it is a b
 
 From a review of the Paradise Open work (PRs #79–#81, 2026-10-03). It all works and is tested;
 this is about shape. Caldera's step 1a cleared three: `buildGround` is split (`ground/`), what's
-under a point is one query (`ground.cast`), and the lateral projection and `smooth` have one home
-each (`track/frame.ts`, `math.ts`'s `smoothstep`; `query.ts`'s own projections remain, see "A
-shared `lateralOf`").
+under a point is one query (`ground.cast`), and `smooth` has one home (`math.ts`'s `smoothstep`).
+The lateral projection has a home too (`track/frame.ts`) but not every copy uses it yet: see "The
+lateral projection by hand". Every item below was checked again on 2026-10-04 and still holds.
 
 - **`snow.ts` draws every open ground**, Paradise's island too: its colours (sand, beach, grass,
   the verges, the volcano's rock), and its roads laid over the ground. Rename it (`openGround.ts`),
@@ -308,8 +314,12 @@ shared `lateralOf`").
   hooks: tidy when a second user turns up (palms asking per point; the canyon list on `Ground`).
   *Small.*
 - **Wrapping past the line is inconsistent:** beaches wrap (`s[0] > s[1]`); pieces (`definePieces`,
-  `runIn`, `pull`) don't, so a piece across s = 0 can't be said (the validator rejects `s[0] > s[1]`). The generator's
-  `beside` doesn't wrap either (fine at 2,685 and 3,255 m). *Small.*
+  `runIn`, `pull`) don't, so a piece across s = 0 can't be said (the validator rejects `s[0] > s[1]`),
+  and one that shapes the ground has to end `RUN_IN` (30 m) short of the line (its run-in
+  doesn't wrap: at s = L it met the floor 1 m off, which the validator now refuses). Moguls,
+  canyons and uneven stretches don't wrap either (the validator wants `s[0] < s[1]`). An
+  `inRange(s, [a, b], L)` would give all of them the beach's rule. The generator's `beside`
+  doesn't wrap either (fine at 2,685 and 3,255 m). *Small.*
 - **`pastGap` (respawns) finds the jump's kicker by its ramp heights** (`sp.ramp`). A gap with no
   kicker, or a kicker not at a gap, would surprise it. A gap could carry its run-up. *Small.*
 - **`physics.ts` and `collide/walls.ts` import each other** (`hitFace`), and `walls.ts`'s
@@ -328,6 +338,101 @@ shared `lateralOf`").
   steps, softened by the surface noise; the sand's edges too. *Small.*
 - **Paradise Open's tests live in `deck.test.ts`** (~700 lines: decks, the island, the tube, the
   jump). A `paradise-open.test.ts` of their own. *Small.*
+
+## Caldera, the engine (`core/track`, `core/world`, `core/collide`, `src/dev`)
+
+From a review of the engine's steps 0 to 3c (PRs #83–#105, 2026-10-04): five reviewers, one per
+area, each finding checked by running it. The bugs it found are fixed (see "Done"); what's
+here is shape, the safety net's holes and costs that grow. Gameplay questions went to HANDOFF.
+
+The safety net:
+
+- **The allocation test can't see garbage.** `core.test.ts` compares `heapUsed` before and after
+  6,000 ticks, but the GC runs during the loop, so only what's *kept* shows: a reviewer added an
+  object, ten objects, a 64-element array per tick and it passed every time (`heapUsed` and
+  `heapStats()` don't move between collections either). CALDERA's "no allocation per tick" rests
+  on it. Count collections over the loop (Node's `perf_hooks` 'gc' observer, or an allocation
+  counter under Bun), or say what it checks. *Small to medium.*
+- **The golden fingerprints drive one car the simple way:** a hard-AI coupe, alone, no traffic,
+  `mayhem: 'off'`, clear weather, 40 s (no lap finished), events counted only as wrecks. So
+  hazards (`world/hazards.ts`, the main user of `exp`, `log` and `tan`), the avalanche, rain and
+  wet grip, traffic, car-to-car contact, a human's inputs (drift, boost) and the other classes
+  aren't covered: a "clean-up" there could change the game and every golden still pass. A second
+  drive per layout (three AI of mixed classes, traffic, chaos, rain, a scripted human car), hashing
+  the event stream. *Small to medium.*
+
+The ground and pieces:
+
+- **Each floor query scans 25 buckets of branch samples** (`branchFloor`, `ground/pieces.ts`: a
+  `Map` of arrays, `near2.fill`), even far from any branch: `cast` ~280 ns on Paradise Open (73 on
+  Avalanche), `topSlope` ~735 ns. A car asks about 12 floor questions a tick (`followGround` casts
+  the same point in `wheelGround`, the landing catch and `topSlope`), ~20 µs of a ~45 µs tick for
+  eight cars: inside the budget, growing with every branch piece. A flat bucket array
+  (`Int32Array` offsets) with a per-bucket "any floor near" bit, or one cast per car per tick
+  reused. *Small to medium.*
+- **`floorQuery`'s `found()` reads what the last `floor()` left** (closure state, `pieces.ts`);
+  `cast` relies on calling them back to back. The piece into an out-param. *Small.*
+- **Two pieces sharing an end share its sample** (`definePieces` marks `ceil(s0/step)` to
+  `floor(s1/step)`): the Lava Tube's 231 and 271 m are in two pieces each, a floor and a gap, and
+  `pieces.at` keeps the later one. Allowed on purpose (the validator now refuses anything more);
+  half-open pieces would end it, at the cost of re-recording Paradise Open. *Small.*
+- **Building walls stop at the last whole sample** (`buildings.ts`): the market hall's run 86.14 to
+  165.26 m of its 86–166, while the bake turns the road's walls off over all of it, so on a road
+  with walls there'd be an unwalled sliver at each door (its street has none). A building shorter
+  than a sample gets a wall of negative length (the validator only wants `s[0] < s[1]`). And
+  `y: at.cy` on the wall is always overwritten by the bake. *Small.*
+- **Nearest point on a polyline and even-odd inside, five times:** `loopDist` and `loopDistance`
+  (`island.ts`), `pathDistance` (`lava-stream.ts`), `insideOf` (`overrides.ts`), `inSea`
+  (`gen-paradise-open.ts`). One geometry helper. *Small.*
+- **"Ease in at the ends"** (`smooth(0, E, min(s - s0, s1 - s))`) is written in canyon, uneven,
+  moguls and beach. *Small.*
+- **Two `TUBE_H`s:** core's 7 m (`ground/index.ts`) and the lapped island's 6.5 m
+  (`render/…/island.ts`). Same name, different things. *Trivial.*
+- **Import paths:** `query.ts` takes `DECK_SLACK` and the `KIND_*`s from `ground/pieces` and
+  `ground/surface` directly; everything else from `ground`. *Trivial.*
+- **The first feature to claim a ground kind wins** (`surface.ts`), in the order they're listed,
+  the coast before the layout's own: so the coast's sand covers the lava stream's last 40 m (11%
+  of its rock). Fine there (the owner), but nothing says which should win where two overlap; a
+  priority on the kind, or the order documented on `Feature.surface`. *Small.*
+
+Breakable walls:
+
+- **`NetBreakables` is ~70% `NetTraffic`** (the cursor, held claims, pending asks, claim → emit →
+  release, `close()`), and the walls borrow `TrafficHit` and `readHit` with `b` unused. One claims
+  class given the event, key, index, time and hold. Neither checks a message against who holds
+  its claim (HANDOFF has it for traffic). *Small to medium.*
+- **`Breakables` repeats `Smashables`' state** (`standing`, `broken(t)`, `restore()`,
+  `world/smash.ts`); only the down time differs. *Small.*
+- **Two `bounce`s in `core/collide`:** `world.ts`'s own, beside `walls.ts`'s imported as
+  `wallBounce`, which `collide/breakables.ts` imports as `bounce`. *Trivial.*
+
+Drawing and sound:
+
+- **Each breakable panel is its own mesh** (`skins/greybox/breakables.ts`): 18 draw calls and their
+  ink on Paradise Open. Merged per wall or instanced per look. *Small.*
+- **The lava ribbon is built twice** (`features.ts` and the lapped `island.ts`: normals from
+  neighbours, a pair per point, the same indices); the material is shared, the geometry isn't.
+  A `ribbon(path, halfAt, yAt)`. *Small.*
+- **Long functions:** `buildPortals` (`portal.ts`, ~200 lines of nested closures) and `hall()`
+  (`building.ts`, ~115); "a point across the road at sample k" is a closure in `building.ts`,
+  `tube.ts` and `track.ts`. *Small to medium.*
+- **`Skin.update` takes seven positional arguments** (`time, x, y, z, wetness, snow, indoor`). An
+  options record. *Small.*
+- **Untested:** the renderer's indoor easing (`updateIndoor`: keeping the look while easing out,
+  the rock fallback, the snap), the skin's fog and light going back to the palette at 0, the
+  breakable panels' drawing (hidden when down, back after `standsAgain`, after a restore), and
+  that `building.ts`'s walls are where the sim's `building-wall` props are (the camera's
+  `inWall` relies on it). *Small each.*
+
+Tools:
+
+- **`gen-paradise-open.ts` is 450 lines of module-level edits to one `layout`**, baking the track
+  eight times (~0.6 s each now); a local `across` shadows `frame.ts`'s, `inSea` tests the raw
+  coast polygon where the ground uses the curved one (its "8 m out" is 1 to 10 m), and
+  `redEarth()` would split a stretch through s = 0 in two. *Medium.*
+- **`roadIndex` lives in `dev/drive.ts`** but probe and shot import it from there, while drive
+  imports `nearestRoad` from probe. It belongs in `probe.ts`. `dev.step` (`main.ts`) copies
+  `frame()`'s steering fill loop. *Trivial.*
 
 ## Performance
 
@@ -380,8 +485,11 @@ are the known costs that grow with content:
   loads), and the `core/collide` modules (only through the sim). The renderer's surfaces (the
   z-fighting gaps) aren't checked either: the landmarks draw on a canvas, so a test needs a fake
   2D context. *Small each.*
-- **The suite takes ~20 s,** 7 s of it the relay tests' sleeps (above), then the map tests
-  (2.5 to 3 s each, building their worlds). *Small to medium.*
+- **The suite takes ~60 s,** up from ~20 s before the engine's steps: Paradise Open is baked
+  in most new test files (about 0.6 s each since its coast got an index, 1.5 s before), the relay
+  tests sleep ~7 s (above), and the breakable walls' and decks' drives run seconds each. One baked
+  track per map shared across files (a cache in `test/helpers.ts`) would cut most of it. *Small
+  to medium.*
 - **Two copies of `env()`** in `tools/publish-assets.ts` and `tools/lib/s3.ts`; the dev
   endpoints in `vite.config.ts` take any size of body, and a missing `session` writes
   `undefined.jsonl`. Dev only. *Trivial.*
@@ -401,6 +509,47 @@ Not problems, but places where a little work would make the code easier to build
 ## Done
 
 What's been handled, so the list above stays the open ones.
+
+- The review of the engine's steps 0 to 3c (2026-10-04, the `caldera-review` PR). Every fingerprint
+  identical; each fix has a test that fails without it.
+  - **Bugs (none on a shipped map's line; each reproduced):**
+    - An override's `cast` didn't reach the wheels: the body leaned to its floor while the car
+      stood on the ground under it (`wheelGround` asked `height`; `Ground.overridden` now sends
+      it through `top`).
+    - A breakable wall with `panel: 0` hung the validator, the editor and `new Sim` (`round(len /
+      0)` panels): a wall is now at most `MAX_PANELS`, and the validator stops at a bad size.
+    - The validator threw on a lava stream with an empty path, said nothing of an unknown
+      feature kind (dropped at bake), a zero mogul spacing (NaN heights) or a stretch the wrong
+      way round: every feature's shape is checked before baking.
+    - Two pieces could overlap by up to a step and pass (a sample both a floor and a gap); a
+      piece that shapes the ground could end at the line, where its run-in doesn't wrap (a 1 m
+      step onto its floor).
+    - A car through a breakable wall at a shallow angle (25° to 60° off square), just over its
+      speed, broke a hole as wide as its footprint, slid along the wall into the next panel,
+      slowed, and bounced off its end, often a wreck (25 of 180 crossings stopped, coasting):
+      the hole now runs as far as it slides while it crosses, and the panels it sweeps past
+      don't slow it (1 of 180, a bus that had slowed under the speed before it got there).
+    - `surfaceAt` took a tunnel's road under the slope for what a car on the slope stands on (the
+      cast's rule now); a branch wider than ~16 m lost its floor near its edges (the search radius
+      was 12 m, now its widest).
+    - The wreck camera orbited out through the market hall's walls (the car hidden, the light
+      flicking indoors and out); the indoor look eased in or out over the grid after a restart
+      in the Lava Tube, and behind the menu after a map change (now it snaps); a building on the
+      main road would have been drawn as a deck too.
+    - `tools/validate.ts` skipped the experimental maps, Paradise Open among them, where all of
+      the engine's pieces, features and walls are.
+    - `--road 1` didn't work in drive, probe or shot (an index from the command line is a string)
+      and an index past the roads crashed later; `tools/fingerprint.ts downtown` reported a false
+      MOVED and `--update` wrote a stray entry; `--s --kmh 100` read "--kmh" as the distance, and
+      `"x,z,"` a height of 0.
+  - **Faster:** the coast's distance from a grid of its segments (`loopDistance`, the same bits as
+    `loopDist`, tested): Paradise Open bakes in ~0.6 s, not 1.5; the room's echo is fed only while
+    it's heard (a convolver works as hard at a gain of 0, on every map); the lava hazard no longer
+    allocates per call.
+  - **Tidier:** the math guard test bans the clock and `crypto` in the sim too; pow's accuracy is
+    stated as measured (up to ~40 ulp squaring); `LAVA_SKIN` is one constant; unused exports
+    (`TAU`, `LAVA_SOURCE`, `groundShape`'s re-export) are gone; an override box's edges are
+    documented (half-open).
 
 - After the tech-debt pass of 2026-10-02 (PR #65):
   - **One fit-to-box for the minimap and the thumbnail:** `fitBox` in `ui/thumb.ts` (the minimap

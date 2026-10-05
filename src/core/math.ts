@@ -1,7 +1,7 @@
 // Small numeric helpers. Everything here works on plain numbers so the hot path never allocates.
 // Below them, the sim's own sin, cos, exp and the rest: src/core uses those, never Math's.
 
-export const TAU = Math.PI * 2;
+const TAU = Math.PI * 2;
 
 export const clamp = (v: number, lo: number, hi: number): number => (v < lo ? lo : v > hi ? hi : v);
 export const lerp = (a: number, b: number, t: number): number => a + (b - a) * t;
@@ -41,8 +41,8 @@ export const MPH = 2.2369363;
 // CPU). So src/core never calls them (test/math.test.ts checks), only these: fdlibm's algorithms,
 // which most engines started from, written with + - * / and Math.sqrt alone, which IEEE 754 makes
 // exact everywhere. Every platform then computes the same bits: one set of golden fingerprints,
-// replays exact across browsers. Each is within an ulp of Math's (tan 3, pow a few more: see it),
-// test/math.test.ts measures them.
+// replays exact across browsers. Each is within an ulp of Math's (tan 3; pow up to ~40 squaring a
+// whole power, more by exp and log for big ones: see it), test/math.test.ts measures them.
 
 /** x², without `**`, whose pow isn't the same everywhere. */
 export const sq = (x: number): number => x * x;

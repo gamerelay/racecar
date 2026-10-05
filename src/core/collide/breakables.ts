@@ -52,16 +52,25 @@ export function collideBreakables(sim: SimState, i: number, br: Breakables, t: n
     const rel = c.h[i] - br.h[k];
     const reach = cls.size[0] * Math.abs(sin(rel)) + cls.size[1] * Math.abs(cos(rel));
     const at = (c.x[i] - br.x[k]) * ux + (c.z[i] - br.z[k]) * uz;
+    // And the wall it slides along while it crosses: through at a shallow angle, the hole its
+    // footprint made fell behind it and it met the next panel's end, slowed and well under
+    // `breaks` across the wall, and bounced off it (often a wreck). Those it sweeps past break
+    // without slowing it: it's going by them, not into them.
+    const depth = cls.size[0] * Math.abs(cos(rel)) + cls.size[1] * Math.abs(sin(rel));
+    const slide = ((vx * ux + vz * uz) * (2 * depth + PANEL_THICK)) / closing;
+    const lo = at - reach + Math.min(0, slide);
+    const hi = at + reach + Math.max(0, slide);
     for (let j = 0; j < br.n; j++) {
       if (br.wall[j] !== br.wall[k] || !br.standing(j, t)) continue;
       const along = (br.x[j] - br.x[k]) * ux + (br.z[j] - br.z[k]) * uz;
-      if (Math.abs(along - at) >= br.half[j] + reach) continue;
+      if (along + br.half[j] <= lo || along - br.half[j] >= hi) continue;
       br.brokenAt[j] = t;
       sim.events.push(sim.tick, Ev.WallBreak, i, br.x[j], br.y[j] + br.height[j] / 2, br.z[j], closing, j, -1);
       if (c.wreck[i]) continue;
+      c.score[i] += BREAK_POINTS;
+      if (Math.abs(along - at) >= br.half[j] + reach) continue;
       c.vx[i] *= BREAK_SLOW;
       c.vz[i] *= BREAK_SLOW;
-      c.score[i] += BREAK_POINTS;
     }
   }
 }

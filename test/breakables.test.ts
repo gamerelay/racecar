@@ -96,6 +96,24 @@ describe('breakable walls', () => {
       }
   });
 
+  test('across at a shallow angle, just over its speed, a car goes through: the hole is as long as it slides along the wall (it met the next panel, slowed, and bounced or wrecked)', () => {
+    // A 30 m wall across the main road (its walls are off), broken at 12 m/s across it.
+    const m = track.main;
+    const k = Math.round(400 / m.step);
+    const [px, py, pz, tx, tz] = [m.px[k], m.py[k], m.pz[k], m.tx[k], m.tz[k]];
+    const wall: BreakableDef = { id: 'w', look: 'boards', from: [px + tz * 15, py, pz - tx * 15], to: [px - tz * 15, py, pz + tx * 15], height: 3, breaks: 12 };
+    const t = bakeTrack({ ...open, breakables: [wall] }, SURFACES);
+    for (const [cls, deg, ratio] of [['coupe', 30, 1.3], ['coupe', 45, 1.15], ['coupe', 60, 1.3], ['bus', 45, 1.3]] as const) {
+      const a = (deg * Math.PI) / 180;
+      const back = cls === 'bus' ? 10 : 6.5;
+      const heading = ((Math.atan2(tx, tz) + a) * 180) / Math.PI;
+      const sim = setup(t, CLASSES, SURFACES, { x: px - tx * back, z: pz - tz * back, heading }, { throttle: 0 }, { cls, kmh: (12 * 3.6 * ratio) / Math.cos(a) });
+      drive(sim, { throttle: 0 }, 1.5, 1.5);
+      const past = (sim.cars.x[0] - px) * tx + (sim.cars.z[0] - pz) * tz;
+      expect([cls, deg, past > 3, sim.cars.wreck[0]]).toEqual([cls, deg, true, 0]);
+    }
+  }, 30_000);
+
   test("a fast car into a wall that takes more than it has is stopped, however deep it gets in a tick", () => {
     // 200 km/h is 0.93 m a tick, past a panel's thickness and more: into a wall that breaks at
     // 250 km/h, it bounces off.
@@ -171,6 +189,8 @@ describe('breakable walls', () => {
       { ...boards, id: 'dot', to: boards.from },
       { ...boards, id: 'air', from: [boards.from[0], boards.from[1] + 5, boards.from[2]], to: [boards.to[0], boards.to[1] + 5, boards.to[2]] },
       { ...boards, id: 'lava-tube-boards' },
+      { ...boards, id: 'no-width', panel: 0 },
+      { ...boards, id: 'slivers', panel: 0.01 },
     ];
     const problems = validateLayout({ ...open, breakables: bad }, SURFACES, CLASSES).map((p) => p.message);
     const of = (id: string) => problems.filter((m) => m.startsWith(`breakable wall ${id}:`));
@@ -178,6 +198,9 @@ describe('breakable walls', () => {
     expect(of('dot').some((m) => m.includes('same place'))).toBe(true);
     expect(of('air').some((m) => m.includes('the floor there'))).toBe(true);
     expect(of('lava-tube-boards').some((m) => m.includes('another with that id'))).toBe(true);
+    // (A panel of no width hung the validator: one panel after another, forever.)
+    expect(of('no-width').some((m) => m.includes('must be over 0'))).toBe(true);
+    expect(of('slivers').some((m) => m.includes('more than'))).toBe(true);
     expect(validateLayout(open, SURFACES, CLASSES).filter((p) => p.message.startsWith('breakable'))).toEqual([]);
     const city = layout('downtown/downtown');
     expect(validateLayout({ ...city, breakables: [boards] }, SURFACES, CLASSES).some((p) => p.message.includes('need open ground'))).toBe(true);

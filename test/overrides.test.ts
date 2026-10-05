@@ -10,6 +10,7 @@ import { newCast } from '../src/core/track/ground';
 import type { OverrideCode } from '../src/core/track/overrides';
 import { newHit, projectGlobal, sampleAt, surfaceAt } from '../src/core/track/query';
 import { validateLayout } from '../src/core/track/validate';
+import { run, setup } from '../src/dev/drive';
 import { describeProbe, probe } from '../src/dev/probe';
 import { CLASSES, SURFACES, layout } from './helpers';
 
@@ -127,6 +128,17 @@ describe('overrides', () => {
     const want = (tilt.top(x + e, z, y) - tilt.top(x - e, z, y)) / (2 * e);
     expect(tilt.topSlope(x, z, y, { x: 0, z: 0 }).x).toBeCloseTo(want, 6);
     expect(tilt.topSlope(x, z, y, { x: 0, z: 0 }).x - g.topSlope(x, z, y, { x: 0, z: 0 }).x).toBeCloseTo(0.5, 1);
+  });
+
+  test("a car stands on a cast hook's floor (its wheels), not the ground under it", () => {
+    const raised = bakeTrack({ ...base, overrides: [stretch] }, SURFACES, { 'test-stretch': { cast: (out) => void (out.floor += 5) } });
+    const sim = setup(raised, CLASSES, SURFACES, { s: 1100 }, { throttle: 0 }, { kmh: 0 });
+    run(sim, { throttle: 0 }, 2, 1);
+    const c = sim.cars;
+    const g = raised.ground!;
+    expect(c.grounded[0]).toBe(1);
+    expect(c.y[0]).toBeCloseTo(g.top(c.x[0], c.z[0], c.y[0]), 1);
+    expect(c.y[0] - g.height(c.x[0], c.z[0])).toBeGreaterThan(4.5);
   });
 
   test('on a looped road a stretch can run through the start line, to exactly its ends', () => {
