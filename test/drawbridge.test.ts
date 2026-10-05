@@ -6,6 +6,7 @@
 import { describe, expect, test } from 'bun:test';
 import { respawn } from '../src/core/car/physics';
 import type { TrackLayout } from '../src/core/content';
+import { Ev } from '../src/core/events';
 import { bakeTrack } from '../src/core/track/bake';
 import { newCast } from '../src/core/track/ground';
 import { newHit, sampleAt } from '../src/core/track/query';
@@ -141,13 +142,20 @@ describe('drawbridge', () => {
     const sim = setup(track, CLASSES, SURFACES, { s: def.s[0] - 250 }, 'ai', { kmh: 100, t: up - 5 });
     let stopped = false;
     let crossed = -1;
+    let hits = 0;
+    let cursor = sim.events.head;
     for (let k = 0; k < 60 * 40 && crossed < 0; k++) {
       sim.step([]);
       const c = sim.cars;
-      if (Math.hypot(c.vx[0], c.vz[0]) < 1 && c.s[0] < def.s[0]) stopped = true;
+      cursor = sim.events.read(cursor, (e) => {
+        if (e.car === 0 && e.type === Ev.WallHit) hits++;
+      });
+      // Held short of the hinge (not parked with its nose on the raised leaf, nor rolled onto it).
+      if (Math.hypot(c.vx[0], c.vz[0]) < 1 && c.s[0] < def.s[0] - 4) stopped = true;
       if (c.s[0] > def.s[1] + 10 && c.s[0] < def.s[1] + 200) crossed = sim.time;
     }
     expect(stopped).toBe(true);
+    expect(hits).toBe(0);
     expect(sim.cars.wreck[0]).toBe(0);
     expect(crossed).toBeGreaterThan(t0 + cycle(def) - 3);
   }, 30_000);
@@ -156,9 +164,13 @@ describe('drawbridge', () => {
     const input = { throttle: 0 };
     const sim = setup(track, CLASSES, SURFACES, { s: 100 }, input, { t: t0 + def.warn + 1 });
     sim.cars.lastSpline[0] = 0;
-    sim.cars.lastS[0] = def.s[0] + 5;
-    respawn(sim, 0);
-    expect(sim.cars.s[0]).toBeLessThan(def.s[0] - 40);
+    for (const at of [def.s[0] + 5, def.s[0] - 30]) {
+      sim.cars.lastSpline[0] = 0;
+      sim.cars.lastS[0] = at;
+      respawn(sim, 0);
+      // (Back past a respawn's ghost run, 1.5 s at 22 m/s: from 30 m out, it ghosted through the leaf.)
+      expect([at, sim.cars.s[0]]).toEqual([at, expect.closeTo(def.s[0] - 60, 0)]);
+    }
     // Down, where you were.
     const down = setup(track, CLASSES, SURFACES, { s: 100 }, input, { t: 1 });
     down.cars.lastSpline[0] = 0;

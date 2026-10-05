@@ -311,8 +311,9 @@ there.)
 
 **Step 3, the drawbridge (2026-10-04):** `PieceDef.lift` (a `LiftDef`) on the Harbour Bridge's
 deck, `core/world/lifts.ts`.
-- **Its times:** from the seed's own stream (`lift:<piece>`): the first warning 45–110 s in, a
-  second 80–130 s after it in half of races. Each cycle: a 4 s warning, rising to 1.2 rad (69°)
+- **Its times:** from the seed's own stream (`lift:<piece>`): the first warning 45–110 s after
+  the race's green (`RaceState.goTime`; the sim's own clock started 30 s before green online, 4 s
+  offline), a second 80–130 s after it in half of races. Each cycle: a 4 s warning, rising to 1.2 rad (69°)
   over 6 s (smoothstep), up 8 s, down over 6 s. Its angle is a pure function of those and the
   race clock: nothing sent online, nothing in snapshots.
 - **The floor:** each tick, before the cars step, the sim sets each leaf's angle on the ground
@@ -323,19 +324,24 @@ deck, `core/world/lifts.ts`.
   wall does (a wreck if fast).
 - **The AI:** it knows the angle ahead. If the bridge will be down when it gets there and while it
   crosses, on; a hard driver also jumps it at 28 m/s or more if the leaf will be at 0.33 rad or
-  less; otherwise it brakes (8 m/s², gently, so the cars behind don't run into it) to stop 8 m
-  short and waits. Too close to stop, with it still down when it gets there, it goes on across.
-- **Respawns:** on it or within 20 m before it while it's lifting or up, a respawn is 60 m back
-  on the approach.
+  less, unless a car is waiting ahead of it (hard drivers went for the leaf as it came down, into
+  the cars still waiting); otherwise it brakes (8 m/s², gently, so the cars behind don't run into
+  it) to stop 8 m short and waits there, as does a car slowed in the queue behind it. Too close to
+  stop, with it still down when it gets there, it goes on across; on the span already, on.
+  Waiting, it brakes only while it still rolls forward: held at a standstill, the brake is reverse,
+  and cars backed out of the queue into the ones behind (most of the review's queue wrecks).
+- **Respawns:** on it or within 40 m before it while it's lifting or up, a respawn is 60 m back
+  on the approach (past a respawn's 1.5 s ghost run at 22 m/s; a ghost bounces off a raised leaf
+  too, without a wreck).
 - **The look:** the leaves (road lines, red and white bands at their tips), towers with a gantry
   and counterweights, barrier arms that drop, and red lights that flash from the warning until
   it's down. The deck's road stops at the hinges.
 - **Tools:** `drive`'s `t` option and `shot --t` show the world at a race time. The fingerprint
-  has a `lifts` part (times for three seeds, angles through a cycle, the leaves' floors at five
-  angles), only for a layout with one.
-- **Numbers:** floor 76.33 s (the solo lap misses the lifts on its seed). The field over 16 seeds:
-  no wrecks at the bridge once the AI braked gently (at 14 m/s² cars queueing for it ran into each
-  other: 5 wrecks in 16 races). Every other map's fingerprints are identical.
+  has a `lifts` part, only for a layout with one: times for three seeds, angles through a cycle,
+  the leaves' floors at five angles, and the hard AI driven at it from 150 m as a lift starts and
+  halfway up (a jump, a wait), every field every tick.
+- **Numbers:** floor 76.33 s (the solo lap misses the lifts on its seed). The field over 16 seeds: one wreck at the bridge, a nudge (5 m/s) as a queue moved off.
+  Every other map's fingerprints are identical.
 - **Known rough edges:** a car crawling up a leaf as it passes 30° loses its floor and falls in
   (the AI never does; a respawn puts you back on the approach). The boat, the bells and the Basin
   Road detour are still to come.

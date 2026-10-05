@@ -16,14 +16,16 @@ export interface Lifts {
   /** The pieces with a lift (their index in `ground.pieces.list`), and each one's def. */
   readonly pieces: readonly number[];
   readonly defs: readonly LiftDef[];
-  /** When each one's lifts start (its warning), s of race time. */
+  /** When each one's lifts start (its warning), s after the race's green (`origin`). */
   readonly starts: readonly (readonly number[])[];
-  /** Lift `k`'s angle (rad) at time `t`: 0 down. */
+  /** The sim's time at the race's green (RaceState.goTime), set by `update`: the lifts count from it. */
+  readonly origin: number;
+  /** Lift `k`'s angle (rad) at sim time `t`: 0 down. */
   angle(k: number, t: number): number;
-  /** Where lift `k` is in its cycle at `t`. */
+  /** Where lift `k` is in its cycle at sim time `t`. */
   phase(k: number, t: number): LiftPhase;
-  /** Every leaf's angle at `t`, onto the ground (before the cars step). */
-  update(t: number): void;
+  /** Every leaf's angle at sim time `t`, onto the ground (before the cars step), the race having gone green at `origin`. */
+  update(t: number, origin: number): void;
 }
 
 /** When a lift's cycles start, from the seed (each lift its own stream). */
@@ -73,8 +75,10 @@ export function buildLifts(track: Track, seed: number): Lifts {
       defs.push(def);
       starts.push(liftStarts(def, seed, p.id));
     }
-  /** The cycle running at `t` (its start), or NaN. */
+  let origin = 0;
+  /** The cycle running at sim time `t` (its start, after green), or NaN. */
   const current = (k: number, t: number) => {
+    t -= origin;
     const list = starts[k];
     for (let j = list.length - 1; j >= 0; j--) if (t >= list[j]) return t - list[j] < cycle(defs[k]) ? list[j] : NaN;
     return NaN;
@@ -85,13 +89,17 @@ export function buildLifts(track: Track, seed: number): Lifts {
     starts,
     angle(k, t) {
       const t0 = current(k, t);
-      return t0 === t0 ? liftAngleAt(defs[k], t - t0) : 0;
+      return t0 === t0 ? liftAngleAt(defs[k], t - origin - t0) : 0;
     },
     phase(k, t) {
       const t0 = current(k, t);
-      return t0 === t0 ? phaseAt(defs[k], t - t0) : 'down';
+      return t0 === t0 ? phaseAt(defs[k], t - origin - t0) : 'down';
     },
-    update(t) {
+    get origin() {
+      return origin;
+    },
+    update(t, from) {
+      origin = from;
       if (!g) return;
       for (let k = 0; k < pieces.length; k++) g.setLift(pieces[k], this.angle(k, t));
     },

@@ -8,7 +8,7 @@ import { Cause, Ev } from '../events';
 import { approach, atan, atan2, clamp, cos, damp, hypot, lerp, pow, sign, sin, smoothstep, sq, wrapAngle } from '../math';
 import type { SimState } from '../state';
 import { locateCar } from '../track/locate';
-import { mainDistance, signedGap } from '../track/bake';
+import { mainDistance, signedGap, wrap } from '../track/bake';
 import { AVALANCHE_AHEAD, AVALANCHE_LINE } from '../world/avalanche';
 import { sampleAt } from '../track/query';
 import { TUNING as T } from './tuning';
@@ -679,8 +679,8 @@ function catchUp(sim: SimState, i: number): number {
   return paid;
 }
 
-/** A respawn this close (m) before a drawbridge that isn't down, or on it, goes back LIFT_BACK m before it. */
-const LIFT_RUNUP = 20;
+/** A respawn this close (m) before a drawbridge that isn't down, or on it, goes back LIFT_BACK m before it (past a respawn's ghost run: 1.5 s at 22 m/s). */
+const LIFT_RUNUP = 40;
 const LIFT_BACK = 60;
 
 /** How far before a gap in the road (or its kicker) a respawn is too close to it: no run-up. */
@@ -736,7 +736,9 @@ export function respawn(sim: SimState, i: number): void {
   if (lifts && cars.lastSpline[i] === 0)
     for (let k = 0; k < lifts.pieces.length; k++) {
       const span = lifts.defs[k].s;
-      if (cars.lastS[i] > span[0] - LIFT_RUNUP && cars.lastS[i] < span[1] && lifts.phase(k, sim.time) !== 'down') cars.lastS[i] = Math.max(0, span[0] - LIFT_BACK);
+      const main = sim.track.main;
+      const from = main.closed ? wrap(cars.lastS[i] - (span[0] - LIFT_RUNUP), main.length) : cars.lastS[i] - (span[0] - LIFT_RUNUP);
+      if (from >= 0 && from < span[1] - span[0] + LIFT_RUNUP && lifts.phase(k, sim.time) !== 'down') cars.lastS[i] = main.closed ? wrap(span[0] - LIFT_BACK, main.length) : Math.max(0, span[0] - LIFT_BACK);
     }
   const sp = sim.track.splines[cars.lastSpline[i]];
   const at = sampleAt(sp, cars.lastS[i], sim.hitA);

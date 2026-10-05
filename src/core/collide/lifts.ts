@@ -18,7 +18,8 @@ export function collideLifts(sim: SimState, i: number): void {
   const g = sim.track.ground;
   if (!lifts || !g || !lifts.pieces.length) return;
   const c = sim.cars;
-  if (c.spline[i] !== 0 || c.ghostT[i] > 0) return;
+  // (A respawning ghost too, as a road's wall: `bounce` doesn't wreck it. Through a raised leaf, it fell in.)
+  if (c.spline[i] !== 0) return;
   const reach = sim.classes[c.cls[i]].size[1];
   for (let k = 0; k < lifts.pieces.length; k++) {
     const def = lifts.defs[k];

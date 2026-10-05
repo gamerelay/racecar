@@ -62,7 +62,7 @@ export function fingerprint(layout: TrackLayout, classes: CarClass[], surfaces: 
     branches,
     marks,
     wrecks: main.wrecks,
-    ...(track.ground?.pieces.list.some((p) => p.lift) ? { lifts: liftsHash(track) } : {}),
+    ...(track.ground?.pieces.list.some((p) => p.lift) ? { lifts: liftsHash(track, classes, surfaces) } : {}),
   };
 }
 
@@ -96,7 +96,7 @@ function drive(track: Track, classes: CarClass[], surfaces: SurfaceDef[], spline
 }
 
 /** The drawbridges, by their answers: when they lift (seeds 1, 7, 42), their angle every half second through each cycle, and the floor along and across each span at a few angles. */
-function liftsHash(track: Track): string {
+function liftsHash(track: Track, classes: CarClass[], surfaces: SurfaceDef[]): string {
   const g = track.ground!;
   const h = new Hasher();
   for (const seed of [1, SEED, 42]) {
@@ -119,6 +119,20 @@ function liftsHash(track: Track): string {
       }
     }
     g.setLift(lifts.pieces[k], 0);
+    // And driven: the hard AI coming at it from 150 m out as each lift starts and halfway up it
+    // (a jump, a wait), every field of the car every tick for a cycle and a bit (riding a leaf, its
+    // wall, the AI's stop and the respawns are in there).
+    for (const u of [def.warn - 3, def.warn + def.rise / 2]) {
+      const sim = new Sim(track, classes, surfaces, { seed: SEED, traffic: 0, mayhem: 'off', weather: 'clear' });
+      sim.addCar({ cls: 'coupe', racer: { difficulty: 2 } });
+      sim.time = lifts.starts[k][0] + u - 150 / 30;
+      sim.placeCar(0, 0, def.s[0] - 150, 0, 30);
+      const c = sim.cars;
+      for (let t = 0; t < 60 * (cycle(def) + 6); t++) {
+        sim.step([]);
+        for (const f of CAR_FIELDS) h.typed(c[f].subarray(0, c.count));
+      }
+    }
   }
   return h.hex();
 }

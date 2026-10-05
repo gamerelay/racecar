@@ -139,7 +139,7 @@ export class Sim implements SimState {
     this.controls = Array.from({ length: MAX_CARS }, neutralControls);
     this.weatherPlan = planWeather(opts.weather ?? 'clear', this.seed, opts.weatherAllowed);
     this.world = this.buildWorld(track);
-    this.world.lifts.update(this.time);
+    this.world.lifts.update(this.time, this.race.goTime);
     this.ctx = { traffic: this.world.traffic, hazards: this.world.hazards, smash: this.world.smash, breakables: this.world.breakables, t: 0, tPrev: 0, prevMain: new Float64Array(MAX_CARS) };
     this.applyWeather();
   }
@@ -308,7 +308,7 @@ export class Sim implements SimState {
     this.ctx.hazards = this.world.hazards;
     this.ctx.smash = this.world.smash;
     this.ctx.breakables = this.world.breakables;
-    this.world.lifts.update(this.time);
+    this.world.lifts.update(this.time, this.race.goTime);
     const c = this.cars;
     for (let i = 0; i < c.count; i++) {
       c.spline[i] = 0;
@@ -417,7 +417,7 @@ export class Sim implements SimState {
     this.time += dt;
     ctx.t = this.time;
     // The drawbridges' leaves at this moment, before anything stands on them.
-    this.world.lifts.update(this.time);
+    this.world.lifts.update(this.time, this.race.goTime);
     for (let i = 0; i < cars.count; i++) ctx.prevMain[i] = mainDistance(this.track, cars.spline[i], cars.s[i]);
     // Systems 3–5: weather, traffic, hazards (all functions of the seed and time).
     this.applyWeather();
@@ -563,7 +563,7 @@ export class Sim implements SimState {
     this.world.breakables.restore(s.wallsBroken ?? []);
     restoreCars(this.cars, s.cars);
     this.applyWeather();
-    this.world.lifts.update(this.time);
+    this.world.lifts.update(this.time, this.race.goTime);
   }
 }
 

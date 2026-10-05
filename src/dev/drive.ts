@@ -149,7 +149,7 @@ export function setup(track: Track, classes: CarClass[], surfaces: SurfaceDef[],
   for (let k = 0; k < (opts.rivals ?? 0); k++) sim.addCar({ cls: classes[k % classes.length].id, racer: { difficulty: 2 } });
   if (opts.t) {
     sim.time = opts.t;
-    sim.world.lifts.update(sim.time);
+    sim.world.lifts.update(sim.time, sim.race.goTime);
   }
   place(sim, 0, spot, opts.kmh ?? 0);
   return sim;
