@@ -46,9 +46,11 @@ describe('coastal', () => {
     for (let x = town.x - 60; x <= town.x + 60; x += 30)
       for (let z = town.z - 60; z <= town.z + 60; z += 30) risen = Math.max(risen, g.height(x, z) - plain.height(x, z));
     expect(risen).toBeGreaterThan(40);
-    // On the road, as without the hills.
+    // On the road, as without the hills (but in the Rock Tunnel, under them: tunnel.test.ts).
     const hit = newHit();
+    const tunnel = g.pieces.list.find((p) => p.id === 'rock-tunnel')!;
     for (let s = 0; s < track.main.length; s += 50) {
+      if (s > tunnel.s[0] && s < tunnel.s[1]) continue;
       sampleAt(track.main, s, hit);
       expect([s, g.height(hit.cx, hit.cz)]).toEqual([s, expect.closeTo(plain.height(hit.cx, hit.cz), 3)]);
     }

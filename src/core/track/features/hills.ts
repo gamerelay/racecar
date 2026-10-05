@@ -26,7 +26,8 @@ export function hillsFeature(hills: NonNullable<GroundDef['hills']>, sea: number
     kind: 'hills',
     shape(p, y) {
       const top = sea + hillHeight(hills, p.x, p.z);
-      return top > y ? y + (top - y) * smooth(p.edge, p.edge + HILL_IN, p.d) : y;
+      // (Over a main-road tunnel, uncut: the road runs under it.)
+      return top > y ? y + (top - y) * (p.rock ? 1 : smooth(p.edge, p.edge + HILL_IN, p.d)) : y;
     },
   };
 }

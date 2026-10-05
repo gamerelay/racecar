@@ -27,6 +27,8 @@ and where things stand is [docs/HANDOFF.md](./docs/HANDOFF.md).
 - **Coastal's traffic comes from side streets**: on the home straight, round the line, cars pull
   out of the car parks and town streets, drive the Quay or the Promenade and turn off again, so
   none appear or vanish on the road. The home straight is wider for them (20 m).
+- **Coastal's Rock Tunnel**: the Mountain Road runs 200 m through the spur, in a limestone tunnel
+  lit by orange lamps.
 
 ## alpha-1.31: Paradise Open, the Caldera engine and the market hall
 

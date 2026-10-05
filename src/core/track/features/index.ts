@@ -43,6 +43,11 @@ export interface ShapePoint {
   edge: number;
   bank: number;
   keep: number;
+  /**
+   * 1 over a main-road tunnel (an enclosed piece): the road runs under the land there, so a feature
+   * that cuts back to the road (the hills) leaves it uncut; 0 elsewhere.
+   */
+  rock: number;
 }
 
 export interface Feature {

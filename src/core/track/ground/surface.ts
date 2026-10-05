@@ -25,6 +25,9 @@ export const KIND_BEACH = 5;
 /** Rock: a lava stream's banks and floor (drives as `lava-rock`). */
 export const KIND_LAVA_ROCK = 6;
 
+/** Over a main-road tunnel's road: ground this far (m) over it is the rock, not the road come up to meet it. */
+const TUNNEL_OVER = 2;
+
 /** The noise the sand's edges wander by (the renderer's grass and beach shading use it too). */
 export const surfaceNoise = (x: number, z: number) => noise(x, z, 23, 7);
 
@@ -46,8 +49,9 @@ export function groundKinds(land: Land, main: BakedSpline, marks: BranchMarks, p
         continue;
       }
       // (Under a deck it's the ground, not the road: the road's up on the deck. Where the ground
-      // comes up to the deck, at its ends, it's the road again: the two meet there.)
-      if (Math.abs(lateral[k]) <= main.width[i] / 2 && (!decks?.[i] || h[k] > main.py[i] - 0.5)) {
+      // comes up to the deck, at its ends, it's the road again: the two meet there. Over a tunnel's
+      // road it's the rock: the road's down under it.)
+      if (Math.abs(lateral[k]) <= main.width[i] / 2 && (!decks?.[i] || (h[k] > main.py[i] - 0.5 && h[k] < main.py[i] + TUNNEL_OVER))) {
         kind[k] = KIND_ROAD;
         continue;
       }

@@ -438,6 +438,33 @@ out on the main road.
   two minutes for three seeds.
 - **Numbers:** floor 98.60 s. Every other map's fingerprints identical.
 
+**Step 5a, the Rock Tunnel (2026-10-05):** the main road takes a ceiling (CALDERA: an enclosed
+piece on the main road, which was branches-only).
+- **The engine:** over a main-road tunnel the land isn't brought down to the road: its rock is kept,
+  at least `ceiling` + 4 m over the road across it and 3 m past its verge, falling away at 45°,
+  under whatever's there (the hills aren't cut back over it: `ShapePoint.rock`). It starts 4 m in
+  from each end, so its face stands inside the tunnel's outline where the drawing cuts the ground
+  (at the very end, the face fell a grid cell short of the cut: a wall across the mouth). The cast
+  needed nothing new: a floor under the ground by more than a hard landing was already a tunnel's.
+  The ground over it is rock, not road (`groundKinds`), and its mouths are marked like a branch
+  tunnel's (no trees). **Mind:** `top(x, z)` with no height is from the sky: over a main-road tunnel
+  that's the rock's top, so anything placed by it (props, slalom gates, `drive`'s x/z spots) must
+  pass the road's height (`top(x, z, roadY + 1)`). The validator wants a main tunnel 20 m or more,
+  not across the lap's start. The validator allows a ceiling on the main road (gaps and buildings stay on
+  branches).
+- **The drawing:** the tube (walls, vault, arches, portals cut to its outline) for a main-road
+  tunnel too, its road and verge in it (the island's road is draped over the ground, and there's
+  none at its height in there); limestone and orange lamps high on its walls for `indoor: 'tunnel'`
+  (the Lava Tube keeps its black rock and lava); no deck pillars under it; the road's lines on its
+  own floor, not on the rock over it; its road isn't drawn as a deck too (the review: a concrete
+  bridge's verge and barriers showed in the tube).
+- **Coastal's:** through the spur on the Mountain Road, 1321–1521 m (200 m), 7.5 m high, wherever
+  the spur's rock stands 18 m or more over the road (`TUNNEL` in the generator); the spur is three
+  domes along the road now (one dome stood over only 80 m of it). Its walls are solid (the rest of
+  the island's open).
+- **Numbers:** floor 97.73 s. Field over 8 seeds: no wrecks in or near it. Every other map's
+  fingerprints identical.
+
 ## The owner's answers (2026-10-04)
 
 - **The shape:** the sketch is right (quay, bridge, Old Town, tunnel, corniche, lighthouse, beach,

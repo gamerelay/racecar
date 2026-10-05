@@ -216,11 +216,12 @@ feel, blue skies and a rare shower, the `coastal` track. Open it with
   130 m, the Descent five long bowed rows, then the Corniche. Floor 98.70 s. `tools/plan.ts` draws
   a layout from above (heights, roads, pieces), for laying one out.
 - **Next, in about this order:**
-  1. (#109, #110, #111 merged 2026-10-05: the drawbridge, the lap reworked, the Basin Road, the
-     bells and the boat.) Traffic from side streets (#112) waits for the owner: lanes by
-     `streets` (branches of kind `street`), on the home straight round the line.
-  2. COASTAL's step 5, the Rock Tunnel: the main road needs to take a ceiling (pieces on it are
-     decks only; COASTAL's "Built so far" has why). Or the Old Town's side streets with its houses.
+  1. (#109–#112 merged 2026-10-05: the drawbridge, the lap reworked, the Basin Road, the bells,
+     the boat, traffic from side streets.) The Rock Tunnel (#113, the main road taking a ceiling)
+     waits for the owner.
+  2. The owner's next asks (2026-10-05): rock rails on the outsides of the tight corners up top
+     (the Descent's hairpins, the S), and the town a Riviera waterfront: four lanes along the water,
+     colourful buildings on the other side.
   3. The town, the cuts, the riviera look (COASTAL's steps 6–8), then into the lobby.
 - **Known rough edges:** a car crawling up a leaf as it passes 30° loses its floor and falls in (the
   AI never does); hills are cut back to the main road only, so keep branches and decks off them;
