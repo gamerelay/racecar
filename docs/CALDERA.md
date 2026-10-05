@@ -19,8 +19,9 @@ drawbridge (`PieceDef.lift`, #109), and the Basin Road round it (#111). Traffic 
 than one road: a lane by side streets (`TrafficLaneDef.streets`, #112), towards step 6's road graph.
 The main road takes a ceiling now (Coastal's Rock Tunnel, #113: its rock kept over it).
 **Step 6, the road graph, is under way** (the owner's call, 2026-10-05: on Coastal, before step 5):
-6a, the graph as data (`Track.graph`, `core/track/graph.ts`): every map's roads as streets between
-nodes, and its race as a route, its checkpoints gates on streets. Nothing reads it in the sim yet.
+6a, the graph as data (`Track.graph`, `core/track/graph.ts`, #119): every map's roads as streets
+between nodes, and its race as a route, its checkpoints gates on streets; 6b, a car located over it
+(any road to any other at a node).
 HANDOFF has the detail and the lap floors.
 
 **Reading it:** "Principles" and "The core idea: pieces" are the design; "Build order" and "How
@@ -820,8 +821,12 @@ stream across a route): then the new floor is recorded, with why.
      way (the main road's streets in order), every street between two of its nodes (the Basin Road
      is; a side street isn't), and its gates (the checkpoints and the finish). The validator now
      refuses a branch across the line (it would miss the finish). `tools/plan.ts` draws it.
-   - **6b, where a car is:** located over the graph (any street to any other at a node), not a
-     branch handing back to the main road only.
+   - **6b, where a car is** (built): `locate` walks the graph's links (`RoadGraph.links`: at each
+     node on a road, every other road there and where it is on it). Near a node, a car is on
+     whichever road meeting there it's most inside of, so it goes from any road to any other there,
+     not only from a branch back to the main road (a test has two branches meeting at one junction).
+     Its guess at where it is on the other road: as far past the node, or from a branch onto the
+     road it spans, as far through that span (`Link.scale`, as before). Every fingerprint identical.
    - **6c, progress by gates:** laps, positions and gaps by distance along the route, not a
      branch's distance squeezed onto the main road's.
    - **6d, the AI picks streets by cost** at each node (the time each way), for the branch kinds'

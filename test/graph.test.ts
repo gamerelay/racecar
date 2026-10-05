@@ -7,6 +7,8 @@ import { bakeTrack, type Track } from '../src/core/track/bake';
 import { newHit, sampleAt } from '../src/core/track/query';
 import type { TrackLayout } from '../src/core/content';
 import { validateLayout } from '../src/core/track/validate';
+import { locateCar } from '../src/core/track/locate';
+import { setup } from '../src/dev/drive';
 import { CLASSES, SURFACES, layout } from './helpers';
 
 const MAPS = ['coastal/riviera', 'downtown/downtown', 'backroads/valley', 'paradise/island', 'paradise-open/open', 'avalanche/slope'];
@@ -139,5 +141,62 @@ describe('the road graph', () => {
         expect(t.graph.streetAt(s.spline, mid)).toBe(s.index);
         expect(t.graph.streetAt(s.spline, -5)).toBe(-1);
       }
+  });
+
+  test("each road's links: at every node, every other road there, and where it is on each", () => {
+    for (const [, t] of tracks) {
+      const g = t.graph;
+      for (const [a, links] of g.links.entries())
+        for (const l of links) {
+          // The same node, seen from the other road.
+          expect(g.links[l.other].some((m) => m.node === l.node && m.other === a && m.s === l.os && m.os === l.s)).toBe(true);
+          const n = g.nodes[l.node];
+          const hit = sampleAt(t.splines[a], l.s, newHit());
+          expect(Math.hypot(n.x - hit.cx, n.z - hit.cz)).toBeLessThan(1.5);
+        }
+      // A branch onto the main road: its span there over its own length; the main road onto it, 1.
+      for (const sp of t.splines.slice(1)) {
+        for (const l of g.links[sp.index]) if (l.other === 0) expect(l.scale).toBeCloseTo((sp.mainTo - sp.mainFrom) / sp.length, 9);
+        for (const l of g.links[0]) expect(l.scale).toBe(1);
+      }
+    }
+  });
+});
+
+describe('locate over the graph (6b)', () => {
+  // Backroads with a second branch leaving where the barn shortcut rejoins (334 m), out 18 m to the
+  // side and back at 500 m: two branches meeting at one junction, which the old locate (a branch
+  // hands back to the main road only) couldn't go between.
+  const base = layout('backroads/valley');
+  const plain = tracks.get('backroads/valley')!;
+  const hit = newHit();
+  const side = [360, 390, 420, 450, 475].map((s) => {
+    sampleAt(plain.main, s, hit);
+    return { p: [hit.cx - hit.tz * 18, hit.cy, hit.cz + hit.tx * 18] as [number, number, number], width: 7, lanes: 1, shoulder: 1, surface: 'dirt' };
+  });
+  const two: TrackLayout = { ...base, branches: [...base.branches!, { id: 'byway', kind: 'shortcut', from: 334, to: 500, points: side }] };
+  const t = bakeTrack(two, SURFACES);
+  const barn = t.splines.find((sp) => sp.id === 'barn')!;
+  const byway = t.splines.find((sp) => sp.id === 'byway')!;
+
+  test('the two meet at one junction: each linked to the other there', () => {
+    const at = t.graph.links[barn.index].filter((l) => l.other === byway.index);
+    expect(at.length).toBe(1);
+    expect([at[0].s, at[0].os]).toEqual([barn.length, 0]);
+  });
+
+  test('off the end of one, well onto the other: on the other, not handed back to the main road', () => {
+    const sim = setup(t, CLASSES, SURFACES, { road: 'barn', s: barn.length - 5 }, 'ai');
+    const { cars } = sim;
+    const at = sampleAt(byway, 40, newHit());
+    cars.spline[0] = barn.index;
+    cars.s[0] = barn.length - 0.5;
+    cars.x[0] = at.cx;
+    cars.y[0] = at.cy;
+    cars.z[0] = at.cz;
+    locateCar(sim, 0);
+    expect(cars.spline[0]).toBe(byway.index);
+    expect(cars.s[0]).toBeCloseTo(40, 0);
+    expect(Math.abs(cars.lateral[0])).toBeLessThan(0.5);
   });
 });

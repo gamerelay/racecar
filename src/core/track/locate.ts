@@ -1,9 +1,9 @@
-// Which spline a car is on, and where along it. Near a junction the car could be on the main road
-// or a branch; it's on whichever one it's more inside of (with a little hysteresis). While it's
-// inside both roads, neither road's wall applies (`junctionFree`).
+// Which spline a car is on, and where along it. Near a node of the road graph (core/track/graph.ts,
+// step 6b) the car could be on any road that meets there; it's on whichever one it's more inside of
+// (with a little hysteresis). While it's inside two, neither road's wall applies (`junctionFree`).
 
 import type { SimState } from '../state';
-import { mainDistance, signedGap } from './bake';
+import { signedGap } from './bake';
 import { project, projectGlobal, surfaceAt, type TrackHit } from './query';
 
 const WINDOW = 90;
@@ -20,44 +20,37 @@ export function locateCar(sim: SimState, i: number): TrackHit {
   if (Math.abs(cur.lateral) > cur.width / 2 + cur.shoulder + 60) projectGlobal(sp, cars.x[i], cars.z[i], cur, cars.y[i]);
 
   let free = 0;
-  const L = track.main.length;
-  if (track.splines.length > 1) {
+  const links = track.graph.links[sp.index];
+  if (links.length) {
     const curInside = Math.abs(cur.lateral) - cur.width / 2;
+    // Off the end of a road that stops at a node (a branch's ends): it's on another road there, however
+    // far inside it is.
+    const offEnd = !sp.closed && (cur.s <= 0.01 || cur.s >= sp.length - 0.01);
     let bestInside = curInside;
     let bestSpline = -1;
     let bestS = 0;
-    if (sp.index === 0) {
-      for (let b = 1; b < track.splines.length; b++) {
-        const br = track.splines[b];
-        const dFrom = signedGap(cur.s, br.mainFrom, L);
-        const dTo = signedGap(cur.s, br.mainTo, L);
-        let hint = -1;
-        if (dFrom > -WINDOW && dFrom < WINDOW) hint = Math.max(0, dFrom);
-        else if (dTo > -WINDOW && dTo < WINDOW) hint = Math.min(br.length, br.length + dTo);
-        if (hint < 0) continue;
-        project(br, cars.x[i], cars.z[i], hint, alt);
-        if (alt.s <= 0.01 || alt.s >= br.length - 0.01) continue; // off the end of the branch
-        const inside = Math.abs(alt.lateral) - alt.width / 2;
-        if (inside <= alt.shoulder && curInside <= cur.shoulder) free = 1;
-        if (inside < bestInside - HYSTERESIS) {
-          bestInside = inside;
-          bestSpline = b;
-          bestS = alt.s;
-        }
-      }
-    } else if (cur.s < WINDOW || cur.s > sp.length - WINDOW || cur.s <= 0.01 || cur.s >= sp.length - 0.01) {
-      project(track.main, cars.x[i], cars.z[i], mainDistance(track, sp.index, cur.s), alt);
+    let tried = -1;
+    for (let k = 0; k < links.length; k++) {
+      const link = links[k];
+      // (One look at each other road: at the first of its nodes in reach.)
+      if (link.other === tried) continue;
+      const gap = sp.closed ? signedGap(cur.s, link.s, sp.length) : cur.s - link.s;
+      if (gap <= -WINDOW || gap >= WINDOW) continue;
+      tried = link.other;
+      const other = track.splines[link.other];
+      // As far past the node on it as the car is past it on this one, scaled (held to its ends).
+      const hint = other.closed ? link.os + gap * link.scale : Math.min(other.length, Math.max(0, link.os + gap * link.scale));
+      project(other, cars.x[i], cars.z[i], hint, alt);
+      if (!other.closed && (alt.s <= 0.01 || alt.s >= other.length - 0.01)) continue; // off the end of it
       const inside = Math.abs(alt.lateral) - alt.width / 2;
       if (inside <= alt.shoulder && curInside <= cur.shoulder) free = 1;
-      const offEnd = cur.s <= 0.01 || cur.s >= sp.length - 0.01;
-      if (offEnd || inside < bestInside - HYSTERESIS) {
-        bestSpline = 0;
+      if ((offEnd && bestSpline < 0) || inside < bestInside - HYSTERESIS) {
+        bestInside = inside;
+        bestSpline = link.other;
         bestS = alt.s;
       }
     }
-    if (bestSpline >= 0) {
-      project(track.splines[bestSpline], cars.x[i], cars.z[i], bestS, cur);
-    }
+    if (bestSpline >= 0) project(track.splines[bestSpline], cars.x[i], cars.z[i], bestS, cur);
   }
 
   cars.spline[i] = cur.spline;
