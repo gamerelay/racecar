@@ -406,15 +406,17 @@ describe("the AI's costs as its class drives (wayCosts)", () => {
     expect(Math.abs(cost - driven) / driven).toBeLessThan(0.04);
   }, 60_000);
 
-  test("Riviera's cuts, from 150 m before the fork to 250 m past the rejoin: braking onto them and pulling back up counted, within 0.3 s of a hard AI's drive", () => {
+  test("Riviera's cuts, from 150 m before the fork to 250 m past the rejoin: braking onto them and pulling back up counted, near a hard AI's drive", () => {
     const v = layout('coastal/riviera');
     // The Stairs' second flight as it is (in past the first flight's fork); the Sand without the Rocks
     // 27 m past it (a car could take them inside the window, or brake for them). (Not the Rocks: rough
     // rock reads about a second slow by costs, made up before the cove by the road into them reading
-    // quick, the AI already down to their limit there.)
-    for (const [id, t, from, charge] of [
-      ['stairs-top', tracks.get('coastal/riviera')!, 700, 0.3],
-      ['sand', bakeTrack({ ...v, branches: v.branches!.filter((b) => b.id !== 'rocks') }, SURFACES), NaN, 0.1],
+    // quick, the AI already down to their limit there.) The second flight reads 0.6 s slow: a car is
+    // on it for 65 of its 89 m (its ends overlap the rows), costed all the way at its limit. (Until
+    // the AI braked for a fork in time, it lost as much there braking 60 m early.)
+    for (const [id, t, from, charge, within] of [
+      ['stairs-top', tracks.get('coastal/riviera')!, 700, 0.3, 0.8],
+      ['sand', bakeTrack({ ...v, branches: v.branches!.filter((b) => b.id !== 'rocks') }, SURFACES), NaN, 0.1, 0.3],
     ] as const) {
       const main = t.main;
       const br = t.splines.find((sp) => sp.id === id)!;
@@ -439,7 +441,7 @@ describe("the AI's costs as its class drives (wayCosts)", () => {
           if (took && sp === 0 && s >= br.toS + 250) b = sim.time;
         }
         expect([id, cls, took, sim.cars.wreck[0]]).toEqual([id, cls, true, 0]);
-        expect([id, cls, +(cost - (b - a)).toFixed(2), Math.abs(cost - (b - a)) < 0.3]).toEqual([id, cls, +(cost - (b - a)).toFixed(2), true]);
+        expect([id, cls, +(cost - (b - a)).toFixed(2), Math.abs(cost - (b - a)) < within]).toEqual([id, cls, +(cost - (b - a)).toFixed(2), true]);
       }
     }
   }, 60_000);

@@ -371,7 +371,16 @@ export function driveRacer(sim: SimState, i: number, d: RacerDriver, out: Contro
   out.steer = clamp(-(ff + err * (2.2 + speed / 30)) - c.yaw[i] * 0.05, -1, 1);
 
   // Speed: the profile a little ahead (so braking starts in time), scaled by skill and catch-up.
-  let v = lineAt(sp, s + speed * 0.35 + 4, line.speed) * skill.pace;
+  const brakeAt = s + speed * 0.35 + 4;
+  let v = lineAt(sp, brakeAt, line.speed);
+  // Short of a fork it's chosen: the road's speed there, braking in time for the branch's start
+  // (as its line brakes for a corner), not down to it from the moment it chose it (65 m short of the
+  // Stairs it slowed to their limit, the pack behind it at 140 km/h).
+  if (brakeAt < 0) {
+    const road = track.splines[c.spline[i]];
+    v = Math.min(lineAt(road, c.s[i] + speed * 0.35 + 4, racingLine(track, road).speed), Math.sqrt(sq(line.speed[0]) - 2 * COST_BRAKE * brakeAt));
+  }
+  v *= skill.pace;
   // Getting round something ahead in its line (a car, traffic, a hazard).
   const avoiding = avoidCap < v;
   if (avoiding) v = avoidCap;
@@ -708,6 +717,14 @@ function avoid(sim: SimState, i: number, sp: BakedSpline, s: number, target: num
   const c = sim.cars;
   const world = sim.world;
   const L = sim.track.main.length;
+  // Short of a fork it's chosen, still on the road it's leaving: that road's width and props, the
+  // frame the other cars' laterals are in. (Its lines across the branch's width, against laterals
+  // across the road's, had every line blocked by the pack beside it: it braked hard short of the
+  // Stairs.)
+  if (c.spline[i] !== sp.index) {
+    sp = sim.track.splines[c.spline[i]];
+    s = c.s[i];
+  }
   const half = across ?? sampleAt(sp, s + 20, probe).width / 2 - 1.4;
   const me = sim.classes[c.cls[i]].size[0];
   const n = CANDIDATES.length;
