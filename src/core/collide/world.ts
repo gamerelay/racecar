@@ -142,10 +142,11 @@ export function collideWorld(sim: SimState, i: number, ctx: WorldCtx): void {
   if (!c.wreck[i] && onMain && traffic.lanes.length && speed > 28 && c.grounded[i]) {
     const main = sim.track.main;
     const frac = (2 * c.lateral[i]) / Math.max(1, main.width[Math.round(c.s[i] / main.step) % main.n]);
-    let best = traffic.lanes[0];
-    for (let l = 1; l < traffic.lanes.length; l++) if (Math.abs(traffic.lanes[l].pos - frac) < Math.abs(best.pos - frac)) best = traffic.lanes[l];
+    // (Of the main road's lanes: not one along a back street, TrafficLaneDef.road.)
+    let best: (typeof traffic.lanes)[number] | null = null;
+    for (const lane of traffic.lanes) if (lane.road === undefined && (!best || Math.abs(lane.pos - frac) < Math.abs(best.pos - frac))) best = lane;
     // Only where that lane has traffic: an empty street's wrong side is just a road.
-    if (best.dir < 0 && Math.abs(best.pos - frac) < 0.5 && laneActive(best, c.s[i])) {
+    if (best && best.dir < 0 && Math.abs(best.pos - frac) < 0.5 && laneActive(best, c.s[i])) {
       if (c.oncomingT[i] === 0) sim.events.push(tick, Ev.Oncoming, i, c.x[i], c.y[i], c.z[i]);
       // Scaled time, like the physics: slow-mo doesn't pay out at full rate.
       const dt = sim.dt * sim.timeScale;

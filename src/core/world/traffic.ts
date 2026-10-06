@@ -65,7 +65,8 @@ export const STREET_FADE = 20;
 /**
  * A route (TrafficLaneDef.streets): in up `inSp` from its middle, along the main road from `on` to
  * `off` (main distances, the lane's way), out by `outSp` to its middle. `a`, `b`, `c` are those
- * three parts' lengths, `R` the route's, `C` its loop's (with the stretch out of sight).
+ * three parts' lengths, `R` the route's, `C` its loop's (with the stretch out of sight). A lane
+ * along one street (TrafficLaneDef.road) is a route of `road` alone, from `from` over `R` m of it.
  */
 export interface TrafficRoute {
   inSp: BakedSpline;
@@ -77,6 +78,8 @@ export interface TrafficRoute {
   c: number;
   R: number;
   C: number;
+  road?: BakedSpline;
+  from?: number;
 }
 
 /**
@@ -89,6 +92,16 @@ export function trafficLanes(track: Track, defs: readonly TrafficLaneDef[]): { l
   const routes: (TrafficRoute | null)[] = [];
   const L = track.main.length;
   for (const def of defs) {
+    if (def.road !== undefined) {
+      // Along one street: never on the main road (no sections: no main road's lane is it).
+      const sp = track.splines.find((x) => x.id === def.road);
+      if (!sp) continue;
+      const [a, b] = def.span ?? [0, sp.length];
+      const R = b - a;
+      lanes.push({ ...def, sections: [] });
+      routes.push({ inSp: sp, outSp: sp, on: 0, off: 0, a: R, b: 0, c: 0, R, C: R + HIDDEN, road: sp, from: a });
+      continue;
+    }
     if (!def.streets) {
       lanes.push(def);
       routes.push(null);
@@ -235,6 +248,13 @@ export class Traffic {
   /** Where `d` round route `r` is: its road (0 the street in, 1 the main road, 2 the street out, 3 out of sight) and the distance along that road. */
   private routeAt(r: TrafficRoute, lane: TrafficLaneDef, d: number, out: { road: number; s: number }): void {
     const L = this.track.main.length;
+    if (r.road) {
+      // Along its street: from the span's start its way, from its end against it.
+      // (Out of sight past its end: still posed on it, at its end.)
+      out.road = 0;
+      out.s = lane.dir > 0 ? r.from! + d : r.from! + r.R - d;
+      return;
+    }
     if (d < r.a) {
       out.road = 0;
       out.s = lane.dir > 0 ? r.a + d : r.a - d;
@@ -346,7 +366,9 @@ export class Traffic {
     const on = this.lanePose(road, at.s, lane, hit);
     let w = 0;
     let joinS = 0;
-    if (at.road === 0 && d > r.a - JOIN) {
+    if (r.road) {
+      // (Never onto the main road.)
+    } else if (at.road === 0 && d > r.a - JOIN) {
       w = smoothstep(r.a - JOIN, r.a, d);
       joinS = wrap(r.on - (r.a - d) * lane.dir, L);
       this.lanePose(this.track.main, joinS, lane, this.joinHit);
@@ -406,7 +428,7 @@ export class Traffic {
     else {
       const m = this.mainHit;
       const d = this.dAt(k, t);
-      if (d < r.a) {
+      if (!r.road && d < r.a) {
         // On its way in: on the main road already, as far before where it joins as it is up the street.
         this.seenS[p] = wrap(r.on - (r.a - d) * lane.dir, this.track.main.length);
         sampleAt(this.track.main, this.seenS[p], m);

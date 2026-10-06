@@ -385,7 +385,7 @@ keep tweaking it: re-record its fingerprints as before.
    side street up the hill behind the waterfront and back, never a shortcut; traffic along it both
    ways (`TrafficLaneDef.road` and `span`: a lane along one street); a row of houses each side of
    it and the town on up behind the casino (418 houses, 346 before); `offRoad` (query.ts) measures
-   houses and boulders from a branch's end when well past it. In review when this was written.
+   houses and boulders from a branch's end when well past it.
 3. **The look:** yachts moored in the harbour (and along the sea wall), the riviera palette (it
    borrows Paradise's `tropic` now), the beach club in the cove (its pool, terrace and jetty: a
    low block stands there now); the Old Town's side streets with its houses; lamp posts and palms
@@ -409,8 +409,6 @@ fingerprints, every other map's identical, and checks the floor and field races.
   you quickly, so a fluffed cut costs little more than the road.
 - A car crawling up a drawbridge leaf as it passes 30° falls in (the AI never does).
 - Houses have no roof collider (walls to the eaves); nothing near the town flies that high.
-- The houses' road check (`free` in the generator) measures across a street from past its end, so a
-  street can block houses well beyond it: harmless now, but a new street may empty part of the town.
 - A thin white band of surf at the sea wall's foot (the water's shore foam along the coast): it
   reads as water lapping from the race camera; the owner may want it gone.
 - With the oncoming lane only on the waterfront, the racers' side of the boulevard has no traffic.
