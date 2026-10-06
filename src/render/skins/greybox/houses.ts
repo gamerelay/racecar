@@ -94,7 +94,9 @@ function casinoFacade() {
  * The grand casino (the owner, 2026-10-05: Monte Carlo's, on the boulevard): its solid block is the
  * house `h` (look 'casino'); drawn as a cream Beaux-Arts hall with arched windows, a copper dome on a
  * drum over its middle, a tower at each front corner under a copper spire, a columned portico and a
- * gilded clock, its front toward the road.
+ * gilded clock, its front toward the road. All of it inside the block, the portico too (its columns
+ * stood in front, where a car drove through them), and no two faces in one plane (the towers' sides
+ * were the hall's, and the spires stood on the towers' tops: they shimmered in and out).
  */
 function casino(h: { at: [number, number]; size: [number, number, number]; rot: number }, y: number): Object3D {
   const [w, d, high] = h.size;
@@ -107,44 +109,53 @@ function casino(h: { at: [number, number]; size: [number, number, number]; rot: 
     return b;
   };
   const plain = (color: number) => toon({ color });
-  // The hall, a cornice round its top, a balustrade.
-  solidBox(w, high, d, 0, high / 2, 0);
-  solidBox(w + 0.8, 0.8, d + 0.8, 0, high + 0.4, 0, plain(TRIM));
+  // The hall, set back behind the portico and in from the towers' sides, a cornice round its top.
+  const porch = 5;
+  const hw = w - 1;
+  const hd = d - porch;
+  const hz = -porch / 2;
+  solidBox(hw, high, hd, 0, high / 2, hz);
+  solidBox(hw + 0.6, 0.8, hd + 0.8, 0, high + 0.4, hz, plain(TRIM));
   // The dome: a drum, the dome, a lantern.
   const drum = new Mesh(faceted(new CylinderGeometry(d * 0.24, d * 0.24, 3.5, 16)), plain(CREAM));
-  drum.position.set(0, high + 2.5, 0);
+  drum.position.set(0, high + 2.5, hz);
   root.add(drum);
   const dome = new Mesh(faceted(new SphereGeometry(d * 0.25, 16, 8, 0, Math.PI * 2, 0, Math.PI / 2)), plain(COPPER));
-  dome.position.set(0, high + 4.2, 0);
+  dome.position.set(0, high + 4.2, hz);
   root.add(dome);
   const lantern = new Mesh(faceted(new CylinderGeometry(0.9, 0.9, 2.4, 8)), plain(GOLD));
-  lantern.position.set(0, high + 4.2 + d * 0.25 + 1, 0);
+  lantern.position.set(0, high + 4.2 + d * 0.25 + 1, hz);
   root.add(lantern);
-  // The towers at the front corners, each under a copper spire.
+  // The towers at the front corners, flanking the portico, each under a copper spire (sunk into a
+  // parapet on its top).
+  const tw = 6;
   for (const sx of [-1, 1]) {
-    const tw = 6;
-    solidBox(tw, high + 7, tw, sx * (w / 2 - tw / 2), (high + 7) / 2, d / 2 - tw / 2);
-    const spire = new Mesh(faceted(new ConeGeometry(tw * 0.62, 7, 4)), plain(COPPER));
-    spire.position.set(sx * (w / 2 - tw / 2), high + 7 + 3.5, d / 2 - tw / 2);
+    const tx = sx * (w / 2 - tw / 2);
+    const tz = d / 2 - tw / 2;
+    solidBox(tw, high + 7, tw, tx, (high + 7) / 2, tz);
+    solidBox(tw + 0.6, 0.9, tw + 0.6, tx, high + 7 + 0.15, tz, plain(TRIM));
+    const spire = new Mesh(faceted(new ConeGeometry(tw * 0.62, 7, 4, 1, true)), plain(COPPER));
+    spire.position.set(tx, high + 7 + 3.5, tz);
     spire.rotation.y = Math.PI / 4;
     root.add(spire);
   }
-  // The portico: a pediment on six columns, the clock in it.
+  // The portico between the towers: a pediment on six columns, the clock in it.
   const pw = w * 0.4;
+  const front = d / 2;
   for (let k = 0; k < 6; k++) {
     const col = new Mesh(faceted(new CylinderGeometry(0.55, 0.65, high * 0.62, 10)), plain(CREAM));
-    col.position.set(-pw / 2 + (k * pw) / 5, high * 0.31, d / 2 + 2.6);
+    col.position.set(-pw / 2 + (k * pw) / 5, high * 0.31, front - 1.2);
     root.add(col);
   }
-  solidBox(pw + 2, 1.4, 4.4, 0, high * 0.62 + 0.7, d / 2 + 2.4, plain(TRIM));
-  const ped = new Mesh(faceted(new ConeGeometry(pw * 0.62, 3.2, 3)), plain(CREAM));
+  solidBox(pw + 2, 1.4, porch, 0, high * 0.62 + 0.7, front - porch / 2 - 0.2, plain(TRIM));
+  const ped = new Mesh(faceted(new ConeGeometry(pw * 0.62, 3.2, 3, 1, true)), plain(CREAM));
   ped.scale.z = 0.3;
   ped.rotation.y = Math.PI;
-  ped.position.set(0, high * 0.62 + 3, d / 2 + 2.4);
+  ped.position.set(0, high * 0.62 + 2.9, front - 2.4);
   root.add(ped);
   const clock = new Mesh(faceted(new CylinderGeometry(1, 1, 0.3, 16)), plain(GOLD));
   clock.rotation.x = Math.PI / 2;
-  clock.position.set(0, high * 0.62 + 2.6, d / 2 + 3.4);
+  clock.position.set(0, high * 0.62 + 2.6, front - 1.2);
   root.add(clock);
   root.position.set(h.at[0], y, h.at[1]);
   root.rotation.y = h.rot;
