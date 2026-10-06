@@ -9,7 +9,10 @@ experimental map, **Coastal** (#106–#117: its plan and lap, the drawbridge, th
 Basin Road, traffic from side streets, the Rock Tunnel, rock rails, the Riviera town and the sea
 wall; see "Next: Coastal" below), a clean-up pass (#118: the Rock Tunnel's mouth cleared, an eighth
 track for any map, `crashout`, already on the CDN, playing from the next deploy), and Caldera's
-step 6, **the road graph**, 6a to 6e (#119–#123; see "The road graph" below). Nothing is open. The
+step 6, **the road graph**, 6a to 6e (#119–#123; see "The road graph" below), its review's fixes
+(#125), and on Coastal the **Old Town's switchbacks and the Stairs** (#126), steep ground drawn as
+limestone (#127), **Lighthouse Point's loop and the Rocks** (#128) and **the landmarks**: the grand
+casino, the lighthouse, the fort (#129). Nothing is open (2026-10-05). The
 last tag is **`alpha-1.31`** (PRs #78–#105), on the hosted
 build: Paradise Open (#81), the engine's plan, [CALDERA.md](./CALDERA.md) (#82), and its steps 0
 to 3c (#83–#98, #102): the fingerprints and tools, the sim's own math, pieces, portals, feature
@@ -215,29 +218,25 @@ identical through all five: each slice is the old behaviour on today's maps, wit
   main road). The bake, the graph, `locate` and the AI's choice work from any road. Tested with a
   lane off Backroads' barn shortcut (`test/fixtures-lane.ts`). No map uses one yet.
 
-**Next on the road graph, in order:**
+**On the road graph since 6e** (all merged):
 1. **#123's review's fixes** (#125): the editor's `reanchor` maps each branch end along its own
-   road, in rounds (a lane once the branch it leaves has moved and is baked again; ramps and the
-   rest on the final bake); `Link.scale` only from a branch onto the road it leaves and rejoins;
-   the AI's choice window shut at 60 m past on an open road too. Tested with a lane leaving and
-   rejoining the barn (`loopLayout`), a lane on a run, the AI on the main road past a lane's node.
-2. **The Stairs on Coastal** (#126; COASTAL's "Step 7a"): the Old Town tightened into real
-   switchbacks (the owner's pick: it was a 150–270 km/h zig-zag no cut could beat), and the Stairs
-   up through them. Two flights meet at a crossroads on the middle row, and an arm forks off the
-   first flight (a lane off a branch). Stepped and walled in by houses. `BranchDef.limit` caps the
-   AI's line on them (24 m/s). Clean saves 2.3–3.1 s, flat out wrecks, slowly saves nothing.
-   Coastal's floor is 103.63 s. The AI follows a lane's street from where it starts (`st.s0`).
-3. **The Rocks on Coastal** (#128; COASTAL's "Step 7b"): Lighthouse Point loops round the cape's
-   tip, and the Rocks cut its neck: a new `rock` surface, ridges, boulders either side, AI limit
-   36 m/s. At the limit they save every class 2.3–3.5 s; flat out, five of eight wreck. Floor 105.58 s.
-4. **Coastal's landmarks** (#129; COASTAL's "Step 8a"): the grand casino on the boulevard past the
-   line (a house with `look: 'casino'`, rue-du-port round its square), the lighthouse in the cape's
-   loop (seen from the Descent's hairpins), the fort on the mountain's top. Trees keep off a
-   landmark's ground.
-5. Then CALDERA's step 6 leftovers when a map needs them: hazards, traffic and the AI's marks off
-   main-road distances; the road-edge walls onto streets; step 7, a city map.
+   road, in rounds over `bakeRoads` (a drag step re-anchors Coastal in about 9 ms, was a full
+   bake); `Link.scale` only from a branch onto the road it leaves and rejoins; the AI's choice
+   window shut at 60 m past on an open road too.
+2. **The Stairs on Coastal** (#126; COASTAL's "Step 7a"), the first real use of 6e: two flights
+   through a crossroads (two branch ends half a metre apart: one node) and an arm off the first
+   flight (a lane off a branch). With it `BranchDef.limit`, the fastest the AI takes a road (a cap
+   on its racing line, so its costs too), and the AI follows a lane's street from where it starts
+   (`st.s0`).
 
-**Next: Coastal (2026-10-04, as of 2026-10-05).** The owner's call: Caldera's next features are
+**Next on the road graph,** when a map needs it: CALDERA's step 6 leftovers (hazards, traffic and
+the AI's marks off main-road distances; the road-edge walls onto streets), then step 7, a city map.
+Worth doing first if cuts keep coming: `wayCosts` times streets by the racing line with no
+acceleration, so short straights look quicker than they drive. The AI then skips cuts it should
+take (a cut's `limit` had to be set by measured drives, not costs) and comes into the Stairs'
+second flight too fast off the row.
+
+**Next: Coastal (2026-10-04, as of 2026-10-05, through #129).** The owner's call: Caldera's next features are
 built on a new experimental map instead of Paradise Open, whose fingerprints, floors and tests made
 iterating slow. Coastal's own fingerprints are re-recorded as it changes; every other map's must
 stay identical (the check that the shared engine didn't move). The plan, what's built (step by
@@ -246,7 +245,7 @@ harbour town on a headland, the Riviera in feel (Villefranche-sur-Mer, the owner
 skies and a rare shower, the `coastal` track. Open it with `?mode=free&map=coastal/riviera`;
 `tools/gen-coastal.ts` writes it.
 
-**What's built** (merged, #106–#117):
+**What's built** (merged, #106–#129):
 - **The lap** (#108, reworked in #110 after the owner drove it): 5.0 km. The Quay and the Harbour
   Bridge, the Old Town's climb, the Mountain Road's five S-bends up to 130 m, the Descent's five
   long switchback rows down the mountainside over the sea, the Corniche, the Lighthouse Point
@@ -281,26 +280,64 @@ skies and a rare shower, the `coastal` track. Open it with `?mode=free&map=coast
   along it, pavements (`sidewalk` verges) both sides. The sea-side streets (`lido`, `quai-sud`) went
   with the beach, so one traffic lane; that freed about 170 house spots the streets' ends had kept
   empty (the houses' road check measures across a street from past its end).
+- **The Old Town's switchbacks and the Stairs** (#126, COASTAL's step 7a): three rows across the
+  slope joined by two tight hairpins (it was a 150–270 km/h zig-zag no cut could beat; the owner's
+  pick), and the Stairs straight up through them: stepped stone flights 7 m wide, walled in by
+  houses, through a crossroads on the middle row, with an arm off the first flight. AI limit 24
+  m/s. Both flights save 3.05 s clean, the first 2.3 s; flat out wrecks at the crossroads.
+- **Steep ground as limestone** (#127): open ground's steep slopes were drawn as the volcano's black
+  crag on any coast (the owner saw black banks by the Basin Road); a coast with no volcano now
+  draws pale limestone.
+- **Lighthouse Point's loop and the Rocks** (#128, step 7b): the road loops round the cape's tip
+  (two 16 m corners, the coast pushed out, the sea wall from the tip's exit); the Rocks cut its
+  neck, 195 m against 379, on a new `rock` surface with rough own heights, three ridges and solid
+  boulders close along both sides. AI limit 36 m/s: every class saves 2.3–3.5 s clean; flat out
+  five of eight wreck.
+- **Landmarks** (#129, step 8a, the owner's asks): **the grand casino** (Monte Carlo's) on the
+  boulevard just past the line, a solid house with `look: 'casino'` (cream hall, copper dome and
+  spires, a columned portico with a gilded clock) and a garden and fountain, rue-du-port looping
+  round its square (streets take their own depth and lead-in); **the lighthouse** (a new landmark)
+  on a knoll in the cape's loop, scaled 1.5 with a sweeping beam, seen from the Descent's west
+  hairpins; **the fort** (a new landmark: walls, bastions, keep, flag) on the mountain's 190 m top.
+  Trees keep off a landmark's ground (`pines.ts`).
 - **Tools:** `tools/plan.ts` (a layout from above; `--at x,z --size m` to zoom), `shot --t` (the
   world at a race time) and `shot --traffic`, fingerprint parts `lifts` and `streets` (only for
   layouts with them).
-- **Numbers:** floor 97.83 s (solo hard coupe); the field over 8 seeds: no wrecks since the sea
-  wall (2 before, between cars), none at the bridge, the tunnel or the town.
+- **Numbers:** the lap is 5.51 km, the floor 105.58 s (solo hard coupe; 97.83 before the
+  switchbacks and the cape's loop). Field races at seeds 4, 7 and 8: no wrecks.
 
 **Next, in about this order** (COASTAL's steps):
-1. **The cuts:** the Stairs (a stepped lane up the Old Town, forking halfway: see "Next on the road
-   graph"), the Rocks (across the flats under the lighthouse), each measured: clean saves 2–4 s, fluffed costs more. The Sand (across the beach)
-   lost its beach to the sea wall: it needs a new home (the cape?) or drops, the owner's call.
-2. **The look:** yachts moored in the harbour (and along the sea wall), the lighthouse on its
-   point, the riviera palette (it borrows Paradise's `tropic` now), the beach club (somewhere new,
+1. **#129's review, the landmarks' fixes** (it landed after the merge; all visual, nothing in the
+   sim moved):
+   - The fort's bastions and some wall ends float 2–4 m over the summit's slope (`fort()` in
+     `landmarks.ts`): seat each piece on the lowest ground under its footprint, taller by the
+     difference. Its `r` (36) is less than what's drawn (bastion tips about 47 m): make it about 48.
+   - The casino's fountain is crowded under the portico, and its painted ring (`fountain()`'s ring
+     road, at r + 5) runs into the casino's front and half-buries on the slope: move the casino
+     back (`CASINO.front` about 20), or skip the ring off a roundabout.
+   - The portico's columns stand up to 4.6 m in front of the casino's solid block, so a car can
+     drive through them: engaged columns flush with the front, or solid column props.
+   - rue-du-port's corners are tight for traffic now (radius about 7 m; cars snap round at 14 m/s):
+     `lead` about 15.
+   - Tests: the no-trees check scans only ±16 m (`pines.near`), so loop over every tree for the
+     fort; the fountain's clearance should test house boxes, not centres.
+2. **The Sand** (the last cut): the beach went to the sea wall, so it needs a new home (the cape?)
+   or drops: the owner's call. The Stairs and the Rocks are built (above).
+3. **The look:** yachts moored in the harbour (and along the sea wall), the riviera palette (it borrows Paradise's `tropic` now), the beach club (somewhere new,
    with the Sand); the Old Town's side streets with its houses; lamp posts and palms along the
    waterfront's pavement.
-3. **Into the lobby** when the owner's happy: experimental off, a poster, a CHANGELOG line.
+4. **Into the lobby** when the owner's happy: experimental off, a poster, a CHANGELOG line.
 
 **Known rough edges:**
 - The lap is long (105.7 s since the Old Town's switchbacks, the Stairs and the cape's loop, against 58–93 for the rest): a Descent row or an S-bend could go, or the
   race fewer laps, if the owner wants it shorter.
 - A car that runs wide just before a rock rail can end up behind it, grinding along to its end.
+- The AI never takes the Stairs' arm (at the fork it costs the rest of the flight as if the second
+  flight follows, its own roll), and turning up the second flight off the row it comes in too fast
+  and clips the walls (1.8 s lost). Both are `wayCosts`' racing line without acceleration.
+- Who wrecks on the Rocks flat out depends on exactly where a car meets the ridges, and the
+  Stairs' times on where their houses landed: re-measure after changing either. A wreck respawns
+  you quickly, so a fluffed cut costs little more than the road.
 - A car crawling up a drawbridge leaf as it passes 30° falls in (the AI never does).
 - Houses have no roof collider (walls to the eaves); nothing near the town flies that high.
 - The houses' road check (`free` in the generator) measures across a street from past its end, so a
