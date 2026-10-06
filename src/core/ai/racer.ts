@@ -107,6 +107,9 @@ export function racingLine(track: Track, sp: BakedSpline): Line {
   const speed = new Float64Array(n);
   // The line is wider than the centerline on a wide road; on a narrow one there's no room to widen it.
   for (let i = 0; i < n; i++) speed[i] = cornerSpeed((1 + clamp((sp.width[i] - 8) / 30, 0, 0.3)) / Math.max(1e-4, Math.abs(k[i])), 2.4);
+  // A branch slower than its curves say (the Stairs): no faster than its limit.
+  const limit = sp.index > 0 ? track.layout.branches?.[sp.index - 1]?.limit : undefined;
+  if (limit !== undefined) for (let i = 0; i < n; i++) speed[i] = Math.min(speed[i], limit);
   // Crests: don't fly off a drop into a corner. (Air is fine; the braking pass handles the rest.)
   // Braking: work backwards so every corner is reachable from the one before. On sliding snow the
   // slope takes some of the brakes downhill (and adds to them uphill): plan with what's left.
@@ -296,7 +299,8 @@ export function driveRacer(sim: SimState, i: number, d: RacerDriver, out: Contro
       const theirs = costs.time[stay] + costs.toGo[g.streets[stay].to] + (sp.index === 0 ? liftWait(sim, i, speed, d.difficulty, g.streets[stay]) : 0);
       if (mine < theirs) {
         sp = br;
-        s = -toFrom;
+        // (From where the street starts on its road: a lane's stretch of a branch starts partway.)
+        s = st.s0 - toFrom;
         break;
       }
     }

@@ -853,7 +853,12 @@ stream across a route): then the new floor is recorded, with why.
      still get `mainFrom`/`mainTo` (off a branch, where that is on its span). The validator keeps a
      branch off an earlier one, not a side street, 30 m clear of its ends. Tested on Backroads with
      a lane off the barn shortcut (`test/fixtures-lane.ts`); every fingerprint identical.
-   - Then Coastal uses it: the Stairs up the Old Town, forking halfway (COASTAL's step 7).
+   - Then Coastal uses it (#126): the Stairs up the Old Town, two flights through a crossroads on
+     the middle row (one branch's end and the next one's start, half a metre apart: one node) and
+     an arm off the first flight, a lane off a branch (COASTAL's step 7). With it `BranchDef.limit`:
+     the fastest the AI takes a road (its racing line's cap, so its costs too), for a road slower
+     than its curves say. #125 fixed #123's review (the editor's reanchor in rounds over
+     `bakeRoads`, `Link.scale`, the choice window).
 7. **A city map**, and if the chase is wanted, the chase in it: AI cops pathfinding over the
    graph.
 

@@ -531,6 +531,59 @@ bottom of the map, the right side just water, not beach, with a retaining wall.
   fingerprints identical. Tests: `test/seawall.test.ts` (the shoulder as it was without it, water
   past the ledge for 40 m, the town's land kept, the validator).
 
+**Step 7a, the Old Town's switchbacks and the Stairs (2026-10-05):** the first of the cuts.
+- **Why the Old Town changed:** it was a gentle zig-zag, taken at 150 to 270 km/h on the AI's line
+  (380 m in 6.8 s), so no cut up it could be shorter than the road. The owner chose to tighten it
+  into real switchbacks, as the sketch says ("narrow", between the houses).
+- **The switchbacks** (`OLD_TOWN` in the generator): off the far quay's climb, three rows across
+  the slope, 150 m long (x 345 to 495) and 66 m apart, each 7 m higher. They're joined by two
+  hairpins of two 14 m corners each, the first at the west end and the second at the east. Then
+  up to the foot of the S as before. The lap is 5.30 km (5.00).
+- **The Stairs** (`STAIRS`): stone steps, 7 m wide, on `sidewalk` (it grips 0.9), their corners
+  rounded. Their own heights (`heights: 'own'`) climb with a 0.25 m lip every 4 m, so the steps
+  aren't smoothed away. Houses line them closely (`TOWN.stairs`, a metre off their verge, the
+  validator's least), so running off them means hitting a wall. They're placed before the town's
+  rows, packed in wherever they fit. At 6 m wide, the AI hit those walls at the corners.
+  - **`stairs`:** off the climb from the quay, straight up to the second row, skipping the first
+    hairpin.
+  - **`stairs-top`:** from there across the second row and on up to the third, skipping the
+    second hairpin. It leaves the second row half a metre from where `stairs` meets it, so the
+    graph has one node there: the crossroads.
+  - **`stairs-arm`:** forks off halfway up the first flight (where it's halfway between the rows,
+    on the flight as baked) and goes across the slope onto the second row further along. It's a
+    lane off a branch (CALDERA 6e), the gentler way out.
+- **`BranchDef.limit`** (new, in the engine): the fastest the AI takes a road, a cap on its racing
+  line, so `wayCosts` reckons it as driven. Without it the AI went up the Stairs at 100 to 130 km/h
+  (its line saw only their curves) and wrecked at the crossroads every time. The Stairs' limit is
+  24 m/s (86 km/h); at 26 m/s it clipped a wall on most runs.
+- **The AI on a lane** (#126's review): choosing a street, the AI follows it from where it starts on
+  its road (`st.s0`). A lane's stretch of a branch starts partway along, so following from 0 aimed
+  it back down the flight whenever the fork's flicker read it as on the arm.
+- **Numbers** (hard coupe, quay to the top of the town, 12.87 s by the road):
+
+  | How the Stairs were taken | Time | Against the road |
+  | --- | --- | --- |
+  | Both flights, at the limit | 9.82 s | 3.05 s quicker |
+  | The first flight, then the second row | 10.60 s | 2.27 s quicker |
+  | Only the second flight, turning up off the row | 14.65 s | 1.8 s slower (it clips the walls) |
+  | Flat out (no limit) | — | a wreck at the crossroads |
+  | Slowly (14 m/s) | — | not worth taking: the AI keeps to the road |
+
+  Across classes (coupe, muscle, van, bus) and difficulties, a clean run saves 2.2 to 3.9 s;
+  some clip a wall and save less, or lose time. The floor is 103.63 s: 97.98 before, and 106.28
+  with the switchbacks but no Stairs. Field races (seeds 7 to 9) have no more than one wreck
+  each. Every other map's fingerprints are identical. Tests are in `test/coastal.test.ts`: the
+  crossroads and the lane, the steps and the walls, the limit, the AI on the arm, and 2 to 4 s
+  saved clean with no wreck.
+- **Rough edges:**
+  - The AI never takes the arm. At the fork it costs the rest of the flight as if the second
+    flight follows, which is its own roll.
+  - Turning up the second flight off the row, the AI comes in too fast for the crossroads: its
+    costs see the flight's limit, not the turn into it.
+  - The houses beside the Stairs move with any change to them (width, corners), and the times
+    with the houses, so re-measure after one.
+- **Next for the cuts:** the Rocks at Lighthouse Point, and the Sand (which needs a new home).
+
 ## The owner's answers (2026-10-04)
 
 - **The shape:** the sketch is right (quay, bridge, Old Town, tunnel, corniche, lighthouse, beach,

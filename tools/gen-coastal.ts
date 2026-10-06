@@ -95,6 +95,29 @@ const TUNNEL = { from: [310, -120], to: [170, -400], clear: 18, ceiling: 7.5 };
  */
 const SEAWALL = { from: [-700, 272], floor: SEA - 10, out: SEAWALL_FACE };
 
+/**
+ * The Old Town's switchbacks: rows across the hillside between `east` and `west` (x), the first at
+ * `z`, each `step` m further north (up the slope) and `rise` m higher, joined by hairpins of two
+ * `r` m corners (as the Descent's, so the radius holds). The way in turns off the far quay's climb.
+ */
+const OLD_TOWN = { east: 495, west: 345, z: 258, step: 66, y: 7, rise: 7, r: 14 };
+function oldTown(): Node[] {
+  const o = OLD_TOWN;
+  const [z1, z2, z3] = [o.z, o.z - o.step, o.z - 2 * o.step];
+  return [
+    // In off the climb from the quay, turning west along the first row.
+    T(455, z1 + 4, o.y, 24),
+    // The first hairpin, at the west end: up and back east.
+    T(o.west, z1, o.y + o.rise / 2, o.r),
+    T(o.west, z2, o.y + o.rise, o.r),
+    // The second, at the east end: up and back west.
+    T(o.east, z2, o.y + (3 * o.rise) / 2, o.r),
+    T(o.east, z3, o.y + 2 * o.rise, o.r),
+    // Off the third row, turning north up the hill.
+    T(380, z3 - 4, o.y + (5 * o.rise) / 2, 30),
+  ];
+}
+
 const nodes: Node[] = [
   // The Quay: east along the harbour front to the bridge.
   H(-210, 322, 3),
@@ -104,10 +127,12 @@ const nodes: Node[] = [
   Q(BRIDGE.to, BRIDGE.z, BRIDGE.y),
   // The far quay, and left up into the Old Town.
   Q(430, 318, 4, 40),
-  // The Old Town: up the hill between the houses, a bend each way, to the foot of the S.
-  T(475, 190, 12, 45),
-  T(395, 85, 19, 40),
-  T(470, -15, 27, 45),
+  // The Old Town (the owner, 2026-10-05: real switchbacks, tight and slow between the houses):
+  // west across the slope, a hairpin, back east, a hairpin, west again (OLD_TOWN), then up to the
+  // foot of the S. The Stairs cut straight up from the first row to the second (STAIRS).
+  ...oldTown(),
+  T(400, 45, 25, 40),
+  T(470, -15, 28, 45),
   // The Mountain Road (the owner, 2026-10-05: the top should wind like an S and climb): S-bends
   // up the hillside to the top of the mountain, each bend the other way, through the spur (TUNNEL).
   C(470, -230, 42, 70),
@@ -196,6 +221,8 @@ const layout: TrackLayout = {
 const baked = bakeTrack(layout, surfaces);
 const L = baked.main.length;
 const { sAt } = onLap(baked);
+/** The Old Town on the lap: from the far quay's corner to the top of its climb. */
+const OLD_TOWN_S: [number, number] = [sAt(430, 318), sAt(470, -15)];
 
 /** The bridge's deck: from where it leaves the quay to where it lands. */
 const deck: [number, number] = [sAt(BRIDGE.from - 25, BRIDGE.z), sAt(BRIDGE.to + 25, BRIDGE.z)];
@@ -247,7 +274,7 @@ layout.pieces = [
  * Lighthouse Point (`from`–`to`, x and z of a point on each), `run` m on past each end. The straights
  * between stay open: run wide there and you're off onto the row below, or into the sea.
  */
-const RAILS = { radius: 110, run: 15, from: [395, 85], to: [-755, 255] };
+const RAILS = { radius: 110, run: 15, from: [OLD_TOWN.west + 60, OLD_TOWN.z], to: [-755, 255] };
 /** Where the walls stand, per main-road sample and side: the bridge's rails, the tunnel's walls, the rock rails; open elsewhere. */
 const walled = (() => {
   const n = baked.main.n;
@@ -389,7 +416,7 @@ const STREETS: [string, number, number, 1 | -1][] = [
   // town-side lane has traffic: the lap's own lane is the racers'.
   // (The Old Town's come with its houses, COASTAL's step 6: its road bends too much for loops.)
   ['rue-du-port', 30, 150, -1],
-  ['rue-des-pins', 4775, 4895, -1],
+  ['rue-des-pins', L - 230, L - 110, -1],
 ];
 /** How far off the main road's middle a street runs (m), how wide it is, and the traffic on it. */
 const STREET = { depth: 32, width: 8, shoulder: 1.5, speed: 14, density: 8 };
@@ -439,6 +466,78 @@ const STREET = { depth: 32, width: 8, shoulder: 1.5, speed: 14, density: 8 };
 }
 
 /**
+ * The Stairs (COASTAL.md, the Old Town's risky cut): stone steps straight up the hill from the first
+ * row to the second, skipping the first hairpin, and across the second at a crossroads on up to the
+ * third, skipping the other. Halfway up the first flight an arm forks off across the slope onto the
+ * second row further along (CALDERA 6e: a lane off a branch): the gentler way out. Narrow, steep,
+ * each step a `riser` m lip every `tread` m on the climb (their own heights, so the bake doesn't
+ * smooth them away), on stone that grips less than the road. Each flight runs up at `x` (the first)
+ * and `x2` (the second); the arm comes out on the second row at `arm`.
+ */
+const STAIRS = { x: 425, x2: 460, arm: 470, width: 8, shoulder: 0.5, tread: 4, riser: 0.25, surface: 'sidewalk', limit: 24 };
+{
+  const g = bakeTrack(layout, surfaces);
+  const hit = newHit();
+  const o = OLD_TOWN;
+  const [z1, z2, z3] = [o.z, o.z - o.step, o.z - 2 * o.step];
+  const r1 = (v: number) => Math.round(v * 100) / 100;
+  /** A flight's points along `line` (x, z), every metre, its heights from `y0` to `y1` in steps. */
+  const flight = (corners: [number, number][], y0: number, y1: number): TrackPoint[] => {
+    let line = corners;
+    // Its corners rounded off (Chaikin, as the Basin Road's, over pieces of 6 m at most so only
+    // the corners round and the flights between stay straight), then a point every metre.
+    line = line.slice(0, -1).flatMap(([ax, az], k) => {
+      const [bx, bz] = line[k + 1];
+      const n = Math.ceil(Math.hypot(bx - ax, bz - az) / 6);
+      return Array.from({ length: n }, (_, j) => [ax + ((bx - ax) * j) / n, az + ((bz - az) * j) / n] as [number, number]);
+    }).concat([line[line.length - 1]]);
+    for (let pass = 0; pass < 3; pass++)
+      line = [line[0], ...line.slice(0, -1).flatMap(([ax, az], k) => {
+        const [bx, bz] = line[k + 1];
+        return [[0.75 * ax + 0.25 * bx, 0.75 * az + 0.25 * bz], [0.25 * ax + 0.75 * bx, 0.25 * az + 0.75 * bz]] as [number, number][];
+      }), line[line.length - 1]];
+    const along: [number, number][] = [];
+    for (let k = 0; k + 1 < line.length; k++) {
+      const [ax, az] = line[k];
+      const [bx, bz] = line[k + 1];
+      const len = Math.hypot(bx - ax, bz - az);
+      for (let u = 0; u < len; u += 1) along.push([ax + ((bx - ax) * u) / len, az + ((bz - az) * u) / len]);
+    }
+    along.push(line[line.length - 1]);
+    // The climb straight between the ends, a lip every tread on top of it (a step, not a slope).
+    return along.map(([x, z], k) => {
+      const u = k / (along.length - 1);
+      const lip = STAIRS.riser * ((k % STAIRS.tread) / STAIRS.tread - 0.5);
+      return { p: [r1(x), r1(y0 + (y1 - y0) * u - lip), r1(z)], width: STAIRS.width, lanes: 1, shoulder: STAIRS.shoulder, surface: STAIRS.surface };
+    });
+  };
+  const yAt = (s: number) => (sampleAt(g.main, s, hit), hit.cy);
+  // The first flight: off the first row (heading west) to its right, up, onto the second (heading east).
+  const a = sAt(STAIRS.x + 22, z1);
+  const c = sAt(STAIRS.x + 18, z2);
+  const up: [number, number][] = [[STAIRS.x + 10, z1 - 7], [STAIRS.x, z1 - 18], [STAIRS.x, z2 + 18], [STAIRS.x + 8, z2 + 7]];
+  // The second: off the second row at the same spot (one node: the crossroads), up, onto the third
+  // (heading west).
+  const d = sAt(STAIRS.x2 - 24, z3);
+  const top: [number, number][] = [[STAIRS.x2 - 5, z2 - 6], [STAIRS.x2, z2 - 18], [STAIRS.x2, z3 + 18], [STAIRS.x2 - 12, z3 + 5]];
+  layout.branches!.push(
+    { id: 'stairs', kind: 'shortcut', from: Math.round(a), to: Math.round(c), heights: 'own', limit: STAIRS.limit, points: flight(up, yAt(a), yAt(c)) },
+    { id: 'stairs-top', kind: 'shortcut', from: Math.round(c) + 0.5, to: Math.round(d), heights: 'own', limit: STAIRS.limit, points: flight(top, yAt(c), yAt(d)) },
+  );
+  // The arm: from halfway up the first flight (where it is between the rows, on the flight as
+  // baked), across the slope onto the second row at `arm`.
+  const stairs = bakeTrack(layout, surfaces).splines.find((x) => x.id === 'stairs')!;
+  const zf = (z1 + z2) / 2;
+  projectGlobal(stairs, STAIRS.x, zf, hit);
+  const mid = Math.round(hit.s);
+  sampleAt(stairs, mid, hit);
+  const e = sAt(STAIRS.arm, z2);
+  const arm: [number, number][] = [[STAIRS.x + 7, zf - 15], [STAIRS.arm - 22, z2 + 10], [STAIRS.arm - 12, z2 + 4]];
+  layout.branches!.push({ id: 'stairs-arm', kind: 'shortcut', leaves: 'stairs', from: mid, to: Math.round(e), heights: 'own', limit: STAIRS.limit, points: flight(arm, hit.cy, yAt(e)) });
+  for (const id of ['stairs', 'stairs-top', 'stairs-arm']) layout.walls!.gaps!.push({ spline: id, s: [0, 1e4], side: 'both' });
+}
+
+/**
  * The town (the owner, 2026-10-05: the Riviera, Villefranche from the water): houses stacked up the
  * hill on the town side of the waterfront boulevard, from the end of the Promenade along the Quay to
  * the harbour, and both sides of the Old Town's climb. Each stretch is [from, to] (main distances,
@@ -448,13 +547,15 @@ const STREET = { depth: 32, width: 8, shoulder: 1.5, speed: 14, density: 8 };
  */
 const TOWN = {
   stretches: [
-    [4510, 270, -1, 5],
-    [600, 1010, 0, 3],
+    [L - 495, 270, -1, 5],
+    [OLD_TOWN_S[0], OLD_TOWN_S[1], 0, 3],
   ] as [number, number, number, number][],
   /** The first row's front this far past the road's verge (a pavement), each row this much further back. */
   front: 5,
   row: 14,
   clear: 3,
+  /** Off the Stairs' edge: close (their walls line them; the validator keeps a metre). */
+  stairs: 1.05,
   /** Width across its front, depth, and storeys (3.2 m each); the rows further back a storey taller. */
   width: [7, 12],
   depth: [10, 13],
@@ -478,12 +579,33 @@ const TOWN = {
       if (ground.coast(px, pz) < 6 || ground.height(px, pz) < SEA + 1.5) return false;
       for (const sp of g.splines) {
         projectGlobal(sp, px, pz, hit);
-        if (Math.abs(hit.lateral) < hit.width / 2 + hit.shoulder + TOWN.clear) return false;
+        // (The Stairs run between the houses' walls: off them is into one.)
+        if (Math.abs(hit.lateral) < hit.width / 2 + hit.shoulder + (sp.id.startsWith('stairs') ? TOWN.stairs : TOWN.clear)) return false;
       }
     }
     // (Terraced: side by side is fine, overlapping isn't. Box against box, a hair smaller.)
     return houses.every((h) => !obbOverlap(x, z, rot, w / 2 - 0.2, d / 2 - 0.2, h.at[0], h.at[1], h.rot, h.size[0] / 2 - 0.2, h.size[1] / 2 - 0.2, contact));
   };
+  // First a row along each side of the Stairs, facing them, their walls at the steps' edge.
+  for (const sp of g.splines.filter((x) => x.id.startsWith('stairs')))
+    for (const sd of [-1, 1])
+      for (let u = 6; u < sp.length - 6; ) {
+        const w = range(TOWN.width);
+        const d = range(TOWN.depth);
+        sampleAt(sp, u + w / 2, hit);
+        const off = hit.width / 2 + hit.shoulder + TOWN.stairs + 0.2 + d / 2;
+        const x = hit.cx - hit.tz * off * sd;
+        const z = hit.cz + hit.tx * off * sd;
+        const rot = Math.atan2(hit.tz * sd, -hit.tx * sd);
+        // (Where one doesn't fit, a metre on: packed in wherever there's room.)
+        if (!free(x, z, w, d, rot)) {
+          u += 1;
+          continue;
+        }
+        const storeys = Math.round(range(TOWN.storeys));
+        houses.push({ at: [Math.round(x * 10) / 10, Math.round(z * 10) / 10], size: [Math.round(w * 10) / 10, Math.round(d * 10) / 10, Math.round(storeys * 3.2 * 10) / 10], rot: Math.round(rot * 1000) / 1000 });
+        u += w + range([0.3, 1.5]);
+      }
   for (const [from, to, side, rows] of TOWN.stretches) {
     const len = (to - from + L) % L;
     for (const sd of side ? [side] : [-1, 1]) {

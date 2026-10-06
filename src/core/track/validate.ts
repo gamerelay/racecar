@@ -234,6 +234,7 @@ export function validateLayout(layout: TrackLayout, surfaces: SurfaceDef[], clas
   // Branches fork off and rejoin gently: an end's nearest point well along the road, not out to
   // the side (the baker adds a slip point when there's room; a sharp fork is a hard kink).
   for (const [k, b] of (layout.branches ?? []).entries()) {
+    if (b.limit !== undefined && !(b.limit > 0)) err(`branch ${b.id}'s limit is ${b.limit}; the AI's top speed there wants a positive number (m/s)`, b.id);
     // Off another branch (6e): an earlier one, not a side street, the junction on it and clear of its ends.
     for (const [id, at, what] of [
       [b.leaves, b.from, 'leaves'],
