@@ -176,7 +176,6 @@ export function buildLand(def: GroundDef, main: BakedSpline, pieces: Pieces, fea
       // off the roads, the road's own height on them.
       for (const f of shapers) gy = f.shape!(at, gy);
       if (gy < roof) gy = roof;
-      if (ledge && gy > road - 0.5) gy = road - 0.5;
       // In it, over its road, at least MOUTH_CLEAR over the road: the drawing cuts the ground to the
       // tube's outline but keeps it at the road's height (a cutting's floor), and the ground in its
       // mouths, eased to the road's (runIn), was kept, clipped into a slab across the tunnel. (A car
@@ -187,6 +186,8 @@ export function buildLand(def: GroundDef, main: BakedSpline, pieces: Pieces, fea
         const p = tunnels[t];
         if (s >= p.s[0] + cell && s <= p.s[1] - cell && d < edge + TUNNEL_SIDE && gy < road + MOUTH_CLEAR) gy = road + MOUTH_CLEAR;
       }
+      // (After it: past a gallery's wall, outside the tunnel, the ledge stays under the road.)
+      if (ledge && gy > road - 0.5) gy = road - 0.5;
       // Under a piece that says so, the ground falls away to its floor.
       for (const p of shaping) {
         const k = pull(p, s, d, edge);

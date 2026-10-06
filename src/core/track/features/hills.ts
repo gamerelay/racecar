@@ -19,12 +19,17 @@ export function hillHeight(hills: NonNullable<GroundDef['hills']>, x: number, z:
       // A ridge: the nearest point on its crest, its height there, and which side it falls to.
       const dx = hl.to[0] - hl.x;
       const dz = hl.to[1] - hl.z;
-      const len = hypot(dx, dz);
+      const len = Math.max(1e-6, hypot(dx, dz));
       const tx = dx / len;
       const tz = dz / len;
       const t = Math.min(len, Math.max(0, (x - hl.x) * tx + (z - hl.z) * tz));
-      const d = hypot(x - hl.x - tx * t, z - hl.z - tz * t);
-      const r = (x - hl.x) * -tz + (z - hl.z) * tx > 0 ? (hl.r2 ?? hl.r) : hl.r;
+      const ox = x - hl.x - tx * t;
+      const oz = z - hl.z - tz * t;
+      const d = hypot(ox, oz);
+      // Its side by how far across (-1 left to 1 right), so round its ends it eases from one
+      // fall to the other (by which side of the crest's line alone, it stepped there).
+      const across = d > 0 ? (ox * -tz + oz * tx) / d : 0;
+      const r = hl.r + ((hl.r2 ?? hl.r) - hl.r) * smooth(-1, 1, across);
       if (d < r) best = Math.max(best, (hl.h + ((hl.h2 ?? hl.h) - hl.h) * (t / len)) * (1 - smooth(0, r, d)));
       continue;
     }

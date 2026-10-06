@@ -455,7 +455,6 @@ export interface LiftDef {
   boat?: [number, number];
 }
 
-/** Open ground round the main road (core/track/ground). Distances are along the main road (s) and across it (lateral, + right). */
 /**
  * A hill (GroundDef.hills): a round dome `h` high over the sea at (x, z), `r` across its foot's
  * radius; or, with `to`, a ridge: its crest from (x, z) to `to`, rising to `h2` there, falling `r`
@@ -471,6 +470,7 @@ export interface Hill {
   r2?: number;
 }
 
+/** Open ground round the main road (core/track/ground). Distances are along the main road (s) and across it (lateral, + right). */
 export interface GroundDef {
   /** Grid cell (m). */
   cell: number;

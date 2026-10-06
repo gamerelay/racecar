@@ -7,7 +7,7 @@ import { playlistFor, ANY_MAP } from '../src/audio/soundtrack';
 import type { MapDef } from '../src/core/content';
 import { bakeTrack } from '../src/core/track/bake';
 import { hillHeight } from '../src/core/track/features/hills';
-import { GALLERY, newCast, windowIn } from '../src/core/track/ground';
+import { newCast, windowIn } from '../src/core/track/ground';
 import { GALLERY_LEDGE } from '../src/core/track/ground/land';
 import { KIND_BEACH } from '../src/core/track/ground/surface';
 import { newHit, offRoad, projectGlobal, sampleAt } from '../src/core/track/query';
@@ -207,7 +207,7 @@ describe('coastal', () => {
     for (let s = gal.s[0]; s < gal.s[1]; s += 0.5) if (windowIn(gal, s) > 0 && !(windowIn(gal, s - 0.5) > 0)) windows++;
     expect(windows).toBeGreaterThanOrEqual(12);
     // Out past the wall along it, over the ledge (the grid's own points: in between, the ground's
-    // drawn cut to the windows), the ground is under the sill.
+    // drawn cut to the windows), the ground is under the road (well under the sill).
     let ledge = 0;
     for (let k = 0; k < g.h.length; k++) {
       const i = g.near[k];
@@ -215,7 +215,7 @@ describe('coastal', () => {
       const edge = track.main.width[i] / 2 + track.main.shoulder[i];
       if (s < gal.s[0] || s > gal.s[1] || g.lateral[k] < edge + 0.1 || g.lateral[k] > edge + GALLERY_LEDGE - 0.1) continue;
       // (By the road's plane there, banked, as the sill is: tube.ts, portal.ts.)
-      expect(g.h[k]).toBeLessThan(track.main.py[i] - g.lateral[k] * Math.tan(track.main.bank[i]) + GALLERY.sill);
+      expect(g.h[k]).toBeLessThan(track.main.py[i] - g.lateral[k] * Math.tan(track.main.bank[i]) - 0.3);
       ledge++;
     }
     expect(ledge).toBeGreaterThan(50);
