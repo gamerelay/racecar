@@ -4,15 +4,23 @@ Where racecar stands and what's next, for whoever picks it up (a person or a fre
 The design is [SPEC.md](./SPEC.md): decisions in §17, and what building changed in "Changed while
 building". This file is "where are we"; the spec is "what are we making".
 
-**Last updated:** 2026-10-06. **`alpha-1.34`** (PR #148) is tagged and on the hosted build:
-**Riviera's look** (COASTAL's step 8i, all drawn only: every fingerprint identical): its own
-palettes (`riviera`, `riviera-sunset`; `Palette.sea`, `Palette.surfaces`), umbrella pines, holm
-oaks and cypresses where the trees stand (`PinesDef.look`), palms and lamps along the promenade,
-the marina (landmarks `pontoon`, `quay`), the beach club (house look `club`) and its jetty,
-striped umbrellas, the lighthouse's beam only at dusk. Floor 106.03 s, field 28 car wrecks over
-seeds 1–72. Nothing is open. **Next** (the owner's pick): COASTAL's leftovers (café terraces on the
-quay, gulls, bunting; the quays cut into the ground; the drawbridge's leaves still the old asphalt
-colour), or a poster for the lobby.
+**Last updated:** 2026-10-06. **`alpha-1.35`** (PR #149) is tagged and on the hosted build:
+**the Rock Tunnel's TLC and its gallery** (COASTAL's step 8j): the spur's three domes one ridge
+(`Hill.to`, `h2`, `r2`), the tunnel (1616–1860 m, ceiling 9 m) a gallery with openings along its
+right wall (`PieceDef.gallery`; a ledge under the road past them; a car down off its roof counts as
+outside, walls.ts), no tile skirt in a tunnel (the strip in its mouth), the limestone's beds by
+height (the material's), scrub and outcrops on the cliffs (`cliffs.ts`), bunting across the town's
+streets (`bunting.ts`). Riviera's fingerprints re-recorded; floor 105.95 s. Field races were last run
+before the review's fixes (71 car wrecks over seeds 1–144, main 60: later laps, elsewhere; the
+owner: look first, sims at the end). **Next** (the owner's list): café terraces on the quay, gulls,
+and a poster of Riviera for the lobby; still open from 8i, the quays cut into the ground and the
+drawbridge's leaves in the old asphalt colour.
+
+Before it, **`alpha-1.34`** (PR #148): **Riviera's look** (COASTAL's step 8i, all drawn only):
+its own palettes (`riviera`, `riviera-sunset`; `Palette.sea`, `Palette.surfaces`), umbrella pines,
+holm oaks and cypresses (`PinesDef.look`), palms and lamps along the promenade, the marina
+(landmarks `pontoon`, `quay`), the beach club (house look `club`) and its jetty, striped
+umbrellas, the lighthouse's beam only at dusk. Floor 106.03 s, field 28 car wrecks over seeds 1–72.
 
 Before it, **`alpha-1.33`** (PRs #141–#147): **driven costs** (#142: the AI times its ways as its
 class drives them; Paradise and Backroads keep the old reckoning, `aiCosts: 'line'`), Riviera's

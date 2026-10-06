@@ -4,6 +4,17 @@ What changed in each release of racecar, newest first. Releases are git tags on 
 reasons behind each change are in [docs/SPEC.md](./docs/SPEC.md) under "Changed while building",
 and where things stand is [docs/HANDOFF.md](./docs/HANDOFF.md).
 
+## alpha-1.35: Riviera's Rock Tunnel, a gallery
+
+- **The Rock Tunnel has windows.** The hill it runs through is now one long limestone ridge, and
+  the tunnel runs along the foot of its cliff, with a row of openings in its right wall, so you see
+  the country go by. The walls still stop you.
+- **The ridge's cliffs** have layers running across them (they were striped top to bottom), with
+  scrub along the ledges and rocks jutting out. That goes for Riviera's other cliffs too.
+- **Bunting** hangs across the town's streets from roof to roof, and along the houses on the
+  waterfront.
+- **Fixed:** a strip of ground hanging in the tunnel's mouth.
+
 ## alpha-1.34: Riviera's look
 
 - **Riviera looks like the Riviera.** Its own colours by day and at sunset: olive and sage hills,
