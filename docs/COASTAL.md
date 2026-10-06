@@ -697,6 +697,24 @@ obstacles on the switchbacks' hillside, where you can jump off and cut down.
 - **Numbers:** the floor is unchanged at 106.3 s (the solo drive's fingerprint too); no wrecks in
   field races at seeds 4, 7 and 8. Every other map's fingerprints are identical.
 
+**Step 8e, the tufts and the tunnel's mouths (2026-10-05):** the owner's notes after a drive.
+- **The tufts** looked odd (thin dark blades everywhere): now about 11,000 low clumps in the
+  grass's own colour, inked like everything else, in patches here and there rather than all over.
+- **A slab across the Rock Tunnel at its exit,** from #131's run-in: the ground in a tunnel's mouth,
+  eased to the road's height, was kept by the drawing's cut (it keeps a cutting's floor at the
+  road's height) and clipped into a slab rising to the rock over the mouth. In a main-road tunnel
+  the ground over its road now stands 0.3 m over it (`MOUTH_CLEAR` in `land.ts`; a car in there is
+  on the tunnel's floor), short of its last grid cell at each end (the grid blended the rise out
+  past the end, where there's no floor: cars hopped off it), and out of its mouths it meets the road. A wheel over a
+  main-road tunnel's floor reads that floor (`wheelOff`), so the ground's 0.3 m isn't felt driving
+  in. Paradise Open's tubes are branches: unchanged.
+- **The dark band across the road at the lower mouth:** the arch's apron of rock (out in front of a
+  mouth, 6 cm under the road) showed through where the ground's grid sags between its points. On
+  the main road there's no apron now: its ground runs up to the mouth. (A faint line where the
+  tube's own road starts, 4 cm up, was there before.)
+- **Numbers:** the floor is 106.22 s; no wrecks in field races at seeds 4, 7 and 8. Every other
+  map's fingerprints are identical.
+
 ## The owner's answers (2026-10-04)
 
 - **The shape:** the sketch is right (quay, bridge, Old Town, tunnel, corniche, lighthouse, beach,

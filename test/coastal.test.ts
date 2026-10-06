@@ -225,6 +225,36 @@ describe('coastal', () => {
       }
   });
 
+  test("in the Rock Tunnel the ground over its road stands clear of it (drawn, it's cut away, not a slab across the tunnel), and out of it meets the road", () => {
+    const tunnel = g.pieces.list.find((p) => p.id === 'rock-tunnel')!;
+    const hit = newHit();
+    // (Two grid cells in from its ends: in the last it's the road's height, so as not to blend into the
+    // ground out of the tunnel, where there's no floor: a hop off its end.)
+    for (let s = tunnel.s[0] + 2 * g.cell; s <= tunnel.s[1] - 2 * g.cell; s += 0.5)
+      for (const lateral of [-6, 0, 6]) {
+        sampleAt(track.main, s, hit);
+        const road = hit.cy - lateral * Math.tan(hit.bank);
+        expect(g.height(hit.cx - hit.tz * lateral, hit.cz + hit.tx * lateral) - road).toBeGreaterThan(0.25);
+      }
+    // 3 m out of each mouth, within a few centimetres of the road (a step there was a wall).
+    for (const s of [tunnel.s[0] - 3, tunnel.s[1] + 3]) {
+      sampleAt(track.main, s, hit);
+      expect(Math.abs(g.height(hit.cx, hit.cz) - hit.cy)).toBeLessThan(0.05);
+    }
+  });
+
+  test('through the Rock Tunnel on the AI, every class leaves the ground once at each mouth at most (no hop off its ends)', () => {
+    const tunnel = g.pieces.list.find((p) => p.id === 'rock-tunnel')!;
+    for (const cls of ['coupe', 'rally', 'bus']) {
+      const sim = setup(track, CLASSES, SURFACES, { s: tunnel.s[0] - 50 }, 'ai', { cls });
+      const d = run(sim, 'ai', 9, 1);
+      const takeoffs = d.events.filter((e) => e.type === 'takeoff' && e.t > 0.1);
+      // (One at each mouth: the road's own crest into it, and out.)
+      expect(takeoffs.length).toBeLessThanOrEqual(2);
+      expect(d.summary.airSeconds).toBeLessThan(0.5);
+    }
+  }, 60_000);
+
   describe('the Old Town and the Stairs (COASTAL step 7)', () => {
     const sp = (id: string) => track.splines.find((x) => x.id === id)!;
     const [stairs, top, arm] = ['stairs', 'stairs-top', 'stairs-arm'].map(sp);
