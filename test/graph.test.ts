@@ -36,13 +36,15 @@ describe('the road graph', () => {
     }
   });
 
-  test('each branch is one street, between the junctions where it leaves and rejoins, and they are where it does', () => {
+  test('each branch is one street (or one per stretch between the lanes off it), between the junctions where it leaves and rejoins, and they are where it does', () => {
     const hit = newHit();
     for (const [key, t] of tracks)
       for (const sp of t.splines.slice(1)) {
         const mine = t.graph.streets.filter((s) => s.spline === sp.index);
-        expect([key, sp.id, mine.length]).toEqual([key, sp.id, 1]);
-        const [st] = mine;
+        // (Cut where a lane leaves or rejoins it: the Stairs, where their arm forks off.)
+        const lanes = new Set(t.splines.flatMap((o) => [o.fromRoad === sp.index ? o.fromS : -1, o.toRoad === sp.index ? o.toS : -1]).filter((x) => x >= 0));
+        expect([key, sp.id, mine.length]).toEqual([key, sp.id, 1 + lanes.size]);
+        const st = { ...mine[0], to: mine[mine.length - 1].to, s1: mine[mine.length - 1].s1 };
         expect([st.s0, st.s1]).toEqual([0, sp.length]);
         for (const [n, s] of [
           [st.from, 0],
@@ -110,10 +112,11 @@ describe('the road graph', () => {
     const bridge = g.streets.filter((s) => s.spline === 0 && s.from === basin.from && s.to === basin.to);
     expect(bridge.length).toBe(1);
     expect(t.layout.pieces!.find((p) => p.id === 'harbour-bridge')!.s[0]).toBeGreaterThanOrEqual(bridge[0].s0);
-    expect(g.streets.filter((s) => s.spline > 0).map((s) => s.road).sort()).toEqual(['basin-road', 'rue-des-pins', 'rue-du-port']);
-    expect(g.nodes.filter((n) => n.kind === 'junction').length).toBe(6);
-    // The Basin Road's a way round on the race's route; the side streets are traffic's.
-    expect(g.route.streets.filter((k) => g.streets[k].spline > 0).map((k) => g.streets[k].road)).toEqual(['basin-road']);
+    expect(g.streets.filter((s) => s.spline > 0).map((s) => s.road).sort()).toEqual(['basin-road', 'rue-des-pins', 'rue-du-port', 'stairs', 'stairs', 'stairs-arm', 'stairs-top']);
+    // (Six, and the Stairs' five: where they leave, the arm's fork, the crossroads, and two rejoins.)
+    expect(g.nodes.filter((n) => n.kind === 'junction').length).toBe(11);
+    // The Basin Road and the Stairs are ways on the race's route; the side streets are traffic's.
+    expect(g.route.streets.filter((k) => g.streets[k].spline > 0).map((k) => g.streets[k].road)).toEqual(['basin-road', 'stairs', 'stairs', 'stairs-top', 'stairs-arm']);
   });
 
   test("Avalanche: a run, its start and finish nodes on the road, the road past them off its route", () => {
@@ -157,9 +160,11 @@ describe('the road graph', () => {
           const hit = sampleAt(t.splines[a], l.s, newHit());
           expect(Math.hypot(n.x - hit.cx, n.z - hit.cz)).toBeLessThan(1.5);
         }
-      // A branch onto the main road: its span there over its own length; the main road onto it, 1.
+      // A branch off the main road and back: its span there over its own length (to within the
+      // metre two ends merged into one node can be apart: the Stairs' crossroads); the main road onto it, 1.
       for (const sp of t.splines.slice(1)) {
-        for (const l of g.links[sp.index]) if (l.other === 0) expect(l.scale).toBeCloseTo((((sp.mainTo - sp.mainFrom) % t.main.length) + t.main.length) % t.main.length / sp.length, 9);
+        if (sp.fromRoad !== 0 || sp.toRoad !== 0) continue;
+        for (const l of g.links[sp.index]) if (l.other === 0) expect(Math.abs(l.scale - (((sp.mainTo - sp.mainFrom) % t.main.length) + t.main.length) % t.main.length / sp.length)).toBeLessThan(1 / sp.length);
         for (const l of g.links[0]) expect(l.scale).toBe(1);
       }
     }
@@ -226,14 +231,22 @@ describe('locate over the graph (6b)', () => {
 });
 
 describe('progress along the route (6c)', () => {
-  test("along(): on every road of every map, exactly the old main-road distance (from a run's start)", () => {
+  test("along(): on every road of every map, exactly the old main-road distance (from a run's start; a road a lane cuts, to a hair)", () => {
     for (const [key, t] of tracks) {
       const start = t.run?.start ?? 0;
-      for (const sp of t.splines)
+      for (const sp of t.splines) {
+        // (Cut at a lane's node, the stretches either side count from it: the same to 1e-6. From a
+        // node standing for two branches' ends, as far off as they were apart: under a metre.)
+        const cut = t.splines.some((o) => o.index > 0 && (o.fromRoad === sp.index || o.toRoad === sp.index) && sp.index > 0);
+        const ends = t.graph.streets.filter((st) => st.spline === sp.index).flatMap((st) => [st.from, st.to]);
+        const merged = sp.index > 0 && ends.some((n) => [...t.graph.nodes[n].out, ...t.graph.nodes[n].in].filter((k) => t.graph.streets[k].spline > 0).length > 1 && !cut);
         for (let s = 0; s <= sp.length; s += 3.7) {
           const want = mainDistance(t, sp.index, s) - start;
-          expect([key, sp.id, s, t.graph.along(sp.index, s)]).toEqual([key, sp.id, s, want]);
+          if (merged) expect(Math.abs(t.graph.along(sp.index, s) - want)).toBeLessThanOrEqual(1);
+          else if (cut) expect(t.graph.along(sp.index, s)).toBeCloseTo(want, 6);
+          else expect([key, sp.id, s, t.graph.along(sp.index, s)]).toEqual([key, sp.id, s, want]);
         }
+      }
     }
   });
 
@@ -300,7 +313,7 @@ describe('the AI picks its way by cost (6d)', () => {
       // Every shortcut today is quicker than the main road it skips (so the roll decides, as before).
       for (const k of g.route.streets) {
         const st = g.streets[k];
-        if (st.spline === 0 || t.layout.branches![st.spline - 1].kind !== 'shortcut') continue;
+        if (st.spline === 0 || t.layout.branches![st.spline - 1].kind !== 'shortcut' || t.splines[st.spline].fromRoad !== 0 || st.s0 > 0) continue;
         const main = g.nodes[st.from].out.find((m) => g.streets[m].spline === 0)!;
         expect([key, st.road, time[k] < time[main] + toGo[g.streets[main].to] - toGo[st.to]]).toEqual([key, st.road, true]);
       }

@@ -221,12 +221,12 @@ identical through all five: each slice is the old behaviour on today's maps, wit
    rest on the final bake); `Link.scale` only from a branch onto the road it leaves and rejoins;
    the AI's choice window shut at 60 m past on an open road too. Tested with a lane leaving and
    rejoining the barn (`loopLayout`), a lane on a run, the AI on the main road past a lane's node.
-2. **The Stairs on Coastal** (COASTAL's step 7, the first real use of 6e): a stepped lane straight up
-   the Old Town (main road about 600–1010 m, `T(475,190)`, `T(395,85)`, `T(470,-15)` in
-   `tools/gen-coastal.ts`), forking halfway: one arm on up past the second bend, one across to
-   rejoin after the first. Steep, bumpy (`uneven`), narrow. Measure each arm with the lap report:
-   clean saves 2–4 s, fluffed costs more, taken slowly saves nothing. Watch the town's houses (the
-   generator's `free()` keeps them off roads) and the rock rails' list.
+2. **The Stairs on Coastal** (#126; COASTAL's "Step 7a"): the Old Town tightened into real
+   switchbacks (the owner's pick: it was a 150–270 km/h zig-zag no cut could beat), and the Stairs
+   up through them. Two flights meet at a crossroads on the middle row, and an arm forks off the
+   first flight (a lane off a branch). Stepped and walled in by houses. `BranchDef.limit` caps the
+   AI's line on them (26 m/s). Clean saves 2.6–3.0 s, flat out wrecks (+0.7 s), slowly saves
+   nothing. Coastal's floor is 103.18 s.
 3. Then CALDERA's step 6 leftovers when a map needs them: hazards, traffic and the AI's marks off
    main-road distances; the road-edge walls onto streets; step 7, a city map.
 
@@ -291,7 +291,7 @@ skies and a rare shower, the `coastal` track. Open it with `?mode=free&map=coast
 3. **Into the lobby** when the owner's happy: experimental off, a poster, a CHANGELOG line.
 
 **Known rough edges:**
-- The lap is long (97.8 s, against 58–93 for the rest): a Descent row or an S-bend could go, or the
+- The lap is long (103.2 s since the Old Town's switchbacks and the Stairs, against 58–93 for the rest): a Descent row or an S-bend could go, or the
   race fewer laps, if the owner wants it shorter.
 - A car that runs wide just before a rock rail can end up behind it, grinding along to its end.
 - A car crawling up a drawbridge leaf as it passes 30° falls in (the AI never does).
@@ -307,7 +307,7 @@ skies and a rare shower, the `coastal` track. Open it with `?mode=free&map=coast
 - Camera hints still wait for a spot that needs one; TECH_DEBT has the small things the reviews left.
 
 **Lap floors now** (the best AI lap, solo hard coupe): Downtown 57.9, Backroads 62.82, Avalanche
-93.07, Paradise 70.3, Paradise Open 66.35, Coastal 97.83 s (experimental). Paradise Open's field: 34 wrecks in 40 seeds.
+93.07, Paradise 70.3, Paradise Open 66.35, Coastal 103.18 s (experimental). Paradise Open's field: 34 wrecks in 40 seeds.
 
 **Working notes (2026-10-03 to 2026-10-05):**
 - The fingerprints cover a solo lap and a drive down each branch, not the field: an AI change can

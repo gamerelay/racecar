@@ -52,6 +52,11 @@ export interface BranchDef extends SplineDef {
    * meet the main road's ground where it leaves the verge, or that's a step. Its bank still fades.
    */
   heights?: 'own';
+  /**
+   * The fastest the AI takes it (m/s): its racing line's cap here, so how long it reckons the way
+   * takes too (a road slower than its curves say: steps, walls close either side).
+   */
+  limit?: number;
 }
 
 export interface ZoneDef {
