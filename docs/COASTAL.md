@@ -888,6 +888,10 @@ the green countryside and blue skies wash by".
   (106.03). Field races for the first ridge (before the review's fixes): car wrecks over seeds
   1–144 71 (main 60; another ridge 63), the tunnel's own three the same; not re-run since (the
   owner: the look first, sims at the end).
+- **Left for later** (the owner, 2026-10-06): café terraces on the quay (tables, chairs and
+  parasols along its town side), gulls (lifting off the quay as you pass), and a poster of
+  Riviera for the lobby. Still open from 8i: the quays cut into the ground, and the drawbridge's
+  leaves in the old asphalt colour.
 
 ## The owner's answers (2026-10-04)
 
