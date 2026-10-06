@@ -234,7 +234,7 @@ costs can be trusted (off-road ones read a little slow). No race changes today. 
 their rivals to keep taking them. Every fingerprint identical; Riviera's field results unchanged.
 CALDERA's 6d has the numbers.
 
-**Next: Coastal, now *Riviera* (2026-10-04; as of 2026-10-05, through #140 and `alpha-1.32`).** The owner's call: Caldera's next features are
+**Next: Coastal, now *Riviera* (2026-10-04; as of 2026-10-06, through the Sand, after `alpha-1.32`).** The owner's call: Caldera's next features are
 built on a new experimental map instead of Paradise Open, whose fingerprints, floors and tests made
 iterating slow. Coastal's own fingerprints are re-recorded as it changes; every other map's must
 stay identical (the check that the shared engine didn't move). The plan, what's built (step by
@@ -329,15 +329,30 @@ keep tweaking it: re-record its fingerprints as before.
 - **Live as *Riviera* (#138, released in `alpha-1.32`):** `experimental` off, named *Riviera*; the
   id stays `coastal` (links, fingerprints, its music). The lobby's map list and quick race now offer
   only the game's maps, by name (`lobbyKeys` in `ui/menu.ts`): Paradise Open had been in both.
-- **Numbers:** the lap is 5.51 km, the floor 106.22 s (solo hard coupe; 105.58 before the tunnel's
-  exit lost its hop: the AI runs a metre wide there now). Field races at seeds 4, 7 and 8: no wrecks.
+- **The cove and the Sand (2026-10-06, the owner's pick: "West cove"; COASTAL's "Step 7c"):** a
+  beach cove under the Corniche just before Lighthouse Point. The road comes down to it and loops
+  inland round the beach club (a low block for now) in a chicane; the Sand runs straight along the
+  beach by the water past it, umbrellas on its sea side. It saves every class 1.85 to 2.5 s clean,
+  and the driven costs agree (2.2 s). Its ends ramp at 9% and never over the road beside them (a
+  step where a branch leaves the road's verge threw a van). The town's houses draw from a stream
+  per stretch now (the waterfront re-rolled the Old Town's).
+- **Numbers:** the lap is 5.60 km (5.51 before the cove), the floor 106.67 s (solo hard coupe;
+  106.22 before the cove). Field races over 16 seeds: 15 car wrecks (main
+  10), two at the Sand's rejoin, the rest at the Stairs' junctions and in the tunnel; seed 4 clean,
+  7 and 8 one each in the Old Town. The AI at junctions is next (below).
 
 **Next, in about this order** (COASTAL's steps):
-1. **The Sand** (the last cut): the beach went to the sea wall, so it needs a new home (the cape?)
-   or drops: the owner's call. The Stairs and the Rocks are built (above).
-2. **The look:** yachts moored in the harbour (and along the sea wall), the riviera palette (it borrows Paradise's `tropic` now), the beach club (somewhere new,
-   with the Sand); the Old Town's side streets with its houses; lamp posts and palms along the
-   waterfront's pavement.
+1. **The AI at junctions** (the owner: split from the Sand): a car coming off a cut can't see the
+   road's cars it rejoins, nor they it, until they share a road, and near a fork the AI reads other
+   cars' main-road laterals against the branch it's turning onto. Riviera's field wrecks are there
+   (the Sand's and the Rocks' rejoins, the Stairs' fork and crossroads). A first fix (each sees the
+   other within 80 m of a rejoin, projected onto its road; the one coming in gives way)
+   cleaned Riviera's and Paradise's merges but bunched Backroads' first-lap pack into more wrecks
+   (4 to 12 car wrecks over 24 seeds). Study it across every map's field, not one seed.
+2. **The look:** yachts moored in the harbour (and along the sea wall), the riviera palette (it
+   borrows Paradise's `tropic` now), the beach club in the cove (its pool, terrace and jetty: a
+   low block stands there now); the Old Town's side streets with its houses; lamp posts and palms
+   along the waterfront's pavement.
 3. **Optional:** a poster for it (the plan's "into the lobby" step had one; nothing in the game
    shows a map's poster, so the owner's call). It's in the lobby already.
 4. ~~Before more cuts: give `wayCosts` acceleration~~ (done: driven costs, above).

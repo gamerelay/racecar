@@ -255,7 +255,7 @@ describe('the local backend', () => {
 });
 
 /** Each layout's lap length, km (MAPS.md's table). */
-const LAP_KM: Record<string, number> = { 'downtown/downtown': 3.26, 'backroads/valley': 2.92, 'paradise/island': 3.78, 'avalanche/slope': 6.1, 'coastal/riviera': 5.51 };
+const LAP_KM: Record<string, number> = { 'downtown/downtown': 3.26, 'backroads/valley': 2.92, 'paradise/island': 3.78, 'avalanche/slope': 6.1, 'coastal/riviera': 5.6 };
 
 describe('map thumbnails', () => {
   test('a lap is drawn the way it\'s driven (the thumbnail and the minimap share fitBox): Paradise, driven clockwise, is drawn clockwise', () => {

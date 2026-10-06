@@ -87,8 +87,9 @@ respawn), and the land behind the town rises into hills you can't usefully climb
    - **The Rocks** (the cut): straight across the flat rocks below the lighthouse instead of round
      it. It's shorter, but the rock is rough and the sea is on both sides.
 7. **The Beach**: down off the cape to a beach club, with umbrellas, a pool and a jetty. (2026-10-05,
-   the owner: the waterfront is water against a sea wall, not a beach; see "Step 6b". The beach
-   club and the Sand cut need a new home, maybe on the cape.)
+   the owner: the waterfront is water against a sea wall, not a beach; see "Step 6b". On
+   2026-10-06 the beach club, its chicane and the Sand moved to a cove below the Descent, just
+   before Lighthouse Point: "Step 7c".)
    - **A chicane** by the pool, a nod to Monaco's.
    - **The Sand** (the cut): across the beach instead of the road's curve along it, on packed
      sand by the waterline (PARADISE's Sandbar idea, `beach` through the loose `sand`).
@@ -102,7 +103,7 @@ respawn), and the land behind the town rises into hills you can't usefully climb
 | The harbour mouth | The bridge, when it's down | The Basin Road, when it's up | Jumping the rising leaf |
 | The Old Town | The switchbacks | Through the arcade | The Stairs |
 | Lighthouse Point | The hairpin round it | The Rocks | (none) |
-| The Beach | The road along it | The Sand | (none) |
+| The cove | The chicane round the beach club | The Sand | (none) |
 
 As on Paradise Open, each risky line has to add up honestly:
 - **Clean,** it saves real time (2–4 s).
@@ -583,7 +584,7 @@ bottom of the map, the right side just water, not beach, with a retaining wall.
     costs see the flight's limit, not the turn into it.
   - The houses beside the Stairs move with any change to them (width, corners), and the times
     with the houses, so re-measure after one.
-- **Next for the cuts:** the Rocks at Lighthouse Point (below), and the Sand (which needs a new home).
+- **Next for the cuts:** the Rocks at Lighthouse Point (below), and the Sand ("Step 7c", in a cove).
 
 **Step 7b, Lighthouse Point and the Rocks (2026-10-05):** the second cut.
 - **The loop round the cape** (`POINT` in the generator). Lighthouse Point was a single left-hander
@@ -750,6 +751,42 @@ in the lobby, the vote and quick race, named *Riviera*. Its id stays `coastal` (
 fingerprints, the `coastal` track). From review: the lobby's map list and quick race had offered
 every layout, the experimental ones too (Paradise Open as its raw key); now only the game's maps,
 by name (`lobbyKeys`).
+
+**Step 7c, the cove and the Sand (2026-10-06):** the owner picked the cove's spot from four
+(on the cape, the east headland, dropping it): "West cove".
+- **The cove** (`COVE` in the generator): a bay in the cliffs under the Corniche, below the
+  Descent's west end. The coast is pulled in along `COVE.shore`, and a `beach` feature makes the
+  ground beach from the road out to the water (and inside the chicane). The Corniche now comes down
+  to it at 4 m (its corner from 20 to 11 m, Lighthouse Point's way in from 11 to 8).
+- **The chicane round the beach club:** off the cliff the road runs south along the top of the
+  beach, then swings inland in a loop round the club (`COVE.club`, its corners 16 to 25 m) and back
+  out to Lighthouse Point. The club is a low block on the beach facing the sea for now (`COVE.inside`;
+  its pool, terrace and jetty come with the look).
+- **The Sand** (`SAND`): straight along the beach by the waterline, 183 m against the road's
+  253 m, 9 m wide on `beach` (packed sand), loose `sand` either side to the water. Beach umbrellas
+  along its sea side (smashables: a car run wide knocks them flying). No AI limit: flat out, nobody
+  wrecks on it.
+- **Its heights:** its own, down to 3.5 m along the beach. Off the road and back at 9% (the road's
+  own drop into the cove), and never over the road beside it. The bake gives a branch the road's
+  height while it's on the road's verge and its own past that; a steeper ramp, or its own heights
+  over the road's, left a step there that threw a van 40 m.
+- **Numbers** (from 100 m before the fork to just past the rejoin, a hard AI): the Sand saves every
+  class 1.85 to 2.5 s, clean. The driven costs (CALDERA 6d) said 2.15 to 2.27: on the mark, so the
+  AI takes it on its roll. The lap is 5.60 km (85 m longer); the floor is 106.67 s.
+- **The town's houses** draw from a stream per stretch now (the Stairs' rows first, then each
+  stretch its own): the waterfront's houses moving as the lap grew re-rolled the Old Town's after
+  them, and with them the Stairs' times.
+- **Known, for the next step (the AI at junctions):** a car coming off a cut can't see the cars on
+  the road it rejoins, nor they it, until they're on one road. Where the Sand rejoins just before
+  Lighthouse Point's corner, a road car sweeping across for it met a car coming off the beach (field
+  races at seeds 9 and 15 of 16). A fix (each sees the other near a rejoin, the one coming in gives
+  way) cleaned Riviera's and Paradise's merges but bunched Backroads' first-lap pack into more
+  wrecks (4 to 12 over 24 seeds), so it's its own step, with the forks (the Old Town's wrecks at the
+  Stairs) and how the AI reads lateral offsets on a branch it's turning onto.
+- **Field races** over 16 seeds: 15 wrecks against main's 10, all car on car. Two at the Sand's
+  rejoin (seeds 9 and 15); the rest where main's are, at the Stairs' fork and crossroads and in
+  the Rock Tunnel, moved between seeds as the field reshuffles. Seed 4 is clean; 7 and 8 have one
+  each in the Old Town (main had none there at those seeds).
 
 ## The owner's answers (2026-10-04)
 
