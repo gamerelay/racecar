@@ -316,8 +316,27 @@ function wheelGround(g: Ground, x: number, z: number, h: number, y: number): num
     }
     return sum / 4;
   }
-  return (g.height(x + fx + rx, z + fz + rz) + g.height(x + fx - rx, z + fz - rz) + g.height(x - fx + rx, z - fz + rz) + g.height(x - fx - rx, z - fz - rz)) / 4;
+  return (wheelOff(g, x + fx + rx, z + fz + rz, y) + wheelOff(g, x + fx - rx, z + fz - rz, y) + wheelOff(g, x - fx + rx, z - fz + rz, y) + wheelOff(g, x - fx - rx, z - fz - rz, y)) / 4;
 }
+/**
+ * A wheel's ground off a piece: the land, unless the wheel's over a tunnel's floor (an enclosed piece)
+ * and the car's at its height (within a hard landing of it, or under rock over it, and under its
+ * ceiling): then that floor. (Reading the rock over a mouth, a car driving into Coastal's Rock Tunnel
+ * at an angle was thrown up off its road and over the walls onto the hill; reading the road from
+ * anywhere, a car on the hill over it sank through the rock into it; and the ground in a tunnel
+ * stands a little over its road.)
+ */
+function wheelOff(g: Ground, x: number, z: number, y: number): number {
+  const h = g.height(x, z);
+  // (Off the main road's tunnels, only under the rock: their ground is the road's in their mouths.)
+  if (!(h > y + DECK_CATCH) && !g.pieces.mainTunnels) return h;
+  const c = g.cast(x, y, z, WHEEL_OFF);
+  if (c.piece < 0) return h;
+  const p = g.pieces.list[c.piece];
+  if (!(p.ceiling > 0) || !(y - c.floor < p.ceiling)) return h;
+  return h > y + DECK_CATCH || (p.spline === 0 && !p.building) ? c.floor : h;
+}
+const WHEEL_OFF = newCast();
 const WHEEL_CAST = newCast();
 const WHEELS = [
   [1, 1],

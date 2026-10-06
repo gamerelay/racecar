@@ -99,8 +99,8 @@ export function buildTubes(track: Track): Object3D[] {
         // shaft, and gave the way in a 22 m collar standing up out of the slope.)
         const shaft = (k: number) => g.height(sp.px[Math.max(0, Math.min(sp.n - 1, k))], sp.pz[Math.max(0, Math.min(sp.n - 1, k))]) < sp.py[i] - 3;
         // (Each on its end ring, where the ground's cut on ARCH_DEPTH past it: portal.ts.)
-        if (!walled(i - 1)) arch(geo, sp, i, edge(i), ceiling(i), -1, shaft(i - 8), look);
-        if (!walled(j)) arch(geo, sp, j, edge(j), ceiling(j), 1, shaft(j + 8), look);
+        if (!walled(i - 1)) arch(geo, sp, i, edge(i), ceiling(i), -1, shaft(i - 8), look, main);
+        if (!walled(j)) arch(geo, sp, j, edge(j), ceiling(j), 1, shaft(j + 8), look, main);
       } else {
         // Up a kicker (the jump's): chevrons pointing over the edge, red and white, every 3 m.
         const at = i * sp.step;
@@ -164,7 +164,7 @@ function spike(geo: Geo, top: number[], len: number, r: number, color: string): 
 }
 
 /** A rough arch of rock across the tube at sample `i`: two pillars and a lintel, a little proud of the tube, its apron reaching out `out` (-1 back, +1 ahead). */
-function arch(geo: Geo, sp: BakedSpline, i: number, e: number, h: number, out: number, tall: boolean, look = LOOKS.lava): void {
+function arch(geo: Geo, sp: BakedSpline, i: number, e: number, h: number, out: number, tall: boolean, look = LOOKS.lava, open = false): void {
   const p = (l: number, up: number, along: number) => [sp.px[i] - sp.tz[i] * l + sp.tx[i] * along, sp.py[i] + up, sp.pz[i] + sp.tx[i] * l + sp.tz[i] * along];
   const box = (l0: number, l1: number, y0: number, y1: number, color: string) => {
     const a = [p(l0, y0, -ARCH_DEPTH), p(l1, y0, -ARCH_DEPTH), p(l1, y1, -ARCH_DEPTH), p(l0, y1, -ARCH_DEPTH)];
@@ -178,5 +178,7 @@ function arch(geo: Geo, sp: BakedSpline, i: number, e: number, h: number, out: n
   box(e + 0.2, e + w, 0, h + 1.5, look.rock[2]);
   box(-e - w, e + w, h, h + (tall ? 22 : 2.5), look.rock[0]);
   const f = (l: number, along: number) => [sp.px[i] - sp.tz[i] * l + sp.tx[i] * along, sp.py[i] - l * Math.tan(sp.bank[i]) - 0.06, sp.pz[i] + sp.tx[i] * l + sp.tz[i] * along];
-  geo.face(f(-e - 2.5, 0), f(e + 2.5, 0), f(e + 2.5, out * 4), f(-e - 2.5, out * 4), look.dark);
+  // (Not on the main road: its ground runs up to the mouth at the road's height, and an apron under
+  // it showed through where the ground's grid sags between its points, inked lines across the road.)
+  if (!open) geo.face(f(-e - 2.5, 0), f(e + 2.5, 0), f(e + 2.5, out * 4), f(-e - 2.5, out * 4), look.dark);
 }

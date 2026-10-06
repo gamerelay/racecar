@@ -14,7 +14,7 @@ import type { SimState } from '../state';
 import { mainDistance, signedGap } from '../track/bake';
 import { Solid, type Hazards } from '../world/hazards';
 import type { Breakables } from '../world/breakables';
-import { SMASH_KINDS, type Smashables } from '../world/smash';
+import { SMASH_KINDS, SMASH_OPEN, type Smashables } from '../world/smash';
 import { laneActive, newTrafficPose, TRAFFIC_KINDS, type Traffic } from '../world/traffic';
 import { collideBreakables } from './breakables';
 import { bounce as wallBounce } from './walls';
@@ -112,9 +112,15 @@ export function collideWorld(sim: SimState, i: number, ctx: WorldCtx): void {
     const fx = sin(c.h[i]);
     const fz = cos(c.h[i]);
     for (let k = 0; k < sm.n; k++) {
-      if (sm.spline[k] !== c.spline[i]) continue;
-      const ds = sp.closed ? signedGap(sm.s[k], c.s[i], sp.length) : sm.s[k] - c.s[i];
-      if (Math.abs(ds) > 8 || !sm.standing(k, ctx.t)) continue;
+      // One on open ground by where it is (a car cutting down a hillside is placed on whichever pass
+      // of the road it's nearest); one by a road by the car's place along that road.
+      if (sm.spline[k] === SMASH_OPEN) {
+        if (Math.abs(sm.x[k] - c.x[i]) > 8 || Math.abs(sm.z[k] - c.z[i]) > 8 || !sm.standing(k, ctx.t)) continue;
+      } else {
+        if (sm.spline[k] !== c.spline[i]) continue;
+        const ds = sp.closed ? signedGap(sm.s[k], c.s[i], sp.length) : sm.s[k] - c.s[i];
+        if (Math.abs(ds) > 8 || !sm.standing(k, ctx.t)) continue;
+      }
       const kind = SMASH_KINDS[sm.kind[k]];
       if (c.y[i] - sm.y[k] > kind.h + 0.3 || sm.y[k] - c.y[i] > 2) continue;
       // The car's box, grown by the prop's radius.

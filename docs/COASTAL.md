@@ -644,6 +644,77 @@ mountain's top ("a little empty up there").
   `test/coastal.test.ts` (the casino's block, its facing and garden; the lighthouse and the fort on
   the summit, with no trees on either).
 
+**Step 8b, a clean-up (2026-10-05):** the owner's notes from a drive, and #129's review.
+- **The Rock Tunnel threw cars onto the hill over it.** Driving into a mouth at an angle, a car's
+  front wheels read the rock over the mouth instead of the tunnel's road (`wheelGround`, off a
+  piece, averaged the land under each wheel), so it was thrown 3–6 m up in a tick. In the air it
+  then flew over the walls' 1.2 m rails, out into the rock, and landed on the hill 25–37 m up. Off
+  the road just before a mouth, a car was also lifted straight up the cliff beside it. Three fixes:
+  - A wheel whose land is more than a hard landing over the car reads what's under it at the car's
+    height, the tunnel's road, when the car's within the tunnel's ceiling of it (`wheelOff` in
+    `physics.ts`; from anywhere over it, cars on the hill sank through the rock into the tunnel).
+  - Under a ceiling, a road's walls go all the way up to it (`walls.ts`).
+  - Coastal's ground has a rock face at 45° (`face: 1`, as Paradise Open's): steeper ground is a
+    wall, not a slope you're lifted up.
+  - The ground meets a tunnel's floor at its mouths: the swell eases out over 30 m before them, as
+    before a deck (`runIn`). It stood 0.3 m over the road at the exit: a hop, and with rock faces
+    a wall across the road at 50–70 km/h.
+  A sweep of 720 entries (both mouths, off line, at angles, at 60–180 km/h) used to throw 68 cars up off the road or onto the hill; now none.
+- **The casino shimmered:** its towers' sides were in the hall's walls' planes, and the spires'
+  bases sat exactly on the towers' tops. The hall is now set back and in, behind a portico
+  between the towers, and each spire is sunk into a parapet. The portico is inside the solid
+  block, so you can't drive through its columns any more.
+- **The fountain** has no painted ring (`params.ring: 0`): it's in a garden, not on a roundabout.
+- **The fort** reaches down to the lowest ground under each piece (on the summit's slope, its
+  bastions' tips and some wall ends stood 2–4 m clear of it), and keeps trees off as far out as
+  it's drawn (`r` 48).
+- **rue-du-port** runs straight along the square's back, 72 m out with a 15 m lead-in (it bent with
+  the boulevard, and its corners were 8 m or less, tight for traffic; now 10 m or more, tested).
+- **Numbers:** the floor is 106.3 s (was 105.58): out of the tunnel at 199 km/h the AI's line is on the
+  road's edge, and without the exit's hop it runs a metre wide onto the grass. No wrecks in field
+  races at seeds 4, 7 and 8. Every other map's fingerprints are identical. (Paradise Open's Lava
+  Tube still lets cars on the volcano sink into it, about one in nine of a sweep, as before: not
+  this step's.)
+
+**Step 8c, the hillside and the hills' look (2026-10-05):** the owner's notes: the hills of sand
+and grass look odd at a distance, tufts of grass now and then, and rocks, bushes and other
+obstacles on the switchbacks' hillside, where you can jump off and cut down.
+- **The Descent's hillside** (`HILLSIDE`): between and round its rows, 190 solid limestone rocks
+  (props by the main road; you wreck on one) and 352 bushes, a new smashable (`bush`: costs 18% of
+  your speed, never wrecks). Bushes are the first smashables on open ground (`SmashDef.at`, world
+  spots on the ground): they're met by where they are, not by a car's place along a road, since a
+  car cutting down is placed on whichever pass of the road it's nearest. All of them are 4 m or more past
+  every road's verge, off the steep banks and the trees, so the AI never meets them. Cutting straight
+  down from a row, every car ploughs through bushes and some wreck on a rock; a clean line through is
+  still there.
+- **The banks between the rows** read as limestone, not sand: beds across the slope and patches,
+  with a wandering but sharp edge to the grass (it was one smooth tan smear). The grass has broad
+  patches of dry, olive scrub, so a far hillside isn't one green.
+- **Grass tufts** (`tufts.ts`): about 21,000 clumps of blades on a coast's grass, off roads,
+  pavements, sand and steep ground, drawn in chunks. Scenery only. They write no depth so the
+  outline pass doesn't ink them (inked, they were black weeds), and are drawn after everything
+  else opaque.
+- **Numbers:** the floor is unchanged at 106.3 s (the solo drive's fingerprint too); no wrecks in
+  field races at seeds 4, 7 and 8. Every other map's fingerprints are identical.
+
+**Step 8e, the tufts and the tunnel's mouths (2026-10-05):** the owner's notes after a drive.
+- **The tufts** looked odd (thin dark blades everywhere): now about 11,000 low clumps in the
+  grass's own colour, inked like everything else, in patches here and there rather than all over.
+- **A slab across the Rock Tunnel at its exit,** from #131's run-in: the ground in a tunnel's mouth,
+  eased to the road's height, was kept by the drawing's cut (it keeps a cutting's floor at the
+  road's height) and clipped into a slab rising to the rock over the mouth. In a main-road tunnel
+  the ground over its road now stands 0.3 m over it (`MOUTH_CLEAR` in `land.ts`; a car in there is
+  on the tunnel's floor), short of its last grid cell at each end (the grid blended the rise out
+  past the end, where there's no floor: cars hopped off it), and out of its mouths it meets the road. A wheel over a
+  main-road tunnel's floor reads that floor (`wheelOff`), so the ground's 0.3 m isn't felt driving
+  in. Paradise Open's tubes are branches: unchanged.
+- **The dark band across the road at the lower mouth:** the arch's apron of rock (out in front of a
+  mouth, 6 cm under the road) showed through where the ground's grid sags between its points. On
+  the main road there's no apron now: its ground runs up to the mouth. (A faint line where the
+  tube's own road starts, 4 cm up, was there before.)
+- **Numbers:** the floor is 106.22 s; no wrecks in field races at seeds 4, 7 and 8. Every other
+  map's fingerprints are identical.
+
 ## The owner's answers (2026-10-04)
 
 - **The shape:** the sketch is right (quay, bridge, Old Town, tunnel, corniche, lighthouse, beach,

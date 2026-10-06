@@ -22,7 +22,12 @@ export function collideWalls(sim: SimState, i: number): void {
   const lat = (cars.x[i] - hit.cx) * -hit.tz + (cars.z[i] - hit.cz) * hit.tx;
   // Only when grounded-ish: flying well above the wall top (1.2 m) clears it, and on open ground
   // a car well under it (down in the bay under a bridge's rail) never meets it.
-  if (cars.y[i] > hit.cy + 1.2 + 0.5) return;
+  // Under a ceiling (a tunnel) the wall goes up to it: flying across one, cars passed over its rail
+  // and out into the rock, onto the hill over it.
+  const g = sim.track.ground;
+  const p = g ? (g.pieces.at(sp.index)?.[Math.min(sp.n - 1, Math.max(0, Math.round(cars.s[i] / sp.step)))] ?? -1) : -1;
+  const ceiling = p >= 0 ? g!.pieces.list[p].ceiling : NaN;
+  if (cars.y[i] > hit.cy + 1.2 + 0.5 && !(cars.y[i] < hit.cy + ceiling)) return;
   if (sim.track.ground && cars.y[i] < hit.cy - 2) return;
   let side = 0;
   // On open ground a wall is a rail with ground past it too (a bridge's, near its ends): a car that

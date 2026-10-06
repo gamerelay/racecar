@@ -5,8 +5,9 @@
 import { BoxGeometry, type BufferGeometry, Color, ConeGeometry, CylinderGeometry, Float32BufferAttribute, IcosahedronGeometry, InstancedMesh, Matrix4, Quaternion, Vector3, type Object3D } from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import type { SimState } from '../../../core/state';
+import { hash01 } from '../../../core/rng';
 import { newHit, sampleAt } from '../../../core/track/query';
-import { SMASH_IDS, SMASH_KINDS, SMASH_RESPAWN } from '../../../core/world/smash';
+import { SMASH_IDS, SMASH_KINDS, SMASH_OPEN, SMASH_RESPAWN } from '../../../core/world/smash';
 import { toon } from './toon';
 
 /** A part: a geometry moved into place, painted one colour. */
@@ -72,6 +73,14 @@ const MODELS: Record<string, () => BufferGeometry> = {
       part(new IcosahedronGeometry(0.22, 0), 0x7cff6b, 0.35, 1, 0),
       part(new IcosahedronGeometry(0.2, 0), 0xff2e88, 0.75, 1, 0.2),
     ])!,
+  // A Mediterranean bush: a few low, lumpy greens in a clump.
+  bush: () =>
+    mergeGeometries([
+      part(new IcosahedronGeometry(0.95, 0), 0x3f6b2c, 0, 0.75, 0),
+      part(new IcosahedronGeometry(0.7, 0), 0x557f34, 0.6, 0.6, 0.3),
+      part(new IcosahedronGeometry(0.65, 0), 0x4a7530, -0.55, 0.55, -0.25),
+      part(new IcosahedronGeometry(0.55, 0), 0x66893a, 0.1, 1.25, -0.1),
+    ])!,
 };
 
 /** A popped-back prop grows to full size over this long (s). */
@@ -93,6 +102,8 @@ export function buildSmashVisual(sim: SimState): { objects: Object3D[]; update(t
     if (!pieces.length) return;
     // Each faces the road it stands by.
     const yaw = pieces.map((k) => {
+      // (One on open ground faces any way: its spot's own.)
+      if (sm.spline[k] === SMASH_OPEN) return hash01(k, 71, 3) * Math.PI * 2;
       const at = sampleAt(sim.track.splines[sm.spline[k]], sm.s[k], hit);
       const lat = (sm.x[k] - at.cx) * -at.tz + (sm.z[k] - at.cz) * at.tx;
       const face = lat > 0 ? Math.atan2(at.tz, -at.tx) : Math.atan2(-at.tz, at.tx);

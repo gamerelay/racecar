@@ -49,6 +49,8 @@ export interface Pieces {
   gaps(spline: number): Uint8Array | undefined;
   /** Per sample of the road, the piece with a floor carrying it (its index), -1 for none. */
   at(spline: number): Int16Array | undefined;
+  /** Whether the main road has a tunnel (an enclosed piece, not a building). */
+  readonly mainTunnels: boolean;
   /** Whether a piece of the road has a floor or a gap at sample `i`: either way, a branch doesn't shape the ground there (but under a building it does: it stands on the ground). */
   covers(spline: number, i: number): boolean;
 }
@@ -80,6 +82,7 @@ export function definePieces(defs: readonly PieceDef[], splines: readonly BakedS
   }
   return {
     list,
+    mainTunnels: list.some((p) => p.spline === 0 && p.ceiling > 0 && !p.building),
     angle: new Float64Array(list.length),
     floors: (k) => floors.get(k),
     gaps: (k) => gaps.get(k),
@@ -90,20 +93,24 @@ export function definePieces(defs: readonly PieceDef[], splines: readonly BakedS
 
 /** The ground's swell and bumps fade out over this many meters of road before a piece that shapes the ground under it, so the road meets its floor at its own height. */
 export const RUN_IN = 30;
+/** How far past a tunnel's road and shoulder (m) the run-in reaches. */
+const TUNNEL_REACH = 6;
 
 /**
  * How much of what the layout adds (swell, bumps) the ground keeps `s` m along the main road and
- * `d` m from its middle (0–1): none where a main-road piece with `under` starts or ends, on the
+ * `d` m from its middle (0–1): none where a main-road piece with `under`, or a tunnel, starts or ends, on the
  * road and out to its reach, so a car rolls onto its floor at the height it is, not a step up or
  * down (a step of more than DECK_CATCH would take it under the floor).
  */
 export function runIn(pieces: Pieces, s: number, d: number, edge: number): number {
   let keep = 1;
   for (const p of pieces.list) {
-    if (p.spline !== 0 || !p.under) continue;
+    // (A tunnel too: its floor is the road's own, and the swell beside its mouth stood a 0.3 m step
+    // over it, a wall once Coastal's ground had rock faces.)
+    if (p.spline !== 0 || !(p.under || (p.ceiling > 0 && !p.building))) continue;
     const out = s < p.s[0] ? p.s[0] - s : s > p.s[1] ? s - p.s[1] : 0;
     if (out >= RUN_IN) continue;
-    const near = 1 - smooth(edge, edge + p.under.reach, d);
+    const near = 1 - smooth(edge, edge + (p.under?.reach ?? TUNNEL_REACH), d);
     keep = Math.min(keep, 1 - (1 - smooth(0, RUN_IN, out)) * near);
   }
   return keep;

@@ -345,6 +345,9 @@ layout.ground = {
   sea: SEA,
   coast: COAST,
   hills: HILLS,
+  // Steeper than 45° is rock: a wall, not a slope to be lifted up (off the road by the Rock Tunnel's
+  // mouth, cars went straight up the cliff beside it onto the hill).
+  face: 1,
   features: [{ kind: 'seawall', s: seawall, side: 'right', floor: SEAWALL.floor }],
   pines: { kind: 'tropic', seed: 41, spacing: 9, clear: 8, thicken: 30, density: 0.25, glade: 80 },
 };
@@ -420,7 +423,7 @@ const BASIN = { from: -45, to: 392, width: 11, shoulder: 2, rise: 4, corners: [
  * lane: with the lap (eastbound on the Promenade) on the right, against it on the left. Open to
  * drive; the AI keeps to the main road.
  */
-const STREETS: [string, number, number, 1 | -1, { depth?: number; lead?: number }?][] = [
+const STREETS: [string, number, number, 1 | -1, { depth?: number; lead?: number; straight?: boolean }?][] = [
   // Round the line on the home straight, from the end of the Promenade onto the Quay: two streets
   // up into the town. Straight between them (the traffic once ran through the Promenade's kink, and
   // the AI's line there cut into the oncoming lane: head-ons; MAPS.md's rule, no traffic through
@@ -428,8 +431,9 @@ const STREETS: [string, number, number, 1 | -1, { depth?: number; lead?: number 
   // there (the lido's and the harbour's car parks went with the beach, 2026-10-05), and only the
   // town-side lane has traffic: the lap's own lane is the racers'.
   // (The Old Town's come with its houses, COASTAL's step 6: its road bends too much for loops.)
-  // (Round behind the casino's square: out deep and nearly straight, CASINO.)
-  ['rue-du-port', 30, 150, -1, { depth: 66, lead: 6 }],
+  // (Round behind the casino's square: out deep and straight along its back, its corners wide enough
+  // for the traffic, CASINO.)
+  ['rue-du-port', 25, 155, -1, { depth: 72, lead: 15, straight: true }],
   ['rue-des-pins', L - 230, L - 110, -1],
 ];
 /** How far off the main road's middle a street runs (m, unless it says), how wide it is, and the traffic on it. */
@@ -446,7 +450,8 @@ const STREET = { depth: 32, width: 8, shoulder: 1.5, speed: 14, density: 8 };
     sampleAt(g.main, from + 30, hit);
     const near = edge();
     const corners: [number, number][] = [at(from + 30, near), at(from + 30 + lead, depth)];
-    for (let s = from + 55 + lead; s < to - 30 - lead; s += 25) corners.push(at(s, depth));
+    // (`straight`: one straight along the back, not a corner every 25 m following the main road's bends.)
+    if (!shape.straight) for (let s = from + 55 + lead; s < to - 30 - lead; s += 25) corners.push(at(s, depth));
     corners.push(at(to - 30 - lead, depth));
     sampleAt(g.main, to - 30, hit);
     corners.push(at(to - 30, edge()));
@@ -664,7 +669,7 @@ const CASINO = { s: 90, w: 34, d: 22, high: 15, front: 15 };
   houses.push({ at: [Math.round(cx * 10) / 10, Math.round(cz * 10) / 10], size: [CASINO.w, CASINO.d, CASINO.high], rot: crot, look: 'casino' });
   const [fx, fz] = at(verge + CASINO.front / 2 + 1);
   const garden: [number, number, number] = [fx, fz, CASINO.front / 2 + 2];
-  layout.landmarks = [...(layout.landmarks ?? []).filter((m) => m.kind !== 'fountain'), { kind: 'fountain', at: [Math.round(fx * 10) / 10, Math.round(fz * 10) / 10], rot: crot, r: 0, params: { r: 4 } }];
+  layout.landmarks = [...(layout.landmarks ?? []).filter((m) => m.kind !== 'fountain'), { kind: 'fountain', at: [Math.round(fx * 10) / 10, Math.round(fz * 10) / 10], rot: crot, r: 0, params: { r: 4, ring: 0 } }];
   const free = (x: number, z: number, w: number, d: number, rot: number) => {
     const fx = Math.sin(rot);
     const fz = Math.cos(rot);
@@ -745,8 +750,68 @@ const LANDMARKS = { light: { h: 30, scale: 1.5 }, fort: { near: [-520, -700], lo
   layout.landmarks = [
     ...(layout.landmarks ?? []),
     { kind: 'lighthouse', at: [POINT.light[0], POINT.light[1]], r: 10, params: { h: LANDMARKS.light.h, scale: LANDMARKS.light.scale } },
-    { kind: 'fort', at: [top[0], top[1]], r: LANDMARKS.fort.size / 2 + 8, params: { size: LANDMARKS.fort.size } },
+    { kind: 'fort', at: [top[0], top[1]], r: LANDMARKS.fort.size / 2 + 20, params: { size: LANDMARKS.fort.size } },
   ];
+}
+
+/**
+ * The Descent's hillside (the owner, 2026-10-05: "you can jump off course and cut down, so maybe
+ * rocks, bushes and some other obstacles would make this harder"): between and round its rows,
+ * where a car leaves the road to drop to the row below. Solid limestone rocks you wreck on, and
+ * bushes (smashables on open ground) that cost a fifth of your speed. Scattered on a jittered grid
+ * `every` m, a rock or a bush with these chances, `clear` m past every road's verge (the AI never
+ * meets them), not on the steep banks (`steep`, rise over run: rock faces there), and off the trees.
+ */
+const HILLSIDE = { x: [DESCENT.west - 30, DESCENT.east + 30], z: [DESCENT.z - 20, DESCENT.z + DESCENT.step * (DESCENT.rows - 1) + 20], every: 8, rock: 0.16, bush: 0.3, size: [1.3, 2.8], clear: 4, steep: 0.8, trees: 3 };
+{
+  const g = bakeTrack(layout, surfaces);
+  const ground = g.ground!;
+  const pines = g.pines!;
+  const rng = Rng.stream(11, 'riviera-hillside');
+  const on = newHit();
+  const bushes: [number, number][] = [];
+  const placed: [number, number, number][] = [];
+  let rocks = 0;
+  const m = g.main;
+  // How far (x, z) is from a road's middle where it's nearest (not its lateral: off a street's end
+  // that's across the street's line, however far away).
+  const near = (x: number, z: number) => g.splines.some((sp) => (projectGlobal(sp, x, z, on), Math.hypot(x - on.cx, z - on.cz) < on.width / 2 + on.shoulder + HILLSIDE.clear + HILLSIDE.size[1]));
+  for (let z = HILLSIDE.z[0]; z < HILLSIDE.z[1]; z += HILLSIDE.every)
+    for (let x = HILLSIDE.x[0]; x < HILLSIDE.x[1]; x += HILLSIDE.every) {
+      let [px, pz] = [x + rng.next() * HILLSIDE.every, z + rng.next() * HILLSIDE.every];
+      const roll = rng.next();
+      const size = HILLSIDE.size[0] + rng.next() * (HILLSIDE.size[1] - HILLSIDE.size[0]);
+      if (roll >= HILLSIDE.rock + HILLSIDE.bush) continue;
+      // A rock is a prop by the main road, placed at one of its samples and out across it (as the
+      // bake places it): moved there first, then checked where it'll stand.
+      const rock = roll < HILLSIDE.rock;
+      let s = 0;
+      let lateral = 0;
+      if (rock) {
+        projectGlobal(m, px, pz, on);
+        const i = Math.round(on.s / m.step);
+        s = i * m.step;
+        lateral = Math.round(((px - m.px[i]) * -m.tz[i] + (pz - m.pz[i]) * m.tx[i]) * 10) / 10;
+        [px, pz] = [m.px[i] - m.tz[i] * lateral, m.pz[i] + m.tx[i] * lateral];
+      }
+      const e = ground.cell;
+      if (Math.hypot(ground.height(px + e, pz) - ground.height(px - e, pz), ground.height(px, pz + e) - ground.height(px, pz - e)) / (2 * e) > HILLSIDE.steep) continue;
+      if (near(px, pz)) continue;
+      let tree = false;
+      pines.near(px, pz, (k) => (tree ||= Math.hypot(pines.x[k] - px, pines.z[k] - pz) < HILLSIDE.trees + size / 2));
+      if (tree || (layout.landmarks ?? []).some((l) => Math.hypot(l.at[0] - px, l.at[1] - pz) < l.r + size)) continue;
+      // Nor in another (spots in neighbouring cells can land together: bushes grew out of rocks).
+      if (placed.some(([qx, qz, qr]) => Math.hypot(qx - px, qz - pz) < qr + (rock ? size / 2 : 1.1) + 1)) continue;
+      placed.push([px, pz, rock ? size / 2 : 1.1]);
+      if (!rock) {
+        bushes.push([Math.round(px * 10) / 10, Math.round(pz * 10) / 10]);
+        continue;
+      }
+      layout.props!.push({ kind: 'rock', s, lateral, size: [Math.round(size * 10) / 10, Math.round(size * 0.7 * 10) / 10, Math.round(size * 10) / 10] });
+      rocks++;
+    }
+  layout.smashables = [...(layout.smashables ?? []), { kind: 'bush', s: [0, 0], every: 0, at: bushes }];
+  console.log(`the Descent's hillside: ${rocks} rocks, ${bushes.length} bushes`);
 }
 
 mkdirSync(DIR, { recursive: true });

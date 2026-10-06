@@ -205,10 +205,10 @@
   "wrecks": 0
  },
  "coastal/riviera": {
-  "track": "cb2108fc8c3bc160",
-  "ground": "79daa602a3bd5639",
-  "drive": "8a80bd365a2cc3a3",
-  "branches": "49bf1798d986836a",
+  "track": "063b27a9b081e257",
+  "ground": "5fae1f79c76cb419",
+  "drive": "de4450746de3bb86",
+  "branches": "5130e381550338fb",
   "marks": [
    {
     "t": 10,
@@ -236,15 +236,15 @@
    },
    {
     "t": 40,
-    "s": 1973.8,
-    "x": 76.05,
-    "y": 78.58,
-    "z": -270.8,
-    "kmh": 203.55
+    "s": 1947.52,
+    "x": 94.99,
+    "y": 76.95,
+    "z": -289.52,
+    "kmh": 174.26
    }
   ],
   "wrecks": 0,
-  "lifts": "9d7c67c2613285ae",
-  "streets": "81ed1cb4c3e3bd2d"
+  "lifts": "69230eac33a48c5d",
+  "streets": "8aa22034380105a0"
  }
 }
