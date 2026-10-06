@@ -12,7 +12,10 @@ track for any map, `crashout`, already on the CDN, playing from the next deploy)
 step 6, **the road graph**, 6a to 6e (#119–#123; see "The road graph" below), its review's fixes
 (#125), and on Coastal the **Old Town's switchbacks and the Stairs** (#126), steep ground drawn as
 limestone (#127), **Lighthouse Point's loop and the Rocks** (#128) and **the landmarks**: the grand
-casino, the lighthouse, the fort (#129). Nothing is open (2026-10-05). The
+casino, the lighthouse, the fort (#129); a clean-up (#131: the Rock Tunnel no longer throws cars
+onto the hill, the casino's shimmer, #129's review), **the Descent's hillside** (#132: rocks, bushes,
+the hills' look, grass tufts) and the tufts calmed and the tunnel's mouths fixed (#133). Nothing
+else is open (2026-10-05). The
 last tag is **`alpha-1.31`** (PRs #78–#105), on the hosted
 build: Paradise Open (#81), the engine's plan, [CALDERA.md](./CALDERA.md) (#82), and its steps 0
 to 3c (#83–#98, #102): the fingerprints and tools, the sim's own math, pieces, portals, feature
@@ -303,33 +306,31 @@ skies and a rare shower, the `coastal` track. Open it with `?mode=free&map=coast
 - **Tools:** `tools/plan.ts` (a layout from above; `--at x,z --size m` to zoom), `shot --t` (the
   world at a race time) and `shot --traffic`, fingerprint parts `lifts` and `streets` (only for
   layouts with them).
-- **Numbers:** the lap is 5.51 km, the floor 105.58 s (solo hard coupe; 97.83 before the
-  switchbacks and the cape's loop). Field races at seeds 4, 7 and 8: no wrecks.
+- **The clean-up (#131, #133):** the Rock Tunnel threw cars driving into it at an angle onto the hill
+  over it (front wheels read the rock over the mouth); now a wheel over a main-road tunnel's floor
+  reads the floor (`wheelOff` in `physics.ts`), under a ceiling the walls go up to it, and Coastal's
+  ground has rock faces at 45° (`face: 1`). The ground meets a tunnel's floor at its mouths (`runIn`)
+  and stands 0.3 m over its road inside it (`MOUTH_CLEAR`, so the drawing cuts it: at the road's
+  height it was kept, clipped into a slab across the tunnel). The casino rebuilt with no two faces in
+  one plane and its portico inside its block; the fort seated on the slope; the fountain ringless;
+  rue-du-port straighter with wider corners.
+- **The Descent's hillside (#132):** 190 solid rocks and 352 bushes (`bush`, the first smashable on
+  open ground: `SmashDef.at`, met by where it is) between the rows, all off the AI's roads; the banks
+  read as limestone beds, the grass has patches of dry scrub, and about 11,000 grass tufts in
+  patches (`tufts.ts`, scenery only).
+- **Numbers:** the lap is 5.51 km, the floor 106.22 s (solo hard coupe; 105.58 before the tunnel's
+  exit lost its hop: the AI runs a metre wide there now). Field races at seeds 4, 7 and 8: no wrecks.
 
 **Next, in about this order** (COASTAL's steps):
-1. **#129's review, the landmarks' fixes** (it landed after the merge; all visual, nothing in the
-   sim moved):
-   - The fort's bastions and some wall ends float 2–4 m over the summit's slope (`fort()` in
-     `landmarks.ts`): seat each piece on the lowest ground under its footprint, taller by the
-     difference. Its `r` (36) is less than what's drawn (bastion tips about 47 m): make it about 48.
-   - The casino's fountain is crowded under the portico, and its painted ring (`fountain()`'s ring
-     road, at r + 5) runs into the casino's front and half-buries on the slope: move the casino
-     back (`CASINO.front` about 20), or skip the ring off a roundabout.
-   - The portico's columns stand up to 4.6 m in front of the casino's solid block, so a car can
-     drive through them: engaged columns flush with the front, or solid column props.
-   - rue-du-port's corners are tight for traffic now (radius about 7 m; cars snap round at 14 m/s):
-     `lead` about 15.
-   - Tests: the no-trees check scans only ±16 m (`pines.near`), so loop over every tree for the
-     fort; the fountain's clearance should test house boxes, not centres.
-2. **The Sand** (the last cut): the beach went to the sea wall, so it needs a new home (the cape?)
+1. **The Sand** (the last cut): the beach went to the sea wall, so it needs a new home (the cape?)
    or drops: the owner's call. The Stairs and the Rocks are built (above).
-3. **The look:** yachts moored in the harbour (and along the sea wall), the riviera palette (it borrows Paradise's `tropic` now), the beach club (somewhere new,
+2. **The look:** yachts moored in the harbour (and along the sea wall), the riviera palette (it borrows Paradise's `tropic` now), the beach club (somewhere new,
    with the Sand); the Old Town's side streets with its houses; lamp posts and palms along the
    waterfront's pavement.
-4. **Into the lobby** when the owner's happy: experimental off, a poster, a CHANGELOG line.
+3. **Into the lobby** when the owner's happy: experimental off, a poster, a CHANGELOG line.
 
 **Known rough edges:**
-- The lap is long (105.7 s since the Old Town's switchbacks, the Stairs and the cape's loop, against 58–93 for the rest): a Descent row or an S-bend could go, or the
+- The lap is long (106.2 s since the Old Town's switchbacks, the Stairs and the cape's loop, against 58–93 for the rest): a Descent row or an S-bend could go, or the
   race fewer laps, if the owner wants it shorter.
 - A car that runs wide just before a rock rail can end up behind it, grinding along to its end.
 - The AI never takes the Stairs' arm (at the fork it costs the rest of the flight as if the second
@@ -348,10 +349,16 @@ skies and a rare shower, the `coastal` track. Open it with `?mode=free&map=coast
 - Hills are cut back to the main road only: keep branches and decks off them.
 - `top(x, z)` with no height over a main-road tunnel is the rock's top: anything placed by it (props,
   slalom gates, `drive`'s x/z spots) must pass the road's height.
+- A faint inked line across the road where the Rock Tunnel's own road starts (drawn 4 cm up).
+- Paradise Open's Lava Tube lets cars on the volcano sink into it, about one in nine of a sweep
+  (older than #131, which left it as it was).
+- Anything placed by `top()`/`height()` with no height in a main-road tunnel's mouths stands 0.3 m
+  up (`MOUTH_CLEAR`): nothing is, today.
+- Grass tufts are inked by depth like everything else; with no depth they were black weeds.
 - Camera hints still wait for a spot that needs one; TECH_DEBT has the small things the reviews left.
 
 **Lap floors now** (the best AI lap, solo hard coupe): Downtown 57.9, Backroads 62.82, Avalanche
-93.07, Paradise 70.3, Paradise Open 66.35, Coastal 105.58 s (experimental). Paradise Open's field: 34 wrecks in 40 seeds.
+93.07, Paradise 70.3, Paradise Open 66.35, Coastal 106.22 s (experimental). Paradise Open's field: 34 wrecks in 40 seeds.
 
 **Working notes (2026-10-03 to 2026-10-05):**
 - The fingerprints cover a solo lap and a drive down each branch, not the field: an AI change can
