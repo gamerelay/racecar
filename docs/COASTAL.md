@@ -307,7 +307,7 @@ experimental, so open it with `?mode=free&map=coastal/riviera`.
   no wrecks (there's no traffic and nothing to hit yet). Every other map's fingerprints are
   identical.
 - **The look is borrowed:** Paradise's `tropic` palette and its palms and jungle trees. The
-  riviera look is step 8.
+  riviera look is step 8 (built: step 8i).
 
 **The lap reworked (2026-10-05):** the owner, after driving it: not a solid race track yet, parts too
 linear; the cliff should be several long winding switchbacks, and the top should wind like an S and
@@ -829,6 +829,34 @@ could spawn".
 - **Numbers:** floor 106.03 s, field races the same (28 car-on-car wrecks over seeds 1–72);
   Riviera re-recorded, every other map identical. Palms and lamps along the streets come with the
   look.
+
+**Step 8i, the look (2026-10-06):** the owner: "the next step is Riviera's look", and while on it,
+no fingerprint or field runs until it's settled. All of it is drawn only: every fingerprint,
+Riviera's too, is identical.
+- **Its own palettes** (`riviera`, `riviera-sunset`, in palettes.ts; it had Paradise's `tropic`):
+  a dry summer day, olive and sage on the hills, warm light, and a deep blue sea that's clear only
+  by the shore (`Palette.sea`: the sea's colors by depth were Paradise's lagoon, fixed in its
+  shader). A palette can draw a surface its own color (`Palette.surfaces`): the pavements warm
+  stone, the asphalt warm grey (the city's are purple).
+- **The trees** (`PinesDef.look: 'riviera'`): the same trees where the same colliders stand,
+  drawn as umbrella pines leaning out over the sea on the coast, and inland umbrella pines (on
+  shorter trunks), round holm oaks and tall dark cypresses. Umbrella pines alone on the open hills
+  read as a savannah's acacias.
+- **The promenade:** palms and two-lantern lamp posts (lit at dusk) along every sea wall, on the
+  ledge behind its parapet, where no car reaches.
+- **The marina:** four timber pontoons out from the harbour's sides (landmark `pontoon`), motor
+  yachts and sailboats moored stern-to, white with navy and teak; the channel between them clear
+  for the drawbridge's boat. The harbour's sides are stone quays (landmark `quay`: a wall on the
+  waterline, bollards, paving back under the rising ground) where the coast's smoothing had left a
+  sandy beach.
+- **The beach club** (house look `club`): a white pavilion, glass under striped awnings, a pool
+  terrace on its roof, all on its solid block; a jetty out from the cove with a couple of boats.
+  The beach umbrellas are striped (Paradise's too).
+- **The lighthouse's beam** shows only when it isn't broad day (it was a pale cone across the noon
+  sky).
+- **Numbers:** floor 106.03 s, field 28 car wrecks over seeds 1–72, as before.
+- **Left for later:** café terraces on the quay, gulls, bunting across the Old Town, and the
+  quays' ground (they're drawn over the smoothed sand, not cut into it).
 
 ## The owner's answers (2026-10-04)
 

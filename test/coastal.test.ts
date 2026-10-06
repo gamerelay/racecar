@@ -672,10 +672,10 @@ describe("coastal's look (COASTAL's step 8)", () => {
   });
 
   test('its trees are umbrella pines, holm oaks and cypresses, no palms, each drawn over its collider', () => {
-    const drawn = buildOpenIsland(track, PALETTES.riviera, 1).objects.filter((o): o is InstancedMesh => o instanceof InstancedMesh);
+    // (The trees' four meshes first, then the promenade's.)
+    const drawn = buildOpenIsland(track, PALETTES.riviera, 1).objects.filter((o): o is InstancedMesh => o instanceof InstancedMesh).slice(0, 4);
     // Every tree has a trunk or is a cypress, and every trunk has a crown.
     const counts = drawn.map((m) => m.count);
-    expect(counts).toHaveLength(4);
     const [trunks, pines, oaks, cypresses] = counts;
     expect(pines + oaks).toBe(trunks);
     expect(trunks + cypresses).toBe(track.pines!.n);
@@ -686,6 +686,22 @@ describe("coastal's look (COASTAL's step 8)", () => {
     for (let k = 0; k < trunks; k++) {
       drawn[0].getMatrixAt(k, m);
       expect(at.has(`${m.elements[12].toFixed(2)},${m.elements[14].toFixed(2)}`)).toBe(true);
+    }
+  });
+
+  test('the promenade: palms and lamp posts along the sea wall, behind its parapet (where no car reaches)', () => {
+    // Its palms' trunks and fronds, the lamps' posts, arms and lanterns (after the trees' four).
+    const [palms, , posts] = buildOpenIsland(track, PALETTES.riviera, 1).objects.filter((o): o is InstancedMesh => o instanceof InstancedMesh).slice(4);
+    const m = new Matrix4();
+    const hit = newHit();
+    for (const mesh of [palms, posts]) {
+      expect(mesh.count).toBeGreaterThan(20);
+      for (let k = 0; k < mesh.count; k++) {
+        mesh.getMatrixAt(k, m);
+        projectGlobal(track.main, m.elements[12], m.elements[14], hit);
+        // Past the verge and the parapet's 0.9 m, on the sea side.
+        expect(hit.lateral).toBeGreaterThan(hit.width / 2 + hit.shoulder + 0.9);
+      }
     }
   });
 
