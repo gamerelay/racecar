@@ -339,10 +339,13 @@ function fountain(m: LandmarkDef, time: { value: number }): Built {
   const root = new Group();
   const S = solids();
   // The plaza's ring road, painted round it, and its curb and grass.
-  const ring = new Mesh(new RingGeometry(r + 4.6, r + 5, 48), new MeshBasicMaterial({ color: 0xa89cc0, side: DoubleSide }));
-  ring.rotation.x = -Math.PI / 2;
-  ring.position.y = 0.03;
-  root.add(ring);
+  // (`ring: 0` for none: a fountain in a garden, not on a roundabout.)
+  if (m.params?.ring !== 0) {
+    const ring = new Mesh(new RingGeometry(r + 4.6, r + 5, 48), new MeshBasicMaterial({ color: 0xa89cc0, side: DoubleSide }));
+    ring.rotation.x = -Math.PI / 2;
+    ring.position.y = 0.03;
+    root.add(ring);
+  }
   root.add(cyl(r, r, 0.35, 0x6d5f86, 0.18, 32));
   root.add(cyl(r - 0.7, r - 0.7, 0.4, 0x3f8a4f, 0.2, 32));
   const basin = r * 0.55;
@@ -1099,6 +1102,11 @@ function fort(m: LandmarkDef, c: Ctx): Built {
   const WALL = 0xc9bc9f;
   const DARK = 0xa8997a;
   const low = (x: number, z: number) => c.ground(x, z);
+  // The lowest ground under a footprint (its middle and points `rx`, `rz` out each way): each piece
+  // reaches down to it, its top where it was (on the summit's slope, set by the middle, the bastions'
+  // tips and the walls' ends stood 2–4 m clear of the ground).
+  const lowest = (x: number, z: number, rx: number, rz: number) => Math.min(low(x, z), low(x - rx, z - rz), low(x + rx, z + rz), low(x - rx, z + rz), low(x + rx, z - rz), low(x - rx, z), low(x + rx, z), low(x, z - rz), low(x, z + rz));
+  const footed = (sx: number, top: number, sz: number, color: number, x: number, foot: number, z: number) => box(sx, top - foot, sz, color, x, (top + foot) / 2, z);
   // The curtain walls, in pieces down each side so they follow the hilltop.
   for (const [ax, az, bx, bz] of [[-half, -half, half, -half], [half, -half, half, half], [half, half, -half, half], [-half, half, -half, -half]]) {
     const n = 6;
@@ -1107,14 +1115,14 @@ function fort(m: LandmarkDef, c: Ctx): Built {
       const z = az + ((bz - az) * (k + 0.5)) / n;
       const along = ax === bx ? [2.2, S / n + 0.4] : [S / n + 0.4, 2.2];
       const y = low(x, z);
-      root.add(box(along[0], 7, along[1], WALL, x, y + 2.5, z));
+      root.add(footed(along[0], y + 6, along[1], WALL, x, lowest(x, z, along[0] / 2, along[1] / 2) - 1, z));
       // Crenellations along the top.
       root.add(box(along[0] * 0.9, 1, along[1] * 0.9, DARK, x, y + 6.5, z));
     }
   }
   // A bastion at each corner: a stubby diamond, its point outward.
   for (const [x, z] of [[-half, -half], [half, -half], [half, half], [-half, half]]) {
-    const b = box(11, 8, 11, WALL, x, low(x, z) + 3, z);
+    const b = footed(11, low(x, z) + 7, 11, WALL, x, lowest(x, z, 7.8, 7.8) - 1, z);
     b.rotation.y = Math.PI / 4;
     root.add(b);
     const cap = box(11.6, 0.8, 11.6, DARK, x, low(x, z) + 7.4, z);
@@ -1123,7 +1131,7 @@ function fort(m: LandmarkDef, c: Ctx): Built {
   }
   // The keep, and its flag.
   const y0 = low(0, 0);
-  root.add(box(16, 12, 14, WALL, 0, y0 + 5, 0));
+  root.add(footed(16, y0 + 11, 14, WALL, 0, lowest(0, 0, 8, 7) - 1, 0));
   root.add(box(17, 1.2, 15, DARK, 0, y0 + 11.6, 0));
   root.add(box(0.3, 9, 0.3, 0x3a3340, 0, y0 + 16.5, 0));
   const flag = box(4, 2.4, 0.15, 0xe0413a, 2.1, y0 + 19.5, 0);

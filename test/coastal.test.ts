@@ -152,6 +152,41 @@ describe('coastal', () => {
     expect(inside).toBe(false);
   }, 30_000);
 
+  test('into the Rock Tunnel off line, at an angle: nobody thrown up off its road at the mouths, nor onto the hill over it', () => {
+    const tunnel = g.pieces.list.find((p) => p.id === 'rock-tunnel')!;
+    const hit = newHit();
+    const controls = neutralControls();
+    controls.throttle = 1;
+    let high = -Infinity;
+    let pop = 0;
+    for (const up of [true, false])
+      for (const back of [15, 30, 50])
+        for (const lateral of [-6, -3, 3, 6])
+          for (const angle of [-40, -15, -8, 8, 15, 40])
+            for (const kmh of [60, 120, 180]) {
+              const sim = setup(track, CLASSES, SURFACES, up ? { s: tunnel.s[0] - back, lateral } : { s: tunnel.s[1] + back, lateral, reverse: true }, {}, { kmh });
+              const c = sim.cars;
+              c.h[0] += (angle * Math.PI) / 180;
+              c.ph[0] = c.h[0];
+              c.vx[0] = (Math.sin(c.h[0]) * kmh) / 3.6;
+              c.vz[0] = (Math.cos(c.h[0]) * kmh) / 3.6;
+              for (let k = 0; k < 240; k++) {
+                const [y, wrecked] = [c.y[0], c.wreck[0]];
+                sim.step([controls]);
+                // (A respawn puts a wrecked car back on the road: not thrown. Wrecking is: up into the rock.)
+                if (!wrecked) pop = Math.max(pop, c.y[0] - y);
+                if (c.spline[0] !== 0 || c.s[0] < tunnel.s[0] - 5 || c.s[0] > tunnel.s[1] + 5 || Math.abs(c.lateral[0]) > 20) continue;
+                sampleAt(track.main, c.s[0], hit);
+                high = Math.max(high, c.y[0] - hit.cy);
+              }
+            }
+    // Its front wheels read the rock over the mouth, not its road: thrown 3–6 m up in a tick, then
+    // flying over its walls inside, out into the rock and onto the hill, 25–37 m up. Off the road by
+    // a mouth, a car may hop the slope beside it, 8 m up at most.
+    expect(pop).toBeLessThan(2);
+    expect(high).toBeLessThan(12);
+  }, 120_000);
+
   describe('the Old Town and the Stairs (COASTAL step 7)', () => {
     const sp = (id: string) => track.splines.find((x) => x.id === id)!;
     const [stairs, top, arm] = ['stairs', 'stairs-top', 'stairs-arm'].map(sp);
@@ -306,7 +341,22 @@ describe('coastal', () => {
       // Solid, as every house.
       expect(track.props.filter((p) => p.kind === 'house')[k].solid).toBe(true);
       const fountain = riviera.landmarks!.find((m) => m.kind === 'fountain')!;
-      for (const h of houses) if (h !== c) expect(Math.hypot(h.at[0] - fountain.at[0], h.at[1] - fountain.at[1])).toBeGreaterThan(8);
+      // Clear of every house's box, the casino's too, by 2 m past the fountain's plaza.
+      for (const h of houses) {
+        const [dx, dz] = [fountain.at[0] - h.at[0], fountain.at[1] - h.at[1]];
+        const lx = dx * Math.cos(h.rot) - dz * Math.sin(h.rot);
+        const lz = dx * Math.sin(h.rot) + dz * Math.cos(h.rot);
+        expect(Math.hypot(Math.max(0, Math.abs(lx) - h.size[0] / 2), Math.max(0, Math.abs(lz) - h.size[1] / 2))).toBeGreaterThan(fountain.params!.r + 2);
+      }
+    });
+
+    test("rue-du-port's corners round the casino's square are wide enough for the traffic", () => {
+      const sp = track.splines.find((s) => s.id === 'rue-du-port')!;
+      const w = Math.round(3 / sp.step);
+      for (let i = w; i < sp.n - w; i++) {
+        const turn = Math.hypot(sp.tx[i + w] - sp.tx[i - w], sp.tz[i + w] - sp.tz[i - w]);
+        expect((2 * w * sp.step) / turn).toBeGreaterThan(10);
+      }
     });
 
     test("the lighthouse inside the cape's loop, and the fort on the mountain's top; no trees on either", () => {
@@ -318,7 +368,9 @@ describe('coastal', () => {
       for (let a = 0; a < 8; a++) expect(g.height(fort.at[0] + 30 * Math.cos(a), fort.at[1] + 30 * Math.sin(a))).toBeLessThanOrEqual(top + 0.5);
       expect(top).toBeGreaterThan(150);
       const pines = track.pines!;
-      for (const m of [light, fort]) pines.near(m.at[0], m.at[1], (k) => expect(Math.hypot(pines.x[k] - m.at[0], pines.z[k] - m.at[1])).toBeGreaterThanOrEqual(m.r));
+      // As far out as the fort's drawn (its bastions' tips, 47 m out on the diagonals): every tree.
+      expect(fort.r).toBeGreaterThanOrEqual((fort.params!.size / 2) * Math.SQRT2 + 7.8);
+      for (const m of [light, fort]) for (let k = 0; k < pines.n; k++) expect(Math.hypot(pines.x[k] - m.at[0], pines.z[k] - m.at[1])).toBeGreaterThanOrEqual(m.r);
       expect(validateLayout(riviera, SURFACES, CLASSES).filter((p) => p.message.includes('landmark'))).toEqual([]);
     });
   });

@@ -316,7 +316,17 @@ function wheelGround(g: Ground, x: number, z: number, h: number, y: number): num
     }
     return sum / 4;
   }
-  return (g.height(x + fx + rx, z + fz + rz) + g.height(x + fx - rx, z + fz - rz) + g.height(x - fx + rx, z - fz + rz) + g.height(x - fx - rx, z - fz - rz)) / 4;
+  return (wheelOff(g, x + fx + rx, z + fz + rz, y) + wheelOff(g, x + fx - rx, z + fz - rz, y) + wheelOff(g, x - fx + rx, z - fz + rz, y) + wheelOff(g, x - fx - rx, z - fz - rz, y)) / 4;
+}
+/**
+ * A wheel's ground off a piece: the land, unless that's well over the car (the rock over a tunnel's
+ * mouth, ahead of a car about to drive in): then what's under the wheel at the car's height, the
+ * tunnel's road. (Reading the rock, a car driving into Coastal's Rock Tunnel at an angle was thrown
+ * up off its road, and over the walls onto the hill.)
+ */
+function wheelOff(g: Ground, x: number, z: number, y: number): number {
+  const h = g.height(x, z);
+  return h > y + DECK_CATCH ? g.top(x, z, y) : h;
 }
 const WHEEL_CAST = newCast();
 const WHEELS = [
