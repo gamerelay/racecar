@@ -1,7 +1,8 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { LAYOUT_ALIASES, PAINT_ALIASES, paletteFor, resolveLayout } from '../src/core/content';
-import { CONTENT, LAYOUT_KEYS, MAPS, PAINTS } from '../tools/content';
+import { CONTENT, EXPERIMENTAL_KEYS, LAYOUT_KEYS, MAPS, PAINTS } from '../tools/content';
+import { lobbyKeys } from '../src/ui/menu';
 import { describe, expect, test } from 'bun:test';
 import { delta, fmt, ordinal, pingClass } from '../src/ui/format';
 import { esc } from '../src/ui/html';
@@ -114,7 +115,7 @@ describe('renamed maps and paints', () => {
   test('map and paint names are one word, and paint ids have no hyphens', () => {
     for (const key of LAYOUT_KEYS) expect(existsSync(join(CONTENT, 'maps', key.split('/')[0], 'map.json'))).toBe(true);
     const maps = LAYOUT_KEYS.map((k) => JSON.parse(readFileSync(join(CONTENT, 'maps', k.split('/')[0], 'map.json'), 'utf8')));
-    expect(maps.map((m) => m.name).sort()).toEqual(['Avalanche', 'Backroads', 'Downtown', 'Paradise']);
+    expect(maps.map((m) => m.name).sort()).toEqual(['Avalanche', 'Backroads', 'Downtown', 'Paradise', 'Riviera']);
     for (const p of PAINTS) {
       expect(p.name).toMatch(/^[A-Z][a-z]+$/);
       expect(p.id).toMatch(/^[a-z]+$/);
@@ -194,6 +195,14 @@ describe('after an online race', () => {
     const q = new URLSearchParams(menuQuery({ ...s, lobby: undefined }));
     expect(q.has('mode')).toBe(false);
     expect(q.get('car')).toBe('coupe');
+  });
+});
+
+describe("the lobby's maps", () => {
+  test('the game\'s maps only, by name (an experimental one opens from a link: not in the list, nor quick race)', () => {
+    const keys = lobbyKeys(MAPS, [...EXPERIMENTAL_KEYS, ...LAYOUT_KEYS]);
+    expect(EXPERIMENTAL_KEYS).toContain('paradise-open/open');
+    expect(keys).toEqual(['avalanche/slope', 'backroads/valley', 'downtown/downtown', 'paradise/island', 'coastal/riviera']);
   });
 });
 

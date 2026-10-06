@@ -14,8 +14,12 @@ step 6, **the road graph**, 6a to 6e (#119–#123; see "The road graph" below), 
 limestone (#127), **Lighthouse Point's loop and the Rocks** (#128) and **the landmarks**: the grand
 casino, the lighthouse, the fort (#129); a clean-up (#131: the Rock Tunnel no longer throws cars
 onto the hill, the casino's shimmer, #129's review), **the Descent's hillside** (#132: rocks, bushes,
-the hills' look, grass tufts) and the tufts calmed and the tunnel's mouths fixed (#133). Nothing
-else is open (2026-10-05). The
+the hills' look, grass tufts) and the tufts calmed and the tunnel's mouths fixed (#133), the
+hillside thinned with warm stone rocks (#134), the wreck camera kept out of the ground (#135) and
+**the Hôtel des Pins**, a terrace you drive under off the boulevard (#137). Then **Coastal went live
+as *Riviera*** (the owner, 2026-10-05: "this map looks ready to go live ... we will continue to make
+tweaks to it"): out of experimental, in the lobby, the vote and quick race; its id stays `coastal`
+(links, fingerprints). Not deployed or tagged yet: that's on the owner's word. The
 last tag is **`alpha-1.31`** (PRs #78–#105), on the hosted
 build: Paradise Open (#81), the engine's plan, [CALDERA.md](./CALDERA.md) (#82), and its steps 0
 to 3c (#83–#98, #102): the fingerprints and tools, the sim's own math, pieces, portals, feature
@@ -245,8 +249,10 @@ iterating slow. Coastal's own fingerprints are re-recorded as it changes; every 
 stay identical (the check that the shared engine didn't move). The plan, what's built (step by
 step, with the numbers and the why) and the owner's answers are [COASTAL.md](./COASTAL.md): a
 harbour town on a headland, the Riviera in feel (Villefranche-sur-Mer, the owner's photo), blue
-skies and a rare shower, the `coastal` track. Open it with `?mode=free&map=coastal/riviera`;
-`tools/gen-coastal.ts` writes it.
+skies and a rare shower, the `coastal` track. **Live since 2026-10-05 as *Riviera*** (in the lobby;
+its id is still `coastal`, so `?mode=free&map=coastal/riviera` still opens it; the lobby's tests,
+the validator and the lap report now include it); `tools/gen-coastal.ts` writes it. The owner will
+keep tweaking it: re-record its fingerprints as before.
 
 **What's built** (merged, #106–#129):
 - **The lap** (#108, reworked in #110 after the owner drove it): 5.0 km. The Quay and the Harbour
@@ -357,7 +363,7 @@ skies and a rare shower, the `coastal` track. Open it with `?mode=free&map=coast
 - Camera hints still wait for a spot that needs one; TECH_DEBT has the small things the reviews left.
 
 **Lap floors now** (the best AI lap, solo hard coupe): Downtown 57.9, Backroads 62.82, Avalanche
-93.07, Paradise 70.3, Paradise Open 66.35, Coastal 106.22 s (experimental). Paradise Open's field: 34 wrecks in 40 seeds.
+93.07, Paradise 70.3, Paradise Open 66.35, Riviera (coastal/riviera) 106.22 s. Paradise Open's field: 34 wrecks in 40 seeds.
 
 **Working notes (2026-10-03 to 2026-10-05):**
 - The fingerprints cover a solo lap and a drive down each branch, not the field: an AI change can

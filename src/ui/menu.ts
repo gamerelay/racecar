@@ -71,6 +71,16 @@ const CHEVRON = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 3l10 9-
 /** A name as a little license plate (the results use the same chip). */
 export const plateChip = (name: string) => `<span class="plate">${esc(name)}</span>`;
 
+/**
+ * The layouts the lobby and quick race offer, of `keys` ("map/layout"): the game's maps' (`maps`:
+ * not the experimental ones, which open from a link), by map name, as the vote lists them.
+ * (Paradise Open was in the lobby's list as its raw key, and quick race landed on it one race in six.)
+ */
+export function lobbyKeys(maps: readonly MapDef[], keys: readonly string[]): string[] {
+  const name = (k: string) => maps.find((m) => k.startsWith(m.id + '/'))?.name ?? '';
+  return keys.filter((k) => name(k) !== '').sort((a, b) => name(a).localeCompare(name(b)) || a.localeCompare(b));
+}
+
 export class Menu {
   private root: HTMLElement;
   private screen: Screen = { kind: 'title' };
@@ -325,6 +335,11 @@ export class Menu {
     return !!this.content.maps.find((m) => key.startsWith(m.id + '/'))?.sunset;
   }
 
+  /** The layouts the lobby and quick race offer (lobbyKeys). */
+  private lobbyKeys(): string[] {
+    return lobbyKeys(this.content.maps, Object.keys(this.content.layouts));
+  }
+
   private mapName(key: string): string {
     const map = this.content.maps.find((m) => key.startsWith(m.id + '/'));
     return map ? (map.layouts.length > 1 ? `${map.name} · ${key.split('/')[1]}` : map.name) : key;
@@ -375,7 +390,7 @@ export class Menu {
 
   /** Straight into a race, no lobby: your car and seven bots, on a map picked at random, in random weather. */
   private quickRace(): void {
-    goTo(toQuery(quickRaceSetup(Object.keys(this.content.layouts), this.yours)));
+    goTo(toQuery(quickRaceSetup(this.lobbyKeys(), this.yours)));
   }
 
   private async freeDrive(): Promise<void> {
@@ -502,7 +517,9 @@ export class Menu {
   }
 
   private optionFields(o: LobbyOptions, disabled: boolean): string {
-    const maps: [string, string][] = Object.keys(this.content.layouts).map((k) => [k, this.mapName(k)]);
+    // (A lobby opened on an experimental map from a link keeps it in the list.)
+    const keys = this.lobbyKeys();
+    const maps: [string, string][] = (keys.includes(o.map) ? keys : [...keys, o.map]).map((k) => [k, this.mapName(k)]);
     return `<label>Map ${this.sel('oMap', maps, o.map, disabled)}</label>
       ${this.lapsField(o.map, o.laps, disabled)}
       <label>Weather ${this.sel('oWeather', this.weathers(o.map), o.weather, disabled)}</label>
