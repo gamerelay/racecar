@@ -2,7 +2,7 @@
 
 import { describe, expect, test } from 'bun:test';
 import { bakeTrack } from '../src/core/track/bake';
-import { inRock, indoorAt, wreckView } from '../src/render/camera';
+import { WRECK_ORBIT, indoorAt, wreckView } from '../src/render/camera';
 import { SURFACES, layout } from './helpers';
 
 describe('the wreck camera', () => {
@@ -15,7 +15,7 @@ describe('the wreck camera', () => {
       const m = track.main;
       const cam = { x: 0, y: 0, z: 0 };
       let checked = 0;
-      for (let i = 0; i < m.n; i += 20)
+      for (let i = 0; i < m.n; i += 40)
         for (const off of [0, 1.2, 2]) {
           // On the road, and off it past its edge either side (where the banks are).
           for (const side of off ? [-1, 1] : [1]) {
@@ -23,16 +23,21 @@ describe('the wreck camera', () => {
             const x = m.px[i] - m.tz[i] * lat;
             const z = m.pz[i] + m.tx[i] * lat;
             const y = off ? g.height(x, z) : m.py[i];
-            // (Not in a tunnel, nor down a trench with the ground over its head: there it's pulled in to the car.)
-            if (indoorAt(g, x, y + 1.5, z) || inRock(g, x, y + 1, z)) continue;
-            for (let a = 0; a < 16; a++) {
-              wreckView(g, walls, x, y, z, (a / 16) * Math.PI * 2, cam);
-              expect(cam.y).toBeGreaterThan(g.height(cam.x, cam.z));
+            if (indoorAt(g, x, y + 1.5, z)) continue;
+            // Round at 60 fps (0.7 rad/s, as the renderer): over the ground, out at the orbit's
+            // distance (never pulled in to the car), and no jumps from one frame to the next.
+            let last: { x: number; y: number; z: number } | undefined;
+            for (let a = 0; a < Math.PI * 2; a += 0.7 / 60) {
+              wreckView(g, walls, x, y, z, a, cam);
+              expect(cam.y).toBeGreaterThan(g.height(cam.x, cam.z) + 1);
+              expect(Math.hypot(cam.x - x, cam.z - z)).toBeCloseTo(WRECK_ORBIT.r, 3);
+              if (last) expect(Math.hypot(cam.x - last.x, cam.y - last.y, cam.z - last.z)).toBeLessThan(1);
+              last = { ...cam };
               checked++;
             }
           }
         }
-      expect(checked).toBeGreaterThan(1000);
+      expect(checked).toBeGreaterThan(10000);
     }, 60_000);
   }
 });

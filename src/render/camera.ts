@@ -195,9 +195,11 @@ export const WRECK_ORBIT = { r: 10, up: 3.5 };
  * Where the wreck camera sits at `orbit` (an angle round the car at (cx, cy, cz)): out WRECK_ORBIT.r
  * and up WRECK_ORBIT.up. In a building, inside its walls and under its roof, as the chase camera
  * (orbiting out through a wall it lost the car behind it, and the light flicked indoors and out).
- * Out in the open, GROUND_CLEAR over the ground, and in to the car short of a hill between them
- * (the owner, 2026-10-05: by a bank off Coastal's road, 3.5 m over the car was in the ground, and
- * the screen was sand). In a tunnel it's left be: out through the rock, the renderer sees the car.
+ * Out in the open, lifted GROUND_CLEAR over the highest ground between it and the car (the owner,
+ * 2026-10-05: by a bank off Coastal's road, 3.5 m over the car was in the ground, and the screen was
+ * sand). Lifted, never pulled in: pulled in short of a bank it sat in the car, and jumped as the
+ * orbit swept behind one; the highest ground along the way moves smoothly as it goes round. In a
+ * tunnel it's left be: out through the rock, the renderer sees the car.
  */
 export function wreckView(g: Ground | undefined, walls: readonly BakedProp[], cx: number, cy: number, cz: number, orbit: number, out: { x: number; y: number; z: number }): void {
   out.x = cx + Math.sin(orbit) * WRECK_ORBIT.r;
@@ -209,7 +211,10 @@ export function wreckView(g: Ground | undefined, walls: readonly BakedProp[], cx
     out.y = Math.min(out.y, cameraCeiling(g, out.x, cy, out.z));
     clearView(g, cx, cy, cz, out, walls);
   } else if (!room) {
-    out.y = Math.max(out.y, g.height(out.x, out.z) + GROUND_CLEAR);
-    clearView(g, cx, cy, cz, out, walls);
+    // (From a quarter of the way out: by the car, the car's own bank is under it, not in the way.)
+    for (let k = 2; k <= 8; k++) {
+      const t = k / 8;
+      out.y = Math.max(out.y, g.height(cx + (out.x - cx) * t, cz + (out.z - cz) * t) + GROUND_CLEAR);
+    }
   }
 }
