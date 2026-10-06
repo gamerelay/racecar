@@ -231,7 +231,7 @@ acceleration, so short straights look quicker than they drive. The AI then skips
 take (a cut's `limit` had to be set by measured drives, not costs) and comes into the Stairs'
 second flight too fast off the row.
 
-**Next: Coastal (2026-10-04, as of 2026-10-05, through #129).** The owner's call: Caldera's next features are
+**Next: Coastal, now *Riviera* (2026-10-04; as of 2026-10-05, through #140 and `alpha-1.32`).** The owner's call: Caldera's next features are
 built on a new experimental map instead of Paradise Open, whose fingerprints, floors and tests made
 iterating slow. Coastal's own fingerprints are re-recorded as it changes; every other map's must
 stay identical (the check that the shared engine didn't move). The plan, what's built (step by
@@ -308,10 +308,24 @@ keep tweaking it: re-record its fingerprints as before.
   height it was kept, clipped into a slab across the tunnel). The casino rebuilt with no two faces in
   one plane and its portico inside its block; the fort seated on the slope; the fountain ringless;
   rue-du-port straighter with wider corners.
-- **The Descent's hillside (#132):** 190 solid rocks and 352 bushes (`bush`, the first smashable on
-  open ground: `SmashDef.at`, met by where it is) between the rows, all off the AI's roads; the banks
-  read as limestone beds, the grass has patches of dry scrub, and about 11,000 grass tufts in
+- **The Descent's hillside (#132, thinned in #134):** 90 solid rocks and 150 bushes (`bush`, the
+  first smashable on open ground: `SmashDef.at`, met by where it is) between the rows, all off the
+  AI's roads (the owner: "a little too littered" at 190 and 352); a coast's rocks are warm stone,
+  not limestone-topped (they read as snow). Half the straight cuts down meet a bush or a rock. The
+  banks read as limestone beds, the grass has patches of dry scrub, and about 11,000 grass tufts in
   patches (`tufts.ts`, scenery only).
+- **The Hôtel des Pins (#137, #140; the owner: "looks great"):** at the back of rue-des-pins, the
+  loop off the boulevard just before the line, a white Belle Époque hotel (house look `hotel`) with
+  its terrace out over the street on four columns (`HouseDef.porch`; the columns are solid
+  `house-column` props from `porchColumns`, their line set from the street as baked, each face over
+  a metre past its verge). You drive in, under it and out. Houses stand on the lowest ground under
+  their walls' middles as well as their corners.
+- **The wreck camera (#135, every map):** out in the open it's lifted over the highest ground
+  between it and the car (`wreckView`); it orbited through banks. Never pull it in toward the car:
+  that version sat in the car in cuttings and jumped as the orbit passed a bank.
+- **Live as *Riviera* (#138, released in `alpha-1.32`):** `experimental` off, named *Riviera*; the
+  id stays `coastal` (links, fingerprints, its music). The lobby's map list and quick race now offer
+  only the game's maps, by name (`lobbyKeys` in `ui/menu.ts`): Paradise Open had been in both.
 - **Numbers:** the lap is 5.51 km, the floor 106.22 s (solo hard coupe; 105.58 before the tunnel's
   exit lost its hop: the AI runs a metre wide there now). Field races at seeds 4, 7 and 8: no wrecks.
 
@@ -321,7 +335,12 @@ keep tweaking it: re-record its fingerprints as before.
 2. **The look:** yachts moored in the harbour (and along the sea wall), the riviera palette (it borrows Paradise's `tropic` now), the beach club (somewhere new,
    with the Sand); the Old Town's side streets with its houses; lamp posts and palms along the
    waterfront's pavement.
-3. **Into the lobby** when the owner's happy: experimental off, a poster, a CHANGELOG line.
+3. **Optional:** a poster for it (the plan's "into the lobby" step had one; nothing in the game
+   shows a map's poster, so the owner's call). It's in the lobby already.
+4. **Before more cuts:** give `wayCosts` acceleration (below: the AI misjudges the Stairs' arm and
+   short straights).
+The owner keeps tweaking it now it's live: each change re-records only `coastal/riviera`'s
+fingerprints, every other map's identical, and checks the floor and field races.
 
 **Known rough edges:**
 - The lap is long (106.2 s since the Old Town's switchbacks, the Stairs and the cape's loop, against 58–93 for the rest): a Descent row or an S-bend could go, or the
