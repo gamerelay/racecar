@@ -10,7 +10,7 @@ import type { Sim } from '../core/sim';
 import { newHit, project, sampleAt } from '../core/track/query';
 import type { BakedProp, Track } from '../core/track/bake';
 import { Particles } from './fx';
-import { cameraCeiling, cameraFloor, chaseOffset, clearView, GROUND_CLEAR, indoorAt, inRock, lookBackOffset, slopeRise, slopeView, type ChaseOffset } from './camera';
+import { cameraCeiling, cameraFloor, chaseOffset, clearView, GROUND_CLEAR, indoorAt, inRock, lookBackOffset, slopeRise, slopeView, wreckView, type ChaseOffset } from './camera';
 import { InkPass } from './ink';
 import { PostPass } from './post';
 import { Showroom } from './showroom';
@@ -425,16 +425,8 @@ export class GameRenderer {
     if (c.wreck[i]) {
       if (!this.lastWreck) this.orbit = c.h[i] + Math.PI * 0.6;
       this.orbit += dt * 0.7;
-      cam.position.set(car.x + Math.sin(this.orbit) * 10, car.y + 3.5, car.z + Math.cos(this.orbit) * 10);
-      // In a building, inside its walls and under its roof, as the chase camera (orbiting out through
-      // a wall it lost the car behind it, and the light flicked indoors and out). (Out through a
-      // tunnel's rock, it still sees the car: updateIndoor lights it as the car's.)
-      const ground = this.sim.track.ground;
-      const room = ground && indoorAt(ground, car.x, car.y + 1.5, car.z);
-      if (ground && room && room.building) {
-        cam.position.y = Math.min(cam.position.y, cameraCeiling(ground, cam.position.x, car.y, cam.position.z));
-        clearView(ground, car.x, car.y, car.z, cam.position, this.buildingWalls);
-      }
+      // (Out through a tunnel's rock, it still sees the car: updateIndoor lights it as the car's.)
+      wreckView(this.sim.track.ground, this.buildingWalls, car.x, car.y, car.z, this.orbit, cam.position);
       this.look.copy(car);
       this.camPos.copy(cam.position);
       this.camHeading = c.h[i];
