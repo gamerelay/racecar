@@ -15,7 +15,8 @@ and where things stand is [docs/HANDOFF.md](./docs/HANDOFF.md).
 - **The Descent's hillside is thinner**, its rocks warm stone (not snow-capped).
 - **The wreck camera stays out of the ground**: wrecked by a bank, it rises over it instead of
   orbiting through the hill.
-
+- **The lobby and quick race offer only the game's maps**, by name: Paradise Open (experimental)
+  was in the lobby's list as `paradise-open/open`, and quick race could land on it.
 - **The engine, reviewed** (steps 0 to 3c): nothing on a map drives differently (every
   fingerprint identical). Fixed: a car crossing a breakable wall at a shallow angle bouncing off
   (often wrecking on) the panel past its hole, the wreck camera orbiting out through the market hall's walls,

@@ -23,8 +23,8 @@ Every engine change there means re-recording, re-measuring and checking that not
 slow when the feature itself is still being found.
 
 Coastal gives the engine a fresh place to grow:
-- **It's experimental** (`map.json`'s `experimental: true`, so it's out of the lobby until it's
-  ready). It has its own fingerprints, and they're re-recorded as often as it changes. The rule
+- **It was experimental** (`map.json`'s `experimental: true`, out of the lobby) until 2026-10-05,
+  when it went live as *Riviera* (see the end of "Built so far"). It has its own fingerprints, and they're re-recorded as often as it changes. The rule
   stays the same for everything else: an engine change keeps every other map's fingerprints
   identical. That's a stronger check, not a weaker one. The drawbridge can change shape ten times
   on Coastal while Paradise Open proves that the shared code didn't move.
@@ -242,8 +242,8 @@ The engine already has most of what the lap needs. Coastal mostly arranges it:
 - **The generator** is `tools/gen-coastal.ts`, writing `content/maps/coastal/`. Everything is
   placed in world space: nodes for the road's corners, with the headland, the harbour and the
   beach as shapes in x and z. Nothing is placed by distance along the main road.
-- **It stays experimental** until the owner says otherwise. Open it with
-  `?mode=free&map=coastal/riviera`.
+- **It stayed experimental** until the owner said otherwise (2026-10-05: live as *Riviera*). A
+  link still opens it: `?mode=free&map=coastal/riviera`.
 - **Fingerprints:** Coastal's entry is re-recorded freely in a Coastal PR (say so in the PR). Every
   other map's must say identical, or the PR explains why.
 - **No lap floor to hold yet.** The first PR records one with `lap-report`. After that it's tracked
@@ -270,7 +270,8 @@ The engine already has most of what the lap needs. Coastal mostly arranges it:
 7. **The cuts:** the Stairs, the Rocks, the Sand, each measured.
 8. **The look:** the riviera palette, yachts, the lighthouse, the beach club, the rare shower,
    music.
-9. **Into the lobby** when the owner's happy: experimental off, a poster, a CHANGELOG line.
+9. **Into the lobby** when the owner's happy: experimental off, a poster, a CHANGELOG line. (Done
+   2026-10-05 as *Riviera*, before the Sand and the look; no poster yet.)
 
 The drawbridge comes right after the greybox lap, because it's why the map exists now. The town
 and the look can wait.
@@ -743,7 +744,9 @@ under in this first pull out" (rue-des-pins, the loop off the boulevard just bef
 **Live as *Riviera* (2026-10-05):** the owner: "this map looks ready to go live, let's call it
 Riviera in the menu ... we will continue to make tweaks to it". Out of experimental (map.json):
 in the lobby, the vote and quick race, named *Riviera*. Its id stays `coastal` (links, the
-fingerprints, the `coastal` track).
+fingerprints, the `coastal` track). From review: the lobby's map list and quick race had offered
+every layout, the experimental ones too (Paradise Open as its raw key); now only the game's maps,
+by name (`lobbyKeys`).
 
 ## The owner's answers (2026-10-04)
 

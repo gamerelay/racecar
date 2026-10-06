@@ -363,7 +363,7 @@ keep tweaking it: re-record its fingerprints as before.
 - Camera hints still wait for a spot that needs one; TECH_DEBT has the small things the reviews left.
 
 **Lap floors now** (the best AI lap, solo hard coupe): Downtown 57.9, Backroads 62.82, Avalanche
-93.07, Paradise 70.3, Paradise Open 66.35, Coastal 106.22 s (experimental). Paradise Open's field: 34 wrecks in 40 seeds.
+93.07, Paradise 70.3, Paradise Open 66.35, Riviera (coastal/riviera) 106.22 s. Paradise Open's field: 34 wrecks in 40 seeds.
 
 **Working notes (2026-10-03 to 2026-10-05):**
 - The fingerprints cover a solo lap and a drive down each branch, not the field: an AI change can

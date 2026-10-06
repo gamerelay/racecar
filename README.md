@@ -4,8 +4,8 @@ A cel-shaded arcade street racer for the browser: Burnout 3's crashes, Mario Kar
 8 players online through [GameRelay](https://gamerelay.io), with long circuits, shortcuts, traffic,
 hazards and weather.
 
-**Status: milestone 3 (online) in progress; `main` is tagged `alpha-1.19`.** Three maps
-(Downtown, Backroads, Paradise) and 8 cars, against up to 7 AI drivers, with traffic, hazards
+**Status: milestone 3 (online) in progress; `main` is tagged `alpha-1.19`.** Five maps
+(Downtown, Backroads, Paradise, Avalanche, Riviera) and 8 cars, against up to 7 AI drivers, with traffic, hazards
 (log trucks, a falling sign, volcano bombs, coconuts), rain and passing showers, shortcuts,
 takedowns, near misses and drifting. Online, lobbies are GameRelay rooms: other players' cars
 show in your race, players connect P2P where they can, and the room's host drives the AIs for

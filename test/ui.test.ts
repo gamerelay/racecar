@@ -1,7 +1,8 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { LAYOUT_ALIASES, PAINT_ALIASES, paletteFor, resolveLayout } from '../src/core/content';
-import { CONTENT, LAYOUT_KEYS, MAPS, PAINTS } from '../tools/content';
+import { CONTENT, EXPERIMENTAL_KEYS, LAYOUT_KEYS, MAPS, PAINTS } from '../tools/content';
+import { lobbyKeys } from '../src/ui/menu';
 import { describe, expect, test } from 'bun:test';
 import { delta, fmt, ordinal, pingClass } from '../src/ui/format';
 import { esc } from '../src/ui/html';
@@ -194,6 +195,14 @@ describe('after an online race', () => {
     const q = new URLSearchParams(menuQuery({ ...s, lobby: undefined }));
     expect(q.has('mode')).toBe(false);
     expect(q.get('car')).toBe('coupe');
+  });
+});
+
+describe("the lobby's maps", () => {
+  test('the game\'s maps only, by name (an experimental one opens from a link: not in the list, nor quick race)', () => {
+    const keys = lobbyKeys(MAPS, [...EXPERIMENTAL_KEYS, ...LAYOUT_KEYS]);
+    expect(EXPERIMENTAL_KEYS).toContain('paradise-open/open');
+    expect(keys).toEqual(['avalanche/slope', 'backroads/valley', 'downtown/downtown', 'paradise/island', 'coastal/riviera']);
   });
 });
 
