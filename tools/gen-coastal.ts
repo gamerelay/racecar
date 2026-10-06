@@ -642,14 +642,11 @@ const ROCKS = { from: [-712, 187], to: [-652, 321], width: 7, shoulder: 0.5, lum
  * the road at `to` before Lighthouse Point. Its own heights, the beach's; `limit` the fastest the
  * AI takes it.
  */
-const SAND = { from: [-731, 5], to: [-701, 162], line: [[-738, 30], [-752, 60], [-752, 95], [-738, 120], [-710, 140]] as [number, number][], width: 9, shoulder: 2, y: 3.5, grade: 0.09, limit: undefined as number | undefined, surface: 'beach' };
+const SAND = { from: [-731, 5], to: [-701, 162], line: [[-738, 30], [-752, 60], [-752, 95], [-738, 120], [-710, 140]] as [number, number][], width: 9, shoulder: 2, y: 3.5, grade: 0.09, bend: 25, limit: undefined as number | undefined, surface: 'beach' };
 {
-  const g = bakeTrack(layout, surfaces);
   const hit = newHit();
   const a = Math.round(sAt(SAND.from[0], SAND.from[1]));
   const b = Math.round(sAt(SAND.to[0], SAND.to[1]));
-  const ya = (sampleAt(g.main, a, hit), hit.cy);
-  const yb = (sampleAt(g.main, b, hit), hit.cy);
   // (Its ends are the road's: the bake joins it there.)
   let corners: [number, number][] = [...SAND.line];
   // Rounded off at its bends (Chaikin over pieces of 8 m at most, as the Rocks').
@@ -663,18 +660,40 @@ const SAND = { from: [-731, 5], to: [-701, 162], line: [[-738, 30], [-752, 60], 
       const [bx, bz] = corners[k + 1];
       return [[0.75 * ax + 0.25 * bx, 0.75 * az + 0.25 * bz], [0.25 * ax + 0.75 * bx, 0.25 * az + 0.75 * bz]] as [number, number][];
     }), corners[corners.length - 1]];
-  // Down off the road onto the beach and back up at `grade`, and never over the road beside it (the
-  // bake gives it the road's height while it's on the road's verge, its own past that: the road
-  // drops into the cove steeper than `grade`, and the step where they met threw cars).
-  let run = 0;
-  const along = corners.map(([x, z], k) => (run += k ? Math.hypot(x - corners[k - 1][0], z - corners[k - 1][1]) : 0));
+  // Down off the road onto the beach and back up at `grade`, from where it leaves the road's verge.
+  // The bake gives a branch the road's banked surface while it's on the road's verge and its own
+  // heights past that, with nothing between: own heights that didn't start from the road's there
+  // left a ledge, and every car flew 40 m off it. So: bake it once, find where the bake hands over
+  // at each end and the road's height there, and start the slope from those.
+  const flat = corners.map(([x, z]) => ({ p: [x, SAND.y, z] as [number, number, number], width: SAND.width, lanes: 1, shoulder: SAND.shoulder, surface: SAND.surface }));
+  const trial = bakeTrack({ ...layout, branches: [...layout.branches!, { id: 'sand', kind: 'shortcut', from: a, to: b, heights: 'own', points: flat }] }, surfaces);
+  const sp = trial.splines.find((x) => x.id === 'sand')!;
+  let i0 = 0;
+  while (i0 + 1 < sp.n && sp.merge[i0 + 1] >= 1) i0++;
+  let i1 = sp.n - 1;
+  while (i1 - 1 > 0 && sp.merge[i1 - 1] >= 1) i1--;
+  const [s0, s1, y0, y1] = [i0 * sp.step, i1 * sp.step, sp.py[i0], sp.py[i1]];
+  // From each end: on at the road's height and slope there, bending to `grade` over `bend` m (a
+  // vertical curve: going straight from the road's gentle fall to 9% made a crest that threw cars
+  // at 170 km/h), down to the beach. The stretches still on the road's verge are the bake's.
+  const slope = (i: number, dir: number) => (sp.py[Math.max(0, Math.min(sp.n - 1, i))] - sp.py[Math.max(0, Math.min(sp.n - 1, i - dir * 4))]) / (4 * sp.step);
+  const fall = (y: number, g0: number, d: number) => {
+    const L = SAND.bend;
+    const k = (-SAND.grade - g0) / L;
+    return d < L ? y + g0 * d + (k * d * d) / 2 : y + g0 * L + (k * L * L) / 2 - SAND.grade * (d - L);
+  };
+  const [g0, g1] = [slope(i0, 1), slope(i1, -1)];
+  const at = corners.map(([x, z]) => (projectGlobal(sp, x, z, hit), hit.s));
   const points: TrackPoint[] = corners.map(([x, z], k) => {
-    projectGlobal(g.main, x, z, hit);
-    const y = Math.max(SAND.y, Math.min(Math.abs(hit.lateral) < 25 ? hit.cy : Infinity, Math.max(ya - SAND.grade * along[k], yb - SAND.grade * (run - along[k]))));
+    const u = at[k];
+    const y = u <= s0 || u >= s1 ? sp.py[Math.round(u / sp.step)] : Math.max(SAND.y, fall(y0, g0, u - s0), fall(y1, g1, s1 - u));
     return { p: [Math.round(x * 10) / 10, Math.round(y * 100) / 100, Math.round(z * 10) / 10] as [number, number, number], width: SAND.width, lanes: 1, shoulder: SAND.shoulder, surface: SAND.surface };
   });
   layout.branches!.push({ id: 'sand', kind: 'shortcut', from: a, to: b, heights: 'own', ...(SAND.limit ? { limit: SAND.limit } : {}), points });
   layout.walls!.gaps!.push({ spline: 'sand', s: [0, 1e4], side: 'both' });
+  // No rock rail on the beach side between its ends (the branch's own gaps stop 70 m in from each:
+  // a few metres of the chicane's corner rails stood alone on the sand inside the loop).
+  layout.walls!.gaps!.push({ s: [a, b], side: 'right' });
   // Beach umbrellas along its sea side, out of the way (a car run wide knocks them flying).
   layout.smashables = [...(layout.smashables ?? []), { kind: 'beach-umbrella', spline: 'sand', s: [55, 135], every: 8, side: 1, lateral: 4 }];
 }

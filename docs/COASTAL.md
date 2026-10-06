@@ -765,28 +765,38 @@ by name (`lobbyKeys`).
 - **The Sand** (`SAND`): straight along the beach by the waterline, 183 m against the road's
   253 m, 9 m wide on `beach` (packed sand), loose `sand` either side to the water. Beach umbrellas
   along its sea side (smashables: a car run wide knocks them flying). No AI limit: flat out, nobody
-  wrecks on it.
-- **Its heights:** its own, down to 3.5 m along the beach. Off the road and back at 9% (the road's
-  own drop into the cove), and never over the road beside it. The bake gives a branch the road's
-  height while it's on the road's verge and its own past that; a steeper ramp, or its own heights
-  over the road's, left a step there that threw a van 40 m.
+  wrecks on it. No rock rail on its beach side between its ends (stubs of the chicane's corner
+  rails stood on the sand).
+- **Its heights:** its own, down to 3.5 m along the beach. The bake gives a branch the road's
+  banked surface while it's on the road's verge and its own heights past that, with nothing
+  between, so the generator bakes it once to find where that handover is at each end and the
+  road's height and slope there, and starts from those: a vertical curve from the road's slope to
+  9% over 25 m, then 9% down to the beach. Own heights that didn't meet the road's banked surface
+  there (the first tries: they matched its middle, not the bank) left a ledge that threw every
+  class 40 m (#143's review); a slope that went straight from the road's to 9% made a crest that
+  threw them at 170 km/h. Now nobody leaves the ground on it, at 110 km/h in or 170.
 - **Numbers** (from 100 m before the fork to just past the rejoin, a hard AI): the Sand saves every
-  class 1.85 to 2.5 s, clean. The driven costs (CALDERA 6d) said 2.15 to 2.27: on the mark, so the
-  AI takes it on its roll. The lap is 5.60 km (85 m longer); the floor is 106.67 s.
+  class 1.8 to 2.9 s, clean (the police 1.78, the van 2.88). The driven costs (CALDERA 6d) say 2.17
+  to 2.28, so the AI takes it on its roll. The lap is 5.60 km (85 m longer); the floor is 106.67 s.
+- **The Rocks' costs:** rough rock reads about a second slow by the driven costs (coupe 0.8 s over
+  the Rocks and past them, the van 0.3). Before the cove the road into them read quick by about as
+  much (the AI already down to their limit there), and the two cancelled; the chicane's way out
+  took that away. No choice changes (by costs they still save over 2 s), but the costs' window
+  test checks the Stairs and the Sand, not the Rocks.
 - **The town's houses** draw from a stream per stretch now (the Stairs' rows first, then each
   stretch its own): the waterfront's houses moving as the lap grew re-rolled the Old Town's after
   them, and with them the Stairs' times.
 - **Known, for the next step (the AI at junctions):** a car coming off a cut can't see the cars on
   the road it rejoins, nor they it, until they're on one road. Where the Sand rejoins just before
   Lighthouse Point's corner, a road car sweeping across for it met a car coming off the beach (field
-  races at seeds 9 and 15 of 16). A fix (each sees the other near a rejoin, the one coming in gives
+  races at seeds 9 and 15 of 16 before the review's heights, 15 after). A fix (each sees the other near a rejoin, the one coming in gives
   way) cleaned Riviera's and Paradise's merges but bunched Backroads' first-lap pack into more
   wrecks (4 to 12 over 24 seeds), so it's its own step, with the forks (the Old Town's wrecks at the
   Stairs) and how the AI reads lateral offsets on a branch it's turning onto.
-- **Field races** over 16 seeds: 15 wrecks against main's 10, all car on car. Two at the Sand's
-  rejoin (seeds 9 and 15); the rest where main's are, at the Stairs' fork and crossroads and in
-  the Rock Tunnel, moved between seeds as the field reshuffles. Seed 4 is clean; 7 and 8 have one
-  each in the Old Town (main had none there at those seeds).
+- **Field races** over 16 seeds: 14 wrecks against main's 9, all car on car. One at the Sand's
+  rejoin (seed 15); the rest where main's are, at the Stairs' fork and crossroads and in the Rock
+  Tunnel, moved between seeds as the field reshuffles. Seed 4 is clean; 7 and 8 have one each in
+  the Old Town (main had none there at those seeds).
 
 ## The owner's answers (2026-10-04)
 

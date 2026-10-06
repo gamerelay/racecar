@@ -412,9 +412,9 @@ describe("the AI's costs as its class drives (wayCosts)", () => {
     // 27 m past it (a car could take them inside the window, or brake for them). (Not the Rocks: rough
     // rock reads about a second slow by costs, made up before the cove by the road into them reading
     // quick, the AI already down to their limit there.)
-    for (const [id, t, from] of [
-      ['stairs-top', tracks.get('coastal/riviera')!, 700],
-      ['sand', bakeTrack({ ...v, branches: v.branches!.filter((b) => b.id !== 'rocks') }, SURFACES), NaN],
+    for (const [id, t, from, charge] of [
+      ['stairs-top', tracks.get('coastal/riviera')!, 700, 0.3],
+      ['sand', bakeTrack({ ...v, branches: v.branches!.filter((b) => b.id !== 'rocks') }, SURFACES), NaN, 0.1],
     ] as const) {
       const main = t.main;
       const br = t.splines.find((sp) => sp.id === id)!;
@@ -425,7 +425,7 @@ describe("the AI's costs as its class drives (wayCosts)", () => {
         // The cut's charge on the roads either side of it (the Stairs' half a second, the Sand's, fast both ends, 0.2 s).
         let alone = 0;
         for (let s = 0; s < br.length; s += br.step) alone += br.step / Math.max(1, speeds[br.index][Math.min(br.n - 1, Math.round(s / br.step))]);
-        expect([id, cls, time[st.index] - alone > 0.1]).toEqual([id, cls, true]);
+        expect([id, cls, time[st.index] - alone > charge]).toEqual([id, cls, true]);
         let cost = time[st.index];
         for (let s = br.fromS - 150; s < br.fromS; s += main.step) cost += main.step / speeds[0][Math.round(s / main.step)];
         for (let s = br.toS; s < br.toS + 250; s += main.step) cost += main.step / speeds[0][Math.round(s / main.step)];

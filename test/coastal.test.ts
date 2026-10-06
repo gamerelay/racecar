@@ -366,7 +366,8 @@ describe('coastal', () => {
 
     test('taken at its limit, the Rocks save every class 2-4 s clean; flat out, the ridges throw most into the boulders', () => {
       const time = (t: typeof track, cls: string) => {
-        const sim = setup(t, CLASSES, SURFACES, { s: 4560 }, 'ai', { kmh: 110, seed: 1, cls });
+        // (From 60 m before its fork to 41 m past its end, as measured: from the chicane's way out.)
+        const sim = setup(t, CLASSES, SURFACES, { s: rocks.mainFrom - 120 }, 'ai', { kmh: 110, seed: 1, cls });
         let t0 = -1;
         let wrecked = false;
         let used = false;
@@ -374,8 +375,8 @@ describe('coastal', () => {
           sim.step([]);
           if (t.splines[sim.cars.spline[0]].id === 'rocks') used = true;
           if (sim.cars.wreck[0]) wrecked = true;
-          if (sim.cars.spline[0] === 0 && t0 < 0 && sim.cars.s[0] >= 4620) t0 = sim.time;
-          if (sim.cars.spline[0] === 0 && sim.cars.s[0] >= 5100 && sim.cars.s[0] < 5150) return { t: sim.time - t0, used, wrecked };
+          if (sim.cars.spline[0] === 0 && t0 < 0 && sim.cars.s[0] >= rocks.mainFrom - 60) t0 = sim.time;
+          if (sim.cars.spline[0] === 0 && sim.cars.s[0] >= rocks.mainTo + 41 && sim.cars.s[0] < rocks.mainTo + 90) return { t: sim.time - t0, used, wrecked };
         }
         throw new Error('never got there');
       };
@@ -423,23 +424,28 @@ describe('coastal', () => {
       // The club inside the chicane: the road round it on three sides.
       const club = riviera.houses!.find((h) => Math.hypot(h.at[0] + 690, h.at[1] - 85) < 1)!;
       expect(club).toBeDefined();
-      projectGlobal(track.main, club.at[0], club.at[1], on);
-      expect(Math.abs(on.lateral)).toBeLessThan(45);
+      // The road round it to its north, east and south (the chicane), within 50 m.
+      const loop: [number, number][] = [];
+      for (let u = sand.mainFrom; u < sand.mainTo; u += 2) loop.push((sampleAt(track.main, u, on), [on.cx - club.at[0], on.cz - club.at[1]]));
+      const near = loop.filter(([dx, dz]) => Math.hypot(dx, dz) < 50);
+      expect([near.some(([, dz]) => dz < -20), near.some(([dx]) => dx > 20), near.some(([, dz]) => dz > 20)]).toEqual([true, true, true]);
     });
 
-    test('taken, the Sand saves every class 1.5-3 s on the road round the club, clean', () => {
+    test('taken, the Sand saves every class 1.5-3.5 s on the road round the club, clean and on the ground', () => {
       const time = (t: typeof track, cls: string) => {
         const sim = setup(t, CLASSES, SURFACES, { s: sand.mainFrom - 300 }, 'ai', { kmh: 110, seed: 1, cls });
         let t0 = -1;
         let wrecked = false;
         let used = false;
+        let air = 0;
         for (let k = 0; k < 60 * 30; k++) {
           sim.step([]);
           if (t.splines[sim.cars.spline[0]].id === 'sand') used = true;
+          if (t.splines[sim.cars.spline[0]].id === 'sand' && !sim.cars.grounded[0]) air += 1 / 60;
           if (sim.cars.wreck[0]) wrecked = true;
           if (sim.cars.spline[0] === 0 && t0 < 0 && sim.cars.s[0] >= sand.mainFrom - 100) t0 = sim.time;
           // (Short of the Rocks' fork, 27 m past its end.)
-          if (sim.cars.spline[0] === 0 && sim.cars.s[0] >= sand.mainTo + 15 && sim.cars.s[0] < sand.mainTo + 60) return { t: sim.time - t0, used, wrecked };
+          if (sim.cars.spline[0] === 0 && sim.cars.s[0] >= sand.mainTo + 15 && sim.cars.s[0] < sand.mainTo + 60) return { t: sim.time - t0, used, wrecked, air };
         }
         throw new Error('never got there');
       };
@@ -448,7 +454,9 @@ describe('coastal', () => {
         const base = time(road, c.id);
         const cut = time(track, c.id);
         expect([c.id, cut.used, cut.wrecked, base.wrecked]).toEqual([c.id, true, false, false]);
-        expect([c.id, base.t - cut.t > 1.5, base.t - cut.t < 3]).toEqual([c.id, true, true]);
+        // On the ground the whole way: off the road onto the beach it once threw every class 40 m.
+        expect([c.id, cut.air < 0.15]).toEqual([c.id, true]);
+        expect([c.id, base.t - cut.t > 1.5, base.t - cut.t < 3.5]).toEqual([c.id, true, true]);
       }
     }, 120_000);
   });

@@ -332,13 +332,15 @@ keep tweaking it: re-record its fingerprints as before.
 - **The cove and the Sand (2026-10-06, the owner's pick: "West cove"; COASTAL's "Step 7c"):** a
   beach cove under the Corniche just before Lighthouse Point. The road comes down to it and loops
   inland round the beach club (a low block for now) in a chicane; the Sand runs straight along the
-  beach by the water past it, umbrellas on its sea side. It saves every class 1.85 to 2.5 s clean,
-  and the driven costs agree (2.2 s). Its ends ramp at 9% and never over the road beside them (a
-  step where a branch leaves the road's verge threw a van). The town's houses draw from a stream
-  per stretch now (the waterfront re-rolled the Old Town's).
+  beach by the water past it, umbrellas on its sea side. It saves every class 1.8 to 2.9 s clean,
+  and the driven costs agree (2.2 s). Its heights start where the bake hands a branch over from
+  the road's banked surface to its own (found by baking it once), at the road's height and slope,
+  and bend to 9% over 25 m: nobody leaves the ground on it (a ledge there had thrown every class
+  40 m). The town's houses draw from a stream per stretch now (the waterfront re-rolled the Old
+  Town's). The Rocks' driven costs read about a second slow now (rough rock; COASTAL's 7c).
 - **Numbers:** the lap is 5.60 km (5.51 before the cove), the floor 106.67 s (solo hard coupe;
-  106.22 before the cove). Field races over 16 seeds: 15 car wrecks (main
-  10), two at the Sand's rejoin, the rest at the Stairs' junctions and in the tunnel; seed 4 clean,
+  106.22 before the cove). Field races over 16 seeds: 14 car wrecks (main
+  9), one at the Sand's rejoin, the rest at the Stairs' junctions and in the tunnel; seed 4 clean,
   7 and 8 one each in the Old Town. The AI at junctions is next (below).
 
 **Next, in about this order** (COASTAL's steps):
