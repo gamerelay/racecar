@@ -28,7 +28,7 @@ import type { Override } from '../overrides';
 export { DECK_CATCH, DECK_SLACK, RUN_IN, type Piece, type Pieces } from './pieces';
 export { canyonDepth, noise } from './shape';
 export { BEACH_FADE } from '../features/beach';
-export { OUTLINE_POINTS, outlineAt } from './outline';
+export { GALLERY, OUTLINE_POINTS, outlineAt, windowIn } from './outline';
 export type { Feature, Hazard } from '../features';
 export { KIND_BEACH, KIND_BRANCH, KIND_LAVA_ROCK, KIND_ROAD, KIND_SAND, KIND_SHORE, KIND_VERGE, surfaceNoise } from './surface';
 export { LAVA_BANK, LAVA_EDGE, LAVA_FILL, lavaSource } from '../features/lava-stream';

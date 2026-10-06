@@ -13,7 +13,8 @@
 import { tan } from '../../../core/math';
 import type { BakedSpline, Track } from '../../../core/track/bake';
 import { across, along } from '../../../core/track/frame';
-import { OUTLINE_POINTS, TUBE_H, outlineAt } from '../../../core/track/ground';
+import { GALLERY, OUTLINE_POINTS, TUBE_H, outlineAt, windowIn } from '../../../core/track/ground';
+import { GALLERY_LEDGE } from '../../../core/track/ground/land';
 
 /** Up to this far over the road the ground stays: the cutting's floor, at the road's height (give or take a float's rounding), under the tube's road (drawn 0.04 m up). */
 const KEEP = 0.03;
@@ -125,6 +126,10 @@ export function buildPortals(track: Track): Portals | null {
     }
   });
 
+  const pieceAt = (sp: BakedSpline, k: number) => {
+    const at = g.pieces.at(sp.index);
+    return at && at[k] >= 0 ? g.pieces.list[at[k]] : undefined;
+  };
   const A = new Float64Array(OUTLINE_POINTS * 2);
   const B = new Float64Array(OUTLINE_POINTS * 2);
   const P = new Float64Array(OUTLINE_POINTS * 2);
@@ -185,7 +190,16 @@ export function buildPortals(track: Track): Portals | null {
     P[1] = P[P.length - 1] = KEEP;
     const l = across(sp, k0, x, z);
     const road = sp.py[k0] + sp.ramp[k0] + (sp.py[k1] + sp.ramp[k1] - sp.py[k0] - sp.ramp[k0]) * fRoad - l * tan(sp.bank[k0] + (sp.bank[k1] - sp.bank[k0]) * f);
-    return polygonDistance(P, l, y - road);
+    const inTube = polygonDistance(P, l, y - road);
+    // A gallery's window: a box out through its wall, from the sill to where the wall leans in
+    // (each side's distance in, the least of them: negative inside it).
+    const piece = pieceAt(sp, k0);
+    const gallery = piece?.gallery;
+    if (!gallery) return inTube;
+    const out = gallery.side * l - (P[OUTLINE_POINTS * 2 - 2] - 0.5);
+    // (Out over the ledge only: past it the ground's its own.)
+    const win = Math.max(-windowIn(gallery, k0 * sp.step + f * sp.step), -out, out - GALLERY_LEDGE, GALLERY.sill - (y - road), y - road - P[gallery.side > 0 ? 9 : 3]);
+    return Math.min(inTube, win);
   };
 
   // The cells to cut: anywhere on them inside the outline, or near it (on a 5 × 5 of points over

@@ -33,8 +33,11 @@ export function collideWalls(sim: SimState, i: number): void {
   // On open ground a wall is a rail with ground past it too (a bridge's, near its ends): a car that
   // was outside it last tick stays outside, pushed back out. On a lap, past a wall is out of bounds.
   const was = sim.track.ground ? (cars.px[i] - hit.cx) * -hit.tz + (cars.pz[i] - hit.cz) * hit.tx : 0;
-  if (sim.track.ground && Math.abs(was) > wall) {
-    const out = was > 0 ? 1 : -1;
+  // So is one coming down off a gallery's roof (PieceDef.gallery: no rock past its wall, a cliff
+  // from its roof's edge): over the ceiling last tick, it's outside, not in through the wall.
+  const over = p >= 0 && !!g!.pieces.list[p].gallery && cars.py[i] >= hit.cy + ceiling;
+  if (sim.track.ground && (Math.abs(was) > wall || over)) {
+    const out = (over ? lat : was) > 0 ? 1 : -1;
     if (!(out > 0 ? hit.wallR : hit.wallL) || Math.abs(lat) - reach >= wall) return;
     const depth = wall - (Math.abs(lat) - reach);
     // Pushed out: away from the road.

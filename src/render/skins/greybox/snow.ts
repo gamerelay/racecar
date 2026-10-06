@@ -281,14 +281,24 @@ export function buildSnow(track: Track, green?: Color): Object3D[] {
             index.push(a, b, a1, a1, b, b1);
           }
         }
+        const intoTube = (p: number, q: number) => {
+          for (const f of [0, 0.5, 1]) {
+            const x = pos[p * 3] + (pos[q * 3] - pos[p * 3]) * f;
+            const y = pos[p * 3 + 1] + (pos[q * 3 + 1] - pos[p * 3 + 1]) * f - SKIRT;
+            const z = pos[p * 3 + 2] + (pos[q * 3 + 2] - pos[p * 3 + 2]) * f;
+            if (portals!.dist(x, y, z) < 0.5) return true;
+          }
+          return false;
+        };
         // The skirt along this level's edge, both faces (it's seen from either side). None along a
-        // cell cut at a portal: the edge's points there are the uncut ground's, and where a tile's
-        // edge crossed the Rock Tunnel's mouth its skirt hung 6 m down into the opening.
+        // cell cut at a portal (the edge's points there are the uncut ground's: where a tile's edge
+        // crossed the Rock Tunnel's mouth its skirt hung 6 m down into the opening), nor where it
+        // would reach down into a tunnel (from the rock over its roof, through its vault).
         const ring = [...xs.map((x) => x), ...zs.slice(1).map((z) => z * w + w - 1), ...xs.slice(0, -1).reverse().map((x) => (d - 1) * w + x), ...zs.slice(1, -1).reverse().map((z) => z * w)];
         for (let r = 0; r < ring.length; r++) {
           const p = ring[r];
           const q = ring[(r + 1) % ring.length];
-          if (stride === 1 && cut.size && cut.has(Math.min(Math.floor(p / w), Math.floor(q / w), d - 2) * (w - 1) + Math.min(p % w, q % w, w - 2))) continue;
+          if (stride === 1 && portals && (cut.has(Math.min(Math.floor(p / w), Math.floor(q / w), d - 2) * (w - 1) + Math.min(p % w, q % w, w - 2)) || intoTube(p, q))) continue;
           const ps = skirt(p);
           const qs = skirt(q);
           index.push(p, ps, q, q, ps, qs, p, q, ps, q, qs, ps);

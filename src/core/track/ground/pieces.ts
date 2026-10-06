@@ -30,6 +30,8 @@ export interface Piece {
   ceiling: number;
   /** How it's lit and sounds inside (PieceDef.indoor), an enclosed piece's (by default a building's own look, else 'tunnel'); '' if it's open. */
   indoor: string;
+  /** A gallery's windows (PieceDef.gallery), an enclosed piece's. */
+  gallery?: { side: -1 | 1; s: [number, number] };
   /** Its building's look (PieceDef.building), '' if it isn't one: walls and a roof of its own, standing on the ground. */
   building: string;
   /** How the ground under it falls away (PieceDef.under), if it says. */
@@ -65,7 +67,7 @@ export function definePieces(defs: readonly PieceDef[], splines: readonly BakedS
   for (const def of defs) {
     const sp = def.road === undefined ? splines[0] : splines.find((b) => b.id === def.road && b.index !== 0);
     if (!sp) continue;
-    const p: Piece = { id: def.id, index: list.length, spline: sp.index, s: def.s, floor: def.floor !== false, ceiling: def.ceiling ?? NaN, indoor: def.ceiling !== undefined ? (def.indoor ?? def.building ?? 'tunnel') : '', building: def.ceiling !== undefined ? (def.building ?? '') : '', under: def.under, lift: def.lift };
+    const p: Piece = { id: def.id, index: list.length, spline: sp.index, s: def.s, floor: def.floor !== false, ceiling: def.ceiling ?? NaN, indoor: def.ceiling !== undefined ? (def.indoor ?? def.building ?? 'tunnel') : '', building: def.ceiling !== undefined ? (def.building ?? '') : '', under: def.under, lift: def.lift, gallery: def.ceiling !== undefined ? def.gallery : undefined };
     list.push(p);
     const masks = p.floor ? floors : gaps;
     let m = masks.get(sp.index);

@@ -32,6 +32,11 @@ const TUNNEL_SIDE = 3;
 const TUNNEL_MOUTH = 4;
 /** In a tunnel, over its road and verge, the ground stands at least this far (m) over the road (under its floor, which a car's on). */
 const MOUTH_CLEAR = 0.3;
+/**
+ * Past a gallery's wall (PieceDef.gallery) no rock is kept, and out to this far (m) past its road's
+ * edge the ground's a ledge under the road: nothing outside stands in its windows.
+ */
+export const GALLERY_LEDGE = 4;
 
 /** The land between the roads is relaxed on a grid this coarse (m), this many passes. */
 const BASE_CELL = 8;
@@ -148,10 +153,21 @@ export function buildLand(def: GroundDef, main: BakedSpline, pieces: Pieces, fea
       at.keep = runIn(pieces, s, d, edge);
       // Over a main-road tunnel, near its road: in the rock (the features leave the land uncut).
       let roof = -Infinity;
+      let ledge = 0;
       at.rock = 0;
       for (let t = 0; t < tunnels.length; t++) {
         const p = tunnels[t];
         if (s < p.s[0] + TUNNEL_MOUTH || s > p.s[1] - TUNNEL_MOUTH) continue;
+        // Past a gallery's wall, no rock kept: the hill's own (cut back to the road), under a cliff
+        // from the roof.
+        const gallery = p.gallery && s >= p.gallery.s[0] && s <= p.gallery.s[1] && lat * p.gallery.side > 0;
+        if (gallery) {
+          if (d <= edge) {
+            at.rock = 1;
+            roof = Math.max(roof, road + p.ceiling + TUNNEL_ROOF);
+          } else ledge = Math.max(ledge, d < edge + GALLERY_LEDGE ? 1 : 0);
+          continue;
+        }
         at.rock = 1;
         roof = Math.max(roof, road + p.ceiling + TUNNEL_ROOF - Math.max(0, d - edge - TUNNEL_SIDE));
       }
@@ -160,6 +176,7 @@ export function buildLand(def: GroundDef, main: BakedSpline, pieces: Pieces, fea
       // off the roads, the road's own height on them.
       for (const f of shapers) gy = f.shape!(at, gy);
       if (gy < roof) gy = roof;
+      if (ledge && gy > road - 0.5) gy = road - 0.5;
       // In it, over its road, at least MOUTH_CLEAR over the road: the drawing cuts the ground to the
       // tube's outline but keeps it at the road's height (a cutting's floor), and the ground in its
       // mouths, eased to the road's (runIn), was kept, clipped into a slab across the tunnel. (A car
