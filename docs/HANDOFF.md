@@ -4,15 +4,20 @@ Where racecar stands and what's next, for whoever picks it up (a person or a fre
 The design is [SPEC.md](./SPEC.md): decisions in §17, and what building changed in "Changed while
 building". This file is "where are we"; the spec is "what are we making".
 
-**Last updated:** 2026-10-06. **`alpha-1.33`** (PRs #141–#147) is tagged and on the hosted
-build: **driven costs** (#142: the AI times its ways as its class drives them; Paradise and
-Backroads keep the old reckoning, `aiCosts: 'line'`), Riviera's **cove and the Sand** (#143: a
-beach cove before Lighthouse Point, a chicane round the beach club, the Sand along the water; lap
-5.60 km), **the AI at forks** (#145: a car heading for a cut keeps the road's pace until it has to
-brake for it; floor 106.03 s, Riviera's field 47 to 28 car wrecks over seeds 1–72) and Riviera's
-**back streets** (#146: rue Haute up behind the waterfront with traffic both ways, the town on up
-behind the casino, 426 houses; COASTAL's step 8h). Nothing is open. **Next:** Riviera's look
-("Next: Coastal" below).
+**Last updated:** 2026-10-06. **`alpha-1.34`** (PR #148) is tagged and on the hosted build:
+**Riviera's look** (COASTAL's step 8i, all drawn only: every fingerprint identical): its own
+palettes (`riviera`, `riviera-sunset`; `Palette.sea`, `Palette.surfaces`), umbrella pines, holm
+oaks and cypresses where the trees stand (`PinesDef.look`), palms and lamps along the promenade,
+the marina (landmarks `pontoon`, `quay`), the beach club (house look `club`) and its jetty,
+striped umbrellas, the lighthouse's beam only at dusk. Floor 106.03 s, field 28 car wrecks over
+seeds 1–72. Nothing is open. **Next** (the owner's pick): COASTAL's leftovers (café terraces on the
+quay, gulls, bunting; the quays cut into the ground; the drawbridge's leaves still the old asphalt
+colour), or a poster for the lobby.
+
+Before it, **`alpha-1.33`** (PRs #141–#147): **driven costs** (#142: the AI times its ways as its
+class drives them; Paradise and Backroads keep the old reckoning, `aiCosts: 'line'`), Riviera's
+**cove and the Sand** (#143), **the AI at forks** (#145) and Riviera's **back streets** (#146: rue
+Haute, the town on up behind the casino; COASTAL's step 8h).
 
 Before it, **`alpha-1.32`** (PRs #106–#140):
 **Riviera** (it was the experimental map *Coastal*, live since #138; see "Next: Coastal" below),

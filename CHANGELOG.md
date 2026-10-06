@@ -4,6 +4,17 @@ What changed in each release of racecar, newest first. Releases are git tags on 
 reasons behind each change are in [docs/SPEC.md](./docs/SPEC.md) under "Changed while building",
 and where things stand is [docs/HANDOFF.md](./docs/HANDOFF.md).
 
+## alpha-1.34: Riviera's look
+
+- **Riviera looks like the Riviera.** Its own colours by day and at sunset: olive and sage hills,
+  warm stone pavements, and a deep blue sea that's clear only by the shore. Umbrella pines lean
+  out over the water, with holm oaks and cypresses inland.
+- **The waterfront:** palms and lamp posts along the promenade (lit at sunset), and a marina in
+  the harbour, with yachts and sailboats moored along timber pontoons and stone quays round it.
+- **The beach club** in the cove is a white pavilion with a pool on its roof, and it has a jetty.
+  The beach umbrellas are striped, on Paradise too.
+- **The lighthouse's beam** sweeps only at sunset.
+
 ## alpha-1.33: Riviera's back streets and the Sand
 
 - **Riviera's back streets.** A new street, rue Haute, climbs the hill behind the waterfront, with
