@@ -7,7 +7,8 @@ import { playlistFor, ANY_MAP } from '../src/audio/soundtrack';
 import type { MapDef } from '../src/core/content';
 import { bakeTrack } from '../src/core/track/bake';
 import { hillHeight } from '../src/core/track/features/hills';
-import { newCast } from '../src/core/track/ground';
+import { newCast, windowIn } from '../src/core/track/ground';
+import { GALLERY_LEDGE } from '../src/core/track/ground/land';
 import { KIND_BEACH } from '../src/core/track/ground/surface';
 import { newHit, offRoad, projectGlobal, sampleAt } from '../src/core/track/query';
 import { planWeather } from '../src/core/world/weather';
@@ -195,6 +196,41 @@ describe('coastal', () => {
     expect(inside).toBe(false);
   }, 30_000);
 
+  test("the Rock Tunnel's gallery (the owner: windows to see the country go by): windows along its right wall, a ledge under the road past them, and the wall still stops a car", () => {
+    const tunnel = g.pieces.list.find((p) => p.id === 'rock-tunnel')!;
+    const gal = tunnel.gallery!;
+    expect(gal.side).toBe(1);
+    expect(gal.s[0]).toBeGreaterThan(tunnel.s[0]);
+    expect(gal.s[1]).toBeLessThan(tunnel.s[1]);
+    // At least a dozen windows.
+    let windows = 0;
+    for (let s = gal.s[0]; s < gal.s[1]; s += 0.5) if (windowIn(gal, s) > 0 && !(windowIn(gal, s - 0.5) > 0)) windows++;
+    expect(windows).toBeGreaterThanOrEqual(12);
+    // Out past the wall along it, over the ledge (the grid's own points: in between, the ground's
+    // drawn cut to the windows), the ground is under the road (well under the sill).
+    let ledge = 0;
+    for (let k = 0; k < g.h.length; k++) {
+      const i = g.near[k];
+      const s = i * track.main.step;
+      const edge = track.main.width[i] / 2 + track.main.shoulder[i];
+      // (A grid cell in from its ends: by its nearest sample a point can read just inside while it's just out.)
+      if (s < gal.s[0] + g.cell || s > gal.s[1] - g.cell || g.lateral[k] < edge + 0.1 || g.lateral[k] > edge + GALLERY_LEDGE - 0.1) continue;
+      // (By the road's plane there, banked, as the sill is: tube.ts, portal.ts.)
+      expect(g.h[k]).toBeLessThan(track.main.py[i] - g.lateral[k] * Math.tan(track.main.bank[i]) - 0.3);
+      ledge++;
+    }
+    expect(ledge).toBeGreaterThan(50);
+    const hit = newHit();
+    // Flat out at the wall, steering into it: never out through it.
+    const input = { throttle: 1, steer: 1 };
+    const sim = setup(track, CLASSES, SURFACES, { s: gal.s[0] + 20, lateral: 2 }, input, { kmh: 120 });
+    for (let k = 0; k < 60 * 2; k++) {
+      run(sim, input, 1 / 60, 1);
+      projectGlobal(track.main, sim.cars.x[0], sim.cars.z[0], hit);
+      expect(Math.abs(hit.lateral)).toBeLessThan(hit.width / 2 + hit.shoulder);
+    }
+  });
+
   test('into the Rock Tunnel off line, at an angle: nobody thrown up off its road at the mouths, nor onto the hill over it', () => {
     const tunnel = g.pieces.list.find((p) => p.id === 'rock-tunnel')!;
     const hit = newHit();
@@ -247,14 +283,22 @@ describe('coastal', () => {
             const sim = setup(track, CLASSES, SURFACES, { x, z, heading }, {}, { kmh });
             const c = sim.cars;
             runs++;
-            for (let k = 0; k < 180; k++) sim.step([controls]);
+            // (Down the bank to the road short of a mouth and in through it is no sinking.)
+            let byMouth = false;
+            for (let k = 0; k < 180; k++) {
+              sim.step([controls]);
+              projectGlobal(track.main, c.x[0], c.z[0], hit);
+              if (((hit.s < tunnel.s[0] && hit.s > tunnel.s[0] - 30) || (hit.s > tunnel.s[1] && hit.s < tunnel.s[1] + 30)) && Math.abs(c.y[0] - hit.cy) < 1.5 && Math.abs(hit.lateral) < hit.width / 2 + hit.shoulder) byMouth = true;
+            }
             g.cast(c.x[0], c.y[0], c.z[0], cast);
-            if (cast.space === 'enclosed' && cast.ground > c.y[0] + 3 && !c.wreck[0]) sunk++;
+            if (cast.space === 'enclosed' && cast.ground > c.y[0] + 3 && !c.wreck[0] && !byMouth) sunk++;
           }
     // (Reading the tunnel's road from anywhere over it, 3029 of a sweep like this sank in; before
-    // that 35 did, by the old rock faces' gaps. A handful left, at the mouths' corners.)
+    // that 35 did, by the old rock faces' gaps, and a handful at the mouths' corners: those came
+    // down to the road and in through it. Off the gallery's roof, 3 fell in through its wall
+    // before walls.ts counted a car over its ceiling as outside.)
     expect(runs).toBeGreaterThan(400);
-    expect(sunk).toBeLessThanOrEqual(3);
+    expect(sunk).toBe(0);
   }, 120_000);
 
   test("out of the Rock Tunnel down its middle, at any speed, no step at its mouths (the ground meets its floor)", () => {

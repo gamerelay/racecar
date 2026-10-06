@@ -402,6 +402,13 @@ export interface PieceDef {
    */
   indoor?: string;
   /**
+   * A gallery (Riviera's Rock Tunnel): along `s` (m, inside the tunnel), the wall on `side` (+1 the
+   * right) has windows (GALLERY in ground/outline.ts), and past it the rock isn't kept over the
+   * land: the hill falls away there, and through them is the country. Drawn only; the walls still
+   * stop a car. Needs a ceiling.
+   */
+  gallery?: { side: -1 | 1; s: [number, number] };
+  /**
    * Built, not dug (docs/CALDERA.md step 3c): an enclosed piece that's a building standing on the
    * ground, a hall the road runs through (Paradise Open's market hall), not a tunnel through rock.
    * Its walls are solid from both sides for every car (the road's own walls are off along it), the
@@ -448,6 +455,21 @@ export interface LiftDef {
   boat?: [number, number];
 }
 
+/**
+ * A hill (GroundDef.hills): a round dome `h` high over the sea at (x, z), `r` across its foot's
+ * radius; or, with `to`, a ridge: its crest from (x, z) to `to`, rising to `h2` there, falling `r`
+ * to its left (of the crest's way, from (x, z) to `to`) and `r2` to its right.
+ */
+export interface Hill {
+  x: number;
+  z: number;
+  h: number;
+  r: number;
+  to?: [number, number];
+  h2?: number;
+  r2?: number;
+}
+
 /** Open ground round the main road (core/track/ground). Distances are along the main road (s) and across it (lateral, + right). */
 export interface GroundDef {
   /** Grid cell (m). */
@@ -490,7 +512,7 @@ export interface GroundDef {
    * Cut back to the main road only, as the volcano is: a branch or a deck across one gets its
    * full height under it, so keep them off the hills until the road graph.
    */
-  hills?: { x: number; z: number; h: number; r: number }[];
+  hills?: Hill[];
   /**
    * Ground rising steeper than this (rise over run) is a rock face: a car meets it as a wall instead
    * of being lifted up it (the volcano's faces round the Lava Tube's mouths). Unset: every slope is

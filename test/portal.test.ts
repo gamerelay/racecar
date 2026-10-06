@@ -5,6 +5,8 @@ import { describe, expect, test } from 'bun:test';
 import { bakeTrack } from '../src/core/track/bake';
 import { OUTLINE_POINTS, outlineAt } from '../src/core/track/ground';
 import { ARCH_DEPTH, buildPortals, tubeCeiling, tubeSegments, VERTEX } from '../src/render/skins/greybox/portal';
+import { LOD, type Mesh } from 'three';
+import { buildSnow } from '../src/render/skins/greybox/snow';
 import { SURFACES, layout } from './helpers';
 
 const track = bakeTrack(layout('paradise-open/open'), SURFACES);
@@ -167,6 +169,30 @@ describe('portals', () => {
       // Its edge middles and middle (before, a strip from under the road to over the ceiling: 2.6 m in).
       const mid = (u: number[], v: number[], w = v) => [0, 1, 2].map((a) => (u[a] + v[a] + w[a]) / (w === v ? 2 : 3));
       for (const m of [mid(p, q), mid(q, r), mid(r, p), mid(p, q, r)]) worst = Math.min(worst, Q.dist(m[0], m[1], m[2]));
+    }
+    expect(worst).toBeGreaterThan(-0.3);
+  });
+
+  test("the Rock Tunnel's mouths as drawn, tiles' skirts and all: nothing hangs inside the outline", () => {
+    // (A tile's edge crossed the first mouth, and its skirt, the edge's uncut points 6 m down, hung
+    // in the opening: the owner's "glitch strip hanging down".)
+    const t = bakeTrack(layout('coastal/riviera'), SURFACES);
+    const Q = buildPortals(t)!;
+    let worst = 0;
+    for (const lod of buildSnow(t).filter((o): o is LOD => o instanceof LOD)) {
+      const geo = (lod.levels[0].object as Mesh).geometry;
+      const pos = geo.attributes.position.array;
+      const index = geo.index!.array;
+      const at = (v: number) => [pos[v * 3] + lod.position.x, pos[v * 3 + 1], pos[v * 3 + 2] + lod.position.z];
+      for (let n = 0; n < index.length; n += 3) {
+        const [p, q, r] = [at(index[n]), at(index[n + 1]), at(index[n + 2])];
+        // Points across it (a skirt's halves are long and thin: their middles were outside).
+        for (let i = 0; i <= 4; i++)
+          for (let j = 0; i + j <= 4; j++) {
+            const m = [0, 1, 2].map((a) => p[a] + ((q[a] - p[a]) * i + (r[a] - p[a]) * j) / 4);
+            worst = Math.min(worst, Q.dist(m[0], m[1], m[2]));
+          }
+      }
     }
     expect(worst).toBeGreaterThan(-0.3);
   });

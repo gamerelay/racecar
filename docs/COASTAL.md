@@ -858,6 +858,41 @@ Riviera's too, is identical.
 - **Left for later:** café terraces on the quay, gulls, bunting across the Old Town, and the
   quays' ground (they're drawn over the smoothed sand, not cut into it).
 
+**Step 8j, the Rock Tunnel's TLC and its gallery (2026-10-06):** the owner, after `alpha-1.34`: the
+tunnel "could use some TLC", the mountains looked a little odd, and a strip hung in the mouth;
+then "merge the domes into a ridge" and windows in the tunnel "so that driving through you can see
+the green countryside and blue skies wash by".
+- **The strip** was a ground tile's skirt (6 m down every tile's edge) where a tile's edge crossed
+  the mouth: none now along a cell cut at a portal, nor where it would reach into a tunnel (one
+  hung through the vault further in).
+- **The limestone's beds** are the ground material's, by each pixel's height: up a sheer face one
+  triangle spans 30 m, and beds at its corners smeared into vertical stripes.
+- **The spur is a ridge** (`Hill.to`: a crest from one point to another, rising to `h2`, falling
+  `r` to its left and `r2` to its right), its crest 15 m left of the tunnel, steep to the east,
+  and a lower shoulder over the first mouth (where it always was: the AI's line runs wide onto
+  the grass there, and a later mouth cost the floor 0.2 s). The tunnel's ceiling is 9 m (7.5).
+- **The gallery** (`PieceDef.gallery`, GALLERY in ground/outline.ts): along the tunnel's right
+  wall where the ridge falls away past it, an opening every 9 m, 6 m wide, from 0.9 m up to where
+  the wall leans in, lined with stone; drawn only, the wall stops a car as before. Past it no
+  rock is kept, and a ledge 4 m out sits under the road, so nothing stands in them; the ground's
+  drawn cut to them as to the mouths (portal.ts). A car coming down off its roof counts as
+  outside its wall (walls.ts; three of the hill sweep fell in through it).
+- **The cliff dressed** (the owner: "spruce up the outside"; `cliffs.ts`, scenery only): olive
+  scrub along the beds' ledges on any steep limestone, now and then an outcrop of rock, none by
+  a road, a mouth or the gallery's openings.
+- **Bunting** (the owner: "party ribbons across the roof tops"; `bunting.ts`, scenery only):
+  every 14 m along every road, a string of flags from eave to eave where a house stands at its
+  edge both sides (the Old Town, the back streets); with houses one side only (the waterfront),
+  swagged along their fronts.
+- **Numbers:** the tunnel 1616–1860 m (1616–1816), the gallery 1700–1812 m; floor 105.95 s
+  (106.03). Field races for the first ridge (before the review's fixes): car wrecks over seeds
+  1–144 71 (main 60; another ridge 63), the tunnel's own three the same; not re-run since (the
+  owner: the look first, sims at the end).
+- **Left for later** (the owner, 2026-10-06): café terraces on the quay (tables, chairs and
+  parasols along its town side), gulls (lifting off the quay as you pass), and a poster of
+  Riviera for the lobby. Still open from 8i: the quays cut into the ground, and the drawbridge's
+  leaves in the old asphalt colour.
+
 ## The owner's answers (2026-10-04)
 
 - **The shape:** the sketch is right (quay, bridge, Old Town, tunnel, corniche, lighthouse, beach,

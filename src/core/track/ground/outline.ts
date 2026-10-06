@@ -32,3 +32,20 @@ export function outlineAt(sp: BakedSpline, k: number, ceiling: number, out: Floa
   out[11] = 0;
   return out;
 }
+
+/**
+ * A gallery's windows (PieceDef.gallery): one every `every` m along it, `open` m of it open, from
+ * `sill` m over the road to where its wall starts to lean in (0.55 of the ceiling, the outline's
+ * second point). Each opening's middle `every` / 2 on from the gallery's start.
+ */
+export const GALLERY = { every: 9, open: 6, sill: 0.9 };
+
+/** How far (m) `s` is inside one of `gallery`'s openings along it (negative: in the pier between two, or off the gallery). */
+export function windowIn(gallery: { s: [number, number] }, s: number): number {
+  if (s < gallery.s[0] || s > gallery.s[1]) return -Infinity;
+  // (Only whole openings: none cut off by the gallery's end.)
+  const n = Math.floor((s - gallery.s[0]) / GALLERY.every);
+  if (gallery.s[0] + (n + 0.5) * GALLERY.every + GALLERY.open / 2 > gallery.s[1]) return -Infinity;
+  const u = s - gallery.s[0] - n * GALLERY.every;
+  return GALLERY.open / 2 - Math.abs(u - GALLERY.every / 2);
+}

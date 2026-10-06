@@ -10,11 +10,29 @@ import type { Feature } from '.';
 /** Off a road, a hill's side comes in over this many metres past its edge. */
 const HILL_IN = 40;
 
-/** The highest of `hills` at (x, z), over the sea (m): each a smooth dome `h` high, `r` across its foot's radius. */
+/** The highest of `hills` at (x, z), over the sea (m): each a smooth dome `h` high, `r` across its foot's radius, or a ridge (GroundDef's Hill). */
 export function hillHeight(hills: NonNullable<GroundDef['hills']>, x: number, z: number): number {
   let best = 0;
   for (let k = 0; k < hills.length; k++) {
     const hl = hills[k];
+    if (hl.to) {
+      // A ridge: the nearest point on its crest, its height there, and which side it falls to.
+      const dx = hl.to[0] - hl.x;
+      const dz = hl.to[1] - hl.z;
+      const len = Math.max(1e-6, hypot(dx, dz));
+      const tx = dx / len;
+      const tz = dz / len;
+      const t = Math.min(len, Math.max(0, (x - hl.x) * tx + (z - hl.z) * tz));
+      const ox = x - hl.x - tx * t;
+      const oz = z - hl.z - tz * t;
+      const d = hypot(ox, oz);
+      // Its side by how far across (-1 left to 1 right), so round its ends it eases from one
+      // fall to the other (by which side of the crest's line alone, it stepped there).
+      const across = d > 0 ? (ox * -tz + oz * tx) / d : 0;
+      const r = hl.r + ((hl.r2 ?? hl.r) - hl.r) * smooth(-1, 1, across);
+      if (d < r) best = Math.max(best, (hl.h + ((hl.h2 ?? hl.h) - hl.h) * (t / len)) * (1 - smooth(0, r, d)));
+      continue;
+    }
     const d = hypot(x - hl.x, z - hl.z);
     if (d < hl.r) best = Math.max(best, hl.h * (1 - smooth(0, hl.r, d)));
   }

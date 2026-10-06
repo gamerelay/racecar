@@ -10,7 +10,7 @@
 import { DoubleSide, Mesh, type Object3D } from 'three';
 import { hash01 } from '../../../core/rng';
 import type { BakedSpline, Track } from '../../../core/track/bake';
-import { OUTLINE_POINTS, outlineAt } from '../../../core/track/ground';
+import { GALLERY, OUTLINE_POINTS, outlineAt, windowIn } from '../../../core/track/ground';
 import { ARCH_DEPTH, tubeCeiling, tubeSegments } from './portal';
 import { glowPoints } from './scenery';
 import { Geo } from './track';
@@ -31,6 +31,8 @@ const SLAB = 1.6;
 const SPIKE = 5;
 /** The road's lift off its rock (so the two don't fight). */
 const LIFT = 0.04;
+/** How deep (m) a gallery's windows' reveals are, out from its wall. */
+const REVEAL = 1.2;
 /** Scratch for an outline. */
 const OUTLINE = new Float64Array(OUTLINE_POINTS * 2);
 
@@ -82,7 +84,29 @@ export function buildTubes(track: Track): Object3D[] {
         };
         const a = ring(i);
         const b = ring(j);
-        for (let q = 0; q + 1 < a.length; q++) geo.face(a[q], a[q + 1], b[q + 1], b[q], q === 2 ? look.dark : rock);
+        // A gallery's wall (PieceDef.gallery): its lower part (the outline's first or last face)
+        // open from the sill up where a window is, the openings lined with stone.
+        const gallery = at[i] >= 0 ? g.pieces.list[at[i]].gallery : undefined;
+        const wall = gallery ? (gallery.side > 0 ? OUTLINE_POINTS - 2 : 0) : -1;
+        const open = (k: number) => !!gallery && windowIn(gallery, (k + 0.5) * sp.step) > 0;
+        for (let q = 0; q + 1 < a.length; q++) {
+          if (q !== wall || !open(i)) {
+            geo.face(a[q], a[q + 1], b[q + 1], b[q], q === 2 ? look.dark : rock);
+            continue;
+          }
+          // The wall's foot and its lean-in point, each end: the sill's and the lintel's on it.
+          const [fa, fb, ta, tb] = gallery!.side > 0 ? [a[q + 1], b[q + 1], a[q], b[q]] : [a[q], b[q], a[q + 1], b[q + 1]];
+          const t = GALLERY.sill / (ta[1] - fa[1]);
+          const lerp = (u: number[], v: number[], f: number) => [0, 1, 2].map((c) => u[c] + (v[c] - u[c]) * f);
+          const [sa, sb] = [lerp(fa, ta, t), lerp(fb, tb, t)];
+          geo.face(fa, sa, sb, fb, rock);
+          // Out through the wall: the sill's ledge and the lintel's underside, and a jamb at each end of an opening.
+          const outward = (v: number[], k: number) => [v[0] - sp.tz[k] * gallery!.side * REVEAL, v[1], v[2] + sp.tx[k] * gallery!.side * REVEAL];
+          geo.face(sa, outward(sa, i), outward(sb, j), sb, look.rock[2]);
+          geo.face(ta, outward(ta, i), outward(tb, j), tb, look.dark);
+          if (!open(i - 1)) geo.face(sa, outward(sa, i), outward(ta, i), ta, look.rock[1]);
+          if (!open(j)) geo.face(sb, outward(sb, j), outward(tb, j), tb, look.rock[1]);
+        }
         if (look === LOOKS.lava) {
           // Lava in the cracks at the walls' feet, every so often.
           if (i % 9 === 0) for (const side of [-1, 1]) glow.push(...p(i, side * (edge(i) - 0.3), 0.5));
