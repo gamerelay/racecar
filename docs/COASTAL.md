@@ -718,8 +718,8 @@ obstacles on the switchbacks' hillside, where you can jump off and cut down.
 **Step 8f, a thinner hillside (2026-10-05):** the owner: the hillside looked "a little too littered",
 and the rocks' pale tops read as snow, "kinda weird in this hotter climate".
 - **About half as much:** 90 rocks and 150 bushes on the Descent's hillside (from 190 and 352).
-  Cutting straight down from a row still meets a bush, a rock or a tree on 12 lanes of 16, and
-  wrecks on a rock on 5.
+  Cutting straight down from a row still meets a bush or a rock on 8 lanes of 16 (12 counting
+  the trees), and wrecks on a rock on 5.
 - **Rocks on a coast** (the hillside's and the Rocks') are warm stone all over, a shade lighter on
   their tops, not limestone-capped. The piste's keep their snow.
 - **Numbers:** the floor and the solo drive are unchanged (only the bake's fingerprint moved); no

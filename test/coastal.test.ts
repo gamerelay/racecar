@@ -414,7 +414,7 @@ describe('coastal', () => {
       for (const p of rocks) expect(p.y).toBeCloseTo(g.top(p.x, p.z), 3);
     });
 
-    test('cutting straight down it from a row, you mostly meet a bush, a rock or a tree, and can wreck on a rock', () => {
+    test('cutting straight down it from a row, half the time you meet a bush or a rock, and can wreck on one', () => {
       let smashed = 0;
       let wrecked = 0;
       let met = 0;
@@ -426,9 +426,10 @@ describe('coastal', () => {
         // (On a rock, not a tree: 'prop' is both. Where it wrecked, by the trace's row then, beside one.)
         const on = d.summary.wrecks.filter((w) => w.cause === 'prop').map((w) => d.rows.reduce((a, b) => (Math.abs(b.t - w.t) < Math.abs(a.t - w.t) ? b : a)));
         if (on.some((at) => rocks.some((p) => Math.hypot(p.x - at.x, p.z - at.z) < p.hx + 4))) wrecked++;
-        if (d.events.some((e) => e.type === 'smash') || on.length) met++;
+        // (The hillside's own: a bush, or a rock. Trees by the next row's road are there without it.)
+        if (d.events.some((e) => e.type === 'smash') || on.some((at) => rocks.some((p) => Math.hypot(p.x - at.x, p.z - at.z) < p.hx + 4))) met++;
       }
-      // (Thinned since: the owner, 2026-10-05, "a little too littered". Still, a cut meets something more often than not.)
+      // (Thinned since: the owner, 2026-10-05, "a little too littered". Still, half the cuts meet a bush or a rock.)
       expect(smashed).toBeGreaterThanOrEqual(2);
       expect(wrecked).toBeGreaterThanOrEqual(2);
       expect(met).toBeGreaterThanOrEqual(lanes.length / 2);
