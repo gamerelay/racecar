@@ -23,6 +23,7 @@ import {
   RingGeometry,
   TorusGeometry,
   Vector3,
+  AdditiveBlending,
   Color,
   Float32BufferAttribute,
   IcosahedronGeometry,
@@ -1051,6 +1052,90 @@ function seaplanes(m: LandmarkDef, c: Ctx): Built {
 }
 
 /** Each kind's builder. */
+// ---- Coastal ----
+
+/**
+ * The lighthouse on Lighthouse Point (docs/COASTAL.md): a tapering tower in white and red bands on
+ * a stone base, a black gallery, the lantern and a red cap, `h` m tall (params.h, default 26), and
+ * a slow sweeping beam over the sea, seen from the Descent's switchbacks above.
+ */
+function lighthouse(m: LandmarkDef): Built {
+  const root = new Group();
+  const H = m.params?.h ?? 26;
+  root.add(cyl(4.6, 5.2, 3, 0xb9ad94, 1.5, 10));
+  const bands = 7;
+  for (let k = 0; k < bands; k++) {
+    const r0 = 3.4 - (k / bands) * 1.3;
+    const r1 = 3.4 - ((k + 1) / bands) * 1.3;
+    root.add(cyl(r1, r0, (H - 3) / bands, k % 2 ? 0xd8423a : 0xf6f1e6, 3 + ((k + 0.5) * (H - 3)) / bands));
+  }
+  root.add(cyl(2.9, 2.9, 0.5, 0x2a2f38, H + 0.25));
+  root.add(cyl(1.5, 1.5, 2.4, 0xfff2b0, H + 1.7, 8));
+  root.add(posed(new Mesh(faceted(new ConeGeometry(1.9, 1.8, 8)), toon({ color: 0xd8423a })), 0, H + 3.8, 0));
+  const lamp = glowPoints([0, H + 1.7, 0], 0xfff2b0, 10);
+  root.add(lamp);
+  const beamMat = new MeshBasicMaterial({ color: 0xfff4c0, transparent: true, opacity: 0.14, blending: AdditiveBlending, depthWrite: false, side: DoubleSide, fog: false });
+  const cone = new ConeGeometry(10, 220, 16, 1, true).translate(0, -110, 0).rotateX(Math.PI / 2);
+  const beam = new Mesh(mergeGeometries([cone, cone.clone().rotateY(Math.PI)])!, beamMat);
+  beam.position.y = H + 1.7;
+  root.add(beam);
+  return {
+    root,
+    update(t) {
+      beam.rotation.y = t * 0.5;
+    },
+  };
+}
+
+/**
+ * The fort on the mountain's top (the owner: "a little empty up there"; Villefranche's Fort du Mont
+ * Alban): low limestone curtain walls round a square, a bastion at each corner, a squat keep in the
+ * middle with a flag. `size` m across (params.size, default 56). Each wall stands on the ground under it.
+ */
+function fort(m: LandmarkDef, c: Ctx): Built {
+  const root = new Group();
+  const S = m.params?.size ?? 56;
+  const half = S / 2;
+  const WALL = 0xc9bc9f;
+  const DARK = 0xa8997a;
+  const low = (x: number, z: number) => c.ground(x, z);
+  // The curtain walls, in pieces down each side so they follow the hilltop.
+  for (const [ax, az, bx, bz] of [[-half, -half, half, -half], [half, -half, half, half], [half, half, -half, half], [-half, half, -half, -half]]) {
+    const n = 6;
+    for (let k = 0; k < n; k++) {
+      const x = ax + ((bx - ax) * (k + 0.5)) / n;
+      const z = az + ((bz - az) * (k + 0.5)) / n;
+      const along = ax === bx ? [2.2, S / n + 0.4] : [S / n + 0.4, 2.2];
+      const y = low(x, z);
+      root.add(box(along[0], 7, along[1], WALL, x, y + 2.5, z));
+      // Crenellations along the top.
+      root.add(box(along[0] * 0.9, 1, along[1] * 0.9, DARK, x, y + 6.5, z));
+    }
+  }
+  // A bastion at each corner: a stubby diamond, its point outward.
+  for (const [x, z] of [[-half, -half], [half, -half], [half, half], [-half, half]]) {
+    const b = box(11, 8, 11, WALL, x, low(x, z) + 3, z);
+    b.rotation.y = Math.PI / 4;
+    root.add(b);
+    const cap = box(11.6, 0.8, 11.6, DARK, x, low(x, z) + 7.4, z);
+    cap.rotation.y = Math.PI / 4;
+    root.add(cap);
+  }
+  // The keep, and its flag.
+  const y0 = low(0, 0);
+  root.add(box(16, 12, 14, WALL, 0, y0 + 5, 0));
+  root.add(box(17, 1.2, 15, DARK, 0, y0 + 11.6, 0));
+  root.add(box(0.3, 9, 0.3, 0x3a3340, 0, y0 + 16.5, 0));
+  const flag = box(4, 2.4, 0.15, 0xe0413a, 2.1, y0 + 19.5, 0);
+  root.add(flag);
+  return {
+    root,
+    update(t) {
+      flag.rotation.y = Math.sin(t * 1.3) * 0.25;
+    },
+  };
+}
+
 const BUILDERS: Record<string, (m: LandmarkDef, ctx: Ctx) => Built> = {
   'clock-tower': (m) => clockTower(m),
   'donut-shop': () => donutShop(),
@@ -1068,4 +1153,6 @@ const BUILDERS: Record<string, (m: LandmarkDef, ctx: Ctx) => Built> = {
   'surf-shack': (_m, c) => surfShack(c),
   whale: (m, c) => whale(m, c),
   seaplanes: (m, c) => seaplanes(m, c),
+  lighthouse: (m) => lighthouse(m),
+  fort: (m, c) => fort(m, c),
 };

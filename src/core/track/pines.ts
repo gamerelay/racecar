@@ -138,5 +138,7 @@ function blocked(layout: TrackLayout, ground: Ground, s: number, lat: number, d:
     if (Math.abs(dx * fz - dz * fx) < h.size[0] / 2 + HOUSE_CLEAR && Math.abs(dx * fx + dz * fz) < h.size[1] / 2 + HOUSE_CLEAR) return true;
   }
   for (const r of layout.ramps ?? []) if (Math.abs(s - r.s) < r.length + (r.back ?? 0) + 12 && d < (r.flank ?? 8) + 8) return true;
+  // Nor on a landmark's ground (its `r`: Coastal's fort and lighthouse).
+  for (const m of layout.landmarks ?? []) if (m.r > 0 && hypot(x - m.at[0], z - m.at[1]) < m.r) return true;
   return false;
 }

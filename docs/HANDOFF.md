@@ -230,7 +230,11 @@ identical through all five: each slice is the old behaviour on today's maps, wit
 3. **The Rocks on Coastal** (#128; COASTAL's "Step 7b"): Lighthouse Point loops round the cape's
    tip, and the Rocks cut its neck: a new `rock` surface, ridges, boulders either side, AI limit
    36 m/s. At the limit they save every class 2.3–3.5 s; flat out, five of eight wreck. Floor 105.58 s.
-4. Then CALDERA's step 6 leftovers when a map needs them: hazards, traffic and the AI's marks off
+4. **Coastal's landmarks** (#129; COASTAL's "Step 8a"): the grand casino on the boulevard past the
+   line (a house with `look: 'casino'`, rue-du-port round its square), the lighthouse in the cape's
+   loop (seen from the Descent's hairpins), the fort on the mountain's top. Trees keep off a
+   landmark's ground.
+5. Then CALDERA's step 6 leftovers when a map needs them: hazards, traffic and the AI's marks off
    main-road distances; the road-edge walls onto streets; step 7, a city map.
 
 **Next: Coastal (2026-10-04, as of 2026-10-05).** The owner's call: Caldera's next features are

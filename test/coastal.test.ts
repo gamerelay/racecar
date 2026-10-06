@@ -290,6 +290,39 @@ describe('coastal', () => {
     }, 120_000);
   });
 
+  describe('landmarks (COASTAL step 8a)', () => {
+    test('the grand casino: a solid block on the boulevard just past the line, facing it, its garden and fountain clear of houses', () => {
+      const houses = riviera.houses!;
+      const k = houses.findIndex((h) => h.look === 'casino');
+      expect(k).toBeGreaterThanOrEqual(0);
+      const c = houses[k];
+      const hit = newHit();
+      projectGlobal(track.main, c.at[0], c.at[1], hit);
+      expect(hit.s).toBeGreaterThan(60);
+      expect(hit.s).toBeLessThan(120);
+      // Facing the road: its front (+z turned by rot) toward the road's middle.
+      const [fx, fz] = [Math.sin(c.rot), Math.cos(c.rot)];
+      expect((hit.cx - c.at[0]) * fx + (hit.cz - c.at[1]) * fz).toBeGreaterThan(0);
+      // Solid, as every house.
+      expect(track.props.filter((p) => p.kind === 'house')[k].solid).toBe(true);
+      const fountain = riviera.landmarks!.find((m) => m.kind === 'fountain')!;
+      for (const h of houses) if (h !== c) expect(Math.hypot(h.at[0] - fountain.at[0], h.at[1] - fountain.at[1])).toBeGreaterThan(8);
+    });
+
+    test("the lighthouse inside the cape's loop, and the fort on the mountain's top; no trees on either", () => {
+      const light = riviera.landmarks!.find((m) => m.kind === 'lighthouse')!;
+      const fort = riviera.landmarks!.find((m) => m.kind === 'fort')!;
+      expect(light && fort).toBeTruthy();
+      // The fort on the highest ground for 60 m round.
+      const top = g.height(fort.at[0], fort.at[1]);
+      for (let a = 0; a < 8; a++) expect(g.height(fort.at[0] + 30 * Math.cos(a), fort.at[1] + 30 * Math.sin(a))).toBeLessThanOrEqual(top + 0.5);
+      expect(top).toBeGreaterThan(150);
+      const pines = track.pines!;
+      for (const m of [light, fort]) pines.near(m.at[0], m.at[1], (k) => expect(Math.hypot(pines.x[k] - m.at[0], pines.z[k] - m.at[1])).toBeGreaterThanOrEqual(m.r));
+      expect(validateLayout(riviera, SURFACES, CLASSES).filter((p) => p.message.includes('landmark'))).toEqual([]);
+    });
+  });
+
   test('mostly blue skies: a shower one race in about seven (`rare`), against more than half on Paradise', () => {
     const showers = (allowed: string[]) => Array.from({ length: 400 }, (_, seed) => planWeather('random', seed + 1, allowed)).filter((p) => p.to > 0).length / 400;
     expect(map.weather).toContain('rare');
