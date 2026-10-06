@@ -354,7 +354,6 @@ skies and a rare shower, the `coastal` track. Open it with `?mode=free&map=coast
   (older than #131, which left it as it was).
 - Anything placed by `top()`/`height()` with no height in a main-road tunnel's mouths stands 0.3 m
   up (`MOUTH_CLEAR`): nothing is, today.
-- Grass tufts are inked by depth like everything else; with no depth they were black weeds.
 - Camera hints still wait for a spot that needs one; TECH_DEBT has the small things the reviews left.
 
 **Lap floors now** (the best AI lap, solo hard coupe): Downtown 57.9, Backroads 62.82, Avalanche
