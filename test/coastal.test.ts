@@ -436,6 +436,43 @@ describe('coastal', () => {
     }, 60_000);
   });
 
+  describe("the hotel off the boulevard (COASTAL step 8g)", () => {
+    const k = riviera.houses!.findIndex((h) => h.look === 'hotel');
+    const h = riviera.houses![k];
+    const pins = track.splines.find((sp) => sp.id === 'rue-des-pins')!;
+
+    test('rue-des-pins runs under its terrace, 20 m and more of it, with room over a car', () => {
+      expect(k).toBeGreaterThanOrEqual(0);
+      const p = h.porch!;
+      const y = track.props.filter((q) => q.kind === 'house')[k].y;
+      let under = 0;
+      for (let i = 0; i < pins.n; i++) {
+        // Where the street's middle is, in the hotel's own frame (its front toward +z).
+        const [dx, dz] = [pins.px[i] - h.at[0], pins.pz[i] - h.at[1]];
+        const lx = dx * Math.cos(h.rot) - dz * Math.sin(h.rot);
+        const lz = dx * Math.sin(h.rot) + dz * Math.cos(h.rot);
+        if (Math.abs(lx) > p.width / 2 || lz < h.size[1] / 2 || lz > h.size[1] / 2 + p.depth) continue;
+        under += pins.step;
+        // The street's whole width under it (its verge short of the columns' line and the front wall).
+        expect(lz - pins.width[i] / 2 - pins.shoulder[i]).toBeGreaterThan(h.size[1] / 2);
+        expect(lz + pins.width[i] / 2 + pins.shoulder[i]).toBeLessThan(h.size[1] / 2 + p.depth - 1);
+        expect(y + p.high - pins.py[i]).toBeGreaterThan(5);
+      }
+      expect(under).toBeGreaterThan(20);
+    });
+
+    test('its columns are solid: off every road, but drive into one and you wreck', () => {
+      const cols = track.props.filter((q) => q.kind === 'house-column');
+      expect(cols.length).toBe(h.porch!.columns);
+      expect(validateLayout(riviera, SURFACES, CLASSES).filter((q) => q.message.includes('porch'))).toEqual([]);
+      const c = cols[1];
+      // From 20 m off, toward the boulevard's side of it, square on.
+      const [ax, az] = [Math.sin(h.rot), Math.cos(h.rot)];
+      const d = run(setup(track, CLASSES, SURFACES, { x: c.x + ax * 20, z: c.z + az * 20, heading: (Math.atan2(-ax, -az) * 180) / Math.PI }, { throttle: 1 }, { kmh: 100 }), { throttle: 1 }, 3, 1 / 60);
+      expect(d.summary.wrecks.some((w) => w.cause === 'prop')).toBe(true);
+    }, 30_000);
+  });
+
   describe('landmarks (COASTAL step 8a)', () => {
     test('the grand casino: a solid block on the boulevard just past the line, facing it, its garden and fountain clear of houses', () => {
       const houses = riviera.houses!;

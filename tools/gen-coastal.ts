@@ -19,7 +19,7 @@ import { mkdirSync, writeFileSync } from 'node:fs';
 import type { HouseDef, TrackLayout, TrackPoint } from '../src/core/content';
 import { newContact, obbOverlap } from '../src/core/collide/obb';
 import { Rng } from '../src/core/rng';
-import { bakeTrack } from '../src/core/track/bake';
+import { bakeTrack, COLUMN } from '../src/core/track/bake';
 import { hillHeight } from '../src/core/track/features/hills';
 import { SEAWALL_FACE } from '../src/core/track/features/seawall';
 import { newHit, projectGlobal, sampleAt } from '../src/core/track/query';
@@ -434,7 +434,8 @@ const STREETS: [string, number, number, 1 | -1, { depth?: number; lead?: number;
   // (Round behind the casino's square: out deep and straight along its back, its corners wide enough
   // for the traffic, CASINO.)
   ['rue-du-port', 25, 155, -1, { depth: 72, lead: 15, straight: true }],
-  ['rue-des-pins', L - 230, L - 110, -1],
+  // (Out and straight along the hotel's front, under its terrace: HOTEL.)
+  ['rue-des-pins', L - 250, L - 110, -1, { lead: 15, straight: true }],
 ];
 /** How far off the main road's middle a street runs (m, unless it says), how wide it is, and the traffic on it. */
 const STREET = { depth: 32, width: 8, shoulder: 1.5, speed: 14, density: 8 };
@@ -651,6 +652,13 @@ const TOWN = {
  * the garden between with a fountain in it (kept clear of houses).
  */
 const CASINO = { s: 90, w: 34, d: 22, high: 15, front: 15 };
+/**
+ * The hotel (the owner, 2026-10-05: "a pull in hotel with a front terrace you drive under"): at the
+ * back of rue-des-pins' loop off the boulevard, facing it, `w` across, `d` deep, `high` to its
+ * cornice, its front `gap` m past the street's verge. Its terrace runs out over the street on
+ * columns just past the street's near verge: `porch` m across, its underside `under` m up.
+ */
+const HOTEL = { w: 34, d: 16, high: 19.2, gap: 2, porch: 26, under: 6, columns: 4 };
 {
   const g = bakeTrack(layout, surfaces);
   const ground = g.ground!;
@@ -667,6 +675,20 @@ const CASINO = { s: 90, w: 34, d: 22, high: 15, front: 15 };
   const [cx, cz] = at(verge + CASINO.front + CASINO.d / 2);
   const crot = Math.round(Math.atan2(-hit.tz, hit.tx) * 1000) / 1000;
   houses.push({ at: [Math.round(cx * 10) / 10, Math.round(cz * 10) / 10], size: [CASINO.w, CASINO.d, CASINO.high], rot: crot, look: 'casino' });
+  // The hotel, at the middle of rue-des-pins' straight back (STREET.depth off the road's middle),
+  // its terrace from its front out over the street to just past the street's near verge.
+  const pins = STREETS.find(([id]) => id === 'rue-des-pins')!;
+  sampleAt(g.main, (pins[1] + pins[2]) / 2, hit);
+  const street = STREET.width / 2 + STREET.shoulder;
+  const hfront = STREET.depth + street + HOTEL.gap;
+  const porch = { depth: Math.round((hfront - (STREET.depth - street - COLUMN * 2 - 1.5)) * 10) / 10, width: HOTEL.porch, high: HOTEL.under, columns: HOTEL.columns };
+  const [hx, hz] = at(hfront + HOTEL.d / 2);
+  const hrot = Math.round(Math.atan2(-hit.tz, hit.tx) * 1000) / 1000;
+  houses.push({ at: [Math.round(hx * 10) / 10, Math.round(hz * 10) / 10], size: [HOTEL.w, HOTEL.d, HOTEL.high], rot: hrot, look: 'hotel', porch });
+  // (No house under its terrace: the hotel's box, out over its porch, as one.)
+  const [px, pz] = at(hfront - porch.depth / 2);
+  const terrace = { at: [px, pz] as [number, number], size: [HOTEL.porch, porch.depth], rot: hrot };
+  sampleAt(g.main, CASINO.s, hit);
   const [fx, fz] = at(verge + CASINO.front / 2 + 1);
   const garden: [number, number, number] = [fx, fz, CASINO.front / 2 + 2];
   layout.landmarks = [...(layout.landmarks ?? []).filter((m) => m.kind !== 'fountain'), { kind: 'fountain', at: [Math.round(fx * 10) / 10, Math.round(fz * 10) / 10], rot: crot, r: 0, params: { r: 4, ring: 0 } }];
@@ -686,6 +708,7 @@ const CASINO = { s: 90, w: 34, d: 22, high: 15, front: 15 };
     // (Not in the casino's garden.)
     if (Math.hypot(x - garden[0], z - garden[1]) < garden[2] + Math.max(w, d) / 2) return false;
     // (Terraced: side by side is fine, overlapping isn't. Box against box, a hair smaller.)
+    if (obbOverlap(x, z, rot, w / 2 - 0.2, d / 2 - 0.2, terrace.at[0], terrace.at[1], terrace.rot, terrace.size[0] / 2, terrace.size[1] / 2, contact)) return false;
     return houses.every((h) => !obbOverlap(x, z, rot, w / 2 - 0.2, d / 2 - 0.2, h.at[0], h.at[1], h.rot, h.size[0] / 2 - 0.2, h.size[1] / 2 - 0.2, contact));
   };
   // First a row along each side of the Stairs, facing them, their walls at the steps' edge.
