@@ -4,54 +4,39 @@ What changed in each release of racecar, newest first. Releases are git tags on 
 reasons behind each change are in [docs/SPEC.md](./docs/SPEC.md) under "Changed while building",
 and where things stand is [docs/HANDOFF.md](./docs/HANDOFF.md).
 
-## Unreleased
+## alpha-1.32: Riviera
 
-- **A new map in the lobby: *Riviera*** (it was *Coastal*, experimental): a harbour town on a
-  headland under mostly blue skies, 5.5 km. A drawbridge over the harbour mouth, the Old Town's
-  switchbacks and the Stairs up them, a mountain road through the Rock Tunnel, five switchbacks down
-  the mountainside over the sea, Lighthouse Point and the Rocks across it, and the boulevard home
-  past the grand casino and the Hôtel des Pins, whose terrace you can drive under. In the lobby,
-  the vote and quick race; links to `coastal/riviera` still work.
-- **The Descent's hillside is thinner**, its rocks warm stone (not snow-capped).
+- **A new map, *Riviera*** (in the lobby, the vote and quick race; `?map=coastal/riviera` links
+  work too): a harbour town on a headland on the Riviera, 5.5 km under mostly blue skies (a shower
+  about one race in seven), to its own track, *Coastal*.
+  - **The Harbour Bridge** lifts once or twice a race, with a warning, bells, barrier arms and
+    flashing lights. Catch it early and jump it off the near leaf; too late and it's a wall, and
+    the Basin Road goes round the harbour, a few seconds slower. A yacht sails out under the
+    raised leaves. The AI goes round when the bridge would stop it, or a hard one jumps it.
+  - **The Old Town's switchbacks** and **the Stairs**, stone flights straight up through them;
+    the Mountain Road through the 200 m **Rock Tunnel**; five switchbacks down the mountainside
+    over the sea, past rocks and bushes if you cut down; **Lighthouse Point**'s loop and **the
+    Rocks** across its neck; a fort on the summit.
+  - **The waterfront**: a four-lane boulevard along the sea wall, terraces of ochre, rose and
+    yellow houses up the hill, the grand casino, and **the Hôtel des Pins**, whose terrace you
+    drive under off the boulevard. Traffic pulls out of the side streets and turns off again.
+  - Low limestone rails round the tight corners up the mountain and down the switchbacks; the
+    straights between are open to fly off.
 - **The wreck camera stays out of the ground**: wrecked by a bank, it rises over it instead of
   orbiting through the hill.
 - **The lobby and quick race offer only the game's maps**, by name: Paradise Open (experimental)
   was in the lobby's list as `paradise-open/open`, and quick race could land on it.
-- **The engine, reviewed** (steps 0 to 3c): nothing on a map drives differently (every
-  fingerprint identical). Fixed: a car crossing a breakable wall at a shallow angle bouncing off
-  (often wrecking on) the panel past its hole, the wreck camera orbiting out through the market hall's walls,
-  the tunnel's haze fading in or out over the grid after a restart there, and, for the maps to
-  come, an override's floor not under the wheels, a breakable wall that froze the game with a
-  panel of no width, and validator holes (features, piece overlaps, the experimental maps
-  skipped). Paradise Open loads about a second faster, and the room's echo only runs indoors.
-  The rest is in docs/TECH_DEBT.md ("Caldera, the engine").
-- **A new map, *Coastal*** (experimental, from a link: `?mode=free&map=coastal/riviera`): a
-  harbour town on a headland, with a bridge over the harbour mouth, switchbacks up the Old Town,
-  a mountain road winding up in S-bends, five long switchbacks down the mountainside over the sea and a lighthouse hairpin, under mostly blue skies (a shower about
-  one race in seven). It plays the *Coastal* track. A greybox for now: the drawbridge comes next
-  (docs/COASTAL.md).
-- **Coastal's waterfront is a sea wall** (experimental): from the lighthouse to the bridge, the
-  sea comes right up to a stone retaining wall on the right, with a paved ledge along it, instead
-  of a beach. The traffic there is now the oncoming lane only.
-- **Coastal's Rock Tunnel has a clear way in**: slabs of the hillside no longer hang across its
-  mouth. (Up a sheer rock face, the ground cut round a tunnel's opening could leave strips
-  standing in it; the fix applies to every tunnel's mouth.)
 - **One more track** for every map's races: *Crashout*, the owner's.
-- **Coastal's drawbridge** (experimental): the Harbour Bridge lifts once or twice a race, with
-  a warning, barrier arms and flashing lights. Catch it early in a lift and jump it off the near
-  leaf; too late and it's a wall, and the Basin Road goes round the harbour instead, a few seconds
-  slower. Bells ring from the warning, and a yacht sails out under the raised leaves (and back in
-  when it lifts again). The AI goes round when the bridge would stop it, or a hard one jumps it.
-- **Coastal's traffic comes from side streets**: on the home straight, round the line, cars pull
-  out of the car parks and town streets, drive the Quay or the Promenade and turn off again, so
-  none appear or vanish on the road. The home straight is wider for them (20 m).
-- **Coastal's Rock Tunnel**: the Mountain Road runs 200 m through the spur, in a limestone tunnel
-  lit by orange lamps.
-- **Coastal's rock rails**: a low limestone parapet round the outside of the tight corners up the
-  mountain and down the switchbacks; the straights between are still open to fly off.
-- **Coastal's Riviera town**: the home straight is a four-lane waterfront boulevard, the beach
-  and palms on one side and terraces of ochre, rose and yellow houses with green shutters and
-  terracotta roofs climbing the hill on the other; the Old Town's climb runs between them too.
+- **Tunnel mouths**: up a sheer rock face, the ground cut round a tunnel's opening could leave
+  strips standing in it; fixed for every tunnel.
+- **The engine, reviewed** (steps 0 to 3c), and **the road graph** (routes as a graph: the AI picks
+  its way by cost, branches off branches): nothing on the other maps drives differently (every
+  fingerprint identical). Fixed: a car crossing a breakable wall at a shallow angle bouncing off
+  (often wrecking on) the panel past its hole, the wreck camera orbiting out through the market
+  hall's walls, the tunnel's haze fading in or out over the grid after a restart there, and, for the
+  maps to come, an override's floor not under the wheels, a breakable wall that froze the game with
+  a panel of no width, and validator holes. Paradise Open loads about a second faster, and the
+  room's echo only runs indoors. The rest is in docs/TECH_DEBT.md ("Caldera, the engine").
 
 ## alpha-1.31: Paradise Open, the Caldera engine and the market hall
 

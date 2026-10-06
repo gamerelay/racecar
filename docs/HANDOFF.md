@@ -4,24 +4,11 @@ Where racecar stands and what's next, for whoever picks it up (a person or a fre
 The design is [SPEC.md](./SPEC.md): decisions in §17, and what building changed in "Changed while
 building". This file is "where are we"; the spec is "what are we making".
 
-**Last updated:** 2026-10-05. Since the tag, all merged: the engine's review fixes (#107), and a new
-experimental map, **Coastal** (#106–#117: its plan and lap, the drawbridge, the lap reworked, the
-Basin Road, traffic from side streets, the Rock Tunnel, rock rails, the Riviera town and the sea
-wall; see "Next: Coastal" below), a clean-up pass (#118: the Rock Tunnel's mouth cleared, an eighth
-track for any map, `crashout`, already on the CDN, playing from the next deploy), and Caldera's
-step 6, **the road graph**, 6a to 6e (#119–#123; see "The road graph" below), its review's fixes
-(#125), and on Coastal the **Old Town's switchbacks and the Stairs** (#126), steep ground drawn as
-limestone (#127), **Lighthouse Point's loop and the Rocks** (#128) and **the landmarks**: the grand
-casino, the lighthouse, the fort (#129); a clean-up (#131: the Rock Tunnel no longer throws cars
-onto the hill, the casino's shimmer, #129's review), **the Descent's hillside** (#132: rocks, bushes,
-the hills' look, grass tufts) and the tufts calmed and the tunnel's mouths fixed (#133), the
-hillside thinned with warm stone rocks (#134), the wreck camera kept out of the ground (#135) and
-**the Hôtel des Pins**, a terrace you drive under off the boulevard (#137). Then **Coastal went live
-as *Riviera*** (the owner, 2026-10-05: "this map looks ready to go live ... we will continue to make
-tweaks to it"): out of experimental, in the lobby, the vote and quick race; its id stays `coastal`
-(links, fingerprints). Not deployed or tagged yet: that's on the owner's word. The
-last tag is **`alpha-1.31`** (PRs #78–#105), on the hosted
-build: Paradise Open (#81), the engine's plan, [CALDERA.md](./CALDERA.md) (#82), and its steps 0
+**Last updated:** 2026-10-05. **`alpha-1.32`** (PRs #106–#140) is tagged and on the hosted build:
+**Riviera** (it was the experimental map *Coastal*, live since #138; see "Next: Coastal" below),
+Caldera's step 6, **the road graph** (#119–#125; see "The road graph" below), the engine's review
+fixes (#107), the `crashout` track, the wreck camera kept out of the ground (#135) and the lobby
+offering only the game's maps (#138). Nothing is open. Before it, the tag was **`alpha-1.31`** (PRs #78–#105): Paradise Open (#81), the engine's plan, [CALDERA.md](./CALDERA.md) (#82), and its steps 0
 to 3c (#83–#98, #102): the fingerprints and tools, the sim's own math, pieces, portals, feature
 modules, overrides, the lava stream, off-road surfaces, indoors, breakable walls and buildings
 (the market hall); the berm out of the Lava Tube (#100), Paradise Open tidied (#103, #104), and
@@ -185,8 +172,9 @@ WAV levelled to −15.8/−15.9 LUFS (ffmpeg's `ebur128`) and encoded with `afco
 128000`. All five are published to https://cdn.gamerelay.io/racecar/music/ (`tools/publish-assets.ts`,
 checked: 200 with CORS); production plays them from the next deploy.
 
-**Deployed:** `alpha-1.31` (2026-10-03, PRs #78–#105) is on the hosted build: Paradise Open,
-Caldera's steps, the boards, the berm, the market hall and the tracks. Deploy and tag only when the
+**Deployed:** `alpha-1.32` (2026-10-05, PRs #106–#140) is on the hosted build: Riviera, the road
+graph, the engine's review fixes and `crashout`. Before it `alpha-1.31` (2026-10-03, PRs #78–#105):
+Paradise Open, Caldera's steps, the boards, the berm, the market hall and the tracks. Deploy and tag only when the
 owner asks.
 
 **Step 3c, the market hall** (#102, merged): buildings, `PieceDef.building`, enclosed pieces
@@ -815,8 +803,8 @@ the cone's far flanks.
     the track for an hour. The proxy always sends it.
   - **CORS on the Space** (GET and HEAD from any origin) stays: it lets a build read the Space's
     origin directly too, if the CDN is ever down.
-- **What's there now:** `alpha-1.31` (PRs #78–#105: Paradise Open, Caldera's steps 0–3c, the market hall,
-  the new tracks), updated 2026-10-03, with every track on the CDN. Keep it the one row: update Z442EE in place rather than adding a game.
+- **What's there now:** `alpha-1.32` (PRs #106–#140: Riviera, the road graph, `crashout`),
+  updated 2026-10-05, with every track on the CDN. Keep it the one row: update Z442EE in place rather than adding a game.
 
 ## Next, in order
 
