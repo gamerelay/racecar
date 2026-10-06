@@ -225,6 +225,23 @@ describe('coastal', () => {
       }
   });
 
+  test("in the Rock Tunnel the ground over its road stands clear of it (drawn, it's cut away, not a slab across the tunnel), and out of it meets the road", () => {
+    const tunnel = g.pieces.list.find((p) => p.id === 'rock-tunnel')!;
+    const hit = newHit();
+    // (A grid cell in from its ends: there the ground's grid blends into the road's out of it.)
+    for (let s = tunnel.s[0] + g.cell; s <= tunnel.s[1] - g.cell; s += 0.5)
+      for (const lateral of [-6, 0, 6]) {
+        sampleAt(track.main, s, hit);
+        const road = hit.cy - lateral * Math.tan(hit.bank);
+        expect(g.height(hit.cx - hit.tz * lateral, hit.cz + hit.tx * lateral) - road).toBeGreaterThan(0.25);
+      }
+    // 3 m out of each mouth, within a few centimetres of the road (a step there was a wall).
+    for (const s of [tunnel.s[0] - 3, tunnel.s[1] + 3]) {
+      sampleAt(track.main, s, hit);
+      expect(Math.abs(g.height(hit.cx, hit.cz) - hit.cy)).toBeLessThan(0.05);
+    }
+  });
+
   describe('the Old Town and the Stairs (COASTAL step 7)', () => {
     const sp = (id: string) => track.splines.find((x) => x.id === id)!;
     const [stairs, top, arm] = ['stairs', 'stairs-top', 'stairs-arm'].map(sp);

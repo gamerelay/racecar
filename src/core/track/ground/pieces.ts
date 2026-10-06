@@ -49,6 +49,8 @@ export interface Pieces {
   gaps(spline: number): Uint8Array | undefined;
   /** Per sample of the road, the piece with a floor carrying it (its index), -1 for none. */
   at(spline: number): Int16Array | undefined;
+  /** Whether the main road has a tunnel (an enclosed piece, not a building). */
+  readonly mainTunnels: boolean;
   /** Whether a piece of the road has a floor or a gap at sample `i`: either way, a branch doesn't shape the ground there (but under a building it does: it stands on the ground). */
   covers(spline: number, i: number): boolean;
 }
@@ -80,6 +82,7 @@ export function definePieces(defs: readonly PieceDef[], splines: readonly BakedS
   }
   return {
     list,
+    mainTunnels: list.some((p) => p.spline === 0 && p.ceiling > 0 && !p.building),
     angle: new Float64Array(list.length),
     floors: (k) => floors.get(k),
     gaps: (k) => gaps.get(k),

@@ -1,33 +1,40 @@
-// Grass tufts (the owner, 2026-10-05: "tufts of grass scattered occasionally"): a few blades in a
-// clump, scattered over a coast's grass where it isn't road, sand or steep rock, so the hills read
-// as grass up close and not as one smooth colour. Scenery only (the sim never sees them): where each
-// stands is a hash of its spot, the same on every screen. Instanced, a mesh per chunk of ground.
+// Grass tufts (the owner, 2026-10-05: "tufts of grass scattered occasionally"; then "less of them,
+// a solid color like the grass with a few outlines, and less scattered"): low clumps the grass's own
+// colour, inked like everything else, in patches here and there over a coast's grass where it isn't
+// road, sand or steep rock. Scenery only (the sim never sees them): where each stands is a hash of
+// its spot, the same on every screen. Instanced, a mesh per chunk of ground.
 
 import { Color, ConeGeometry, type BufferGeometry, type InstancedMesh } from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { hash01 } from '../../../core/rng';
 import { VERGE_DEFAULT, type Track } from '../../../core/track/bake';
-import { KIND_VERGE } from '../../../core/track/ground';
+import { KIND_VERGE, noise } from '../../../core/track/ground';
 import { instanced, type Part } from './forest';
 import { toon } from './toon';
 
-/** One tuft every `every` m at most, kept with this chance; none steeper than `steep` (rise over run) or within `clear` m of a road's edge. */
-const TUFTS = { every: 4, keep: 0.22, steep: 0.7, clear: 1.5, chunk: 200 };
+/**
+ * One tuft every `every` m at most, in patches (where a broad noise, `patch` m across, is over
+ * `patchy`), kept there with this chance; none steeper than `steep` (rise over run) or within `clear`
+ * m of a road's edge.
+ */
+const TUFTS = { every: 3, patch: 40, patchy: 0.68, keep: 0.3, steep: 0.6, clear: 2, chunk: 200 };
 
-/** A clump of five blades, about 1 m tall (scaled 1–1.9), leaning out. */
+/** A low clump: three stubby, faceted cones round one, about 0.6 m tall. */
 function tuftModel(): BufferGeometry {
-  const blades: BufferGeometry[] = [];
-  for (let k = 0; k < 5; k++) {
-    const a = (k / 5) * Math.PI * 2;
-    const h = 0.7 + 0.3 * ((k * 7) % 5) / 4;
-    const b = new ConeGeometry(0.16, h, 3, 1, true);
-    b.translate(0, h / 2, 0);
-    b.rotateZ(0.35);
-    b.rotateY(a);
-    b.translate(Math.cos(a) * 0.12, 0, -Math.sin(a) * 0.12);
-    blades.push(b);
+  const parts: BufferGeometry[] = [];
+  for (const [x, z, r, h] of [
+    [0, 0, 0.42, 0.7],
+    [0.38, 0.12, 0.3, 0.5],
+    [-0.3, 0.25, 0.28, 0.45],
+    [0.05, -0.36, 0.3, 0.52],
+  ]) {
+    const c = new ConeGeometry(r, h, 5, 1, true);
+    c.translate(x, h / 2, z);
+    parts.push(c.toNonIndexed());
   }
-  return mergeGeometries(blades)!;
+  const g = mergeGeometries(parts)!;
+  g.computeVertexNormals();
+  return g;
 }
 
 export function buildTufts(track: Track, green: Color): InstancedMesh[] {
@@ -36,8 +43,9 @@ export function buildTufts(track: Track, green: Color): InstancedMesh[] {
   const main = track.main;
   const sea = g.sea ?? -Infinity;
   const chunks = new Map<string, Part[]>();
-  // A little darker, lighter and drier than the ground's grass, so a tuft shows against it.
-  const shades = [green.clone().multiplyScalar(0.88), green.clone().lerp(new Color('#b7c75a'), 0.35), green.clone().lerp(new Color('#9aa64a'), 0.5)].map((c) => c.getHex());
+  // The ground's own grass (snow.ts's: the palette's, softened toward the forest), a shade either way.
+  const grass = green.clone().lerp(new Color('#2a6b33'), 0.3);
+  const shades = [grass.clone().multiplyScalar(0.94), grass.clone(), grass.clone().multiplyScalar(1.05)].map((c) => c.getHex());
   const span = g.cell * (g.nx - 1);
   const depth = g.cell * (g.nz - 1);
   let n = 0;
@@ -46,6 +54,7 @@ export function buildTufts(track: Track, green: Color): InstancedMesh[] {
       if (hash01(n, 61, 7) > TUFTS.keep) continue;
       const px = g.x0 + x + hash01(n, 62, 7) * TUFTS.every;
       const pz = g.z0 + z + hash01(n, 63, 7) * TUFTS.every;
+      if (noise(px, pz, TUFTS.patch, 37) < TUFTS.patchy) continue;
       if (g.kindAt(px, pz) !== KIND_VERGE) continue;
       const y = g.height(px, pz);
       if (y < sea + 0.5) continue;
@@ -59,17 +68,14 @@ export function buildTufts(track: Track, green: Color): InstancedMesh[] {
       const key = `${Math.floor(px / TUFTS.chunk)},${Math.floor(pz / TUFTS.chunk)}`;
       let list = chunks.get(key);
       if (!list) chunks.set(key, (list = []));
-      const size = 1 + hash01(n, 64, 7) * 0.9;
+      const size = 0.8 + hash01(n, 64, 7) * 0.7;
       list.push({ x: px, y: y - 0.05, z: pz, yaw: hash01(n, 65, 7) * Math.PI * 2, sx: size, sy: size, sz: size, color: shades[Math.floor(hash01(n, 66, 7) * shades.length)] });
     }
   const geo = tuftModel();
-  // No ink: the outline pass inks by depth, and a blade's all edge (black weeds). So they write no
-  // depth, and are drawn after everything else opaque, tested against it.
-  const mat = toon({ depthWrite: false });
+  const mat = toon({});
   const out: InstancedMesh[] = [];
   for (const parts of chunks.values()) {
     const mesh = instanced(geo, mat, parts);
-    mesh.renderOrder = 10;
     mesh.matrixAutoUpdate = false;
     out.push(mesh);
   }
