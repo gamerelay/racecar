@@ -754,6 +754,66 @@ const LANDMARKS = { light: { h: 30, scale: 1.5 }, fort: { near: [-520, -700], lo
   ];
 }
 
+/**
+ * The Descent's hillside (the owner, 2026-10-05: "you can jump off course and cut down, so maybe
+ * rocks, bushes and some other obstacles would make this harder"): between and round its rows,
+ * where a car leaves the road to drop to the row below. Solid limestone rocks you wreck on, and
+ * bushes (smashables on open ground) that cost a fifth of your speed. Scattered on a jittered grid
+ * `every` m, a rock or a bush with these chances, `clear` m past every road's verge (the AI never
+ * meets them), not on the steep banks (`steep`, rise over run: rock faces there), and off the trees.
+ */
+const HILLSIDE = { x: [DESCENT.west - 30, DESCENT.east + 30], z: [DESCENT.z - 20, DESCENT.z + DESCENT.step * (DESCENT.rows - 1) + 20], every: 8, rock: 0.16, bush: 0.3, size: [1.3, 2.8], clear: 4, steep: 0.8, trees: 3 };
+{
+  const g = bakeTrack(layout, surfaces);
+  const ground = g.ground!;
+  const pines = g.pines!;
+  const rng = Rng.stream(11, 'riviera-hillside');
+  const on = newHit();
+  const bushes: [number, number][] = [];
+  const placed: [number, number, number][] = [];
+  let rocks = 0;
+  const m = g.main;
+  // How far (x, z) is from a road's middle where it's nearest (not its lateral: off a street's end
+  // that's across the street's line, however far away).
+  const near = (x: number, z: number) => g.splines.some((sp) => (projectGlobal(sp, x, z, on), Math.hypot(x - on.cx, z - on.cz) < on.width / 2 + on.shoulder + HILLSIDE.clear + HILLSIDE.size[1]));
+  for (let z = HILLSIDE.z[0]; z < HILLSIDE.z[1]; z += HILLSIDE.every)
+    for (let x = HILLSIDE.x[0]; x < HILLSIDE.x[1]; x += HILLSIDE.every) {
+      let [px, pz] = [x + rng.next() * HILLSIDE.every, z + rng.next() * HILLSIDE.every];
+      const roll = rng.next();
+      const size = HILLSIDE.size[0] + rng.next() * (HILLSIDE.size[1] - HILLSIDE.size[0]);
+      if (roll >= HILLSIDE.rock + HILLSIDE.bush) continue;
+      // A rock is a prop by the main road, placed at one of its samples and out across it (as the
+      // bake places it): moved there first, then checked where it'll stand.
+      const rock = roll < HILLSIDE.rock;
+      let s = 0;
+      let lateral = 0;
+      if (rock) {
+        projectGlobal(m, px, pz, on);
+        const i = Math.round(on.s / m.step);
+        s = i * m.step;
+        lateral = Math.round(((px - m.px[i]) * -m.tz[i] + (pz - m.pz[i]) * m.tx[i]) * 10) / 10;
+        [px, pz] = [m.px[i] - m.tz[i] * lateral, m.pz[i] + m.tx[i] * lateral];
+      }
+      const e = ground.cell;
+      if (Math.hypot(ground.height(px + e, pz) - ground.height(px - e, pz), ground.height(px, pz + e) - ground.height(px, pz - e)) / (2 * e) > HILLSIDE.steep) continue;
+      if (near(px, pz)) continue;
+      let tree = false;
+      pines.near(px, pz, (k) => (tree ||= Math.hypot(pines.x[k] - px, pines.z[k] - pz) < HILLSIDE.trees + size / 2));
+      if (tree || (layout.landmarks ?? []).some((l) => Math.hypot(l.at[0] - px, l.at[1] - pz) < l.r + size)) continue;
+      // Nor in another (spots in neighbouring cells can land together: bushes grew out of rocks).
+      if (placed.some(([qx, qz, qr]) => Math.hypot(qx - px, qz - pz) < qr + (rock ? size / 2 : 1.1) + 1)) continue;
+      placed.push([px, pz, rock ? size / 2 : 1.1]);
+      if (!rock) {
+        bushes.push([Math.round(px * 10) / 10, Math.round(pz * 10) / 10]);
+        continue;
+      }
+      layout.props!.push({ kind: 'rock', s, lateral, size: [Math.round(size * 10) / 10, Math.round(size * 0.7 * 10) / 10, Math.round(size * 10) / 10] });
+      rocks++;
+    }
+  layout.smashables = [...(layout.smashables ?? []), { kind: 'bush', s: [0, 0], every: 0, at: bushes }];
+  console.log(`the Descent's hillside: ${rocks} rocks, ${bushes.length} bushes`);
+}
+
 mkdirSync(DIR, { recursive: true });
 writeFileSync(`${DIR}/riviera.track.json`, `${JSON.stringify(layout)}\n`);
 writeFileSync(`${DIR}/map.json`, `${JSON.stringify({ id: 'coastal', name: 'Coastal', layouts: ['riviera'], palette: 'tropic', sunset: 'sunset', weather: ['clear', 'rain', 'shower', 'rare'], experimental: true })}\n`);

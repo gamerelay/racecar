@@ -197,8 +197,11 @@ export const LANDMARK_KINDS = [
  */
 export interface SmashDef {
   kind: string;
+  /** A row along a road: from and to (m), one every `every` m (unused with `at`). */
   s: [number, number];
   every: number;
+  /** Or at these spots on open ground instead ([x, z], on the ground there; needs `ground`): bushes over a hillside. */
+  at?: [number, number][];
   side?: -1 | 1;
   /** Meters out past the road's edge (default: a little under halfway to the wall). */
   lateral?: number;

@@ -363,6 +363,43 @@ describe('coastal', () => {
     }, 120_000);
   });
 
+  describe("the Descent's hillside (COASTAL step 8c)", () => {
+    const bushes = riviera.smashables!.find((d) => d.kind === 'bush')!.at!;
+    const rocks = track.props.filter((p) => p.kind === 'rock' && p.spline === 0);
+
+    test('rocks and bushes over it, all well off every road (the AI never meets them) and off its steep banks', () => {
+      expect(rocks.length).toBeGreaterThan(100);
+      expect(bushes.length).toBeGreaterThan(200);
+      const hit = newHit();
+      for (const [x, z, r] of [...rocks.map((p) => [p.x, p.z, p.hx * 2]), ...bushes.map(([x, z]) => [x, z, 1.1])]) {
+        for (const sp of track.splines) {
+          projectGlobal(sp, x, z, hit);
+          // (By the distance to where it's nearest: off a street's end its lateral is across the street's line.)
+          expect(Math.hypot(x - hit.cx, z - hit.cz)).toBeGreaterThan(hit.width / 2 + hit.shoulder + 3 + r / 2);
+        }
+        const e = g.cell;
+        expect(Math.hypot(g.height(x + e, z) - g.height(x - e, z), g.height(x, z + e) - g.height(x, z - e)) / (2 * e)).toBeLessThan(0.8);
+      }
+      // Each rock stands on the ground where it is (not on the road it's placed by).
+      for (const p of rocks) expect(p.y).toBeCloseTo(g.top(p.x, p.z), 3);
+    });
+
+    test('cutting straight down it from a row, you plough through bushes and can wreck on a rock', () => {
+      let smashed = 0;
+      let wrecked = 0;
+      for (const x of [-580, -545, -500, -460]) {
+        const sim = setup(track, CLASSES, SURFACES, { x, z: -432, heading: 0 }, { throttle: 0.6 }, { kmh: 90 });
+        const d = run(sim, { throttle: 0.6 }, 5, 1 / 60);
+        if (d.events.some((e) => e.type === 'smash')) smashed++;
+        // (On a rock, not a tree: 'prop' is both. Where it wrecked, by the trace's row then, beside one.)
+        const on = d.summary.wrecks.filter((w) => w.cause === 'prop').map((w) => d.rows.reduce((a, b) => (Math.abs(b.t - w.t) < Math.abs(a.t - w.t) ? b : a)));
+        if (on.some((at) => rocks.some((p) => Math.hypot(p.x - at.x, p.z - at.z) < p.hx + 4))) wrecked++;
+      }
+      expect(smashed).toBe(4);
+      expect(wrecked).toBeGreaterThanOrEqual(1);
+    }, 60_000);
+  });
+
   describe('landmarks (COASTAL step 8a)', () => {
     test('the grand casino: a solid block on the boulevard just past the line, facing it, its garden and fountain clear of houses', () => {
       const houses = riviera.houses!;

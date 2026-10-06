@@ -33,8 +33,13 @@ export const SMASH_KINDS: readonly SmashKind[] = [
   // A slalom gate's flags (rules/slalom.ts), red and blue gates in turn: a missed one is knocked flat, not a wreck.
   { id: 'gate-red', r: 0.25, h: 3.2, slow: 0.995, boost: 0.005, points: 25 },
   { id: 'gate-blue', r: 0.25, h: 3.2, slow: 0.995, boost: 0.005, points: 25 },
+  // A bush on open ground (SmashDef.at): Coastal's hillsides, where you cut down between the switchbacks. Costly to plough through.
+  { id: 'bush', r: 1.1, h: 1.5, slow: 0.82, boost: 0.01, points: 50 },
 ];
 export const SMASH_IDS = SMASH_KINDS.map((k) => k.id);
+
+/** The road of one on open ground (SmashDef.at): none; it's met wherever a car is. */
+export const SMASH_OPEN = 255;
 
 /** Seconds a smashed prop stays down. */
 export const SMASH_RESPAWN = 30;
@@ -63,6 +68,11 @@ export class Smashables {
     const out: { kind: number; spline: number; s: number; x: number; y: number; z: number }[] = [];
     for (const d of track.layout.smashables ?? []) {
       const kind = SMASH_IDS.indexOf(d.kind);
+      if (d.at) {
+        if (kind < 0 || !track.ground) continue;
+        for (const [x, z] of d.at) out.push({ kind, spline: SMASH_OPEN, s: 0, x, y: track.ground.top(x, z), z });
+        continue;
+      }
       const sp = d.spline ? track.splines.find((x) => x.id === d.spline) : track.main;
       if (kind < 0 || !sp || !(d.every > 0)) continue;
       const k = SMASH_KINDS[kind];
