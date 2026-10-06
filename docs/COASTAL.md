@@ -679,8 +679,8 @@ mountain's top ("a little empty up there").
 **Step 8c, the hillside and the hills' look (2026-10-05):** the owner's notes: the hills of sand
 and grass look odd at a distance, tufts of grass now and then, and rocks, bushes and other
 obstacles on the switchbacks' hillside, where you can jump off and cut down.
-- **The Descent's hillside** (`HILLSIDE`): between and round its rows, 200 solid limestone rocks
-  (props by the main road; you wreck on one) and 367 bushes, a new smashable (`bush`: costs 18% of
+- **The Descent's hillside** (`HILLSIDE`): between and round its rows, 190 solid limestone rocks
+  (props by the main road; you wreck on one) and 352 bushes, a new smashable (`bush`: costs 18% of
   your speed, never wrecks). Bushes are the first smashables on open ground (`SmashDef.at`, world
   spots on the ground): they're met by where they are, not by a car's place along a road, since a
   car cutting down is placed on whichever pass of the road it's nearest. All of them are 4 m or more past

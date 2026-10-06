@@ -389,9 +389,11 @@ describe('coastal', () => {
       let wrecked = 0;
       for (const x of [-580, -545, -500, -460]) {
         const sim = setup(track, CLASSES, SURFACES, { x, z: -432, heading: 0 }, { throttle: 0.6 }, { kmh: 90 });
-        const d = run(sim, { throttle: 0.6 }, 5, 1);
+        const d = run(sim, { throttle: 0.6 }, 5, 1 / 60);
         if (d.events.some((e) => e.type === 'smash')) smashed++;
-        if (d.summary.wrecks.some((w) => w.cause === 'prop')) wrecked++;
+        // (On a rock, not a tree: 'prop' is both. Where it wrecked, by the trace's row then, beside one.)
+        const on = d.summary.wrecks.filter((w) => w.cause === 'prop').map((w) => d.rows.reduce((a, b) => (Math.abs(b.t - w.t) < Math.abs(a.t - w.t) ? b : a)));
+        if (on.some((at) => rocks.some((p) => Math.hypot(p.x - at.x, p.z - at.z) < p.hx + 4))) wrecked++;
       }
       expect(smashed).toBe(4);
       expect(wrecked).toBeGreaterThanOrEqual(1);

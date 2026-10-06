@@ -489,9 +489,14 @@ function buildRocks(track: Track): Mesh | null {
   const unit = new IcosahedronGeometry(1, 1);
   const u = unit.getAttribute('position');
   const c = new Color();
+  const slope = { x: 0, z: 0 };
   rocks.forEach((p, r) => {
     const cos = Math.cos(p.heading);
     const sin = Math.sin(p.heading);
+    // On a slope, sunk as far as the ground falls across it (it stands on the ground at its middle:
+    // on Coastal's hillside its downhill side stood clear of it).
+    const g = track.ground;
+    const sink = g ? Math.min(p.hy, Math.hypot(g.slope(p.x, p.z, slope).x, slope.z) * p.hx * 1.2) : 0;
     // A rock's own lumps: each direction pushed in or out a little (the same on every screen).
     const lump = (x: number, y: number, z: number) => 0.82 + 0.3 * hash01(53 + r, Math.round(x * 3) * 7 + Math.round(z * 3), Math.round(y * 3));
     for (let k = 0; k < u.count; k += 3) {
@@ -504,7 +509,7 @@ function buildRocks(track: Track): Mesh | null {
         // Across (x) and along (z) the road, turned to its heading (a rotation, so the faces keep facing out).
         const ax = x * p.hx * 1.2 * m;
         const az = z * p.hz * 1.2 * m;
-        tri.push([p.x + ax * cos + az * sin, p.y + p.hy * 0.5 + Math.max(-0.6, y) * p.hy * 1.5 * m, p.z - ax * sin + az * cos]);
+        tri.push([p.x + ax * cos + az * sin, p.y - sink + p.hy * 0.5 + Math.max(-0.6, y) * p.hy * 1.5 * m, p.z - ax * sin + az * cos]);
       }
       // Snow where it can sit (a face within about 35° of flat), rock on the steep sides, darker
       // where they overhang.

@@ -770,6 +770,7 @@ const HILLSIDE = { x: [DESCENT.west - 30, DESCENT.east + 30], z: [DESCENT.z - 20
   const rng = Rng.stream(11, 'riviera-hillside');
   const on = newHit();
   const bushes: [number, number][] = [];
+  const placed: [number, number, number][] = [];
   let rocks = 0;
   const m = g.main;
   // How far (x, z) is from a road's middle where it's nearest (not its lateral: off a street's end
@@ -799,6 +800,9 @@ const HILLSIDE = { x: [DESCENT.west - 30, DESCENT.east + 30], z: [DESCENT.z - 20
       let tree = false;
       pines.near(px, pz, (k) => (tree ||= Math.hypot(pines.x[k] - px, pines.z[k] - pz) < HILLSIDE.trees + size / 2));
       if (tree || (layout.landmarks ?? []).some((l) => Math.hypot(l.at[0] - px, l.at[1] - pz) < l.r + size)) continue;
+      // Nor in another (spots in neighbouring cells can land together: bushes grew out of rocks).
+      if (placed.some(([qx, qz, qr]) => Math.hypot(qx - px, qz - pz) < qr + (rock ? size / 2 : 1.1) + 1)) continue;
+      placed.push([px, pz, rock ? size / 2 : 1.1]);
       if (!rock) {
         bushes.push([Math.round(px * 10) / 10, Math.round(pz * 10) / 10]);
         continue;
