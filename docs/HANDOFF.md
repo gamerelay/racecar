@@ -4,17 +4,17 @@ Where racecar stands and what's next, for whoever picks it up (a person or a fre
 The design is [SPEC.md](./SPEC.md): decisions in §17, and what building changed in "Changed while
 building". This file is "where are we"; the spec is "what are we making".
 
-**Last updated:** 2026-10-06. On `main` since `alpha-1.32`, not released yet: **driven costs**
-(#142: the AI times its ways as its class drives them; Paradise and Backroads keep the old
-reckoning, `aiCosts: 'line'`), Riviera's **cove and the Sand** (#143: a beach cove before
-Lighthouse Point, a chicane round the beach club, the Sand along the water; lap 5.60 km) and
-**the AI at forks** (#145: a car heading for a cut keeps the road's pace until it has to brake for
-it; floor 106.03 s, Riviera's field 47 to 28 car wrecks over seeds 1–72). **Open:** #146, Riviera's
-back streets (rue Haute up behind the waterfront with traffic both ways, the town on up behind the
-casino; COASTAL's step 8h), reviewed and its findings fixed, for the owner to merge. **Next:**
-Riviera's look ("Next: Coastal" below).
+**Last updated:** 2026-10-06. **`alpha-1.33`** (PRs #141–#147) is tagged and on the hosted
+build: **driven costs** (#142: the AI times its ways as its class drives them; Paradise and
+Backroads keep the old reckoning, `aiCosts: 'line'`), Riviera's **cove and the Sand** (#143: a
+beach cove before Lighthouse Point, a chicane round the beach club, the Sand along the water; lap
+5.60 km), **the AI at forks** (#145: a car heading for a cut keeps the road's pace until it has to
+brake for it; floor 106.03 s, Riviera's field 47 to 28 car wrecks over seeds 1–72) and Riviera's
+**back streets** (#146: rue Haute up behind the waterfront with traffic both ways, the town on up
+behind the casino, 426 houses; COASTAL's step 8h). Nothing is open. **Next:** Riviera's look
+("Next: Coastal" below).
 
-**`alpha-1.32`** (PRs #106–#140) is tagged and on the hosted build:
+Before it, **`alpha-1.32`** (PRs #106–#140):
 **Riviera** (it was the experimental map *Coastal*, live since #138; see "Next: Coastal" below),
 Caldera's step 6, **the road graph** (#119–#125; see "The road graph" below), the engine's review
 fixes (#107), the `crashout` track, the wreck camera kept out of the ground (#135) and the lobby
@@ -27,7 +27,7 @@ Before it, `alpha-1.28` (PRs #67–#70: a press flash and a click on the menus' 
 music from the start; Logger's Leap smoothed and bermed), `alpha-1.27` (PRs #63–#65), `alpha-1.26`
 (PR #62: two new tracks), `alpha-1.25` (PR #61: boost, Overdrive, the slipstream) and `alpha-1.24`
 (PRs #49–#60).
-It's on the hosted build ("Hosted test build" below).
+The hosted build: "Hosted test build" below.
 
 **Next: Caldera, the engine (2026-10-03).** The owner's call: engine first, before the rest of
 Paradise Open. [CALDERA.md](./CALDERA.md) is the plan, reviewed and agreed: one engine for every
@@ -182,8 +182,9 @@ WAV levelled to −15.8/−15.9 LUFS (ffmpeg's `ebur128`) and encoded with `afco
 128000`. All five are published to https://cdn.gamerelay.io/racecar/music/ (`tools/publish-assets.ts`,
 checked: 200 with CORS); production plays them from the next deploy.
 
-**Deployed:** `alpha-1.32` (2026-10-05, PRs #106–#140) is on the hosted build: Riviera, the road
-graph, the engine's review fixes and `crashout`. Before it `alpha-1.31` (2026-10-03, PRs #78–#105):
+**Deployed:** `alpha-1.33` (2026-10-06, PRs #141–#147) is on the hosted build: driven costs, the
+cove and the Sand, the AI at forks and Riviera's back streets. Before it `alpha-1.32` (2026-10-05,
+PRs #106–#140): Riviera, the road graph, the engine's review fixes and `crashout`. Before that `alpha-1.31` (2026-10-03, PRs #78–#105):
 Paradise Open, Caldera's steps, the boards, the berm, the market hall and the tracks. Deploy and tag only when the
 owner asks.
 
@@ -244,7 +245,7 @@ costs can be trusted (off-road ones read a little slow). No race changes today. 
 their rivals to keep taking them. Every fingerprint identical; Riviera's field results unchanged.
 CALDERA's 6d has the numbers.
 
-**Next: Coastal, now *Riviera* (2026-10-04; as of 2026-10-06, through the Sand, after `alpha-1.32`).** The owner's call: Caldera's next features are
+**Next: Coastal, now *Riviera* (2026-10-04; as of 2026-10-06, through the back streets, released in `alpha-1.33`).** The owner's call: Caldera's next features are
 built on a new experimental map instead of Paradise Open, whose fingerprints, floors and tests made
 iterating slow. Coastal's own fingerprints are re-recorded as it changes; every other map's must
 stay identical (the check that the shared engine didn't move). The plan, what's built (step by
@@ -380,7 +381,7 @@ keep tweaking it: re-record its fingerprints as before.
    - **Known:** the Stairs' second flight's costs read 0.6 s slow: on it (74.5 of 89 m) a car runs
      about 96 km/h against the 86 it's costed at, and its overlapping ends are costed at that limit
      but driven on the rows, faster (about 0.3 s from each cause; the early braking had hidden it).
-2. **Riviera's back streets** (#146, the owner: "a second row of buildings and a back street behind
+2. **Riviera's back streets** (#146, merged, in `alpha-1.33`; the owner: "a second row of buildings and a back street behind
    the village", and behind the casino "looks a little barren"; COASTAL's step 8h): rue Haute, a
    side street up the hill behind the waterfront and back, never a shortcut; traffic along it both
    ways (`TrafficLaneDef.road` and `span`: a lane along one street); a row of houses each side of
@@ -876,8 +877,8 @@ the cone's far flanks.
     the track for an hour. The proxy always sends it.
   - **CORS on the Space** (GET and HEAD from any origin) stays: it lets a build read the Space's
     origin directly too, if the CDN is ever down.
-- **What's there now:** `alpha-1.32` (PRs #106–#140: Riviera, the road graph, `crashout`),
-  updated 2026-10-05, with every track on the CDN. Keep it the one row: update Z442EE in place rather than adding a game.
+- **What's there now:** `alpha-1.33` (PRs #141–#147: driven costs, the Sand, the AI at forks,
+  Riviera's back streets), updated 2026-10-06, with every track on the CDN. Keep it the one row: update Z442EE in place rather than adding a game.
 
 ## Next, in order
 

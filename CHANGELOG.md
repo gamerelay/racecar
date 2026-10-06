@@ -4,7 +4,7 @@ What changed in each release of racecar, newest first. Releases are git tags on 
 reasons behind each change are in [docs/SPEC.md](./docs/SPEC.md) under "Changed while building",
 and where things stand is [docs/HANDOFF.md](./docs/HANDOFF.md).
 
-## Unreleased
+## alpha-1.33: Riviera's back streets and the Sand
 
 - **Riviera's back streets.** A new street, rue Haute, climbs the hill behind the waterfront, with
   houses along both sides and traffic both ways; the town now carries on up the hill behind the
