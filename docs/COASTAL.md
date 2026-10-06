@@ -676,6 +676,27 @@ mountain's top ("a little empty up there").
   Tube still lets cars on the volcano sink into it, about one in nine of a sweep, as before: not
   this step's.)
 
+**Step 8c, the hillside and the hills' look (2026-10-05):** the owner's notes: the hills of sand
+and grass look odd at a distance, tufts of grass now and then, and rocks, bushes and other
+obstacles on the switchbacks' hillside, where you can jump off and cut down.
+- **The Descent's hillside** (`HILLSIDE`): between and round its rows, 200 solid limestone rocks
+  (props by the main road; you wreck on one) and 367 bushes, a new smashable (`bush`: costs 18% of
+  your speed, never wrecks). Bushes are the first smashables on open ground (`SmashDef.at`, world
+  spots on the ground): they're met by where they are, not by a car's place along a road, since a
+  car cutting down is placed on whichever pass of the road it's nearest. All of them are 4 m or more past
+  every road's verge, off the steep banks and the trees, so the AI never meets them. Cutting straight
+  down from a row, every car ploughs through bushes and some wreck on a rock; a clean line through is
+  still there.
+- **The banks between the rows** read as limestone, not sand: beds across the slope and patches,
+  with a wandering but sharp edge to the grass (it was one smooth tan smear). The grass has broad
+  patches of dry, olive scrub, so a far hillside isn't one green.
+- **Grass tufts** (`tufts.ts`): about 21,000 clumps of blades on a coast's grass, off roads,
+  pavements, sand and steep ground, drawn in chunks. Scenery only. They write no depth so the
+  outline pass doesn't ink them (inked, they were black weeds), and are drawn after everything
+  else opaque.
+- **Numbers:** the floor is unchanged at 106.3 s (the solo drive's fingerprint too); no wrecks in
+  field races at seeds 4, 7 and 8. Every other map's fingerprints are identical.
+
 ## The owner's answers (2026-10-04)
 
 - **The shape:** the sketch is right (quay, bridge, Old Town, tunnel, corniche, lighthouse, beach,

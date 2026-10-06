@@ -57,7 +57,7 @@ export interface RenderOptions {
 }
 
 /** A smashed prop's burst, in its colour. */
-const SMASH_BURST: Record<string, number> = { cone: 0xff7a1a, 'newspaper-box': 0x3a86ff, 'hay-bale': 0xe2c36a, mailbox: 0xb8bcc4, 'beach-umbrella': 0xff2e88, 'fruit-stand': 0xffd23f };
+const SMASH_BURST: Record<string, number> = { cone: 0xff7a1a, 'newspaper-box': 0x3a86ff, 'hay-bale': 0xe2c36a, mailbox: 0xb8bcc4, 'beach-umbrella': 0xff2e88, 'fruit-stand': 0xffd23f, bush: 0x4f7a32 };
 
 /** What a ground throws up under a car: per meter per second of speed, a puff on running onto it, how it flies. */
 interface Dust {

@@ -46,6 +46,9 @@ const FOREST = new Color('#2a6b33');
 const CRAG = new Color('#3f383b');
 /** A coast's steep ground with no volcano (Coastal's Riviera): pale, warm limestone, not black crag. */
 const LIMESTONE = new Color('#b9ad94');
+/** Its darker beds, and the dry, olive scrub of a coast's grass in broad patches (the maquis). */
+const LIMESTONE_BED = new Color('#9a8f78');
+const SCRUB = new Color('#7f8f3e');
 /** The volcano's lighter, ashier patches, and its warm earth. */
 const ASH = new Color('#5e5558');
 const EARTH = new Color('#4d3b31');
@@ -120,6 +123,8 @@ export function buildSnow(track: Track, green?: Color): Object3D[] {
               vergeC.copy(c);
               c.copy(grass).lerp(grass2!, smoothstep(0, 1, (n - 0.45) * 4));
               c.lerp(FOREST, 0.6 * smoothstep(0, 1, (Math.abs(lateral[k]) - 25) / 60) * (0.5 + 0.5 * n));
+              // A coast's (with no volcano) in broad patches of dry scrub, so a far hillside isn't one green.
+              if (!volcano) c.lerp(SCRUB, 0.45 * smoothstep(0, 1, (noise(x, z, 70, 17) - 0.55) * 4));
               if (main.verge[i] !== VERGE_DEFAULT) c.lerp(vergeC, 1 - smoothstep(0, 1, (off - 10 - 25 * n) / 20));
             }
             // Black lava rock up the volcano, blended in at its edge: dark rock and lighter, ashier
@@ -139,7 +144,16 @@ export function buildSnow(track: Track, green?: Color): Object3D[] {
           }
           // (A volcanic island's crags are dark rock; a coast's without one pale limestone; the
           // mountains' grey.)
-          if (steep > ROCK) c.lerp(isle ? (volcano ? CRAG : LIMESTONE) : ROCK_COLOR, Math.min(1, (steep - ROCK) * 2));
+          // A coast's limestone in beds across the slope and patches, its edge with the grass wandering
+          // but sharp (a smooth tan smear down every bank read as sand).
+          if (isle && !volcano) {
+            const edge = ROCK + 0.25 * (noise(x, z, 12, 23) - 0.5);
+            if (steep > edge - 0.1) {
+              rock.copy(LIMESTONE).lerp(LIMESTONE_BED, 0.7 * smoothstep(0, 1, Math.sin(h[k] * 1.3 + 3 * noise(x, z, 20, 29)) * 2 - 0.4));
+              rock.multiplyScalar(0.9 + 0.18 * noise(x, z, 5, 31));
+              c.lerp(rock, smoothstep(0, 1, (steep - edge + 0.1) * 6));
+            }
+          } else if (steep > ROCK) c.lerp(isle ? CRAG : ROCK_COLOR, Math.min(1, (steep - ROCK) * 2));
           col[o] = c.r;
           col[o + 1] = c.g;
           col[o + 2] = c.b;

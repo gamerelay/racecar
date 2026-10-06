@@ -354,7 +354,9 @@ export function validateLayout(layout: TrackLayout, surfaces: SurfaceDef[], clas
   for (const z of layout.zones ?? []) if (z.s[0] < 0 || z.s[1] > L) warn(`zone ${z.surface} runs past the spline's length`);
   for (const d of layout.smashables ?? []) {
     if (!SMASH_IDS.includes(d.kind)) err(`smashables: unknown kind "${d.kind}"`);
-    else if (!(d.every >= 2)) err(`smashables ${d.kind}: "every" must be at least 2 m`);
+    else if (d.at) {
+      if (!layout.ground) err(`smashables ${d.kind}: "at" places them on open ground, and there's none`);
+    } else if (!(d.every >= 2)) err(`smashables ${d.kind}: "every" must be at least 2 m`);
     else if (d.spline && !(layout.branches ?? []).some((b) => b.id === d.spline)) err(`smashables ${d.kind}: no branch "${d.spline}"`);
   }
   // Landmarks stand clear of every road (to the back of its wall), by their footprint.
