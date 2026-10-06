@@ -59,7 +59,8 @@ export function buildTufts(track: Track, green: Color): InstancedMesh[] {
       const y = g.height(px, pz);
       if (y < sea + 0.5) continue;
       const e = g.cell;
-      if (Math.hypot(g.height(px + e, pz) - g.height(px - e, pz), g.height(px, pz + e) - g.height(px, pz - e)) / (2 * e) > TUFTS.steep) continue;
+      const slope = Math.hypot(g.height(px + e, pz) - g.height(px - e, pz), g.height(px, pz + e) - g.height(px, pz - e)) / (2 * e);
+      if (slope > TUFTS.steep) continue;
       // Off the main road's edge (its own kind says the rest: a branch's ground is its own), and off
       // a stretch's own verge (the town's pavements: snow.ts fades it into the grass ~60 m out).
       const i = g.nearAt(px, pz);
@@ -69,7 +70,8 @@ export function buildTufts(track: Track, green: Color): InstancedMesh[] {
       let list = chunks.get(key);
       if (!list) chunks.set(key, (list = []));
       const size = 0.8 + hash01(n, 64, 7) * 0.7;
-      list.push({ x: px, y: y - 0.05, z: pz, yaw: hash01(n, 65, 7) * Math.PI * 2, sx: size, sy: size, sz: size, color: shades[Math.floor(hash01(n, 66, 7) * shades.length)] });
+      // Sunk as far as the ground falls across it (0.42 m out at full size): no rim standing clear downhill.
+      list.push({ x: px, y: y - 0.05 - slope * 0.42 * size, z: pz, yaw: hash01(n, 65, 7) * Math.PI * 2, sx: size, sy: size, sz: size, color: shades[Math.floor(hash01(n, 66, 7) * shades.length)] });
     }
   const geo = tuftModel();
   const mat = toon({});

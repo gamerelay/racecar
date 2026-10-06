@@ -163,10 +163,12 @@ export function buildLand(def: GroundDef, main: BakedSpline, pieces: Pieces, fea
       // In it, over its road, at least MOUTH_CLEAR over the road: the drawing cuts the ground to the
       // tube's outline but keeps it at the road's height (a cutting's floor), and the ground in its
       // mouths, eased to the road's (runIn), was kept, clipped into a slab across the tunnel. (A car
-      // in there is on its floor; its wheels read the floor too, wheelGround.)
+      // in there is on its floor; its wheels read the floor too, wheelGround.) Not in its last grid
+      // cell at each end: the grid blended the rise out past the end, where there's no floor, and
+      // cars hopped off it.
       for (let t = 0; t < tunnels.length; t++) {
         const p = tunnels[t];
-        if (s >= p.s[0] && s <= p.s[1] && d < edge + TUNNEL_SIDE && gy < road + MOUTH_CLEAR) gy = road + MOUTH_CLEAR;
+        if (s >= p.s[0] + cell && s <= p.s[1] - cell && d < edge + TUNNEL_SIDE && gy < road + MOUTH_CLEAR) gy = road + MOUTH_CLEAR;
       }
       // Under a piece that says so, the ground falls away to its floor.
       for (const p of shaping) {
