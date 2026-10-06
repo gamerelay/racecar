@@ -4,9 +4,10 @@
 // block does (core bake: on the lowest ground under its corners). One draw for the walls, one for
 // the roofs.
 
-import { BoxGeometry, ConeGeometry, CylinderGeometry, DoubleSide, Group, Mesh, type Object3D, SphereGeometry } from 'three';
+import { BoxGeometry, ConeGeometry, CylinderGeometry, DoubleSide, Group, Mesh, type Object3D, RepeatWrapping, SphereGeometry } from 'three';
+import type { HouseDef } from '../../../core/content';
 import { hash01 } from '../../../core/rng';
-import type { Track } from '../../../core/track/bake';
+import { COLUMN as COLUMN_R, porchColumns, type BakedProp, type Track } from '../../../core/track/bake';
 import { instanced, prism, type Part } from './forest';
 import { canvas } from './scenery';
 import { faceted, toon } from './toon';
@@ -52,6 +53,10 @@ export function buildHouses(track: Track): Object3D[] {
     const y = solid[k]?.y ?? track.ground!.height(h.at[0], h.at[1]);
     if (h.look === 'casino') {
       out.push(casino(h, y));
+      return;
+    }
+    if (h.look === 'hotel') {
+      out.push(...hotel(h, y, track.props.filter((p) => p.kind === 'house-column')));
       return;
     }
     const [w, d, high] = h.size;
@@ -160,4 +165,162 @@ function casino(h: { at: [number, number]; size: [number, number, number]; rot: 
   root.position.set(h.at[0], y, h.at[1]);
   root.rotation.y = h.rot;
   return root;
+}
+
+const HOTEL_WHITE = 0xf7efdf;
+const HOTEL_BASE = 0xead9b8;
+const SLATE = 0x4f5a6e;
+const ROSE = 0xe79a96;
+/** A hotel's upper floors, one bay of them (3.6 m across, a storey high): a tall window, its balcony's railing. */
+let hotelUpper: ReturnType<typeof canvas> | undefined;
+/** Its ground floor, one bay (6 m): an arched glass door in rusticated stone. */
+let hotelBase: ReturnType<typeof canvas> | undefined;
+function hotelTextures() {
+  hotelUpper ??= canvas(64, 64, (g) => {
+    g.fillStyle = '#ffffff';
+    g.fillRect(0, 0, 64, 64);
+    g.fillStyle = '#2b3550';
+    g.fillRect(20, 10, 24, 40);
+    g.fillStyle = 'rgba(0,0,0,0.12)';
+    g.fillRect(16, 6, 32, 4);
+    // The balcony: its slab and railing across the window's foot.
+    g.fillStyle = '#3a3d48';
+    g.fillRect(12, 50, 40, 3);
+    for (let x = 13; x < 52; x += 5) g.fillRect(x, 40, 2, 10);
+    g.fillRect(12, 40, 40, 2);
+  });
+  hotelBase ??= canvas(64, 64, (g) => {
+    g.fillStyle = '#ffffff';
+    g.fillRect(0, 0, 64, 64);
+    g.fillStyle = 'rgba(0,0,0,0.1)';
+    for (let y = 8; y < 64; y += 10) g.fillRect(0, y, 64, 2);
+    g.fillStyle = '#2b3550';
+    g.fillRect(18, 22, 28, 42);
+    g.beginPath();
+    g.arc(32, 22, 14, Math.PI, 0);
+    g.fill();
+  });
+  for (const t of [hotelUpper, hotelBase]) t.wrapS = t.wrapT = RepeatWrapping;
+  return { upper: hotelUpper, base: hotelBase };
+}
+
+/** A box whose texture repeats a bay `bay` m across and `storey` m high on each face (not stretched once over it). */
+function tiledBox(w: number, h: number, d: number, bay: number, storey: number): BoxGeometry {
+  const g = new BoxGeometry(w, h, d);
+  const uv = g.getAttribute('uv');
+  // Faces in BoxGeometry's order: +x, -x, +y, -y, +z, -z; four corners each.
+  const dims = [[d, h], [d, h], [w, d], [w, d], [w, h], [w, h]];
+  for (let f = 0; f < 6; f++)
+    for (let v = 0; v < 4; v++) {
+      const i = f * 4 + v;
+      uv.setXY(i, uv.getX(i) * Math.max(1, Math.round(dims[f][0] / bay)), uv.getY(i) * Math.max(1, Math.round(dims[f][1] / storey)));
+    }
+  return g;
+}
+
+/** The hotel's name on its terrace's front. */
+let hotelSign: ReturnType<typeof canvas> | undefined;
+function sign() {
+  return (hotelSign ??= canvas(512, 64, (g) => {
+    g.fillStyle = '#22304f';
+    g.fillRect(0, 0, 512, 64);
+    g.fillStyle = '#e8c050';
+    g.fillRect(0, 4, 512, 2);
+    g.fillRect(0, 58, 512, 2);
+    g.font = 'bold 34px Georgia, serif';
+    g.textAlign = 'center';
+    g.textBaseline = 'middle';
+    g.fillText('HÔTEL  DES  PINS', 256, 33);
+  }));
+}
+
+/**
+ * The hotel (the owner, 2026-10-05: "a pull in hotel with a front terrace you drive under"): its
+ * solid block is the house `h` (look 'hotel'), drawn as a white Belle Époque hotel, balconies on
+ * every floor over a rusticated ground floor, a slate roof with a rose dome on each front corner;
+ * its terrace out over the street in front on cream columns (the sim's own: `columns`, kind
+ * 'house-column'), its name along the front, parasols and planters on top. No two faces in one plane.
+ */
+function hotel(h: HouseDef, y: number, columns: readonly BakedProp[]): Object3D[] {
+  const [w, d, high] = h.size;
+  const p = h.porch;
+  const root = new Group();
+  const tex = hotelTextures();
+  const plain = (color: number) => toon({ color });
+  const box = (geo: BoxGeometry, m: ReturnType<typeof toon> | ReturnType<typeof toon>[], x: number, yy: number, z: number) => {
+    const b = new Mesh(geo, m);
+    b.position.set(x, yy, z);
+    root.add(b);
+    return b;
+  };
+  // The ground floor, the floors over it, a cornice, the roof.
+  const base = 4.6;
+  box(tiledBox(w, base, d, 6, base), toon({ color: HOTEL_BASE, map: tex.base }), 0, base / 2, 0);
+  box(tiledBox(w, high - base, d, 3.6, 3.2), toon({ color: HOTEL_WHITE, map: tex.upper }), 0, base + (high - base) / 2, 0);
+  box(new BoxGeometry(w + 0.8, 0.8, d + 0.8), plain(TRIM), 0, high + 0.4, 0);
+  box(new BoxGeometry(w + 0.5, 0.5, d + 0.5), plain(TRIM), 0, base + 0.15, 0);
+  const roof = new Mesh(prism(), toon({ color: SLATE, side: DoubleSide }));
+  roof.scale.set(d - 0.4, 4.5, w - 0.4);
+  roof.rotation.y = Math.PI / 2;
+  roof.position.set(0, high + 0.8, 0);
+  root.add(roof);
+  for (const sx of [-1, 1]) {
+    const [dx, dz] = [sx * (w / 2 - 3.4), d / 2 - 3.4];
+    const drum = new Mesh(faceted(new CylinderGeometry(2.6, 2.6, 3.4, 12)), plain(HOTEL_WHITE));
+    drum.position.set(dx, high + 2.5, dz);
+    const dome = new Mesh(faceted(new SphereGeometry(2.8, 12, 6, 0, Math.PI * 2, 0, Math.PI / 2)), plain(ROSE));
+    dome.position.set(dx, high + 4.2, dz);
+    const tip = new Mesh(faceted(new ConeGeometry(0.4, 1.8, 6)), plain(GOLD));
+    tip.position.set(dx, high + 4.2 + 2.8 + 0.7, dz);
+    root.add(drum, dome, tip);
+  }
+  const out: Object3D[] = [root];
+  if (p) {
+    // The terrace: its deck (from just inside the front wall out), a deep front with the name on
+    // it standing proud of the deck and over it as a parapet, low walls along its sides.
+    const front = d / 2 + p.depth;
+    const deck = 0.7;
+    box(new BoxGeometry(p.width, deck, p.depth + 0.4), plain(HOTEL_WHITE), 0, p.high + deck / 2, d / 2 + p.depth / 2 - 0.2);
+    const fascia = 1.8;
+    const side = plain(HOTEL_WHITE);
+    box(new BoxGeometry(p.width + 0.4, fascia, 0.5), [side, side, side, side, toon({ map: sign() }), side], 0, p.high - 0.2 + fascia / 2, front);
+    for (const sx of [-1, 1]) box(new BoxGeometry(0.3, 1, p.depth - 0.4), plain(HOTEL_WHITE), sx * (p.width / 2 - 0.35), p.high + deck + 0.5, d / 2 + p.depth / 2 - 0.2);
+    // Parasols over tables, planters at the front's corners.
+    const shades = [0xffffff, 0x2a9d8f, 0xe76f51];
+    for (let k = 0; k < 3; k++) {
+      const x = (k - 1) * (p.width / 3.4);
+      const z = d / 2 + p.depth * 0.5;
+      const top = p.high + deck;
+      const pole = new Mesh(new CylinderGeometry(0.07, 0.07, 2.4, 6), plain(0x6b5a48));
+      pole.position.set(x, top + 1.2, z);
+      const shade = new Mesh(faceted(new ConeGeometry(1.7, 0.7, 8)), plain(shades[k % shades.length]));
+      shade.position.set(x, top + 2.5, z);
+      const table = new Mesh(faceted(new CylinderGeometry(0.55, 0.55, 0.08, 10)), plain(0xffffff));
+      table.position.set(x, top + 0.75, z);
+      root.add(pole, shade, table);
+    }
+    for (const sx of [-1, 1]) {
+      const pot = new Mesh(new BoxGeometry(0.9, 0.7, 0.9), plain(0xb9532c));
+      pot.position.set(sx * (p.width / 2 - 1.3), p.high + deck + 0.35, front - 1.1);
+      const bush = new Mesh(faceted(new SphereGeometry(0.75, 8, 5)), plain(0x2f7d3a));
+      bush.position.set(sx * (p.width / 2 - 1.3), p.high + deck + 1.2, front - 1.1);
+      root.add(pot, bush);
+    }
+    // The columns, where the sim stands them (each from its own ground up under the deck), a
+    // capital on each.
+    for (const [x, z] of porchColumns(h)) {
+      const c = columns.find((q) => Math.abs(q.x - x) < 0.01 && Math.abs(q.z - z) < 0.01);
+      const foot = c ? c.y : y;
+      const tall = y + p.high - foot;
+      const col = new Mesh(faceted(new CylinderGeometry(COLUMN_R * 0.9, COLUMN_R, tall, 10)), plain(CREAM));
+      col.position.set(x, foot + tall / 2, z);
+      const cap = new Mesh(new BoxGeometry(COLUMN_R * 2.6, 0.35, COLUMN_R * 2.6), plain(TRIM));
+      cap.position.set(x, y + p.high - 0.2, z);
+      cap.rotation.y = h.rot;
+      out.push(col, cap);
+    }
+  }
+  root.position.set(h.at[0], y, h.at[1]);
+  root.rotation.y = h.rot;
+  return out;
 }
