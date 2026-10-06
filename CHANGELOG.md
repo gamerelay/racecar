@@ -6,6 +6,16 @@ and where things stand is [docs/HANDOFF.md](./docs/HANDOFF.md).
 
 ## Unreleased
 
+- **A new map in the lobby: *Riviera*** (it was *Coastal*, experimental): a harbour town on a
+  headland under mostly blue skies, 5.5 km. A drawbridge over the harbour mouth, the Old Town's
+  switchbacks and the Stairs up them, a mountain road through the Rock Tunnel, five switchbacks down
+  the mountainside over the sea, Lighthouse Point and the Rocks across it, and the boulevard home
+  past the grand casino and the Hôtel des Pins, whose terrace you can drive under. In the lobby,
+  the vote and quick race; links to `coastal/riviera` still work.
+- **The Descent's hillside is thinner**, its rocks warm stone (not snow-capped).
+- **The wreck camera stays out of the ground**: wrecked by a bank, it rises over it instead of
+  orbiting through the hill.
+
 - **The engine, reviewed** (steps 0 to 3c): nothing on a map drives differently (every
   fingerprint identical). Fixed: a car crossing a breakable wall at a shallow angle bouncing off
   (often wrecking on) the panel past its hole, the wreck camera orbiting out through the market hall's walls,

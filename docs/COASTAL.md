@@ -740,6 +740,11 @@ under in this first pull out" (rue-des-pins, the loop off the boulevard just bef
 - **Numbers:** the floor is unchanged at 106.22 s; no wrecks in field races at seeds 4, 7 and 8.
   Every other map's fingerprints are identical.
 
+**Live as *Riviera* (2026-10-05):** the owner: "this map looks ready to go live, let's call it
+Riviera in the menu ... we will continue to make tweaks to it". Out of experimental (map.json):
+in the lobby, the vote and quick race, named *Riviera*. Its id stays `coastal` (links, the
+fingerprints, the `coastal` track).
+
 ## The owner's answers (2026-10-04)
 
 - **The shape:** the sketch is right (quay, bridge, Old Town, tunnel, corniche, lighthouse, beach,

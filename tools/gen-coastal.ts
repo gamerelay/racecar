@@ -10,8 +10,8 @@
 //   Lighthouse Point   down the Corniche along the cliffs, a loop round the cape and the lighthouse (the Rocks across it), down to the sea
 //   The Beach          along the sea wall, a chicane by the pool, and the Promenade back onto the Quay
 //
-// Experimental (map.json), so it's out of the lobby: open it from a link,
-// `?mode=free&map=coastal/riviera`.
+// In the lobby as *Riviera* (the owner, 2026-10-05: out of experimental; the map's id stays
+// `coastal`, so links and fingerprints keep working).
 //
 //   bun tools/gen-coastal.ts
 
@@ -839,6 +839,6 @@ const HILLSIDE = { x: [DESCENT.west - 30, DESCENT.east + 30], z: [DESCENT.z - 20
 
 mkdirSync(DIR, { recursive: true });
 writeFileSync(`${DIR}/riviera.track.json`, `${JSON.stringify(layout)}\n`);
-writeFileSync(`${DIR}/map.json`, `${JSON.stringify({ id: 'coastal', name: 'Coastal', layouts: ['riviera'], palette: 'tropic', sunset: 'sunset', weather: ['clear', 'rain', 'shower', 'rare'], experimental: true })}\n`);
+writeFileSync(`${DIR}/map.json`, `${JSON.stringify({ id: 'coastal', name: 'Riviera', layouts: ['riviera'], palette: 'tropic', sunset: 'sunset', weather: ['clear', 'rain', 'shower', 'rare'] })}\n`);
 const track = bakeTrack(layout, surfaces);
 console.log(`coastal/riviera: ${Math.round(track.main.length)} m, ${pts.length} points, ground ${track.ground!.nx}×${track.ground!.nz}, bridge deck ${deck.join('–')} m (the drawbridge ${mid - width / 2}–${mid + width / 2} m), the Rock Tunnel ${tunnel.join('–')} m, the Basin Road ${Math.round(track.splines[1].length)} m (${layout.branches![0].from}–${layout.branches![0].to} m), ${layout.houses!.length} houses`);

@@ -25,8 +25,9 @@ const map = ALL_MAPS.find((m) => m.id === 'coastal') as MapDef;
 const bridge = g.pieces.list.find((p) => p.id === 'harbour-bridge')!;
 
 describe('coastal', () => {
-  test('an experimental map (out of the lobby), one layout, Riviera', () => {
-    expect(map).toMatchObject({ name: 'Coastal', layouts: ['riviera'], experimental: true });
+  test('in the lobby as Riviera (the owner, 2026-10-05: out of experimental), one layout', () => {
+    expect(map).toMatchObject({ name: 'Riviera', layouts: ['riviera'] });
+    expect(map.experimental).toBeUndefined();
   });
 
   test('hills: the highest dome at a point, nothing past their feet', () => {
