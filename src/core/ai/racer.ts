@@ -717,14 +717,6 @@ function avoid(sim: SimState, i: number, sp: BakedSpline, s: number, target: num
   const c = sim.cars;
   const world = sim.world;
   const L = sim.track.main.length;
-  // Short of a fork it's chosen, still on the road it's leaving: that road's width and props, the
-  // frame the other cars' laterals are in. (Its lines across the branch's width, against laterals
-  // across the road's, had every line blocked by the pack beside it: it braked hard short of the
-  // Stairs.)
-  if (c.spline[i] !== sp.index) {
-    sp = sim.track.splines[c.spline[i]];
-    s = c.s[i];
-  }
   const half = across ?? sampleAt(sp, s + 20, probe).width / 2 - 1.4;
   const me = sim.classes[c.cls[i]].size[0];
   const n = CANDIDATES.length;

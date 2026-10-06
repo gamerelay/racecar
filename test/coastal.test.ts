@@ -340,35 +340,22 @@ describe('coastal', () => {
       expect(road.t - cut.t).toBeLessThan(4);
     }, 60_000);
 
-    test('heading for the Stairs, a car keeps the road until it must brake for them, and gets round what is on it', () => {
+    test('heading for the Stairs, a car keeps the road\'s pace until it must brake for them', () => {
       // (The first lap's pack ran into a car that had chosen the Stairs: 65 m short of them it slowed
-      // to their limit straight away, and it read the cars on the road across the Stairs' 8 m, so
-      // anything beside it blocked every line and it braked behind it.)
-      const drive = (stopped?: number) => {
-        const sim = setup(track, CLASSES, SURFACES, { s: stopped ? 600 : 560 }, 'ai', { kmh: stopped ? 120 : 110, seed: 1 });
-        if (stopped) {
-          sim.addCar({ cls: 'sedan' });
-          sim.placeCar(1, 0, stopped, 0, 0);
-        }
-        const c = sim.cars;
-        let at650 = 0;
-        let slowest = Infinity;
-        let took = false;
-        for (let k = 0; k < 60 * 5; k++) {
-          sim.step([]);
-          const v = Math.hypot(c.vx[0], c.vz[0]) * 3.6;
-          if (c.spline[0] === stairs.index) took = true;
-          if (c.spline[0] === 0 && c.s[0] >= 650 && !at650) at650 = v;
-          if (c.spline[0] === 0 && c.s[0] > 610 && c.s[0] < 688) slowest = Math.min(slowest, v);
-        }
-        expect(took).toBe(true);
-        expect(c.wrecks[0]).toBe(0);
-        return { at650, slowest };
-      };
+      // to their limit straight away.)
+      const sim = setup(track, CLASSES, SURFACES, { s: 560 }, 'ai', { kmh: 110, seed: 1 });
+      const c = sim.cars;
+      let at650 = 0;
+      let took = false;
+      for (let k = 0; k < 60 * 5; k++) {
+        sim.step([]);
+        if (c.spline[0] === stairs.index) took = true;
+        if (c.spline[0] === 0 && c.s[0] >= 650 && !at650) at650 = Math.hypot(c.vx[0], c.vz[0]) * 3.6;
+      }
+      expect(took).toBe(true);
+      expect(c.wrecks[0]).toBe(0);
       // 41 m short of the fork: still at the road's pace (it was down to 95 km/h).
-      expect(drive().at650).toBeGreaterThan(130);
-      // A car stopped mid-road 20-40 m short of the fork: round it (it stopped behind it, 18-22 km/h).
-      for (const at of [650, 670]) expect(drive(at).slowest).toBeGreaterThan(60);
+      expect(at650).toBeGreaterThan(130);
     }, 30_000);
   });
 

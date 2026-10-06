@@ -7,8 +7,8 @@ and where things stand is [docs/HANDOFF.md](./docs/HANDOFF.md).
 ## Unreleased
 
 - **Rivals heading for a shortcut keep their pace until they need to brake for it.** They used to
-  slow down for it from 65 m out, and squeezed in the pack they could stop dead in front of it.
-  More of the first lap's pack makes it into Riviera's Old Town together: expect more contact there.
+  slow down for it from 65 m out, and the pack behind piled into them: Riviera's first lap through
+  the Old Town is much cleaner.
 
 - **Riviera: the cove and the Sand.** Below the Descent, the road now drops to a beach cove and
   loops inland round a beach club in a chicane; the Sand cuts straight along the beach by the

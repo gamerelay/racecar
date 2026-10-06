@@ -6,10 +6,11 @@ building". This file is "where are we"; the spec is "what are we making".
 
 **Last updated:** 2026-10-06. On `main` since `alpha-1.32`, not released yet: **driven costs**
 (#142: the AI times its ways as its class drives them; Paradise and Backroads keep the old
-reckoning, `aiCosts: 'line'`) and Riviera's **cove and the Sand** (#143: a beach cove before
-Lighthouse Point, a chicane round the beach club, the Sand along the water; lap 5.60 km). In this
-PR, **the AI at forks**: a car heading for a cut keeps the road's frame and pace until it has to
-brake for it (floor 106.10 s). **Next: Riviera's look** ("Next: Coastal" below).
+reckoning, `aiCosts: 'line'`), Riviera's **cove and the Sand** (#143: a beach cove before
+Lighthouse Point, a chicane round the beach club, the Sand along the water; lap 5.60 km) and
+**the AI at forks** (#145: a car heading for a cut keeps the road's pace until it has to brake for
+it; floor 106.03 s, fewer wrecks in the Old Town). **Next: Riviera's back streets, then its look**
+("Next: Coastal" below).
 
 **`alpha-1.32`** (PRs #106–#140) is tagged and on the hosted build:
 **Riviera** (it was the experimental map *Coastal*, live since #138; see "Next: Coastal" below),
@@ -351,34 +352,31 @@ keep tweaking it: re-record its fingerprints as before.
   7 and 8 one each in the Old Town. The AI at junctions is next (below).
 
 **Next, in about this order** (COASTAL's steps):
-1. **The AI at junctions** (the owner: split from the Sand; this PR). What the field showed
-   (a wreck tracer: each car-on-car wreck, both cars, and the second before it): over seeds 1–72
-   nearly every car wreck is one car into another on the **same** road, not cars on two roads
-   missing each other (3 at the Sand's rejoin in 72 races, none at the Rocks'). Riviera's are the
-   first lap's pack in the Old Town (600–999 m, 15–25 s in): most seeds race the same first lap,
-   so a count over seeds counts a few crashes many times (Backroads' "4 to 12" was this: on
-   `main` it's 4 over seeds 1–24 and 32 over 25–72).
-   - **Fixed, at a fork:** a car that had chosen a cut read the road's cars across the cut's width
-     (the Stairs' 8 m: the pack beside it blocked every line) and slowed to the cut's start speed
-     the moment it chose it, 65 m short (164 to 50 km/h, the pack behind at 140). Now, short of the
-     fork, `avoid()` uses the road it's on, and it keeps the road's pace and brakes for the cut's
-     start as the line brakes for a corner (`COST_BRAKE`). Tests in coastal.test.ts fail without
-     either half.
-   - **What it did to the field** (car-on-car wrecks, `main` → this): Riviera 22 → 25 over seeds
-     1–24, 25 → 44 over 25–72 (the pack reaches the Old Town quicker: cars clip its narrowing walls
-     and bounce back across, the bus runs into what's ahead); Backroads 4 → 8 and 32 → 22;
-     Paradise 10 → 10 and 26 → 25; Paradise Open 6 → 2 and 6 → 8; Downtown 2 → 3; Avalanche 4 →
-     4. The owner: "I kinda like more collisions". Floors: Riviera 106.67 → 106.10 s (the hard AI
-     no longer brakes early for the Stairs), Backroads 62.82 → 62.87, Downtown 57.90 → 57.88, the
-     rest unchanged.
-   - **Tried and dropped:** each car seeing the other within 80 m of a rejoin, the one coming in
-     giving way (cleaner merges, more braking in the pack); allowing for where a car ahead is
-     drifting across the road (much worse everywhere: Riviera 39, Paradise Open 18). The more
-     cautious a car, the more it brakes in front of the pack.
-   - **Known:** the Stairs' second flight's costs read 0.6 s slow (a car is on it for 65 of its 89
-     m, its ends overlapping the rows; the early braking had hidden it). Cars still can't see
-     across a junction (`avoid()` marks only its own road's cars); nothing in the field needs it
-     yet.
+1. **The AI at junctions** (the owner: split from the Sand; done in #145). What the field showed
+   (a wreck tracer: each car-on-car wreck, both cars, and the second before it): nearly every car
+   wreck is one car into another on the **same** road, not cars on two roads missing each other
+   (3 at the Sand's rejoin in 72 races, none at the Rocks'). Most seeds race the same first lap, so
+   a count over seeds counts a few crashes many times (Backroads' "4 to 12" was this: on `main`
+   it's 4 over seeds 1–24 and 32 over 25–72). Compare over seeds 1–72, 3 laps.
+   - **Fixed:** a car that had chosen a cut slowed to the cut's start speed the moment it chose
+     it, 65 m short (the Stairs: 164 down to about 50 km/h, the pack behind at 140, into its
+     back). Now it keeps the road's pace and brakes for the cut's start as the line brakes for a
+     corner (`COST_BRAKE`); a test in coastal.test.ts fails without it. Car-on-car wrecks over
+     seeds 1–72, `main` → now: Riviera 47 → 28 (the Old Town's lap-1 pile-ups at the Stairs'
+     fork all but gone), Backroads 36 → 36, Paradise 36 → 32, Paradise Open 12 → 15; Downtown and
+     Avalanche the same (2, 4 over 1–24). Floors: Riviera 106.67 → 106.03 s, Backroads 62.82 →
+     62.87, Downtown 57.90 → 57.88, the rest unchanged.
+   - **Known, left as it is:** short of the fork, `avoid()` still lays its lines across the
+     cut's width while the other cars' laterals are across the road's (`sp` is the branch). Every
+     change to it made the field worse (Riviera 55–69): across the road's width, a car bound for
+     the Stairs passed the pack wide and cut back across it into the fork; narrowing its lines
+     toward the fork, 59. Cars still can't see across a junction (`avoid()` marks only its own
+     road's cars); nothing in the field needs it yet. Seeing across a rejoin with the merging car
+     giving way, and allowing for a car ahead drifting across the road, made more wrecks too: the
+     more cautious a car, the more it brakes in front of the pack.
+   - **Known:** the Stairs' second flight's costs read 0.6 s slow: on it (74.5 of 89 m) a car runs
+     about 96 km/h against the 86 it's costed at, and its overlapping ends are costed at that limit
+     but driven on the rows, faster (about 0.3 s each; the early braking had hidden it).
 2. **The look:** yachts moored in the harbour (and along the sea wall), the riviera palette (it
    borrows Paradise's `tropic` now), the beach club in the cove (its pool, terrace and jetty: a
    low block stands there now); the Old Town's side streets with its houses; lamp posts and palms
