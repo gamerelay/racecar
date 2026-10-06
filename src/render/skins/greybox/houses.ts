@@ -155,7 +155,7 @@ function casino(h: { at: [number, number]; size: [number, number, number]; rot: 
   root.add(ped);
   const clock = new Mesh(faceted(new CylinderGeometry(1, 1, 0.3, 16)), plain(GOLD));
   clock.rotation.x = Math.PI / 2;
-  clock.position.set(0, high * 0.62 + 2.6, front - 1.4);
+  clock.position.set(0, high * 0.62 + 2.6, front - 1.2);
   root.add(clock);
   root.position.set(h.at[0], y, h.at[1]);
   root.rotation.y = h.rot;

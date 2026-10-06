@@ -187,6 +187,44 @@ describe('coastal', () => {
     expect(high).toBeLessThan(12);
   }, 120_000);
 
+  test('on the hill over the Rock Tunnel, cars stay on the hill: none sink through the rock into it', () => {
+    const tunnel = g.pieces.list.find((p) => p.id === 'rock-tunnel')!;
+    const hit = newHit();
+    const cast = newCast();
+    const controls = neutralControls();
+    controls.throttle = 0.6;
+    let runs = 0;
+    let sunk = 0;
+    for (let s = tunnel.s[0] - 20; s <= tunnel.s[1] + 20; s += 30)
+      for (const lateral of [-40, -25, 25, 40])
+        for (let heading = 0; heading < 360; heading += 45)
+          for (const kmh of [20, 50]) {
+            sampleAt(track.main, s, hit);
+            const [x, z] = [hit.cx - hit.tz * lateral, hit.cz + hit.tx * lateral];
+            const sim = setup(track, CLASSES, SURFACES, { x, z, heading }, {}, { kmh });
+            const c = sim.cars;
+            runs++;
+            for (let k = 0; k < 180; k++) sim.step([controls]);
+            g.cast(c.x[0], c.y[0], c.z[0], cast);
+            if (cast.space === 'enclosed' && cast.ground > c.y[0] + 3 && !c.wreck[0]) sunk++;
+          }
+    // (Reading the tunnel's road from anywhere over it, 3029 of a sweep like this sank in; before
+    // that 35 did, by the old rock faces' gaps. A handful left, at the mouths' corners.)
+    expect(runs).toBeGreaterThan(400);
+    expect(sunk).toBeLessThanOrEqual(3);
+  }, 120_000);
+
+  test("out of the Rock Tunnel down its middle, at any speed, no step at its mouths (the ground meets its floor)", () => {
+    const tunnel = g.pieces.list.find((p) => p.id === 'rock-tunnel')!;
+    for (const [s, reverse] of [[tunnel.s[1] - 20, false], [tunnel.s[0] + 20, true]] as const)
+      for (const kmh of [40, 50, 60, 70, 90, 120]) {
+        const sim = setup(track, CLASSES, SURFACES, { s, reverse }, { throttle: 0.3 }, { kmh });
+        const d = run(sim, { throttle: 0.3 }, 2, 1);
+        // (A rock face's knock has no side, b 0; unsteered, past the mouth a car may graze a side wall.)
+        expect(d.events.filter((e) => e.type === 'wall_hit' && /b 0$/.test(e.detail))).toEqual([]);
+      }
+  });
+
   describe('the Old Town and the Stairs (COASTAL step 7)', () => {
     const sp = (id: string) => track.splines.find((x) => x.id === id)!;
     const [stairs, top, arm] = ['stairs', 'stairs-top', 'stairs-arm'].map(sp);

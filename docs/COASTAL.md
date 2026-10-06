@@ -651,10 +651,14 @@ mountain's top ("a little empty up there").
   then flew over the walls' 1.2 m rails, out into the rock, and landed on the hill 25–37 m up. Off
   the road just before a mouth, a car was also lifted straight up the cliff beside it. Three fixes:
   - A wheel whose land is more than a hard landing over the car reads what's under it at the car's
-    height, the tunnel's road (`wheelOff` in `physics.ts`).
+    height, the tunnel's road, when the car's within the tunnel's ceiling of it (`wheelOff` in
+    `physics.ts`; from anywhere over it, cars on the hill sank through the rock into the tunnel).
   - Under a ceiling, a road's walls go all the way up to it (`walls.ts`).
   - Coastal's ground has a rock face at 45° (`face: 1`, as Paradise Open's): steeper ground is a
     wall, not a slope you're lifted up.
+  - The ground meets a tunnel's floor at its mouths: the swell eases out over 30 m before them, as
+    before a deck (`runIn`). It stood 0.3 m over the road at the exit: a hop, and with rock faces
+    a wall across the road at 50–70 km/h.
   A sweep of 720 entries (both mouths, off line, at angles, at 60–180 km/h) used to throw 68 cars up off the road or onto the hill; now none.
 - **The casino shimmered:** its towers' sides were in the hall's walls' planes, and the spires'
   bases sat exactly on the towers' tops. The hall is now set back and in, behind a portico
@@ -666,7 +670,11 @@ mountain's top ("a little empty up there").
   it's drawn (`r` 48).
 - **rue-du-port** runs straight along the square's back, 72 m out with a 15 m lead-in (it bent with
   the boulevard, and its corners were 8 m or less, tight for traffic; now 10 m or more, tested).
-- **Numbers:** the floor is unchanged at 105.58 s; no wrecks in field races at seeds 4, 7 and 8. Every other map's fingerprints are identical.
+- **Numbers:** the floor is 106.3 s (was 105.58): out of the tunnel at 199 km/h the AI's line is on the
+  road's edge, and without the exit's hop it runs a metre wide onto the grass. No wrecks in field
+  races at seeds 4, 7 and 8. Every other map's fingerprints are identical. (Paradise Open's Lava
+  Tube still lets cars on the volcano sink into it, about one in nine of a sweep, as before: not
+  this step's.)
 
 ## The owner's answers (2026-10-04)
 
