@@ -582,7 +582,39 @@ bottom of the map, the right side just water, not beach, with a retaining wall.
     costs see the flight's limit, not the turn into it.
   - The houses beside the Stairs move with any change to them (width, corners), and the times
     with the houses, so re-measure after one.
-- **Next for the cuts:** the Rocks at Lighthouse Point, and the Sand (which needs a new home).
+- **Next for the cuts:** the Rocks at Lighthouse Point (below), and the Sand (which needs a new home).
+
+**Step 7b, Lighthouse Point and the Rocks (2026-10-05):** the second cut.
+- **The loop round the cape** (`POINT` in the generator). Lighthouse Point was a single left-hander
+  taken at about 135 km/h, so a cut had nothing to skip. Now the road runs out to the cape's west
+  side, round its tip (two 16 m corners) and back east along the shore, as the sketch's "hairpin
+  round the lighthouse". The cape's coast is pushed out round it, and the sea wall starts at the
+  tip's exit (a hard bus ran wide there into the sea). The lighthouse's spot is inside the loop
+  (`POINT.light`); it's drawn in the landmarks step. The lap is 5.51 km (5.30).
+- **The Rocks** (`ROCKS`): straight across the loop's neck, 195 m against the loop's 379, 7 m wide,
+  their corners rounded.
+  - A new surface, `rock` (grip 0.74, drag 0.12, grey).
+  - Their own heights: rough, up to 0.3 m, and three 1.2 m ridges across them.
+  - Boulders (`rock` props, solid; drawn with limestone tops on a coast) line both sides close
+    in, every 5 to 9 m. None stands within reach of another road: by their ends the Rocks run
+    beside the main road, and boulders there wrecked the field.
+  - `limit` 36 m/s (130 km/h) for the AI.
+- **Why it took tuning:** cars corner hard here, so a tighter road costs little and a cut pays only
+  by being much shorter. The loop had to grow, the Rocks' limit rise (at 24 m/s the AI never took
+  them: its costs, the racing line without acceleration, make short straights look quicker than
+  they are), and the risk is the boulders: ridges alone threw no one into anything.
+- **Numbers** (from the Corniche to past the loop, 10.4 to 11.6 s by the road, by class and
+  difficulty, across seeds):
+  - At the limit, the Rocks save 2.1 to 3.4 s, clean. A hard van wrecks even at the limit.
+  - Flat out (no limit), three of the four hard cars wreck in the boulders and save under 1 s;
+    the others save 3.5 to 4 s.
+  - The floor is 105.65 s (103.63). Field races (seeds 7 to 9): one wreck on the Rocks in three
+    races.
+  - Every other map's fingerprints are identical. Tests are in `test/coastal.test.ts` (the cut,
+    the surface, the boulders, 2 to 4 s at the limit, and the flat-out wreck).
+- **Rough edges:** the risk depends on exactly where a car meets the ridges, so a change to the
+  Rocks reshuffles who wrecks; re-measure after one. A wreck here respawns you quickly, so a
+  fluffed run costs little more than the road.
 
 ## The owner's answers (2026-10-04)
 
