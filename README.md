@@ -94,4 +94,5 @@ all four).
 
 ## License
 
-MIT
+The code is MIT. The music in `public/music/` is © Colin, all rights reserved: it plays as part of
+racecar, but isn't free to reuse on its own. See [LICENSE](LICENSE).

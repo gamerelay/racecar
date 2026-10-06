@@ -521,7 +521,7 @@ old keys still resolve). The third map is **Paradise** (`content/maps/paradise`,
 
 ## Where things stand
 
-- **Repo:** `gamerelay/racecar`, private until milestone 3, cloned at `~/dev/racecar`. The default
+- **Repo:** `gamerelay/racecar`, public since 2026-10-05 (code MIT, music reserved), cloned at `~/dev/racecar`. The default
   branch is `main`.
 - **Milestones 1 and 2 are merged** (PRs #1 and #2, `alpha-1.0`), and so are all six of
   [PLAN.md](./PLAN.md)'s phases (PRs #14–#30, `alpha-1.8` to `alpha-1.12`).
