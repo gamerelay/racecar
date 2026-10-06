@@ -44,7 +44,7 @@ export interface Fingerprint {
   wrecks: number;
   /** The drawbridges (PieceDef.lift): their lift times for a few seeds, their angles through a cycle, and their leaves' floors at a few angles. Only for a layout with one. */
   lifts?: string;
-  /** Traffic by side streets (TrafficLaneDef.streets): every car's pose and visibility through a couple of minutes, for a few seeds. Only for a layout with a lane that uses them. */
+  /** Traffic by side streets (TrafficLaneDef.streets, or along one: road): every car's pose and visibility through a couple of minutes, for a few seeds. Only for a layout with a lane that uses them. */
   streets?: string;
 }
 
@@ -68,7 +68,7 @@ export function fingerprint(layout: TrackLayout, classes: CarClass[], surfaces: 
     marks,
     wrecks: main.wrecks,
     ...(track.ground?.pieces.list.some((p) => p.lift) ? { lifts: liftsHash(track, classes, surfaces) } : {}),
-    ...(layout.traffic?.lanes.some((l) => l.streets) ? { streets: streetsHash(track) } : {}),
+    ...(layout.traffic?.lanes.some((l) => l.streets || l.road !== undefined) ? { streets: streetsHash(track) } : {}),
   };
 }
 

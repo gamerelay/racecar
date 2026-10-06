@@ -68,7 +68,10 @@ export function collideWorld(sim: SimState, i: number, ctx: WorldCtx): void {
     if (traffic.wreckedAt[k] === ctx.t) continue;
     const kind = TRAFFIC_KINDS[traffic.kind[k]];
     const ds = signedGap(traffic.s[p], sMain, L);
-    if (Math.abs(ds) > 14) continue;
+    // (A car along a back street, TrafficLaneDef.road: its main distance is its street's, stretched
+    // onto the boulevard, and a car that came over the hill onto the street, never through a
+    // junction, is still the boulevard's beside it, up to 36 m apart: by how far apart they are.)
+    if (Math.abs(ds) > 14 && (traffic.lanes[traffic.lane[k]].road === undefined || hypot(traffic.x[p] - c.x[i], traffic.z[p] - c.z[i]) > 14)) continue;
     if (!c.wreck[i] && !ghost && onMain) nearMiss(sim, i, ctx, p, ds, speed);
     if (ghost || Math.abs(c.y[i] - traffic.y[p]) > kind.hh * 2 + 0.8) continue;
     if (!obbOverlap(c.x[i], c.z[i], c.h[i], cls.size[0], cls.size[1], traffic.x[p], traffic.z[p], traffic.h[p], kind.hw, kind.hl, contact)) continue;

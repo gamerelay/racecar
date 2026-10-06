@@ -445,7 +445,7 @@ export function validateLayout(layout: TrackLayout, surfaces: SurfaceDef[], clas
       for (const [x, z] of porchColumns(h))
         for (const sp of track.splines) {
           projectGlobal(sp, x, z, at);
-          if (Math.abs(at.lateral) < at.width / 2 + at.shoulder + COLUMN + 0.5) {
+          if (offRoad(sp, x, z, at) < at.width / 2 + at.shoulder + COLUMN + 0.5) {
             err(`house ${k}: a porch column at [${x.toFixed(1)}, ${z.toFixed(1)}] stands on ${sp.index === 0 ? 'the main road' : sp.id} (${at.s.toFixed(0)} m)`, sp.id, at.s);
             break;
           }

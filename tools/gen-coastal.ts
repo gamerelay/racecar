@@ -462,7 +462,7 @@ const STREETS: [string, number, number, 1 | -1, { depth?: number; lead?: number;
 /** Rue Haute's traffic, both ways along it, over its back stretch (m in from each end: off the legs down to the boulevard, out of sight round the houses); its steepest grade. */
 const HAUTE = { trim: 75, speed: 11, grade: 0.07 };
 /** How far off the main road's middle a street runs (m, unless it says), how wide it is, and the traffic on it. */
-const STREET = { depth: 32, width: 8, shoulder: 1.5, speed: 14, density: 8 };
+const STREET = { depth: 32, width: 8, shoulder: 1.5, speed: 14, density: 8, every: 6 };
 {
   const g = bakeTrack(layout, surfaces);
   const hit = newHit();
@@ -502,14 +502,14 @@ const STREET = { depth: 32, width: 8, shoulder: 1.5, speed: 14, density: 8 };
       const [ax, az] = line[k];
       const [bx, bz] = line[k + 1];
       const len = Math.hypot(bx - ax, bz - az);
-      for (; left < len; left += 6) points.push(streetPoint(ax + ((bx - ax) * left) / len, az + ((bz - az) * left) / len));
+      for (; left < len; left += STREET.every) points.push(streetPoint(ax + ((bx - ax) * left) / len, az + ((bz - az) * left) / len));
       left -= len;
     }
     points.push(streetPoint(...line[line.length - 1]));
     if (shape.climb) {
       // Up on the hill, its heights its own: the ground's height there (before the streets cut it),
-      // and where it's mostly on the boulevard's surface (`merge` in a trial bake: as the Sand; a
-      // guess at where was a 0.4 m step), the boulevard's; up from there no steeper than
+      // and where the bake holds it to the boulevard's surface (`merge` in a trial bake: as the
+      // Sand; a guess at where was a 0.4 m step), the boulevard's; up from there no steeper than
       // HAUTE.grade, smoothed.
       const trial = bakeTrack({ ...layout, branches: [...layout.branches!, { id, from, to, kind: 'street', points, heights: 'own' }] }, surfaces);
       const tsp = trial.splines.find((x) => x.id === id)!;
@@ -518,16 +518,22 @@ const STREET = { depth: 32, width: 8, shoulder: 1.5, speed: 14, density: 8 };
       const y = points.map(({ p: [x, , z] }, k) => {
         projectGlobal(tsp, x, z, hit);
         const i = Math.min(tsp.n - 1, Math.round(hit.s / tsp.step));
-        // (Its last points stop short of the junction: the bake runs it on to it, on the boulevard.)
-        pinned[k] = tsp.merge[i] > 0.5;
-        if (!pinned[k]) return g.ground!.height(x, z);
-        // (The boulevard's surface carried out sideways, banked, as the bake has it: joinBranch.)
+        // Held where the bake holds it to the boulevard (an own-heights branch: merge 1) and at its
+        // end points (they stop short of the junction: the bake runs it on to it, on the
+        // boulevard), on the boulevard's surface carried out sideways, banked, as the bake has it
+        // (joinBranch); between, from that toward the ground as it pulls clear. (Held wherever it
+        // was half on, it crested 0.4 m where the bake lets it go; held only at merge 1, it
+        // climbed 13% into the last few meters before the end.)
+        const m = k === 0 || k === n - 1 ? 1 : tsp.merge[i];
+        pinned[k] = m >= 1;
+        const ground = g.ground!.height(x, z);
+        if (m <= 0) return ground;
         projectGlobal(g.main, x, z, hit);
-        return hit.cy - hit.lateral * Math.tan(hit.bank);
+        return ground + (hit.cy - hit.lateral * Math.tan(hit.bank) - ground) * m;
       });
       const hold = () => {
-        for (let k = 1; k < n; k++) y[k] = Math.min(y[k], y[k - 1] + 6 * HAUTE.grade);
-        for (let k = n - 2; k >= 0; k--) y[k] = Math.min(y[k], y[k + 1] + 6 * HAUTE.grade);
+        for (let k = 1; k < n; k++) y[k] = Math.min(y[k], y[k - 1] + STREET.every * HAUTE.grade);
+        for (let k = n - 2; k >= 0; k--) y[k] = Math.min(y[k], y[k + 1] + STREET.every * HAUTE.grade);
       };
       hold();
       for (let pass = 0; pass < 3; pass++) for (let k = 1; k < n - 1; k++) if (!pinned[k]) y[k] = (y[k - 1] + 2 * y[k] + y[k + 1]) / 4;
@@ -908,8 +914,10 @@ const HOTEL = { w: 34, d: 16, high: 19.2, gap: 2, porch: 26, under: 6, columns: 
           const z = hit.cz + hit.tx * off * sd;
           // Facing the road.
           const rot = Math.atan2(hit.tz * sd, -hit.tx * sd);
+          // (Its storeys drawn whether it fits or not: drawn only for one that fits, any change to
+          // what fits re-laid every house after it in its stretch.)
+          const storeys = Math.min(first ? 7 : Infinity, Math.round(range(TOWN.storeys)) + row);
           if (free(x, z, w, d, rot)) {
-            const storeys = Math.min(first ? 7 : Infinity, Math.round(range(TOWN.storeys)) + row);
             houses.push({ at: [Math.round(x * 10) / 10, Math.round(z * 10) / 10], size: [Math.round(w * 10) / 10, Math.round(d * 10) / 10, Math.round(storeys * 3.2 * 10) / 10], rot: Math.round(rot * 1000) / 1000 });
           }
           u += w + range([0.3, 1.5]);
@@ -932,8 +940,8 @@ const HOTEL = { w: 34, d: 16, high: 19.2, gap: 2, porch: 26, under: 6, columns: 
           const x = hit.cx - hit.tz * off * sd;
           const z = hit.cz + hit.tx * off * sd;
           const rot = Math.atan2(hit.tz * sd, -hit.tx * sd);
+          const n = Math.round(range(storeys)) + row + (sd < 0 ? 1 : 0);
           if (free(x, z, w, d, rot)) {
-            const n = Math.round(range(storeys)) + row + (sd < 0 ? 1 : 0);
             houses.push({ at: [Math.round(x * 10) / 10, Math.round(z * 10) / 10], size: [Math.round(w * 10) / 10, Math.round(d * 10) / 10, Math.round(n * 3.2 * 10) / 10], rot: Math.round(rot * 1000) / 1000 });
           }
           u += w + range([0.3, 1.5]);

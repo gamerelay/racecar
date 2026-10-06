@@ -6,7 +6,8 @@
 import { describe, expect, test } from 'bun:test';
 import type { TrackLayout } from '../src/core/content';
 import { bakeTrack } from '../src/core/track/bake';
-import { newHit, projectGlobal } from '../src/core/track/query';
+import { newHit, offRoad, projectGlobal } from '../src/core/track/query';
+import { Ev } from '../src/core/events';
 import { validateLayout } from '../src/core/track/validate';
 import { newTrafficPose, Traffic } from '../src/core/world/traffic';
 import { setup } from '../src/dev/drive';
@@ -153,7 +154,7 @@ describe('rue Haute, the back street (the owner: "a second row of buildings and 
       if (Math.abs(hit.lateral) > 20) expect(hit.lateral).toBeLessThan(0);
       deepest = Math.max(deepest, -hit.lateral);
       if (i > 0) {
-        expect(Math.abs(haute.py[i] - haute.py[i - 1])).toBeLessThan(0.15);
+        expect(Math.abs(haute.py[i] - haute.py[i - 1])).toBeLessThan(0.1);
         expect(Math.abs(haute.py[i] - haute.py[i - 1]) / haute.step).toBeLessThan(0.09);
       }
     }
@@ -197,6 +198,79 @@ describe('rue Haute, the back street (the owner: "a second row of buildings and 
     }
     expect([...ways].sort()).toEqual([-1, 1]);
     expect(seen).toBeGreaterThan(1000);
+  });
+
+  test("a car on it that the game still has on the boulevard (over the hill onto it, never through a junction) meets its traffic, not through it", () => {
+    // (Rue Haute's middle is more than 90 m from its junctions, so a car that comes onto it across
+    // the hill is never moved onto it: its main distance there is the boulevard's beside it, up to
+    // 36 m from a traffic car's, which is its street's stretched onto the boulevard.)
+    const tr = new Traffic(track, 7);
+    const pose = newTrafficPose();
+    const hit = newHit();
+    let k = -1;
+    let t = 30;
+    for (; t < 200 && k < 0; t += 0.5)
+      for (let q = 0; q < tr.count && k < 0; q++) {
+        const r = tr.routes[tr.lane[q]]!;
+        if (!r.road || tr.lanes[tr.lane[q]].dir !== 1 || tr.visibility(q, t) < 1 || tr.visibility(q, t + 4) < 1) continue;
+        tr.poseAt(q, t + 3, pose);
+        projectGlobal(haute, pose.x, pose.z, hit);
+        if (hit.s > 150 && hit.s < 250) k = q;
+      }
+    expect(k).toBeGreaterThanOrEqual(0);
+    // Parked in its lane where it'll be in 3 s, on the boulevard by the game's reckoning.
+    const sim = setup(track, CLASSES, SURFACES, { s: 10 }, {}, { traffic: true, t, seed: 7 });
+    tr.poseAt(k, t + 3, pose);
+    projectGlobal(track.main, pose.x, pose.z, hit);
+    sim.placeCar(0, 0, hit.s, hit.lateral, 0);
+    const c = sim.cars;
+    c.x[0] = pose.x;
+    c.z[0] = pose.z;
+    c.y[0] = pose.y + 0.6;
+    c.h[0] = pose.h;
+    let hitBy = false;
+    let cursor = sim.events.head;
+    for (let n = 0; n < 60 * 5; n++) {
+      sim.step([]);
+      cursor = sim.events.read(cursor, (e) => {
+        if (e.car === 0 && (e.type === Ev.TrafficWreck || e.type === Ev.Wreck)) hitBy = true;
+      });
+      if (Math.hypot(c.vx[0], c.vz[0]) > 2) hitBy = true;
+    }
+    expect(c.spline[0]).not.toBe(haute.index);
+    expect(hitBy).toBe(true);
+  });
+
+  test("the AI reads its cars where they are (not, as a side street's on its way in, already on the boulevard)", () => {
+    const sim = setup(track, CLASSES, SURFACES, { road: 'rue-haute', s: 200 }, 'ai', { traffic: true, t: 60, seed: 7 });
+    let seen = 0;
+    for (let n = 0; n < 60 * 10; n++) {
+      sim.step([]);
+      const tr = sim.world.traffic;
+      for (let p = 0; p < tr.posed; p++) {
+        if (!tr.routes[tr.lane[tr.idx[p]]]!.road) continue;
+        seen++;
+        expect([tr.seenS[p], tr.seenLat[p]]).toEqual([tr.s[p], tr.lat[p]]);
+      }
+    }
+    expect(seen).toBeGreaterThan(100);
+  });
+
+  test('offRoad: across a road, and well past an open road\'s end, from its end (not across its last sample\'s line)', () => {
+    const rocks = track.splines.find((sp) => sp.id === 'rocks')!;
+    const hit = newHit();
+    const i = rocks.n - 1;
+    // Along the line its end points down, 3 m to one side: 20 m past, across it (a junction's mouth);
+    // 70 m past, from the end.
+    for (const [past, want] of [
+      [20, 3],
+      [70, Math.hypot(70, 3)],
+    ]) {
+      const x = rocks.px[i] + rocks.tx[i] * past - rocks.tz[i] * 3;
+      const z = rocks.pz[i] + rocks.tz[i] * past + rocks.tx[i] * 3;
+      projectGlobal(rocks, x, z, hit);
+      expect(offRoad(rocks, x, z, hit)).toBeCloseTo(want, 0);
+    }
   });
 
   test('the validator: a road lane runs along a side street, over a stretch of it, and nowhere else', () => {

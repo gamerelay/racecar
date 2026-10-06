@@ -8,7 +8,7 @@ and where things stand is [docs/HANDOFF.md](./docs/HANDOFF.md).
 
 - **Riviera's back streets.** A new street, rue Haute, climbs the hill behind the waterfront, with
   houses along both sides and traffic both ways; the town now carries on up the hill behind the
-  casino. Drive up it if you like: it's the long way round.
+  casino, and its houses are laid out afresh. Drive up it if you like: it's the long way round.
 
 - **Rivals heading for a shortcut keep their pace until they need to brake for it.** They used to
   slow down for it from 65 m out, and the pack behind piled into them: Riviera's first lap through
