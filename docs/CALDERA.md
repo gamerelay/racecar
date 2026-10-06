@@ -849,7 +849,9 @@ stream across a route): then the new floor is recorded, with why.
      air drag, rolling, a surface's drag), a branch starts at what the road it leaves allows and
      pays the braking down to it, and pays the pull back up on the road it rejoins. On Riviera, a
      hard coupe: the main road's streets it drove in a lap, 105.7 s by costs against 107.7 driven
-     (84.4 by the line); a cut from 150 m before to 250 m past it within 0.25 s; the Rocks'
+     (84.4 by the line); a cut from 150 m before to 250 m past it within 0.25 s (the Stairs'
+     second flight 0.6 s slow since the AI brakes for a fork in time: driven faster than its limit,
+     and its ends costed at it; HANDOFF's "AI at junctions"); the Rocks'
      saving 2.73 s against 2.72 driven. Off-road cuts read slower than they drive (Paradise's
      sandbar 1.8 s slower than the road by costs, 0.8 driven): grip and rough ground aren't in
      the line's corner speeds. `STOP_COST` went from

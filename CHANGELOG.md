@@ -6,6 +6,10 @@ and where things stand is [docs/HANDOFF.md](./docs/HANDOFF.md).
 
 ## Unreleased
 
+- **Rivals heading for a shortcut keep their pace until they need to brake for it.** They used to
+  slow down for it from 65 m out, and the pack behind piled into them: Riviera's first lap through
+  the Old Town is much cleaner.
+
 - **Riviera: the cove and the Sand.** Below the Descent, the road now drops to a beach cove and
   loops inland round a beach club in a chicane; the Sand cuts straight along the beach by the
   water, past the umbrellas, about 2 s quicker. The lap is 5.6 km.
