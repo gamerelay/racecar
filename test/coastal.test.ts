@@ -259,36 +259,35 @@ describe('coastal', () => {
       expect(boulders.some((b) => b.lateral < 0) && boulders.some((b) => b.lateral > 0)).toBe(true);
     });
 
-    test('taken at its limit, the Rocks save 2-4 s clean; flat out, the ridges throw a hard coupe into the boulders', () => {
+    test('taken at its limit, the Rocks save every class 2-4 s clean; flat out, the ridges throw most into the boulders', () => {
       const time = (t: typeof track, cls: string) => {
         const sim = setup(t, CLASSES, SURFACES, { s: 4560 }, 'ai', { kmh: 110, seed: 1, cls });
         let t0 = -1;
         let wrecked = false;
-        const used = new Set<string>();
+        let used = false;
         for (let k = 0; k < 60 * 30; k++) {
           sim.step([]);
-          used.add(t.splines[sim.cars.spline[0]].id);
+          if (t.splines[sim.cars.spline[0]].id === 'rocks') used = true;
           if (sim.cars.wreck[0]) wrecked = true;
           if (sim.cars.spline[0] === 0 && t0 < 0 && sim.cars.s[0] >= 4620) t0 = sim.time;
           if (sim.cars.spline[0] === 0 && sim.cars.s[0] >= 5100 && sim.cars.s[0] < 5150) return { t: sim.time - t0, used, wrecked };
         }
         throw new Error('never got there');
       };
-      const without = (keep: (b: NonNullable<typeof riviera.branches>[number]) => unknown) => bakeTrack({ ...riviera, branches: riviera.branches!.filter(keep) }, SURFACES);
-      const road = time(without((b) => b.id !== 'rocks'), 'coupe');
-      const cut = time(track, 'coupe');
-      expect(cut.used.has('rocks')).toBe(true);
-      expect(cut.wrecked).toBe(false);
-      expect(road.t - cut.t).toBeGreaterThan(2);
-      expect(road.t - cut.t).toBeLessThan(4);
+      const road = bakeTrack({ ...riviera, branches: riviera.branches!.filter((b) => b.id !== 'rocks') }, SURFACES);
       // (No limit: flat out over the ridges.)
       const flat = bakeTrack({ ...riviera, branches: riviera.branches!.map((b) => (b.id === 'rocks' ? { ...b, limit: undefined } : b)) }, SURFACES);
-      const flatOut = time(flat, 'coupe');
-      expect(flatOut.used.has('rocks')).toBe(true);
-      expect(flatOut.wrecked).toBe(true);
-      // (It still gets there, but the wreck ate most of what the Rocks saved.)
-      expect(road.t - flatOut.t).toBeLessThan(1);
-    }, 60_000);
+      let thrown = 0;
+      for (const c of CLASSES) {
+        const base = time(road, c.id).t;
+        const cut = time(track, c.id);
+        expect([c.id, cut.used, cut.wrecked]).toEqual([c.id, true, false]);
+        expect(base - cut.t).toBeGreaterThan(2);
+        expect(base - cut.t).toBeLessThan(4);
+        if (time(flat, c.id).wrecked) thrown++;
+      }
+      expect(thrown).toBeGreaterThanOrEqual(CLASSES.length / 2);
+    }, 120_000);
   });
 
   test('mostly blue skies: a shower one race in about seven (`rare`), against more than half on Paradise', () => {

@@ -229,7 +229,7 @@ identical through all five: each slice is the old behaviour on today's maps, wit
    Coastal's floor is 103.63 s. The AI follows a lane's street from where it starts (`st.s0`).
 3. **The Rocks on Coastal** (#128; COASTAL's "Step 7b"): Lighthouse Point loops round the cape's
    tip, and the Rocks cut its neck: a new `rock` surface, ridges, boulders either side, AI limit
-   36 m/s. At the limit they save 2.1–3.4 s; flat out, most hard cars wreck. Floor 105.65 s.
+   36 m/s. At the limit they save every class 2.3–3.5 s; flat out, five of eight wreck. Floor 105.58 s.
 4. Then CALDERA's step 6 leftovers when a map needs them: hazards, traffic and the AI's marks off
    main-road distances; the road-edge walls onto streets; step 7, a city map.
 
@@ -310,7 +310,7 @@ skies and a rare shower, the `coastal` track. Open it with `?mode=free&map=coast
 - Camera hints still wait for a spot that needs one; TECH_DEBT has the small things the reviews left.
 
 **Lap floors now** (the best AI lap, solo hard coupe): Downtown 57.9, Backroads 62.82, Avalanche
-93.07, Paradise 70.3, Paradise Open 66.35, Coastal 105.65 s (experimental). Paradise Open's field: 34 wrecks in 40 seeds.
+93.07, Paradise 70.3, Paradise Open 66.35, Coastal 105.58 s (experimental). Paradise Open's field: 34 wrecks in 40 seeds.
 
 **Working notes (2026-10-03 to 2026-10-05):**
 - The fingerprints cover a solo lap and a drive down each branch, not the field: an AI change can

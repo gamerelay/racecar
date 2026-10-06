@@ -7,7 +7,7 @@
 //   The Old Town       up the hill, a bend each way, to the top of the town
 //   The Mountain Road  on up in big S-bends to the top of the mountain, through a spur (a cutting; a rock tunnel later)
 //   The Descent        five long switchbacks down the mountainside over the sea, rows stacked down the slope
-//   Lighthouse Point   down the Corniche along the cliffs to a hairpin round the lighthouse, then down to the sea
+//   Lighthouse Point   down the Corniche along the cliffs, a loop round the cape and the lighthouse (the Rocks across it), down to the sea
 //   The Beach          along the sea wall, a chicane by the pool, and the Promenade back onto the Quay
 //
 // Experimental (map.json), so it's out of the lobby: open it from a link,
@@ -556,7 +556,7 @@ const STAIRS = { x: 425, x2: 460, arm: 470, width: 8, shoulder: 0.5, tread: 4, r
  * `ridge` m ridge of rock across it at each of `ridges` (taken too fast, they throw you), and
  * `limit` the fastest the AI takes it.
  */
-const ROCKS = { from: [-712, 187], to: [-652, 321], width: 7, shoulder: 0.5, lumps: 0.3, ridge: 1.2, ridges: [0.3, 0.5, 0.7], boulders: [5, 9], limit: 36, surface: 'rock' };
+const ROCKS = { from: [-712, 187], to: [-652, 321], width: 7, shoulder: 0.5, lumps: 0.3, ridge: 1.2, ridges: [0.3, 0.48, 0.62], boulders: [5, 9], limit: 36, surface: 'rock' };
 {
   const g = bakeTrack(layout, surfaces);
   const hit = newHit();
@@ -619,7 +619,8 @@ const ROCKS = { from: [-712, 187], to: [-652, 321], width: 7, shoulder: 0.5, lum
  */
 const TOWN = {
   stretches: [
-    [L - 495, 270, -1, 5],
+    // (From the shore road past the Rocks, so none stand by them.)
+    [sAt(-610, 300), 270, -1, 5],
     [OLD_TOWN_S[0], OLD_TOWN_S[1], 0, 3],
   ] as [number, number, number, number][],
   /** The first row's front this far past the road's verge (a pavement), each row this much further back. */

@@ -603,15 +603,18 @@ bottom of the map, the right side just water, not beach, with a retaining wall.
   by being much shorter. The loop had to grow, the Rocks' limit rise (at 24 m/s the AI never took
   them: its costs, the racing line without acceleration, make short straights look quicker than
   they are), and the risk is the boulders: ridges alone threw no one into anything.
-- **Numbers** (from the Corniche to past the loop, 10.4 to 11.6 s by the road, by class and
-  difficulty, across seeds):
-  - At the limit, the Rocks save 2.1 to 3.4 s, clean. A hard van wrecks even at the limit.
-  - Flat out (no limit), three of the four hard cars wreck in the boulders and save under 1 s;
-    the others save 3.5 to 4 s.
-  - The floor is 105.65 s (103.63). Field races (seeds 7 to 9): one wreck on the Rocks in three
-    races.
+- **Numbers** (from the Corniche to past the loop, 10.4 to 11.6 s by the road; hard AI, every
+  class):
+  - At the limit, the Rocks save 2.3 to 3.5 s, clean, for all eight classes. (A ridge on the
+    bend onto the shore road threw the van wide into the boulders every time, #128's review: the
+    last ridge is off the bend now.)
+  - Flat out (no limit), five of the eight wreck in the boulders and gain little (0.1 to 1.1 s);
+    the other three save about 3.5 s.
+  - The floor is 105.58 s (103.63). Field races (seeds 4, 7, 8): no wrecks.
   - Every other map's fingerprints are identical. Tests are in `test/coastal.test.ts` (the cut,
-    the surface, the boulders, 2 to 4 s at the limit, and the flat-out wreck).
+    the surface, the boulders, 2 to 4 s at the limit for every class, and most wreck flat out).
+  - The town's stretch along the waterfront starts on the shore road past the Rocks (`sAt`), not
+    at a fixed distance before the line, so no houses stand by the Rocks.
 - **Rough edges:** the risk depends on exactly where a car meets the ridges, so a change to the
   Rocks reshuffles who wrecks; re-measure after one. A wreck here respawns you quickly, so a
   fluffed run costs little more than the road.
