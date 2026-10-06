@@ -295,7 +295,7 @@ export function buildTrackVisual(track: Track, palette: Palette, seed: number): 
 
   // Landmarks, on the city's streets, the land or the open ground.
   const ground = track.ground;
-  const marks = buildLandmarks(track.layout, land ? land.height : ground ? (x, z) => ground.top(x, z) : () => groundY);
+  const marks = buildLandmarks(track.layout, land ? land.height : ground ? (x, z) => ground.top(x, z) : () => groundY, !!palette.day);
   extras.push(...marks.objects);
   const scenery = update;
   update = (t, dt, cam, live) => {

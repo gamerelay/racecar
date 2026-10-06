@@ -4,7 +4,8 @@
 // along the coast, leaning out to sea, and jungle trees inland, each drawn where its collider
 // stands. The rest of the island's dressing stands on open ground only once it's solid too.
 
-import { Color, CylinderGeometry, IcosahedronGeometry, type Object3D } from 'three';
+import { BufferGeometry, Color, ConeGeometry, CylinderGeometry, IcosahedronGeometry, type Object3D } from 'three';
+import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { Rng } from '../../../core/rng';
 import { coneHeight } from '../../../core/track/island';
 import type { Track } from '../../../core/track/bake';
@@ -31,13 +32,14 @@ export function buildOpenIsland(track: Track, palette: Palette, seed: number): O
   const time = { value: 0 };
   const objects: Object3D[] = [];
   const seaY = g.sea ?? 0;
-  if (g.sea !== undefined) objects.push(sea(seaY, g.x0, g.z0, g.nx, g.nz, g.h, time, palette.seaLight ?? 0xffffff, g.cell));
+  if (g.sea !== undefined) objects.push(sea(seaY, g.x0, g.z0, g.nx, g.nz, g.h, time, palette.seaLight ?? 0xffffff, g.cell, palette.sea));
   // (A shaft's lake fills it to its walls, and its plume rises from the lip, not down in it.)
   const v = def.volcano;
   if (v) objects.push(...crater(v, seaY + v.lava, time, rng, v.pit !== undefined ? v.crater : undefined, v.pit !== undefined ? seaY + coneHeight(v, v.x + v.crater, v.z) : undefined));
 
   const p = track.pines;
-  if (p && p.n) {
+  if (p && p.n && def.pines?.look === 'riviera') objects.push(...riviera(track, time, rng));
+  else if (p && p.n) {
     const palms: Part[] = [];
     const trunks: Part[] = [];
     const crowns: Part[] = [];
@@ -74,4 +76,85 @@ export function buildOpenIsland(track: Track, palette: Palette, seed: number): O
       time.value = t;
     },
   };
+}
+
+/** Umbrella (stone) pines' crowns, dark and a little olive; cypresses', darker still. */
+const UMBRELLA = [0x3f5f2e, 0x4b6b34, 0x36552c, 0x56733a];
+const CYPRESS = [0x2a4529, 0x30502c, 0x253d26];
+/** Holm oaks' crowns: dark, dusty evergreen. */
+const OAK = [0x3d5230, 0x465a34, 0x34492b, 0x50643a];
+/** Inland, these shares of the trees are cypresses and holm oaks (the rest umbrella pines). */
+const CYPRESS_SHARE = 0.2;
+const OAK_SHARE = 0.4;
+
+/**
+ * A Riviera's trees (PinesDef.look `riviera`), each where its collider stands: along the coast,
+ * umbrella pines leaning out to sea on bare trunks; inland, umbrella pines, round holm oaks and
+ * tall, dark cypresses. (Umbrella pines alone on the open hills read as a savannah's acacias.)
+ */
+function riviera(track: Track, time: { value: number }, rng: Rng): Object3D[] {
+  const g = track.ground!;
+  const p = track.pines!;
+  const pick = <T>(list: readonly T[]) => list[Math.floor(rng.next() * list.length)];
+  const trunks: Part[] = [];
+  const crowns: Part[] = [];
+  const cypresses: Part[] = [];
+  const oaks: Part[] = [];
+  for (let k = 0; k < p.n; k++) {
+    const x = p.x[k];
+    const z = p.z[k];
+    const y = p.y[k] - 0.3;
+    const h = p.h[k];
+    const r = p.kind[k] === TREE_PALM ? 1 : rng.next();
+    if (r < CYPRESS_SHARE) {
+      const w = h * rng.range(0.9, 1.3);
+      cypresses.push({ x, y, z, yaw: rng.range(0, 6), sx: w, sy: h * rng.range(1.0, 1.25), sz: w, color: pick(CYPRESS) });
+      continue;
+    }
+    if (r < CYPRESS_SHARE + OAK_SHARE) {
+      // A holm oak: a short trunk under a round, full crown, as tall as it's wide or near it.
+      const sc = h * rng.range(0.6, 0.75);
+      trunks.push({ x, y, z, yaw: 0, sx: 1.5, sy: sc * 0.45, sz: 1.5, color: 0x5e4a3a });
+      oaks.push({ x, y: y + sc * 0.62, z, yaw: rng.range(0, 6), sx: sc * rng.range(0.85, 1.05), sy: sc * rng.range(0.6, 0.75), sz: sc * rng.range(0.85, 1.05), color: pick(OAK) });
+      continue;
+    }
+    // Leaning: out to sea by the coast (down the coast's distance), a little any way inland.
+    let dx = 0;
+    let dz = 0;
+    let lean = rng.range(0, 0.12);
+    if (p.kind[k] === TREE_PALM) {
+      dx = g.coast(x - 2, z) - g.coast(x + 2, z);
+      dz = g.coast(x, z - 2) - g.coast(x, z + 2);
+      lean = rng.range(0.15, 0.4);
+    }
+    const yaw = dx || dz ? Math.atan2(dx, dz) + rng.range(-0.3, 0.3) : rng.range(0, 6);
+    const tall = h * rng.range(0.5, 0.62);
+    trunks.push({ x, y, z, yaw, pitch: lean, sx: 1.3, sy: tall, sz: 1.3, color: 0x7a5a42 });
+    const reach = Math.sin(lean) * tall;
+    const w = h * rng.range(0.5, 0.62);
+    crowns.push({ x: x + Math.sin(yaw) * reach, y: y + Math.cos(lean) * tall - 0.4, z: z + Math.cos(yaw) * reach, yaw: rng.range(0, 6), sx: w, sy: w * rng.range(0.5, 0.6), sz: w * rng.range(0.85, 1.05), color: pick(UMBRELLA) });
+  }
+  const out: Object3D[] = [];
+  if (trunks.length) {
+    out.push(instanced(new CylinderGeometry(0.2, 0.32, 1, 6).translate(0, 0.5, 0), toon(), trunks));
+    out.push(instanced(umbrellaCrown(), swaying(time, 0.01, 1), crowns));
+  }
+  if (oaks.length) out.push(instanced(faceted(new IcosahedronGeometry(0.5, 1)), swaying(time, 0.01, 0.5), oaks));
+  if (cypresses.length) out.push(instanced(cypressGeometry(), swaying(time, 0.02, 0), cypresses));
+  return out;
+}
+
+/** An umbrella pine's crown, 1 m wide and flat-topped: a broad dome of a few clumps, its underside flat. */
+function umbrellaCrown(): BufferGeometry {
+  const parts = [faceted(new IcosahedronGeometry(0.42, 1)).translate(0, 0.12, 0)];
+  for (let k = 0; k < 6; k++) {
+    const a = (k / 6) * Math.PI * 2 + 0.4;
+    parts.push(faceted(new IcosahedronGeometry(0.26, 0)).translate(Math.cos(a) * 0.34, -0.05 + 0.08 * (k % 2), Math.sin(a) * 0.34));
+  }
+  return mergeGeometries(parts);
+}
+
+/** A cypress, 1 m tall and a fifth of that wide: a slim dark flame, fullest a quarter of the way up. */
+function cypressGeometry(): BufferGeometry {
+  return mergeGeometries([faceted(new ConeGeometry(0.1, 0.78, 7).translate(0, 0.58, 0)), faceted(new IcosahedronGeometry(0.1, 0)).scale(1, 1.6, 1).translate(0, 0.2, 0)]);
 }

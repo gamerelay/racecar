@@ -11,6 +11,7 @@
 //   --cam chase|high|side|top|front, or by hand: --back m --up m --side m --ahead m --fov deg
 //   --w px --h px  --out file (default telemetry/shots/<map>-<s>.png)  --port 5178
 //   --t s  race time: the world then (a drawbridge up, its seed 7's)  --traffic  with its traffic (seed 7's)
+//   --palette name  another palette than the map's (its sunset, say)
 
 import { spawnSync } from 'node:child_process';
 import { join } from 'node:path';
@@ -43,6 +44,7 @@ const outFlag = a.str('out');
 const port = a.str('port') ?? '5178';
 const t = a.num('t');
 const traffic = a.has('traffic');
+const palette = a.str('palette');
 const key = a.rest()[0];
 if (!key || !s) {
   console.error('usage: bun tools/shot.ts <map/layout> --s m[,m…] [--road id] [--lat m] [--cam chase|high|side|top|front] [--out file] [--port 5178]');
@@ -55,6 +57,7 @@ for (const [k, v] of Object.entries(cam)) q.set(k, String(v));
 for (const [k, v] of Object.entries(size)) if (v !== undefined) q.set(k, String(v));
 if (t !== undefined) q.set('t', String(t));
 if (traffic) q.set('traffic', '1');
+if (palette) q.set('palette', palette);
 const out = outFlag ?? join('telemetry', 'shots', `${key.replace('/', '-')}-${s.split(',')[0]}.png`);
 const r = spawnSync('bun', [join(import.meta.dir, 'poster.ts'), '--url', `poster.html?${q}`, '--out', out, '--port', port], { stdio: ['ignore', 'pipe', 'inherit'], encoding: 'utf8' });
 const wrote = r.stdout.includes(`wrote ${out}`);

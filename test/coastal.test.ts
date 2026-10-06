@@ -17,6 +17,10 @@ import { neutralControls } from '../src/core/controls';
 import { validateLayout } from '../src/core/track/validate';
 import { ALL_MAPS } from '../tools/content';
 import { CLASSES, SURFACES, layout } from './helpers';
+import { InstancedMesh, Matrix4, Mesh, MeshBasicMaterial } from 'three';
+import { buildLandmarks } from '../src/render/skins/greybox/landmarks';
+import { buildOpenIsland } from '../src/render/skins/greybox/openIsland';
+import { PALETTES } from '../src/render/skins/greybox/palettes';
 
 const riviera = layout('coastal/riviera');
 const track = bakeTrack(riviera, SURFACES);
@@ -657,5 +661,44 @@ describe('coastal', () => {
 
   test('its music: the coastal track, then the ones for any map', () => {
     expect(playlistFor('coastal', false)).toEqual(['coastal', ...ANY_MAP]);
+  });
+});
+
+describe("coastal's look (COASTAL's step 8)", () => {
+  test('its own palettes: a deep blue sea, by day and at sunset', () => {
+    expect(map).toMatchObject({ palette: 'riviera', sunset: 'riviera-sunset' });
+    for (const p of [PALETTES.riviera, PALETTES['riviera-sunset']]) expect(p.sea).toBeDefined();
+    expect(PALETTES.tropic.sea).toBeUndefined();
+  });
+
+  test('its trees are umbrella pines, holm oaks and cypresses, no palms, each drawn over its collider', () => {
+    const drawn = buildOpenIsland(track, PALETTES.riviera, 1).objects.filter((o): o is InstancedMesh => o instanceof InstancedMesh);
+    // Every tree has a trunk or is a cypress, and every trunk has a crown.
+    const counts = drawn.map((m) => m.count);
+    expect(counts).toHaveLength(4);
+    const [trunks, pines, oaks, cypresses] = counts;
+    expect(pines + oaks).toBe(trunks);
+    expect(trunks + cypresses).toBe(track.pines!.n);
+    expect(Math.min(pines, oaks, cypresses)).toBeGreaterThan(100);
+    // Each trunk stands where a tree's collider does.
+    const m = new Matrix4();
+    const at = new Set(Array.from({ length: track.pines!.n }, (_, k) => `${track.pines!.x[k].toFixed(2)},${track.pines!.z[k].toFixed(2)}`));
+    for (let k = 0; k < trunks; k++) {
+      drawn[0].getMatrixAt(k, m);
+      expect(at.has(`${m.elements[12].toFixed(2)},${m.elements[14].toFixed(2)}`)).toBe(true);
+    }
+  });
+
+  test("the lighthouse's beam sweeps at sunset, not by day", () => {
+    // (Its lamp's glow is drawn on a canvas: a stand-in for the page's.)
+    const ctx = { createRadialGradient: () => ({ addColorStop() {} }), fillRect() {} };
+    (globalThis as { document?: unknown }).document ??= { createElement: () => ({ getContext: () => ctx }) };
+    const beam = (day: boolean) => {
+      // (The lighthouse alone: the fountain's glow needs a page.)
+      const lh = buildLandmarks({ ...riviera, landmarks: riviera.landmarks!.filter((m) => m.kind === 'lighthouse') }, () => 0, day).objects[0];
+      return lh.children.filter((c) => c instanceof Mesh && c.material instanceof MeshBasicMaterial).map((c) => c.visible);
+    };
+    expect(beam(false)).toEqual([true]);
+    expect(beam(true)).toEqual([false]);
   });
 });

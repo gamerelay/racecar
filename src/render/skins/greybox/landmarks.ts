@@ -89,10 +89,9 @@ export function landmarkSea(layout: TrackLayout): number | undefined {
 
 /**
  * Every landmark in the layout, standing on `floor` (the ground's height at x, z). `time` drives
- * the ones animated in their shaders.
+ * the ones animated in their shaders; by `day` (the palette's), a lighthouse's beam is off.
  */
-
-export function buildLandmarks(layout: TrackLayout, floor: (x: number, z: number) => number): Landmarks {
+export function buildLandmarks(layout: TrackLayout, floor: (x: number, z: number) => number, day = false): Landmarks {
   const objects: Object3D[] = [];
   const time = { value: 0 };
   const updates: ((time: number, live?: SceneLive) => void)[] = [(t) => (time.value = t)];
@@ -105,7 +104,7 @@ export function buildLandmarks(layout: TrackLayout, floor: (x: number, z: number
     const [cs, sn] = [Math.cos(m.rot ?? 0), Math.sin(m.rot ?? 0)];
     const ground = (lx: number, lz: number) => (floor(m.at[0] + (lx * cs + lz * sn) * sc, m.at[1] + (-lx * sn + lz * cs) * sc) - base) / sc;
     const seaY = landmarkSea(layout);
-    const b = build(m, { time, ground, sea: seaY === undefined ? null : (seaY - base) / sc });
+    const b = build(m, { time, ground, sea: seaY === undefined ? null : (seaY - base) / sc, day });
     b.root.position.set(m.at[0], floor(m.at[0], m.at[1]), m.at[1]);
     b.root.name = `landmark:${m.kind}`;
     b.root.rotation.y = m.rot ?? 0;
@@ -518,6 +517,8 @@ interface Ctx {
   ground(lx: number, lz: number): number;
   /** The sea's surface, relative to the landmark's middle (null: no sea). */
   sea: number | null;
+  /** Broad daylight (Palette.day): a lighthouse's beam doesn't show. */
+  day: boolean;
 }
 
 // ---- Backroads ----
@@ -1060,9 +1061,10 @@ function seaplanes(m: LandmarkDef, c: Ctx): Built {
 /**
  * The lighthouse on Lighthouse Point (docs/COASTAL.md): a tapering tower in white and red bands on
  * a stone base, a black gallery, the lantern and a red cap, `h` m tall (params.h, default 26), and
- * a slow sweeping beam over the sea, seen from the Descent's switchbacks above.
+ * a slow sweeping beam over the sea, seen from the Descent's switchbacks above (not by day: at
+ * noon it was a pale cone across the sky).
  */
-function lighthouse(m: LandmarkDef): Built {
+function lighthouse(m: LandmarkDef, day: boolean): Built {
   const root = new Group();
   const H = m.params?.h ?? 26;
   root.add(cyl(4.6, 5.2, 3, 0xb9ad94, 1.5, 10));
@@ -1081,6 +1083,7 @@ function lighthouse(m: LandmarkDef): Built {
   const cone = new ConeGeometry(10, 220, 16, 1, true).translate(0, -110, 0).rotateX(Math.PI / 2);
   const beam = new Mesh(mergeGeometries([cone, cone.clone().rotateY(Math.PI)])!, beamMat);
   beam.position.y = H + 1.7;
+  beam.visible = !day;
   root.add(beam);
   return {
     root,
@@ -1161,6 +1164,6 @@ const BUILDERS: Record<string, (m: LandmarkDef, ctx: Ctx) => Built> = {
   'surf-shack': (_m, c) => surfShack(c),
   whale: (m, c) => whale(m, c),
   seaplanes: (m, c) => seaplanes(m, c),
-  lighthouse: (m) => lighthouse(m),
+  lighthouse: (m, c) => lighthouse(m, c.day),
   fort: (m, c) => fort(m, c),
 };

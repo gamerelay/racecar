@@ -18,7 +18,6 @@
 import { mkdirSync, writeFileSync } from 'node:fs';
 import type { HouseDef, TrackLayout, TrackPoint } from '../src/core/content';
 import { newContact, obbOverlap } from '../src/core/collide/obb';
-import { smoothstep } from '../src/core/math';
 import { Rng } from '../src/core/rng';
 import { bakeTrack, COLUMN } from '../src/core/track/bake';
 import { hillHeight } from '../src/core/track/features/hills';
@@ -365,7 +364,7 @@ layout.ground = {
     // The cove's beach, from the road out to the sea (and inside the chicane, round the club).
     { kind: 'beach', s: [sAt(-735, -30), sAt(POINT.in[0], POINT.in[1])], side: 'right' },
   ],
-  pines: { kind: 'tropic', seed: 41, spacing: 9, clear: 8, thicken: 30, density: 0.25, glade: 80 },
+  pines: { kind: 'tropic', look: 'riviera', seed: 41, spacing: 9, clear: 8, thicken: 30, density: 0.25, glade: 80 },
 };
 
 /**
@@ -815,7 +814,7 @@ const HOTEL = { w: 34, d: 16, high: 19.2, gap: 2, porch: 26, under: 6, columns: 
   // The Stairs' rows first, then each stretch from a stream of its own (the waterfront's houses
   // moving, as the lap grew by the cove, re-rolled the Old Town's after them).
   let rng = Rng.stream(7, 'riviera-town');
-  const range = ([lo, hi]: number[]) => lo + (hi - lo) * rng.next();
+  const range = ([lo, hi]: readonly number[]) => lo + (hi - lo) * rng.next();
   const hit = newHit();
   const houses: HouseDef[] = [];
   const contact = newContact();
@@ -1036,6 +1035,6 @@ mkdirSync(DIR, { recursive: true });
 // (racer.ts), so one added among them re-rolled the rest (the Stairs went untaken).
 layout.branches!.push(...layout.branches!.splice(layout.branches!.findIndex((b) => b.id === 'rue-haute'), 1));
 writeFileSync(`${DIR}/riviera.track.json`, `${JSON.stringify(layout)}\n`);
-writeFileSync(`${DIR}/map.json`, `${JSON.stringify({ id: 'coastal', name: 'Riviera', layouts: ['riviera'], palette: 'tropic', sunset: 'sunset', weather: ['clear', 'rain', 'shower', 'rare'] })}\n`);
+writeFileSync(`${DIR}/map.json`, `${JSON.stringify({ id: 'coastal', name: 'Riviera', layouts: ['riviera'], palette: 'riviera', sunset: 'riviera-sunset', weather: ['clear', 'rain', 'shower', 'rare'] })}\n`);
 const track = bakeTrack(layout, surfaces);
 console.log(`coastal/riviera: ${Math.round(track.main.length)} m, ${pts.length} points, ground ${track.ground!.nx}×${track.ground!.nz}, bridge deck ${deck.join('–')} m (the drawbridge ${mid - width / 2}–${mid + width / 2} m), the Rock Tunnel ${tunnel.join('–')} m, the Basin Road ${Math.round(track.splines[1].length)} m (${layout.branches![0].from}–${layout.branches![0].to} m), ${layout.houses!.length} houses`);
