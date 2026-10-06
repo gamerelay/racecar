@@ -16,7 +16,7 @@
 //   bun tools/gen-coastal.ts
 
 import { mkdirSync, writeFileSync } from 'node:fs';
-import type { HouseDef, TrackLayout, TrackPoint } from '../src/core/content';
+import type { HouseDef, LandmarkDef, TrackLayout, TrackPoint } from '../src/core/content';
 import { newContact, obbOverlap } from '../src/core/collide/obb';
 import { Rng } from '../src/core/rng';
 import { bakeTrack, COLUMN } from '../src/core/track/bake';
@@ -955,6 +955,26 @@ const HOTEL = { w: 34, d: 16, high: 19.2, gap: 2, porch: 26, under: 6, columns: 
  * "a little empty up there"; Villefranche's Fort du Mont Alban), at the highest ground near `near`.
  */
 const LANDMARKS = { light: { h: 30, scale: 1.5 }, fort: { near: [-520, -700], look: 60, size: 56 } };
+/**
+ * The marina (COASTAL's look: yachts in the harbour): pontoons out from the harbour's west and east
+ * sides at these z, each `length` m out from `back` m inside the waterline, with boats along both
+ * sides; the channel between them clear for the drawbridge's boat.
+ */
+const MARINA = { z: [222, 276], length: 46, back: 5 };
+
+function pontoons(ground: ReturnType<typeof bakeTrack>['ground'] & {}): LandmarkDef[] {
+  const out: LandmarkDef[] = [];
+  let seed = 1;
+  for (const z of MARINA.z)
+    for (const side of [-1, 1]) {
+      // From the harbour's side in to its waterline, then back onto the quay a little.
+      let x = side < 0 ? HARBOUR.west - 10 : HARBOUR.east + 10;
+      while (ground.height(x, z) > SEA + 0.2) x -= side;
+      x += side * MARINA.back;
+      out.push({ kind: 'pontoon', at: [Math.round(x * 10) / 10, z], rot: side < 0 ? Math.PI / 2 : -Math.PI / 2, r: 0, params: { length: MARINA.length, seed: seed++ } });
+    }
+  return out;
+}
 {
   const ground = bakeTrack(layout, surfaces).ground!;
   let top = [LANDMARKS.fort.near[0], LANDMARKS.fort.near[1]];
@@ -967,6 +987,7 @@ const LANDMARKS = { light: { h: 30, scale: 1.5 }, fort: { near: [-520, -700], lo
     ...(layout.landmarks ?? []),
     { kind: 'lighthouse', at: [POINT.light[0], POINT.light[1]], r: 10, params: { h: LANDMARKS.light.h, scale: LANDMARKS.light.scale } },
     { kind: 'fort', at: [top[0], top[1]], r: LANDMARKS.fort.size / 2 + 20, params: { size: LANDMARKS.fort.size } },
+    ...pontoons(ground),
   ];
 }
 
