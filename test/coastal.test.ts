@@ -11,7 +11,8 @@ import { newCast } from '../src/core/track/ground';
 import { newHit, projectGlobal, sampleAt } from '../src/core/track/query';
 import { planWeather } from '../src/core/world/weather';
 import { run, setup } from '../src/dev/drive';
-import { racingLine } from '../src/core/ai/racer';
+import { driveRacer, racingLine } from '../src/core/ai/racer';
+import { neutralControls } from '../src/core/controls';
 import { validateLayout } from '../src/core/track/validate';
 import { ALL_MAPS } from '../tools/content';
 import { CLASSES, SURFACES, layout } from './helpers';
@@ -83,12 +84,17 @@ describe('coastal', () => {
     const w = Math.round(10 / m.step);
     let corners = 0;
     let open = 0;
-    // From the top of the Old Town to the lighthouse (roughly: the generator's RAILS).
-    for (let i = Math.round(1050 / m.step); i < Math.round(4400 / m.step); i++) {
+    // From the Old Town's first row to the lighthouse (the generator's RAILS: a point on each).
+    const hit = newHit();
+    const sAt = (x: number, z: number) => (projectGlobal(m, x, z, hit), hit.s);
+    for (let i = Math.round((sAt(405, 258) + 20) / m.step); i < Math.round((sAt(-755, 255) - 20) / m.step); i++) {
       const turn = (m.tx[i + w] - m.tx[i - w]) * -m.tz[i] + (m.tz[i + w] - m.tz[i - w]) * m.tx[i];
       const radius = (2 * w * m.step) / Math.max(1e-6, Math.abs(turn));
-      // (Not in the tunnel: walls both sides.)
+      // (Not in the tunnel: walls both sides. Nor where a branch forks off or comes back: the bake
+      // opens the wall there, as the Stairs' arm does on the way into the second hairpin.)
       if (g.pieces.floors(0)?.[i]) continue;
+      const at = i * m.step;
+      if (track.splines.some((b) => (b.fromRoad === 0 && at > b.fromS - 5 && at < b.fromS + 70) || (b.toRoad === 0 && at > b.toS - 70 && at < b.toS + 5))) continue;
       if (radius < 80) {
         corners++;
         // Outside: turning right, the left.
@@ -190,6 +196,21 @@ describe('coastal', () => {
       }
       const bad = { ...riviera, branches: riviera.branches!.map((b) => (b.id === 'stairs' ? { ...b, limit: 0 } : b)) };
       expect(validateLayout(bad, SURFACES, CLASSES).some((p) => p.level === 'error' && p.message.includes("stairs's limit"))).toBe(true);
+    });
+
+    test("read as on the arm just past its fork (as the fork flickers), the AI still follows the flight it chose from where it is on it", () => {
+      for (const seed of [1, 2, 4]) {
+        const sim = setup(track, CLASSES, SURFACES, { road: 'stairs', s: arm.fromS + 4 }, 'ai', { kmh: 80, seed });
+        const on = driveRacer(sim, 0, sim.racers[0]!, neutralControls()).steer;
+        const hit = newHit();
+        projectGlobal(arm, sim.cars.x[0], sim.cars.z[0], hit);
+        sim.cars.spline[0] = arm.index;
+        sim.cars.s[0] = hit.s;
+        sim.cars.lateral[0] = hit.lateral;
+        const read = driveRacer(sim, 0, sim.racers[0]!, neutralControls()).steer;
+        // (Following the flight from its start, it aimed 20 m back down it: the other way.)
+        expect(Math.abs(read - on)).toBeLessThan(0.15);
+      }
     });
 
     test('taken clean, both flights save 2-4 s on the road through the hairpins', () => {

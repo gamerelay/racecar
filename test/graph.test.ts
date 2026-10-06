@@ -44,6 +44,8 @@ describe('the road graph', () => {
         // (Cut where a lane leaves or rejoins it: the Stairs, where their arm forks off.)
         const lanes = new Set(t.splines.flatMap((o) => [o.fromRoad === sp.index ? o.fromS : -1, o.toRoad === sp.index ? o.toS : -1]).filter((x) => x >= 0));
         expect([key, sp.id, mine.length]).toEqual([key, sp.id, 1 + lanes.size]);
+        // (End to end: each piece from where the last stopped, at the same node.)
+        for (let j = 1; j < mine.length; j++) expect([mine[j].s0, mine[j].from]).toEqual([mine[j - 1].s1, mine[j - 1].to]);
         const st = { ...mine[0], to: mine[mine.length - 1].to, s1: mine[mine.length - 1].s1 };
         expect([st.s0, st.s1]).toEqual([0, sp.length]);
         for (const [n, s] of [
@@ -164,7 +166,13 @@ describe('the road graph', () => {
       // metre two ends merged into one node can be apart: the Stairs' crossroads); the main road onto it, 1.
       for (const sp of t.splines.slice(1)) {
         if (sp.fromRoad !== 0 || sp.toRoad !== 0) continue;
-        for (const l of g.links[sp.index]) if (l.other === 0) expect(Math.abs(l.scale - (((sp.mainTo - sp.mainFrom) % t.main.length) + t.main.length) % t.main.length / sp.length)).toBeLessThan(1 / sp.length);
+        const want = ((((sp.mainTo - sp.mainFrom) % t.main.length) + t.main.length) % t.main.length) / sp.length;
+        // (Exact, but where an end's node stands for another branch's end too.)
+        const merged = t.graph.streets.filter((st) => st.spline === sp.index).some((st) => [st.from, st.to].some((n) => [...g.nodes[n].out, ...g.nodes[n].in].some((k) => g.streets[k].spline > 0 && g.streets[k].spline !== sp.index && t.splines[g.streets[k].spline].fromRoad === 0 && t.splines[g.streets[k].spline].toRoad === 0)));
+        for (const l of g.links[sp.index]) if (l.other === 0) {
+          if (merged) expect(Math.abs(l.scale - want)).toBeLessThan(1 / sp.length);
+          else expect(l.scale).toBeCloseTo(want, 9);
+        }
         for (const l of g.links[0]) expect(l.scale).toBe(1);
       }
     }
@@ -239,7 +247,8 @@ describe('progress along the route (6c)', () => {
         // node standing for two branches' ends, as far off as they were apart: under a metre.)
         const cut = t.splines.some((o) => o.index > 0 && (o.fromRoad === sp.index || o.toRoad === sp.index) && sp.index > 0);
         const ends = t.graph.streets.filter((st) => st.spline === sp.index).flatMap((st) => [st.from, st.to]);
-        const merged = sp.index > 0 && ends.some((n) => [...t.graph.nodes[n].out, ...t.graph.nodes[n].in].filter((k) => t.graph.streets[k].spline > 0).length > 1 && !cut);
+        // (A lane's fork or rejoin on this road is a cut, not a merge: only another branch ending there.)
+        const merged = sp.index > 0 && ends.some((n) => [...t.graph.nodes[n].out, ...t.graph.nodes[n].in].some((k) => { const o = t.splines[t.graph.streets[k].spline]; return o.index > 0 && o.index !== sp.index && o.fromRoad !== sp.index && o.toRoad !== sp.index && sp.fromRoad !== o.index && sp.toRoad !== o.index; }));
         for (let s = 0; s <= sp.length; s += 3.7) {
           const want = mainDistance(t, sp.index, s) - start;
           if (merged) expect(Math.abs(t.graph.along(sp.index, s) - want)).toBeLessThanOrEqual(1);

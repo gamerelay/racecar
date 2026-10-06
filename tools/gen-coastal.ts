@@ -474,7 +474,7 @@ const STREET = { depth: 32, width: 8, shoulder: 1.5, speed: 14, density: 8 };
  * smooth them away), on stone that grips less than the road. Each flight runs up at `x` (the first)
  * and `x2` (the second); the arm comes out on the second row at `arm`.
  */
-const STAIRS = { x: 425, x2: 460, arm: 470, width: 6, shoulder: 0.5, tread: 4, riser: 0.25, surface: 'sidewalk', limit: 26 };
+const STAIRS = { x: 425, x2: 460, arm: 470, width: 8, shoulder: 0.5, tread: 4, riser: 0.25, surface: 'sidewalk', limit: 24 };
 {
   const g = bakeTrack(layout, surfaces);
   const hit = newHit();
@@ -482,7 +482,20 @@ const STAIRS = { x: 425, x2: 460, arm: 470, width: 6, shoulder: 0.5, tread: 4, r
   const [z1, z2, z3] = [o.z, o.z - o.step, o.z - 2 * o.step];
   const r1 = (v: number) => Math.round(v * 100) / 100;
   /** A flight's points along `line` (x, z), every metre, its heights from `y0` to `y1` in steps. */
-  const flight = (line: [number, number][], y0: number, y1: number): TrackPoint[] => {
+  const flight = (corners: [number, number][], y0: number, y1: number): TrackPoint[] => {
+    let line = corners;
+    // Its corners rounded off (Chaikin, as the Basin Road's, over pieces of 6 m at most so only
+    // the corners round and the flights between stay straight), then a point every metre.
+    line = line.slice(0, -1).flatMap(([ax, az], k) => {
+      const [bx, bz] = line[k + 1];
+      const n = Math.ceil(Math.hypot(bx - ax, bz - az) / 6);
+      return Array.from({ length: n }, (_, j) => [ax + ((bx - ax) * j) / n, az + ((bz - az) * j) / n] as [number, number]);
+    }).concat([line[line.length - 1]]);
+    for (let pass = 0; pass < 3; pass++)
+      line = [line[0], ...line.slice(0, -1).flatMap(([ax, az], k) => {
+        const [bx, bz] = line[k + 1];
+        return [[0.75 * ax + 0.25 * bx, 0.75 * az + 0.25 * bz], [0.25 * ax + 0.75 * bx, 0.25 * az + 0.75 * bz]] as [number, number][];
+      }), line[line.length - 1]];
     const along: [number, number][] = [];
     for (let k = 0; k + 1 < line.length; k++) {
       const [ax, az] = line[k];
@@ -507,15 +520,20 @@ const STAIRS = { x: 425, x2: 460, arm: 470, width: 6, shoulder: 0.5, tread: 4, r
   // (heading west).
   const d = sAt(STAIRS.x2 - 24, z3);
   const top: [number, number][] = [[STAIRS.x2 - 5, z2 - 6], [STAIRS.x2, z2 - 18], [STAIRS.x2, z3 + 18], [STAIRS.x2 - 12, z3 + 5]];
-  // The arm: from halfway up the first flight, across the slope onto the second row at `arm`.
-  const e = sAt(STAIRS.arm, z2);
-  const arm: [number, number][] = [[STAIRS.x + 10, (z1 + z2) / 2 - 4], [STAIRS.arm - 22, z2 + 12], [STAIRS.arm - 12, z2 + 5]];
-  const mid = (z1 - 18 - (z1 + z2) / 2) + 7 + 10; // (about halfway along the first flight, m)
   layout.branches!.push(
     { id: 'stairs', kind: 'shortcut', from: Math.round(a), to: Math.round(c), heights: 'own', limit: STAIRS.limit, points: flight(up, yAt(a), yAt(c)) },
     { id: 'stairs-top', kind: 'shortcut', from: Math.round(c) + 0.5, to: Math.round(d), heights: 'own', limit: STAIRS.limit, points: flight(top, yAt(c), yAt(d)) },
-    { id: 'stairs-arm', kind: 'shortcut', leaves: 'stairs', from: mid, to: Math.round(e), heights: 'own', limit: STAIRS.limit, points: flight(arm, yAt(a) + (yAt(c) - yAt(a)) / 2, yAt(e)) },
   );
+  // The arm: from halfway up the first flight (where it is between the rows, on the flight as
+  // baked), across the slope onto the second row at `arm`.
+  const stairs = bakeTrack(layout, surfaces).splines.find((x) => x.id === 'stairs')!;
+  const zf = (z1 + z2) / 2;
+  projectGlobal(stairs, STAIRS.x, zf, hit);
+  const mid = Math.round(hit.s);
+  sampleAt(stairs, mid, hit);
+  const e = sAt(STAIRS.arm, z2);
+  const arm: [number, number][] = [[STAIRS.x + 7, zf - 15], [STAIRS.arm - 22, z2 + 10], [STAIRS.arm - 12, z2 + 4]];
+  layout.branches!.push({ id: 'stairs-arm', kind: 'shortcut', leaves: 'stairs', from: mid, to: Math.round(e), heights: 'own', limit: STAIRS.limit, points: flight(arm, hit.cy, yAt(e)) });
   for (const id of ['stairs', 'stairs-top', 'stairs-arm']) layout.walls!.gaps!.push({ spline: id, s: [0, 1e4], side: 'both' });
 }
 
@@ -579,10 +597,13 @@ const TOWN = {
         const x = hit.cx - hit.tz * off * sd;
         const z = hit.cz + hit.tx * off * sd;
         const rot = Math.atan2(hit.tz * sd, -hit.tx * sd);
-        if (free(x, z, w, d, rot)) {
-          const storeys = Math.round(range(TOWN.storeys));
-          houses.push({ at: [Math.round(x * 10) / 10, Math.round(z * 10) / 10], size: [Math.round(w * 10) / 10, Math.round(d * 10) / 10, Math.round(storeys * 3.2 * 10) / 10], rot: Math.round(rot * 1000) / 1000 });
+        // (Where one doesn't fit, a metre on: packed in wherever there's room.)
+        if (!free(x, z, w, d, rot)) {
+          u += 1;
+          continue;
         }
+        const storeys = Math.round(range(TOWN.storeys));
+        houses.push({ at: [Math.round(x * 10) / 10, Math.round(z * 10) / 10], size: [Math.round(w * 10) / 10, Math.round(d * 10) / 10, Math.round(storeys * 3.2 * 10) / 10], rot: Math.round(rot * 1000) / 1000 });
         u += w + range([0.3, 1.5]);
       }
   for (const [from, to, side, rows] of TOWN.stretches) {

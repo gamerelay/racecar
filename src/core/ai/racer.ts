@@ -299,7 +299,8 @@ export function driveRacer(sim: SimState, i: number, d: RacerDriver, out: Contro
       const theirs = costs.time[stay] + costs.toGo[g.streets[stay].to] + (sp.index === 0 ? liftWait(sim, i, speed, d.difficulty, g.streets[stay]) : 0);
       if (mine < theirs) {
         sp = br;
-        s = -toFrom;
+        // (From where the street starts on its road: a lane's stretch of a branch starts partway.)
+        s = st.s0 - toFrom;
         break;
       }
     }
