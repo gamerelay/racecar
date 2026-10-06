@@ -472,18 +472,21 @@ function buildGates(track: Track): Mesh | null {
 const CAP = new Color('#f7fbff');
 const STONE = new Color('#4e5563');
 const STONE_DARK = new Color('#3b404b');
+/** A coast's rocks: warm, sun-baked stone all over (pale tops read as snow in the evening light). */
+const WARM = [new Color('#8c7b62'), new Color('#6f604d'), new Color('#4f4438')];
 
 /**
  * Rocks (solid props of kind `rock`): on the piste lumpy, snow-capped, half buried; on a coast
- * (Coastal's Rocks) capped in limestone. Each fills its
+ * (Coastal's Rocks, the Descent's hillside) warm stone, a shade lighter on top. Each fills its
  * collider (a box hx × hz across and along, 2 hy high): a little wider than the box's middle, as
  * high as its top, so what you see is what you hit.
  */
 function buildRocks(track: Track): Mesh | null {
   const rocks = track.props.filter((p) => p.kind === 'rock');
   if (!rocks.length) return null;
-  // (Snow on their tops on a mountain; on a coast, sun-bleached limestone: Coastal's Rocks.)
-  const top = track.layout.ground?.coast ? LIMESTONE : CAP;
+  // (Snow on their tops on a mountain; on a coast, warm stone: the owner, 2026-10-05, pale limestone
+  // tops looked "snow capped ... kinda weird in this hotter climate".)
+  const [top, side, under] = track.layout.ground?.coast ? WARM : [CAP, STONE, STONE_DARK];
   const pos: number[] = [];
   const col: number[] = [];
   const unit = new IcosahedronGeometry(1, 1);
@@ -511,14 +514,14 @@ function buildRocks(track: Track): Mesh | null {
         const az = z * p.hz * 1.2 * m;
         tri.push([p.x + ax * cos + az * sin, p.y - sink + p.hy * 0.5 + Math.max(-0.6, y) * p.hy * 1.5 * m, p.z - ax * sin + az * cos]);
       }
-      // Snow where it can sit (a face within about 35° of flat), rock on the steep sides, darker
+      // Snow (or a lighter stone) where it can sit (a face within about 35° of flat), rock on the steep sides, darker
       // where they overhang.
       const [a, b, d] = tri;
       const ux = b[0] - a[0], uy = b[1] - a[1], uz = b[2] - a[2];
       const vx = d[0] - a[0], vy = d[1] - a[1], vz = d[2] - a[2];
       const nx = uy * vz - uz * vy, ny = uz * vx - ux * vz, nz = ux * vy - uy * vx;
       const up = ny / (Math.hypot(nx, ny, nz) || 1);
-      c.copy(up > 0.82 ? top : up > -0.05 ? STONE : STONE_DARK);
+      c.copy(up > 0.82 ? top : up > -0.05 ? side : under);
       for (const [x, y, z] of tri) {
         pos.push(x, y, z);
         col.push(c.r, c.g, c.b);

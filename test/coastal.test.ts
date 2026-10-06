@@ -398,8 +398,8 @@ describe('coastal', () => {
     const rocks = track.props.filter((p) => p.kind === 'rock' && p.spline === 0);
 
     test('rocks and bushes over it, all well off every road (the AI never meets them) and off its steep banks', () => {
-      expect(rocks.length).toBeGreaterThan(100);
-      expect(bushes.length).toBeGreaterThan(200);
+      expect(rocks.length).toBeGreaterThan(60);
+      expect(bushes.length).toBeGreaterThan(100);
       const hit = newHit();
       for (const [x, z, r] of [...rocks.map((p) => [p.x, p.z, p.hx * 2]), ...bushes.map(([x, z]) => [x, z, 1.1])]) {
         for (const sp of track.splines) {
@@ -414,19 +414,25 @@ describe('coastal', () => {
       for (const p of rocks) expect(p.y).toBeCloseTo(g.top(p.x, p.z), 3);
     });
 
-    test('cutting straight down it from a row, you plough through bushes and can wreck on a rock', () => {
+    test('cutting straight down it from a row, half the time you meet a bush or a rock, and can wreck on one', () => {
       let smashed = 0;
       let wrecked = 0;
-      for (const x of [-580, -545, -500, -460]) {
+      let met = 0;
+      const lanes = Array.from({ length: 16 }, (_, k) => -600 + k * 10);
+      for (const x of lanes) {
         const sim = setup(track, CLASSES, SURFACES, { x, z: -432, heading: 0 }, { throttle: 0.6 }, { kmh: 90 });
         const d = run(sim, { throttle: 0.6 }, 5, 1 / 60);
         if (d.events.some((e) => e.type === 'smash')) smashed++;
         // (On a rock, not a tree: 'prop' is both. Where it wrecked, by the trace's row then, beside one.)
         const on = d.summary.wrecks.filter((w) => w.cause === 'prop').map((w) => d.rows.reduce((a, b) => (Math.abs(b.t - w.t) < Math.abs(a.t - w.t) ? b : a)));
         if (on.some((at) => rocks.some((p) => Math.hypot(p.x - at.x, p.z - at.z) < p.hx + 4))) wrecked++;
+        // (The hillside's own: a bush, or a rock. Trees by the next row's road are there without it.)
+        if (d.events.some((e) => e.type === 'smash') || on.some((at) => rocks.some((p) => Math.hypot(p.x - at.x, p.z - at.z) < p.hx + 4))) met++;
       }
-      expect(smashed).toBe(4);
-      expect(wrecked).toBeGreaterThanOrEqual(1);
+      // (Thinned since: the owner, 2026-10-05, "a little too littered". Still, half the cuts meet a bush or a rock.)
+      expect(smashed).toBeGreaterThanOrEqual(2);
+      expect(wrecked).toBeGreaterThanOrEqual(2);
+      expect(met).toBeGreaterThanOrEqual(lanes.length / 2);
     }, 60_000);
   });
 

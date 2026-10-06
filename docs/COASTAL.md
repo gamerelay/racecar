@@ -595,7 +595,7 @@ bottom of the map, the right side just water, not beach, with a retaining wall.
   their corners rounded.
   - A new surface, `rock` (grip 0.74, drag 0.12, grey).
   - Their own heights: rough, up to 0.3 m, and three 1.2 m ridges across them.
-  - Boulders (`rock` props, solid; drawn with limestone tops on a coast) line both sides close
+  - Boulders (`rock` props, solid; drawn in warm stone on a coast) line both sides close
     in, every 5 to 9 m. None stands within reach of another road: by their ends the Rocks run
     beside the main road, and boulders there wrecked the field.
   - `limit` 36 m/s (130 km/h) for the AI.
@@ -714,6 +714,16 @@ obstacles on the switchbacks' hillside, where you can jump off and cut down.
   tube's own road starts, 4 cm up, was there before.)
 - **Numbers:** the floor is 106.22 s; no wrecks in field races at seeds 4, 7 and 8. Every other
   map's fingerprints are identical.
+
+**Step 8f, a thinner hillside (2026-10-05):** the owner: the hillside looked "a little too littered",
+and the rocks' pale tops read as snow, "kinda weird in this hotter climate".
+- **About half as much:** 90 rocks and 150 bushes on the Descent's hillside (from 190 and 352).
+  Cutting straight down from a row still meets a bush or a rock on 8 lanes of 16 (12 counting
+  the trees), and wrecks on a rock on 5.
+- **Rocks on a coast** (the hillside's and the Rocks') are warm stone all over, a shade lighter on
+  their tops, not limestone-capped. The piste's keep their snow.
+- **Numbers:** the floor and the solo drive are unchanged (only the bake's fingerprint moved); no
+  wrecks in field races at seeds 4, 7 and 8. Every other map's fingerprints are identical.
 
 ## The owner's answers (2026-10-04)
 
