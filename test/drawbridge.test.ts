@@ -218,8 +218,9 @@ describe('drawbridge', () => {
   test('the Basin Road where waiting and going round are close: the AI takes the quicker (within half a second)', () => {
     // From 150 m before the turn at 120 km/h, starting as the bridge comes down: going round, or the
     // bridge (the Basin Road taken out: it can only wait). Swept, the choice flips about 13 s into
-    // the lift; stopping's cost (STOP_COST) set the flip (4.28 s with costs by the racing line alone
-    // went round at 13 s, 3 s slower than waiting).
+    // the lift. Guards STOP_COST against the driven costs: they read the Basin Road a second
+    // quicker than the racing line did, and at the old 4.28 s the AI went round at 13 s, 3 s
+    // slower than waiting.
     const basin = track.splines.find((sp) => sp.id === 'basin-road')!;
     const bridgeOnly = bakeTrack({ ...riviera, branches: riviera.branches!.filter((b) => b.id !== 'basin-road') }, SURFACES);
     const drive = (t: typeof track, at: number) => {

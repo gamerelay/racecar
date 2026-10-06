@@ -522,10 +522,12 @@ function liftWait(sim: SimState, i: number, speed: number, difficulty: number, s
 }
 
 /** Per track and class: each street's time as driven (s), and from each node the quickest on to the finish by the route's streets. */
-const costsByTrack = new WeakMap<Track, Map<string, WayCosts>>();
+const costsByTrack = new WeakMap<Track, WeakMap<CarClass, WayCosts>>();
 export interface WayCosts {
   time: Float64Array;
   toGo: Float64Array;
+  /** Each road's speed as the class drives it (m/s per sample; the racing line's with `aiCosts: 'line'`). */
+  speeds: Float64Array[];
 }
 
 /**
@@ -540,8 +542,8 @@ export interface WayCosts {
  */
 export function wayCosts(track: Track, cls: CarClass): WayCosts {
   let perTrack = costsByTrack.get(track);
-  if (!perTrack) costsByTrack.set(track, (perTrack = new Map()));
-  const had = perTrack.get(cls.id);
+  if (!perTrack) costsByTrack.set(track, (perTrack = new WeakMap()));
+  const had = perTrack.get(cls);
   if (had) return had;
   const g = track.graph;
   const byLine = track.layout.aiCosts === 'line';
@@ -556,7 +558,7 @@ export function wayCosts(track: Track, cls: CarClass): WayCosts {
     if (byLine || sp.index === 0) continue;
     // Braking down to it on the road it leaves; pulling back up on the road it rejoins.
     if (st.s0 === 0) time[st.index] += brakeInto(track.splines[sp.fromRoad], speeds[sp.fromRoad], sp.fromS, v[0]);
-    if (st.s1 >= sp.length - sp.step) time[st.index] += pullOut(track, track.splines[sp.toRoad], speeds[sp.toRoad], sp.toS, v[sp.n - 1], cls);
+    if (st.s1 === sp.length) time[st.index] += pullOut(track, track.splines[sp.toRoad], speeds[sp.toRoad], sp.toS, v[sp.n - 1], cls);
   }
   // Back from the finish over the route's streets (a lap's finish is its line, 0 there).
   const toGo = new Float64Array(g.nodes.length).fill(Infinity);
@@ -566,8 +568,8 @@ export function wayCosts(track: Track, cls: CarClass): WayCosts {
       const st = g.streets[k];
       if (st.from !== g.route.finish) toGo[st.from] = Math.min(toGo[st.from], time[k] + toGo[st.to]);
     }
-  const out = { time, toGo };
-  perTrack.set(cls.id, out);
+  const out = { time, toGo, speeds };
+  perTrack.set(cls, out);
   return out;
 }
 
@@ -590,13 +592,14 @@ function drivenSpeed(track: Track, sp: BakedSpline, cls: CarClass, before: Float
     for (let i = n - 2; i >= 0; i--) v[i] = Math.min(v[i], Math.sqrt(sq(v[i + 1]) + 2 * COST_BRAKE * sp.step));
     if (sp.closed) v[n - 1] = Math.min(v[n - 1], Math.sqrt(sq(v[0]) + 2 * COST_BRAKE * sp.step));
   }
-  // Pulling away: a run from a standstill; a lap round from where it's slowest; a branch from what
-  // the road it leaves allows where it leaves it (that road's done first: an earlier one).
-  if (sp.index === 0 && !sp.closed) v[0] = 0;
-  else if (sp.index > 0) v[0] = Math.min(v[0], lineAt(track.splines[sp.fromRoad], sp.fromS, before[sp.fromRoad]));
+  // Pulling away: a run from a standstill at its start; a lap round from where it's slowest; a
+  // branch from what the road it leaves allows where it leaves it (that road's done first: an
+  // earlier one).
   let i0 = 0;
+  if (sp.index === 0 && !sp.closed) v[(i0 = Math.min(n - 1, Math.round((track.layout.run?.start ?? 0) / sp.step)))] = 0;
+  else if (sp.index > 0) v[0] = Math.min(v[0], lineAt(track.splines[sp.fromRoad], sp.fromS, before[sp.fromRoad]));
   if (sp.closed) for (let i = 1; i < n; i++) if (v[i] < v[i0]) i0 = i;
-  for (let k = 1; k < n + (sp.closed ? 1 : 0); k++) {
+  for (let k = 1; k < (sp.closed ? n + 1 : n - i0); k++) {
     const i = (i0 + k) % n;
     const j = (i0 + k - 1) % n;
     v[i] = Math.min(v[i], Math.sqrt(Math.max(0, sq(v[j]) + 2 * pull(track, cls, v[j], sp.surface[j]) * sp.step)));

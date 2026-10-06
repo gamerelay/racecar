@@ -406,6 +406,36 @@ describe("the AI's costs as its class drives (wayCosts)", () => {
     expect(Math.abs(cost - driven) / driven).toBeLessThan(0.04);
   }, 60_000);
 
+  test("Riviera's cuts, from 150 m before the fork to 250 m past the rejoin: braking onto them and pulling back up counted, within 0.3 s of a hard AI's drive", () => {
+    const t = tracks.get('coastal/riviera')!;
+    const main = t.main;
+    for (const id of ['rocks', 'stairs-top'])
+      for (const cls of ['coupe', 'muscle', 'van']) {
+        const c = CLASSES.find((x) => x.id === cls)!;
+        const br = t.splines.find((sp) => sp.id === id)!;
+        const st = t.graph.streets.find((x) => x.road === id)!;
+        const { time, speeds } = wayCosts(t, c);
+        // The cut's charge on the roads either side of it (each about half a second).
+        let alone = 0;
+        for (let s = 0; s < br.length; s += br.step) alone += br.step / Math.max(1, speeds[br.index][Math.min(br.n - 1, Math.round(s / br.step))]);
+        expect([id, cls, time[st.index] - alone > 0.3]).toEqual([id, cls, true]);
+        let cost = time[st.index];
+        for (let s = br.fromS - 150; s < br.fromS; s += main.step) cost += main.step / speeds[0][Math.round(s / main.step)];
+        for (let s = br.toS; s < br.toS + 250; s += main.step) cost += main.step / speeds[0][Math.round(s / main.step)];
+        const sim = setup(t, CLASSES, SURFACES, { s: br.fromS - 350 }, 'ai', { kmh: 80, cls, seed: 3 });
+        let [a, b, took] = [-1, -1, false];
+        for (let k = 0; k < 60 * 60 && b < 0; k++) {
+          sim.step([]);
+          const [sp, s] = [sim.cars.spline[0], sim.cars.s[0]];
+          if (sp === br.index) took = true;
+          if (a < 0 && sp === 0 && s >= br.fromS - 150) a = sim.time;
+          if (took && sp === 0 && s >= br.toS + 250) b = sim.time;
+        }
+        expect([id, cls, took, sim.cars.wreck[0]]).toEqual([id, cls, true, 0]);
+        expect([id, cls, Math.abs(cost - (b - a)) < 0.3]).toEqual([id, cls, true]);
+      }
+  }, 60_000);
+
   test("`aiCosts: 'line'` (Paradise, Backroads): the racing line alone, so their rivals still take a shortcut slower than the road", () => {
     // Paradise's sandbar: slower than the road as a coupe drives it (0.76 s, measured), quicker by the line.
     const v = layout('paradise/island');
@@ -419,6 +449,8 @@ describe("the AI's costs as its class drives (wayCosts)", () => {
     };
     expect(way(tracks.get('paradise/island')!)).toBeLessThan(0);
     expect(way(bakeTrack({ ...v, aiCosts: undefined }, SURFACES))).toBeGreaterThan(0.5);
+    // Anything but 'line' is a typo, not driven costs.
+    expect(validateLayout({ ...v, aiCosts: 'Line' as 'line' }, SURFACES, CLASSES).some((p) => p.level === 'error' && p.message.startsWith('aiCosts'))).toBe(true);
   });
 });
 

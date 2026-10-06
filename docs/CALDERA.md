@@ -847,13 +847,18 @@ stream across a route): then the new floor is recorded, with why.
      short straights read as near free. Now each road's line is capped at the class's top speed,
      braked for and pulled away from with the sim's own pull (physics.ts: less toward the top,
      air drag, rolling, a surface's drag), a branch starts at what the road it leaves allows and
-     pays the braking down to it, and pays the pull back up on the road it rejoins (105.7 s a lap
-     against 107.7 driven; the Rocks' saving 2.73 s against 2.72 driven). `STOP_COST` went from
+     pays the braking down to it, and pays the pull back up on the road it rejoins. On Riviera, a
+     hard coupe: the main road's streets it drove in a lap, 105.7 s by costs against 107.7 driven
+     (84.4 by the line); a cut from 150 m before to 250 m past it within 0.25 s; the Rocks'
+     saving 2.73 s against 2.72 driven. Off-road cuts read slower than they drive (Paradise's
+     sandbar 1.8 s slower than the road by costs, 0.8 driven): grip and rough ground aren't in
+     the line's corner speeds. `STOP_COST` went from
      4.28 to 3.26 s with it, swept over the lift's cycle for every class (the quicker way at
      every start time, within 0.45 s). Paradise and Backroads keep the racing line
      (`TrackLayout.aiCosts: 'line'`, the owner's call): driven, four of their shortcuts are
      slower than the road (the sandbar, the beach cut, Smugglers' Trail, the barn), and their
-     rivals take them now and then, as before. Every fingerprint identical.
+     rivals take them now and then, as before. Every fingerprint identical, and Riviera's field
+     results: no race changes today; it's for the cuts to come.
    - **6e, branches off branches** (built): `BranchDef.leaves` and `rejoins` name the road a branch
      leaves and rejoins (the main road unless they say, or an earlier branch), `from` and `to`
      along those. The bake forks it off, joins its ground and opens the walls on those roads;

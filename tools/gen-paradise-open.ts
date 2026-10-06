@@ -291,6 +291,8 @@ const layout: TrackLayout = {
   landmarks: (src.landmarks ?? []).filter((m) => ['shipwreck', 'whale', 'seaplanes'].includes(m.kind)),
   scenery: undefined,
   terrain: undefined,
+  // (Driven costs: the island's 'line' is its own call, not this map's.)
+  aiCosts: undefined,
   // The Freeway: a deck over the bay, the ground falling away to the sea bed under it.
   pieces: [{ id: 'freeway', s: FREEWAY, under: { floor: -6, ease: 80, reach: 40 } }],
   ground: {
@@ -315,6 +317,7 @@ const layout: TrackLayout = {
 };
 delete layout.scenery;
 delete layout.terrain;
+delete layout.aiCosts;
 
 // Where the Lava Tube's a tunnel and where it's over the shaft, along it: against the ground as it
 // is without it (the volcano eased down to the rim road near it), its mouths clear of the junctions.

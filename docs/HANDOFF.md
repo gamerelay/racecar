@@ -228,8 +228,8 @@ identical through all five: each slice is the old behaviour on today's maps, wit
 the AI's marks off main-road distances; the road-edge walls onto streets), then step 7, a city map.
 **Driven costs** (after `alpha-1.32`): `wayCosts` times each street as the car's class drives
 it (top speed, pulling away, braking onto a branch and pulling back up after it), within a few
-percent of a hard AI's drive (the racing line alone was a fifth short), so a new cut's costs can
-be trusted. `STOP_COST` 3.26 (was 4.28), swept. Paradise and Backroads keep the racing line
+percent of a hard AI's drive on tarmac (the racing line alone was a fifth short), so a new cut's
+costs can be trusted (off-road ones read a little slow). No race changes today. `STOP_COST` 3.26 (was 4.28), swept. Paradise and Backroads keep the racing line
 (`aiCosts: 'line'`): driven, four of their shortcuts are slower than the road, and the owner wants
 their rivals to keep taking them. Every fingerprint identical; Riviera's field results unchanged.
 CALDERA's 6d has the numbers.

@@ -7,8 +7,9 @@ and where things stand is [docs/HANDOFF.md](./docs/HANDOFF.md).
 ## Unreleased
 
 - **The AI times its ways as its car drives them** (top speed, pulling away, braking onto a cut and
-  back up after it), so it judges cuts and the Harbour Bridge's wait better. Paradise and Backroads
-  keep the old reckoning: their rivals still take their slower shortcuts now and then.
+  back up after it). No change to races on today's maps; a new cut's costs now match how it drives.
+  Paradise and Backroads keep the old reckoning: their rivals still take their slower shortcuts now
+  and then.
 
 ## alpha-1.32: Riviera
 
