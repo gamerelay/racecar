@@ -177,6 +177,12 @@ export interface HouseDef {
   /** Which way its front faces, radians about y (0: toward +z). */
   rot: number;
   look?: string;
+  /**
+   * A terrace out over its front on columns, you drive under (Coastal's hotel, its porte-cochère):
+   * `depth` m out from its front, `width` across, its underside `high` m up, on `columns` columns
+   * along its front edge (solid: track/bake.ts's porchColumns). The terrace itself is scenery.
+   */
+  porch?: { depth: number; width: number; high: number; columns: number };
 }
 
 /** The landmark kinds a layout can use. */

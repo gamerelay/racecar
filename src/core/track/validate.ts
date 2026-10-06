@@ -6,7 +6,7 @@ import { KINDS } from '../world/hazards';
 import { Breakables, MAX_PANELS, PANEL_WIDTH } from '../world/breakables';
 import { SMASH_IDS } from '../world/smash';
 import { JOIN, STREET_FADE } from '../world/traffic';
-import { bakeTrack, mainDistance, sampleIndex, wrap } from './bake';
+import { bakeTrack, COLUMN, mainDistance, porchColumns, sampleIndex, wrap } from './bake';
 import { newHit, projectGlobal } from './query';
 import { OVERRIDES } from '../maps';
 import { regionProblem, respawnProblem, type OverrideCode } from './overrides';
@@ -435,6 +435,20 @@ export function validateLayout(layout: TrackLayout, surfaces: SurfaceDef[], clas
           break;
         }
       }
+    }
+    // Its porch: a terrace with some size, its columns off every road and its verge (the terrace
+    // is over a road, which is the point; a column on one is a wall across it).
+    if (h.porch) {
+      const p = h.porch;
+      if (!(p.depth > 0.5 && p.width > 0.5 && p.high > 3 && p.high < 20 && Number.isInteger(p.columns) && p.columns >= 1)) err(`house ${k}: its porch ${JSON.stringify(p)} wants a depth and width over 0.5 m, its underside 3–20 m up (cars pass under) and a whole number of columns, one or more`);
+      for (const [x, z] of porchColumns(h))
+        for (const sp of track.splines) {
+          projectGlobal(sp, x, z, at);
+          if (Math.abs(at.lateral) < at.width / 2 + at.shoulder + COLUMN + 0.5) {
+            err(`house ${k}: a porch column at [${x.toFixed(1)}, ${z.toFixed(1)}] stands on ${sp.index === 0 ? 'the main road' : sp.id} (${at.s.toFixed(0)} m)`, sp.id, at.s);
+            break;
+          }
+        }
     }
   }
 

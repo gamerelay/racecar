@@ -251,7 +251,7 @@ export function buildTrackVisual(track: Track, palette: Palette, seed: number): 
   if (wet) extras.push(wet);
   // Solid props on the road (the pillars): tall striped boxes. The Trestle's legs are the forest's.
   // (Rocks on the snow, a run's gates and a ski jump's tower are snow.ts's; a building's walls, building.ts's.)
-  const solid = track.props.filter((p) => p.solid && p.kind !== 'trestle-leg' && p.kind !== 'rock' && p.kind !== 'gate-post' && p.kind !== 'jump-tower' && p.kind !== 'building-wall' && p.kind !== 'house');
+  const solid = track.props.filter((p) => p.solid && p.kind !== 'trestle-leg' && p.kind !== 'rock' && p.kind !== 'gate-post' && p.kind !== 'jump-tower' && p.kind !== 'building-wall' && p.kind !== 'house' && p.kind !== 'house-column');
   if (solid.length) {
     const mesh = new InstancedMesh(new BoxGeometry(1, 1, 1), toon({ color: 0xbfb3d6 }), solid.length);
     const mat = new Matrix4();

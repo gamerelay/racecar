@@ -9,7 +9,7 @@ import { buildingWalls } from './buildings';
 import { bindOverrides, type Override, type OverrideCode } from './overrides';
 import { buildGraph, type RoadGraph } from './graph';
 import { OVERRIDES } from '../maps';
-import type { BranchDef, SurfaceDef, TrackLayout, TrackPoint, Vec3, ZoneDef } from '../content';
+import type { BranchDef, HouseDef, SurfaceDef, TrackLayout, TrackPoint, Vec3, ZoneDef } from '../content';
 import { atan2, cos, hypot, pow, sin, smoothstep, sq, tan } from '../math';
 import { sampleDense, type DenseSample } from './spline';
 
@@ -260,6 +260,7 @@ export function bakeTrack(layout: TrackLayout, surfaces: SurfaceDef[], code: Rea
   if (ground) for (const p of props) p.y = ground.top(p.x, p.z);
   // Houses (TrackLayout.houses): solid blocks on the lowest ground under their corners (a slope
   // leaves no gap under the downhill side to drive through).
+  const porches: BakedProp[] = [];
   if (ground)
     for (const h of layout.houses ?? []) {
       const [w, d, high] = h.size;
@@ -269,11 +270,40 @@ export function bakeTrack(layout: TrackLayout, surfaces: SurfaceDef[], code: Rea
       for (const [a, b] of [[-1, -1], [-1, 1], [1, -1], [1, 1]]) y = Math.min(y, ground.height(h.at[0] + (a * w * fz) / 2 + (b * d * fx) / 2, h.at[1] - (a * w * fx) / 2 + (b * d * fz) / 2));
       // (Its heading along its width, as a prop's hx is across the heading: front faces rot.)
       props.push({ kind: 'house', solid: true, wall: true, spline: -1, s: 0, lateral: 0, x: h.at[0], y, z: h.at[1], hx: w / 2, hy: high / 2, hz: d / 2, heading: h.rot });
+      // Its porch's columns, each from the ground up to the terrace (a pillar: wrecked on at speed).
+      for (const [x, z] of porchColumns(h)) {
+        const foot = ground.height(x, z);
+        porches.push({ kind: 'house-column', solid: true, spline: -1, s: 0, lateral: 0, x, y: foot, z, hx: COLUMN, hy: (y + h.porch!.high - foot) / 2, hz: COLUMN, heading: h.rot });
+      }
     }
+  // (After every house: the houses' own props stay in their order, as the skin reads them.)
+  props.push(...porches);
   const pines = ground && layout.ground!.pines ? buildPines(layout.ground!.pines, layout, main, ground, (i) => surfaces[main.verge[i] === VERGE_DEFAULT ? (surfaceIndex.get(layout.shoulderSurface ?? '') ?? 0) : main.verge[i]].id) : undefined;
   const track: Track = { layout, splines, main, surfaces, surfaceIndex, checkpoints, props, version: layoutVersion(layout), ground, pines, run, overrides, graph: undefined! };
   track.graph = buildGraph(track);
   return track;
+}
+
+/** A porch's column's half thickness (m). */
+export const COLUMN = 0.45;
+
+/**
+ * Where a house's porch's columns stand, [x, z] each (none without a porch): evenly along the
+ * terrace's front edge, a little in from its corners.
+ */
+export function porchColumns(h: HouseDef): [number, number][] {
+  const p = h.porch;
+  if (!p || p.columns < 1) return [];
+  const fx = sin(h.rot);
+  const fz = cos(h.rot);
+  const inset = COLUMN + 0.3;
+  const lz = h.size[1] / 2 + p.depth - inset;
+  const out: [number, number][] = [];
+  for (let k = 0; k < p.columns; k++) {
+    const lx = p.columns === 1 ? 0 : -p.width / 2 + inset + (k * (p.width - 2 * inset)) / (p.columns - 1);
+    out.push([h.at[0] + lx * fz + lz * fx, h.at[1] - lx * fx + lz * fz]);
+  }
+  return out;
 }
 
 /** A high bridge stands on a timber bent this often (m along it), on legs across it (SPEC, "Trestle legs"). */
