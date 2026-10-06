@@ -201,7 +201,7 @@ export const LANDMARK_KINDS = [
   // Paradise (its lighthouse is the island's own scenery)
   'shipwreck', 'tiki-head', 'surf-shack', 'whale', 'seaplanes',
   // Coastal
-  'lighthouse', 'fort',
+  'lighthouse', 'fort', 'pontoon', 'quay',
 ] as const;
 
 /**
@@ -356,6 +356,12 @@ export interface AvalancheDef {
 export interface PinesDef {
   /** What grows (default `pine`, snow-laden): `tropic` is palms along the coast and jungle inland (docs/PARADISE.md). */
   kind?: 'pine' | 'tropic';
+  /**
+   * How the trees are drawn, and nothing else (they stand and collide where `kind` puts them):
+   * `riviera` is umbrella pines leaning out over the sea along the coast, and umbrella pines, holm
+   * oaks and cypresses inland (docs/COASTAL.md, "The look and the sound").
+   */
+  look?: 'riviera';
   seed: number;
   spacing: number;
   clear: number;

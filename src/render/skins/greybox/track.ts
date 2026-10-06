@@ -164,7 +164,10 @@ function cross(sp: BakedSpline, i: number, out: Cross): Cross {
   return out;
 }
 
-export function buildTrackVisual(track: Track, palette: Palette, seed: number): TrackVisual {
+export function buildTrackVisual(baked: Track, palette: Palette, seed: number): TrackVisual {
+  // (Drawn in the palette's colors for its surfaces, where it has its own: Palette.surfaces.)
+  const recolor = palette.surfaces;
+  const track: Track = recolor ? { ...baked, surfaces: baked.surfaces.map((x) => (recolor[x.id] ? { ...x, color: recolor[x.id] } : x)) } : baked;
   const road = toon({ vertexColors: true, side: DoubleSide });
   const chunks: Object3D[] = [];
   let minY = Infinity;
@@ -295,7 +298,7 @@ export function buildTrackVisual(track: Track, palette: Palette, seed: number): 
 
   // Landmarks, on the city's streets, the land or the open ground.
   const ground = track.ground;
-  const marks = buildLandmarks(track.layout, land ? land.height : ground ? (x, z) => ground.top(x, z) : () => groundY);
+  const marks = buildLandmarks(track.layout, land ? land.height : ground ? (x, z) => ground.top(x, z) : () => groundY, !!palette.day);
   extras.push(...marks.objects);
   const scenery = update;
   update = (t, dt, cam, live) => {

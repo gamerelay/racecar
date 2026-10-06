@@ -4,6 +4,8 @@ import type { Grade } from '../../skin';
 // Tropic is Paradise's high noon, a 2000s-postcard beach: a deep blue sky, a hard sun, a clear
 // turquoise sea and saturated greens, graded rich with blue-green shadows and a light vignette.
 // Sunset is its evening: a low whole sun over the sea, a pink-to-orange sky and violet shadows.
+// Riviera is the Côte d'Azur's (docs/COASTAL.md, "The look and the sound"): a dry, bright summer
+// day, olive and sage on the hills, warm stone, and a deep blue sea, clear only by the shore.
 
 export interface Palette {
   top: number;
@@ -38,9 +40,16 @@ export interface Palette {
   overcast?: number;
   /** Multiplies the sea's color (a warm, dimmer sea at sunset). */
   seaLight?: number;
+  /** The sea's colors by depth: over the sand, out past it, the deep (default Paradise's turquoise lagoon). Raw: written out as given, not converted from sRGB like the rest. */
+  sea?: [number, number, number];
+  /** How some surfaces are drawn here, by id (default each one's own color: content/surfaces.json). Drawn only. */
+  surfaces?: Record<string, string>;
   /** The post pass's grade (none: as rendered). */
   grade?: Grade;
 }
+
+/** Riviera's pavements pale, warm stone, and its asphalt a warm grey (the city's are purple). */
+const RIVIERA_SURFACES = { sidewalk: '#c8b89a', asphalt: '#4f4b50' };
 
 export const PALETTES: Record<string, Palette> = {
   dusk: {
@@ -99,6 +108,55 @@ export const PALETTES: Record<string, Palette> = {
     day: true,
     overcast: 0.3,
     grade: { saturation: 1.3, contrast: 1.08, shadow: 0x7fc8e6, vignette: 0.22 },
+  },
+  riviera: {
+    top: 0x1748b0,
+    mid: 0x3f8ee4,
+    horizon: 0xc4e2f6,
+    sun: 0xfff6dc,
+    fog: 0xbcd8ec,
+    fogNear: 320,
+    fogFar: 2300,
+    hemiSky: 0xdcecff,
+    hemiGround: 0x8a7650,
+    hemiIntensity: 1.3,
+    dir: 0xfff0d2,
+    dirIntensity: 2.7,
+    blocks: [0xf2a7a0, 0x9fd9c8, 0xf6d38a, 0xa7c4f2, 0xf0b6d6, 0xbfe3a0],
+    ground: 0x7f8f4c,
+    ink: 0x2a2018,
+    windows: 0.2,
+    day: true,
+    overcast: 0.3,
+    sea: [0x5cc9c6, 0x1c62a8, 0x0a2c6a],
+    surfaces: RIVIERA_SURFACES,
+    grade: { saturation: 1.14, contrast: 1.1, shadow: 0x6f8cc8, vignette: 0.22 },
+  },
+  // Riviera's evening: the sunset's sky over its own sea and hills.
+  'riviera-sunset': {
+    top: 0x23307e,
+    mid: 0xd9608c,
+    horizon: 0xffa048,
+    sun: 0xffe0a0,
+    fog: 0xf2a27a,
+    fogNear: 280,
+    fogFar: 2100,
+    hemiSky: 0xffc2a8,
+    hemiGround: 0x4a3a5a,
+    hemiIntensity: 1.2,
+    dir: 0xffb27a,
+    dirIntensity: 2.5,
+    blocks: [0xf2a7a0, 0x9fd9c8, 0xf6d38a, 0xa7c4f2, 0xf0b6d6, 0xbfe3a0],
+    ground: 0x747f44,
+    ink: 0x2a1426,
+    windows: 0.6,
+    sunset: true,
+    sunFrom: [300, 200, -800],
+    overcast: 0.35,
+    seaLight: 0xffc8b0,
+    sea: [0x5cc9c6, 0x1c62a8, 0x0a2c6a],
+    surfaces: RIVIERA_SURFACES,
+    grade: { saturation: 1.18, contrast: 1.07, shadow: 0x7a5cc0, vignette: 0.3 },
   },
   // Avalanche (docs/AVALANCHE.md): a cold, bright day on snow, blue in the shade.
   alpine: {

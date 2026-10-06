@@ -16,9 +16,8 @@
 //   bun tools/gen-coastal.ts
 
 import { mkdirSync, writeFileSync } from 'node:fs';
-import type { HouseDef, TrackLayout, TrackPoint } from '../src/core/content';
+import type { HouseDef, LandmarkDef, TrackLayout, TrackPoint } from '../src/core/content';
 import { newContact, obbOverlap } from '../src/core/collide/obb';
-import { smoothstep } from '../src/core/math';
 import { Rng } from '../src/core/rng';
 import { bakeTrack, COLUMN } from '../src/core/track/bake';
 import { hillHeight } from '../src/core/track/features/hills';
@@ -365,7 +364,7 @@ layout.ground = {
     // The cove's beach, from the road out to the sea (and inside the chicane, round the club).
     { kind: 'beach', s: [sAt(-735, -30), sAt(POINT.in[0], POINT.in[1])], side: 'right' },
   ],
-  pines: { kind: 'tropic', seed: 41, spacing: 9, clear: 8, thicken: 30, density: 0.25, glade: 80 },
+  pines: { kind: 'tropic', look: 'riviera', seed: 41, spacing: 9, clear: 8, thicken: 30, density: 0.25, glade: 80 },
 };
 
 /**
@@ -815,7 +814,7 @@ const HOTEL = { w: 34, d: 16, high: 19.2, gap: 2, porch: 26, under: 6, columns: 
   // The Stairs' rows first, then each stretch from a stream of its own (the waterfront's houses
   // moving, as the lap grew by the cove, re-rolled the Old Town's after them).
   let rng = Rng.stream(7, 'riviera-town');
-  const range = ([lo, hi]: number[]) => lo + (hi - lo) * rng.next();
+  const range = ([lo, hi]: readonly number[]) => lo + (hi - lo) * rng.next();
   const hit = newHit();
   const houses: HouseDef[] = [];
   const contact = newContact();
@@ -849,9 +848,9 @@ const HOTEL = { w: 34, d: 16, high: 19.2, gap: 2, porch: 26, under: 6, columns: 
   // (A column's middle stands COLUMN + 0.3 in from the terrace's front: porchColumns.)
   const porch = { depth: Math.round((near + 1 + COLUMN - HOTEL.d / 2 + COLUMN + 0.3) * 10) / 10, width: HOTEL.porch, high: HOTEL.under, columns: HOTEL.columns };
   houses.push({ at: [Math.round(hx * 10) / 10, Math.round(hz * 10) / 10], size: [HOTEL.w, HOTEL.d, HOTEL.high], rot: hrot, look: 'hotel', porch });
-  // The beach club (COVE), inside the chicane, facing the sea: a low block for now (its pool, terrace
-  // and jetty come with the look).
-  houses.push({ at: COVE.inside, size: [26, 14, 5.5], rot: -Math.PI / 2 });
+  // The beach club (COVE), inside the chicane, facing the sea: a white pavilion, its pool on the roof
+  // (look 'club'; its jetty a pontoon, with the landmarks).
+  houses.push({ at: COVE.inside, size: [26, 14, 5.5], rot: -Math.PI / 2, look: 'club' });
   // (No house under its terrace: the hotel's box, out over its porch, as one.)
   const [px, pz] = at(hfront - porch.depth / 2);
   const terrace = { at: [px, pz] as [number, number], size: [HOTEL.porch, porch.depth], rot: hrot };
@@ -956,6 +955,53 @@ const HOTEL = { w: 34, d: 16, high: 19.2, gap: 2, porch: 26, under: 6, columns: 
  * "a little empty up there"; Villefranche's Fort du Mont Alban), at the highest ground near `near`.
  */
 const LANDMARKS = { light: { h: 30, scale: 1.5 }, fort: { near: [-520, -700], look: 60, size: 56 } };
+/**
+ * The marina (COASTAL's look: yachts in the harbour): pontoons out from the harbour's west and east
+ * sides at these z, each `length` m out from `back` m inside the waterline, with boats along both
+ * sides; the channel between them clear for the drawbridge's boat. And the beach club's jetty,
+ * `jetty` m out from the cove's waterline. The harbour's sides stone quays, paved `apron` m back.
+ */
+const MARINA = { z: [222, 276], length: 46, back: 5, jetty: 34, apron: 14 };
+
+function pontoons(ground: ReturnType<typeof bakeTrack>['ground'] & {}): LandmarkDef[] {
+  const out: LandmarkDef[] = [];
+  let seed = 1;
+  for (const z of MARINA.z)
+    for (const side of [-1, 1]) {
+      // From the harbour's side in to its waterline, then back onto the quay a little.
+      let x = side < 0 ? HARBOUR.west - 10 : HARBOUR.east + 10;
+      while (ground.height(x, z) > SEA + 0.2) x -= side;
+      x += side * MARINA.back;
+      out.push({ kind: 'pontoon', at: [Math.round(x * 10) / 10, z], rot: side < 0 ? Math.PI / 2 : -Math.PI / 2, r: 0, params: { length: MARINA.length, seed: seed++ } });
+    }
+  // The harbour's quays (stone, not the sand the coast's smoothing leaves): its west and east sides
+  // and its head, each a straight wall on its waterline (where it is along the side, on average),
+  // from the head to the bridge.
+  const water = (x: number, z: number, dx: number, dz: number) => {
+    while (ground.height(x, z) > SEA + 0.2) [x, z] = [x + dx, z + dz];
+    return [x, z];
+  };
+  const along = (f: (t: number) => number) => {
+    let sum = 0;
+    for (let k = 0; k < 9; k++) sum += f(k / 8);
+    return Math.round((sum / 9) * 10) / 10;
+  };
+  const [z0, z1] = [HARBOUR.head, BRIDGE.z - 10];
+  const xw = along((t) => water(HARBOUR.west - 10, z0 + 20 + t * (z1 - z0 - 20), 1, 0)[0]);
+  const xe = along((t) => water(HARBOUR.east + 10, z0 + 20 + t * (z1 - z0 - 20), -1, 0)[0]);
+  const zh = along((t) => water(xw + 15 + t * (xe - xw - 30), HARBOUR.head - 10, 0, 1)[1]);
+  out.push(
+    { kind: 'quay', at: [xw, Math.round(((zh + z1) / 2) * 10) / 10], rot: Math.PI / 2, r: 0, params: { length: Math.round(z1 - zh + 1), depth: MARINA.apron } },
+    { kind: 'quay', at: [xe, Math.round(((zh + z1) / 2) * 10) / 10], rot: -Math.PI / 2, r: 0, params: { length: Math.round(z1 - zh + 1), depth: MARINA.apron } },
+    { kind: 'quay', at: [Math.round(((xw + xe) / 2) * 10) / 10, zh], rot: 0, r: 0, params: { length: Math.round(xe - xw + 1), depth: MARINA.apron } },
+  );
+  // The beach club's jetty: out to sea in front of it from the waterline (past the Sand's sand),
+  // a couple of boats at it.
+  let x = COVE.inside[0];
+  while (ground.height(x, COVE.inside[1]) > SEA - 0.3) x--;
+  out.push({ kind: 'pontoon', at: [x, COVE.inside[1]], rot: -Math.PI / 2, r: 0, params: { length: MARINA.jetty, seed: 9, moored: 0.35 } });
+  return out;
+}
 {
   const ground = bakeTrack(layout, surfaces).ground!;
   let top = [LANDMARKS.fort.near[0], LANDMARKS.fort.near[1]];
@@ -968,6 +1014,7 @@ const LANDMARKS = { light: { h: 30, scale: 1.5 }, fort: { near: [-520, -700], lo
     ...(layout.landmarks ?? []),
     { kind: 'lighthouse', at: [POINT.light[0], POINT.light[1]], r: 10, params: { h: LANDMARKS.light.h, scale: LANDMARKS.light.scale } },
     { kind: 'fort', at: [top[0], top[1]], r: LANDMARKS.fort.size / 2 + 20, params: { size: LANDMARKS.fort.size } },
+    ...pontoons(ground),
   ];
 }
 
@@ -1036,6 +1083,6 @@ mkdirSync(DIR, { recursive: true });
 // (racer.ts), so one added among them re-rolled the rest (the Stairs went untaken).
 layout.branches!.push(...layout.branches!.splice(layout.branches!.findIndex((b) => b.id === 'rue-haute'), 1));
 writeFileSync(`${DIR}/riviera.track.json`, `${JSON.stringify(layout)}\n`);
-writeFileSync(`${DIR}/map.json`, `${JSON.stringify({ id: 'coastal', name: 'Riviera', layouts: ['riviera'], palette: 'tropic', sunset: 'sunset', weather: ['clear', 'rain', 'shower', 'rare'] })}\n`);
+writeFileSync(`${DIR}/map.json`, `${JSON.stringify({ id: 'coastal', name: 'Riviera', layouts: ['riviera'], palette: 'riviera', sunset: 'riviera-sunset', weather: ['clear', 'rain', 'shower', 'rare'] })}\n`);
 const track = bakeTrack(layout, surfaces);
 console.log(`coastal/riviera: ${Math.round(track.main.length)} m, ${pts.length} points, ground ${track.ground!.nx}×${track.ground!.nz}, bridge deck ${deck.join('–')} m (the drawbridge ${mid - width / 2}–${mid + width / 2} m), the Rock Tunnel ${tunnel.join('–')} m, the Basin Road ${Math.round(track.splines[1].length)} m (${layout.branches![0].from}–${layout.branches![0].to} m), ${layout.houses!.length} houses`);

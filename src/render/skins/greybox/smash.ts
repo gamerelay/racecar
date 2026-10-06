@@ -42,10 +42,11 @@ const MODELS: Record<string, () => BufferGeometry> = {
       part(new BoxGeometry(0.34, 0.32, 0.6), 0x6b7078, 0, 1.2),
       part(new BoxGeometry(0.04, 0.3, 0.1), 0xd7263d, 0.2, 1.36, -0.1),
     ])!,
+  // A beach umbrella: its canopy in pink and white stripes.
   'beach-umbrella': () =>
     mergeGeometries([
       part(new CylinderGeometry(0.05, 0.05, 2.4, 6), 0xf2f2f2, 0, 1.2),
-      part(new ConeGeometry(1.3, 0.55, 8), 0xff2e88, 0, 2.45),
+      ...Array.from({ length: 8 }, (_, k) => part(new ConeGeometry(1.3, 0.55, 2, 1, false, (k * Math.PI) / 4, Math.PI / 4), k % 2 ? 0xffffff : 0xff2e88, 0, 2.45)),
       part(new ConeGeometry(0.5, 0.25, 8), 0xffffff, 0, 2.75),
     ])!,
   // A slalom gate's flag: a pole and a panel across it, square to the road (seen from up the slope).

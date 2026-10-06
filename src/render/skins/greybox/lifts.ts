@@ -14,7 +14,7 @@ import { INK, markInk } from '../../ink';
 import { toon } from './toon';
 
 /** A box `w` × `h` × `d` (x, y, z) with its middle at (x, y, z), painted one colour. */
-function box(w: number, h: number, d: number, color: string, x: number, y: number, z: number): BufferGeometry {
+export function box(w: number, h: number, d: number, color: string, x: number, y: number, z: number): BufferGeometry {
   const g = new BoxGeometry(w, h, d).toNonIndexed();
   g.translate(x, y, z);
   const c = new Color(color);
@@ -24,7 +24,7 @@ function box(w: number, h: number, d: number, color: string, x: number, y: numbe
   return g;
 }
 
-const merge = (parts: BufferGeometry[]) => {
+export const merge = (parts: BufferGeometry[]) => {
   const g = mergeGeometries(parts)!;
   g.computeVertexNormals();
   return g;

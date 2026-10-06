@@ -9,7 +9,7 @@
 // out over the water are decks too (the Freeway over the bay), and the sea is a plane out to the
 // horizon, shallow and turquoise over the sand, deep blue further out.
 
-import { BufferAttribute, BufferGeometry, Color, DoubleSide, Float32BufferAttribute, Mesh, NoBlending, ShaderMaterial, UniformsLib, UniformsUtils, type Object3D } from 'three';
+import { BufferAttribute, BufferGeometry, Color, DoubleSide, Float32BufferAttribute, LinearSRGBColorSpace, Mesh, NoBlending, ShaderMaterial, UniformsLib, UniformsUtils, type Object3D } from 'three';
 import { smoothstep as smooth } from '../../../core/math';
 import type { Track } from '../../../core/track/bake';
 import { coneHeight, curve, loopDist } from '../../../core/track/island';
@@ -378,7 +378,7 @@ export function buildTerrain(track: Track, palette: Palette, seed: number): Terr
 
   const time = { value: 0 };
   if (river) objects.push(water(river, riverHalf + 2, riverY, time));
-  if (coastLoop) objects.push(sea(seaY, gx0, gz0, nx, nz, h, time, palette.seaLight ?? 0xffffff));
+  if (coastLoop) objects.push(sea(seaY, gx0, gz0, nx, nz, h, time, palette.seaLight ?? 0xffffff, undefined, palette.sea));
   const riverAt = (x: number, z: number) => {
     const i = Math.round((x - gx0) / CELL);
     const j = Math.round((z - gz0) / CELL);
@@ -393,12 +393,18 @@ const SEA_REACH = 2600;
 /** The sea's grid, over the land: coarser than the land's (its depth only sets a tint). */
 const SEA_CELL = 12;
 
+/** Paradise's sea by depth (over the sand, out past the reef, the deep: a turquoise lagoon), as its shader had them. */
+const SEA = [new Color(0.33, 0.86, 0.82), new Color(0.07, 0.42, 0.62), new Color(0.04, 0.2, 0.42)];
+/** A color as the shader writes it out, with no conversion (Palette.sea's are raw: linear, not sRGB). */
+const raw = (hex: number) => new Color().setHex(hex, LinearSRGBColorSpace);
+
 /**
  * The sea: a grid over the land's extent, tinted by the depth of the land under it (turquoise over
  * the sand, deep blue further out, foam on the waterline), inside one big plane out to the horizon.
  * Its alpha is cleared like the river's, so the post pass mirrors the sky and the island in it.
  */
-export function sea(y: number, gx0: number, gz0: number, nx: number, nz: number, h: Float32Array, time: { value: number }, light: number, cell = CELL): Mesh {
+
+export function sea(y: number, gx0: number, gz0: number, nx: number, nz: number, h: Float32Array, time: { value: number }, light: number, cell = CELL, colors?: [number, number, number]): Mesh {
   const pos: number[] = [];
   const depth: number[] = [];
   const idx: number[] = [];
@@ -443,7 +449,7 @@ export function sea(y: number, gx0: number, gz0: number, nx: number, nz: number,
   g.setIndex(idx);
   g.computeBoundingSphere();
   const mat = new ShaderMaterial({
-    uniforms: { ...UniformsUtils.clone(UniformsLib.fog), uTime: time, uLight: { value: new Color(light) } },
+    uniforms: { ...UniformsUtils.clone(UniformsLib.fog), uTime: time, uLight: { value: new Color(light) }, uShallow: { value: colors ? raw(colors[0]) : SEA[0].clone() }, uMid: { value: colors ? raw(colors[1]) : SEA[1].clone() }, uDeep: { value: colors ? raw(colors[2]) : SEA[2].clone() } },
     fog: true,
     side: DoubleSide,
     blending: NoBlending,
@@ -456,12 +462,12 @@ export function sea(y: number, gx0: number, gz0: number, nx: number, nz: number,
       vec4 mvPosition=modelViewMatrix*vec4(p,1.0);gl_Position=projectionMatrix*mvPosition;
       #include <fog_vertex>
       }`,
-    fragmentShader: `uniform float uTime;uniform vec3 uLight;varying float vDepth;varying vec2 vXz;
+    fragmentShader: `uniform float uTime;uniform vec3 uLight;uniform vec3 uShallow;uniform vec3 uMid;uniform vec3 uDeep;varying float vDepth;varying vec2 vXz;
       #include <fog_pars_fragment>
       void main(){
-        // Turquoise over the sand, deep blue out past the reef (in the palette's light).
-        vec3 col=mix(vec3(0.33,0.86,0.82),vec3(0.07,0.42,0.62),smoothstep(0.4,4.5,vDepth));
-        col=mix(col,vec3(0.04,0.2,0.42),smoothstep(5.0,9.0,vDepth));
+        // Light over the sand, deeper out past the reef, then the deep (in the palette's light).
+        vec3 col=mix(uShallow,uMid,smoothstep(0.4,4.5,vDepth));
+        col=mix(col,uDeep,smoothstep(5.0,9.0,vDepth));
         // Foam on the waterline, pulsing up the beach, and a line of it breaking further out.
         float foam=1.0-smoothstep(0.0,0.35+0.2*sin(uTime*1.3+vXz.x*0.05+vXz.y*0.04),vDepth);
         float swell=sin(vDepth*5.0-uTime*1.6+sin(vXz.x*0.03)*2.0);
