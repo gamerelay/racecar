@@ -7,7 +7,7 @@
 //   The Old Town       up the hill, a bend each way, to the top of the town
 //   The Mountain Road  on up in big S-bends to the top of the mountain, through a spur (a cutting; a rock tunnel later)
 //   The Descent        five long switchbacks down the mountainside over the sea, rows stacked down the slope
-//   Lighthouse Point   down the Corniche along the cliffs to a hairpin round the lighthouse, then down to the sea
+//   Lighthouse Point   down the Corniche along the cliffs, a loop round the cape and the lighthouse (the Rocks across it), down to the sea
 //   The Beach          along the sea wall, a chicane by the pool, and the Promenade back onto the Quay
 //
 // Experimental (map.json), so it's out of the lobby: open it from a link,
@@ -93,7 +93,14 @@ const TUNNEL = { from: [310, -120], to: [170, -400], clear: 18, ceiling: 7.5 };
  * quay's edge) with the sea `floor` m deep against it, and the coast runs along it `out` m past
  * the road's verge, at the sea face.
  */
-const SEAWALL = { from: [-700, 272], floor: SEA - 10, out: SEAWALL_FACE };
+const SEAWALL = { from: [-772, 394], floor: SEA - 10, out: SEAWALL_FACE };
+
+/**
+ * Lighthouse Point: the Corniche's way in (`in`), out to the cape's west side (`west`) and round
+ * its tip (`tip`), each corner `r` m, then east along the shore. The lighthouse stands inside the
+ * loop at `light`.
+ */
+const POINT = { in: [-700, 175], west: [-800, 255], tip: [-788, 388], r: 16, light: [-758, 318] };
 
 /**
  * The Old Town's switchbacks: rows across the hillside between `east` and `west` (x), the first at
@@ -149,8 +156,12 @@ const nodes: Node[] = [
   // The Corniche: down the last of the cliffs above the sea to Lighthouse Point.
   C(-735, -30, 20, 55),
   C(-665, 100, 14, 55),
-  // The hairpin round the lighthouse, and down to the sea.
-  C(-755, 255, 7, 30),
+  // Lighthouse Point (the owner's sketch: a tight hairpin round the lighthouse at the cape's tip):
+  // out to the tip and round it, the lighthouse on its rock inside the loop (POINT), then back
+  // along the shore and down to the sea. The Rocks cut straight across the loop's neck (ROCKS).
+  C(POINT.in[0], POINT.in[1], 11, 40),
+  C(POINT.west[0], POINT.west[1], 7, POINT.r),
+  C(POINT.tip[0], POINT.tip[1], 5, POINT.r),
   C(-610, 300, 5, 60, { verge: 'sidewalk' }),
   // The Beach: along the sea wall, the chicane by the pool, and the Promenade onto the Quay
   // (pavements from here round to the Quay: the waterfront's).
@@ -175,9 +186,9 @@ const COAST: [number, number][] = [
   [HARBOUR.west, HARBOUR.head + 10],
   [HARBOUR.west, 368],
   // (Then west along the sea wall to the cape: SEAWALL, filled in once the road's baked.)
-  // The cape: Lighthouse Point.
-  [-800, 320],
-  [-815, 230],
+  // The cape: Lighthouse Point, out round the loop's tip (from the sea wall's start, west).
+  [-835, 405],
+  [-842, 250],
   // The jagged cliffs under the Corniche: headlands and coves.
   [-785, 150],
   [-805, 60],
@@ -274,7 +285,7 @@ layout.pieces = [
  * Lighthouse Point (`from`–`to`, x and z of a point on each), `run` m on past each end. The straights
  * between stay open: run wide there and you're off onto the row below, or into the sea.
  */
-const RAILS = { radius: 110, run: 15, from: [OLD_TOWN.west + 60, OLD_TOWN.z], to: [-755, 255] };
+const RAILS = { radius: 110, run: 15, from: [OLD_TOWN.west + 60, OLD_TOWN.z], to: [POINT.tip[0] + 30, POINT.tip[1] - 4] };
 /** Where the walls stand, per main-road sample and side: the bridge's rails, the tunnel's walls, the rock rails; open elsewhere. */
 const walled = (() => {
   const n = baked.main.n;
@@ -538,6 +549,67 @@ const STAIRS = { x: 425, x2: 460, arm: 470, width: 8, shoulder: 0.5, tread: 4, r
 }
 
 /**
+ * The Rocks (COASTAL.md, Lighthouse Point's cut): straight across the loop's neck instead of round
+ * the cape, over the bare rock below the lighthouse. Off the way in (heading south-west) at `from`
+ * (x, z on it), down past the lighthouse's foot, onto the shore road at `to`. Rough: `rock`, which
+ * grips less than the road, its own heights lumpy by up to `lumps` m every few metres and a
+ * `ridge` m ridge of rock across it at each of `ridges` (taken too fast, they throw you), and
+ * `limit` the fastest the AI takes it.
+ */
+const ROCKS = { from: [-712, 187], to: [-652, 321], width: 7, shoulder: 0.5, lumps: 0.3, ridge: 1.2, ridges: [0.3, 0.48, 0.62], boulders: [5, 9], limit: 36, surface: 'rock' };
+{
+  const g = bakeTrack(layout, surfaces);
+  const hit = newHit();
+  const a = Math.round(sAt(ROCKS.from[0], ROCKS.from[1]));
+  const b = Math.round(sAt(ROCKS.to[0], ROCKS.to[1]));
+  const ya = (sampleAt(g.main, a, hit), hit.cy);
+  const yb = (sampleAt(g.main, b, hit), hit.cy);
+  // Down the neck, east of the lighthouse: across, then round onto the shore road heading east.
+  let corners: [number, number][] = [[-722, 205], [-718, 250], [-713, 292], [-702, 316], [-684, 324]];
+  // Rounded off at its bends (Chaikin over pieces of 8 m at most, as the Stairs').
+  corners = corners.slice(0, -1).flatMap(([ax, az], k) => {
+    const [bx, bz] = corners[k + 1];
+    const n = Math.ceil(Math.hypot(bx - ax, bz - az) / 8);
+    return Array.from({ length: n }, (_, j) => [ax + ((bx - ax) * j) / n, az + ((bz - az) * j) / n] as [number, number]);
+  }).concat([corners[corners.length - 1]]);
+  for (let pass = 0; pass < 3; pass++)
+    corners = [corners[0], ...corners.slice(0, -1).flatMap(([ax, az], k) => {
+      const [bx, bz] = corners[k + 1];
+      return [[0.75 * ax + 0.25 * bx, 0.75 * az + 0.25 * bz], [0.25 * ax + 0.75 * bx, 0.25 * az + 0.75 * bz]] as [number, number][];
+    }), corners[corners.length - 1]];
+  const rng = Rng.stream(11, 'riviera-rocks');
+  const points: TrackPoint[] = corners.flatMap(([x, z], k) => {
+    const [px, pz] = k ? corners[k - 1] : corners[0];
+    const n = k ? Math.max(1, Math.round(Math.hypot(x - px, z - pz) / 4)) : 1;
+    return Array.from({ length: n }, (_, j) => {
+      const f = k ? (j + 1) / n : 0;
+      const [qx, qz] = [px + (x - px) * f, pz + (z - pz) * f];
+      const u = (k - 1 + f) / (corners.length - 1);
+      // Rough all the way, and a ridge of rock across it at each of `ridges` (fractions of the way).
+      const ridge = ROCKS.ridges.reduce((m, r) => Math.max(m, ROCKS.ridge * Math.max(0, 1 - Math.abs(u - r) * 40)), 0);
+      const lump = k && !(k === corners.length - 1 && j === n - 1) ? ROCKS.lumps * (rng.next() - 0.5) * 2 + ridge : 0;
+      return { p: [Math.round(qx * 10) / 10, Math.round((ya + (yb - ya) * Math.max(0, u) + lump) * 100) / 100, Math.round(qz * 10) / 10] as [number, number, number], width: ROCKS.width, lanes: 1, shoulder: ROCKS.shoulder, surface: ROCKS.surface };
+    });
+  });
+  layout.branches!.push({ id: 'rocks', kind: 'shortcut', from: a, to: b, heights: 'own', limit: ROCKS.limit, points });
+  // Boulders along both sides just off its verge, solid: thrown off line by a ridge, you hit one.
+  // (Never on another road: by its ends the Rocks still run beside the main road.)
+  const baked = bakeTrack(layout, surfaces);
+  const sp = baked.splines.find((x) => x.id === 'rocks')!;
+  const on = newHit();
+  for (const side of [-1, 1])
+    for (let u = 14 + rng.next() * 4; u < sp.length - 14; u += ROCKS.boulders[0] + rng.next() * (ROCKS.boulders[1] - ROCKS.boulders[0])) {
+      const size = 1.4 + rng.next() * 1.4;
+      const lateral = side * (ROCKS.width / 2 + ROCKS.shoulder + 0.3 + size / 2 + rng.next() * 0.6);
+      sampleAt(sp, u, hit);
+      const [x, z] = [hit.cx - hit.tz * lateral, hit.cz + hit.tx * lateral];
+      if (baked.splines.some((o) => o !== sp && (projectGlobal(o, x, z, on), Math.abs(on.lateral) < on.width / 2 + on.shoulder + size + 2))) continue;
+      layout.props!.push({ kind: 'rock', spline: 'rocks', s: Math.round(u * 10) / 10, lateral: Math.round(lateral * 10) / 10, size: [Math.round(size * 10) / 10, Math.round(size * 0.7 * 10) / 10, Math.round(size * 10) / 10] });
+    }
+  layout.walls!.gaps!.push({ spline: 'rocks', s: [0, 1e4], side: 'both' });
+}
+
+/**
  * The town (the owner, 2026-10-05: the Riviera, Villefranche from the water): houses stacked up the
  * hill on the town side of the waterfront boulevard, from the end of the Promenade along the Quay to
  * the harbour, and both sides of the Old Town's climb. Each stretch is [from, to] (main distances,
@@ -547,7 +619,8 @@ const STAIRS = { x: 425, x2: 460, arm: 470, width: 8, shoulder: 0.5, tread: 4, r
  */
 const TOWN = {
   stretches: [
-    [L - 495, 270, -1, 5],
+    // (From the shore road past the Rocks, so none stand by them.)
+    [sAt(-610, 300), 270, -1, 5],
     [OLD_TOWN_S[0], OLD_TOWN_S[1], 0, 3],
   ] as [number, number, number, number][],
   /** The first row's front this far past the road's verge (a pavement), each row this much further back. */

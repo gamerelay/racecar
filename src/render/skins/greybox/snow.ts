@@ -460,13 +460,16 @@ const STONE = new Color('#4e5563');
 const STONE_DARK = new Color('#3b404b');
 
 /**
- * Rocks on the piste (solid props of kind `rock`): lumpy, snow-capped, half buried. Each fills its
+ * Rocks (solid props of kind `rock`): on the piste lumpy, snow-capped, half buried; on a coast
+ * (Coastal's Rocks) capped in limestone. Each fills its
  * collider (a box hx × hz across and along, 2 hy high): a little wider than the box's middle, as
  * high as its top, so what you see is what you hit.
  */
 function buildRocks(track: Track): Mesh | null {
   const rocks = track.props.filter((p) => p.kind === 'rock');
   if (!rocks.length) return null;
+  // (Snow on their tops on a mountain; on a coast, sun-bleached limestone: Coastal's Rocks.)
+  const top = track.layout.ground?.coast ? LIMESTONE : CAP;
   const pos: number[] = [];
   const col: number[] = [];
   const unit = new IcosahedronGeometry(1, 1);
@@ -496,7 +499,7 @@ function buildRocks(track: Track): Mesh | null {
       const vx = d[0] - a[0], vy = d[1] - a[1], vz = d[2] - a[2];
       const nx = uy * vz - uz * vy, ny = uz * vx - ux * vz, nz = ux * vy - uy * vx;
       const up = ny / (Math.hypot(nx, ny, nz) || 1);
-      c.copy(up > 0.82 ? CAP : up > -0.05 ? STONE : STONE_DARK);
+      c.copy(up > 0.82 ? top : up > -0.05 ? STONE : STONE_DARK);
       for (const [x, y, z] of tri) {
         pos.push(x, y, z);
         col.push(c.r, c.g, c.b);

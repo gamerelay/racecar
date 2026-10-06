@@ -87,7 +87,7 @@ describe('coastal', () => {
     // From the Old Town's first row to the lighthouse (the generator's RAILS: a point on each).
     const hit = newHit();
     const sAt = (x: number, z: number) => (projectGlobal(m, x, z, hit), hit.s);
-    for (let i = Math.round((sAt(405, 258) + 20) / m.step); i < Math.round((sAt(-755, 255) - 20) / m.step); i++) {
+    for (let i = Math.round((sAt(405, 258) + 20) / m.step); i < Math.round((sAt(-758, 384) - 20) / m.step); i++) {
       const turn = (m.tx[i + w] - m.tx[i - w]) * -m.tz[i] + (m.tz[i + w] - m.tz[i - w]) * m.tx[i];
       const radius = (2 * w * m.step) / Math.max(1e-6, Math.abs(turn));
       // (Not in the tunnel: walls both sides. Nor where a branch forks off or comes back: the bake
@@ -234,6 +234,60 @@ describe('coastal', () => {
       expect(road.t - cut.t).toBeGreaterThan(2);
       expect(road.t - cut.t).toBeLessThan(4);
     }, 60_000);
+  });
+
+  describe('Lighthouse Point and the Rocks (COASTAL step 7b)', () => {
+    const rocks = track.splines.find((x) => x.id === 'rocks')!;
+    const def = riviera.branches!.find((b) => b.id === 'rocks')!;
+
+    test('a cut across the loop round the cape: off the main road and back, on the route, rough rock lined with boulders', () => {
+      expect([rocks.fromRoad, rocks.toRoad]).toEqual([0, 0]);
+      expect(track.graph.route.streets.map((k) => track.graph.streets[k].road)).toContain('rocks');
+      // The loop it skips is nearly twice as long.
+      expect(rocks.mainTo - rocks.mainFrom).toBeGreaterThan(1.8 * rocks.length);
+      // (Rock between its ends: where it meets the road, the road's.)
+      expect(new Set(Array.from(rocks.surface.slice(Math.round(20 / rocks.step), rocks.n - Math.round(20 / rocks.step))).map((k) => track.surfaces[k].id))).toEqual(new Set(['rock']));
+      expect(def.heights).toBe('own');
+      const boulders = track.props.filter((p) => p.kind === 'rock' && p.spline === rocks.index);
+      expect(boulders.length).toBeGreaterThan(20);
+      // Solid, and off it: beyond its verge on either side.
+      for (const b of boulders) {
+        expect(b.solid).toBe(true);
+        const mid = rocks.n >> 1;
+        expect(Math.abs(b.lateral) - b.hx).toBeGreaterThan(rocks.width[mid] / 2 + rocks.shoulder[mid]);
+      }
+      expect(boulders.some((b) => b.lateral < 0) && boulders.some((b) => b.lateral > 0)).toBe(true);
+    });
+
+    test('taken at its limit, the Rocks save every class 2-4 s clean; flat out, the ridges throw most into the boulders', () => {
+      const time = (t: typeof track, cls: string) => {
+        const sim = setup(t, CLASSES, SURFACES, { s: 4560 }, 'ai', { kmh: 110, seed: 1, cls });
+        let t0 = -1;
+        let wrecked = false;
+        let used = false;
+        for (let k = 0; k < 60 * 30; k++) {
+          sim.step([]);
+          if (t.splines[sim.cars.spline[0]].id === 'rocks') used = true;
+          if (sim.cars.wreck[0]) wrecked = true;
+          if (sim.cars.spline[0] === 0 && t0 < 0 && sim.cars.s[0] >= 4620) t0 = sim.time;
+          if (sim.cars.spline[0] === 0 && sim.cars.s[0] >= 5100 && sim.cars.s[0] < 5150) return { t: sim.time - t0, used, wrecked };
+        }
+        throw new Error('never got there');
+      };
+      const road = bakeTrack({ ...riviera, branches: riviera.branches!.filter((b) => b.id !== 'rocks') }, SURFACES);
+      // (No limit: flat out over the ridges.)
+      const flat = bakeTrack({ ...riviera, branches: riviera.branches!.map((b) => (b.id === 'rocks' ? { ...b, limit: undefined } : b)) }, SURFACES);
+      let thrown = 0;
+      for (const c of CLASSES) {
+        const base = time(road, c.id).t;
+        const cut = time(track, c.id);
+        expect([c.id, cut.used, cut.wrecked]).toEqual([c.id, true, false]);
+        expect(base - cut.t).toBeGreaterThan(2);
+        expect(base - cut.t).toBeLessThan(4);
+        if (time(flat, c.id).wrecked) thrown++;
+      }
+      expect(thrown).toBeGreaterThanOrEqual(CLASSES.length / 2);
+    }, 120_000);
   });
 
   test('mostly blue skies: a shower one race in about seven (`rare`), against more than half on Paradise', () => {
