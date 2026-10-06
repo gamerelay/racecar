@@ -35,7 +35,7 @@ import { Rng } from '../../../core/rng';
 import type { SceneLive } from '../../skin';
 import type { Keep } from './cityscape';
 import { animatedPoints, boxes, FONT, glowPoints, type Box } from './scenery';
-import { pontoon } from './marina';
+import { pontoon, quay } from './marina';
 import { water } from './terrain';
 import { faceted, toon } from './toon';
 
@@ -1168,4 +1168,5 @@ const BUILDERS: Record<string, (m: LandmarkDef, ctx: Ctx) => Built> = {
   lighthouse: (m, c) => lighthouse(m, c.day),
   fort: (m, c) => fort(m, c),
   pontoon: (m, c) => ({ root: new Group().add(pontoon(m, c.sea ?? 0)) }),
+  quay: (m, c) => ({ root: new Group().add(quay(m, c.sea ?? 0)) }),
 };

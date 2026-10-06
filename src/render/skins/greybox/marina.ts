@@ -84,3 +84,28 @@ function sailboat(L: number, rng: Rng): BufferGeometry {
     box(0.4, 0.35, L * 0.32, NAVY, 0, 2.45, L * 0.43),
   ]);
 }
+
+/** A quay: its wall's thickness, how high its top stands over the water, its foot under it (m); a bollard every this many m. */
+const QUAY = { thick: 0.9, high: 1.3, foot: 3, bollard: 7 };
+const QUAY_STONE = '#c9b99a';
+const QUAY_CAP = '#e3d8c0';
+const QUAY_PAVING = '#cdbf9f';
+
+/**
+ * A stretch of stone quay (the harbour's sides): a wall `length` m long (params.length) along local
+ * x, its face toward local +z (the water), its top QUAY.high over the sea with a capstone and
+ * bollards, and paving `depth` m back from it (params.depth) at the same height, which the rising
+ * ground covers further in. `sea` is the water's level relative to `at`'s ground.
+ */
+export function quay(m: LandmarkDef, sea: number): Mesh {
+  const len = m.params?.length ?? 40;
+  const depth = m.params?.depth ?? 12;
+  const top = sea + QUAY.high;
+  const parts: BufferGeometry[] = [
+    box(len, QUAY.high + QUAY.foot, QUAY.thick, QUAY_STONE, 0, top - (QUAY.high + QUAY.foot) / 2, -QUAY.thick / 2),
+    box(len + 0.2, 0.2, QUAY.thick + 0.3, QUAY_CAP, 0, top + 0.05, -QUAY.thick / 2 + 0.1),
+    box(len, 0.4, depth, QUAY_PAVING, 0, top - 0.22, -QUAY.thick - depth / 2),
+  ];
+  for (let x = -len / 2 + QUAY.bollard / 2; x < len / 2; x += QUAY.bollard) parts.push(box(0.35, 0.55, 0.35, '#2f3338', x, top + 0.42, -0.5));
+  return new Mesh(merge(parts), toon({ vertexColors: true }));
+}

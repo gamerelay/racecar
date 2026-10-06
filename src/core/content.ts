@@ -201,7 +201,7 @@ export const LANDMARK_KINDS = [
   // Paradise (its lighthouse is the island's own scenery)
   'shipwreck', 'tiki-head', 'surf-shack', 'whale', 'seaplanes',
   // Coastal
-  'lighthouse', 'fort', 'pontoon',
+  'lighthouse', 'fort', 'pontoon', 'quay',
 ] as const;
 
 /**

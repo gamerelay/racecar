@@ -959,9 +959,9 @@ const LANDMARKS = { light: { h: 30, scale: 1.5 }, fort: { near: [-520, -700], lo
  * The marina (COASTAL's look: yachts in the harbour): pontoons out from the harbour's west and east
  * sides at these z, each `length` m out from `back` m inside the waterline, with boats along both
  * sides; the channel between them clear for the drawbridge's boat. And the beach club's jetty,
- * `jetty` m out from the cove's waterline.
+ * `jetty` m out from the cove's waterline. The harbour's sides stone quays, paved `apron` m back.
  */
-const MARINA = { z: [222, 276], length: 46, back: 5, jetty: 34 };
+const MARINA = { z: [222, 276], length: 46, back: 5, jetty: 34, apron: 14 };
 
 function pontoons(ground: ReturnType<typeof bakeTrack>['ground'] & {}): LandmarkDef[] {
   const out: LandmarkDef[] = [];
@@ -974,6 +974,27 @@ function pontoons(ground: ReturnType<typeof bakeTrack>['ground'] & {}): Landmark
       x += side * MARINA.back;
       out.push({ kind: 'pontoon', at: [Math.round(x * 10) / 10, z], rot: side < 0 ? Math.PI / 2 : -Math.PI / 2, r: 0, params: { length: MARINA.length, seed: seed++ } });
     }
+  // The harbour's quays (stone, not the sand the coast's smoothing leaves): its west and east sides
+  // and its head, each a straight wall on its waterline (where it is along the side, on average),
+  // from the head to the bridge.
+  const water = (x: number, z: number, dx: number, dz: number) => {
+    while (ground.height(x, z) > SEA + 0.2) [x, z] = [x + dx, z + dz];
+    return [x, z];
+  };
+  const along = (f: (t: number) => number) => {
+    let sum = 0;
+    for (let k = 0; k < 9; k++) sum += f(k / 8);
+    return Math.round((sum / 9) * 10) / 10;
+  };
+  const [z0, z1] = [HARBOUR.head, BRIDGE.z - 10];
+  const xw = along((t) => water(HARBOUR.west - 10, z0 + 20 + t * (z1 - z0 - 20), 1, 0)[0]);
+  const xe = along((t) => water(HARBOUR.east + 10, z0 + 20 + t * (z1 - z0 - 20), -1, 0)[0]);
+  const zh = along((t) => water(xw + 15 + t * (xe - xw - 30), HARBOUR.head - 10, 0, 1)[1]);
+  out.push(
+    { kind: 'quay', at: [xw, Math.round(((zh + z1) / 2) * 10) / 10], rot: Math.PI / 2, r: 0, params: { length: Math.round(z1 - zh + 1), depth: MARINA.apron } },
+    { kind: 'quay', at: [xe, Math.round(((zh + z1) / 2) * 10) / 10], rot: -Math.PI / 2, r: 0, params: { length: Math.round(z1 - zh + 1), depth: MARINA.apron } },
+    { kind: 'quay', at: [Math.round(((xw + xe) / 2) * 10) / 10, zh], rot: 0, r: 0, params: { length: Math.round(xe - xw + 1), depth: MARINA.apron } },
+  );
   // The beach club's jetty: out to sea in front of it from the waterline (past the Sand's sand),
   // a couple of boats at it.
   let x = COVE.inside[0];
