@@ -681,9 +681,21 @@ const HOTEL = { w: 34, d: 16, high: 19.2, gap: 2, porch: 26, under: 6, columns: 
   sampleAt(g.main, (pins[1] + pins[2]) / 2, hit);
   const street = STREET.width / 2 + STREET.shoulder;
   const hfront = STREET.depth + street + HOTEL.gap;
-  const porch = { depth: Math.round((hfront - (STREET.depth - street - COLUMN * 2 - 1.5)) * 10) / 10, width: HOTEL.porch, high: HOTEL.under, columns: HOTEL.columns };
   const [hx, hz] = at(hfront + HOTEL.d / 2);
   const hrot = Math.round(Math.atan2(-hit.tz, hit.tx) * 1000) / 1000;
+  // Its columns' faces a metre past the street's near verge (the boulevard's side) where it comes
+  // furthest out across the terrace (as baked: the smoothed street bows toward the boulevard off its
+  // middle, not along STREET.depth).
+  const sp = g.splines.find((x) => x.id === 'rue-des-pins')!;
+  let near = -Infinity;
+  for (let i = 0; i < sp.n; i++) {
+    const [dx, dz] = [sp.px[i] - hx, sp.pz[i] - hz];
+    const lx = dx * Math.cos(hrot) - dz * Math.sin(hrot);
+    const lz = dx * Math.sin(hrot) + dz * Math.cos(hrot);
+    if (Math.abs(lx) < HOTEL.porch / 2 + 2 && lz > 0) near = Math.max(near, lz + sp.width[i] / 2 + sp.shoulder[i]);
+  }
+  // (A column's middle stands COLUMN + 0.3 in from the terrace's front: porchColumns.)
+  const porch = { depth: Math.round((near + 1 + COLUMN - HOTEL.d / 2 + COLUMN + 0.3) * 10) / 10, width: HOTEL.porch, high: HOTEL.under, columns: HOTEL.columns };
   houses.push({ at: [Math.round(hx * 10) / 10, Math.round(hz * 10) / 10], size: [HOTEL.w, HOTEL.d, HOTEL.high], rot: hrot, look: 'hotel', porch });
   // (No house under its terrace: the hotel's box, out over its porch, as one.)
   const [px, pz] = at(hfront - porch.depth / 2);

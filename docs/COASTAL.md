@@ -729,15 +729,18 @@ and the rocks' pale tops read as snow, "kinda weird in this hotter climate".
 **Step 8g, the hotel (2026-10-05):** the owner: "a pull in hotel with a front terrace you drive
 under in this first pull out" (rue-des-pins, the loop off the boulevard just before the line).
 - **rue-des-pins** is longer and squarer (L−250 to L−110, `lead: 15`, `straight`): out from the
-  boulevard, 50 m straight along the hotel's front, back in.
+  boulevard, along the hotel's front (straight-ish: the smoothing bows it a little), back in.
 - **The Hôtel des Pins** (`HOTEL`; house look `hotel`): a white Belle Époque block 34 m across and
   six storeys, balconies on every floor over a rusticated ground floor, a slate roof with a rose dome
   on each front corner. Its front is 2 m past the street's verge.
 - **Its terrace** (`HouseDef.porch`) runs out from its front over the street on four cream columns
   just past the street's near verge, its underside 6 m up: you drive in off the boulevard, under it
   past the doors, and out. Its name is along the front, parasols and planters on top. The terrace
-  is scenery; its columns are solid props (`house-column`, from `porchColumns`): off every road (the
-  validator keeps them a metre clear), and you wreck on one at speed. No house stands under it.
+  is scenery; its columns are solid props (`house-column`, from `porchColumns`): their line is set
+  from the street as baked, every column's face more than a metre past its verge (the validator
+  wants half a metre), and you wreck on one at speed. No house stands under it. (From review: a
+  house now stands on the lowest ground under its walls' middles too, so a street cut along the
+  hotel's long front left no gap under it.)
 - **Numbers:** the floor is unchanged at 106.22 s; no wrecks in field races at seeds 4, 7 and 8.
   Every other map's fingerprints are identical.
 
