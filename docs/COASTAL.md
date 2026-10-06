@@ -877,9 +877,17 @@ the green countryside and blue skies wash by".
   rock is kept, and a ledge 4 m out sits under the road, so nothing stands in them; the ground's
   drawn cut to them as to the mouths (portal.ts). A car coming down off its roof counts as
   outside its wall (walls.ts; three of the hill sweep fell in through it).
-- **Numbers:** the tunnel 1616–1848 m (1616–1816), the gallery 1704–1828 m; floor 106.05 s
-  (106.03); field car wrecks over seeds 1–144: 71 (main 60; another ridge 63), the tunnel's own
-  three the same: the rest are later laps, elsewhere.
+- **The cliff dressed** (the owner: "spruce up the outside"; `cliffs.ts`, scenery only): olive
+  scrub along the beds' ledges on any steep limestone, now and then an outcrop of rock, none by
+  a road, a mouth or the gallery's openings.
+- **Bunting** (the owner: "party ribbons across the roof tops"; `bunting.ts`, scenery only):
+  every 14 m along every road, a string of flags from eave to eave where a house stands at its
+  edge both sides (the Old Town, the back streets); with houses one side only (the waterfront),
+  swagged along their fronts.
+- **Numbers:** the tunnel 1616–1860 m (1616–1816), the gallery 1700–1812 m; floor 105.95 s
+  (106.03). Field races for the first ridge (before the review's fixes): car wrecks over seeds
+  1–144 71 (main 60; another ridge 63), the tunnel's own three the same; not re-run since (the
+  owner: the look first, sims at the end).
 
 ## The owner's answers (2026-10-04)
 

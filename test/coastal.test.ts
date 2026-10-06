@@ -213,7 +213,8 @@ describe('coastal', () => {
       const i = g.near[k];
       const s = i * track.main.step;
       const edge = track.main.width[i] / 2 + track.main.shoulder[i];
-      if (s < gal.s[0] || s > gal.s[1] || g.lateral[k] < edge + 0.1 || g.lateral[k] > edge + GALLERY_LEDGE - 0.1) continue;
+      // (A grid cell in from its ends: by its nearest sample a point can read just inside while it's just out.)
+      if (s < gal.s[0] + g.cell || s > gal.s[1] - g.cell || g.lateral[k] < edge + 0.1 || g.lateral[k] > edge + GALLERY_LEDGE - 0.1) continue;
       // (By the road's plane there, banked, as the sill is: tube.ts, portal.ts.)
       expect(g.h[k]).toBeLessThan(track.main.py[i] - g.lateral[k] * Math.tan(track.main.bank[i]) - 0.3);
       ledge++;

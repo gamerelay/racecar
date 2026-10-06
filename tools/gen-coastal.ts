@@ -88,7 +88,7 @@ const TUNNEL = { from: [310, -120], to: [170, -400], clear: 18, ceiling: 9 };
  * The spur's ridge (HILLS), and the gallery: along the tunnel where the hill past its right wall
  * (`out` m past its middle) is under the road, at least `mouth` m in from either end.
  */
-const SPUR = { x: 306, z: -113, to: [204, -296], h: 98, h2: 112, r: 150, r2: 60 };
+const SPUR = { x: 306, z: -113, to: [196, -310], h: 98, h2: 112, r: 150, r2: 60 };
 const GALLERY_AT = { out: 15, mouth: 20 };
 
 /**
