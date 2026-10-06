@@ -103,6 +103,14 @@ const SEAWALL = { from: [-772, 394], floor: SEA - 10, out: SEAWALL_FACE };
 const POINT = { in: [-700, 175], west: [-800, 255], tip: [-788, 388], r: 16, light: [-758, 318] };
 
 /**
+ * The cove (the owner, 2026-10-06: the Sand's new home, below the Descent): a bay in the cliffs
+ * under the Corniche with a beach at its head. The road comes down to it at `y` m and swings inland
+ * round the beach club (its corner at `club`, x and z; the club itself at `inside`) in a chicane;
+ * the coast runs along `shore`.
+ */
+const COVE = { y: 4, club: [-640, 80], inside: [-690, 85] as [number, number], shore: [[-776, -40], [-776, 20], [-774, 90], [-772, 150], [-792, 190]] as [number, number][] };
+
+/**
  * The Old Town's switchbacks: rows across the hillside between `east` and `west` (x), the first at
  * `z`, each `step` m further north (up the slope) and `rise` m higher, joined by hairpins of two
  * `r` m corners (as the Descent's, so the radius holds). The way in turns off the far quay's climb.
@@ -153,13 +161,18 @@ const nodes: Node[] = [
   // DESCENT.drop lower than the last, the ground falling steeply between them. Run wide at a
   // hairpin and you're off onto the row below.
   ...descent(),
-  // The Corniche: down the last of the cliffs above the sea to Lighthouse Point.
-  C(-735, -30, 20, 55),
-  C(-665, 100, 14, 55),
+  // The Corniche: down the last of the cliffs above the sea, into the cove (COVE): off the cliff
+  // to the beach, inland round the beach club in a chicane, and out to Lighthouse Point. The Sand
+  // runs straight along the waterline past it (SAND).
+  C(-735, -30, 11, 55),
+  C(-725, 45, COVE.y + 1, 25),
+  C(COVE.club[0] - 15, COVE.club[1] - 30, COVE.y, 18),
+  C(COVE.club[0] + 5, COVE.club[1] + 20, COVE.y, 16),
+  C(-700, 120, COVE.y, 22),
   // Lighthouse Point (the owner's sketch: a tight hairpin round the lighthouse at the cape's tip):
   // out to the tip and round it, the lighthouse on its rock inside the loop (POINT), then back
   // along the shore and down to the sea. The Rocks cut straight across the loop's neck (ROCKS).
-  C(POINT.in[0], POINT.in[1], 11, 40),
+  C(POINT.in[0], POINT.in[1], 8, 40),
   C(POINT.west[0], POINT.west[1], 7, POINT.r),
   C(POINT.tip[0], POINT.tip[1], 5, POINT.r),
   C(-610, 300, 5, 60, { verge: 'sidewalk' }),
@@ -189,10 +202,8 @@ const COAST: [number, number][] = [
   // The cape: Lighthouse Point, out round the loop's tip (from the sea wall's start, west).
   [-835, 405],
   [-842, 250],
-  // The jagged cliffs under the Corniche: headlands and coves.
-  [-785, 150],
-  [-805, 60],
-  [-770, -30],
+  // The cove (COVE), and the jagged cliffs under the Corniche north of it: headlands and coves.
+  ...[...COVE.shore].reverse(),
   [-795, -130],
   [-765, -230],
   [-800, -360],
@@ -348,7 +359,11 @@ layout.ground = {
   // Steeper than 45° is rock: a wall, not a slope to be lifted up (off the road by the Rock Tunnel's
   // mouth, cars went straight up the cliff beside it onto the hill).
   face: 1,
-  features: [{ kind: 'seawall', s: seawall, side: 'right', floor: SEAWALL.floor }],
+  features: [
+    { kind: 'seawall', s: seawall, side: 'right', floor: SEAWALL.floor },
+    // The cove's beach, from the road out to the sea (and inside the chicane, round the club).
+    { kind: 'beach', s: [sAt(-735, -30), sAt(POINT.in[0], POINT.in[1])], side: 'right' },
+  ],
   pines: { kind: 'tropic', seed: 41, spacing: 9, clear: 8, thicken: 30, density: 0.25, glade: 80 },
 };
 
@@ -621,6 +636,69 @@ const ROCKS = { from: [-712, 187], to: [-652, 321], width: 7, shoulder: 0.5, lum
 }
 
 /**
+ * The Sand (COASTAL.md, the cove's cut; the owner, 2026-10-06: in the cove below the Descent):
+ * straight along the beach by the waterline instead of inland round the beach club. Off the road
+ * coming down into the cove at `from` (x, z on it), along `line` (x, z) on packed sand, back onto
+ * the road at `to` before Lighthouse Point. Its own heights, the beach's; `limit` the fastest the
+ * AI takes it.
+ */
+const SAND = { from: [-731, 5], to: [-701, 162], line: [[-738, 30], [-752, 60], [-752, 95], [-738, 120], [-710, 140]] as [number, number][], width: 9, shoulder: 2, y: 3.5, grade: 0.09, bend: 25, limit: undefined as number | undefined, surface: 'beach' };
+{
+  const hit = newHit();
+  const a = Math.round(sAt(SAND.from[0], SAND.from[1]));
+  const b = Math.round(sAt(SAND.to[0], SAND.to[1]));
+  // (Its ends are the road's: the bake joins it there.)
+  let corners: [number, number][] = [...SAND.line];
+  // Rounded off at its bends (Chaikin over pieces of 8 m at most, as the Rocks').
+  corners = corners.slice(0, -1).flatMap(([ax, az], k) => {
+    const [bx, bz] = corners[k + 1];
+    const n = Math.ceil(Math.hypot(bx - ax, bz - az) / 8);
+    return Array.from({ length: n }, (_, j) => [ax + ((bx - ax) * j) / n, az + ((bz - az) * j) / n] as [number, number]);
+  }).concat([corners[corners.length - 1]]);
+  for (let pass = 0; pass < 3; pass++)
+    corners = [corners[0], ...corners.slice(0, -1).flatMap(([ax, az], k) => {
+      const [bx, bz] = corners[k + 1];
+      return [[0.75 * ax + 0.25 * bx, 0.75 * az + 0.25 * bz], [0.25 * ax + 0.75 * bx, 0.25 * az + 0.75 * bz]] as [number, number][];
+    }), corners[corners.length - 1]];
+  // Down off the road onto the beach and back up at `grade`, from where it leaves the road's verge.
+  // The bake gives a branch the road's banked surface while it's on the road's verge and its own
+  // heights past that, with nothing between: own heights that didn't start from the road's there
+  // left a ledge, and every car flew 40 m off it. So: bake it once, find where the bake hands over
+  // at each end and the road's height there, and start the slope from those.
+  const flat = corners.map(([x, z]) => ({ p: [x, SAND.y, z] as [number, number, number], width: SAND.width, lanes: 1, shoulder: SAND.shoulder, surface: SAND.surface }));
+  const trial = bakeTrack({ ...layout, branches: [...layout.branches!, { id: 'sand', kind: 'shortcut', from: a, to: b, heights: 'own', points: flat }] }, surfaces);
+  const sp = trial.splines.find((x) => x.id === 'sand')!;
+  let i0 = 0;
+  while (i0 + 1 < sp.n && sp.merge[i0 + 1] >= 1) i0++;
+  let i1 = sp.n - 1;
+  while (i1 - 1 > 0 && sp.merge[i1 - 1] >= 1) i1--;
+  const [s0, s1, y0, y1] = [i0 * sp.step, i1 * sp.step, sp.py[i0], sp.py[i1]];
+  // From each end: on at the road's height and slope there, bending to `grade` over `bend` m (a
+  // vertical curve: going straight from the road's gentle fall to 9% made a crest that threw cars
+  // at 170 km/h), down to the beach. The stretches still on the road's verge are the bake's.
+  const slope = (i: number, dir: number) => (sp.py[Math.max(0, Math.min(sp.n - 1, i))] - sp.py[Math.max(0, Math.min(sp.n - 1, i - dir * 4))]) / (4 * sp.step);
+  const fall = (y: number, g0: number, d: number) => {
+    const L = SAND.bend;
+    const k = (-SAND.grade - g0) / L;
+    return d < L ? y + g0 * d + (k * d * d) / 2 : y + g0 * L + (k * L * L) / 2 - SAND.grade * (d - L);
+  };
+  const [g0, g1] = [slope(i0, 1), slope(i1, -1)];
+  const at = corners.map(([x, z]) => (projectGlobal(sp, x, z, hit), hit.s));
+  const points: TrackPoint[] = corners.map(([x, z], k) => {
+    const u = at[k];
+    const y = u <= s0 || u >= s1 ? sp.py[Math.round(u / sp.step)] : Math.max(SAND.y, fall(y0, g0, u - s0), fall(y1, g1, s1 - u));
+    return { p: [Math.round(x * 10) / 10, Math.round(y * 100) / 100, Math.round(z * 10) / 10] as [number, number, number], width: SAND.width, lanes: 1, shoulder: SAND.shoulder, surface: SAND.surface };
+  });
+  layout.branches!.push({ id: 'sand', kind: 'shortcut', from: a, to: b, heights: 'own', ...(SAND.limit ? { limit: SAND.limit } : {}), points });
+  layout.walls!.gaps!.push({ spline: 'sand', s: [0, 1e4], side: 'both' });
+  // No rock rail on the beach side between its ends (the branch's own gaps stop 70 m in from each:
+  // a few metres of the chicane's corner rails stood alone on the sand inside the loop).
+  layout.walls!.gaps!.push({ s: [a, b], side: 'right' });
+  // Beach umbrellas along its sea side, out of the way (a car run wide knocks them flying).
+  layout.smashables = [...(layout.smashables ?? []), { kind: 'beach-umbrella', spline: 'sand', s: [55, 135], every: 8, side: 1, lateral: 4 }];
+}
+
+/**
  * The town (the owner, 2026-10-05: the Riviera, Villefranche from the water): houses stacked up the
  * hill on the town side of the waterfront boulevard, from the end of the Promenade along the Quay to
  * the harbour, and both sides of the Old Town's climb. Each stretch is [from, to] (main distances,
@@ -662,7 +740,9 @@ const HOTEL = { w: 34, d: 16, high: 19.2, gap: 2, porch: 26, under: 6, columns: 
 {
   const g = bakeTrack(layout, surfaces);
   const ground = g.ground!;
-  const rng = Rng.stream(7, 'riviera-town');
+  // The Stairs' rows first, then each stretch from a stream of its own (the waterfront's houses
+  // moving, as the lap grew by the cove, re-rolled the Old Town's after them).
+  let rng = Rng.stream(7, 'riviera-town');
   const range = ([lo, hi]: number[]) => lo + (hi - lo) * rng.next();
   const hit = newHit();
   const houses: HouseDef[] = [];
@@ -697,6 +777,9 @@ const HOTEL = { w: 34, d: 16, high: 19.2, gap: 2, porch: 26, under: 6, columns: 
   // (A column's middle stands COLUMN + 0.3 in from the terrace's front: porchColumns.)
   const porch = { depth: Math.round((near + 1 + COLUMN - HOTEL.d / 2 + COLUMN + 0.3) * 10) / 10, width: HOTEL.porch, high: HOTEL.under, columns: HOTEL.columns };
   houses.push({ at: [Math.round(hx * 10) / 10, Math.round(hz * 10) / 10], size: [HOTEL.w, HOTEL.d, HOTEL.high], rot: hrot, look: 'hotel', porch });
+  // The beach club (COVE), inside the chicane, facing the sea: a low block for now (its pool, terrace
+  // and jetty come with the look).
+  houses.push({ at: COVE.inside, size: [26, 14, 5.5], rot: -Math.PI / 2 });
   // (No house under its terrace: the hotel's box, out over its porch, as one.)
   const [px, pz] = at(hfront - porch.depth / 2);
   const terrace = { at: [px, pz] as [number, number], size: [HOTEL.porch, porch.depth], rot: hrot };
@@ -743,7 +826,8 @@ const HOTEL = { w: 34, d: 16, high: 19.2, gap: 2, porch: 26, under: 6, columns: 
         houses.push({ at: [Math.round(x * 10) / 10, Math.round(z * 10) / 10], size: [Math.round(w * 10) / 10, Math.round(d * 10) / 10, Math.round(storeys * 3.2 * 10) / 10], rot: Math.round(rot * 1000) / 1000 });
         u += w + range([0.3, 1.5]);
       }
-  for (const [from, to, side, rows] of TOWN.stretches) {
+  for (const [k, [from, to, side, rows]] of TOWN.stretches.entries()) {
+    rng = Rng.stream(7, `riviera-town-${k}`);
     const len = (to - from + L) % L;
     for (const sd of side ? [side] : [-1, 1]) {
       for (let row = 0; row < rows; row++) {

@@ -8,6 +8,7 @@ import type { MapDef } from '../src/core/content';
 import { bakeTrack } from '../src/core/track/bake';
 import { hillHeight } from '../src/core/track/features/hills';
 import { newCast } from '../src/core/track/ground';
+import { KIND_BEACH } from '../src/core/track/ground/surface';
 import { newHit, projectGlobal, sampleAt } from '../src/core/track/query';
 import { planWeather } from '../src/core/world/weather';
 import { run, setup } from '../src/dev/drive';
@@ -365,7 +366,8 @@ describe('coastal', () => {
 
     test('taken at its limit, the Rocks save every class 2-4 s clean; flat out, the ridges throw most into the boulders', () => {
       const time = (t: typeof track, cls: string) => {
-        const sim = setup(t, CLASSES, SURFACES, { s: 4560 }, 'ai', { kmh: 110, seed: 1, cls });
+        // (From 60 m before its fork to 41 m past its end, as measured: from the chicane's way out.)
+        const sim = setup(t, CLASSES, SURFACES, { s: rocks.mainFrom - 120 }, 'ai', { kmh: 110, seed: 1, cls });
         let t0 = -1;
         let wrecked = false;
         let used = false;
@@ -373,8 +375,8 @@ describe('coastal', () => {
           sim.step([]);
           if (t.splines[sim.cars.spline[0]].id === 'rocks') used = true;
           if (sim.cars.wreck[0]) wrecked = true;
-          if (sim.cars.spline[0] === 0 && t0 < 0 && sim.cars.s[0] >= 4620) t0 = sim.time;
-          if (sim.cars.spline[0] === 0 && sim.cars.s[0] >= 5100 && sim.cars.s[0] < 5150) return { t: sim.time - t0, used, wrecked };
+          if (sim.cars.spline[0] === 0 && t0 < 0 && sim.cars.s[0] >= rocks.mainFrom - 60) t0 = sim.time;
+          if (sim.cars.spline[0] === 0 && sim.cars.s[0] >= rocks.mainTo + 41 && sim.cars.s[0] < rocks.mainTo + 90) return { t: sim.time - t0, used, wrecked };
         }
         throw new Error('never got there');
       };
@@ -391,6 +393,71 @@ describe('coastal', () => {
         if (time(flat, c.id).wrecked) thrown++;
       }
       expect(thrown).toBeGreaterThanOrEqual(CLASSES.length / 2);
+    }, 120_000);
+  });
+
+  describe('the cove and the Sand (COASTAL step 7c)', () => {
+    const sand = track.splines.find((x) => x.id === 'sand')!;
+    const def = riviera.branches!.find((b) => b.id === 'sand')!;
+
+    test('a cut along the beach past the club: off the main road and back, on the route, packed sand on the cove\'s beach, umbrellas by the sea', () => {
+      expect([sand.fromRoad, sand.toRoad]).toEqual([0, 0]);
+      expect(track.graph.route.streets.map((k) => track.graph.streets[k].road)).toContain('sand');
+      // The road round the club is the long way.
+      expect(sand.mainTo - sand.mainFrom).toBeGreaterThan(1.3 * sand.length);
+      expect(new Set(Array.from(sand.surface.slice(Math.round(20 / sand.step), sand.n - Math.round(20 / sand.step))).map((k) => track.surfaces[k].id))).toEqual(new Set(['beach']));
+      expect(def.heights).toBe('own');
+      // Down at the beach in its middle, a few metres over the sea; beach either side of it.
+      const hit = newHit();
+      sampleAt(sand, sand.length / 2, hit);
+      expect(hit.cy).toBeLessThan(5);
+      for (const lat of [-12, 12]) expect(g.kindAt(hit.cx - hit.tz * lat, hit.cz + hit.tx * lat)).toBe(KIND_BEACH);
+      // Beach umbrellas on its sea side (west, in the cove), a row of them.
+      const row = riviera.smashables!.find((d) => d.kind === 'beach-umbrella' && d.spline === 'sand')!;
+      expect((row.s[1] - row.s[0]) / row.every).toBeGreaterThan(6);
+      for (const u of [row.s[0], row.s[1]]) {
+        sampleAt(sand, u, hit);
+        const lat = (row.side ?? 1) * (hit.width / 2 + row.lateral!);
+        expect(hit.cx - hit.tz * lat).toBeLessThan(hit.cx - 4);
+      }
+      const on = newHit();
+      // The club inside the chicane: the road round it on three sides.
+      const club = riviera.houses!.find((h) => Math.hypot(h.at[0] + 690, h.at[1] - 85) < 1)!;
+      expect(club).toBeDefined();
+      // The road round it to its north, east and south (the chicane), within 50 m.
+      const loop: [number, number][] = [];
+      for (let u = sand.mainFrom; u < sand.mainTo; u += 2) loop.push((sampleAt(track.main, u, on), [on.cx - club.at[0], on.cz - club.at[1]]));
+      const near = loop.filter(([dx, dz]) => Math.hypot(dx, dz) < 50);
+      expect([near.some(([, dz]) => dz < -20), near.some(([dx]) => dx > 20), near.some(([, dz]) => dz > 20)]).toEqual([true, true, true]);
+    });
+
+    test('taken, the Sand saves every class 1.5-3.5 s on the road round the club, clean and on the ground', () => {
+      const time = (t: typeof track, cls: string) => {
+        const sim = setup(t, CLASSES, SURFACES, { s: sand.mainFrom - 300 }, 'ai', { kmh: 110, seed: 1, cls });
+        let t0 = -1;
+        let wrecked = false;
+        let used = false;
+        let air = 0;
+        for (let k = 0; k < 60 * 30; k++) {
+          sim.step([]);
+          if (t.splines[sim.cars.spline[0]].id === 'sand') used = true;
+          if (t.splines[sim.cars.spline[0]].id === 'sand' && !sim.cars.grounded[0]) air += 1 / 60;
+          if (sim.cars.wreck[0]) wrecked = true;
+          if (sim.cars.spline[0] === 0 && t0 < 0 && sim.cars.s[0] >= sand.mainFrom - 100) t0 = sim.time;
+          // (Short of the Rocks' fork, 27 m past its end.)
+          if (sim.cars.spline[0] === 0 && sim.cars.s[0] >= sand.mainTo + 15 && sim.cars.s[0] < sand.mainTo + 60) return { t: sim.time - t0, used, wrecked, air };
+        }
+        throw new Error('never got there');
+      };
+      const road = bakeTrack({ ...riviera, branches: riviera.branches!.filter((b) => b.id !== 'sand') }, SURFACES);
+      for (const c of CLASSES) {
+        const base = time(road, c.id);
+        const cut = time(track, c.id);
+        expect([c.id, cut.used, cut.wrecked, base.wrecked]).toEqual([c.id, true, false, false]);
+        // On the ground the whole way: off the road onto the beach it once threw every class 40 m.
+        expect([c.id, cut.air < 0.15]).toEqual([c.id, true]);
+        expect([c.id, base.t - cut.t > 1.5, base.t - cut.t < 3.5]).toEqual([c.id, true, true]);
+      }
     }, 120_000);
   });
 

@@ -6,6 +6,10 @@ and where things stand is [docs/HANDOFF.md](./docs/HANDOFF.md).
 
 ## Unreleased
 
+- **Riviera: the cove and the Sand.** Below the Descent, the road now drops to a beach cove and
+  loops inland round a beach club in a chicane; the Sand cuts straight along the beach by the
+  water, past the umbrellas, about 2 s quicker. The lap is 5.6 km.
+
 - **The AI times its ways as its car drives them** (top speed, pulling away, braking onto a cut and
   back up after it). No change to races on today's maps; a new cut's costs now match how it drives.
   Paradise and Backroads keep the old reckoning: their rivals still take their slower shortcuts now
