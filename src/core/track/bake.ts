@@ -258,7 +258,7 @@ export function bakeTrack(layout: TrackLayout, surfaces: SurfaceDef[], code: Rea
   if (ground) props.push(...buildingWalls(ground.pieces, splines));
   // On open ground a prop stands on it (a rock on a swell, or a deck), not on the road's line beneath.
   if (ground) for (const p of props) p.y = ground.top(p.x, p.z);
-  // Houses (TrackLayout.houses): solid blocks on the lowest ground under their corners (a slope
+  // Houses (TrackLayout.houses): solid blocks on the lowest ground under their outline (a slope
   // leaves no gap under the downhill side to drive through).
   const porches: BakedProp[] = [];
   if (ground)
@@ -267,7 +267,8 @@ export function bakeTrack(layout: TrackLayout, surfaces: SurfaceDef[], code: Rea
       const fx = sin(h.rot);
       const fz = cos(h.rot);
       let y = Infinity;
-      for (const [a, b] of [[-1, -1], [-1, 1], [1, -1], [1, 1]]) y = Math.min(y, ground.height(h.at[0] + (a * w * fz) / 2 + (b * d * fx) / 2, h.at[1] - (a * w * fx) / 2 + (b * d * fz) / 2));
+      // (Its corners and its walls' middles: a street cut along a long front dipped between the corners.)
+      for (const [a, b] of [[-1, -1], [-1, 1], [1, -1], [1, 1], [0, -1], [0, 1], [-1, 0], [1, 0]]) y = Math.min(y, ground.height(h.at[0] + (a * w * fz) / 2 + (b * d * fx) / 2, h.at[1] - (a * w * fx) / 2 + (b * d * fz) / 2));
       // (Its heading along its width, as a prop's hx is across the heading: front faces rot.)
       props.push({ kind: 'house', solid: true, wall: true, spline: -1, s: 0, lateral: 0, x: h.at[0], y, z: h.at[1], hx: w / 2, hy: high / 2, hz: d / 2, heading: h.rot });
       // Its porch's columns, each from the ground up to the terrace (a pillar: wrecked on at speed).

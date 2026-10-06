@@ -470,7 +470,9 @@ describe('coastal', () => {
       // From 20 m off, toward the boulevard's side of it, square on.
       const [ax, az] = [Math.sin(h.rot), Math.cos(h.rot)];
       const d = run(setup(track, CLASSES, SURFACES, { x: c.x + ax * 20, z: c.z + az * 20, heading: (Math.atan2(-ax, -az) * 180) / Math.PI }, { throttle: 1 }, { kmh: 100 }), { throttle: 1 }, 3, 1 / 60);
-      expect(d.summary.wrecks.some((w) => w.cause === 'prop')).toBe(true);
+      // (On the column: where it wrecked, by the trace's row then.)
+      const at = d.summary.wrecks.filter((w) => w.cause === 'prop').map((w) => d.rows.reduce((a, b) => (Math.abs(b.t - w.t) < Math.abs(a.t - w.t) ? b : a)));
+      expect(at.some((r) => Math.hypot(r.x - c.x, r.z - c.z) < 4)).toBe(true);
     }, 30_000);
   });
 

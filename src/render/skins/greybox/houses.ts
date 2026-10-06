@@ -268,10 +268,10 @@ function hotel(h: HouseDef, y: number, columns: readonly BakedProp[]): Object3D[
     const [dx, dz] = [sx * (w / 2 - 3.4), d / 2 - 3.4];
     const drum = new Mesh(faceted(new CylinderGeometry(2.6, 2.6, 3.4, 12)), plain(HOTEL_WHITE));
     drum.position.set(dx, high + 2.5, dz);
-    const dome = new Mesh(faceted(new SphereGeometry(2.8, 12, 6, 0, Math.PI * 2, 0, Math.PI / 2)), plain(ROSE));
+    const dome = new Mesh(faceted(new SphereGeometry(2.6, 12, 6, 0, Math.PI * 2, 0, Math.PI / 2)), plain(ROSE));
     dome.position.set(dx, high + 4.2, dz);
     const tip = new Mesh(faceted(new ConeGeometry(0.4, 1.8, 6)), plain(GOLD));
-    tip.position.set(dx, high + 4.2 + 2.8 + 0.7, dz);
+    tip.position.set(dx, high + 4.2 + 2.6 + 0.7, dz);
     root.add(drum, dome, tip);
   }
   const out: Object3D[] = [root];
