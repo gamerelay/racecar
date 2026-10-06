@@ -619,6 +619,31 @@ bottom of the map, the right side just water, not beach, with a retaining wall.
   Rocks reshuffles who wrecks; re-measure after one. A wreck here respawns you quickly, so a
   fluffed run costs little more than the road.
 
+**Step 8a, landmarks (2026-10-05):** the owner's asks, after the Rocks: the first gap in the
+town a grand casino, the lighthouse seen coming down the switchbacks, and something on the
+mountain's top ("a little empty up there").
+- **The grand casino** (`CASINO`): Monte Carlo's, on the boulevard just past the line, in the
+  square rue-du-port loops round. A street now takes its own depth and lead-in, and rue-du-port
+  runs out 66 m and nearly straight, so the square is about 39 m across. The casino is a house
+  with `look: 'casino'` (solid, placed before the town's rows), drawn by `houses.ts`: a cream hall
+  with arched windows, a copper dome on a drum, a copper-spired tower at each front corner, and a
+  six-column portico with a gilded clock. In front there's a garden with Downtown's fountain
+  (small, radius 4), kept clear of houses.
+- **The lighthouse** (landmark `lighthouse`): white and red bands on a limestone base, the
+  lantern, a red cap and a slow sweeping beam. It's on a knoll (a small hill) inside Lighthouse
+  Point's loop, scaled 1.5 (about 45 m to the lantern), so it shows from the Descent's west
+  hairpins and stands tall coming down the Corniche.
+- **The fort** (landmark `fort`; Villefranche's Fort du Mont Alban): limestone curtain walls round
+  a 56 m square with crenellations, a diamond bastion at each corner, a keep and a red flag. It's
+  on the highest ground near the mountain over the Descent (about 190 m), seen from the top of the
+  Mountain Road.
+- **Trees keep off a landmark's ground** (`pines.ts`: its `r`), so none grow through the fort or
+  the lighthouse. Every other map's fingerprints are identical (their landmarks have no pines on
+  open ground).
+- **Numbers:** the floor is unchanged at 105.58 s; no wrecks in a field race. Tests are in
+  `test/coastal.test.ts` (the casino's block, its facing and garden; the lighthouse and the fort on
+  the summit, with no trees on either).
+
 ## The owner's answers (2026-10-04)
 
 - **The shape:** the sketch is right (quay, bridge, Old Town, tunnel, corniche, lighthouse, beach,

@@ -213,6 +213,8 @@ const HILLS = [
   { x: 225, z: -290, h: 110, r: 110 },
   { x: 120, z: -760, h: 185, r: 360 },
   { x: 620, z: -560, h: 140, r: 330 },
+  // The lighthouse's knoll, inside Lighthouse Point's loop.
+  { x: POINT.light[0], z: POINT.light[1], h: 8, r: 28 },
 ];
 
 const layout: TrackLayout = {
@@ -418,7 +420,7 @@ const BASIN = { from: -45, to: 392, width: 11, shoulder: 2, rise: 4, corners: [
  * lane: with the lap (eastbound on the Promenade) on the right, against it on the left. Open to
  * drive; the AI keeps to the main road.
  */
-const STREETS: [string, number, number, 1 | -1][] = [
+const STREETS: [string, number, number, 1 | -1, { depth?: number; lead?: number }?][] = [
   // Round the line on the home straight, from the end of the Promenade onto the Quay: two streets
   // up into the town. Straight between them (the traffic once ran through the Promenade's kink, and
   // the AI's line there cut into the oncoming lane: head-ons; MAPS.md's rule, no traffic through
@@ -426,23 +428,26 @@ const STREETS: [string, number, number, 1 | -1][] = [
   // there (the lido's and the harbour's car parks went with the beach, 2026-10-05), and only the
   // town-side lane has traffic: the lap's own lane is the racers'.
   // (The Old Town's come with its houses, COASTAL's step 6: its road bends too much for loops.)
-  ['rue-du-port', 30, 150, -1],
+  // (Round behind the casino's square: out deep and nearly straight, CASINO.)
+  ['rue-du-port', 30, 150, -1, { depth: 66, lead: 6 }],
   ['rue-des-pins', L - 230, L - 110, -1],
 ];
-/** How far off the main road's middle a street runs (m), how wide it is, and the traffic on it. */
+/** How far off the main road's middle a street runs (m, unless it says), how wide it is, and the traffic on it. */
 const STREET = { depth: 32, width: 8, shoulder: 1.5, speed: 14, density: 8 };
 {
   const g = bakeTrack(layout, surfaces);
   const hit = newHit();
-  for (const [id, from, to, side] of STREETS) {
+  for (const [id, from, to, side, shape = {}] of STREETS) {
+    const depth = shape.depth ?? STREET.depth;
+    const lead = shape.lead ?? 25;
     // Out from just past the main road's verge 30 m along, across to `depth`, along, and back in.
     const at = (s: number, lat: number): [number, number] => (sampleAt(g.main, s, hit), [hit.cx - hit.tz * lat * side, hit.cz + hit.tx * lat * side]);
     const edge = () => hit.width / 2 + hit.shoulder + STREET.width / 2 + 1;
     sampleAt(g.main, from + 30, hit);
     const near = edge();
-    const corners: [number, number][] = [at(from + 30, near), at(from + 55, STREET.depth)];
-    for (let s = from + 80; s < to - 55; s += 25) corners.push(at(s, STREET.depth));
-    corners.push(at(to - 55, STREET.depth));
+    const corners: [number, number][] = [at(from + 30, near), at(from + 30 + lead, depth)];
+    for (let s = from + 55 + lead; s < to - 30 - lead; s += 25) corners.push(at(s, depth));
+    corners.push(at(to - 30 - lead, depth));
     sampleAt(g.main, to - 30, hit);
     corners.push(at(to - 30, edge()));
     let line = corners;
@@ -634,6 +639,13 @@ const TOWN = {
   depth: [10, 13],
   storeys: [3, 5],
 };
+/**
+ * The grand casino (the owner, 2026-10-05: Monte Carlo's): on the town side of the boulevard just
+ * past the line, in the square rue-du-port loops round. Its middle `s` m along the main road, `w`
+ * across its front and `d` deep, `high` to its cornice; its front `front` m past the road's verge,
+ * the garden between with a fountain in it (kept clear of houses).
+ */
+const CASINO = { s: 90, w: 34, d: 22, high: 15, front: 15 };
 {
   const g = bakeTrack(layout, surfaces);
   const ground = g.ground!;
@@ -643,6 +655,16 @@ const TOWN = {
   const houses: HouseDef[] = [];
   const contact = newContact();
   /** Whether a footprint (its corners and middle) is clear of every road's verge by `clear`, of the water, and of the houses so far. */
+  // The casino first: its block facing the boulevard (left of the lap here), its garden in front.
+  sampleAt(g.main, CASINO.s, hit);
+  const verge = hit.width / 2 + hit.shoulder;
+  const at = (lat: number): [number, number] => [hit.cx + hit.tz * lat, hit.cz - hit.tx * lat];
+  const [cx, cz] = at(verge + CASINO.front + CASINO.d / 2);
+  const crot = Math.round(Math.atan2(-hit.tz, hit.tx) * 1000) / 1000;
+  houses.push({ at: [Math.round(cx * 10) / 10, Math.round(cz * 10) / 10], size: [CASINO.w, CASINO.d, CASINO.high], rot: crot, look: 'casino' });
+  const [fx, fz] = at(verge + CASINO.front / 2 + 1);
+  const garden: [number, number, number] = [fx, fz, CASINO.front / 2 + 2];
+  layout.landmarks = [...(layout.landmarks ?? []).filter((m) => m.kind !== 'fountain'), { kind: 'fountain', at: [Math.round(fx * 10) / 10, Math.round(fz * 10) / 10], rot: crot, r: 0, params: { r: 4 } }];
   const free = (x: number, z: number, w: number, d: number, rot: number) => {
     const fx = Math.sin(rot);
     const fz = Math.cos(rot);
@@ -656,6 +678,8 @@ const TOWN = {
         if (Math.abs(hit.lateral) < hit.width / 2 + hit.shoulder + (sp.id.startsWith('stairs') ? TOWN.stairs : TOWN.clear)) return false;
       }
     }
+    // (Not in the casino's garden.)
+    if (Math.hypot(x - garden[0], z - garden[1]) < garden[2] + Math.max(w, d) / 2) return false;
     // (Terraced: side by side is fine, overlapping isn't. Box against box, a hair smaller.)
     return houses.every((h) => !obbOverlap(x, z, rot, w / 2 - 0.2, d / 2 - 0.2, h.at[0], h.at[1], h.rot, h.size[0] / 2 - 0.2, h.size[1] / 2 - 0.2, contact));
   };
@@ -702,6 +726,27 @@ const TOWN = {
     }
   }
   layout.houses = houses;
+}
+
+/**
+ * Landmarks you see the lap by: the lighthouse on its knoll inside Lighthouse Point's loop (`h` m
+ * tall, seen from the Descent's switchbacks above), and the fort on the mountain's top (the owner:
+ * "a little empty up there"; Villefranche's Fort du Mont Alban), at the highest ground near `near`.
+ */
+const LANDMARKS = { light: { h: 30, scale: 1.5 }, fort: { near: [-520, -700], look: 60, size: 56 } };
+{
+  const ground = bakeTrack(layout, surfaces).ground!;
+  let top = [LANDMARKS.fort.near[0], LANDMARKS.fort.near[1]];
+  for (let x = -LANDMARKS.fort.look; x <= LANDMARKS.fort.look; x += 5)
+    for (let z = -LANDMARKS.fort.look; z <= LANDMARKS.fort.look; z += 5) {
+      const [px, pz] = [LANDMARKS.fort.near[0] + x, LANDMARKS.fort.near[1] + z];
+      if (ground.height(px, pz) > ground.height(top[0], top[1])) top = [px, pz];
+    }
+  layout.landmarks = [
+    ...(layout.landmarks ?? []),
+    { kind: 'lighthouse', at: [POINT.light[0], POINT.light[1]], r: 10, params: { h: LANDMARKS.light.h, scale: LANDMARKS.light.scale } },
+    { kind: 'fort', at: [top[0], top[1]], r: LANDMARKS.fort.size / 2 + 8, params: { size: LANDMARKS.fort.size } },
+  ];
 }
 
 mkdirSync(DIR, { recursive: true });
