@@ -39,6 +39,7 @@ export function validateLayout(layout: TrackLayout, surfaces: SurfaceDef[], clas
   const warn = (message: string, spline?: string, s?: number) => out.push({ level: 'warning', message, spline, s });
 
   if (!layout.id) err('layout has no id');
+  if (layout.aiCosts !== undefined && layout.aiCosts !== 'line') err(`aiCosts: "${layout.aiCosts}" isn't 'line' (leave it out for driven costs)`);
   if (!layout.main?.points || layout.main.points.length < 4) {
     err('the main spline needs at least 4 points');
     return out;

@@ -215,6 +215,29 @@ describe('drawbridge', () => {
     }
   }, 60_000);
 
+  test('the Basin Road where waiting and going round are close: the AI takes the quicker (within half a second)', () => {
+    // From 150 m before the turn at 120 km/h, starting as the bridge comes down: going round, or the
+    // bridge (the Basin Road taken out: it can only wait). Swept, the choice flips about 13 s into
+    // the lift. Guards STOP_COST against the driven costs: they read the Basin Road a second
+    // quicker than the racing line did, and at the old 4.28 s the AI went round at 13 s, 3 s
+    // slower than waiting.
+    const basin = track.splines.find((sp) => sp.id === 'basin-road')!;
+    const bridgeOnly = bakeTrack({ ...riviera, branches: riviera.branches!.filter((b) => b.id !== 'basin-road') }, SURFACES);
+    const drive = (t: typeof track, at: number) => {
+      const sim = setup(t, CLASSES, SURFACES, { s: basin.mainFrom - 150 }, 'ai', { kmh: 120, t: at });
+      for (let k = 0; k < 60 * 60; k++) {
+        sim.step([]);
+        if (sim.cars.spline[0] === 0 && sim.cars.s[0] > basin.mainTo + 20 && sim.cars.s[0] < basin.mainTo + 300) return sim.time - at;
+      }
+      return Infinity;
+    };
+    const round = drive(track, t0 + def.warn + def.rise + 2);
+    for (const u of [12, 12.5, 13, 13.5, 14]) {
+      const best = Math.min(round, drive(bridgeOnly, t0 + u));
+      expect([u, drive(track, t0 + u) - best < 0.5]).toEqual([u, true]);
+    }
+  }, 60_000);
+
   test('a respawn on it, or just before it, while it lifts goes back to its approach', () => {
     const input = { throttle: 0 };
     const sim = setup(track, CLASSES, SURFACES, { s: 100 }, input, { t: t0 + def.warn + 1 });
