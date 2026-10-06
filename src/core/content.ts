@@ -128,6 +128,13 @@ export interface TrafficLaneDef {
    * the near half of the next, fading in and out at the streets' middles, out of sight.
    */
   streets?: string[];
+  /**
+   * A side street it runs along instead (a back street, Riviera's rue Haute), end to end over `span`
+   * (m along it; all of it if left out), `dir` 1 with the street's way, -1 against it, fading in
+   * and out at the span's ends. Never on the main road: no `sections` or `streets` with it.
+   */
+  road?: string;
+  span?: [number, number];
 }
 
 export interface HazardDef {

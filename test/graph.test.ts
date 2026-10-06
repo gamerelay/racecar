@@ -107,7 +107,7 @@ describe('the road graph', () => {
     }
   });
 
-  test("Coastal: the Basin Road the other way between the bridge's two junctions, and two side streets", () => {
+  test("Coastal: the Basin Road the other way between the bridge's two junctions, and three side streets", () => {
     const t = tracks.get('coastal/riviera')!;
     const g = t.graph;
     const basin = g.streets.find((s) => s.road === 'basin-road')!;
@@ -115,9 +115,9 @@ describe('the road graph', () => {
     const bridge = g.streets.filter((s) => s.spline === 0 && s.from === basin.from && s.to === basin.to);
     expect(bridge.length).toBe(1);
     expect(t.layout.pieces!.find((p) => p.id === 'harbour-bridge')!.s[0]).toBeGreaterThanOrEqual(bridge[0].s0);
-    expect(g.streets.filter((s) => s.spline > 0).map((s) => s.road).sort()).toEqual(['basin-road', 'rocks', 'rue-des-pins', 'rue-du-port', 'sand', 'stairs', 'stairs', 'stairs-arm', 'stairs-top']);
-    // (Six, the Stairs' five (where they leave, the arm's fork, the crossroads, two rejoins), the Rocks' two and the Sand's two.)
-    expect(g.nodes.filter((n) => n.kind === 'junction').length).toBe(15);
+    expect(g.streets.filter((s) => s.spline > 0).map((s) => s.road).sort()).toEqual(['basin-road', 'rocks', 'rue-des-pins', 'rue-du-port', 'rue-haute', 'sand', 'stairs', 'stairs', 'stairs-arm', 'stairs-top']);
+    // (Six, the Stairs' five (where they leave, the arm's fork, the crossroads, two rejoins), the Rocks' two, the Sand's two and rue Haute's two.)
+    expect(g.nodes.filter((n) => n.kind === 'junction').length).toBe(17);
     // The Basin Road, the Stairs, the Rocks and the Sand are ways on the race's route; the side streets are traffic's.
     expect(g.route.streets.filter((k) => g.streets[k].spline > 0).map((k) => g.streets[k].road)).toEqual(['basin-road', 'stairs', 'stairs', 'stairs-top', 'stairs-arm', 'rocks', 'sand']);
   });

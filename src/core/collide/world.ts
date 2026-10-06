@@ -68,7 +68,10 @@ export function collideWorld(sim: SimState, i: number, ctx: WorldCtx): void {
     if (traffic.wreckedAt[k] === ctx.t) continue;
     const kind = TRAFFIC_KINDS[traffic.kind[k]];
     const ds = signedGap(traffic.s[p], sMain, L);
-    if (Math.abs(ds) > 14) continue;
+    // (A car along a back street, TrafficLaneDef.road: its main distance is its street's, stretched
+    // onto the boulevard, and a car that came over the hill onto the street, never through a
+    // junction, is still the boulevard's beside it, up to 36 m apart: by how far apart they are.)
+    if (Math.abs(ds) > 14 && (traffic.lanes[traffic.lane[k]].road === undefined || hypot(traffic.x[p] - c.x[i], traffic.z[p] - c.z[i]) > 14)) continue;
     if (!c.wreck[i] && !ghost && onMain) nearMiss(sim, i, ctx, p, ds, speed);
     if (ghost || Math.abs(c.y[i] - traffic.y[p]) > kind.hh * 2 + 0.8) continue;
     if (!obbOverlap(c.x[i], c.z[i], c.h[i], cls.size[0], cls.size[1], traffic.x[p], traffic.z[p], traffic.h[p], kind.hw, kind.hl, contact)) continue;
@@ -142,10 +145,11 @@ export function collideWorld(sim: SimState, i: number, ctx: WorldCtx): void {
   if (!c.wreck[i] && onMain && traffic.lanes.length && speed > 28 && c.grounded[i]) {
     const main = sim.track.main;
     const frac = (2 * c.lateral[i]) / Math.max(1, main.width[Math.round(c.s[i] / main.step) % main.n]);
-    let best = traffic.lanes[0];
-    for (let l = 1; l < traffic.lanes.length; l++) if (Math.abs(traffic.lanes[l].pos - frac) < Math.abs(best.pos - frac)) best = traffic.lanes[l];
+    // (Of the main road's lanes: not one along a back street, TrafficLaneDef.road.)
+    let best: (typeof traffic.lanes)[number] | null = null;
+    for (const lane of traffic.lanes) if (lane.road === undefined && (!best || Math.abs(lane.pos - frac) < Math.abs(best.pos - frac))) best = lane;
     // Only where that lane has traffic: an empty street's wrong side is just a road.
-    if (best.dir < 0 && Math.abs(best.pos - frac) < 0.5 && laneActive(best, c.s[i])) {
+    if (best && best.dir < 0 && Math.abs(best.pos - frac) < 0.5 && laneActive(best, c.s[i])) {
       if (c.oncomingT[i] === 0) sim.events.push(tick, Ev.Oncoming, i, c.x[i], c.y[i], c.z[i]);
       // Scaled time, like the physics: slow-mo doesn't pay out at full rate.
       const dt = sim.dt * sim.timeScale;

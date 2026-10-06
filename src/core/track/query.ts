@@ -134,6 +134,24 @@ export function projectGlobal(sp: BakedSpline, x: number, z: number, out: TrackH
   return project(sp, x, z, best * sp.step, out);
 }
 
+/**
+ * How far (x, z) is from road `sp`'s middle, `hit` its projection onto it (projectGlobal's): across
+ * it; past an open road's end and well past it (END_REACH), from that end (across its last sample's
+ * line reached on far past it). Not the straight distance elsewhere: a projection near a hairpin
+ * can land on the wrong row's sample with the right lateral; and by a branch's end, across its line
+ * still keeps the mouth where it meets its road clear.
+ */
+export function offRoad(sp: BakedSpline, x: number, z: number, hit: TrackHit): number {
+  if (!sp.closed && (hit.s <= 0.01 || hit.s >= sp.length - 0.01)) {
+    const d = hypot(x - hit.cx, z - hit.cz);
+    if (d > END_REACH) return d;
+  }
+  return Math.abs(hit.lateral);
+}
+
+/** Past an open road's end, further than this (m) from it is measured from the end (offRoad). */
+const END_REACH = 40;
+
 function finishProjection(sp: BakedSpline, out: TrackHit, x: number, z: number): void {
   // right = (-tz, tx)
   out.lateral = (x - out.cx) * -out.tz + (z - out.cz) * out.tx;

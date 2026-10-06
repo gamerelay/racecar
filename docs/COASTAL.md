@@ -798,6 +798,38 @@ by name (`lobbyKeys`).
   Tunnel, moved between seeds as the field reshuffles. Seed 4 is clean; 7 and 8 have one each in
   the Old Town (main had none there at those seeds).
 
+**Step 8h, the back streets (2026-10-06):** the owner: the town was one row deep from the
+boulevard, open grass behind it, and behind the casino "looks a little barren"; "a backroad that
+really wouldn't be a shortcut, but a second row of buildings behind the first where more traffic
+could spawn".
+- **Rue Haute:** a side street off the boulevard 420 m before the line, up the hill about 100 m
+  behind the waterfront, round behind the hotel and back down 35 m short of the line (no street may
+  cross the line: it's a node of the road graph, and rue-du-port behind the casino leaves just past
+  it). 438 m, on the hill's own height (`heights: 'own'`, on the boulevard's surface where a
+  trial bake says the bake holds it there, as the Sand, and blended off it by the bake's `merge`
+  as it pulls clear: a guess was a 0.4 m step, holding it wherever it was half on a 0.4 m crest),
+  8% at its steepest; its corners 50 m apart (25 m apart deep inside the boulevard's bend, they turned back on
+  each other: a 7 m bend). Last of the branches: a branch's index is in the AI's roll for a cut, so
+  one added among them re-rolled who takes the Stairs.
+- **Its traffic:** `TrafficLaneDef.road` and `span`: a lane along one street, end to end over a
+  stretch of it, fading in and out at the stretch's ends (off its legs, round the houses), never on
+  the boulevard (no sections: the AI's own side and the oncoming score skip it). Both ways, 11 m/s,
+  two cars each way (the layout's density). A car hits them by how far apart they are, not only
+  along the boulevard: a car that comes onto rue Haute's middle over the hill stays the boulevard's
+  (more than 90 m from a junction), and its main distance and theirs differ by up to 36 m there.
+- **Houses:** a row each side of rue Haute (uphill a storey taller), and the town on up the hill
+  behind the casino past rue-du-port's loop (rows 6 to 8 over 10–170 m, up to 7 storeys): 426
+  houses (346). **The whole town is re-laid**, not only added to (the Old Town's too): a row drew
+  a house's storeys only when it fit, so any change to what fits moved every house after it in its
+  stretch. Now it draws them either way, so the next change stays local. The houses' road check (and the validator's, and the boulders' off other roads) now
+  measures from a branch's end when well past it (`offRoad` in query.ts): across its last sample's
+  line, the Rocks' end had kept the hill above the town empty and rue Haute's start removed five
+  boulders off the Rocks. (Near an end it still measures across: it keeps a junction's mouth clear;
+  a house there cost the coupe 1.5 s off the Stairs.)
+- **Numbers:** floor 106.03 s, field races the same (28 car-on-car wrecks over seeds 1–72);
+  Riviera re-recorded, every other map identical. Palms and lamps along the streets come with the
+  look.
+
 ## The owner's answers (2026-10-04)
 
 - **The shape:** the sketch is right (quay, bridge, Old Town, tunnel, corniche, lighthouse, beach,

@@ -11,7 +11,7 @@ Lighthouse Point, a chicane round the beach club, the Sand along the water; lap 
 **the AI at forks** (#145: a car heading for a cut keeps the road's pace until it has to brake for
 it; floor 106.03 s, Riviera's field 47 to 28 car wrecks over seeds 1–72). **Open:** #146, Riviera's
 back streets (rue Haute up behind the waterfront with traffic both ways, the town on up behind the
-casino; COASTAL's step 8h), with a reviewer: fix what it finds, then the owner merges. **Next:**
+casino; COASTAL's step 8h), reviewed and its findings fixed, for the owner to merge. **Next:**
 Riviera's look ("Next: Coastal" below).
 
 **`alpha-1.32`** (PRs #106–#140) is tagged and on the hosted build:
@@ -384,8 +384,9 @@ keep tweaking it: re-record its fingerprints as before.
    the village", and behind the casino "looks a little barren"; COASTAL's step 8h): rue Haute, a
    side street up the hill behind the waterfront and back, never a shortcut; traffic along it both
    ways (`TrafficLaneDef.road` and `span`: a lane along one street); a row of houses each side of
-   it and the town on up behind the casino (418 houses, 346 before); `offRoad` (query.ts) measures
-   houses and boulders from a branch's end when well past it. In review when this was written.
+   it and the town on up behind the casino (426 houses, 346 before; the whole town re-laid, and
+   from now a change to what fits stays local); `offRoad` (query.ts) measures houses and boulders
+   from a branch's end when well past it. Rue Haute has two cars each way (the layout's density).
 3. **The look:** yachts moored in the harbour (and along the sea wall), the riviera palette (it
    borrows Paradise's `tropic` now), the beach club in the cove (its pool, terrace and jetty: a
    low block stands there now); the Old Town's side streets with its houses; lamp posts and palms
@@ -409,8 +410,6 @@ fingerprints, every other map's identical, and checks the floor and field races.
   you quickly, so a fluffed cut costs little more than the road.
 - A car crawling up a drawbridge leaf as it passes 30° falls in (the AI never does).
 - Houses have no roof collider (walls to the eaves); nothing near the town flies that high.
-- The houses' road check (`free` in the generator) measures across a street from past its end, so a
-  street can block houses well beyond it: harmless now, but a new street may empty part of the town.
 - A thin white band of surf at the sea wall's foot (the water's shore foam along the coast): it
   reads as water lapping from the race camera; the owner may want it gone.
 - With the oncoming lane only on the waterfront, the racers' side of the boulevard has no traffic.

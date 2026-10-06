@@ -9,7 +9,7 @@ import { bakeTrack } from '../src/core/track/bake';
 import { hillHeight } from '../src/core/track/features/hills';
 import { newCast } from '../src/core/track/ground';
 import { KIND_BEACH } from '../src/core/track/ground/surface';
-import { newHit, projectGlobal, sampleAt } from '../src/core/track/query';
+import { newHit, offRoad, projectGlobal, sampleAt } from '../src/core/track/query';
 import { planWeather } from '../src/core/world/weather';
 import { run, setup } from '../src/dev/drive';
 import { driveRacer, racingLine } from '../src/core/ai/racer';
@@ -128,6 +128,42 @@ describe('coastal', () => {
         expect(Math.abs(dx * fz - dz * fx) < h.size[0] / 2 && Math.abs(dx * fx + dz * fz) < h.size[1] / 2).toBe(false);
       });
     }
+  });
+
+  test('the town two deep and more: a row each side of rue Haute up behind the waterfront, and on up the hill behind the casino; every house clear of every road', () => {
+    // (The owner, 2026-10-06: "a second row of buildings and a back street behind the village", and
+    // behind the casino "looks a little barren".)
+    const haute = track.splines.find((sp) => sp.id === 'rue-haute')!;
+    const port = track.splines.find((sp) => sp.id === 'rue-du-port')!;
+    const hit = newHit();
+    const sides = [0, 0];
+    let behind = 0;
+    for (const h of riviera.houses!) {
+      // Every corner clear of every road (past a branch's end, from its end: offRoad).
+      const fx = Math.sin(h.rot);
+      const fz = Math.cos(h.rot);
+      for (const [a, b] of [[-1, -1], [-1, 1], [1, -1], [1, 1]]) {
+        const x = h.at[0] + (a * h.size[0] * fz) / 2 + (b * h.size[1] * fx) / 2;
+        const z = h.at[1] - (a * h.size[0] * fx) / 2 + (b * h.size[1] * fz) / 2;
+        for (const sp of track.splines) {
+          projectGlobal(sp, x, z, hit);
+          expect(offRoad(sp, x, z, hit) - hit.width / 2 - hit.shoulder).toBeGreaterThan(sp.id.startsWith('stairs') ? 0.9 : 2.5);
+        }
+      }
+      projectGlobal(haute, h.at[0], h.at[1], hit);
+      if (hit.s > 1 && hit.s < haute.length - 1 && Math.abs(hit.lateral) < 20) sides[hit.lateral < 0 ? 0 : 1]++;
+      projectGlobal(track.main, h.at[0], h.at[1], hit);
+      const behindPort = (() => {
+        const m = { ...hit };
+        projectGlobal(port, h.at[0], h.at[1], hit);
+        return m.s > 10 && m.s < 170 && m.lateral < 0 && -m.lateral > 80 && hit.s > 1 && hit.s < port.length - 1;
+      })();
+      if (behindPort) behind++;
+    }
+    // (Uphill, its own row; below it, the waterfront's back rows reach up to it too.)
+    expect(sides[0]).toBeGreaterThan(20);
+    expect(sides[1]).toBeGreaterThan(8);
+    expect(behind).toBeGreaterThan(30);
   });
 
   test('driven into a house, a car is stopped at its wall, not through it', () => {

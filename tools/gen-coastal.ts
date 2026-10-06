@@ -18,11 +18,12 @@
 import { mkdirSync, writeFileSync } from 'node:fs';
 import type { HouseDef, TrackLayout, TrackPoint } from '../src/core/content';
 import { newContact, obbOverlap } from '../src/core/collide/obb';
+import { smoothstep } from '../src/core/math';
 import { Rng } from '../src/core/rng';
 import { bakeTrack, COLUMN } from '../src/core/track/bake';
 import { hillHeight } from '../src/core/track/features/hills';
 import { SEAWALL_FACE } from '../src/core/track/features/seawall';
-import { newHit, projectGlobal, sampleAt } from '../src/core/track/query';
+import { newHit, offRoad, projectGlobal, sampleAt } from '../src/core/track/query';
 import surfaces from '../content/surfaces.json';
 import { type Crest, type Node, lapPoints, onLap } from './lib/lap';
 
@@ -438,7 +439,7 @@ const BASIN = { from: -45, to: 392, width: 11, shoulder: 2, rise: 4, corners: [
  * lane: with the lap (eastbound on the Promenade) on the right, against it on the left. Open to
  * drive; the AI keeps to the main road.
  */
-const STREETS: [string, number, number, 1 | -1, { depth?: number; lead?: number; straight?: boolean }?][] = [
+const STREETS: [string, number, number, 1 | -1, { depth?: number; lead?: number; straight?: boolean; climb?: boolean }?][] = [
   // Round the line on the home straight, from the end of the Promenade onto the Quay: two streets
   // up into the town. Straight between them (the traffic once ran through the Promenade's kink, and
   // the AI's line there cut into the oncoming lane: head-ons; MAPS.md's rule, no traffic through
@@ -451,9 +452,17 @@ const STREETS: [string, number, number, 1 | -1, { depth?: number; lead?: number;
   ['rue-du-port', 25, 155, -1, { depth: 72, lead: 15, straight: true }],
   // (Out and straight along the hotel's front, under its terrace: HOTEL.)
   ['rue-des-pins', L - 250, L - 110, -1, { lead: 15, straight: true }],
+  // Rue Haute (the owner, 2026-10-06: "a second row of buildings and a back street behind the
+  // village", so the town isn't one row deep): up behind the waterfront's houses, round the hotel,
+  // and back down short of the line (no street crosses it: the line's a node of the road graph, and
+  // rue-du-port behind the casino starts just past it). Up on the hill (`climb`: its own height,
+  // the ground's there); a way through for traffic both ways (HAUTE), never a shortcut.
+  ['rue-haute', L - 420, L - 35, -1, { depth: 100, lead: 45, climb: true }],
 ];
+/** Rue Haute's traffic, both ways along it, over its back stretch (m in from each end: off the legs down to the boulevard, out of sight round the houses); its steepest grade. */
+const HAUTE = { trim: 75, speed: 11, grade: 0.07 };
 /** How far off the main road's middle a street runs (m, unless it says), how wide it is, and the traffic on it. */
-const STREET = { depth: 32, width: 8, shoulder: 1.5, speed: 14, density: 8 };
+const STREET = { depth: 32, width: 8, shoulder: 1.5, speed: 14, density: 8, every: 6 };
 {
   const g = bakeTrack(layout, surfaces);
   const hit = newHit();
@@ -467,8 +476,17 @@ const STREET = { depth: 32, width: 8, shoulder: 1.5, speed: 14, density: 8 };
     const near = edge();
     const corners: [number, number][] = [at(from + 30, near), at(from + 30 + lead, depth)];
     // (`straight`: one straight along the back, not a corner every 25 m following the main road's bends.)
-    if (!shape.straight) for (let s = from + 55 + lead; s < to - 30 - lead; s += 25) corners.push(at(s, depth));
+    // (Deep in, inside a bend of the boulevard, its corners crowd together and turn back on each
+    // other: rue Haute bent round 7 m there. Further apart, and none that turns back.)
+    const every = shape.climb ? 50 : 25;
+    if (!shape.straight) for (let s = from + 30 + lead + every; s < to - 30 - lead - every / 2; s += every) corners.push(at(s, depth));
     corners.push(at(to - 30 - lead, depth));
+    for (let k = corners.length - 2; k >= 2 && shape.climb; k--) {
+      const [ax, az] = corners[k - 1];
+      const [bx, bz] = corners[k];
+      const [cx, cz] = corners[k + 1];
+      if ((bx - ax) * (cx - bx) + (bz - az) * (cz - bz) < 0.5 * Math.hypot(bx - ax, bz - az) * Math.hypot(cx - bx, cz - bz)) corners.splice(k, 1);
+    }
     sampleAt(g.main, to - 30, hit);
     corners.push(at(to - 30, edge()));
     let line = corners;
@@ -484,22 +502,63 @@ const STREET = { depth: 32, width: 8, shoulder: 1.5, speed: 14, density: 8 };
       const [ax, az] = line[k];
       const [bx, bz] = line[k + 1];
       const len = Math.hypot(bx - ax, bz - az);
-      for (; left < len; left += 6) points.push(streetPoint(ax + ((bx - ax) * left) / len, az + ((bz - az) * left) / len));
+      for (; left < len; left += STREET.every) points.push(streetPoint(ax + ((bx - ax) * left) / len, az + ((bz - az) * left) / len));
       left -= len;
     }
     points.push(streetPoint(...line[line.length - 1]));
+    if (shape.climb) {
+      // Up on the hill, its heights its own: the ground's height there (before the streets cut it),
+      // and where the bake holds it to the boulevard's surface (`merge` in a trial bake: as the
+      // Sand; a guess at where was a 0.4 m step), the boulevard's; up from there no steeper than
+      // HAUTE.grade, smoothed.
+      const trial = bakeTrack({ ...layout, branches: [...layout.branches!, { id, from, to, kind: 'street', points, heights: 'own' }] }, surfaces);
+      const tsp = trial.splines.find((x) => x.id === id)!;
+      const n = points.length;
+      const pinned: boolean[] = [];
+      const y = points.map(({ p: [x, , z] }, k) => {
+        projectGlobal(tsp, x, z, hit);
+        const i = Math.min(tsp.n - 1, Math.round(hit.s / tsp.step));
+        // Held where the bake holds it to the boulevard (an own-heights branch: merge 1) and at its
+        // end points (they stop short of the junction: the bake runs it on to it, on the
+        // boulevard), on the boulevard's surface carried out sideways, banked, as the bake has it
+        // (joinBranch); between, from that toward the ground as it pulls clear. (Held wherever it
+        // was half on, it crested 0.4 m where the bake lets it go; held only at merge 1, it
+        // climbed 13% into the last few meters before the end.)
+        const m = k === 0 || k === n - 1 ? 1 : tsp.merge[i];
+        pinned[k] = m >= 1;
+        const ground = g.ground!.height(x, z);
+        if (m <= 0) return ground;
+        projectGlobal(g.main, x, z, hit);
+        return ground + (hit.cy - hit.lateral * Math.tan(hit.bank) - ground) * m;
+      });
+      const hold = () => {
+        for (let k = 1; k < n; k++) y[k] = Math.min(y[k], y[k - 1] + STREET.every * HAUTE.grade);
+        for (let k = n - 2; k >= 0; k--) y[k] = Math.min(y[k], y[k + 1] + STREET.every * HAUTE.grade);
+      };
+      hold();
+      for (let pass = 0; pass < 3; pass++) for (let k = 1; k < n - 1; k++) if (!pinned[k]) y[k] = (y[k - 1] + 2 * y[k] + y[k + 1]) / 4;
+      hold();
+      for (let k = 0; k < n; k++) points[k].p[1] = Math.round(y[k] * 100) / 100;
+    }
     function streetPoint(x: number, z: number): TrackPoint {
       const s = sAt(x, z);
       sampleAt(g.main, s, hit);
       return { p: [Math.round(x * 10) / 10, Math.round(hit.cy * 10) / 10, Math.round(z * 10) / 10], width: STREET.width, lanes: 2, shoulder: STREET.shoulder, surface: 'asphalt' };
     }
-    layout.branches!.push({ id, from, to, kind: 'street', points });
+    // (A climbing street's heights its own: the bake holds it to the boulevard only while it's on
+    // it, as `flat` above, with no blend to undo.)
+    layout.branches!.push({ id, from, to, kind: 'street', points, ...(shape.climb ? { heights: 'own' as const } : {}) });
     layout.walls!.gaps!.push({ spline: id, s: [0, 1e4], side: 'both' });
   }
   // A lane against the lap, on the left (in by the first street, out by the second).
   // (In the boulevard's outer lane; a street's two lanes are narrower: the same fraction of it.)
   const lane = (dir: 1 | -1, streets: string[]) => ({ pos: dir * 0.7, dir, speed: STREET.speed, streets });
-  layout.traffic = { density: STREET.density, lanes: [lane(-1, ['rue-du-port', 'rue-des-pins'])] };
+  // And up and down rue Haute, its back stretch (each on its own right, as on the boulevard).
+  const haute = layout.branches!.find((b) => b.id === 'rue-haute')!;
+  const len = bakeTrack(layout, surfaces).splines.find((x) => x.id === haute.id)!.length;
+  const span: [number, number] = [HAUTE.trim, Math.round(len - HAUTE.trim)];
+  const along = (dir: 1 | -1) => ({ pos: dir * 0.7, dir, speed: HAUTE.speed, road: haute.id, span });
+  layout.traffic = { density: STREET.density, lanes: [lane(-1, ['rue-du-port', 'rue-des-pins']), along(1), along(-1)] };
 }
 
 /**
@@ -629,7 +688,9 @@ const ROCKS = { from: [-712, 187], to: [-652, 321], width: 7, shoulder: 0.5, lum
       const lateral = side * (ROCKS.width / 2 + ROCKS.shoulder + 0.3 + size / 2 + rng.next() * 0.6);
       sampleAt(sp, u, hit);
       const [x, z] = [hit.cx - hit.tz * lateral, hit.cz + hit.tx * lateral];
-      if (baked.splines.some((o) => o !== sp && (projectGlobal(o, x, z, on), Math.abs(on.lateral) < on.width / 2 + on.shoulder + size + 2))) continue;
+      // (Past another road's end, from its end: offRoad. Across rue Haute's first sample's line, far
+      // up the hill, boulders went missing off the Rocks' far end.)
+      if (baked.splines.some((o) => o !== sp && (projectGlobal(o, x, z, on), offRoad(o, x, z, on) < on.width / 2 + on.shoulder + size + 2))) continue;
       layout.props!.push({ kind: 'rock', spline: 'rocks', s: Math.round(u * 10) / 10, lateral: Math.round(lateral * 10) / 10, size: [Math.round(size * 10) / 10, Math.round(size * 0.7 * 10) / 10, Math.round(size * 10) / 10] });
     }
   layout.walls!.gaps!.push({ spline: 'rocks', s: [0, 1e4], side: 'both' });
@@ -711,7 +772,10 @@ const TOWN = {
     // (From the shore road past the Rocks, so none stand by them.)
     [sAt(-610, 300), 270, -1, 5],
     [OLD_TOWN_S[0], OLD_TOWN_S[1], 0, 3],
-  ] as [number, number, number, number][],
+    // Behind the casino (the owner: "looks a little barren"), the town on up the hill past
+    // rue-du-port's loop: rows 6 to 8, facing the sea over it (no taller than 7 storeys).
+    [10, 170, -1, 8, 5],
+  ] as [number, number, number, number, number?][],
   /** The first row's front this far past the road's verge (a pavement), each row this much further back. */
   front: 5,
   row: 14,
@@ -723,6 +787,14 @@ const TOWN = {
   depth: [10, 13],
   storeys: [3, 5],
 };
+/**
+ * Houses along the back streets: `road`, its side (-1 its left, uphill from the boulevard; 0 both),
+ * rows deep, and their sizes (m across, deep; storeys, the uphill side's a storey taller). (Behind
+ * the casino, the town's own rows go on up past rue-du-port: TOWN.stretches.)
+ */
+const BACK = [
+  { road: 'rue-haute', side: 0, rows: 1, width: [7, 12], depth: [10, 13], storeys: [3, 4], stream: 'riviera-haute' },
+] as const;
 /**
  * The grand casino (the owner, 2026-10-05: Monte Carlo's): on the town side of the boulevard just
  * past the line, in the square rue-du-port loops round. Its middle `s` m along the main road, `w`
@@ -797,7 +869,9 @@ const HOTEL = { w: 34, d: 16, high: 19.2, gap: 2, porch: 26, under: 6, columns: 
       for (const sp of g.splines) {
         projectGlobal(sp, px, pz, hit);
         // (The Stairs run between the houses' walls: off them is into one.)
-        if (Math.abs(hit.lateral) < hit.width / 2 + hit.shoulder + (sp.id.startsWith('stairs') ? TOWN.stairs : TOWN.clear)) return false;
+        // (Across the road, or past an open road's end, from its end: across its last sample's line
+        // reached far past it, and the Rocks' end kept houses off the hill well away from them.)
+        if (offRoad(sp, px, pz, hit) < hit.width / 2 + hit.shoulder + (sp.id.startsWith('stairs') ? TOWN.stairs : TOWN.clear)) return false;
       }
     }
     // (Not in the casino's garden.)
@@ -826,11 +900,11 @@ const HOTEL = { w: 34, d: 16, high: 19.2, gap: 2, porch: 26, under: 6, columns: 
         houses.push({ at: [Math.round(x * 10) / 10, Math.round(z * 10) / 10], size: [Math.round(w * 10) / 10, Math.round(d * 10) / 10, Math.round(storeys * 3.2 * 10) / 10], rot: Math.round(rot * 1000) / 1000 });
         u += w + range([0.3, 1.5]);
       }
-  for (const [k, [from, to, side, rows]] of TOWN.stretches.entries()) {
+  for (const [k, [from, to, side, rows, first = 0]] of TOWN.stretches.entries()) {
     rng = Rng.stream(7, `riviera-town-${k}`);
     const len = (to - from + L) % L;
     for (const sd of side ? [side] : [-1, 1]) {
-      for (let row = 0; row < rows; row++) {
+      for (let row = first; row < rows; row++) {
         for (let u = 0; u < len; ) {
           const w = range(TOWN.width);
           const d = range(TOWN.depth);
@@ -840,14 +914,38 @@ const HOTEL = { w: 34, d: 16, high: 19.2, gap: 2, porch: 26, under: 6, columns: 
           const z = hit.cz + hit.tx * off * sd;
           // Facing the road.
           const rot = Math.atan2(hit.tz * sd, -hit.tx * sd);
+          // (Its storeys drawn whether it fits or not: drawn only for one that fits, any change to
+          // what fits re-laid every house after it in its stretch.)
+          const storeys = Math.min(first ? 7 : Infinity, Math.round(range(TOWN.storeys)) + row);
           if (free(x, z, w, d, rot)) {
-            const storeys = Math.round(range(TOWN.storeys)) + row;
             houses.push({ at: [Math.round(x * 10) / 10, Math.round(z * 10) / 10], size: [Math.round(w * 10) / 10, Math.round(d * 10) / 10, Math.round(storeys * 3.2 * 10) / 10], rot: Math.round(rot * 1000) / 1000 });
           }
           u += w + range([0.3, 1.5]);
         }
       }
     }
+  }
+  // Along the back streets, facing them, each from a stream of its own: rue Haute's both sides
+  // (the town's back row below it, a row up the hill above, a storey taller).
+  for (const { road, side, rows, width, depth, storeys, stream } of BACK) {
+    rng = Rng.stream(7, stream);
+    const sp = g.splines.find((x) => x.id === road)!;
+    for (const sd of side ? [side] : [-1, 1])
+      for (let row = 0; row < rows; row++)
+        for (let u = 8; u < sp.length - 8; ) {
+          const w = range(width);
+          const d = range(depth);
+          sampleAt(sp, u + w / 2, hit);
+          const off = hit.width / 2 + hit.shoulder + TOWN.front + row * TOWN.row + d / 2 + range([0, 1.5]);
+          const x = hit.cx - hit.tz * off * sd;
+          const z = hit.cz + hit.tx * off * sd;
+          const rot = Math.atan2(hit.tz * sd, -hit.tx * sd);
+          const n = Math.round(range(storeys)) + row + (sd < 0 ? 1 : 0);
+          if (free(x, z, w, d, rot)) {
+            houses.push({ at: [Math.round(x * 10) / 10, Math.round(z * 10) / 10], size: [Math.round(w * 10) / 10, Math.round(d * 10) / 10, Math.round(n * 3.2 * 10) / 10], rot: Math.round(rot * 1000) / 1000 });
+          }
+          u += w + range([0.3, 1.5]);
+        }
   }
   layout.houses = houses;
 }
@@ -934,6 +1032,9 @@ const HILLSIDE = { x: [DESCENT.west - 30, DESCENT.east + 30], z: [DESCENT.z - 20
 }
 
 mkdirSync(DIR, { recursive: true });
+// Rue Haute last of the branches: a branch's index is in the AI's roll for whether it takes a cut
+// (racer.ts), so one added among them re-rolled the rest (the Stairs went untaken).
+layout.branches!.push(...layout.branches!.splice(layout.branches!.findIndex((b) => b.id === 'rue-haute'), 1));
 writeFileSync(`${DIR}/riviera.track.json`, `${JSON.stringify(layout)}\n`);
 writeFileSync(`${DIR}/map.json`, `${JSON.stringify({ id: 'coastal', name: 'Riviera', layouts: ['riviera'], palette: 'tropic', sunset: 'sunset', weather: ['clear', 'rain', 'shower', 'rare'] })}\n`);
 const track = bakeTrack(layout, surfaces);

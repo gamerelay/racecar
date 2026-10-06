@@ -7,7 +7,7 @@ import { Breakables, MAX_PANELS, PANEL_WIDTH } from '../world/breakables';
 import { SMASH_IDS } from '../world/smash';
 import { JOIN, STREET_FADE } from '../world/traffic';
 import { bakeTrack, COLUMN, mainDistance, porchColumns, sampleIndex, wrap } from './bake';
-import { newHit, projectGlobal } from './query';
+import { newHit, offRoad, projectGlobal } from './query';
 import { OVERRIDES } from '../maps';
 import { regionProblem, respawnProblem, type OverrideCode } from './overrides';
 import { LAVA_REACH, pathDistance } from './features/lava-stream';
@@ -431,7 +431,7 @@ export function validateLayout(layout: TrackLayout, surfaces: SurfaceDef[], clas
       const z = h.at[1] - (a * h.size[0] * fx) / 2 + (b * h.size[1] * fz) / 2;
       for (const sp of track.splines) {
         projectGlobal(sp, x, z, at);
-        if (Math.abs(at.lateral) < at.width / 2 + at.shoulder + 1) {
+        if (offRoad(sp, x, z, at) < at.width / 2 + at.shoulder + 1) {
           err(`house ${k} at [${h.at.join(', ')}] stands on ${sp.index === 0 ? 'the main road' : sp.id} (${at.s.toFixed(0)} m)`, sp.id, at.s);
           break;
         }
@@ -445,7 +445,7 @@ export function validateLayout(layout: TrackLayout, surfaces: SurfaceDef[], clas
       for (const [x, z] of porchColumns(h))
         for (const sp of track.splines) {
           projectGlobal(sp, x, z, at);
-          if (Math.abs(at.lateral) < at.width / 2 + at.shoulder + COLUMN + 0.5) {
+          if (offRoad(sp, x, z, at) < at.width / 2 + at.shoulder + COLUMN + 0.5) {
             err(`house ${k}: a porch column at [${x.toFixed(1)}, ${z.toFixed(1)}] stands on ${sp.index === 0 ? 'the main road' : sp.id} (${at.s.toFixed(0)} m)`, sp.id, at.s);
             break;
           }
@@ -460,6 +460,17 @@ export function validateLayout(layout: TrackLayout, surfaces: SurfaceDef[], clas
     if (!(lane.speed > 0)) err(`traffic lane ${k}: speed must be positive`);
     for (const [a, b] of lane.sections ?? []) if (!(a >= 0 && a <= L && b >= 0 && b <= L)) err(`traffic lane ${k}: section [${a}, ${b}] is off the main spline`, 'main', a);
     if (lane.streets) checkStreets(track, k, lane, err);
+    if (lane.road !== undefined) {
+      // Along a back street (rue Haute): a side street's, over a stretch of it, never the main road's.
+      const sp = track.splines.find((x) => x.id === lane.road && x !== track.main);
+      if (!sp || layout.branches?.find((b) => b.id === lane.road)?.kind !== 'street') err(`traffic lane ${k}: road "${lane.road}" isn't a side street (a branch of kind "street")`);
+      else {
+        const [a, b] = lane.span ?? [0, sp.length];
+        if (!(a >= 0 && a < b && b <= sp.length)) err(`traffic lane ${k}: span [${a}, ${b}] isn't a stretch of ${sp.id} (0–${sp.length.toFixed(0)} m)`, sp.id, a);
+        else if (b - a < 4 * STREET_FADE) err(`traffic lane ${k}: span ${(b - a).toFixed(0)} m; ${4 * STREET_FADE} m or more, to fade in and out on it`, sp.id, a);
+      }
+      if (lane.sections || lane.streets) err(`traffic lane ${k}: a road, or sections or streets, not both (it runs along its road)`);
+    } else if (lane.span) err(`traffic lane ${k}: a span is along a road ("road")`);
   }
 
   return out;
