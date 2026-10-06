@@ -9,8 +9,10 @@ building". This file is "where are we"; the spec is "what are we making".
 reckoning, `aiCosts: 'line'`), Riviera's **cove and the Sand** (#143: a beach cove before
 Lighthouse Point, a chicane round the beach club, the Sand along the water; lap 5.60 km) and
 **the AI at forks** (#145: a car heading for a cut keeps the road's pace until it has to brake for
-it; floor 106.03 s, fewer wrecks in the Old Town). **Next: Riviera's back streets, then its look**
-("Next: Coastal" below).
+it; floor 106.03 s, Riviera's field 47 to 28 car wrecks over seeds 1–72). **Open:** #146, Riviera's
+back streets (rue Haute up behind the waterfront with traffic both ways, the town on up behind the
+casino; COASTAL's step 8h), with a reviewer: fix what it finds, then the owner merges. **Next:**
+Riviera's look ("Next: Coastal" below).
 
 **`alpha-1.32`** (PRs #106–#140) is tagged and on the hosted build:
 **Riviera** (it was the experimental map *Coastal*, live since #138; see "Next: Coastal" below),
@@ -349,7 +351,8 @@ keep tweaking it: re-record its fingerprints as before.
 - **Numbers:** the lap is 5.60 km (5.51 before the cove), the floor 106.67 s (solo hard coupe;
   106.22 before the cove). Field races over 16 seeds: 14 car wrecks (main
   9), one at the Sand's rejoin, the rest at the Stairs' junctions and in the tunnel; seed 4 clean,
-  7 and 8 one each in the Old Town. The AI at junctions is next (below).
+  7 and 8 one each in the Old Town. (Since #145, floor 106.03 s, the Old Town's pile-ups at the
+  Stairs' fork all but gone: below.)
 
 **Next, in about this order** (COASTAL's steps):
 1. **The AI at junctions** (the owner: split from the Sand; done in #145). What the field showed
@@ -377,18 +380,24 @@ keep tweaking it: re-record its fingerprints as before.
    - **Known:** the Stairs' second flight's costs read 0.6 s slow: on it (74.5 of 89 m) a car runs
      about 96 km/h against the 86 it's costed at, and its overlapping ends are costed at that limit
      but driven on the rows, faster (about 0.3 s from each cause; the early braking had hidden it).
-2. **The look:** yachts moored in the harbour (and along the sea wall), the riviera palette (it
+2. **Riviera's back streets** (#146, the owner: "a second row of buildings and a back street behind
+   the village", and behind the casino "looks a little barren"; COASTAL's step 8h): rue Haute, a
+   side street up the hill behind the waterfront and back, never a shortcut; traffic along it both
+   ways (`TrafficLaneDef.road` and `span`: a lane along one street); a row of houses each side of
+   it and the town on up behind the casino (418 houses, 346 before); `offRoad` (query.ts) measures
+   houses and boulders from a branch's end when well past it. In review when this was written.
+3. **The look:** yachts moored in the harbour (and along the sea wall), the riviera palette (it
    borrows Paradise's `tropic` now), the beach club in the cove (its pool, terrace and jetty: a
    low block stands there now); the Old Town's side streets with its houses; lamp posts and palms
-   along the waterfront's pavement.
-3. **Optional:** a poster for it (the plan's "into the lobby" step had one; nothing in the game
+   along the waterfront's pavement and the back streets.
+4. **Optional:** a poster for it (the plan's "into the lobby" step had one; nothing in the game
    shows a map's poster, so the owner's call). It's in the lobby already.
-4. ~~Before more cuts: give `wayCosts` acceleration~~ (done: driven costs, above).
+5. ~~Before more cuts: give `wayCosts` acceleration~~ (done: driven costs, above).
 The owner keeps tweaking it now it's live: each change re-records only `coastal/riviera`'s
 fingerprints, every other map's identical, and checks the floor and field races.
 
 **Known rough edges:**
-- The lap is long (106.2 s since the Old Town's switchbacks, the Stairs and the cape's loop, against 58–93 for the rest): a Descent row or an S-bend could go, or the
+- The lap is long (106.0 s since the Old Town's switchbacks, the Stairs and the cape's loop, against 58–93 for the rest): a Descent row or an S-bend could go, or the
   race fewer laps, if the owner wants it shorter.
 - A car that runs wide just before a rock rail can end up behind it, grinding along to its end.
 - The AI never takes the Stairs' arm: by driven costs the rest of the flight is 0.3 s quicker, and
