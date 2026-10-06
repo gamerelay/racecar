@@ -47,7 +47,7 @@ const traffic = a.has('traffic');
 const palette = a.str('palette');
 const key = a.rest()[0];
 if (!key || !s) {
-  console.error('usage: bun tools/shot.ts <map/layout> --s m[,m…] [--road id] [--lat m] [--cam chase|high|side|top|front] [--out file] [--port 5178]');
+  console.error('usage: bun tools/shot.ts <map/layout> --s m[,m…] [--road id] [--lat m] [--cam chase|high|side|top|front] [--palette name] [--out file] [--port 5178]');
   process.exit(2);
 }
 const track = bakeTrack(layout(key), SURFACES);

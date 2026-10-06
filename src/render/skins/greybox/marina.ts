@@ -45,8 +45,7 @@ export function pontoon(m: LandmarkDef, sea: number): Mesh {
       parts.push(boat);
     }
   }
-  const mesh = new Mesh(merge(parts), toon({ vertexColors: true }));
-  return mesh;
+  return new Mesh(merge(parts), toon({ vertexColors: true }));
 }
 
 /** A motor yacht `L` m long, its stern at z 0 and bow toward +z, its waterline at y 0. */

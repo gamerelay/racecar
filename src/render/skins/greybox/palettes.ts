@@ -40,7 +40,7 @@ export interface Palette {
   overcast?: number;
   /** Multiplies the sea's color (a warm, dimmer sea at sunset). */
   seaLight?: number;
-  /** The sea's colors by depth: over the sand, out past it, the deep (default Paradise's turquoise lagoon). */
+  /** The sea's colors by depth: over the sand, out past it, the deep (default Paradise's turquoise lagoon). Raw: written out as given, not converted from sRGB like the rest. */
   sea?: [number, number, number];
   /** How some surfaces are drawn here, by id (default each one's own color: content/surfaces.json). Drawn only. */
   surfaces?: Record<string, string>;

@@ -21,6 +21,7 @@ import { InstancedMesh, Matrix4, Mesh, MeshBasicMaterial } from 'three';
 import { buildLandmarks } from '../src/render/skins/greybox/landmarks';
 import { buildOpenIsland } from '../src/render/skins/greybox/openIsland';
 import { PALETTES } from '../src/render/skins/greybox/palettes';
+import { SEAWALL_FACE } from '../src/core/track/features/seawall';
 
 const riviera = layout('coastal/riviera');
 const track = bakeTrack(riviera, SURFACES);
@@ -699,8 +700,9 @@ describe("coastal's look (COASTAL's step 8)", () => {
       for (let k = 0; k < mesh.count; k++) {
         mesh.getMatrixAt(k, m);
         projectGlobal(track.main, m.elements[12], m.elements[14], hit);
-        // Past the verge and the parapet's 0.9 m, on the sea side.
+        // Past the verge and the parapet's 0.9 m, on the sea side, and on the ledge (not out over the water).
         expect(hit.lateral).toBeGreaterThan(hit.width / 2 + hit.shoulder + 0.9);
+        expect(hit.lateral).toBeLessThan(hit.width / 2 + hit.shoulder + SEAWALL_FACE);
       }
     }
   });
@@ -708,13 +710,19 @@ describe("coastal's look (COASTAL's step 8)", () => {
   test("the lighthouse's beam sweeps at sunset, not by day", () => {
     // (Its lamp's glow is drawn on a canvas: a stand-in for the page's.)
     const ctx = { createRadialGradient: () => ({ addColorStop() {} }), fillRect() {} };
-    (globalThis as { document?: unknown }).document ??= { createElement: () => ({ getContext: () => ctx }) };
+    const g = globalThis as { document?: unknown };
+    const page = g.document;
+    g.document ??= { createElement: () => ({ getContext: () => ctx }) };
     const beam = (day: boolean) => {
       // (The lighthouse alone: the fountain's glow needs a page.)
       const lh = buildLandmarks({ ...riviera, landmarks: riviera.landmarks!.filter((m) => m.kind === 'lighthouse') }, () => 0, day).objects[0];
       return lh.children.filter((c) => c instanceof Mesh && c.material instanceof MeshBasicMaterial).map((c) => c.visible);
     };
-    expect(beam(false)).toEqual([true]);
-    expect(beam(true)).toEqual([false]);
+    try {
+      expect(beam(false)).toEqual([true]);
+      expect(beam(true)).toEqual([false]);
+    } finally {
+      g.document = page;
+    }
   });
 });

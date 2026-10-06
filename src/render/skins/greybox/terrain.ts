@@ -378,7 +378,7 @@ export function buildTerrain(track: Track, palette: Palette, seed: number): Terr
 
   const time = { value: 0 };
   if (river) objects.push(water(river, riverHalf + 2, riverY, time));
-  if (coastLoop) objects.push(sea(seaY, gx0, gz0, nx, nz, h, time, palette.seaLight ?? 0xffffff));
+  if (coastLoop) objects.push(sea(seaY, gx0, gz0, nx, nz, h, time, palette.seaLight ?? 0xffffff, undefined, palette.sea));
   const riverAt = (x: number, z: number) => {
     const i = Math.round((x - gx0) / CELL);
     const j = Math.round((z - gz0) / CELL);
@@ -393,17 +393,18 @@ const SEA_REACH = 2600;
 /** The sea's grid, over the land: coarser than the land's (its depth only sets a tint). */
 const SEA_CELL = 12;
 
+/** Paradise's sea by depth (over the sand, out past the reef, the deep: a turquoise lagoon), as its shader had them. */
+const SEA = [new Color(0.33, 0.86, 0.82), new Color(0.07, 0.42, 0.62), new Color(0.04, 0.2, 0.42)];
+/** A color as the shader writes it out, with no conversion (Palette.sea's are raw: linear, not sRGB). */
+const raw = (hex: number) => new Color().setHex(hex, LinearSRGBColorSpace);
+
 /**
  * The sea: a grid over the land's extent, tinted by the depth of the land under it (turquoise over
  * the sand, deep blue further out, foam on the waterline), inside one big plane out to the horizon.
  * Its alpha is cleared like the river's, so the post pass mirrors the sky and the island in it.
  */
-/** The sea's colors by depth (Palette.sea): over the sand, out past the reef, and the deep. Paradise's, a turquoise lagoon. */
-const SEA: [number, number, number] = [0x54dbd1, 0x126b9e, 0x0a336b];
-/** A color as the shader writes it out, with no conversion (the sea's were vec3 literals). */
-const raw = (hex: number) => new Color().setHex(hex, LinearSRGBColorSpace);
 
-export function sea(y: number, gx0: number, gz0: number, nx: number, nz: number, h: Float32Array, time: { value: number }, light: number, cell = CELL, colors = SEA): Mesh {
+export function sea(y: number, gx0: number, gz0: number, nx: number, nz: number, h: Float32Array, time: { value: number }, light: number, cell = CELL, colors?: [number, number, number]): Mesh {
   const pos: number[] = [];
   const depth: number[] = [];
   const idx: number[] = [];
@@ -448,7 +449,7 @@ export function sea(y: number, gx0: number, gz0: number, nx: number, nz: number,
   g.setIndex(idx);
   g.computeBoundingSphere();
   const mat = new ShaderMaterial({
-    uniforms: { ...UniformsUtils.clone(UniformsLib.fog), uTime: time, uLight: { value: new Color(light) }, uShallow: { value: raw(colors[0]) }, uMid: { value: raw(colors[1]) }, uDeep: { value: raw(colors[2]) } },
+    uniforms: { ...UniformsUtils.clone(UniformsLib.fog), uTime: time, uLight: { value: new Color(light) }, uShallow: { value: colors ? raw(colors[0]) : SEA[0].clone() }, uMid: { value: colors ? raw(colors[1]) : SEA[1].clone() }, uDeep: { value: colors ? raw(colors[2]) : SEA[2].clone() } },
     fog: true,
     side: DoubleSide,
     blending: NoBlending,

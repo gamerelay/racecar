@@ -839,8 +839,8 @@ Riviera's too, is identical.
   shader). A palette can draw a surface its own color (`Palette.surfaces`): the pavements warm
   stone, the asphalt warm grey (the city's are purple).
 - **The trees** (`PinesDef.look: 'riviera'`): the same trees where the same colliders stand,
-  drawn as umbrella pines leaning out over the sea on the coast, and inland umbrella pines (on
-  shorter trunks), round holm oaks and tall dark cypresses. Umbrella pines alone on the open hills
+  drawn as umbrella pines leaning out over the sea on the coast, and inland umbrella pines, round
+  holm oaks and tall dark cypresses. Umbrella pines alone on the open hills
   read as a savannah's acacias.
 - **The promenade:** palms and two-lantern lamp posts (lit at dusk) along every sea wall, on the
   ledge behind its parapet, where no car reaches.

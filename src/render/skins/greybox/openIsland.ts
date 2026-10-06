@@ -201,8 +201,8 @@ function promenade(track: Track, time: { value: number }, day: boolean): Object3
       // Facing out to sea, across the road.
       const yaw = Math.atan2(-hit.tz * side, hit.tx * side);
       if (k % 2 === 0) {
-        const sc = (7.5 + 2 * hash01(main.index, k, 71)) / PALM_H;
-        palms.push({ x, y, z, yaw: yaw - Math.PI / 2 + (hash01(main.index, k, 73) - 0.5) * 0.8, sx: sc, sy: sc, sz: sc, color: PALM_LEAVES[k % PALM_LEAVES.length] });
+        const sc = (7.5 + 2 * hash01(main.index, Math.round(s), 71)) / PALM_H;
+        palms.push({ x, y, z, yaw: yaw - Math.PI / 2 + (hash01(main.index, Math.round(s), 73) - 0.5) * 0.8, sx: sc, sy: sc, sz: sc, color: PALM_LEAVES[k % PALM_LEAVES.length] });
       } else {
         posts.push({ x, y, z, yaw: 0, sx: 1, sy: 1, sz: 1, color: LAMP_IRON });
         const ax = Math.cos(yaw);

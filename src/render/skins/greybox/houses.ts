@@ -202,9 +202,9 @@ function club(h: HouseDef, y: number): Object3D {
   add(new BoxGeometry(w * 0.86, high * 0.5, 0.1), 0x2b3a48, 0, high * 0.3, d / 2 + 0.05);
   for (const sx of [-1, 1]) add(new BoxGeometry(0.1, high * 0.5, d * 0.6), 0x2b3a48, sx * (w / 2 + 0.05), high * 0.3, 0);
   // Striped awnings over the glass, sloping out.
-  const bays = 8;
-  for (let k = 0; k < bays * 3; k++) {
-    const a = add(new BoxGeometry(w / bays / 3, 0.08, 2.4), STRIPES[0][k % 2], -w / 2 + (w * (k + 0.5)) / bays / 3, high * 0.62, d / 2 + 1.1);
+  const strips = 24;
+  for (let k = 0; k < strips; k++) {
+    const a = add(new BoxGeometry(w / strips, 0.08, 2.4), STRIPES[0][k % 2], -w / 2 + (w * (k + 0.5)) / strips, high * 0.62, d / 2 + 1.1);
     a.rotation.x = 0.25;
   }
   // The roof terrace: decking, the pool at its front, loungers along the pool, umbrellas, and the balustrade.
@@ -217,9 +217,9 @@ function club(h: HouseDef, y: number): Object3D {
     const x = -w * 0.33 + k * w * 0.22;
     add(faceted(new CylinderGeometry(0.05, 0.05, 2.4, 5)), 0xdedede, x, top + 1.2, -d * 0.28);
     const stripe = STRIPES[k % STRIPES.length];
+    // (Closed underneath: an open shallow cone's every face is a back face from the road below.)
     for (let q = 0; q < 8; q++) {
-      const seg = add(faceted(new ConeGeometry(1.6, 0.6, 8, 1, true, (q * Math.PI) / 4, Math.PI / 4)), stripe[q % 2], x, top + 2.4, -d * 0.28);
-      seg.rotation.y = 0;
+      add(faceted(new ConeGeometry(1.6, 0.6, 8, 1, false, (q * Math.PI) / 4, Math.PI / 4)), stripe[q % 2], x, top + 2.4, -d * 0.28);
     }
   }
   // A bar at the back of the terrace under a white canopy.
@@ -228,7 +228,7 @@ function club(h: HouseDef, y: number): Object3D {
   for (const [cx, cz] of [[w * 0.12, -d * 0.18], [w * 0.44, -d * 0.18]]) add(new BoxGeometry(0.15, 2.6, 0.15), CLUB_WHITE, cx, top + 1.3, cz);
   // The glass balustrade round the terrace's edge.
   const glass = toon({ color: 0xcfe8f0, transparent: true, opacity: 0.55 });
-  for (const [sx, sz, x, z] of [[w, 0.06, 0, d / 2 + 0.5], [w, 0.06, 0, -d / 2 - 0.5], [0.06, d + 1, w / 2 + 0.5, 0], [0.06, d + 1, -w / 2 - 0.5, 0]]) {
+  for (const [sx, sz, x, z] of [[w + 1, 0.06, 0, d / 2 + 0.5], [w + 1, 0.06, 0, -d / 2 - 0.5], [0.06, d + 1, w / 2 + 0.5, 0], [0.06, d + 1, -w / 2 - 0.5, 0]]) {
     const b = new Mesh(new BoxGeometry(sx, 1, sz), glass);
     b.position.set(x, top + 0.5, z);
     root.add(b);
