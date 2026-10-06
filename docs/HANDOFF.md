@@ -376,7 +376,7 @@ keep tweaking it: re-record its fingerprints as before.
      more cautious a car, the more it brakes in front of the pack.
    - **Known:** the Stairs' second flight's costs read 0.6 s slow: on it (74.5 of 89 m) a car runs
      about 96 km/h against the 86 it's costed at, and its overlapping ends are costed at that limit
-     but driven on the rows, faster (about 0.3 s each; the early braking had hidden it).
+     but driven on the rows, faster (about 0.3 s from each cause; the early braking had hidden it).
 2. **The look:** yachts moored in the harbour (and along the sea wall), the riviera palette (it
    borrows Paradise's `tropic` now), the beach club in the cove (its pool, terrace and jetty: a
    low block stands there now); the Old Town's side streets with its houses; lamp posts and palms

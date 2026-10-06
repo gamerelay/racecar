@@ -414,7 +414,7 @@ describe("the AI's costs as its class drives (wayCosts)", () => {
     // quick, the AI already down to their limit there.) The second flight reads 0.6 s slow: on it
     // (74.5 of its 89 m) a car runs about 96 km/h against the 86 it's costed at, and its ends, where
     // they overlap the rows, are costed at that limit but driven on the row, faster: about 0.3 s
-    // each. (Until the AI braked for a fork in time, it lost as much braking 60 m early.)
+    // from each cause. (Until the AI braked for a fork in time, it lost as much braking 60 m early.)
     for (const [id, t, from, charge, within] of [
       ['stairs-top', tracks.get('coastal/riviera')!, 700, 0.3, 0.8],
       ['sand', bakeTrack({ ...v, branches: v.branches!.filter((b) => b.id !== 'rocks') }, SURFACES), NaN, 0.1, 0.3],
