@@ -762,7 +762,7 @@ const LANDMARKS = { light: { h: 30, scale: 1.5 }, fort: { near: [-520, -700], lo
  * `every` m, a rock or a bush with these chances, `clear` m past every road's verge (the AI never
  * meets them), not on the steep banks (`steep`, rise over run: rock faces there), and off the trees.
  */
-const HILLSIDE = { x: [DESCENT.west - 30, DESCENT.east + 30], z: [DESCENT.z - 20, DESCENT.z + DESCENT.step * (DESCENT.rows - 1) + 20], every: 8, rock: 0.16, bush: 0.3, size: [1.3, 2.8], clear: 4, steep: 0.8, trees: 3 };
+const HILLSIDE = { x: [DESCENT.west - 30, DESCENT.east + 30], z: [DESCENT.z - 20, DESCENT.z + DESCENT.step * (DESCENT.rows - 1) + 20], every: 8, rock: 0.07, bush: 0.14, size: [1.3, 2.8], clear: 4, steep: 0.8, trees: 3 };
 {
   const g = bakeTrack(layout, surfaces);
   const ground = g.ground!;
