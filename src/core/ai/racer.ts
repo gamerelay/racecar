@@ -6,7 +6,7 @@
 // choice of shortcuts, and mild catch-up toward the human leader.
 
 import { TUNING as T } from '../car/tuning';
-import type { CanyonDef, SlalomGate } from '../content';
+import type { CanyonDef, CarClass, SlalomGate } from '../content';
 import type { Controls } from '../controls';
 import { atan2, clamp, cos, hypot, sin, smoothstep, sq, wrapAngle } from '../math';
 import { hash01 } from '../rng';
@@ -269,7 +269,7 @@ export function driveRacer(sim: SimState, i: number, d: RacerDriver, out: Contro
   // shortcut it knows of (its roll).
   {
     const g = track.graph;
-    const costs = wayCosts(track);
+    const costs = wayCosts(track, cls);
     const links = g.links[sp.index];
     for (const k of g.route.streets) {
       const st = g.streets[k];
@@ -480,17 +480,18 @@ function liftStops(sim: SimState, i: number, speed: number, difficulty: number, 
   return !(difficulty === 2 && speed >= LIFT_JUMP_SPEED && there <= LIFT_JUMP && across <= lifts.defs[k].wall && !waiting(sim, i, span[0], ds));
 }
 
-/**
- * What stopping for a drawbridge costs on top of the wait (s): braking from speed short of the
- * hinge and pulling away again. Set so the Basin Road (6.28 s slower than a clear bridge by the
- * racing line, `wayCosts`) is taken for a wait over 2 s, as swept before (the review: cars went
- * round for a bridge coming down a second or two later; 2 s took the quicker way at every start).
- * Retuning the racing line moves that 2 s with it (by as much as the Basin Road's time moves).
- */
-const STOP_COST = 4.28;
 /** How far ahead (s) it looks for a drawbridge to come down, in steps of this. */
 const WAIT_LOOK = 60;
 const WAIT_STEP = 0.25;
+
+/**
+ * What stopping for a drawbridge costs on top of the wait (s): slowing short of the hinge and
+ * pulling away again. Not a full stop's (braking from the bridge's 55-60 m/s to a standstill and
+ * back is about 7 s): for a wait of a second or two a car only slows. Swept over the lift's cycle
+ * for every class: the Basin Road (5.0-5.6 s slower than a clear bridge by `wayCosts`, 5.5-5.7 s
+ * driven) is taken for a wait over about 2 s, the quicker way at every start time.
+ */
+const STOP_COST = 3.26;
 
 /** How long (s) car `i` would wait at the drawbridges on main-road street `st` (0: none stop it), with stopping's cost; Infinity past WAIT_LOOK. */
 function liftWait(sim: SimState, i: number, speed: number, difficulty: number, st: Street): number {
@@ -520,17 +521,42 @@ function liftWait(sim: SimState, i: number, speed: number, difficulty: number, s
   return wait;
 }
 
-/** Per track: each street's time by the racing line (s), and from each node the quickest on to the finish by the route's streets. */
-const costsByTrack = new WeakMap<Track, { time: Float64Array; toGo: Float64Array }>();
-export function wayCosts(track: Track): { time: Float64Array; toGo: Float64Array } {
-  const had = costsByTrack.get(track);
+/** Per track and class: each street's time as driven (s), and from each node the quickest on to the finish by the route's streets. */
+const costsByTrack = new WeakMap<Track, Map<string, WayCosts>>();
+export interface WayCosts {
+  time: Float64Array;
+  toGo: Float64Array;
+}
+
+/**
+ * The quickest way on, as the class drives it: each road's racing line no faster than the class's
+ * top speed, braked for as the line plans, and pulled away from as its engine allows (the sim's own
+ * pull: less of it toward the top, air drag and rolling, a surface's drag). A branch starts at what
+ * the road it leaves allows there (or its own line, if less) and charges that road the braking down
+ * to it; it ends charging the road it rejoins the pull back up to that road's speed. By the racing
+ * line alone (a corner's speed, braking, no pulling away and no top speed) short straights read as
+ * near free: the AI skipped cuts it should take. A layout with `aiCosts: 'line'` keeps that (its
+ * rivals take its slower shortcuts now and then).
+ */
+export function wayCosts(track: Track, cls: CarClass): WayCosts {
+  let perTrack = costsByTrack.get(track);
+  if (!perTrack) costsByTrack.set(track, (perTrack = new Map()));
+  const had = perTrack.get(cls.id);
   if (had) return had;
   const g = track.graph;
+  const byLine = track.layout.aiCosts === 'line';
+  // (In order: a branch starts from the road it leaves, an earlier one.)
+  const speeds: Float64Array[] = [];
+  for (const sp of track.splines) speeds.push(byLine ? racingLine(track, sp).speed : drivenSpeed(track, sp, cls, speeds));
   const time = new Float64Array(g.streets.length);
   for (const st of g.streets) {
     const sp = track.splines[st.spline];
-    const line = racingLine(track, sp);
-    for (let s = st.s0; s < st.s1; s += sp.step) time[st.index] += sp.step / Math.max(1, line.speed[Math.min(sp.n - 1, Math.round(s / sp.step))]);
+    const v = speeds[st.spline];
+    for (let s = st.s0; s < st.s1; s += sp.step) time[st.index] += sp.step / Math.max(1, v[Math.min(sp.n - 1, Math.round(s / sp.step))]);
+    if (byLine || sp.index === 0) continue;
+    // Braking down to it on the road it leaves; pulling back up on the road it rejoins.
+    if (st.s0 === 0) time[st.index] += brakeInto(track.splines[sp.fromRoad], speeds[sp.fromRoad], sp.fromS, v[0]);
+    if (st.s1 >= sp.length - sp.step) time[st.index] += pullOut(track, track.splines[sp.toRoad], speeds[sp.toRoad], sp.toS, v[sp.n - 1], cls);
   }
   // Back from the finish over the route's streets (a lap's finish is its line, 0 there).
   const toGo = new Float64Array(g.nodes.length).fill(Infinity);
@@ -541,8 +567,69 @@ export function wayCosts(track: Track): { time: Float64Array; toGo: Float64Array
       if (st.from !== g.route.finish) toGo[st.from] = Math.min(toGo[st.from], time[k] + toGo[st.to]);
     }
   const out = { time, toGo };
-  costsByTrack.set(track, out);
+  perTrack.set(cls.id, out);
   return out;
+}
+
+/** The braking the costs plan on (m/s²): the racing line's. */
+const COST_BRAKE = 22;
+
+/** What the class's engine adds at `v` (m/s²) on surface index `surface`, flat out: physics.ts's longitudinal pull. */
+function pull(track: Track, cls: CarClass, v: number, surface: number): number {
+  const surf = track.surfaces[surface];
+  const rough = surf.offroad ? (cls.offroad ?? 0) : 0;
+  return cls.accel * Math.max(0.08, 1 - sq(v / cls.topSpeed)) - T.airDrag * v * v - T.rolling * Math.min(1, v) - (surf.drag ?? 0) * (1 - rough) * v;
+}
+
+/** One road's speed as the class drives it (m/s per sample): its line, its top speed, braked for and pulled away from. */
+function drivenSpeed(track: Track, sp: BakedSpline, cls: CarClass, before: Float64Array[]): Float64Array {
+  const n = sp.n;
+  const v = Float64Array.from(racingLine(track, sp).speed, (x) => Math.min(x, cls.topSpeed));
+  // Braked for again (the top speed lowered some of what the line braked from).
+  for (let pass = 0; pass < (sp.closed ? 2 : 1); pass++) {
+    for (let i = n - 2; i >= 0; i--) v[i] = Math.min(v[i], Math.sqrt(sq(v[i + 1]) + 2 * COST_BRAKE * sp.step));
+    if (sp.closed) v[n - 1] = Math.min(v[n - 1], Math.sqrt(sq(v[0]) + 2 * COST_BRAKE * sp.step));
+  }
+  // Pulling away: a run from a standstill; a lap round from where it's slowest; a branch from what
+  // the road it leaves allows where it leaves it (that road's done first: an earlier one).
+  if (sp.index === 0 && !sp.closed) v[0] = 0;
+  else if (sp.index > 0) v[0] = Math.min(v[0], lineAt(track.splines[sp.fromRoad], sp.fromS, before[sp.fromRoad]));
+  let i0 = 0;
+  if (sp.closed) for (let i = 1; i < n; i++) if (v[i] < v[i0]) i0 = i;
+  for (let k = 1; k < n + (sp.closed ? 1 : 0); k++) {
+    const i = (i0 + k) % n;
+    const j = (i0 + k - 1) % n;
+    v[i] = Math.min(v[i], Math.sqrt(Math.max(0, sq(v[j]) + 2 * pull(track, cls, v[j], sp.surface[j]) * sp.step)));
+  }
+  return v;
+}
+
+/** What braking from road `sp`'s speed `v` down to `to` (m/s) by `at` costs (s) over driving on at `v`. */
+function brakeInto(sp: BakedSpline, v: Float64Array, at: number, to: number): number {
+  let extra = 0;
+  let u = to;
+  for (let s = at - sp.step; s > at - sp.length; s -= sp.step) {
+    const here = lineAt(sp, s, v);
+    u = Math.sqrt(sq(u) + 2 * COST_BRAKE * sp.step);
+    if (u >= here || (!sp.closed && s < 0)) break;
+    extra += sp.step / Math.max(1, u) - sp.step / Math.max(1, here);
+  }
+  return extra;
+}
+
+/** What pulling away from `from` (m/s) at `at` on road `sp` costs (s) over that road's speed `v`, until it's back up to it. */
+function pullOut(track: Track, sp: BakedSpline, v: Float64Array, at: number, from: number, cls: CarClass): number {
+  let extra = 0;
+  let u = from;
+  for (let s = at; s < at + sp.length; s += sp.step) {
+    if (!sp.closed && s >= sp.length) break;
+    const here = lineAt(sp, s, v);
+    if (u >= here) break;
+    extra += sp.step / Math.max(1, u) - sp.step / Math.max(1, here);
+    const i = Math.round(wrap(s, sp.length) / sp.step) % sp.n;
+    u = Math.sqrt(Math.max(0, sq(u) + 2 * pull(track, cls, u, sp.surface[i]) * sp.step));
+  }
+  return extra;
 }
 
 /**

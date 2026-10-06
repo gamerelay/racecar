@@ -4,6 +4,12 @@ What changed in each release of racecar, newest first. Releases are git tags on 
 reasons behind each change are in [docs/SPEC.md](./docs/SPEC.md) under "Changed while building",
 and where things stand is [docs/HANDOFF.md](./docs/HANDOFF.md).
 
+## Unreleased
+
+- **The AI times its ways as its car drives them** (top speed, pulling away, braking onto a cut and
+  back up after it), so it judges cuts and the Harbour Bridge's wait better. Paradise and Backroads
+  keep the old reckoning: their rivals still take their slower shortcuts now and then.
+
 ## alpha-1.32: Riviera
 
 - **A new map, *Riviera*** (in the lobby, the vote and quick race; `?map=coastal/riviera` links

@@ -260,6 +260,13 @@ export interface TrackLayout {
   /** Breakable walls, in world space (on open ground). */
   breakables?: BreakableDef[];
   takedownSpots?: { s: number; name: string }[];
+  /**
+   * How the AI times its ways at a fork (`wayCosts` in ai/racer.ts): as its class drives them (the
+   * default), or 'line', by the racing line alone (a corner's speed and braking, no pulling away or
+   * top speed), as before. Paradise and Backroads keep 'line': some of their shortcuts are slower
+   * than the road, and their rivals take them anyway, now and then (the owner's call, 2026-10-05).
+   */
+  aiCosts?: 'line';
   /** Scenery the skin fills in beyond the walls (not gameplay). */
   scenery?: string;
   /** Surface between the road edge and the wall (default 'sidewalk'). */

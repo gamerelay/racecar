@@ -3512,5 +3512,6 @@
   ],
   "riverWidth": 22,
   "riverY": -5
- }
+ },
+ "aiCosts": "line"
 }

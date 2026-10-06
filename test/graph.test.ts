@@ -16,6 +16,7 @@ import { CLASSES, SURFACES, layout } from './helpers';
 
 const MAPS = ['coastal/riviera', 'downtown/downtown', 'backroads/valley', 'paradise/island', 'paradise-open/open', 'avalanche/slope'];
 const tracks = new Map<string, Track>(MAPS.map((k) => [k, bakeTrack(layout(k), SURFACES)]));
+const COUPE = CLASSES.find((c) => c.id === 'coupe')!;
 
 describe('the road graph', () => {
   test('the main road is cut into streets end to end, at every node on it, none wrapping', () => {
@@ -309,10 +310,10 @@ describe('progress along the route (6c)', () => {
 });
 
 describe('the AI picks its way by cost (6d)', () => {
-  test("each street's time by the racing line; from each node the quickest on to the finish, 0 there", () => {
+  test("each street's time as a class drives it; from each node the quickest on to the finish, 0 there", () => {
     for (const [key, t] of tracks) {
       const g = t.graph;
-      const { time, toGo } = wayCosts(t);
+      const { time, toGo } = wayCosts(t, COUPE);
       expect([key, toGo[g.route.finish]]).toEqual([key, 0]);
       for (const k of g.route.streets) {
         expect(time[k]).toBeGreaterThan(0);
@@ -342,7 +343,7 @@ describe('the AI picks its way by cost (6d)', () => {
     });
     const t = bakeTrack({ ...v, branches: v.branches!.map((b, k) => (k === 0 ? { ...b, points: loop } : b)) }, SURFACES);
     const barn = t.splines.find((sp) => sp.id === 'barn')!;
-    const { time, toGo } = wayCosts(t);
+    const { time, toGo } = wayCosts(t, COUPE);
     const g = t.graph;
     const st = g.streets.find((x) => x.road === 'barn')!;
     const main = g.nodes[st.from].out.find((m) => g.streets[m].spline === 0)!;
@@ -364,6 +365,62 @@ describe('the AI picks its way by cost (6d)', () => {
   }, 60_000);
 });
 
+
+describe("the AI's costs as its class drives (wayCosts)", () => {
+  test("Riviera's main road: each street's cost within a few percent of a hard AI's lap (by the racing line alone, a fifth short)", () => {
+    const t = tracks.get('coastal/riviera')!;
+    const g = t.graph;
+    const { time } = wayCosts(t, COUPE);
+    // Laps two and three (flying ones): a run is a stretch on one road, no wreck, no jumping back;
+    // a street is timed when one run passes both its ends.
+    const sim = setup(t, CLASSES, SURFACES, { s: 0 }, 'ai', { seed: 4 });
+    let cost = 0;
+    let driven = 0;
+    let run: { sp: number; ts: [number, number][] } | null = null;
+    const close = () => {
+      for (const st of g.streets) {
+        // (The drawbridge's is a wait, not a drive.)
+        const lift = t.ground!.pieces.list.some((p) => p.lift && p.lift.s[0] >= st.s0 && p.lift.s[0] < st.s1);
+        if (!run || st.spline !== run.sp || st.spline !== 0 || st.s1 - st.s0 < 100 || lift || run.ts[0][0] > st.s0 + 3) continue;
+        const a = run.ts.find(([s]) => s >= st.s0);
+        const b = run.ts.find(([s]) => s >= st.s1 - 0.5);
+        if (!a || !b) continue;
+        expect([st.road, st.s0, Math.abs(time[st.index] - (b[1] - a[1])) / (b[1] - a[1]) < 0.12]).toEqual([st.road, st.s0, true]);
+        cost += time[st.index];
+        driven += b[1] - a[1];
+      }
+    };
+    let last = -1;
+    for (let k = 0; k < 60 * 400 && sim.cars.lap[0] < 3; k++) {
+      sim.step([]);
+      const [sp, s] = [sim.cars.spline[0], sim.cars.s[0]];
+      if (sim.cars.lap[0] < 1 || sim.cars.wreck[0] || !run || run.sp !== sp || s < last - 1) {
+        close();
+        run = sim.cars.lap[0] >= 1 && !sim.cars.wreck[0] ? { sp, ts: [] } : null;
+      }
+      run?.ts.push([s, sim.time]);
+      last = s;
+    }
+    close();
+    expect(driven).toBeGreaterThan(60);
+    expect(Math.abs(cost - driven) / driven).toBeLessThan(0.04);
+  }, 60_000);
+
+  test("`aiCosts: 'line'` (Paradise, Backroads): the racing line alone, so their rivals still take a shortcut slower than the road", () => {
+    // Paradise's sandbar: slower than the road as a coupe drives it (0.76 s, measured), quicker by the line.
+    const v = layout('paradise/island');
+    expect(v.aiCosts).toBe('line');
+    const way = (t: Track) => {
+      const { time, toGo } = wayCosts(t, COUPE);
+      const g = t.graph;
+      const st = g.streets.find((x) => x.road === 'sandbar')!;
+      const main = g.nodes[st.from].out.find((m) => g.streets[m].spline === 0)!;
+      return time[st.index] + toGo[st.to] - (time[main] + toGo[g.streets[main].to]);
+    };
+    expect(way(tracks.get('paradise/island')!)).toBeLessThan(0);
+    expect(way(bakeTrack({ ...v, aiCosts: undefined }, SURFACES))).toBeGreaterThan(0.5);
+  });
+});
 
 describe('branches off branches (6e)', () => {
   const t = bakeTrack(laneLayout(), SURFACES);
@@ -421,7 +478,7 @@ describe('branches off branches (6e)', () => {
   });
 
   test('the AI on the barn takes the lane where it is the quicker way on, and comes out on the main road', () => {
-    const { time, toGo } = wayCosts(t);
+    const { time, toGo } = wayCosts(t, COUPE);
     const st = g.streets.find((s) => s.road === 'lane')!;
     const rest = g.streets.find((s) => s.spline === barn.index && s.s0 === LANE_FROM)!;
     expect(time[st.index] + toGo[st.to]).toBeLessThan(time[rest.index] + toGo[rest.to]);

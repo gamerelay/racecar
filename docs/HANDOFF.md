@@ -206,8 +206,8 @@ identical through all five: each slice is the old behaviour on today's maps, wit
   marks still use main-road distances (they're on the main road).
 - **6d, the AI picks its way by cost** (#122): the quickest way it knows (`wayCosts`: street
   times by the racing line, the quickest on to the finish from each node; `liftWait`: a
-  drawbridge's wait, to a hundredth, plus `STOP_COST` 4.28 s, so the Basin Road is taken for a wait
-  over 2 s, as before). A detour every driver knows, a shortcut on its roll; a shortcut slower than
+  drawbridge's wait, to a hundredth, plus `STOP_COST`, 3.26 s since driven costs (below), so the
+  Basin Road is taken for a wait over about 2 s, as before). A detour every driver knows, a shortcut on its roll; a shortcut slower than
   what it skips is no one's.
 - **6e, branches off branches** (#123): `BranchDef.leaves`/`rejoins` (an earlier branch, or the
   main road). The bake, the graph, `locate` and the AI's choice work from any road. Tested with a
@@ -226,10 +226,13 @@ identical through all five: each slice is the old behaviour on today's maps, wit
 
 **Next on the road graph,** when a map needs it: CALDERA's step 6 leftovers (hazards, traffic and
 the AI's marks off main-road distances; the road-edge walls onto streets), then step 7, a city map.
-Worth doing first if cuts keep coming: `wayCosts` times streets by the racing line with no
-acceleration, so short straights look quicker than they drive. The AI then skips cuts it should
-take (a cut's `limit` had to be set by measured drives, not costs) and comes into the Stairs'
-second flight too fast off the row.
+**Driven costs** (after `alpha-1.32`): `wayCosts` times each street as the car's class drives
+it (top speed, pulling away, braking onto a branch and pulling back up after it), within a few
+percent of a hard AI's drive (the racing line alone was a fifth short), so a new cut's costs can
+be trusted. `STOP_COST` 3.26 (was 4.28), swept. Paradise and Backroads keep the racing line
+(`aiCosts: 'line'`): driven, four of their shortcuts are slower than the road, and the owner wants
+their rivals to keep taking them. Every fingerprint identical; Riviera's field results unchanged.
+CALDERA's 6d has the numbers.
 
 **Next: Coastal, now *Riviera* (2026-10-04; as of 2026-10-05, through #140 and `alpha-1.32`).** The owner's call: Caldera's next features are
 built on a new experimental map instead of Paradise Open, whose fingerprints, floors and tests made
@@ -337,8 +340,7 @@ keep tweaking it: re-record its fingerprints as before.
    waterfront's pavement.
 3. **Optional:** a poster for it (the plan's "into the lobby" step had one; nothing in the game
    shows a map's poster, so the owner's call). It's in the lobby already.
-4. **Before more cuts:** give `wayCosts` acceleration (below: the AI misjudges the Stairs' arm and
-   short straights).
+4. ~~Before more cuts: give `wayCosts` acceleration~~ (done: driven costs, above).
 The owner keeps tweaking it now it's live: each change re-records only `coastal/riviera`'s
 fingerprints, every other map's identical, and checks the floor and field races.
 
@@ -346,9 +348,10 @@ fingerprints, every other map's identical, and checks the floor and field races.
 - The lap is long (106.2 s since the Old Town's switchbacks, the Stairs and the cape's loop, against 58–93 for the rest): a Descent row or an S-bend could go, or the
   race fewer laps, if the owner wants it shorter.
 - A car that runs wide just before a rock rail can end up behind it, grinding along to its end.
-- The AI never takes the Stairs' arm (at the fork it costs the rest of the flight as if the second
-  flight follows, its own roll), and turning up the second flight off the row it comes in too fast
-  and clips the walls (1.8 s lost). Both are `wayCosts`' racing line without acceleration.
+- The AI never takes the Stairs' arm: by driven costs the rest of the flight is 0.3 s quicker, and
+  forced drives agree it's a wash at best (the muscle, bus and police lose about 3 s on it). Turning
+  up the second flight off the row it comes in too fast and clips the walls (1.8 s lost): that's
+  its target speed there (the racing line's), not its costs.
 - Who wrecks on the Rocks flat out depends on exactly where a car meets the ridges, and the
   Stairs' times on where their houses landed: re-measure after changing either. A wreck respawns
   you quickly, so a fluffed cut costs little more than the road.
