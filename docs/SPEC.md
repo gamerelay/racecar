@@ -77,7 +77,7 @@ These decide the arguments before they happen.
   focus system (§13).
 - Schemas for content with a small validator (no runtime dependency; types generated from the
   same source).
-- Repo **`gamerelay/racecar`**, private until the online milestone is playable, then public.
+- Repo **`gamerelay/racecar`**, public since 2026-10-05 (changed from: private until the online milestone is playable). The code is MIT; the music in `public/music/` is reserved.
   Meant to be deployed as static files at `racecar.gamerelay.io`, itch.io later. For now the test
   build is one HTML file (`bun run build:single`) on https://asleepace.com/games/Z442EE.
 
@@ -772,7 +772,7 @@ What we've settled, so nobody re-argues it. Changing one is fine; say so here.
 
 | Question | Decision |
 |---|---|
-| Repo | `gamerelay/racecar`, private until milestone 3, then public, MIT |
+| Repo | `gamerelay/racecar`, public since 2026-10-05, code MIT, music reserved |
 | Name and title | **racecar** |
 | Players per room | **8** (fits the LAN/relay shortcut; the grid is 2 × 4) |
 | Graphics | greybox first; skins are a separate layer and milestone (§6) |
