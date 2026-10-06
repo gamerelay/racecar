@@ -848,9 +848,9 @@ const HOTEL = { w: 34, d: 16, high: 19.2, gap: 2, porch: 26, under: 6, columns: 
   // (A column's middle stands COLUMN + 0.3 in from the terrace's front: porchColumns.)
   const porch = { depth: Math.round((near + 1 + COLUMN - HOTEL.d / 2 + COLUMN + 0.3) * 10) / 10, width: HOTEL.porch, high: HOTEL.under, columns: HOTEL.columns };
   houses.push({ at: [Math.round(hx * 10) / 10, Math.round(hz * 10) / 10], size: [HOTEL.w, HOTEL.d, HOTEL.high], rot: hrot, look: 'hotel', porch });
-  // The beach club (COVE), inside the chicane, facing the sea: a low block for now (its pool, terrace
-  // and jetty come with the look).
-  houses.push({ at: COVE.inside, size: [26, 14, 5.5], rot: -Math.PI / 2 });
+  // The beach club (COVE), inside the chicane, facing the sea: a white pavilion, its pool on the roof
+  // (look 'club'; its jetty a pontoon, with the landmarks).
+  houses.push({ at: COVE.inside, size: [26, 14, 5.5], rot: -Math.PI / 2, look: 'club' });
   // (No house under its terrace: the hotel's box, out over its porch, as one.)
   const [px, pz] = at(hfront - porch.depth / 2);
   const terrace = { at: [px, pz] as [number, number], size: [HOTEL.porch, porch.depth], rot: hrot };
@@ -958,9 +958,10 @@ const LANDMARKS = { light: { h: 30, scale: 1.5 }, fort: { near: [-520, -700], lo
 /**
  * The marina (COASTAL's look: yachts in the harbour): pontoons out from the harbour's west and east
  * sides at these z, each `length` m out from `back` m inside the waterline, with boats along both
- * sides; the channel between them clear for the drawbridge's boat.
+ * sides; the channel between them clear for the drawbridge's boat. And the beach club's jetty,
+ * `jetty` m out from the cove's waterline.
  */
-const MARINA = { z: [222, 276], length: 46, back: 5 };
+const MARINA = { z: [222, 276], length: 46, back: 5, jetty: 34 };
 
 function pontoons(ground: ReturnType<typeof bakeTrack>['ground'] & {}): LandmarkDef[] {
   const out: LandmarkDef[] = [];
@@ -973,6 +974,11 @@ function pontoons(ground: ReturnType<typeof bakeTrack>['ground'] & {}): Landmark
       x += side * MARINA.back;
       out.push({ kind: 'pontoon', at: [Math.round(x * 10) / 10, z], rot: side < 0 ? Math.PI / 2 : -Math.PI / 2, r: 0, params: { length: MARINA.length, seed: seed++ } });
     }
+  // The beach club's jetty: out to sea in front of it from the waterline (past the Sand's sand),
+  // a couple of boats at it.
+  let x = COVE.inside[0];
+  while (ground.height(x, COVE.inside[1]) > SEA - 0.3) x--;
+  out.push({ kind: 'pontoon', at: [x, COVE.inside[1]], rot: -Math.PI / 2, r: 0, params: { length: MARINA.jetty, seed: 9, moored: 0.35 } });
   return out;
 }
 {

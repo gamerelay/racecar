@@ -22,12 +22,13 @@ const DECK = { wide: 2.6, high: 0.7, every: 7.5, gap: 1 };
 
 /**
  * A pontoon from `at` (its shore end) out over the water the way `rot` faces, `length` m long
- * (params.length), with boats along both sides from `seed` (params.seed). `sea` is the water's
- * level relative to `at`'s ground.
+ * (params.length), with boats along both sides from `seed` (params.seed), at about `moored` of its
+ * berths (params.moored, default 0.85). `sea` is the water's level relative to `at`'s ground.
  */
 export function pontoon(m: LandmarkDef, sea: number): Mesh {
   const len = m.params?.length ?? 45;
   const rng = new Rng(m.params?.seed ?? 1);
+  const moored = m.params?.moored ?? 0.85;
   const y = sea + DECK.high;
   const parts: BufferGeometry[] = [];
   // The deck in planks, a row of piles down each side.
@@ -35,7 +36,7 @@ export function pontoon(m: LandmarkDef, sea: number): Mesh {
   for (let z = 1; z < len; z += 6) for (const x of [-1, 1]) parts.push(box(0.3, 2.4, 0.3, '#5e4a38', x * (DECK.wide / 2 + 0.1), y - 0.9, z));
   for (let z = DECK.every / 2 + 2; z < len - 2; z += DECK.every) {
     for (const side of [-1, 1]) {
-      if (rng.next() < 0.15) continue;
+      if (rng.next() >= moored) continue;
       const sail = rng.next() < 0.4;
       const L = sail ? rng.range(9, 14) : rng.range(11, 20);
       const boat = sail ? sailboat(L, rng) : motorYacht(L, rng);

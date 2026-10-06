@@ -55,6 +55,10 @@ export function buildHouses(track: Track): Object3D[] {
       out.push(casino(h, y));
       return;
     }
+    if (h.look === 'club') {
+      out.push(club(h, y));
+      return;
+    }
     if (h.look === 'hotel') {
       out.push(...hotel(h, y, track.props.filter((p) => p.kind === 'house-column')));
       return;
@@ -162,6 +166,73 @@ function casino(h: { at: [number, number]; size: [number, number, number]; rot: 
   clock.rotation.x = Math.PI / 2;
   clock.position.set(0, high * 0.62 + 2.6, front - 1.2);
   root.add(clock);
+  root.position.set(h.at[0], y, h.at[1]);
+  root.rotation.y = h.rot;
+  return root;
+}
+
+const CLUB_WHITE = 0xf6f3ec;
+const POOL = 0x3fc6d8;
+const DECK = 0xb08458;
+const STRIPES = [
+  [0x1d4f8f, 0xf6f3ec],
+  [0xf2c84a, 0xf6f3ec],
+  [0xe0563f, 0xf6f3ec],
+];
+
+/**
+ * The beach club in the cove (docs/COASTAL.md, "The Beach": umbrellas, a pool): the solid block is
+ * the house `h` (look 'club'), drawn as a low white modern pavilion, glass along its front under
+ * striped awnings, and on its flat roof a terrace with a pool, loungers and umbrellas behind a glass
+ * balustrade. Its front toward the sea.
+ */
+function club(h: HouseDef, y: number): Object3D {
+  const [w, d, high] = h.size;
+  const root = new Group();
+  const add = (geo: BoxGeometry | ReturnType<typeof faceted>, color: number, x: number, yy: number, z: number, ry = 0) => {
+    const m = new Mesh(geo, toon({ color }));
+    m.position.set(x, yy, z);
+    m.rotation.y = ry;
+    root.add(m);
+    return m;
+  };
+  // The pavilion, its roof slab a little proud all round, and glass across the front and down its ends.
+  add(new BoxGeometry(w, high, d), CLUB_WHITE, 0, high / 2, 0);
+  add(new BoxGeometry(w + 1.2, 0.45, d + 1.2), CLUB_WHITE, 0, high + 0.2, 0);
+  add(new BoxGeometry(w * 0.86, high * 0.5, 0.1), 0x2b3a48, 0, high * 0.3, d / 2 + 0.05);
+  for (const sx of [-1, 1]) add(new BoxGeometry(0.1, high * 0.5, d * 0.6), 0x2b3a48, sx * (w / 2 + 0.05), high * 0.3, 0);
+  // Striped awnings over the glass, sloping out.
+  const bays = 8;
+  for (let k = 0; k < bays * 3; k++) {
+    const a = add(new BoxGeometry(w / bays / 3, 0.08, 2.4), STRIPES[0][k % 2], -w / 2 + (w * (k + 0.5)) / bays / 3, high * 0.62, d / 2 + 1.1);
+    a.rotation.x = 0.25;
+  }
+  // The roof terrace: decking, the pool at its front, loungers along the pool, umbrellas, and the balustrade.
+  const top = high + 0.45;
+  add(new BoxGeometry(w - 0.6, 0.06, d - 0.6), DECK, 0, top, 0);
+  add(new BoxGeometry(w * 0.55, 0.08, d * 0.36), POOL, -w * 0.12, top + 0.04, d * 0.18);
+  add(new BoxGeometry(w * 0.55 + 0.6, 0.05, d * 0.36 + 0.6), CLUB_WHITE, -w * 0.12, top + 0.01, d * 0.18);
+  for (let k = 0; k < 6; k++) add(new BoxGeometry(0.75, 0.35, 1.9), CLUB_WHITE, -w * 0.38 + k * w * 0.11, top + 0.2, -d * 0.12);
+  for (let k = 0; k < 3; k++) {
+    const x = -w * 0.33 + k * w * 0.22;
+    add(faceted(new CylinderGeometry(0.05, 0.05, 2.4, 5)), 0xdedede, x, top + 1.2, -d * 0.28);
+    const stripe = STRIPES[k % STRIPES.length];
+    for (let q = 0; q < 8; q++) {
+      const seg = add(faceted(new ConeGeometry(1.6, 0.6, 8, 1, true, (q * Math.PI) / 4, Math.PI / 4)), stripe[q % 2], x, top + 2.4, -d * 0.28);
+      seg.rotation.y = 0;
+    }
+  }
+  // A bar at the back of the terrace under a white canopy.
+  add(new BoxGeometry(w * 0.3, 1.1, 1.2), CLUB_WHITE, w * 0.28, top + 0.55, -d * 0.35);
+  add(new BoxGeometry(w * 0.34, 0.15, 3.2), CLUB_WHITE, w * 0.28, top + 2.6, -d * 0.3);
+  for (const [cx, cz] of [[w * 0.12, -d * 0.18], [w * 0.44, -d * 0.18]]) add(new BoxGeometry(0.15, 2.6, 0.15), CLUB_WHITE, cx, top + 1.3, cz);
+  // The glass balustrade round the terrace's edge.
+  const glass = toon({ color: 0xcfe8f0, transparent: true, opacity: 0.55 });
+  for (const [sx, sz, x, z] of [[w, 0.06, 0, d / 2 + 0.5], [w, 0.06, 0, -d / 2 - 0.5], [0.06, d + 1, w / 2 + 0.5, 0], [0.06, d + 1, -w / 2 - 0.5, 0]]) {
+    const b = new Mesh(new BoxGeometry(sx, 1, sz), glass);
+    b.position.set(x, top + 0.5, z);
+    root.add(b);
+  }
   root.position.set(h.at[0], y, h.at[1]);
   root.rotation.y = h.rot;
   return root;
