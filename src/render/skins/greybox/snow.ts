@@ -44,6 +44,8 @@ const LAVA_ROCK = new Color('#3a3336');
 const LAVA_ROCK_2 = new Color('#463c3d');
 const FOREST = new Color('#2a6b33');
 const CRAG = new Color('#3f383b');
+/** A coast's steep ground with no volcano (Coastal's Riviera): pale, warm limestone, not black crag. */
+const LIMESTONE = new Color('#b9ad94');
 /** The volcano's lighter, ashier patches, and its warm earth. */
 const ASH = new Color('#5e5558');
 const EARTH = new Color('#4d3b31');
@@ -135,8 +137,9 @@ export function buildSnow(track: Track, green?: Color): Object3D[] {
               }
             }
           }
-          // (An island's crags are dark volcanic rock, not the mountains' grey.)
-          if (steep > ROCK) c.lerp(isle ? CRAG : ROCK_COLOR, Math.min(1, (steep - ROCK) * 2));
+          // (A volcanic island's crags are dark rock; a coast's without one pale limestone; the
+          // mountains' grey.)
+          if (steep > ROCK) c.lerp(isle ? (volcano ? CRAG : LIMESTONE) : ROCK_COLOR, Math.min(1, (steep - ROCK) * 2));
           col[o] = c.r;
           col[o + 1] = c.g;
           col[o + 2] = c.b;
