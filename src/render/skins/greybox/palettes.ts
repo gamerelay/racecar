@@ -42,9 +42,14 @@ export interface Palette {
   seaLight?: number;
   /** The sea's colors by depth: over the sand, out past it, the deep (default Paradise's turquoise lagoon). */
   sea?: [number, number, number];
+  /** How some surfaces are drawn here, by id (default each one's own color: content/surfaces.json). Drawn only. */
+  surfaces?: Record<string, string>;
   /** The post pass's grade (none: as rendered). */
   grade?: Grade;
 }
+
+/** Riviera's pavements pale, warm stone, and its asphalt a warm grey (the city's are purple). */
+const RIVIERA_SURFACES = { sidewalk: '#c8b89a', asphalt: '#4f4b50' };
 
 export const PALETTES: Record<string, Palette> = {
   dusk: {
@@ -124,6 +129,7 @@ export const PALETTES: Record<string, Palette> = {
     day: true,
     overcast: 0.3,
     sea: [0x5cc9c6, 0x1c62a8, 0x0a2c6a],
+    surfaces: RIVIERA_SURFACES,
     grade: { saturation: 1.14, contrast: 1.1, shadow: 0x6f8cc8, vignette: 0.22 },
   },
   // Riviera's evening: the sunset's sky over its own sea and hills.
@@ -149,6 +155,7 @@ export const PALETTES: Record<string, Palette> = {
     overcast: 0.35,
     seaLight: 0xffc8b0,
     sea: [0x5cc9c6, 0x1c62a8, 0x0a2c6a],
+    surfaces: RIVIERA_SURFACES,
     grade: { saturation: 1.18, contrast: 1.07, shadow: 0x7a5cc0, vignette: 0.3 },
   },
   // Avalanche (docs/AVALANCHE.md): a cold, bright day on snow, blue in the shade.

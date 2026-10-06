@@ -164,7 +164,10 @@ function cross(sp: BakedSpline, i: number, out: Cross): Cross {
   return out;
 }
 
-export function buildTrackVisual(track: Track, palette: Palette, seed: number): TrackVisual {
+export function buildTrackVisual(baked: Track, palette: Palette, seed: number): TrackVisual {
+  // (Drawn in the palette's colors for its surfaces, where it has its own: Palette.surfaces.)
+  const recolor = palette.surfaces;
+  const track: Track = recolor ? { ...baked, surfaces: baked.surfaces.map((x) => (recolor[x.id] ? { ...x, color: recolor[x.id] } : x)) } : baked;
   const road = toon({ vertexColors: true, side: DoubleSide });
   const chunks: Object3D[] = [];
   let minY = Infinity;
