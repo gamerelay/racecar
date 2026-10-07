@@ -39,7 +39,8 @@ dunes, possibly a river, maybe pyramids". [SAHARA.md](./SAHARA.md) is the plan; 
 is built (experimental): a 4.04 km serpentine on open ground, the Great Pyramid's Pyramid Run (a
 new ground feature, `PyramidDef`), the Mesa Drop, a desert palette and ground; step 2, the oasis
 river (`RiverDef`: a ford and a bridge) and the diamonds (pyramids by the road to jump). Floor
-78.85 s, no field wrecks over seeds 1–8. Next (SAHARA.md's steps): Giza dressed, palms and reeds.
+78.85 s, no field wrecks over seeds 1–8; step 3, Giza dressed (the Sphinx, obelisks, 292 palms
+along the river). Next (SAHARA.md's steps): more of what drifts, life (a caravan, dust devils).
 Fingerprints not recorded yet (the owner's word): the golden test skips an experimental layout
 with none.
 

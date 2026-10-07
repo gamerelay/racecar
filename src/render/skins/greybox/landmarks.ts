@@ -1239,7 +1239,70 @@ function fort(m: LandmarkDef, c: Ctx): Built {
   };
 }
 
+/** Giza's limestone (docs/SAHARA.md): weathered, warm, darker in its seams. */
+const GIZA_STONE = 0xd8c39a;
+const GIZA_SHADE = 0xbca57c;
+const GIZA_DARK = 0x8f7a58;
+
+/**
+ * The Sphinx (Sahara's Giza; its solid block a house, look 'landmark'): a lion lying on a stone
+ * plinth, its paws out in front (+z), a man's head in a striped nemes headdress over them, worn
+ * and missing its nose. About 30 m long and 12 m to the top of its head.
+ */
+function sphinx(c: Ctx): Built {
+  const root = new Group();
+  const S = solids();
+  // The plinth it lies on, down to the ground at its corners.
+  const low = Math.min(c.ground(-6, -16), c.ground(6, -16), c.ground(-6, 16), c.ground(6, 16));
+  S.add(13, 1.2 - low, 34, GIZA_SHADE, 0, (1.2 + low) / 2, 0);
+  // The body, lying: haunches at the back, a long back, the chest up at the front.
+  S.add(8.4, 4.6, 18, GIZA_STONE, 0, 3.5, -4);
+  S.add(9, 3.2, 6, GIZA_STONE, 0, 2.8, -12.4);
+  S.add(7.6, 6.8, 6, GIZA_STONE, 0, 4.6, 4.6);
+  // The forelegs and paws, out in front.
+  for (const x of [-2.6, 2.6]) {
+    S.add(2.2, 1.8, 10, GIZA_SHADE, x, 2.1, 11);
+    S.add(2.4, 1.2, 1.4, GIZA_DARK, x, 1.8, 16.2);
+  }
+  // The tail along its right flank.
+  S.add(0.8, 0.8, 9, GIZA_SHADE, 4.6, 1.8, -9);
+  // The head: the nemes's lappets either side of the face, its crown, the face, the beard.
+  S.add(4.6, 4.4, 4.2, GIZA_STONE, 0, 10.2, 5.4);
+  S.add(5.8, 5.6, 1.2, GIZA_SHADE, 0, 8.8, 4.8);
+  for (const x of [-2.6, 2.6]) S.add(0.9, 5.4, 2.6, GIZA_SHADE, x, 8.2, 6);
+  S.add(3.4, 3.6, 0.5, GIZA_STONE, 0, 9.6, 7.6);
+  S.add(2.6, 0.5, 0.4, GIZA_DARK, 0, 10.5, 7.9);
+  S.add(0.5, 0.6, 0.4, GIZA_DARK, 0, 9.4, 7.9);
+  S.add(1.4, 0.3, 0.3, GIZA_DARK, 0, 8.4, 7.9);
+  S.add(1, 1.8, 0.8, GIZA_SHADE, 0, 7.2, 7.5);
+  // The headdress's stripes down its lappets.
+  for (let k = 0; k < 4; k++) for (const x of [-3.06, 3.06]) S.add(0.06, 0.35, 2.6, GIZA_DARK, x, 6.6 + k * 1.2, 6);
+  root.add(S.mesh());
+  return { root };
+}
+
+/** An obelisk (Sahara's Giza; solid as a house, look 'landmark'): a tapering granite shaft on a plinth, its pyramidion gilded. */
+function obelisk(c: Ctx): Built {
+  const root = new Group();
+  const S = solids();
+  const low = Math.min(c.ground(-1.8, -1.8), c.ground(1.8, 1.8), c.ground(-1.8, 1.8), c.ground(1.8, -1.8));
+  S.add(3.6, 1.2 - low, 3.6, GIZA_SHADE, 0, (1.2 + low) / 2, 0);
+  root.add(S.mesh());
+  // The shaft, tapering, and its gold tip.
+  const shaft = new Mesh(faceted(new CylinderGeometry(0.9 / Math.SQRT2, 1.4 / Math.SQRT2, 15, 4, 1)), toon({ color: 0xc89a78 }));
+  shaft.position.y = 1.2 + 7.5;
+  shaft.rotation.y = Math.PI / 4;
+  root.add(shaft);
+  const tip = new Mesh(faceted(new ConeGeometry(0.9 / Math.SQRT2, 1.4, 4)), toon({ color: 0xf2c84a, emissive: 0x6a4a10 }));
+  tip.position.y = 1.2 + 15 + 0.7;
+  tip.rotation.y = Math.PI / 4;
+  root.add(tip);
+  return { root };
+}
+
 const BUILDERS: Record<string, (m: LandmarkDef, ctx: Ctx) => Built> = {
+  sphinx: (_m, c) => sphinx(c),
+  obelisk: (_m, c) => obelisk(c),
   'clock-tower': (m) => clockTower(m),
   'donut-shop': () => donutShop(),
   fountain: (m, c) => fountain(m, c.time),

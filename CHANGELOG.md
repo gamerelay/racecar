@@ -14,6 +14,8 @@ and where things stand is [docs/HANDOFF.md](./docs/HANDOFF.md).
 - **Sahara's river:** an oasis river through the desert, crossed twice: a ford you splash through
   on the Caravan Road, and a hump-backed bridge over its gorge on the Wadi. Small pyramids stand
   on the outside of corners: run wide and use a face as a jump.
+- **Giza dressed:** the Sphinx watches the road up to the pyramids between two pairs of obelisks,
+  and palm groves line the river.
 
 ## alpha-1.37: Paradise goes open
 

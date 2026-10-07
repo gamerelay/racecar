@@ -94,3 +94,21 @@ describe("Sahara's river", () => {
     expect(g.pieceFloor(x, z, 1, y + 0.5)).toBeCloseTo(y, 1);
   });
 });
+
+describe('Giza dressed', () => {
+  const sahara = layout('sahara/dunes');
+  const track = bakeTrack(sahara, SURFACES);
+
+  test('the Sphinx and the obelisks stand solid, off the road, and the palms keep off every road', () => {
+    expect(sahara.landmarks!.map((m) => m.kind).sort()).toEqual(['obelisk', 'obelisk', 'obelisk', 'obelisk', 'sphinx']);
+    for (const m of sahara.landmarks!) expect(sahara.houses!.some((h) => h.at[0] === m.at[0] && h.at[1] === m.at[1] && h.look === 'landmark')).toBe(true);
+    const palms = sahara.ground!.pines!.plant!;
+    expect(palms.length).toBeGreaterThan(150);
+    const hit = newHit();
+    for (const [x, z] of palms)
+      for (const sp of track.splines) {
+        projectGlobal(sp, x, z, hit);
+        expect(Math.abs(hit.lateral) > hit.width / 2 + hit.shoulder || Math.hypot(hit.cx - x, hit.cz - z) > hit.width / 2 + hit.shoulder).toBe(true);
+      }
+  });
+});

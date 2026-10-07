@@ -18,10 +18,12 @@
 import { mkdirSync, writeFileSync } from 'node:fs';
 import type { BranchDef, FeatureDef, PyramidDef, RampDef, RiverDef, TrackLayout } from '../src/core/content';
 import { smoothstep } from '../src/core/math';
-import { riverAt } from '../src/core/track/features/river';
 import { bakeTrack } from '../src/core/track/bake';
 import { pyramidHeight } from '../src/core/track/features/pyramid';
-import { newHit, sampleAt } from '../src/core/track/query';
+import { newHit, offRoad, projectGlobal, sampleAt } from '../src/core/track/query';
+import { Rng } from '../src/core/rng';
+import { noise } from '../src/core/track/ground';
+import { RIVER_BANK, riverAt } from '../src/core/track/features/river';
 import surfaces from '../content/surfaces.json';
 import { type Node, lapPoints, onLap, r1, wallGaps } from './lib/lap';
 
@@ -224,7 +226,7 @@ const runRot = Math.atan2(bx - ax, bz - az);
 const GREAT: PyramidDef = { kind: 'pyramid', at: [r1(ax + (bx - ax) * RUN.at), r1(az + (bz - az) * RUN.at)], half: RUN.half, top: RUN.top, h: r1((RUN.half - RUN.top) * RUN.slope), y: 0, rot: Math.round(runRot * 1000) / 1000 };
 /** Two queens' pyramids off the road, to drive up for the fun of it (and to see at speed). */
 const QUEENS: PyramidDef[] = [
-  { kind: 'pyramid', at: [300, 100], half: 22, top: 2.5, h: 8, y: 0, rot: 0.2 },
+  { kind: 'pyramid', at: [225, 112], half: 22, top: 2.5, h: 8, y: 0, rot: 0.2 },
   { kind: 'pyramid', at: [150, -150], half: 26, top: 3, h: 10, y: 0, rot: -0.15 },
 ];
 /**
@@ -324,6 +326,78 @@ layout.ramps = [kicker(150, 188, 1.6), kicker(80, 10, 1.8), { s: MESA_LIP, heigh
     if (clear < (diamonds.includes(p) ? DIAMONDS.clear - 0.5 : PYRAMID_CLEAR)) throw new Error(`a pyramid at ${p.at.join(', ')} is ${clear.toFixed(1)} m off the road at ${Math.round(worst)} m, (${m.px[Math.round(worst / m.step)].toFixed(0)}, ${m.pz[Math.round(worst / m.step)].toFixed(0)}) (want ${PYRAMID_CLEAR})`);
     console.log(`  pyramid at ${p.at.join(', ')}: ${(p.half * 2).toFixed(0)} m across, ${p.h} m high on ${p.y} m, ${clear.toFixed(0)} m off the road`);
   }
+}
+
+/**
+ * Giza dressed (the owner: "dress up Giza with the Sphinx and palms"). The Sphinx lies on the
+ * plateau north of the road up to Giza, facing it across `front` m of open sand (its solid block a
+ * house, the landmark standing in it); an obelisk either side of the road `obelisks` m along from
+ * where it looks at it, `out` m past the road's shoulder.
+ */
+const GIZA = { sphinx: [340, 88] as [number, number], size: [13, 34, 12] as [number, number, number], obelisks: [-55, 55], out: 7, obelisk: [3.6, 3.6, 17] as [number, number, number] };
+{
+  const [x, z] = GIZA.sphinx;
+  // Facing the road: toward its nearest point.
+  const s = sAt(x, z);
+  const [rx, rz] = onMain(s);
+  const rot = Math.round(Math.atan2(rx - x, rz - z) * 1000) / 1000;
+  layout.houses = [{ at: GIZA.sphinx, size: GIZA.size, rot, look: 'landmark' }];
+  layout.landmarks = [{ kind: 'sphinx', at: GIZA.sphinx, rot, r: 0 }];
+  for (const along of GIZA.obelisks)
+    for (const side of [-1, 1]) {
+      sampleAt(baked.main, s + along, hit);
+      const off = (hit.width / 2 + hit.shoulder + GIZA.out) * side;
+      const at: [number, number] = [r1(hit.cx - hit.tz * off), r1(hit.cz + hit.tx * off)];
+      layout.houses.push({ at, size: GIZA.obelisk, rot: 0, look: 'landmark' });
+      layout.landmarks.push({ kind: 'obelisk', at, rot: 0, r: 0 });
+    }
+  console.log(`  giza: the Sphinx at ${GIZA.sphinx.join(', ')}, ${Math.round(Math.hypot(rx - x, rz - z))} m from the road, and ${GIZA.obelisks.length * 2} obelisks`);
+}
+
+/**
+ * Palms along the river (the oasis): both banks, one about every `every` m (jittered), `out` m
+ * past its banks' foot (a range), in groves (none where the noise is low), none within `road` m of
+ * any road's shoulder, on its water, on a pyramid or by a house. Planted (PinesDef.plant): solid.
+ */
+const PALMS = { every: 7, out: [-3, 9] as [number, number], road: 6, grove: 0.35, house: 4 };
+{
+  const t = bakeTrack(layout, surfaces);
+  const g = t.ground!;
+  const rng = new Rng(0x5a4a);
+  const level = riverAt(RIVER_DEF, 80);
+  const w = { level: 0 };
+  const pyramid = PYRAMIDS.map(pyramidHeight);
+  const roadHit = newHit();
+  const palms: [number, number][] = [];
+  const path = RIVER_DEF.path;
+  let along = 0;
+  for (let k = 1; k < path.length; k++) {
+    const [ax, az] = path[k - 1];
+    const [bx, bz] = path[k];
+    const l = Math.hypot(bx - ax, bz - az);
+    const [nx, nz] = [-(bz - az) / l, (bx - ax) / l];
+    for (let u = 0; u < l; u++, along++) {
+      if (along % PALMS.every !== 0) continue;
+      for (const side of [-1, 1]) {
+        const out = RIVER.width / 2 + RIVER_BANK + PALMS.out[0] + rng.next() * (PALMS.out[1] - PALMS.out[0]);
+        const x = ax + (bx - ax) * (u / l) + nx * out * side + (rng.next() - 0.5) * 3;
+        const z = az + (bz - az) * (u / l) + nz * out * side + (rng.next() - 0.5) * 3;
+        if (noise(x, z, 60, 7) < PALMS.grove) continue;
+        level(x, z, w);
+        if (g.height(x, z) < w.level + 0.4 || pyramid.some((h) => h(x, z) > 0)) continue;
+        if (layout.houses!.some((h) => Math.hypot(x - h.at[0], z - h.at[1]) < Math.max(h.size[0], h.size[1]) / 2 + PALMS.house)) continue;
+        let clear = true;
+        for (const sp of t.splines) {
+          projectGlobal(sp, x, z, roadHit);
+          if (offRoad(sp, x, z, roadHit) - roadHit.width / 2 - roadHit.shoulder < PALMS.road) clear = false;
+        }
+        if (clear) palms.push([r1(x), r1(z)]);
+      }
+    }
+  }
+  // (No trees of their own: only the planted palms.)
+  layout.ground!.pines = { kind: 'tropic', seed: 31, spacing: 1000, clear: 1e4, thicken: 1, density: 0, glade: 50, plant: palms };
+  console.log(`  oasis: ${palms.length} palms along the river`);
 }
 
 baked = bakeTrack(layout, surfaces);

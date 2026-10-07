@@ -203,6 +203,8 @@ export const LANDMARK_KINDS = [
   'shipwreck', 'tiki-head', 'surf-shack', 'whale', 'seaplanes', 'car-park', 'lifeguard-tower',
   // Coastal
   'lighthouse', 'fort', 'pontoon', 'quay',
+  // Sahara
+  'sphinx', 'obelisk',
 ] as const;
 
 /**

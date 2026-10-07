@@ -67,8 +67,9 @@ straight up its north face, over its top and off its south face, while the road 
    Experimental: open it from a link (`?mode=free&map=sahara/dunes`).
 2. **The river and the diamonds** (built, below): the oasis river, crossed at a ford and on a
    bridge; small pyramids by the road to jump off. Palms and reeds along it come with step 3.
-3. **Giza dressed:** the pyramids' capstones, the Sphinx as the plateau's landmark, obelisks,
-   a ruined colonnade (solid props splitting the road into lanes), market stalls of smashables.
+3. **Giza dressed** (built, below): the Sphinx, obelisks, palms along the river. Still to come:
+   the pyramids' capstones, a ruined colonnade (solid props splitting the road into lanes),
+   market stalls of smashables, reeds.
 4. **More of what drifts:** tune the berms by driving them (bank, width, the outside's lip),
    and maybe a slot canyon in the Wadi (rock walls close either side, `GroundDef.face`).
 5. **Life:** a camel caravan crossing (traffic on a side street), dust devils (a hazard), a
@@ -119,3 +120,18 @@ skips a layout with none.
   off its shoulder. Run wide at 12–28° and you're up a face and off its ridge: 0.7–1.1 s of air,
   no wreck.
 - **Numbers:** floor 78.85 s; field races on seeds 1–8 with no wrecks. Full suite 721 pass.
+
+### Step 3, Giza dressed (2026-10-07, experimental)
+
+The owner: "let's dress up Giza with the Sphinx and palms".
+- **The Sphinx** (landmark `sphinx`, its solid block a house, look `landmark`): a lion lying on a
+  stone plinth on the plateau north of the road up to Giza, paws out, a man's head in a striped
+  nemes headdress, worn and noseless, facing the road from about 48 m. About 34 m long, 12 m high.
+  The queens' pyramid that stood there moved west, to (225, 112).
+- **Obelisks** (landmark `obelisk`, solid): two pairs either side of the road, 55 m before and
+  after the Sphinx, 7 m past the shoulder: tapering granite on plinths, gilded tips.
+- **Palms along the river:** 292, planted (`PinesDef.plant`, `kind: 'tropic'` with no trees of
+  its own), both banks, in groves, none within 6 m of any road's shoulder, on the water, a
+  pyramid or by a house. Solid, as Paradise's are. (openIsland.ts: with no coast to lean out to,
+  a palm leans any way.)
+- **Numbers:** floor 78.85 s; field races on seeds 1–8 with no wrecks. Full suite 722 pass.
