@@ -19,5 +19,8 @@
   { "id": "snow", "grip": 0.8, "drag": 0.03, "driftCharge": 1.15, "looseness": 1.3, "slide": 1, "color": "#dfe8f2" },
   { "id": "powder", "grip": 0.7, "drag": 0.12, "driftCharge": 0.85, "looseness": 1.6, "offroad": true, "slide": 1, "color": "#f7fbff" },
   { "id": "rock", "grip": 0.74, "drag": 0.12, "driftCharge": 0.8, "looseness": 1.5, "offroad": true, "color": "#8f877a" },
-  { "id": "packed-sand", "grip": 0.8, "drag": 0.05, "driftCharge": 0.85, "looseness": 1.3, "offroad": true, "color": "#cdb585" }
+  { "id": "packed-sand", "grip": 0.8, "drag": 0.05, "driftCharge": 0.85, "looseness": 1.3, "offroad": true, "color": "#cdb585" },
+  { "id": "sandstone", "grip": 0.9, "drag": 0.04, "driftCharge": 0.9, "looseness": 1.2, "color": "#d6b77a" },
+  { "id": "ford", "grip": 0.72, "drag": 0.45, "driftCharge": 0.7, "looseness": 1.6, "offroad": true, "color": "#5aa8b8" },
+  { "id": "river", "grip": 0.55, "drag": 0.9, "driftCharge": 0.5, "looseness": 1.8, "offroad": true, "color": "#3f8fa6" }
 ]

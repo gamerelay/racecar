@@ -5,7 +5,7 @@
 import { VERGE_DEFAULT, wrap, type BakedSpline, type Track } from './bake';
 import { hypot, sq, tan } from '../math';
 import { DECK_CATCH, DECK_SLACK } from './ground/pieces';
-import { KIND_BEACH, KIND_SAND, KIND_SHORE, KIND_LAVA_ROCK, KIND_PAVED } from './ground/surface';
+import { KIND_BEACH, KIND_SAND, KIND_SHORE, KIND_LAVA_ROCK, KIND_PAVED, KIND_STONE, KIND_WATER, KIND_OASIS } from './ground/surface';
 
 export interface TrackHit {
   spline: number;
@@ -212,6 +212,9 @@ function engineSurface(track: Track, hit: TrackHit, x: number, y: number, z: num
     if (kind === KIND_SHORE) return track.surfaceIndex.get('shore') ?? hit.surface;
     if (kind === KIND_LAVA_ROCK) return track.surfaceIndex.get('lava-rock') ?? hit.surface;
     if (kind === KIND_PAVED) return track.surfaceIndex.get('asphalt') ?? hit.surface;
+    if (kind === KIND_STONE) return track.surfaceIndex.get('sandstone') ?? hit.surface;
+    if (kind === KIND_WATER) return track.surfaceIndex.get('river') ?? hit.surface;
+    if (kind === KIND_OASIS) return track.surfaceIndex.get('undergrowth') ?? hit.surface;
     // (Stray, the verge of the main road where the ground's drawn, its sample nearest the point;
     // with no open ground, the layout's shoulder: not the far stretch the projection stopped on.)
     const verge = !stray ? hit.verge : g ? track.main.verge[g.nearAt(x, z)] : VERGE_DEFAULT;

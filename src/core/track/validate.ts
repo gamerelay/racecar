@@ -86,6 +86,11 @@ export function validateLayout(layout: TrackLayout, surfaces: SurfaceDef[], clas
       if (f.pool && !(f.pool.r > f.width / 2 && Number.isFinite(f.pool.floor))) bad("a lava stream's pool needs a radius wider than its channel and a floor");
     } else if (f.kind === 'pad') {
       if (!(Array.isArray(f.at) && f.at.length === 2 && f.at.every(Number.isFinite) && Array.isArray(f.size) && f.size.length === 2 && f.size.every((v) => v > 0) && Number.isFinite(f.rot) && Number.isFinite(f.y))) bad('a pad needs a middle, a size over 0 each way, a heading and a height');
+    } else if (f.kind === 'pyramid') {
+      if (!(Array.isArray(f.at) && f.at.length === 2 && f.at.every(Number.isFinite) && f.half > 0 && f.top >= 0 && f.top < f.half && f.h > 0 && Number.isFinite(f.y) && Number.isFinite(f.rot))) bad('a pyramid needs a middle, a foot wider than its top, a height, its foot\'s height and a heading');
+    } else if (f.kind === 'river') {
+      if (!Array.isArray(f.path) || f.path.length < 2 || f.path.some((p) => !Array.isArray(p) || p.length !== 2 || !p.every(Number.isFinite)) || !(f.width > 0) || !(f.depth > 0) || !(Array.isArray(f.level) && f.level.length === 2 && f.level.every(Number.isFinite)))
+        bad('a river needs a path of 2 points or more, a width, a depth and its level at each end');
     } else err(`ground feature ${k}: unknown kind "${(f as { kind: unknown }).kind}"`);
   }
   if (out.some((p) => p.level === 'error')) return out;

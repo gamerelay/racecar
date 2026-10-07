@@ -56,7 +56,8 @@ export function buildOpenIsland(track: Track, palette: Palette, seed: number): O
         // Leaning out to sea: down the coast's distance.
         const gx = g.coast(x + 2, z) - g.coast(x - 2, z);
         const gz = g.coast(x, z + 2) - g.coast(x, z - 2);
-        const yaw = Math.atan2(gz, -gx) + rng.range(-0.4, 0.4);
+        // (With no coast, a desert's palms: any way.)
+        const yaw = Number.isFinite(gx) && Number.isFinite(gz) ? Math.atan2(gz, -gx) + rng.range(-0.4, 0.4) : rng.range(0, 6.28);
         const s = p.h[k] / PALM_H;
         palms.push({ x, y: p.y[k] - 0.2, z, yaw, sx: s, sy: s, sz: s, color: pick(PALM_LEAVES) });
       } else if (p.kind[k] === TREE_JUNGLE) {

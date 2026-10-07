@@ -5,9 +5,11 @@
 
 import type { Object3D } from 'three';
 import { BufferGeometry, Float32BufferAttribute, Mesh } from 'three';
-import type { LavaStreamDef } from '../../../core/content';
+import type { LavaStreamDef, RiverDef } from '../../../core/content';
 import type { Track } from '../../../core/track/bake';
-import { LAVA_EDGE, LAVA_FILL, lavaSource, type Feature, type Ground } from '../../../core/track/ground';
+import { LAVA_EDGE, LAVA_FILL, lavaSource, riverAt, type Feature, type Ground } from '../../../core/track/ground';
+import { Color, DoubleSide } from 'three';
+import { toon } from './toon';
 import { lavaMaterial } from './island';
 import { glowPoints } from './scenery';
 
@@ -15,6 +17,7 @@ type Draw = (f: Feature, ground: Ground, time: { value: number }) => Object3D[];
 
 const DRAW: Partial<Record<string, Draw>> = {
   'lava-stream': (f, ground, time) => lavaStream(f.def as LavaStreamDef, ground, time),
+  river: (f) => river(f.def as RiverDef),
 };
 
 /** Everything the track's features draw; `update` runs their animation. */
@@ -116,4 +119,62 @@ function lavaStream(f: LavaStreamDef, ground: Ground, time: { value: number }): 
   }
   out.push(glowPoints(glow, 0xff5a14, 14));
   return out;
+}
+
+/** A river's water: deep in its middle, paler toward its banks, where it's shallow. */
+const RIVER_DEEP = new Color('#2b86a8');
+const RIVER_SHALLOW = new Color('#7ccfd2');
+/** It's drawn this far past its floor's edge (m), up under its banks. */
+const RIVER_OUT = 3;
+
+/**
+ * A river: its water level across, at the level the sim has there (riverAt), out past its floor
+ * under its banks; over a ford's road too (the road dips under it), under a bridge's deck. Opaque:
+ * the post pass reads a cleared alpha as a mirror.
+ */
+function river(f: RiverDef): Object3D[] {
+  const pts: [number, number][] = [];
+  for (let k = 0; k < f.path.length - 1; k++) {
+    const [ax, az] = f.path[k];
+    const [bx, bz] = f.path[k + 1];
+    const n = Math.max(1, Math.round(Math.hypot(bx - ax, bz - az) / RIBBON_STEP));
+    for (let j = 0; j < n; j++) pts.push([ax + ((bx - ax) * j) / n, az + ((bz - az) * j) / n]);
+  }
+  pts.push(f.path[f.path.length - 1]);
+  const at = riverAt(f, 1);
+  const w = { level: 0 };
+  const half = f.width / 2 + RIVER_OUT;
+  // Three strips across: shallow edge, deep middle, shallow edge.
+  const across = [-1, -0.45, 0.45, 1];
+  const pos: number[] = [];
+  const col: number[] = [];
+  const idx: number[] = [];
+  for (let k = 0; k < pts.length; k++) {
+    const [x, z] = pts[k];
+    const [px, pz] = pts[Math.max(0, k - 1)];
+    const [qx, qz] = pts[Math.min(pts.length - 1, k + 1)];
+    const l = Math.hypot(qx - px, qz - pz) || 1;
+    const nx = -(qz - pz) / l;
+    const nz = (qx - px) / l;
+    at(x, z, w);
+    for (const a of across) {
+      pos.push(x + nx * half * a, w.level, z + nz * half * a);
+      const c = Math.abs(a) > 0.9 ? RIVER_SHALLOW : RIVER_DEEP;
+      col.push(c.r, c.g, c.b);
+    }
+    if (k < pts.length - 1)
+      for (let j = 0; j < across.length - 1; j++) {
+        const a = k * 4 + j;
+        idx.push(a, a + 1, a + 5, a, a + 5, a + 4);
+      }
+  }
+  const g = new BufferGeometry();
+  g.setAttribute('position', new Float32BufferAttribute(pos, 3));
+  g.setAttribute('color', new Float32BufferAttribute(col, 3));
+  g.setIndex(idx);
+  g.computeVertexNormals();
+  g.computeBoundingSphere();
+  const mesh = new Mesh(g, toon({ vertexColors: true, side: DoubleSide }));
+  mesh.name = 'river';
+  return [mesh];
 }

@@ -19,6 +19,8 @@ import { hillsFeature } from './hills';
 import { lavaStreamFeature } from './lava-stream';
 import { mogulsFeature } from './moguls';
 import { padFeature } from './pad';
+import { pyramidFeature } from './pyramid';
+import { riverFeature } from './river';
 import { seawallFeature } from './seawall';
 import { unevenFeature } from './uneven';
 import { volcanoFeature } from './volcano';
@@ -104,6 +106,8 @@ export function groundFeatures(def: GroundDef, main: BakedSpline): Feature[] {
     else if (f.kind === 'lava-stream') out.push(lavaStreamFeature(f));
     else if (f.kind === 'seawall') out.push(seawallFeature(f, main));
     else if (f.kind === 'pad') out.push(padFeature(f));
+    else if (f.kind === 'pyramid') out.push(pyramidFeature(f));
+    else if (f.kind === 'river') out.push(riverFeature(f));
   }
   return out;
 }

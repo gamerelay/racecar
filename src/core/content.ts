@@ -203,6 +203,8 @@ export const LANDMARK_KINDS = [
   'shipwreck', 'tiki-head', 'surf-shack', 'whale', 'seaplanes', 'car-park', 'lifeguard-tower',
   // Coastal
   'lighthouse', 'fort', 'pontoon', 'quay',
+  // Sahara
+  'sphinx', 'obelisk',
 ] as const;
 
 /**
@@ -618,7 +620,38 @@ export interface PadDef {
   y: number;
 }
 
-export type FeatureDef = MogulsDef | CanyonDef | BeachDef | UnevenDef | LavaStreamDef | SeawallDef | PadDef;
+/**
+ * A pyramid (docs/SAHARA.md's Giza): a square stone pyramid round `at` ([x, z]), its foot `half` m
+ * from its middle to each side, rising `h` m over `y` (its foot's height) to a flat top `top` m from
+ * its middle to each side, turned `rot` (radians about y, as a landmark's). Its faces are ground,
+ * driven up (sandstone). Cut back to the main road, as a hill is; a branch over it shapes its own way.
+ */
+export interface PyramidDef {
+  kind: 'pyramid';
+  at: [number, number];
+  half: number;
+  top: number;
+  h: number;
+  y: number;
+  rot: number;
+}
+
+/**
+ * A river (docs/SAHARA.md's oasis river): a channel `width` m wide (its floor) along `path` ([x, z]
+ * points, in world space), its water `depth` m over the floor and at a level falling from
+ * `level[0]` at the path's start to `level[1]` at its end (m), green banks either side. Shallow
+ * enough to drive through (the `river` surface). It may cross a road: there the road says how, by
+ * dipping under the water (a ford, with a `ford` zone) or on a deck piece over it (a bridge).
+ */
+export interface RiverDef {
+  kind: 'river';
+  path: [number, number][];
+  width: number;
+  depth: number;
+  level: [number, number];
+}
+
+export type FeatureDef = MogulsDef | CanyonDef | BeachDef | UnevenDef | LavaStreamDef | SeawallDef | PadDef | PyramidDef | RiverDef;
 
 export interface MapDef {
   id: string;

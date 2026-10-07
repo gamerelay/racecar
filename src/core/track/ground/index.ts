@@ -30,7 +30,8 @@ export { canyonDepth, noise } from './shape';
 export { BEACH_FADE } from '../features/beach';
 export { GALLERY, OUTLINE_POINTS, outlineAt, windowIn } from './outline';
 export type { Feature, Hazard } from '../features';
-export { KIND_BEACH, KIND_BRANCH, KIND_LAVA_ROCK, KIND_PAVED, KIND_ROAD, KIND_SAND, KIND_SHORE, KIND_VERGE, surfaceNoise } from './surface';
+export { KIND_BEACH, KIND_BRANCH, KIND_LAVA_ROCK, KIND_PAVED, KIND_ROAD, KIND_OASIS, KIND_SAND, KIND_SHORE, KIND_STONE, KIND_VERGE, KIND_WATER, surfaceNoise } from './surface';
+export { RIVER_BANK, riverAt } from '../features/river';
 export { LAVA_BANK, LAVA_EDGE, LAVA_FILL, lavaSource } from '../features/lava-stream';
 
 /** A tunnel's usual ceiling over its road (m): the Lava Tube's (PieceDef.ceiling). */

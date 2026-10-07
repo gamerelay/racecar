@@ -33,6 +33,17 @@ Paradise map in the game"; its id stays `paradise-open`: links, fingerprints); t
 - **Next on Paradise** (the owner's order): the finish; maybe more palms on the front road; the
   lava bombs at 3150–3200 m are most of the field's wrecks now.
 
+**Next: Sahara (2026-10-07, in progress on the `sahara` branch).** The owner: "a new desert themed
+map called Sahara using the Caldera engine ... very good for drifting ... jumps and berms, sand
+dunes, possibly a river, maybe pyramids". [SAHARA.md](./SAHARA.md) is the plan; step 1, the lap,
+is built (experimental): a 4.04 km serpentine on open ground, the Great Pyramid's Pyramid Run (a
+new ground feature, `PyramidDef`), the Mesa Drop, a desert palette and ground; step 2, the oasis
+river (`RiverDef`: a ford and a bridge) and the diamonds (pyramids by the road to jump). Floor
+78.85 s, no field wrecks over seeds 1–8; step 3, Giza dressed (the Sphinx, obelisks, 292 palms
+along the river). Next (SAHARA.md's steps): more of what drifts, life (a caravan, dust devils).
+Fingerprints not recorded yet (the owner's word): the golden test skips an experimental layout
+with none.
+
 Before it, **`alpha-1.36`** (PRs #150, #151) is tagged and on the hosted build:
 **no hop at the Rock Tunnel's mouths** (#150: half into a piece, a wheel off its end stands on its
 own ground near the floor, not on the floor at the car's middle; every class flew 15 m off each

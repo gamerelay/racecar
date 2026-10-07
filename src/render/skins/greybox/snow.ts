@@ -5,11 +5,11 @@
 // sit (a canyon's lip, the walls at the edges). A road that isn't snow gets its lines painted on.
 // The pines are the track's own list (core/track/pines.ts), each drawn where its collider stands.
 
-import { BufferAttribute, BufferGeometry, Color, type MeshToonMaterial, ConeGeometry, CylinderGeometry, Float32BufferAttribute, IcosahedronGeometry, InstancedMesh, LOD, Matrix4, Mesh, Quaternion, Vector3, type Object3D } from 'three';
+import { BufferAttribute, BufferGeometry, Color, type MeshToonMaterial, ConeGeometry, CylinderGeometry, Float32BufferAttribute, IcosahedronGeometry, InstancedMesh, LOD, Matrix4, Mesh, Quaternion, Vector3, Vector4, type Object3D } from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { smoothstep } from '../../../core/math';
 import { VERGE_DEFAULT, type Track } from '../../../core/track/bake';
-import { KIND_BEACH, KIND_BRANCH, KIND_LAVA_ROCK, KIND_PAVED, KIND_ROAD, KIND_SAND, KIND_SHORE, noise, surfaceNoise } from '../../../core/track/ground';
+import { KIND_BEACH, KIND_BRANCH, KIND_LAVA_ROCK, KIND_PAVED, KIND_ROAD, KIND_SAND, KIND_SHORE, KIND_STONE, KIND_OASIS, KIND_WATER, noise, surfaceNoise } from '../../../core/track/ground';
 import { TREE_PINE } from '../../../core/track/pines';
 import { hash01 } from '../../../core/rng';
 import { buildPortals, VERTEX } from './portal';
@@ -56,6 +56,75 @@ const EARTH = new Color('#4d3b31');
 const rock = new Color();
 const vergeC = new Color();
 
+/** A desert's (docs/SAHARA.md): its sand in two tones in broad drifts, and a pyramid's dressed stone. */
+const DUNE_LIGHT = new Color('#f0d39c');
+const DUNE_DARK = new Color('#d4a86c');
+const DRESSED = new Color('#ddd0ae');
+/** A desert's steep ground (a river's gorge, the walls): warm, sun-baked rock, not the mountains' grey. */
+const SANDSTONE_ROCK = new Color('#b58a5c');
+/** A river's bed under its water, and the oasis's green along its banks (two greens, in patches). */
+const RIVERBED = new Color('#6f7a52');
+const OASIS = new Color('#5f8f34');
+const OASIS_2 = new Color('#7fa040');
+const DRESSED_DARK = new Color('#c6b48e');
+/** A pyramid's courses: one this high (m) up its face, the seam between them its shadow. */
+const COURSE = 1.15;
+/** The most pyramids a desert's ground draws in courses (the shader's uniforms). */
+const PYRAMIDS = 4;
+
+/**
+ * The ground's material in a desert (scenery 'desert'): the wind's ripples across the sand (lines
+ * every metre or so, wavering, faint on the roads' packed sand, none on asphalt), and each pyramid's
+ * faces laid in courses of stone by each pixel's height over its foot.
+ */
+function desert(track: Track): MeshToonMaterial {
+  const mat = toon({ vertexColors: true });
+  const pyramids = (track.layout.ground?.features ?? []).filter((f) => f.kind === 'pyramid').slice(0, PYRAMIDS);
+  const a = Array.from({ length: PYRAMIDS }, (_, k) => {
+    const p = pyramids[k];
+    return p && p.kind === 'pyramid' ? new Vector4(p.at[0], p.at[1], p.half, p.rot) : new Vector4(0, 0, 0, 0);
+  });
+  const b = Array.from({ length: PYRAMIDS }, (_, k) => {
+    const p = pyramids[k];
+    return p && p.kind === 'pyramid' ? new Vector4(p.y, p.h, p.top, 0) : new Vector4(0, 0, 0, 0);
+  });
+  mat.onBeforeCompile = (shader) => {
+    shader.uniforms.uPyrA = { value: a };
+    shader.uniforms.uPyrB = { value: b };
+    shader.vertexShader = chunks(shader.vertexShader, 'desert')
+      .replace('#include <common>', '#include <common>\nvarying vec3 vDesertPos;')
+      .after('#include <begin_vertex>', 'vDesertPos = (modelMatrix * vec4(transformed, 1.0)).xyz;').text;
+    shader.fragmentShader = chunks(shader.fragmentShader, 'desert')
+      .replace('#include <common>', `#include <common>\nvarying vec3 vDesertPos;\nuniform vec4 uPyrA[${PYRAMIDS}];\nuniform vec4 uPyrB[${PYRAMIDS}];`)
+      .after(
+        '#include <color_fragment>',
+        `float stone = 0.0;
+        float course = 0.0;
+        for (int k = 0; k < ${PYRAMIDS}; k++) {
+          vec4 pa = uPyrA[k];
+          if (pa.z <= 0.0) continue;
+          vec2 d = vDesertPos.xz - pa.xy;
+          float fx = sin(pa.w), fz = cos(pa.w);
+          float m = max(abs(d.x * fx + d.y * fz), abs(d.x * fz - d.y * fx));
+          if (m >= pa.z) continue;
+          float up = vDesertPos.y - uPyrB[k].x;
+          if (up < 0.05) continue;
+          stone = 1.0;
+          // The seam under each course: a dark line, and the course's face lighter at its top.
+          float c = fract(up / ${COURSE.toFixed(2)});
+          course = 1.0 - smoothstep(0.0, 0.16, c) + 0.25 * smoothstep(0.6, 1.0, c);
+        }
+        // Sand: warm, a red over blue (not asphalt), lighter than the road's grey.
+        float sandy = smoothstep(0.08, 0.16, diffuseColor.r - diffuseColor.b) * (1.0 - stone);
+        float ripple = sin(vDesertPos.x * 4.1 + vDesertPos.z * 2.3 + 2.2 * sin(vDesertPos.z * 0.11 + vDesertPos.x * 0.04) + 1.4 * sin(vDesertPos.x * 0.07));
+        diffuseColor.rgb *= 1.0 - 0.045 * sandy * smoothstep(0.3, 1.0, ripple);
+        diffuseColor.rgb *= 1.0 - stone * (0.45 * (1.0 - smoothstep(0.0, 0.5, 1.0 - course)) - 0.05 * course);`,
+      ).text;
+  };
+  mat.customProgramCacheKey = () => 'desert';
+  return mat;
+}
+
 /**
  * The ground's material on a coast with no volcano: steep ground (its normal, as the vertex colours
  * took it) drawn in darker beds across the slope, wavering a little, by each pixel's own height.
@@ -93,7 +162,8 @@ export function buildSnow(track: Track, green?: Color): Object3D[] {
   const vergeColor = new Color(track.surfaces[track.surfaceIndex.get(track.layout.shoulderSurface ?? 'powder') ?? 0].color);
   const surfaceColors = track.surfaces.map((s) => new Color(s.color));
   const at = (gx: number, gz: number) => h[Math.min(nz - 1, Math.max(0, gz)) * nx + Math.min(nx - 1, Math.max(0, gx))];
-  const material = isle && !volcano ? limestone() : toon({ vertexColors: true });
+  const sands = track.layout.scenery === 'desert';
+  const material = sands ? desert(track) : isle && !volcano ? limestone() : toon({ vertexColors: true });
   const out: Object3D[] = [];
   const c = new Color();
   // Where the ground comes down over a tunnel, it's cut to the tunnel's outline (portal.ts).
@@ -140,7 +210,19 @@ export function buildSnow(track: Track, green?: Color): Object3D[] {
           // A lava stream's rock: dark, in patches, scorched darker toward the lava.
           // A pad's paving: the road's asphalt.
           else if (kind === KIND_PAVED) c.copy(surfaceColors[track.surfaceIndex.get('asphalt') ?? 0]);
+          // A pyramid's stone, its faces a little darker in patches (its courses are the material's).
+          else if (kind === KIND_STONE) c.copy(DRESSED).lerp(DRESSED_DARK, smoothstep(0, 1, (noise(x, z, 14, 5) - 0.4) * 2.5));
           else if (kind === KIND_LAVA_ROCK) c.copy(LAVA_ROCK).lerp(LAVA_ROCK_2, smoothstep(0, 1, (n - 0.3) * 2.5)).lerp(ASH, 0.3 * smoothstep(0, 1, (noise(x, z, 9, 11) - 0.5) * 3));
+          // A desert's sand off the roads in broad drifts of two tones, the hollows a little darker.
+          if (kind === KIND_WATER) c.copy(RIVERBED);
+          else if (kind === KIND_OASIS) c.copy(OASIS).lerp(OASIS_2, smoothstep(0, 1, (n - 0.4) * 3));
+          else if (sands && !road && kind !== KIND_STONE) {
+            c.copy(DUNE_LIGHT).lerp(DUNE_DARK, 0.65 * smoothstep(0, 1, (noise(x, z, 90, 41) - 0.35) * 2.2));
+            c.lerp(DUNE_DARK, 0.25 * smoothstep(0, 1, (0.5 - noise(x, z, 25, 43)) * 3));
+            // (By the road, its verge's own colour: the run-off reads as the road's edge.)
+            const off = Math.abs(lateral[k]) - main.width[i] / 2;
+            c.lerp(vergeColor, 1 - smoothstep(0, 1, (off - 2) / 6));
+          }
           if (isle && !road && kind !== KIND_SHORE && kind !== KIND_SAND && kind !== KIND_BEACH && kind !== KIND_LAVA_ROCK && kind !== KIND_PAVED) {
             const off = Math.abs(lateral[k]) - main.width[i] / 2;
             if (grass) {
@@ -183,7 +265,7 @@ export function buildSnow(track: Track, green?: Color): Object3D[] {
               rock.copy(LIMESTONE).multiplyScalar(0.93 + 0.12 * noise(x, z, 40, 31));
               c.lerp(rock, smoothstep(0, 1, (steep - edge + 0.1) * 6));
             }
-          } else if (steep > ROCK) c.lerp(isle ? CRAG : ROCK_COLOR, Math.min(1, (steep - ROCK) * 2));
+          } else if (steep > ROCK) c.lerp(isle ? CRAG : sands ? SANDSTONE_ROCK : ROCK_COLOR, Math.min(1, (steep - ROCK) * 2));
           col[o] = c.r;
           col[o + 1] = c.g;
           col[o + 2] = c.b;
@@ -585,7 +667,7 @@ function buildRocks(track: Track): Mesh | null {
 /**
  * The main road's lines, painted on the ground: solid edges and a dashed yellow middle where the
  * road isn't snow (a piste has none), and the checkered finish across whatever it's on. On an
- * island (Paradise Open) no lines, but the roads themselves, main and branches, laid over the
+ * island (Paradise Open) or in a desert (Sahara) no lines, but the roads themselves, main and branches, laid over the
  * ground in their own colors: the ground is colored per grid point, so on its own the grass
  * blended in over the road's edges.
  */
@@ -597,7 +679,8 @@ function roadLines(track: Track): Mesh | null {
   const white = new Color('#f4efe6');
   const yellow = new Color('#ffc93c');
   const black = new Color('#120a20');
-  const isle = !!track.layout.ground?.coast;
+  // (A desert's roads laid over the sand too: painted on its grid, the asphalt's edges were a saw.)
+  const isle = !!track.layout.ground?.coast || track.layout.scenery === 'desert';
   const quad = (i: number, l0: number, l1: number, color: Color, sp = main, lift = LIFT) => {
     const j = sp.closed ? (i + 1) % sp.n : Math.min(sp.n - 1, i + 1);
     const p = (k: number, l: number) => {

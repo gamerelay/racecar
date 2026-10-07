@@ -4,6 +4,19 @@ What changed in each release of racecar, newest first. Releases are git tags on 
 reasons behind each change are in [docs/SPEC.md](./docs/SPEC.md) under "Changed while building",
 and where things stand is [docs/HANDOFF.md](./docs/HANDOFF.md).
 
+## Unreleased
+
+- **Sahara, a new desert map (experimental: from a link, `?mode=free&map=sahara/dunes`).** A
+  4 km lap made to drift: S-chains over the dunes with a crest to fly off on every leg, bermed
+  hairpins, a narrow wadi, switchbacks up a mesa and a jump off its edge onto the run home. The
+  Great Pyramid is the set piece: drive straight up its face, over its top and off the far side
+  (the Pyramid Run). Every pyramid, and every dune, can be driven up.
+- **Sahara's river:** an oasis river through the desert, crossed twice: a ford you splash through
+  on the Caravan Road, and a hump-backed bridge over its gorge on the Wadi. Small pyramids stand
+  on the outside of corners: run wide and use a face as a jump.
+- **Giza dressed:** the Sphinx watches the road up to the pyramids between two pairs of obelisks,
+  and palm groves line the river.
+
 ## alpha-1.37: Paradise goes open
 
 - **A new Paradise.** Paradise is now the open island (it was *Paradise Open*, experimental): drive
