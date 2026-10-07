@@ -139,8 +139,8 @@ describe('Paradise Open (docs/PARADISE.md)', () => {
     const m = bakeTrack(layout('paradise-open/open'), SURFACES).main;
     const at = (s: number) => m.bank[Math.round(s / m.step)];
     // The right-hander low on the right (its inside), the left-hander low on the left.
-    expect(at(2260)).toBeGreaterThan(0.24);
-    expect(at(2450)).toBeLessThan(-0.24);
+    expect(at(2370)).toBeGreaterThan(0.24);
+    expect(at(2560)).toBeLessThan(-0.24);
   });
 
   test('a drift through either banked turn leans on the bank: it runs less wide than with no hold', () => {
@@ -166,8 +166,8 @@ describe('Paradise Open (docs/PARADISE.md)', () => {
       }
     };
     // Right is +lateral: the inside of the right-hander, the outside of the left-hander.
-    expect(drift(2200, 0.8, 1)).toBeGreaterThan(drift(2200, 0.8, 0) + 1);
-    expect(drift(2395, -0.8, 1)).toBeLessThan(drift(2395, -0.8, 0) - 0.5);
+    expect(drift(2310, 0.8, 1)).toBeGreaterThan(drift(2310, 0.8, 0) + 1);
+    expect(drift(2505, -0.8, 1)).toBeLessThan(drift(2505, -0.8, 0) - 0.5);
   });
 
   test('the Freeway is a deck over the bay, its rails on, and open off it', () => {
@@ -203,15 +203,15 @@ describe('Paradise Open (docs/PARADISE.md)', () => {
     const sim = new Sim(track, CLASSES, SURFACES, { seed: 1, traffic: 0, mayhem: 'off' });
     const i = sim.addCar({ cls: 'coupe', human: true });
     // Beside the deck's start, where the ground's still up by the road, heading in alongside it.
-    sim.placeCar(i, 0, 1190, 17, 15);
+    sim.placeCar(i, 0, 1300, 17, 15);
     const c = { ...neutralControls(), throttle: 1, steer: -0.5 };
     let inside = false;
     let closest = Infinity;
     for (let t = 0; t < 150; t++) {
       sim.step([c]);
       const s = sim.cars.s[i];
-      if (s > 1205 && s < 2050 && Math.abs(sim.cars.lateral[i]) < m.width[Math.round(s / m.step)] / 2) inside = true;
-      if (s > 1205) closest = Math.min(closest, sim.cars.lateral[i]);
+      if (s > 1315 && s < 2160 && Math.abs(sim.cars.lateral[i]) < m.width[Math.round(s / m.step)] / 2) inside = true;
+      if (s > 1315) closest = Math.min(closest, sim.cars.lateral[i]);
     }
     expect(inside).toBe(false);
     // It got to the rail (12 m out, the car's reach past it), not just short of it.

@@ -592,6 +592,12 @@ export interface LavaStreamDef {
   path: [number, number][];
   width: number;
   depth: number;
+  /**
+   * A round pool it ends in instead of running on (Paradise Open's bulge): its floor `r` m round
+   * the path's last point, level at `floor` (m: the ground there, `depth` down), its banks as the
+   * channel's, lava in it as in the channel.
+   */
+  pool?: { r: number; floor: number };
 }
 
 export type FeatureDef = MogulsDef | CanyonDef | BeachDef | UnevenDef | LavaStreamDef | SeawallDef;

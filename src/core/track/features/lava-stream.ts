@@ -75,18 +75,50 @@ export function pathDistance(path: readonly (readonly [number, number])[], reach
 /** How much of itself a stream is `d` m from its source (0 to 1 over LAVA_SOURCE): the channel's depth, the lava's width. */
 export const lavaSource = (d: number) => smooth(0, LAVA_SOURCE, d);
 
+/**
+ * How far (x, z) is from a stream's floor's middle, as its channel measures it (the floor within
+ * width / 2), its pool's floor counted in (within its `r` of its end: that far less `r`, plus
+ * width / 2), within `reach`, else Infinity; the nearest point on its path into `near`, or in its
+ * pool, the point itself.
+ */
+export function streamDistance(f: LavaStreamDef, reach: number, near?: { x: number; z: number }): (x: number, z: number) => number {
+  const half = f.width / 2;
+  const path = pathDistance(f.path, reach, near);
+  const pool = f.pool;
+  if (!pool) return path;
+  const [ex, ez] = f.path[f.path.length - 1];
+  return (x, z) => {
+    const e = hypot(x - ex, z - ez) - pool.r + half;
+    const d = path(x, z);
+    if (!(e < d) || e > reach) return d;
+    if (near) {
+      near.x = x;
+      near.z = z;
+    }
+    return Math.max(0, e);
+  };
+}
+
 export function lavaStreamFeature(f: LavaStreamDef): Feature {
   const half = f.width / 2;
   const near = { x: 0, z: 0 };
-  const dist = pathDistance(f.path, half + LAVA_REACH, near);
+  const dist = streamDistance(f, half + LAVA_REACH, near);
   const [x0, z0] = f.path[0];
+  const [ex, ez] = f.path[f.path.length - 1];
   const source = (x: number, z: number) => lavaSource(hypot(x - x0, z - z0));
+  const pool = f.pool;
+  /** In its pool's reach: how much of the pool's floor (1 on it, easing out over its banks). */
+  const inPool = (x: number, z: number) => (pool ? 1 - smooth(pool.r, pool.r + LAVA_BANK, hypot(x - ex, z - ez)) : 0);
   return {
     kind: 'lava-stream',
     def: f,
     shape(p, y) {
       const d = dist(p.x, p.z);
-      return d === Infinity ? y : y - f.depth * source(p.x, p.z) * (1 - smooth(half, half + LAVA_BANK, d));
+      if (d === Infinity) return y;
+      const cut = y - f.depth * source(p.x, p.z) * (1 - smooth(half, half + LAVA_BANK, d));
+      // Its pool level, down to its floor (never filled up to it: downhill, the ground stays).
+      const k = inPool(p.x, p.z);
+      return k > 0 ? Math.min(cut, y + (pool!.floor - y) * k) : cut;
     },
     surface(x, z, _h, n) {
       return dist(x, z) <= half + LAVA_BANK + ROCK_OUT + ROCK_WANDER * (n - 0.5) ? KIND_LAVA_ROCK : -1;
@@ -96,7 +128,7 @@ export function lavaStreamFeature(f: LavaStreamDef): Feature {
       // the air (a jump), nor under it (a tunnel). (The ground's own height off the path isn't
       // the floor: the grid's 2.5 m cells round the channel's edges.)
       if (!(dist(x, z) < (half + LAVA_EDGE) * source(x, z))) return 'none';
-      const level = height(near.x, near.z) + LAVA_FILL;
+      const level = (pool && hypot(x - ex, z - ez) < pool.r + LAVA_EDGE ? pool.floor : height(near.x, near.z)) + LAVA_FILL;
       return y < level + LAVA_SKIN && y > level - LAVA_FILL - 3 ? 'lava' : 'none';
     },
     bare(_s, _lat, x, z) {

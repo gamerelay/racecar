@@ -24,19 +24,127 @@ import island from '../content/maps/paradise/island.track.json';
 
 const DIR = 'content/maps/paradise-open';
 
+/**
+ * The bulge (the owner, 2026-10-06, on the west coast past the beach umbrellas: "this road go a
+ * little deeper towards the mountain", and "if this little turn could be a bulge that you could
+ * drift around that would be awesome"; a round D, not a hairpin): the island's road from `from` to
+ * `to` m (a little right-left jog off the beach) becomes one round bulge inland toward the
+ * volcano's foot: a right off the coast (`enter`: its radius and how far it turns), a short
+ * straight, one long left round its apex (`round`, banked into itself: BANKS), a short straight,
+ * and a right back onto the island's road (as far as it takes to head as that does). The two
+ * straights as long as it takes to meet it. A point every `every` m, as wide as `width`; its
+ * heights from the island road's at its ends, eased between them. (Waypoints through a spline
+ * first: a kink where it met the island's road and a lumpy left.)
+ */
+const BULGE = { from: 600, to: 1075, enter: { r: 55, deg: 120 }, round: { r: 140, deg: 145 }, leave: { r: 55 }, every: 11, width: 21.5 };
+/** The island's lap with the bulge in it, how much longer it is (m: every main distance past it moves on by that much, `S`), and its long left (main distances). */
+const { lap: islandLap, longer: BULGE_LONGER, arc: BULGE_ARC } = (() => {
+  const lap = structuredClone(island) as unknown as TrackLayout;
+  const before = bakeTrack(lap, surfaces).main;
+  const hit = newHit();
+  const pts = lap.main.points;
+  const sOf = (k: number) => (projectGlobal(before, pts[k].p[0], pts[k].p[2], hit, pts[k].p[1]), hit.s);
+  // The island's points either side: the last before it and the first after.
+  let k0 = 0;
+  while (sOf(k0 + 1) < BULGE.from) k0++;
+  let k1 = k0 + 1;
+  while (sOf(k1) <= BULGE.to) k1++;
+  const a = pts[k0];
+  const b = pts[k1];
+  // Headings there, the island road's (radians in x-z: x = cos, z = sin; a right turn adds).
+  const heading = (k: number) => (sampleAt(before, sOf(k), hit), Math.atan2(hit.tz, hit.tx));
+  const h0 = heading(k0);
+  const h1 = heading(k1);
+  const deg = Math.PI / 180;
+  const A = BULGE.enter.deg * deg;
+  const B = BULGE.round.deg * deg;
+  // (The right out turns what's left to head as the island's road does there.)
+  const C = ((h1 - h0 - A + B + 3 * Math.PI) % (2 * Math.PI)) - Math.PI;
+  /** Its centreline, a point every metre, the straights `l1` and `l2` m long; where it ends. */
+  const walk = (l1: number, l2: number, out?: [number, number][]) => {
+    let [x, z, h] = [a.p[0], a.p[2], h0];
+    const arc = (r: number, turn: number) => {
+      const n = Math.max(1, Math.ceil(Math.abs(turn) * r));
+      for (let i = 0; i < n; i++) {
+        const d = turn / n;
+        x += Math.cos(h + d / 2) * r * Math.abs(d);
+        z += Math.sin(h + d / 2) * r * Math.abs(d);
+        h += d;
+        out?.push([x, z]);
+      }
+    };
+    const line = (l: number) => {
+      const n = Math.max(1, Math.ceil(l));
+      for (let i = 0; i < n; i++) {
+        x += (Math.cos(h) * l) / n;
+        z += (Math.sin(h) * l) / n;
+        out?.push([x, z]);
+      }
+    };
+    arc(BULGE.enter.r, A);
+    line(l1);
+    arc(BULGE.round.r, -B);
+    line(l2);
+    arc(BULGE.leave.r, C);
+    return [x, z];
+  };
+  // The straights: the end is linear in them, so two walks more solve for them.
+  const [x0, z0] = walk(0, 0);
+  const [xu, zu] = walk(1, 0);
+  const [xv, zv] = walk(0, 1);
+  const [ex, ez, ux, uz, vx, vz] = [b.p[0] - x0, b.p[2] - z0, xu - x0, zu - z0, xv - x0, zv - z0];
+  const det = ux * vz - uz * vx;
+  const l1 = (ex * vz - ez * vx) / det;
+  const l2 = (ux * ez - uz * ex) / det;
+  if (!(l1 > 5 && l2 > 5)) throw new Error(`the bulge's straights come out ${l1.toFixed(1)} and ${l2.toFixed(1)} m: turn its arcs`);
+  const line: [number, number][] = [[a.p[0], a.p[2]]];
+  walk(l1, l2, line);
+  // A point every BULGE.every m along it (not its ends: the island's own).
+  const total = line.length - 1;
+  const n = Math.round(total / BULGE.every);
+  const out: typeof pts = [];
+  for (let j = 1; j < n; j++) {
+    const u = j / n;
+    const [x, z] = line[Math.round(u * total)];
+    const y = a.p[1] + (b.p[1] - a.p[1]) * smoothstep(0, 1, u);
+    out.push({ ...a, p: [Math.round(x * 10) / 10, Math.round(y * 10) / 10, Math.round(z * 10) / 10], width: BULGE.width, bank: 0 });
+  }
+  // Its long left: from where the right in ends past the first straight to the second's start.
+  const arcAt = [BULGE.enter.r * A + l1, BULGE.enter.r * A + l1 + BULGE.round.r * B].map((m) => line[Math.round(m)]);
+  lap.main.points = [...pts.slice(0, k0 + 1), ...out, ...pts.slice(k1)];
+  const after = bakeTrack(lap, surfaces).main;
+  const longer = Math.round(after.length - before.length);
+  const arc = arcAt.map(([x, z]) => (projectGlobal(after, x, z, hit), Math.round(hit.s))) as [number, number];
+  // Everything the island places by main distance past it, moved on.
+  const on = (s: number) => (s > BULGE.to ? s + longer : s);
+  const span = (r: [number, number]): [number, number] => [on(r[0]), on(r[1])];
+  for (const h of lap.hazards ?? []) h.s = typeof h.s === 'number' ? on(h.s) : span(h.s);
+  for (const r of lap.ramps ?? []) if (!r.spline) r.s = on(r.s);
+  for (const z of lap.zones ?? []) if (!z.spline) z.s = span(z.s);
+  for (const d of lap.smashables ?? []) if (!d.spline && !d.at) d.s = span(d.s);
+  for (const t of lap.takedownSpots ?? []) t.s = on(t.s);
+  for (const l of lap.traffic?.lanes ?? []) if (l.sections) l.sections = l.sections.map(span);
+  if (Array.isArray(lap.checkpoints)) lap.checkpoints = lap.checkpoints.map(on);
+  return { lap, longer, arc };
+})();
+/** A main distance on the island's lap, on this one (past the bulge, moved on by how much longer it made the lap). */
+const S = (s: number) => (s > BULGE.to ? s + BULGE_LONGER : s);
+
 /** The Freeway: where it leaves the land on its ramp up, and where it comes back down to it. */
-const FREEWAY: [number, number] = [1200, 2060];
+const FREEWAY: [number, number] = [S(1200), S(2060)];
 
 /** The berm's flat stretch along the rim road (m): where the tube's road meets its lip. */
-const EXIT_BERM: [number, number] = [3215, 3255];
+const EXIT_BERM: [number, number] = [S(3215), S(3255)];
 /**
  * Banked turns to drift into (the owner): off the Freeway, the right-hander into the jungle and
  * the left-hander after it, each banked steeply into itself (TUNING.bankHold holds you into the
  * bank). A bank in radians, positive low on the right, flat over `s`, eased in and out over `ease`.
  */
 const BANKS: { s: [number, number]; bank: number; ease: [number, number] }[] = [
-  { s: [2190, 2345], bank: 0.25, ease: [50, 29] },
-  { s: [2395, 2500], bank: -0.25, ease: [21, 40] },
+  // The bulge's long left round its apex (BULGE), banked into itself, to drift round.
+  { s: BULGE_ARC, bank: -0.2, ease: [35, 35] },
+  { s: [S(2190), S(2345)], bank: 0.25, ease: [50, 29] },
+  { s: [S(2395), S(2500)], bank: -0.25, ease: [21, 40] },
   // The berm at the Lava Tube's exit (the owner): the left-hander at the top of the rim banked into
   // itself like the jungle's, so it's a berm going round, and its high outside edge the lip that
   // throws cars coming out of the tube (EXIT_KICK) across it.
@@ -118,7 +226,7 @@ const inSea = (x: number, z: number) => {
  * at the volcano, as the road turns away round it, and rejoins it at the top of the rim, where
  * the road turns to run straight away (later, the two ran over each other: a hump at its exit).
  */
-const TUBE = { from: 2685, to: 3255, bridge: VOLCANO.lava + 4, width: 12, shoulder: 1.5 };
+const TUBE = { from: S(2685), to: S(3255), bridge: VOLCANO.lava + 4, width: 12, shoulder: 1.5 };
 /**
  * The jump over the lava, in the middle of the crossing: the gap (m), and the kicker up to its edge
  * (its length and its lip's height over the bridge).
@@ -137,7 +245,7 @@ const BOARDS = { in: 4, height: 3, breaks: 12 };
 /** Its tunnels run where the volcano is at least this far over the road (the ceiling and a roof). */
 const TUBE_COVER = TUBE_H + 1.5;
 
-const src = structuredClone(island) as unknown as TrackLayout;
+const src = islandLap;
 const baked = bakeTrack(src, surfaces);
 /**
  * The rim road's descent off the volcano, smoothed: it levelled off and then dropped 25% over a
@@ -145,7 +253,7 @@ const baked = bakeTrack(src, surfaces);
  * flat out, it threw cars off the crest into the bend below. One even fall from the top of the
  * rim to the bend instead.
  */
-const DESCENT: [number, number] = [3250, 3420];
+const DESCENT: [number, number] = [S(3250), S(3420)];
 const yAt = (s: number) => sampleAt(baked.main, s, newHit()).cy;
 const descent = (s: number) => {
   const t = (s - DESCENT[0]) / (DESCENT[1] - DESCENT[0]);
@@ -160,6 +268,39 @@ for (const p of src.main.points) {
 }
 // (Baked again with the descent smoothed, for the Lava Tube's ends.)
 const main = bakeTrack(src, surfaces).main;
+
+/**
+ * The bulge's lava (the owner: "have the lava stream coming down the face of the mountain so you see
+ * it here"): a second stream, down the volcano's west face from `from` m out, to a pool (`pool` m
+ * round, LAVA_CLEAR m past the road's verge) just past the bulge's apex (where its road comes
+ * nearest the volcano): you drift round the bulge's long left with the lava ahead of you. Narrower
+ * than the first, wandering a little; it crosses no road (the first's the barrier, LAVA).
+ */
+const LAVA_WEST = { from: 100, width: 5, depth: 3, pool: 10 };
+const lavaWest = (() => {
+  const hit = newHit();
+  let best = { d: Infinity, s: 0 };
+  for (let s = BULGE.from; s <= BULGE.to + BULGE_LONGER; s += 2) {
+    sampleAt(main, s, hit);
+    const d = Math.hypot(hit.cx - VOLCANO.x, hit.cz - VOLCANO.z);
+    if (d < best.d) best = { d, s };
+  }
+  sampleAt(main, best.s, hit);
+  const verge = hit.width / 2 + hit.shoulder;
+  const out = verge + LAVA_CLEAR + LAVA_WEST.pool;
+  const [dx, dz] = [(VOLCANO.x - hit.cx) / best.d, (VOLCANO.z - hit.cz) / best.d];
+  const end: [number, number] = [hit.cx + dx * out, hit.cz + dz * out];
+  const bearing = Math.atan2(end[1] - VOLCANO.z, end[0] - VOLCANO.x);
+  const reach = Math.hypot(end[0] - VOLCANO.x, end[1] - VOLCANO.z);
+  const path: [number, number][] = [];
+  for (let r = LAVA_WEST.from; r < reach - 8; r += 15) {
+    // (Wandering less toward its end, so it ends where it's meant to.)
+    const a = bearing + (((2.5 * Math.sin(r / 50) + Math.sin(r / 19)) * Math.PI) / 180) * Math.min(1, (reach - r) / 60);
+    path.push([Math.round((VOLCANO.x + Math.cos(a) * r) * 10) / 10, Math.round((VOLCANO.z + Math.sin(a) * r) * 10) / 10]);
+  }
+  path.push([Math.round(end[0] * 10) / 10, Math.round(end[1] * 10) / 10]);
+  return path;
+})();
 
 // The Lava Tube's road: in toward the crater, straight across its shaft (level, and the jump over
 // the lava in its middle), and out. Its two bends are in the tunnels, out of the shaft: with one bend
@@ -313,6 +454,8 @@ const layout: TrackLayout = {
       // The jungle's red-earth road a little uneven (the owner): lumps a few tenths high.
       ...redEarth().map((s) => ({ kind: 'uneven' as const, s, height: MUD.height, size: MUD.size })),
       { kind: 'lava-stream' as const, path: lavaStream(), width: LAVA.width, depth: LAVA.depth },
+      // (Its pool's floor once the ground's there: below.)
+      { kind: 'lava-stream' as const, path: lavaWest, width: LAVA_WEST.width, depth: LAVA_WEST.depth, pool: { r: LAVA_WEST.pool, floor: 0 } },
     ],
     pines: { kind: 'tropic', seed: 23, spacing: 7, clear: 7, thicken: 30, density: 0.4, glade: 70 },
   },
@@ -452,10 +595,10 @@ layout.pieces = [
 const TOWN_STREETS: [string, number, number, 1 | -1, number, number, number?][] = [
   // Waine'e Street and Luakini Street, the back streets: up the hill behind the town, each a block
   // up from the front road.
-  ['waine-e', 3575, 3765, 1, 62, 40],
+  ['waine-e', S(3575), S(3765), 1, 62, 40],
   ['luakini', 22, 182, 1, 54, 28],
   // The beach's car parks, on the sand between the road and the sea: the way against the lap's.
-  ['lot-mauka', 3670, 3792, -1, 28, 12, 30],
+  ['lot-mauka', S(3670), S(3792), -1, 28, 12, 30],
   ['lot-makai', 45, 162, -1, 28, 12, 30],
 ];
 /** The back streets' traffic: m in from each end (off their legs down to the front road, out of sight round the houses), and its speed (m/s). */
@@ -551,7 +694,7 @@ const STREET = { width: 8, shoulder: 1.5, speed: 12, every: 6, grade: 0.12 };
  * deep, each row `row` m further back, the first `front` m past the road's verge; `clear` m off
  * every road's verge. Sizes m across, deep, and storeys (`storey` m each).
  */
-const TOWN = { stretch: [3560, 205] as [number, number], rows: 5, row: 14, front: 4, clear: 2.5, storey: 3.4, shop: { width: [8, 12], depth: [9, 11], storeys: [1, 2] }, home: { width: [7, 10], depth: [7, 10], storeys: [1, 1.6] } };
+const TOWN = { stretch: [S(3560), 205] as [number, number], rows: 5, row: 14, front: 4, clear: 2.5, storey: 3.4, shop: { width: [8, 12], depth: [9, 11], storeys: [1, 2] }, home: { width: [7, 10], depth: [7, 10], storeys: [1, 1.6] } };
 /** The square at the line (the town's middle, between its two blocks): `s` along, its middle `lat` m to the right, `r` across, kept clear, its banyan in the middle (`trunk` m thick, `high` to its crown). */
 const SQUARE = { s: 0, lat: 34, r: 20, trunk: 3.5, high: 13 };
 /**
@@ -561,7 +704,7 @@ const SQUARE = { s: 0, lat: 34, r: 20, trunk: 3.5, high: 13 };
  */
 const LOTS = { bay: 3.2, pad: 2, in: 14, fill: 0.7, car: [2, 4.4, 1.5] as [number, number, number], ids: ['lot-mauka', 'lot-makai'] };
 /** Tiki torches along the front road through town: from and to (main distances, round the line), one every `every` m, `lateral` m past the road's edge (on its shoulder). */
-const TORCHES = { from: 3765, to: 160, every: 16, lateral: 2.5 };
+const TORCHES = { from: S(3765), to: 160, every: 16, lateral: 2.5 };
 /** The surf shack on the beach by the west car park: `s` along, `lat` m to the left, its size. */
 const SHACK = { s: 165, lat: 34, size: [8, 6, 3.4] as [number, number, number] };
 {
@@ -670,17 +813,29 @@ const SHACK = { s: 165, lat: 34, size: [8, 6, 3.4] as [number, number, number] }
   console.log(`  harbor town: ${count('shop')} shops, ${count('plantation')} cottages, ${count('parked')} parked cars`);
 }
 
-// The lava stream keeps clear of every road: its path LAVA_CLEAR m from every road's edge (the
-// validator wants less: its rock and bare ground, LAVA_REACH m past its floor, off every shoulder).
+// The bulge's pool's floor: the ground at the stream's end, its channel cut (the pool's floor level there).
+{
+  const west = layout.ground!.features!.find((f) => f.kind === 'lava-stream' && f.pool)!;
+  if (west.kind !== 'lava-stream') throw new Error('no west stream');
+  const [ex, ez] = west.path[west.path.length - 1];
+  const trial = bakeTrack({ ...layout, ground: { ...layout.ground!, features: layout.ground!.features!.map((f) => (f === west ? { ...west, pool: undefined } : f)) } }, surfaces);
+  west.pool!.floor = Math.round(trial.ground!.height(ex, ez) * 100) / 100;
+}
+
+// The lava streams keep clear of every road: their paths (and the pool's edge) LAVA_CLEAR m from
+// every road's edge (the validator wants less: their rock and bare ground, LAVA_REACH m past their
+// floors, off every shoulder).
 {
   const roads = bakeTrack(layout, surfaces).splines;
-  const stream = layout.ground!.features!.find((f) => f.kind === 'lava-stream')!;
-  if (stream.kind !== 'lava-stream') throw new Error('no lava stream');
-  let clear = Infinity;
-  for (const [x, z] of stream.path)
-    for (const sp of roads) for (let i = 0; i < sp.n; i++) clear = Math.min(clear, Math.hypot(sp.px[i] - x, sp.pz[i] - z) - sp.width[i] / 2 - sp.shoulder[i]);
-  if (clear < LAVA_CLEAR) throw new Error(`the lava stream comes within ${clear.toFixed(1)} m of a road (want ${LAVA_CLEAR})`);
-  console.log(`  lava stream: ${stream.path.length} points, ${clear.toFixed(0)} m from the nearest road`);
+  for (const stream of layout.ground!.features!) {
+    if (stream.kind !== 'lava-stream') continue;
+    let clear = Infinity;
+    const [ex, ez] = stream.path[stream.path.length - 1];
+    for (const [x, z] of stream.path)
+      for (const sp of roads) for (let i = 0; i < sp.n; i++) clear = Math.min(clear, Math.hypot(sp.px[i] - x, sp.pz[i] - z) - sp.width[i] / 2 - sp.shoulder[i] - (stream.pool && x === ex && z === ez ? stream.pool.r : 0));
+    if (clear < LAVA_CLEAR - 0.5) throw new Error(`a lava stream comes within ${clear.toFixed(1)} m of a road (want ${LAVA_CLEAR})`);
+    console.log(`  lava stream: ${stream.path.length} points${stream.pool ? `, a pool ${stream.pool.r} m round at ${stream.pool.floor} m` : ''}, ${clear.toFixed(0)} m from the nearest road`);
+  }
 }
 
 mkdirSync(DIR, { recursive: true });

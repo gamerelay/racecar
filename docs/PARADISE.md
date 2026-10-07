@@ -333,6 +333,37 @@ main front road which we have, then some side roads for cars to spawn on and mov
   town has none). Then the beach run to the Freeway, the jungle, the volcano and the finish, in
   that order.
 
+**The bulge (2026-10-06):** the owner, driving the west coast past the beach umbrellas: "have this
+road go a little deeper towards the mountain, also have the lava stream coming down the face of
+the mountain so you see it here, I think if this little turn could be a bulge that you could drift
+around that would be awesome" (a round D, not a hairpin; `BULGE`, `LAVA_WEST` in the generator).
+- **The road:** the island's road from 600 to 1075 m (a little right-left jog off the beach) is
+  one round bulge inland, built from arcs:
+  - a right off the coast, 55 m round, 120°;
+  - a short straight;
+  - one long left round its apex, 140 m round, 145°, banked into itself (−0.2, as the
+    jungle's);
+  - a short straight;
+  - a right back onto the island's road, heading as it does there.
+  The straights are as long as it takes to meet the island's road, solved. Its apex is about
+  100 m deeper toward the volcano than the jog's. A first try through waypoints and a spline
+  kinked where it met the island's road, and its left was lumpy.
+- **Everything after it moved on 110 m:** the lap is 3909 m, 110 m longer. The generator builds
+  the bulge first, from the island's lap, then moves every main distance past it (its own
+  constants through `S`, and the island's hazards, ramps, zones, smashables, takedown spots and
+  traffic sections), so the Freeway, the jungle's banks, the Lava Tube and the town stay where
+  they are on the ground. The tests' distances moved with them.
+- **The lava:** a second stream (`LAVA_WEST`), down the volcano's west face, ending in a pool
+  just past the bulge's apex, 25 m past the road's verge. You drift round the long left with the
+  lava ahead of you, and you see it coming down the mountain from the coast. It crosses no road,
+  so the first stream is still the barrier.
+  - **A pool at a stream's end** (`LavaStreamDef.pool`: its radius and its floor, level): its
+    banks are the channel's, and its lava is drawn as a disc and felt as the channel's is (a
+    wreck in it). The validator keeps roads off it too.
+- **Numbers:** floor 68.07 s (66.35: 110 m more road); field wrecks over seeds 1–72 48 (56), none
+  at the bulge. Paradise Open re-recorded; every other map identical.
+
+
 ## What we learned (2026-10-02)
 
 **The Lava Tube was too strong (the owner: "a bit too overpowered", "cuts thru so much time").**
