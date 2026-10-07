@@ -4,6 +4,14 @@ What changed in each release of racecar, newest first. Releases are git tags on 
 reasons behind each change are in [docs/SPEC.md](./docs/SPEC.md) under "Changed while building",
 and where things stand is [docs/HANDOFF.md](./docs/HANDOFF.md).
 
+## alpha-1.36: Riviera's Rock Tunnel, through the hill
+
+- **The Rock Tunnel goes through a hill.** The ridge is now one round, wooded hill, and the road
+  bores straight through it, about 100 m of tunnel. The windows are gone.
+- **Fixed:** cars hopped into the air at both of the Rock Tunnel's ends, so the car and the
+  camera bounced just as you drove in and out. The same small kick is gone from Paradise Open's
+  tunnels and bridges.
+
 ## alpha-1.35: Riviera's Rock Tunnel, a gallery
 
 - **The Rock Tunnel has windows.** The hill it runs through is now one long limestone ridge, and

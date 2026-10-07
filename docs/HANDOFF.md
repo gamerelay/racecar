@@ -4,17 +4,22 @@ Where racecar stands and what's next, for whoever picks it up (a person or a fre
 The design is [SPEC.md](./SPEC.md): decisions in §17, and what building changed in "Changed while
 building". This file is "where are we"; the spec is "what are we making".
 
-**Last updated:** 2026-10-06. **`alpha-1.35`** (PR #149) is tagged and on the hosted build:
-**the Rock Tunnel's TLC and its gallery** (COASTAL's step 8j): the spur's three domes one ridge
-(`Hill.to`, `h2`, `r2`), the tunnel (1616–1860 m, ceiling 9 m) a gallery with openings along its
-right wall (`PieceDef.gallery`; a ledge under the road past them; a car down off its roof counts as
-outside, walls.ts), no tile skirt in a tunnel (the strip in its mouth), the limestone's beds by
-height (the material's), scrub and outcrops on the cliffs (`cliffs.ts`), bunting across the town's
-streets (`bunting.ts`). Riviera's fingerprints re-recorded; floor 105.95 s. Field races were last run
-before the review's fixes (71 car wrecks over seeds 1–144, main 60: later laps, elsewhere; the
-owner: look first, sims at the end). **Next** (the owner's list): café terraces on the quay, gulls,
-and a poster of Riviera for the lobby; still open from 8i, the quays cut into the ground and the
-drawbridge's leaves in the old asphalt colour.
+**Last updated:** 2026-10-06. **`alpha-1.36`** (PRs #150, #151) is tagged and on the hosted build:
+**no hop at the Rock Tunnel's mouths** (#150: half into a piece, a wheel off its end stands on its
+own ground near the floor, not on the floor at the car's middle; every class flew 15 m off each
+mouth, the owner's "bounce approaching the tunnel"; Paradise Open's pieces moved a little too) and
+**the spur one hill** (#151, COASTAL's step 8k: one round hill, `SPUR`, the tunnel 1664–1766 m,
+no gallery on Riviera; `PieceDef.gallery` kept, tested on a fixture). Riviera and Paradise Open
+re-recorded; floor 106.22 s (105.95: the AI's line runs onto the grass shoulder at the tunnel's
+first mouth on #150's lap, which the hop flew over; worth a look now the mouths have moved), field
+37 wrecks over seeds 1–72 (main 33 before #150). **Next** (the owner's list): café terraces on the
+quay, gulls, and a poster of Riviera for the lobby; still open from 8i, the quays cut into the
+ground and the drawbridge's leaves in the old asphalt colour.
+
+Before it, **`alpha-1.35`** (PR #149): **the Rock Tunnel's TLC and its gallery** (COASTAL's step
+8j): the spur's three domes one ridge (`Hill.to`, `h2`, `r2`), the tunnel a gallery
+(`PieceDef.gallery`), no tile skirt in a tunnel, the limestone's beds by height, scrub and outcrops
+on the cliffs (`cliffs.ts`), bunting across the town's streets (`bunting.ts`). Floor 105.95 s.
 
 Before it, **`alpha-1.34`** (PR #148): **Riviera's look** (COASTAL's step 8i, all drawn only):
 its own palettes (`riviera`, `riviera-sunset`; `Palette.sea`, `Palette.surfaces`), umbrella pines,
