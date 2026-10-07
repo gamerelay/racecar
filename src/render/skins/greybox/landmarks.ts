@@ -24,7 +24,6 @@ import {
   TorusGeometry,
   Vector3,
   AdditiveBlending,
-  BufferGeometry,
   Color,
   Float32BufferAttribute,
   IcosahedronGeometry,
@@ -37,6 +36,8 @@ import type { SceneLive } from '../../skin';
 import type { Keep } from './cityscape';
 import { animatedPoints, boxes, FONT, glowPoints, type Box } from './scenery';
 import { pontoon, quay } from './marina';
+import { instanced } from './forest';
+import { PALM_LEAVES, palmGeometry, swaying } from './island';
 import { water } from './terrain';
 import { faceted, toon } from './toon';
 
@@ -944,45 +945,62 @@ function surfShack(c: Ctx): Built {
 }
 
 /**
- * A car park's paving (Paradise Open's Harbor Town, on the beach): its aisle is a street (the
- * track's), and this is the paving either side of it, `inner` to `outer` m off its middle, `length`
- * m along (its front, +z, along the aisle), laid on the ground, with a white line between bays every
- * `bay` m; on one `side` only (+1 the aisle's right, -1 its left) or both (0). The parked cars are
+ * A car park's markings (Paradise Open's Harbor Town, on the beach): it stands on its pad (a ground
+ * feature, paved and level) round its aisle (a street, the track's), its front (+z) along the
+ * aisle, the front road off its -x side, the sea off +x. A row of `bays` bays, `bay` m apart,
+ * either side of the aisle (`aisle` its half width), out to the pad's edge (`depth` across,
+ * `length` along): white lines between them; a kerb along its sea side and its ends and along the
+ * road between its driveways; palms along the sea side and a sign by the road. Its parked cars are
  * houses (solid; look 'parked').
  */
 function carPark(m: LandmarkDef, c: Ctx): Built {
   const root = new Group();
-  const { length = 40, inner = 5.5, outer = 11, bay = 3.2, side: only = 0 } = m.params ?? {};
-  const sides = only ? [only] : [-1, 1];
-  const pos: number[] = [];
-  const idx: number[] = [];
-  const n = Math.ceil(length / 2);
-  for (const side of sides) {
-    const base = pos.length / 3;
-    for (let j = 0; j <= n; j++)
-      for (const x of [inner, (inner + outer) / 2, outer]) {
-        const z = -length / 2 + (length * j) / n;
-        pos.push(-x * side, c.ground(-x * side, z) + 0.05, z);
-      }
-    for (let j = 0; j < n; j++)
-      for (let i = 0; i < 2; i++) {
-        const a = base + j * 3 + i;
-        idx.push(a, a + 1, a + 3, a + 1, a + 4, a + 3);
-      }
-  }
-  const geo = new BufferGeometry();
-  geo.setAttribute('position', new Float32BufferAttribute(pos, 3));
-  geo.setIndex(idx);
-  geo.computeVertexNormals();
-  root.add(new Mesh(geo, toon({ color: 0x55515a, side: DoubleSide })));
+  const { length = 60, depth = 24, aisle = 5.5, bays = 16, bay = 2.8 } = m.params ?? {};
+  const half = depth / 2;
+  const row = (bays * bay) / 2;
   const S = solids();
-  for (const side of sides)
-    for (let z = -length / 2; z <= length / 2 + 0.01; z += bay) {
-      // (Its right is -x: the street's right, -tz, tx, turned by rot = atan2(tx, tz).)
-      const x = (-side * (inner + outer)) / 2;
-      S.add(outer - inner - 0.6, 0.04, 0.14, 0xf2f2ee, x, c.ground(x, z) + 0.09, z);
+  const LINE = 0xf2f2ee;
+  const KERB = 0xd8d2c4;
+  // The bays' lines, either side of the aisle.
+  for (const sd of [-1, 1])
+    for (let j = 0; j <= bays; j++) {
+      const z = -row + j * bay;
+      const x = sd * (aisle + half) / 2;
+      S.add(half - aisle - 0.6, 0.04, 0.14, LINE, x, c.ground(x, z) + 0.03, z);
     }
+  // The bays' backs: a line along each row's far end.
+  for (const sd of [-1, 1]) S.add(0.14, 0.04, 2 * row, LINE, sd * (half - 0.5), 0.03, 0);
+  // The kerb: along the sea side and its half of the ends; along the road between the driveways.
+  const kerb = (w: number, d: number, x: number, z: number) => S.add(w, 0.2, d, KERB, x, c.ground(x, z) + 0.1, z);
+  kerb(0.3, length, half - 0.15, 0);
+  for (const e of [-1, 1]) kerb(half - aisle - 0.5, 0.3, (aisle + 0.5 + half) / 2, e * (length / 2 - 0.15));
+  kerb(0.3, 2 * row, -(half - 0.15), 0);
+  // A sign by the road at its middle, on two posts, facing it.
+  const SIGN = { x: -(half + 1.4), w: 4.4, h: 1.2, up: 2.4 };
+  for (const dz of [-1.8, 1.8]) S.add(0.12, SIGN.up + SIGN.h / 2, 0.12, 0x6b4a2a, SIGN.x, c.ground(SIGN.x, dz) + (SIGN.up + SIGN.h / 2) / 2, dz);
   root.add(S.mesh());
+  const sign = staticCanvas(512, 140, (g) => {
+    g.fillStyle = '#1f6f8b';
+    g.fillRect(0, 0, 512, 140);
+    g.strokeStyle = '#f4f1e6';
+    g.lineWidth = 8;
+    g.strokeRect(8, 8, 496, 124);
+    g.fillStyle = '#f4f1e6';
+    g.font = `56px ${FONT}`;
+    g.textAlign = 'center';
+    g.textBaseline = 'middle';
+    g.fillText('BEACH PARKING', 256, 74);
+  });
+  const f = face(sign, SIGN.w, SIGN.h);
+  f.position.set(SIGN.x - 0.08, c.ground(SIGN.x, 0) + SIGN.up, 0);
+  f.rotation.y = -Math.PI / 2;
+  root.add(f);
+  // Palms along the sea side, leaning out to sea a little.
+  const palm = palmGeometry();
+  const trunk = swaying(c.time, 0.006);
+  trunk.color = new Color(0x8a6a44);
+  const spots = [-length / 2 + 3, -length / 6, length / 6, length / 2 - 3].map((z, k) => ({ x: half + 2.2, y: c.ground(half + 2.2, z) - 0.2, z, yaw: 0.3 * (k % 2 ? 1 : -1), sx: 1, sy: 0.9 + 0.1 * k, sz: 1, color: PALM_LEAVES[k % PALM_LEAVES.length] }));
+  root.add(instanced(palm.trunk, trunk, spots.map((q) => ({ ...q, color: 0xffffff }))), instanced(palm.fronds, swaying(c.time, 0.006), spots));
   return { root };
 }
 

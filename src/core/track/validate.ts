@@ -84,6 +84,8 @@ export function validateLayout(layout: TrackLayout, surfaces: SurfaceDef[], clas
       if (!Array.isArray(f.path) || f.path.length < 2 || f.path.some((p) => !Array.isArray(p) || p.length !== 2 || !p.every(Number.isFinite)) || !(f.width > 0) || !(f.depth > 0))
         bad('a lava stream needs a path of 2 points or more, a width and a depth');
       if (f.pool && !(f.pool.r > f.width / 2 && Number.isFinite(f.pool.floor))) bad("a lava stream's pool needs a radius wider than its channel and a floor");
+    } else if (f.kind === 'pad') {
+      if (!(Array.isArray(f.at) && f.at.length === 2 && f.at.every(Number.isFinite) && Array.isArray(f.size) && f.size.length === 2 && f.size.every((v) => v > 0) && Number.isFinite(f.rot) && Number.isFinite(f.y))) bad('a pad needs a middle, a size over 0 each way, a heading and a height');
     } else err(`ground feature ${k}: unknown kind "${(f as { kind: unknown }).kind}"`);
   }
   if (out.some((p) => p.level === 'error')) return out;

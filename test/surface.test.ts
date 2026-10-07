@@ -4,7 +4,7 @@
 
 import { describe, expect, test } from 'bun:test';
 import { bakeTrack, VERGE_DEFAULT } from '../src/core/track/bake';
-import { KIND_BEACH, KIND_LAVA_ROCK, KIND_SAND, KIND_SHORE } from '../src/core/track/ground';
+import { KIND_BEACH, KIND_LAVA_ROCK, KIND_PAVED, KIND_SAND, KIND_SHORE } from '../src/core/track/ground';
 import { newHit, projectGlobal, sampleAt, surfaceAt } from '../src/core/track/query';
 import { SURFACES, layout } from './helpers';
 
@@ -39,8 +39,8 @@ describe('one surface function', () => {
     // Inland of the coast, by the road: its verge.
     let verge = 0;
     for (let k = 0; k < g.nx * g.nz; k += 7) {
-      // (Nor a lava stream's rock: test/lava-stream.test.ts.)
-      if (g.kind[k] === KIND_SAND || g.kind[k] === KIND_BEACH || g.kind[k] === KIND_SHORE || g.kind[k] === KIND_LAVA_ROCK) continue;
+      // (Nor a lava stream's rock, test/lava-stream.test.ts, nor a pad's paving.)
+      if (g.kind[k] === KIND_SAND || g.kind[k] === KIND_BEACH || g.kind[k] === KIND_SHORE || g.kind[k] === KIND_LAVA_ROCK || g.kind[k] === KIND_PAVED) continue;
       const x = g.x0 + (k % g.nx) * g.cell;
       const z = g.z0 + Math.floor(k / g.nx) * g.cell;
       projectGlobal(track.main, x, z, hit, g.h[k]);

@@ -600,7 +600,20 @@ export interface LavaStreamDef {
   pool?: { r: number; floor: number };
 }
 
-export type FeatureDef = MogulsDef | CanyonDef | BeachDef | UnevenDef | LavaStreamDef | SeawallDef;
+/**
+ * A paved pad (Paradise Open's car parks): a level rectangle of ground, `size` m (along its heading,
+ * across it) round `at`, its heading `rot` (radians about y, 0 toward +z, as a landmark's), at
+ * height `y`, paved (asphalt), its edges easing back to the ground round it.
+ */
+export interface PadDef {
+  kind: 'pad';
+  at: [number, number];
+  size: [number, number];
+  rot: number;
+  y: number;
+}
+
+export type FeatureDef = MogulsDef | CanyonDef | BeachDef | UnevenDef | LavaStreamDef | SeawallDef | PadDef;
 
 export interface MapDef {
   id: string;

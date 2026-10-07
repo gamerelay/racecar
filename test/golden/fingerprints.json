@@ -164,10 +164,10 @@
   "wrecks": 0
  },
  "paradise-open/open": {
-  "track": "7e7bf345bdeadd65",
-  "ground": "96e7828a649c8154",
-  "drive": "7dd0c13e7e4d74ab",
-  "branches": "5ac3c33848d08fcc",
+  "track": "89129654949b3197",
+  "ground": "c0dd6760b998f436",
+  "drive": "05f64c3f58bf5c6a",
+  "branches": "0b06256384d2f6da",
   "marks": [
    {
     "t": 10,
@@ -203,7 +203,7 @@
    }
   ],
   "wrecks": 0,
-  "streets": "d777ca12316bbcea"
+  "streets": "42a25037fca15cdf"
  },
  "coastal/riviera": {
   "track": "305b37f439659ab9",

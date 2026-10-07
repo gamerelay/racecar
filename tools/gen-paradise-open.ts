@@ -11,7 +11,7 @@
 //   bun tools/gen-paradise-open.ts
 
 import { writeFileSync, mkdirSync } from 'node:fs';
-import type { HouseDef, TrackLayout, TrackPoint } from '../src/core/content';
+import type { HouseDef, LandmarkDef, TrackLayout, TrackPoint } from '../src/core/content';
 import { newContact, obbOverlap } from '../src/core/collide/obb';
 import { Rng } from '../src/core/rng';
 import { bakeTrack } from '../src/core/track/bake';
@@ -592,21 +592,70 @@ layout.pieces = [
  * never cross the finish), so the town is two blocks, a back street up the hill behind each,
  * either side of the square at the line.
  */
+/** A street's width and shoulder; its traffic's speed; a point every `every` m; no steeper than `grade`. */
+const STREET = { width: 8, shoulder: 1.5, speed: 12, every: 6, grade: 0.12 };
+/**
+ * The beach's car parks (the owner, after the first ones: they "don't look that good", bays strung
+ * along a curved loop on a lumpy dune): each a level paved pad (PadDef) on the sand beside the front
+ * road, `gap` m past its verge and `rise` m over the road's height there, its aisle (the lot's
+ * street) straight down its middle with a row of bays either side, `bay` m apart and `deep` m deep,
+ * nose in. Its driveways leave the front road at `from` and rejoin it at `to` (main distances),
+ * their ends `fork` m along from there, `lead` m more out to the aisle. `fill` of the bays taken,
+ * by the traffic's cars (look 'parked': compact, sedan, van; across, long, high).
+ */
+const LOTS = {
+  list: [
+    { id: 'lot-mauka', from: S(3670), to: S(3792) },
+    { id: 'lot-makai', from: 45, to: 162 },
+  ],
+  gap: 2,
+  rise: 0.2,
+  bay: 2.8,
+  deep: 6,
+  fork: 28,
+  lead: 8,
+  fill: 0.75,
+  cars: [
+    [1.8, 3.9, 1.5],
+    [1.9, 4.5, 1.5],
+    [2, 5, 2],
+  ] as [number, number, number][],
+};
+/** A lot's aisle's half width (the street's, with its shoulder), its pad's depth, and where its middle is (m off the front road's middle, at its middle). */
+const lotAisle = () => STREET.width / 2 + STREET.shoulder;
+const lotDepth = () => 2 * (lotAisle() + LOTS.deep);
+const lotAt = (from: number, to: number) => {
+  const hit = newHit();
+  const mid = (from + ((to - from + main.length) % main.length) / 2) % main.length;
+  sampleAt(main, mid, hit);
+  return { mid, lat: hit.width / 2 + hit.shoulder + LOTS.gap + lotDepth() / 2 };
+};
 const TOWN_STREETS: [string, number, number, 1 | -1, number, number, number?][] = [
   // Waine'e Street and Luakini Street, the back streets: up the hill behind the town, each a block
   // up from the front road.
   ['waine-e', S(3575), S(3765), 1, 62, 40],
   ['luakini', 22, 182, 1, 54, 28],
   // The beach's car parks, on the sand between the road and the sea: the way against the lap's.
-  ['lot-mauka', S(3670), S(3792), -1, 28, 12, 30],
-  ['lot-makai', 45, 162, -1, 28, 12, 30],
+  ...LOTS.list.map(({ id, from, to }): [string, number, number, 1 | -1, number, number, number] => [id, from, to, -1, lotAt(from, to).lat, LOTS.lead, LOTS.fork]),
 ];
 /** The back streets' traffic: m in from each end (off their legs down to the front road, out of sight round the houses), and its speed (m/s). */
 const BACK_TRAFFIC = { trim: 60, speed: 9 };
 /** A street's first and last points this far along from where it meets the front road (m, unless it says): it forks off gently. */
 const FORK = 40;
-/** A street's width and shoulder; its traffic's speed; a point every `every` m; no steeper than `grade`. */
-const STREET = { width: 8, shoulder: 1.5, speed: 12, every: 6, grade: 0.12 };
+// The car parks' pads, before their streets (which take the ground's heights): level, beside the
+// front road, along it at their middles.
+for (const { from, to } of LOTS.list) {
+  const { mid, lat } = lotAt(from, to);
+  const hit = sampleAt(main, mid, newHit());
+  const straight = ((to - from + main.length) % main.length) - 2 * (LOTS.fork + LOTS.lead);
+  layout.ground!.features!.push({
+    kind: 'pad',
+    at: [Math.round((hit.cx + hit.tz * lat) * 10) / 10, Math.round((hit.cz - hit.tx * lat) * 10) / 10],
+    size: [Math.round(straight + 12), Math.round(lotDepth() * 10) / 10],
+    rot: Math.round(Math.atan2(hit.tx, hit.tz) * 1000) / 1000,
+    y: Math.round((hit.cy + LOTS.rise) * 100) / 100,
+  });
+}
 {
   const L = main.length;
   for (const [id, from, to, side, depth, lead, IN = FORK] of TOWN_STREETS) {
@@ -617,7 +666,9 @@ const STREET = { width: 8, shoulder: 1.5, speed: 12, every: 6, grade: 0.12 };
     const edge = () => hit.width / 2 + hit.shoulder + STREET.width / 2 + 1;
     sampleAt(g.main, (from + IN) % L, hit);
     const corners: [number, number][] = [at(from + IN, edge()), at(from + IN + lead, depth)];
-    for (let u = IN + lead + 30; u < len - IN - lead - 15; u += 30) corners.push(at(from + u, depth));
+    // (Along a car park's aisle a corner every 8 m, so the rounding keeps it straight down its pad.)
+    const every = LOTS.list.some((l) => l.id === id) ? 8 : 30;
+    for (let u = IN + lead + every; u < len - IN - lead - every / 2; u += every) corners.push(at(from + u, depth));
     corners.push(at(from + len - IN - lead, depth));
     sampleAt(g.main, (from + len - IN) % L, hit);
     corners.push(at(from + len - IN, edge()));
@@ -697,12 +748,6 @@ const STREET = { width: 8, shoulder: 1.5, speed: 12, every: 6, grade: 0.12 };
 const TOWN = { stretch: [S(3560), 205] as [number, number], rows: 5, row: 14, front: 4, clear: 2.5, storey: 3.4, shop: { width: [8, 12], depth: [9, 11], storeys: [1, 2] }, home: { width: [7, 10], depth: [7, 10], storeys: [1, 1.6] } };
 /** The square at the line (the town's middle, between its two blocks): `s` along, its middle `lat` m to the right, `r` across, kept clear, its banyan in the middle (`trunk` m thick, `high` to its crown). */
 const SQUARE = { s: 0, lat: 34, r: 20, trunk: 3.5, high: 13 };
-/**
- * The car parks: a bay every `bay` m along each side of a lot's aisle, paved `pad` bays at a time,
- * from `in` m off each end (its mouths on the front road); `fill` of the bays taken by a parked car,
- * nose in, its size (across, long, high).
- */
-const LOTS = { bay: 3.2, pad: 2, in: 14, fill: 0.7, car: [2, 4.4, 1.5] as [number, number, number], ids: ['lot-mauka', 'lot-makai'] };
 /** Tiki torches along the front road through town: from and to (main distances, round the line), one every `every` m, `lateral` m past the road's edge (on its shoulder). */
 const TORCHES = { from: S(3765), to: 160, every: 16, lateral: 2.5 };
 /** The surf shack on the beach by the west car park: `s` along, `lat` m to the left, its size. */
@@ -771,44 +816,44 @@ const SHACK = { s: 165, lat: 34, size: [8, 6, 3.4] as [number, number, number] }
     for (const sd of [-1, 1] as const) rows(sp, 8, sp.length - 8, sd, 1, () => TOWN.home, () => 'plantation');
   }
   rows(g.main, TOWN.stretch[0], TOWN.stretch[1], 1, TOWN.rows, () => TOWN.home, () => 'plantation');
-  // The car parks: cars nose in either side of each lot's aisle (its street), a bay every
-  // LOTS.bay m, some empty, paved in pieces of LOTS.pad bays (one landmark each, turned along the
-  // aisle there), each side of a piece paved only where all its bays fit (clear of the front road
-  // and the houses).
+  // The car parks: a row of bays either side of each lot's aisle, down its straight (along the
+  // front road, where it's level on its pad), cars nose in, some empty; drawn by a landmark each
+  // (the bays' lines, a kerb, palms, a sign), on its pad.
   rng = Rng.stream(7, 'harbor-town-lots');
-  const pads: { at: [number, number]; rot: number; length: number; inner: number; outer: number; side: number }[] = [];
-  const [cw, cl, ch] = LOTS.car;
-  for (const id of LOTS.ids) {
-    const sp = g.splines.find((x) => x.id === id)!;
-    const piece = LOTS.bay * LOTS.pad;
-    for (let u0 = LOTS.in; u0 + piece <= sp.length - LOTS.in; u0 += piece) {
-      const bays = Array.from({ length: LOTS.pad }, (_, j) => u0 + (j + 0.5) * LOTS.bay);
-      const slot = (u: number, sd: 1 | -1) => {
-        sampleAt(sp, u, hit);
-        const off = hit.width / 2 + hit.shoulder + 1.2 + cl / 2;
-        // Nose in: its front (rot) toward the aisle, its length across it.
-        return { x: hit.cx - hit.tz * off * sd, z: hit.cz + hit.tx * off * sd, rot: Math.atan2(hit.tz * sd, -hit.tx * sd) };
-      };
-      const paved = ([-1, 1] as const).filter((sd) => bays.every((u) => {
-        const { x, z, rot } = slot(u, sd);
-        return free(x, z, LOTS.bay - 0.2, cl, rot, 1.05, id, 1.05);
-      }));
-      for (const sd of paved)
-        for (const u of bays) {
-          const { x, z, rot } = slot(u, sd);
-          if (rng.next() < LOTS.fill) add(x, z, cw, cl, ch, rot, 'parked');
-        }
-      if (!paved.length) continue;
-      sampleAt(sp, u0 + piece / 2, hit);
-      pads.push({ at: [r1(hit.cx), r1(hit.cz)], rot: Math.round(Math.atan2(hit.tx, hit.tz) * 1000) / 1000, length: Math.round(piece * 10) / 10, inner: r1(hit.width / 2 + hit.shoulder), outer: r1(hit.width / 2 + hit.shoulder + 1.8 + cl), side: paved.length === 2 ? 0 : paved[0] });
+  const lots: LandmarkDef[] = [];
+  for (const { id, from, to } of LOTS.list) {
+    const { mid, lat } = lotAt(from, to);
+    const len = (to - from + L) % L;
+    const straight = len - 2 * (LOTS.fork + LOTS.lead);
+    // (The rounding of its driveways' corners takes about 6 m off each end of the aisle's straight.)
+    const bays = Math.floor((straight - 12) / LOTS.bay);
+    const aisle = lotAisle();
+    // (Its own hit: `free` projects into `hit`.)
+    const at = newHit();
+    for (let j = 0; j < bays; j++) {
+      const s = (mid + (j - (bays - 1) / 2) * LOTS.bay + L) % L;
+      sampleAt(g.main, s, at);
+      for (const sd of [-1, 1] as const) {
+        const [cw, cl, ch] = LOTS.cars[Math.floor(rng.next() * LOTS.cars.length)];
+        const taken = rng.next() < LOTS.fill;
+        // Its front at the aisle's edge and a little: `sd` -1 the bays toward the front road, 1 the sea's.
+        const off = lat + sd * (aisle + 1.2 + cl / 2);
+        const x = at.cx + at.tz * off;
+        const z = at.cz - at.tx * off;
+        // Nose in: facing the aisle (toward the front road from the sea's row, away from it from the road's).
+        const rot = Math.atan2(at.tz * sd, -at.tx * sd);
+        if (taken && free(x, z, cw, cl, rot, 1.05, id, 1.05)) add(x, z, cw, cl, ch, rot, 'parked');
+      }
     }
+    sampleAt(g.main, mid, hit);
+    lots.push({ kind: 'car-park', at: [r1(hit.cx + hit.tz * lat), r1(hit.cz - hit.tx * lat)], rot: Math.round(Math.atan2(hit.tx, hit.tz) * 1000) / 1000, r: 0, params: { length: Math.round(straight + 12), depth: r1(lotDepth()), aisle: r1(aisle), bays, bay: LOTS.bay } });
   }
   layout.houses = houses;
   // Tiki torches along the front road through town, both sides, over the line (two rows: a row
   // doesn't run round it).
   const torches = (s: [number, number]) => ({ kind: 'tiki-torch', s, every: TORCHES.every, lateral: TORCHES.lateral });
   layout.smashables = [...(layout.smashables ?? []), torches([TORCHES.from, Math.floor(L)]), torches([0, TORCHES.to])];
-  layout.landmarks = [...(layout.landmarks ?? []), ...pads.map((p) => ({ kind: 'car-park', at: p.at, rot: p.rot, r: 0, params: { length: p.length, inner: p.inner, outer: p.outer, bay: LOTS.bay, side: p.side } })), shack];
+  layout.landmarks = [...(layout.landmarks ?? []), ...lots, shack];
   const count = (look: string) => houses.filter((h) => h.look === look).length;
   console.log(`  harbor town: ${count('shop')} shops, ${count('plantation')} cottages, ${count('parked')} parked cars`);
 }

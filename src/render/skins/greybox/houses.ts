@@ -8,6 +8,7 @@ import { BoxGeometry, BufferGeometry, ConeGeometry, CylinderGeometry, DoubleSide
 import type { HouseDef } from '../../../core/content';
 import { hash01 } from '../../../core/rng';
 import { COLUMN as COLUMN_R, porchColumns, type BakedProp, type Track } from '../../../core/track/bake';
+import { trafficModels } from './car/traffic';
 import { instanced, prism, type Part } from './forest';
 import { canvas } from './scenery';
 import { faceted, toon } from './toon';
@@ -152,15 +153,14 @@ function hip() {
 /**
  * Harbor Town's houses, instanced: plantation cottages (board walls, a tin hip roof, a lanai roof
  * over the front on posts), Front Street's shops (a false front over the eaves, a veranda over the
- * boardwalk), and parked cars (a body and a cabin).
+ * boardwalk), and parked cars (the traffic's models).
  */
 function harborTown() {
   const homes: Part[] = [];
   const shops: Part[] = [];
   const roofs: Part[] = [];
   const trim: Part[] = [];
-  const bodies: Part[] = [];
-  const glass: Part[] = [];
+  const parked: Record<string, Part[]> = {};
   /** A part at (lx, ly, lz) in the house's own frame (its front toward +z). */
   const at = (h: HouseDef, y: number, lx: number, ly: number, lz: number, sx: number, sy: number, sz: number, color: number): Part => {
     const [c, s] = [Math.cos(h.rot), Math.sin(h.rot)];
@@ -171,10 +171,9 @@ function harborTown() {
       const [w, d, high] = h.size;
       const pick = <T>(list: T[], salt: number) => list[Math.floor(hash01(k, salt, 23) * list.length)];
       if (h.look === 'parked') {
-        const paint = pick(PAINT, 3);
-        bodies.push(at(h, y, 0, 0.45, 0, w, 0.7, d, paint));
-        bodies.push(at(h, y, 0, 1.05, -0.2, w * 0.86, 0.55, d * 0.5, paint));
-        glass.push(at(h, y, 0, 1.06, -0.2, w * 0.88, 0.42, d * 0.46, 0x26303c));
+        // The traffic's own cars (car/traffic.ts), by its length: a van, a sedan, a compact.
+        const kind = d >= 4.9 ? 'van' : d >= 4.3 ? 'sedan' : 'compact';
+        (parked[kind] ??= []).push({ x: h.at[0], y, z: h.at[1], yaw: h.rot, sx: 1, sy: 1, sz: 1, color: pick(PAINT, 3) });
         return;
       }
       const wall = pick(BOARDS, 5);
@@ -204,7 +203,8 @@ function harborTown() {
       if (shops.length) out.push(instanced(new BoxGeometry(1, 1, 1), toon({ map: boardFacade(true) }), shops));
       if (roofs.length) out.push(instanced(hip(), toon({ side: DoubleSide }), roofs));
       if (trim.length) out.push(instanced(new BoxGeometry(1, 1, 1), toon(), trim));
-      if (bodies.length) out.push(instanced(new BoxGeometry(1, 1, 1), toon(), bodies), instanced(new BoxGeometry(1, 1, 1), toon(), glass));
+      const models = trafficModels();
+      for (const [kind, list] of Object.entries(parked)) out.push(instanced(models.geos[kind], models.material, list));
       return out;
     },
   };

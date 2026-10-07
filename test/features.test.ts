@@ -12,7 +12,7 @@ describe('feature modules', () => {
   const open = bakeTrack(layout('paradise-open/open'), SURFACES).ground!;
 
   test("a layout's features, in the order they shape the ground", () => {
-    expect(open.features.map((f) => f.kind)).toEqual(['volcano', 'coast', 'beach', 'uneven', 'lava-stream', 'lava-stream']);
+    expect(open.features.map((f) => f.kind)).toEqual(['volcano', 'coast', 'beach', 'uneven', 'lava-stream', 'lava-stream', 'pad', 'pad']);
     expect(bakeTrack(layout('avalanche/slope'), SURFACES).ground!.features.map((f) => f.kind)).toEqual(['moguls', 'moguls', 'canyon', 'canyon']);
   });
 

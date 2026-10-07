@@ -363,6 +363,28 @@ around that would be awesome" (a round D, not a hairpin; `BULGE`, `LAVA_WEST` in
 - **Numbers:** floor 68.07 s (66.35: 110 m more road); field wrecks over seeds 1–72 48 (56), none
   at the bulge. Paradise Open re-recorded; every other map identical.
 
+**The car parks, again (2026-10-07):** the owner: the first ones "don't look that good". They
+were bays strung along a curved U of road on a lumpy dune, paved in short angled pieces, the
+parked cars plain boxes. Now (`LOTS` in the generator):
+- **A pad each** (a new ground feature, `PadDef`, features/pad.ts): a level rectangle of ground
+  beside the front road, 2 m past its verge and 0.2 m over it, paved. Its edges ease back to the
+  sand round it over 4 m, and there are no trees on it. Its ground is a new kind, `KIND_PAVED`,
+  drawn and driven as asphalt; a pad's surface is asked before the coast's sand under it
+  (`Feature.first`).
+- **The aisle** (the lot's street, still the oncoming traffic's way in and out) runs straight
+  down the pad's middle, a corner every 8 m so the rounding leaves it straight. Its driveways
+  leave the front road 28 m along from the junction and reach the aisle 8 m after that.
+- **The bays:** a row either side of the aisle, 2.8 m apart and 6 m deep, nose in, 75% of them
+  taken. The cars are the traffic's own models (`trafficModels`: compact, sedan, van; look
+  `parked`, still solid). The landmark `car-park` draws the markings on the pad: the bays' lines,
+  a kerb along the sea side and the ends and along the road between the driveways, palms along
+  the sea side, and a BEACH PARKING sign by the road. 36 parked cars.
+- (A bug on the way: the bays' positions and the space check shared one hit, so the second row's
+  cars were placed from wherever the check last projected: none in the sea's row, three out on
+  the sand.)
+- **Numbers:** floor 68.07 s (unchanged); field wrecks over seeds 1–72 43 (48). Paradise Open
+  re-recorded; every other map identical.
+
 
 ## What we learned (2026-10-02)
 
