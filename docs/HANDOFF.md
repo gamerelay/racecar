@@ -4,7 +4,39 @@ Where racecar stands and what's next, for whoever picks it up (a person or a fre
 The design is [SPEC.md](./SPEC.md): decisions in §17, and what building changed in "Changed while
 building". This file is "where are we"; the spec is "what are we making".
 
-**Last updated:** 2026-10-06. **`alpha-1.36`** (PRs #150, #151) is tagged and on the hosted build:
+**Last updated:** 2026-10-07. **In review: PR #152, Paradise Open's detail pass** (the owner:
+"detail the map similar to what we did with Riviera", Hawaii; still experimental, not tagged, not on
+the hosted build; open it at `?mode=free&map=paradise-open/open`). It's in PARADISE.md's "Built so
+far", from "Harbor Town (2026-10-06)" on:
+- **Harbor Town**, Lahaina's Front Street round the line:
+  - The streets: two back streets up the hill (Waine'e, Luakini) and two beach car parks.
+  - The buildings: wooden shops on the front road (house look `shop`), plantation cottages
+    behind (`plantation`), a banyan in the square at the line, the surf shack.
+  - Tiki torches along the front road (smashable `tiki-torch`).
+  - The traffic: against the lap out of one car park and into the other, and up and down the
+    back streets, never on the front road. The lap's way onto the front road was 35 wrecks in 24
+    races, and the east car park's mouth in the bend was head-ons.
+- **The bulge:** the west coast's jog is one round, banked D inland. The lap is 110 m longer, and
+  every main distance past it moves on through `S()`. A second lava stream comes down the west
+  face into a pool past its apex (`LavaStreamDef.pool`).
+- **The car parks rebuilt:** level paved pads (a new ground feature, `PadDef`; `KIND_PAVED`), a
+  straight aisle, rows of nose-in bays, and parked cars in the traffic's models (look `parked`).
+- **Palms along the town's streets** (`PinesDef.plant`, solid). None on corners or round the grid:
+  a racer shoved wide off the start hit them every race.
+- **The beach run:** a packed-sand shortcut along the water across the bulge (a new surface,
+  `packed-sand`, ruts drawn), about even with it (coupe 13.12 s against 13.08). Lifeguard towers
+  (landmark `lifeguard-tower`, solid) and surfboard racks (smashable `surf-rack`).
+- **Numbers:** floor 68.07 s (66.32 before: the longer lap). Field wrecks over seeds 1–72: 51
+  with the palms and beach line, before the towers and racks (65 on main). None at the new
+  pieces: the extra over the car parks' 43 are the old spots, mostly the lava bombs at 3200 m.
+  Only Paradise Open re-recorded.
+- **Not run:** the full test suite on the last commit (the palms and the beach run; skipped at
+  the owner's word). It passed, 715, on the bulge's commit.
+- **Next on Paradise Open** (the owner's order): the jungle, the volcano, the finish. Maybe more
+  palms on the front road (21 now: most of it is round the grid, so they'd stand further back,
+  between the shops). Then merge #152, tag, and deploy.
+
+Before it, **`alpha-1.36`** (PRs #150, #151) is tagged and on the hosted build:
 **no hop at the Rock Tunnel's mouths** (#150: half into a piece, a wheel off its end stands on its
 own ground near the floor, not on the floor at the car's middle; every class flew 15 m off each
 mouth, the owner's "bounce approaching the tunnel"; Paradise Open's pieces moved a little too) and
