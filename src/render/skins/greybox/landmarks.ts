@@ -1004,6 +1004,35 @@ function carPark(m: LandmarkDef, c: Ctx): Built {
   return { root };
 }
 
+/**
+ * A lifeguard tower on Paradise Open's beach (its solid block a house, look 'landmark'): a hut on
+ * four stilts, its front (+z) to the sea, a ramp down the back, a red and yellow flag on its roof.
+ */
+function lifeguardTower(c: Ctx): Built {
+  const root = new Group();
+  const S = solids();
+  const WOOD = 0xd9c9a3;
+  const UP = 2.6;
+  for (const [x, z] of [[-1.3, -1.1], [1.3, -1.1], [-1.3, 1.1], [1.3, 1.1]]) {
+    const g = c.ground(x, z);
+    S.add(0.22, UP - g, 0.22, WOOD, x, (UP + g) / 2, z);
+  }
+  S.add(3.2, 0.2, 2.8, WOOD, 0, UP, 0);
+  S.add(2.8, 1.9, 2.4, 0xf2c23a, 0, UP + 1.05, 0);
+  S.add(2.2, 0.8, 0.05, 0x2d3a4a, 0, UP + 1.3, 1.21);
+  S.add(3.4, 0.25, 3.0, 0xe24a3a, 0, UP + 2.15, 0);
+  // The ramp down the back, its foot on the sand.
+  const foot = c.ground(0, -4.6);
+  const ramp = box(1, 0.12, Math.hypot(UP - foot, 3.4), WOOD, 0, (UP + foot) / 2, -2.9);
+  ramp.rotation.x = -Math.atan2(UP - foot, 3.4);
+  root.add(ramp);
+  S.add(0.06, 2.2, 0.06, 0xf4f1e6, 1.2, UP + 3.3, -1);
+  S.add(0.9, 0.6, 0.03, 0xe24a3a, 1.65, UP + 4.1, -1);
+  S.add(0.9, 0.3, 0.04, 0xf2c23a, 1.65, UP + 4.1, -1);
+  root.add(S.mesh());
+  return { root };
+}
+
 /** A whale out at sea: every so often it breaches, arcing up out of the water and crashing back in a splash, and blows now and then between. */
 function whale(m: LandmarkDef, c: Ctx): Built {
   const every = m.params?.every ?? 80;
@@ -1232,4 +1261,5 @@ const BUILDERS: Record<string, (m: LandmarkDef, ctx: Ctx) => Built> = {
   pontoon: (m, c) => ({ root: new Group().add(pontoon(m, c.sea ?? 0)) }),
   quay: (m, c) => ({ root: new Group().add(quay(m, c.sea ?? 0)) }),
   'car-park': (m, c) => carPark(m, c),
+  'lifeguard-tower': (_m, c) => lifeguardTower(c),
 };

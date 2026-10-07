@@ -200,7 +200,7 @@ export const LANDMARK_KINDS = [
   // Backroads
   'windmill', 'cow', 'water-tower', 'drive-in', 'scarecrow', 'balloon',
   // Paradise (its lighthouse is the island's own scenery)
-  'shipwreck', 'tiki-head', 'surf-shack', 'whale', 'seaplanes', 'car-park',
+  'shipwreck', 'tiki-head', 'surf-shack', 'whale', 'seaplanes', 'car-park', 'lifeguard-tower',
   // Coastal
   'lighthouse', 'fort', 'pontoon', 'quay',
 ] as const;
@@ -369,6 +369,11 @@ export interface PinesDef {
   thicken: number;
   density: number;
   glade: number;
+  /**
+   * Palms planted at these spots ([x, z]) besides the rest (Paradise Open's town streets): each a
+   * palm, solid as any, drawn as the rest are. Whoever plants them keeps them off roads and houses.
+   */
+  plant?: [number, number][];
 }
 
 /**

@@ -4,7 +4,7 @@
 // along the coast, leaning out to sea, and jungle trees inland, each drawn where its collider
 // stands. The rest of the island's dressing stands on open ground only once it's solid too.
 
-import { BufferGeometry, Color, ConeGeometry, CylinderGeometry, IcosahedronGeometry, type Object3D } from 'three';
+import { BufferGeometry, Color, ConeGeometry, CylinderGeometry, Float32BufferAttribute, IcosahedronGeometry, Mesh, type Object3D } from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { Rng } from '../../../core/rng';
 import { coneHeight } from '../../../core/track/island';
@@ -41,6 +41,7 @@ export function buildOpenIsland(track: Track, palette: Palette, seed: number): O
   const v = def.volcano;
   if (v) objects.push(...crater(v, seaY + v.lava, time, rng, v.pit !== undefined ? v.crater : undefined, v.pit !== undefined ? seaY + coneHeight(v, v.x + v.crater, v.z) : undefined));
 
+  objects.push(...ruts(track));
   const p = track.pines;
   if (p && p.n && def.pines?.look === 'riviera') objects.push(...riviera(track, time, rng), ...promenade(track, time, !!palette.day));
   else if (p && p.n) {
@@ -161,6 +162,45 @@ function umbrellaCrown(): BufferGeometry {
 /** A cypress, 1 m tall and a fifth of that wide: a slim dark flame, fullest a quarter of the way up. */
 function cypressGeometry(): BufferGeometry {
   return mergeGeometries([faceted(new ConeGeometry(0.1, 0.78, 7).translate(0, 0.58, 0)), faceted(new IcosahedronGeometry(0.1, 0)).scale(1, 1.6, 1).translate(0, 0.2, 0)]);
+}
+
+/** Ruts down a packed-sand road (Paradise Open's beach line): two darker tracks this far either side of its middle (m), this wide, a little over the ground. */
+const RUTS = { apart: 0.9, width: 0.55, over: 0.04 };
+
+/**
+ * Ruts down every road on `packed-sand` (the beach line): two darker tyre tracks, wandering a
+ * little, laid on the ground, so the firm line reads across the loose sand round it at speed.
+ * Drawn only.
+ */
+function ruts(track: Track): Object3D[] {
+  const id = track.surfaceIndex.get('packed-sand');
+  if (id === undefined) return [];
+  const g = track.ground!;
+  const pos: number[] = [];
+  const idx: number[] = [];
+  for (const sp of track.splines) {
+    if (sp.surface[Math.floor(sp.n / 2)] !== id) continue;
+    for (const side of [-1, 1]) {
+      const base = pos.length / 3;
+      for (let i = 0; i < sp.n; i++) {
+        const lat = side * RUTS.apart + 0.25 * Math.sin(i * 0.11 + side);
+        for (const e of [-RUTS.width / 2, RUTS.width / 2]) {
+          const x = sp.px[i] - sp.tz[i] * (lat + e);
+          const z = sp.pz[i] + sp.tx[i] * (lat + e);
+          pos.push(x, g.height(x, z) + RUTS.over, z);
+        }
+        if (i < sp.n - 1) idx.push(base + i * 2, base + i * 2 + 1, base + i * 2 + 3, base + i * 2, base + i * 2 + 3, base + i * 2 + 2);
+      }
+    }
+  }
+  if (!pos.length) return [];
+  const geo = new BufferGeometry();
+  geo.setAttribute('position', new Float32BufferAttribute(pos, 3));
+  geo.setIndex(idx);
+  geo.computeVertexNormals();
+  const mesh = new Mesh(geo, toon({ color: 0xa88f62, transparent: true, opacity: 0.55, depthWrite: false }));
+  mesh.name = 'ruts';
+  return [mesh];
 }
 
 /** Along a sea wall: a palm, then a lamp, each this far apart (m), on its ledge this far past the parapet's road face. */

@@ -329,9 +329,8 @@ main front road which we have, then some side roads for cars to spawn on and mov
   `tiki-torch`).
 - **Numbers:** floor 66.35 s (66.32); field wrecks over seeds 1–72 56 (65). Paradise Open
   re-recorded; every other map identical.
-- **Next:** palms along the streets and between the houses (the trees keep off the houses, so the
-  town has none). Then the beach run to the Freeway, the jungle, the volcano and the finish, in
-  that order.
+- **Next:** palms along the streets (done 2026-10-07, below). Then the beach run to the Freeway,
+  the jungle, the volcano and the finish, in that order.
 
 **The bulge (2026-10-06):** the owner, driving the west coast past the beach umbrellas: "have this
 road go a little deeper towards the mountain, also have the lava stream coming down the face of
@@ -384,6 +383,45 @@ parked cars plain boxes. Now (`LOTS` in the generator):
   the sand.)
 - **Numbers:** floor 68.07 s (unchanged); field wrecks over seeds 1–72 43 (48). Paradise Open
   re-recorded; every other map identical.
+
+**Palms along the town's streets (2026-10-07):** the owner: "palms along the town streets".
+Planted trees (`PinesDef.plant`: palms at given spots, solid and drawn as the island's own; the
+generator keeps them off roads and houses), `PALMS` in the generator:
+- Down both sides of the front road through town, between the tiki torches (one every 16 m).
+- Down both sides of each back street, one every 14 m.
+- Each 1.6 m past the verge. None where another road comes within a metre (a junction's mouth, a
+  driveway), on a car park's pad, in the square, or within 1.5 m of a house's walls.
+- None on a street's corners (turning more than 0.25 rad over 10 m either side), and round the
+  grid (150 m before the line to 120 m after) none within 6 m of the front road's verge.
+  - With them there, the field crashed 136 times over seeds 1–72 (43). A racer shoved wide
+    off the start went up Luakini every race and ran wide into a palm on its bends.
+- Not on the front road's bends either (over 25 m either side): the field cut the bend into town
+  and hit them.
+- 21 palms. The town had none, because the trees keep 3 m off the houses. The front road's
+  straight through town is mostly round the grid, so it has few.
+
+**The beach run to the Freeway (2026-10-07):** the owner: "the beach run to the Freeway", its
+packed-sand line "across the bulge" (PARADISE's Sandbar-style beach road; `BEACH_LINE`,
+`BEACH_DRESS` in the generator).
+- **The beach line:** a shortcut from 540 m to 1245 m (just before the bulge to just after it),
+  576 m against the road's 705 m. It runs along the water: out to the sand 30 m in from the coast,
+  then along the coast's contour that far in (every ninth point of it, smoothed, so it's one
+  sweep: following every wiggle it was 661 m, about the road's length).
+- **Its surface, `packed-sand`** (new, last in surfaces.json): the beach's grip and drag (0.80,
+  0.20) through the soft sand round it (0.64, 0.30), drawn damper and darker. Two darker tyre ruts
+  run down it (openIsland.ts's `ruts`: every road on `packed-sand`), so it reads at speed.
+- **Even with the bulge** (the AI, from the fork to past the rejoin):
+
+  | | the bulge | the beach line |
+  |---|---|---|
+  | coupe | 13.08 s | 13.12 s |
+  | rally | 13.18 s | 13.22 s |
+  | bus | 14.37 s | 13.87 s |
+
+  The bus gains half a second on the sand: it's slow through the bulge's bends.
+- **Dressing:** three lifeguard towers on the sand between the line and the water, facing the
+  sea (a new landmark, `lifeguard-tower`, standing in a solid block). Eight racks of surfboards
+  beside the line (a new smashable, `surf-rack`).
 
 
 ## What we learned (2026-10-02)

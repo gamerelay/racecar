@@ -11,7 +11,8 @@
 //   bun tools/gen-paradise-open.ts
 
 import { writeFileSync, mkdirSync } from 'node:fs';
-import type { HouseDef, LandmarkDef, TrackLayout, TrackPoint } from '../src/core/content';
+import type { HouseDef, LandmarkDef, PadDef, TrackLayout, TrackPoint } from '../src/core/content';
+import { padDistance } from '../src/core/track/features/pad';
 import { newContact, obbOverlap } from '../src/core/collide/obb';
 import { Rng } from '../src/core/rng';
 import { bakeTrack } from '../src/core/track/bake';
@@ -738,6 +739,88 @@ for (const { from, to } of LOTS.list) {
 }
 
 /**
+ * The beach line (the owner, 2026-10-07: the beach run to the Freeway, its packed-sand line "across
+ * the bulge"; PARADISE's Sandbar-style beach road): a shortcut on the packed `beach` (grip 0.80,
+ * drag 0.20) through the soft sand round it (0.64, 0.30), along the water's edge from just before
+ * the bulge to just after it. Its surface `packed-sand`: the beach's grip and drag, drawn damper and
+ * darker than the loose sand, with ruts down it (the skin's), so it reads at speed. The bulge is the asphalt, banked drift; this is shorter and looser.
+ * It leaves the front road at `from` and rejoins it at `to` (main distances), out to the sand
+ * `water` m in from the coast, along it (every `keep`th point of it, smoothed), a point every `every`
+ * m; `width` m across.
+ */
+const BEACH_LINE = { from: 540, to: S(1135), water: 30, every: 8, keep: 9, width: 9, shoulder: 1.5 };
+{
+  const g = bakeTrack(layout, surfaces);
+  const ground = g.ground!;
+  const hit = newHit();
+  // Off the front road gently: its first point 30 m along, just past the verge (left: the sea's side).
+  const fork = (s: number, along: number): [number, number] => {
+    sampleAt(g.main, s + along, hit);
+    const lat = hit.width / 2 + hit.shoulder + BEACH_LINE.width / 2 + 1;
+    return [hit.cx + hit.tz * lat, hit.cz - hit.tx * lat];
+  };
+  const start = fork(BEACH_LINE.from, 30);
+  const end = fork(BEACH_LINE.to, -30);
+  // Along the water: from where the sand's BEACH_LINE.water m from the coast off the start, round
+  // the coast's contour that far in, until it's level with the end.
+  const contour: [number, number][] = [];
+  let [x, z] = start;
+  // (Seaward from the start to the contour.)
+  for (let k = 0; k < 400 && ground.coast(x, z) > BEACH_LINE.water; k++) {
+    const e = 0.5;
+    const [gx, gz] = [ground.coast(x + e, z) - ground.coast(x - e, z), ground.coast(x, z + e) - ground.coast(x, z - e)];
+    const l = Math.hypot(gx, gz) || 1;
+    [x, z] = [x - (gx / l) * 2, z - (gz / l) * 2];
+  }
+  const toEnd = () => Math.hypot(end[0] - x, end[1] - z);
+  sampleAt(g.main, BEACH_LINE.from + 30, hit);
+  let [dx, dz] = [hit.tx, hit.tz];
+  for (let k = 0; k < 400; k++) {
+    contour.push([x, z]);
+    const e = 0.5;
+    const [gx, gz] = [ground.coast(x + e, z) - ground.coast(x - e, z), ground.coast(x, z + e) - ground.coast(x, z - e)];
+    const l = Math.hypot(gx, gz) || 1;
+    // Along the contour (the way we were going), pulled back onto it.
+    let [tx, tz] = [-gz / l, gx / l];
+    if (tx * dx + tz * dz < 0) [tx, tz] = [-tx, -tz];
+    const back = (ground.coast(x, z) - BEACH_LINE.water) * 0.5;
+    [x, z] = [x + tx * BEACH_LINE.every - (gx / l) * back, z + tz * BEACH_LINE.every - (gz / l) * back];
+    [dx, dz] = [tx, tz];
+    // Done when the end's inland of here, no further along the coast than it.
+    projectGlobal(g.main, x, z, hit);
+    if (toEnd() < 120 && (end[0] - x) * tx + (end[1] - z) * tz < 30) break;
+  }
+  // (Its contour every BEACH_LINE.keep points only, the first and last dropped, so it's a smooth sweep
+  // along the water, not every wiggle of the coast: following them it was 661 m, about the road's.)
+  const keep = contour.filter((_, k) => k > 0 && k < contour.length - 1 && k % BEACH_LINE.keep === 0);
+  let line: [number, number][] = [start, ...keep, end];
+  for (let pass = 0; pass < 3; pass++)
+    line = [line[0], ...line.slice(0, -1).flatMap(([ax, az], k) => {
+      const [bx, bz] = line[k + 1];
+      return [[0.75 * ax + 0.25 * bx, 0.75 * az + 0.25 * bz], [0.25 * ax + 0.75 * bx, 0.25 * az + 0.75 * bz]] as [number, number][];
+    }), line[line.length - 1]];
+  // A point every BEACH_LINE.every m along it, on the sand.
+  const points: TrackPoint[] = [];
+  let left = 0;
+  for (let k = 0; k + 1 < line.length; k++) {
+    const [ax, az] = line[k];
+    const [bx, bz] = line[k + 1];
+    const d = Math.hypot(bx - ax, bz - az);
+    for (; left < d; left += BEACH_LINE.every) {
+      const [px, pz] = [ax + ((bx - ax) * left) / d, az + ((bz - az) * left) / d];
+      points.push({ p: [Math.round(px * 10) / 10, Math.round(ground.height(px, pz) * 10) / 10, Math.round(pz * 10) / 10], width: BEACH_LINE.width, lanes: 1, shoulder: BEACH_LINE.shoulder, surface: 'packed-sand', verge: 'sand' });
+    }
+    left -= d;
+  }
+  const [lx, lz] = line[line.length - 1];
+  points.push({ p: [Math.round(lx * 10) / 10, Math.round(ground.height(lx, lz) * 10) / 10, Math.round(lz * 10) / 10], width: BEACH_LINE.width, lanes: 1, shoulder: BEACH_LINE.shoulder, surface: 'packed-sand', verge: 'sand' });
+  layout.branches!.push({ id: 'beach-line', from: BEACH_LINE.from, to: BEACH_LINE.to, kind: 'shortcut', points });
+  layout.walls!.gaps!.push({ spline: 'beach-line', s: [0, 1e4], side: 'both' });
+  const sp = bakeTrack(layout, surfaces).splines.find((x) => x.id === 'beach-line')!;
+  console.log(`  beach line: ${Math.round(sp.length)} m (the road round: ${Math.round(BEACH_LINE.to - BEACH_LINE.from)} m)`);
+}
+
+/**
  * Harbor Town's buildings (the owner: Hawaii; Lahaina's Front Street): along the front road's town
  * side, a row of wooden shopfronts facing it (look 'shop': false fronts over a veranda), and behind
  * them plantation cottages (look 'plantation': board walls, tin hip roofs, a lanai) in rows up the
@@ -750,6 +833,8 @@ const TOWN = { stretch: [S(3560), 205] as [number, number], rows: 5, row: 14, fr
 const SQUARE = { s: 0, lat: 34, r: 20, trunk: 3.5, high: 13 };
 /** Tiki torches along the front road through town: from and to (main distances, round the line), one every `every` m, `lateral` m past the road's edge (on its shoulder). */
 const TORCHES = { from: S(3765), to: 160, every: 16, lateral: 2.5 };
+/** Palms along the town's streets: one every `every` m down each back street (the front road's between its torches), `out` m past the verge, kept `house` m off a house's walls; round the grid (`before` the line to `after` it), `clear` m off the front road's verge; none where a street turns more than `turn` (radians) over `over` m either side (the front road, `main` m). */
+const PALMS = { every: 14, out: 1.6, house: 1.5, grid: { before: 150, after: 120, clear: 6 }, corner: { over: 10, main: 25, turn: 0.25 } };
 /** The surf shack on the beach by the west car park: `s` along, `lat` m to the left, its size. */
 const SHACK = { s: 165, lat: 34, size: [8, 6, 3.4] as [number, number, number] };
 {
@@ -849,13 +934,93 @@ const SHACK = { s: 165, lat: 34, size: [8, 6, 3.4] as [number, number, number] }
     lots.push({ kind: 'car-park', at: [r1(hit.cx + hit.tz * lat), r1(hit.cz - hit.tx * lat)], rot: Math.round(Math.atan2(hit.tx, hit.tz) * 1000) / 1000, r: 0, params: { length: Math.round(straight + 12), depth: r1(lotDepth()), aisle: r1(aisle), bays, bay: LOTS.bay } });
   }
   layout.houses = houses;
+  // Palms along the streets (the owner, 2026-10-07: "palms along the town streets"): planted trees,
+  // solid as the rest (PinesDef.plant). Down both sides of the front road through town, between the
+  // tiki torches, and of each back street, PALMS.out m past the verge; none where another road comes
+  // within a metre (a junction's mouth, a driveway), on a pad, in the square, or within
+  // PALMS.house m of a house's walls.
+  const pads = layout.ground!.features!.filter((f): f is PadDef => f.kind === 'pad').map(padDistance);
+  const palms: [number, number][] = [];
+  const plant = (sp: (typeof g.splines)[number], s: number, sd: 1 | -1) => {
+    // (Not on a corner: a racer shoved onto Luakini off the start ran wide round its bends, and the
+    // field cut the front road's bend into town.)
+    {
+      const over = sp === g.main ? PALMS.corner.main : PALMS.corner.over;
+      const wrap = (u: number) => (sp === g.main ? ((u % sp.length) + sp.length) % sp.length : Math.max(0, Math.min(sp.length, u)));
+      const [p, q] = [sampleAt(sp, wrap(s - over), newHit()), sampleAt(sp, wrap(s + over), newHit())];
+      if (Math.acos(Math.min(1, p.tx * q.tx + p.tz * q.tz)) > PALMS.corner.turn) return;
+    }
+    sampleAt(sp, ((s % sp.length) + sp.length) % sp.length, hit);
+    const off = hit.width / 2 + hit.shoulder + PALMS.out;
+    const x = hit.cx - hit.tz * off * sd;
+    const z = hit.cz + hit.tx * off * sd;
+    if (ground.coast(x, z) < 6 || Math.hypot(x - square[0], z - square[1]) < SQUARE.r + 2 || pads.some((d) => d(x, z) < 2)) return;
+    for (const other of g.splines) {
+      projectGlobal(other, x, z, hit);
+      const off = offRoad(other, x, z, hit) - hit.width / 2 - hit.shoulder;
+      if (off < 1) return;
+      // (Round the grid, well off the front road: shoved wide off the start, a racer hit the palm
+      // by Luakini's mouth every race.)
+      if (other === g.main && off < PALMS.grid.clear && (hit.s > L - PALMS.grid.before || hit.s < PALMS.grid.after)) return;
+    }
+    for (const h of houses) {
+      const [dx, dz] = [x - h.at[0], z - h.at[1]];
+      const [fx, fz] = [Math.sin(h.rot), Math.cos(h.rot)];
+      if (Math.abs(dx * fz - dz * fx) < h.size[0] / 2 + PALMS.house && Math.abs(dx * fx + dz * fz) < h.size[1] / 2 + PALMS.house) return;
+    }
+    palms.push([r1(x), r1(z)]);
+  };
+  const town = (TOWN.stretch[1] - TOWN.stretch[0] + L) % L;
+  for (let u = TORCHES.every / 2; u < town; u += TORCHES.every) for (const sd of [-1, 1] as const) plant(g.main, TOWN.stretch[0] + u, sd);
+  for (const id of ['waine-e', 'luakini']) {
+    const sp = g.splines.find((x) => x.id === id)!;
+    for (let u = PALMS.every / 2; u < sp.length; u += PALMS.every) for (const sd of [-1, 1] as const) plant(sp, u, sd);
+  }
+  layout.ground!.pines = { ...layout.ground!.pines!, plant: palms };
   // Tiki torches along the front road through town, both sides, over the line (two rows: a row
   // doesn't run round it).
   const torches = (s: [number, number]) => ({ kind: 'tiki-torch', s, every: TORCHES.every, lateral: TORCHES.lateral });
   layout.smashables = [...(layout.smashables ?? []), torches([TORCHES.from, Math.floor(L)]), torches([0, TORCHES.to])];
   layout.landmarks = [...(layout.landmarks ?? []), ...lots, shack];
   const count = (look: string) => houses.filter((h) => h.look === look).length;
-  console.log(`  harbor town: ${count('shop')} shops, ${count('plantation')} cottages, ${count('parked')} parked cars`);
+  console.log(`  harbor town: ${count('shop')} shops, ${count('plantation')} cottages, ${count('parked')} parked cars, ${palms.length} palms`);
+}
+
+/**
+ * The beach run's dressing (the owner: "the beach run to the Freeway"): lifeguard towers on the
+ * sand between the beach line and the water, at `towers` of its length, `out` m seaward of its
+ * verge, facing the sea (solid: a house, look 'landmark', the landmark standing in it); and racks
+ * of surfboards (smashables) beside it, a pair at each of `racks` of its length, `rack` m off its
+ * verge either side.
+ */
+const BEACH_DRESS = { towers: [0.22, 0.5, 0.78], out: 9, tower: [3.4, 3, 5] as [number, number, number], racks: [0.12, 0.36, 0.64, 0.88], rack: 3 };
+{
+  const g = bakeTrack(layout, surfaces);
+  const ground = g.ground!;
+  const sp = g.splines.find((x) => x.id === 'beach-line')!;
+  const hit = newHit();
+  const r1 = (v: number) => Math.round(v * 10) / 10;
+  const side = (u: number, off: number, sd: 1 | -1) => {
+    sampleAt(sp, u * sp.length, hit);
+    const lat = (hit.width / 2 + hit.shoulder + off) * sd;
+    return [hit.cx - hit.tz * lat, hit.cz + hit.tx * lat] as [number, number];
+  };
+  // The sea's side of the line: whichever side the coast is nearer.
+  const [ax, az] = side(0.5, 5, 1);
+  const [bx, bz] = side(0.5, 5, -1);
+  const sea: 1 | -1 = ground.coast(ax, az) < ground.coast(bx, bz) ? 1 : -1;
+  for (const u of BEACH_DRESS.towers) {
+    const [x, z] = side(u, BEACH_DRESS.out, sea);
+    // Facing the sea: down the coast's slope.
+    const e = 0.5;
+    const rot = Math.atan2(-(ground.coast(x + e, z) - ground.coast(x - e, z)), -(ground.coast(x, z + e) - ground.coast(x, z - e)));
+    layout.houses!.push({ at: [r1(x), r1(z)], size: BEACH_DRESS.tower, rot: Math.round(rot * 1000) / 1000, look: 'landmark' });
+    layout.landmarks!.push({ kind: 'lifeguard-tower', at: [r1(x), r1(z)], rot: Math.round(rot * 1000) / 1000, r: 0 });
+  }
+  const at: [number, number][] = [];
+  for (const u of BEACH_DRESS.racks) for (const sd of [-1, 1] as const) at.push(side(u, BEACH_DRESS.rack, sd).map(r1) as [number, number]);
+  layout.smashables!.push({ kind: 'surf-rack', s: [0, 0], every: 0, at });
+  console.log(`  beach run: ${BEACH_DRESS.towers.length} lifeguard towers, ${at.length} surfboard racks`);
 }
 
 // The bulge's pool's floor: the ground at the stream's end, its channel cut (the pool's floor level there).
