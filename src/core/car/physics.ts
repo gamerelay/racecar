@@ -294,7 +294,10 @@ const WADE = 0.8;
  * Open ground under a car: the mean of its four wheels' (1.3 m ahead and behind, 0.8 m each side),
  * so bumps shorter than a car (moguls) are soaked up as a suspension would, not thrown at it. On a
  * deck (its middle over it, and not under it) all four are on the deck; once its middle is over
- * the edge, none are, and it falls.
+ * the edge, none are, and it falls. A wheel off the piece's end stands on its own ground when that's
+ * near the piece's floor (at a tunnel's mouth, the road), else on the floor (a deck's edge over a
+ * drop): read at the middle's floor, half into the Rock Tunnel the rear wheels rose ~7 cm in a tick
+ * up its 9% grade and the car flew 15 m off each mouth.
  */
 function wheelGround(g: Ground, x: number, z: number, h: number, y: number): number {
   const fx = sin(h) * 1.3;
@@ -311,8 +314,14 @@ function wheelGround(g: Ground, x: number, z: number, h: number, y: number): num
     const d = WHEEL_CAST.floor;
     let sum = 0;
     for (const [a, b] of WHEELS) {
-      const v = g.pieceFloor(x + fx * a + rx * b, z + fz * a + rz * b, DECK_SLACK, d + DECK_CATCH);
-      sum += v === v ? v : d;
+      const wx = x + fx * a + rx * b;
+      const wz = z + fz * a + rz * b;
+      const v = g.pieceFloor(wx, wz, DECK_SLACK, d + DECK_CATCH);
+      if (v === v) sum += v;
+      else {
+        const off = wheelOff(g, wx, wz, y);
+        sum += Math.abs(off - d) < DECK_CATCH ? off : d;
+      }
     }
     return sum / 4;
   }

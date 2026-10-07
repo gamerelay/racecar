@@ -330,15 +330,15 @@ describe('coastal', () => {
     }
   });
 
-  test('through the Rock Tunnel on the AI, every class leaves the ground once at each mouth at most (no hop off its ends)', () => {
+  test('through the Rock Tunnel on the AI, no class leaves the ground at its mouths (no hop off its ends)', () => {
     const tunnel = g.pieces.list.find((p) => p.id === 'rock-tunnel')!;
-    for (const cls of ['coupe', 'rally', 'bus']) {
+    for (const cls of CLASSES.map((c) => c.id)) {
       const sim = setup(track, CLASSES, SURFACES, { s: tunnel.s[0] - 50 }, 'ai', { cls });
-      const d = run(sim, 'ai', 9, 1);
-      const takeoffs = d.events.filter((e) => e.type === 'takeoff' && e.t > 0.1);
-      // (One at each mouth: the road's own crest into it, and out.)
-      expect(takeoffs.length).toBeLessThanOrEqual(2);
-      expect(d.summary.airSeconds).toBeLessThan(0.5);
+      const d = run(sim, 'ai', 9, 1 / 60);
+      // Half in, the wheels still out of the tunnel read its floor at the car's middle, not the road
+      // they're on: the car rose ~7 cm in a tick at each mouth and flew 15 m (every class, 0.45 s).
+      const near = d.events.filter((e) => e.type === 'takeoff' && e.t > 0.1).map((e) => d.rows.find((r) => Math.abs(r.t - e.t) < 0.01)!.s);
+      expect([cls, near.filter((s) => Math.abs(s - tunnel.s[0]) < 10 || Math.abs(s - tunnel.s[1]) < 10)]).toEqual([cls, []]);
     }
   }, 60_000);
 
