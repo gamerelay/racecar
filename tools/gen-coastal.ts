@@ -85,11 +85,11 @@ function descent(): Node[] {
  */
 const TUNNEL = { from: [310, -120], to: [170, -400], clear: 18, ceiling: 9 };
 /**
- * The spur's ridge (HILLS), and the gallery: along the tunnel where the hill past its right wall
- * (`out` m past its middle) is under the road, at least `mouth` m in from either end.
+ * The spur (HILLS; the owner, 2026-10-06: the ridge "a little wonky", the tunnel "just going through
+ * a mountain"): one round hill over the Rock Tunnel's middle (s 1720), the road through it, no
+ * windows. About 100 m of tunnel, its mouths at the ends of the bends either side.
  */
-const SPUR = { x: 306, z: -113, to: [196, -310], h: 98, h2: 112, r: 150, r2: 60 };
-const GALLERY_AT = { out: 15, mouth: 20 };
+const SPUR = { x: 254, z: -232, h: 105, r: 165 };
 
 /**
  * The sea wall (the owner, 2026-10-05, with the photo of Villefranche: water on the right, not a
@@ -225,13 +225,8 @@ const COAST: [number, number][] = [
 const HILLS = [
   { x: 380, z: -80, h: 45, r: 260 },
   { x: -520, z: -700, h: 190, r: 380 },
-  // The spur (the owner, 2026-10-06: one ridge, not three domes in a row): its crest just left of
-  // the Rock Tunnel, rising toward the mountain, falling steeply to its right (east, toward the
-  // Old Town's side): the tunnel runs along its cliff, a gallery looking out east (TUNNEL.gallery).
-  { ...SPUR, to: SPUR.to as [number, number] },
-  // Its shoulder over the tunnel's first mouth, where it always was (s 1616): the AI's line runs
-  // wide there, and on the grass short of the mouth it lost 0.2 s.
-  { x: 300, z: -165, h: 95, r: 110 },
+  // The spur the Rock Tunnel runs through (SPUR).
+  SPUR,
   { x: 120, z: -760, h: 185, r: 360 },
   { x: 620, z: -560, h: 140, r: 330 },
   // The lighthouse's knoll, inside Lighthouse Point's loop.
@@ -298,22 +293,9 @@ const tunnel = ((): [number, number] => {
   }
   return [from, to];
 })();
-// The gallery: where the hill falls away past its right wall.
-const gallery = ((): [number, number] => {
-  const hit = newHit();
-  let from = Infinity;
-  let to = -Infinity;
-  for (let s = tunnel[0] + GALLERY_AT.mouth; s <= tunnel[1] - GALLERY_AT.mouth; s += 2) {
-    sampleAt(baked.main, s, hit);
-    if (SEA + hillHeight(HILLS, hit.cx - hit.tz * GALLERY_AT.out, hit.cz + hit.tx * GALLERY_AT.out) > hit.cy) continue;
-    from = Math.min(from, s);
-    to = Math.max(to, s);
-  }
-  return [from, to];
-})();
 layout.pieces = [
   { id: 'harbour-bridge', s: deck, under: { floor: SEA - 6, ease: 20, reach: 15 }, lift: { ...lift, s: [mid - width / 2, mid + width / 2] } },
-  { id: 'rock-tunnel', s: tunnel, ceiling: TUNNEL.ceiling, indoor: 'tunnel', ...(gallery[0] < gallery[1] ? { gallery: { side: 1 as const, s: gallery } } : {}) },
+  { id: 'rock-tunnel', s: tunnel, ceiling: TUNNEL.ceiling, indoor: 'tunnel' },
 ];
 /**
  * Rock rails (the owner, 2026-10-05: rails on the tight corners up top, rock-themed): a stone

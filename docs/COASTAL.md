@@ -893,6 +893,18 @@ the green countryside and blue skies wash by".
   Riviera for the lobby. Still open from 8i: the quays cut into the ground, and the drawbridge's
   leaves in the old asphalt colour.
 
+**Step 8k, the spur one hill (2026-10-06):** the owner, after `alpha-1.35`: the ridge "still looks a
+little wonky" (a flat-topped bank cut sheer along the gallery, the shoulder's dome stuck on in
+front of it), the tunnel should look "like it's just going through a mountain", smaller; the
+windows can go.
+- **The spur** is one round hill (`SPUR` in gen-coastal.ts: 105 m, 165 m out) centred on the road
+  at s 1720, the ridge and the shoulder gone. The tunnel, where its rock is 18 m over the road, is
+  1664–1766 m (1616–1860), its mouths at the ends of the bends either side.
+- **No gallery** on Riviera: rock on both sides. `PieceDef.gallery` stays, tested on a fixture of
+  Riviera with the old ridge.
+- **Numbers:** floor 106.22 s and field wrecks over seeds 1–72 37, both as with #150 (the hop at
+  the mouths fixed) under it; only Riviera's fingerprints re-recorded.
+
 ## The owner's answers (2026-10-04)
 
 - **The shape:** the sketch is right (quay, bridge, Old Town, tunnel, corniche, lighthouse, beach,

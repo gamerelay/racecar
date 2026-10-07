@@ -20,9 +20,9 @@ const g = track.ground!;
 const tunnel = g.pieces.list.find((p) => p.id === 'rock-tunnel')!;
 
 describe('the Rock Tunnel', () => {
-  test('on the main road, through the spur: a long one, lit as a tunnel', () => {
+  test('on the main road, through the spur: a bore through the hill, lit as a tunnel', () => {
     expect(tunnel.spline).toBe(0);
-    expect(tunnel.s[1] - tunnel.s[0]).toBeGreaterThan(150);
+    expect(tunnel.s[1] - tunnel.s[0]).toBeGreaterThan(80);
     expect(tunnel.ceiling).toBeGreaterThan(6);
     expect(tunnel.indoor).toBe('tunnel');
   });
