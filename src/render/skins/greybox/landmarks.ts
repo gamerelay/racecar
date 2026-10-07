@@ -24,6 +24,7 @@ import {
   TorusGeometry,
   Vector3,
   AdditiveBlending,
+  BufferGeometry,
   Color,
   Float32BufferAttribute,
   IcosahedronGeometry,
@@ -942,6 +943,49 @@ function surfShack(c: Ctx): Built {
   return { root };
 }
 
+/**
+ * A car park's paving (Paradise Open's Harbor Town, on the beach): its aisle is a street (the
+ * track's), and this is the paving either side of it, `inner` to `outer` m off its middle, `length`
+ * m along (its front, +z, along the aisle), laid on the ground, with a white line between bays every
+ * `bay` m; on one `side` only (+1 the aisle's right, -1 its left) or both (0). The parked cars are
+ * houses (solid; look 'parked').
+ */
+function carPark(m: LandmarkDef, c: Ctx): Built {
+  const root = new Group();
+  const { length = 40, inner = 5.5, outer = 11, bay = 3.2, side: only = 0 } = m.params ?? {};
+  const sides = only ? [only] : [-1, 1];
+  const pos: number[] = [];
+  const idx: number[] = [];
+  const n = Math.ceil(length / 2);
+  for (const side of sides) {
+    const base = pos.length / 3;
+    for (let j = 0; j <= n; j++)
+      for (const x of [inner, (inner + outer) / 2, outer]) {
+        const z = -length / 2 + (length * j) / n;
+        pos.push(-x * side, c.ground(-x * side, z) + 0.05, z);
+      }
+    for (let j = 0; j < n; j++)
+      for (let i = 0; i < 2; i++) {
+        const a = base + j * 3 + i;
+        idx.push(a, a + 1, a + 3, a + 1, a + 4, a + 3);
+      }
+  }
+  const geo = new BufferGeometry();
+  geo.setAttribute('position', new Float32BufferAttribute(pos, 3));
+  geo.setIndex(idx);
+  geo.computeVertexNormals();
+  root.add(new Mesh(geo, toon({ color: 0x55515a, side: DoubleSide })));
+  const S = solids();
+  for (const side of sides)
+    for (let z = -length / 2; z <= length / 2 + 0.01; z += bay) {
+      // (Its right is -x: the street's right, -tz, tx, turned by rot = atan2(tx, tz).)
+      const x = (-side * (inner + outer)) / 2;
+      S.add(outer - inner - 0.6, 0.04, 0.14, 0xf2f2ee, x, c.ground(x, z) + 0.09, z);
+    }
+  root.add(S.mesh());
+  return { root };
+}
+
 /** A whale out at sea: every so often it breaches, arcing up out of the water and crashing back in a splash, and blows now and then between. */
 function whale(m: LandmarkDef, c: Ctx): Built {
   const every = m.params?.every ?? 80;
@@ -1169,4 +1213,5 @@ const BUILDERS: Record<string, (m: LandmarkDef, ctx: Ctx) => Built> = {
   fort: (m, c) => fort(m, c),
   pontoon: (m, c) => ({ root: new Group().add(pontoon(m, c.sea ?? 0)) }),
   quay: (m, c) => ({ root: new Group().add(quay(m, c.sea ?? 0)) }),
+  'car-park': (m, c) => carPark(m, c),
 };

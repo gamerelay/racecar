@@ -292,6 +292,47 @@ over the lava on a jagged rock bridge, out the other side):
 - **The volcano's ground in mixed tones:** dark rock, lighter ashy patches and warm earth, at two
   sizes.
 
+**Harbor Town (2026-10-06):** the owner, after Riviera's detail passes: "detail the map similar to
+what we did with Riviera", starting with Harbor Town, the theme Hawaii; "two sets of roads, the
+main front road which we have, then some side roads for cars to spawn on and move from", toward
+"a beach with a parking lot". Lahaina's Front Street, round the line (`TOWN_STREETS`, `TOWN`,
+`LOTS` in the generator).
+- **The streets** (Riviera's side streets, COASTAL steps 4 and 8h): the front road is the main road
+  along the shore. Inland, up the hill, two back streets, Waine'e (3575–3765 m) and Luakini
+  (22–182 m), loops off it a block up (54–62 m off its middle), on the hill's own heights (no
+  steeper than 12%). On the sand, two car parks, `lot-mauka` (3670–3792 m) and `lot-makai`
+  (45–162 m). No street crosses the line (the validator), so the town is two blocks, with the
+  square at the line between them. Open to drive; the AI keeps to the front road.
+- **The traffic:** against the lap, out of one car park, along the front road over the line, and
+  into the other. Up and down each back street, never on the front road. The Freeway's lanes as
+  they were. The town's old main-road lanes (both ways over 3789–109 m) are gone.
+  - Not the lap's way down Waine'e and onto the front road: pulling out at 12 m/s in front of
+    the field, short of the line, it was 35 traffic wrecks in 24 races there.
+  - Not into the east car park at 3765 m either: the front road bends left at 3700–3760 m and
+    the AI's line holds the left side through it (lateral −5 m), into the oncoming lane, head-on.
+    Its mouth moved to 3792 m (and the west one's to 45 m, 48 m apart), so the oncoming lane is
+    on the straight only, where the AI is at the middle.
+- **The buildings** (houses: solid, scraped along, a wreck only hit hard):
+  - Front Street's shops facing the front road (look `shop`): board walls, a false front over the
+    eaves, a veranda over the boardwalk on posts.
+  - Behind them, plantation cottages in rows up the hill and along both sides of the back
+    streets (look `plantation`): board walls in faded teal, mustard, coral and cream, a tin hip
+    roof, a lanai on posts.
+  - 16 shops and 107 cottages.
+- **The square at the line:** a banyan (look `banyan`: its solid block the trunk, its roots and a
+  crown far wider than it drawn round it), kept clear 20 m round.
+- **The car parks:** a bay every 3.2 m either side of each lot's aisle, paved two bays at a time
+  (landmark `car-park`, turned along the aisle), each side only where its bays fit. Parked cars,
+  nose in, in 70% of them (look `parked`: solid, a body and a cabin): 50 in all.
+- **On the beach,** the surf shack (the landmark, standing in a solid block: house look
+  `landmark`). Along the front road through town, tiki torches either side (a new smashable,
+  `tiki-torch`).
+- **Numbers:** floor 66.35 s (66.32); field wrecks over seeds 1–72 56 (65). Paradise Open
+  re-recorded; every other map identical.
+- **Next:** palms along the streets and between the houses (the trees keep off the houses, so the
+  town has none). Then the beach run to the Freeway, the jungle, the volcano and the finish, in
+  that order.
+
 ## What we learned (2026-10-02)
 
 **The Lava Tube was too strong (the owner: "a bit too overpowered", "cuts thru so much time").**

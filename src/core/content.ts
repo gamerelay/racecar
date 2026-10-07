@@ -174,7 +174,8 @@ export interface LandmarkDef {
  * A house on open ground (docs/COASTAL.md: the Riviera town): a solid block in world space, standing
  * on the lowest ground under it, met as a building's wall is (scraped along, a wreck only hit hard).
  * Trees keep off it; the validator keeps every road clear of it. The skin draws its look (a key of
- * its own, the Riviera's stucco houses by default).
+ * its own, the Riviera's stucco houses by default; 'landmark': none, it's a landmark's solid block,
+ * the landmark standing in it drawn instead).
  */
 export interface HouseDef {
   /** Its middle, [x, z] (m). */
@@ -199,7 +200,7 @@ export const LANDMARK_KINDS = [
   // Backroads
   'windmill', 'cow', 'water-tower', 'drive-in', 'scarecrow', 'balloon',
   // Paradise (its lighthouse is the island's own scenery)
-  'shipwreck', 'tiki-head', 'surf-shack', 'whale', 'seaplanes',
+  'shipwreck', 'tiki-head', 'surf-shack', 'whale', 'seaplanes', 'car-park',
   // Coastal
   'lighthouse', 'fort', 'pontoon', 'quay',
 ] as const;

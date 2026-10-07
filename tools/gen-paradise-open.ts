@@ -11,9 +11,11 @@
 //   bun tools/gen-paradise-open.ts
 
 import { writeFileSync, mkdirSync } from 'node:fs';
-import type { TrackLayout } from '../src/core/content';
+import type { HouseDef, TrackLayout, TrackPoint } from '../src/core/content';
+import { newContact, obbOverlap } from '../src/core/collide/obb';
+import { Rng } from '../src/core/rng';
 import { bakeTrack } from '../src/core/track/bake';
-import { newHit, projectGlobal, sampleAt } from '../src/core/track/query';
+import { newHit, offRoad, projectGlobal, sampleAt } from '../src/core/track/query';
 import { smoothstep } from '../src/core/math';
 import { across } from '../src/core/track/frame';
 import { TUBE_H } from '../src/core/track/ground';
@@ -432,6 +434,240 @@ layout.pieces = [
     { id: 'market-hall-out', look: 'glass', ...door(h1 - MARKET.glass.in), height: MARKET.glass.height, breaks: MARKET.glass.breaks },
   ];
   console.log(`  market street: ${Math.round(sp.length)} m (the road round: ${street.to - street.from} m), the hall ${h0}–${h1} m`);
+}
+
+/**
+ * Harbor Town's streets (the owner, 2026-10-06: "two sets of roads, the main front road which we
+ * have, then some side roads for cars to spawn on and move from", toward "a beach with a parking
+ * lot"; Hawaii; Riviera's side streets, COASTAL.md step 4, and its back street, step 8h). Loops off
+ * the front road (the main road along the shore, round the line) and back: [id, from, to (main
+ * distances), side (+1 right, inland: the town; -1 left, the beach), depth (m off the main road's
+ * middle), lead (m along to get there), and how far along its ends are from its junctions (FORK)]. A traffic lane's streets are on its own side (nobody turns
+ * across the other lane), so the beach's car parks are the way against the lap's; the town's
+ * streets have their own traffic, never on the front road. Open to drive; the AI keeps to the main
+ * road. None crosses the line (the validator: a node of the road graph, and a car round it would
+ * never cross the finish), so the town is two blocks, a back street up the hill behind each,
+ * either side of the square at the line.
+ */
+const TOWN_STREETS: [string, number, number, 1 | -1, number, number, number?][] = [
+  // Waine'e Street and Luakini Street, the back streets: up the hill behind the town, each a block
+  // up from the front road.
+  ['waine-e', 3575, 3765, 1, 62, 40],
+  ['luakini', 22, 182, 1, 54, 28],
+  // The beach's car parks, on the sand between the road and the sea: the way against the lap's.
+  ['lot-mauka', 3670, 3792, -1, 28, 12, 30],
+  ['lot-makai', 45, 162, -1, 28, 12, 30],
+];
+/** The back streets' traffic: m in from each end (off their legs down to the front road, out of sight round the houses), and its speed (m/s). */
+const BACK_TRAFFIC = { trim: 60, speed: 9 };
+/** A street's first and last points this far along from where it meets the front road (m, unless it says): it forks off gently. */
+const FORK = 40;
+/** A street's width and shoulder; its traffic's speed; a point every `every` m; no steeper than `grade`. */
+const STREET = { width: 8, shoulder: 1.5, speed: 12, every: 6, grade: 0.12 };
+{
+  const L = main.length;
+  for (const [id, from, to, side, depth, lead, IN = FORK] of TOWN_STREETS) {
+    const g = bakeTrack(layout, surfaces);
+    const hit = newHit();
+    const at = (s: number, lat: number): [number, number] => (sampleAt(g.main, ((s % L) + L) % L, hit), [hit.cx - hit.tz * lat * side, hit.cz + hit.tx * lat * side]);
+    const len = (to - from + L) % L;
+    const edge = () => hit.width / 2 + hit.shoulder + STREET.width / 2 + 1;
+    sampleAt(g.main, (from + IN) % L, hit);
+    const corners: [number, number][] = [at(from + IN, edge()), at(from + IN + lead, depth)];
+    for (let u = IN + lead + 30; u < len - IN - lead - 15; u += 30) corners.push(at(from + u, depth));
+    corners.push(at(from + len - IN - lead, depth));
+    sampleAt(g.main, (from + len - IN) % L, hit);
+    corners.push(at(from + len - IN, edge()));
+    // Its corners rounded (Chaikin, as Riviera's), then a point every `every` m.
+    let line = corners;
+    for (let pass = 0; pass < 3; pass++)
+      line = [line[0], ...line.slice(0, -1).flatMap(([ax, az], k) => {
+        const [bx, bz] = line[k + 1];
+        return [[0.75 * ax + 0.25 * bx, 0.75 * az + 0.25 * bz], [0.25 * ax + 0.75 * bx, 0.25 * az + 0.75 * bz]] as [number, number][];
+      }), line[line.length - 1]];
+    const xz: [number, number][] = [];
+    let left = 0;
+    for (let k = 0; k + 1 < line.length; k++) {
+      const [ax, az] = line[k];
+      const [bx, bz] = line[k + 1];
+      const d = Math.hypot(bx - ax, bz - az);
+      for (; left < d; left += STREET.every) xz.push([ax + ((bx - ax) * left) / d, az + ((bz - az) * left) / d]);
+      left -= d;
+    }
+    xz.push(line[line.length - 1]);
+    const points: TrackPoint[] = xz.map(([x, z]) => ({ p: [Math.round(x * 10) / 10, 0, Math.round(z * 10) / 10], width: STREET.width, lanes: 2, shoulder: STREET.shoulder, surface: 'asphalt' }));
+    // Its own heights, on the hillside (Riviera's rue Haute): where the bake holds it to the front
+    // road (`merge` in a trial bake), the front road's surface carried out sideways; clear of it,
+    // the ground's own; between, blended; no steeper than STREET.grade; smoothed.
+    const def = { id, from, to, kind: 'street' as const, heights: 'own' as const, points };
+    const trial = bakeTrack({ ...layout, branches: [...layout.branches!, def] }, surfaces);
+    const tsp = trial.splines.find((x) => x.id === id)!;
+    const n = points.length;
+    const pinned: boolean[] = [];
+    const y = xz.map(([x, z], k) => {
+      projectGlobal(tsp, x, z, hit);
+      const i = Math.min(tsp.n - 1, Math.round(hit.s / tsp.step));
+      const m = k === 0 || k === n - 1 ? 1 : tsp.merge[i];
+      pinned[k] = m >= 1;
+      const ground = g.ground!.height(x, z);
+      if (m <= 0) return ground;
+      projectGlobal(g.main, x, z, hit);
+      return ground + (hit.cy - hit.lateral * Math.tan(hit.bank) - ground) * m;
+    });
+    const hold = () => {
+      for (let k = 1; k < n; k++) y[k] = Math.min(y[k], y[k - 1] + STREET.every * STREET.grade);
+      for (let k = n - 2; k >= 0; k--) y[k] = Math.min(y[k], y[k + 1] + STREET.every * STREET.grade);
+    };
+    hold();
+    for (let pass = 0; pass < 4; pass++) for (let k = 1; k < n - 1; k++) if (!pinned[k]) y[k] = (y[k - 1] + 2 * y[k] + y[k + 1]) / 4;
+    hold();
+    for (let k = 0; k < n; k++) points[k].p[1] = Math.round(y[k] * 100) / 100;
+    layout.branches!.push(def);
+    layout.walls!.gaps!.push({ spline: id, s: [0, 1e4], side: 'both' });
+  }
+  // The town's traffic: against the lap out of one car park, along the front road over the line,
+  // and into the other; and up and down the back streets, their back stretches, never on the front
+  // road. (Not the lap's way down Waine'e and onto the front road: pulling out at 12 m/s in front of
+  // the field, just short of the line and into the grid, it was 35 wrecks in 24 races there. Riviera
+  // the same: the racers' own lane is theirs.) The Freeway's as it was.
+  const g = bakeTrack(layout, surfaces);
+  const lane = (dir: 1 | -1, streets: string[]) => ({ pos: dir * 0.6, dir, speed: STREET.speed, streets });
+  const along = (road: string, dir: 1 | -1) => {
+    const len = g.splines.find((x) => x.id === road)!.length;
+    return { pos: dir * 0.6, dir, speed: BACK_TRAFFIC.speed, road, span: [BACK_TRAFFIC.trim, Math.round(len - BACK_TRAFFIC.trim)] as [number, number] };
+  };
+  layout.traffic = {
+    density: layout.traffic!.density,
+    lanes: [...layout.traffic!.lanes.filter((l) => l.sections?.every(([a]) => a > FREEWAY[0] && a < FREEWAY[1])), lane(-1, ['lot-makai', 'lot-mauka']), ...['waine-e', 'luakini'].flatMap((road) => [along(road, 1), along(road, -1)])],
+  };
+  for (const id of TOWN_STREETS.map(([id]) => id)) console.log(`  ${id}: ${Math.round(g.splines.find((x) => x.id === id)!.length)} m`);
+}
+
+/**
+ * Harbor Town's buildings (the owner: Hawaii; Lahaina's Front Street): along the front road's town
+ * side, a row of wooden shopfronts facing it (look 'shop': false fronts over a veranda), and behind
+ * them plantation cottages (look 'plantation': board walls, tin hip roofs, a lanai) in rows up the
+ * hill and along both sides of the back streets. `stretch` from and to (main distances), `rows`
+ * deep, each row `row` m further back, the first `front` m past the road's verge; `clear` m off
+ * every road's verge. Sizes m across, deep, and storeys (`storey` m each).
+ */
+const TOWN = { stretch: [3560, 205] as [number, number], rows: 5, row: 14, front: 4, clear: 2.5, storey: 3.4, shop: { width: [8, 12], depth: [9, 11], storeys: [1, 2] }, home: { width: [7, 10], depth: [7, 10], storeys: [1, 1.6] } };
+/** The square at the line (the town's middle, between its two blocks): `s` along, its middle `lat` m to the right, `r` across, kept clear, its banyan in the middle (`trunk` m thick, `high` to its crown). */
+const SQUARE = { s: 0, lat: 34, r: 20, trunk: 3.5, high: 13 };
+/**
+ * The car parks: a bay every `bay` m along each side of a lot's aisle, paved `pad` bays at a time,
+ * from `in` m off each end (its mouths on the front road); `fill` of the bays taken by a parked car,
+ * nose in, its size (across, long, high).
+ */
+const LOTS = { bay: 3.2, pad: 2, in: 14, fill: 0.7, car: [2, 4.4, 1.5] as [number, number, number], ids: ['lot-mauka', 'lot-makai'] };
+/** Tiki torches along the front road through town: from and to (main distances, round the line), one every `every` m, `lateral` m past the road's edge (on its shoulder). */
+const TORCHES = { from: 3765, to: 160, every: 16, lateral: 2.5 };
+/** The surf shack on the beach by the west car park: `s` along, `lat` m to the left, its size. */
+const SHACK = { s: 165, lat: 34, size: [8, 6, 3.4] as [number, number, number] };
+{
+  const g = bakeTrack(layout, surfaces);
+  const ground = g.ground!;
+  const L = g.main.length;
+  const hit = newHit();
+  const contact = newContact();
+  let rng = Rng.stream(7, 'harbor-town');
+  const range = ([lo, hi]: readonly number[]) => lo + (hi - lo) * rng.next();
+  const r1 = (v: number) => Math.round(v * 10) / 10;
+  const houses: HouseDef[] = [];
+  const add = (x: number, z: number, w: number, d: number, high: number, rot: number, look: string) =>
+    houses.push({ at: [r1(x), r1(z)], size: [r1(w), r1(d), r1(high)], rot: Math.round(rot * 1000) / 1000, look });
+  // The square's middle.
+  sampleAt(g.main, SQUARE.s, hit);
+  const square: [number, number] = [hit.cx - hit.tz * SQUARE.lat, hit.cz + hit.tx * SQUARE.lat];
+  /** Whether a footprint (its corners and middle) is clear of every road's verge by `clear` (`own`: its own road by `near`), of the water and the square, and of the houses so far. */
+  const free = (x: number, z: number, w: number, d: number, rot: number, clear = TOWN.clear, own?: string, near = 0) => {
+    const fx = Math.sin(rot);
+    const fz = Math.cos(rot);
+    for (const [a, b] of [[0, 0], [-1, -1], [-1, 1], [1, -1], [1, 1], [0, -1], [0, 1], [-1, 0], [1, 0]]) {
+      const px = x + (a * w * fz) / 2 + (b * d * fx) / 2;
+      const pz = z - (a * w * fx) / 2 + (b * d * fz) / 2;
+      if (ground.coast(px, pz) < 6 || ground.height(px, pz) < 1) return false;
+      for (const sp of g.splines) {
+        projectGlobal(sp, px, pz, hit);
+        if (offRoad(sp, px, pz, hit) < hit.width / 2 + hit.shoulder + (sp.id === own ? near : clear)) return false;
+      }
+    }
+    if (Math.hypot(x - square[0], z - square[1]) < SQUARE.r + Math.max(w, d) / 2) return false;
+    return houses.every((h) => !obbOverlap(x, z, rot, w / 2 - 0.2, d / 2 - 0.2, h.at[0], h.at[1], h.rot, h.size[0] / 2 - 0.2, h.size[1] / 2 - 0.2, contact));
+  };
+  // The banyan in the square (a solid trunk; its crown the skin's), and the surf shack on the sand.
+  add(square[0], square[1], SQUARE.trunk, SQUARE.trunk, SQUARE.high, 0, 'banyan');
+  // (The shack's the landmark's, standing in a solid block: look 'landmark'.) Facing the road.
+  sampleAt(g.main, SHACK.s, hit);
+  const [sx, sz, srot] = [hit.cx + hit.tz * SHACK.lat, hit.cz - hit.tx * SHACK.lat, Math.atan2(-hit.tz, hit.tx)];
+  add(sx, sz, ...SHACK.size, srot, 'landmark');
+  const shack = { kind: 'surf-shack', at: [r1(sx), r1(sz)] as [number, number], rot: Math.round(srot * 1000) / 1000, r: 0 };
+  // Rows along a road, facing it: `sp` from `u0` to `u1` (m along it), on its side `sd` (+1 right).
+  const rows = (sp: (typeof g.splines)[number], u0: number, u1: number, sd: 1 | -1, n: number, kind: (row: number) => typeof TOWN.shop, look: (row: number) => string) => {
+    const len = sp === g.main ? (u1 - u0 + L) % L : u1 - u0;
+    for (let row = 0; row < n; row++)
+      for (let u = 0; u < len; ) {
+        const k = kind(row);
+        const w = range(k.width);
+        const d = range(k.depth);
+        const storeys = range(k.storeys);
+        sampleAt(sp, sp === g.main ? (u0 + u + w / 2) % L : u0 + u + w / 2, hit);
+        const off = hit.width / 2 + hit.shoulder + TOWN.front + row * TOWN.row + d / 2 + range([0, 2]);
+        const x = hit.cx - hit.tz * off * sd;
+        const z = hit.cz + hit.tx * off * sd;
+        const rot = Math.atan2(hit.tz * sd, -hit.tx * sd);
+        if (free(x, z, w, d, rot)) add(x, z, w, d, storeys * TOWN.storey, rot, look(row));
+        u += w + range([1.5, 4]);
+      }
+  };
+  // The front road's shops first, then the cottages behind, then along the back streets.
+  rows(g.main, TOWN.stretch[0], TOWN.stretch[1], 1, 1, () => TOWN.shop, () => 'shop');
+  rng = Rng.stream(7, 'harbor-town-homes');
+  for (const id of ['waine-e', 'luakini']) {
+    const sp = g.splines.find((x) => x.id === id)!;
+    for (const sd of [-1, 1] as const) rows(sp, 8, sp.length - 8, sd, 1, () => TOWN.home, () => 'plantation');
+  }
+  rows(g.main, TOWN.stretch[0], TOWN.stretch[1], 1, TOWN.rows, () => TOWN.home, () => 'plantation');
+  // The car parks: cars nose in either side of each lot's aisle (its street), a bay every
+  // LOTS.bay m, some empty, paved in pieces of LOTS.pad bays (one landmark each, turned along the
+  // aisle there), each side of a piece paved only where all its bays fit (clear of the front road
+  // and the houses).
+  rng = Rng.stream(7, 'harbor-town-lots');
+  const pads: { at: [number, number]; rot: number; length: number; inner: number; outer: number; side: number }[] = [];
+  const [cw, cl, ch] = LOTS.car;
+  for (const id of LOTS.ids) {
+    const sp = g.splines.find((x) => x.id === id)!;
+    const piece = LOTS.bay * LOTS.pad;
+    for (let u0 = LOTS.in; u0 + piece <= sp.length - LOTS.in; u0 += piece) {
+      const bays = Array.from({ length: LOTS.pad }, (_, j) => u0 + (j + 0.5) * LOTS.bay);
+      const slot = (u: number, sd: 1 | -1) => {
+        sampleAt(sp, u, hit);
+        const off = hit.width / 2 + hit.shoulder + 1.2 + cl / 2;
+        // Nose in: its front (rot) toward the aisle, its length across it.
+        return { x: hit.cx - hit.tz * off * sd, z: hit.cz + hit.tx * off * sd, rot: Math.atan2(hit.tz * sd, -hit.tx * sd) };
+      };
+      const paved = ([-1, 1] as const).filter((sd) => bays.every((u) => {
+        const { x, z, rot } = slot(u, sd);
+        return free(x, z, LOTS.bay - 0.2, cl, rot, 1.05, id, 1.05);
+      }));
+      for (const sd of paved)
+        for (const u of bays) {
+          const { x, z, rot } = slot(u, sd);
+          if (rng.next() < LOTS.fill) add(x, z, cw, cl, ch, rot, 'parked');
+        }
+      if (!paved.length) continue;
+      sampleAt(sp, u0 + piece / 2, hit);
+      pads.push({ at: [r1(hit.cx), r1(hit.cz)], rot: Math.round(Math.atan2(hit.tx, hit.tz) * 1000) / 1000, length: Math.round(piece * 10) / 10, inner: r1(hit.width / 2 + hit.shoulder), outer: r1(hit.width / 2 + hit.shoulder + 1.8 + cl), side: paved.length === 2 ? 0 : paved[0] });
+    }
+  }
+  layout.houses = houses;
+  // Tiki torches along the front road through town, both sides, over the line (two rows: a row
+  // doesn't run round it).
+  const torches = (s: [number, number]) => ({ kind: 'tiki-torch', s, every: TORCHES.every, lateral: TORCHES.lateral });
+  layout.smashables = [...(layout.smashables ?? []), torches([TORCHES.from, Math.floor(L)]), torches([0, TORCHES.to])];
+  layout.landmarks = [...(layout.landmarks ?? []), ...pads.map((p) => ({ kind: 'car-park', at: p.at, rot: p.rot, r: 0, params: { length: p.length, inner: p.inner, outer: p.outer, bay: LOTS.bay, side: p.side } })), shack];
+  const count = (look: string) => houses.filter((h) => h.look === look).length;
+  console.log(`  harbor town: ${count('shop')} shops, ${count('plantation')} cottages, ${count('parked')} parked cars`);
 }
 
 // The lava stream keeps clear of every road: its path LAVA_CLEAR m from every road's edge (the

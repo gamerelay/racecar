@@ -4,7 +4,7 @@
 // block does (core bake: on the lowest ground under its corners). One draw for the walls, one for
 // the roofs.
 
-import { BoxGeometry, ConeGeometry, CylinderGeometry, DoubleSide, Group, Mesh, type Object3D, RepeatWrapping, SphereGeometry } from 'three';
+import { BoxGeometry, BufferGeometry, ConeGeometry, CylinderGeometry, DoubleSide, Float32BufferAttribute, Group, Mesh, type Object3D, RepeatWrapping, SphereGeometry } from 'three';
 import type { HouseDef } from '../../../core/content';
 import { hash01 } from '../../../core/rng';
 import { COLUMN as COLUMN_R, porchColumns, type BakedProp, type Track } from '../../../core/track/bake';
@@ -49,6 +49,7 @@ export function buildHouses(track: Track): Object3D[] {
   // Where the sim stood each (its props, in order after the rest: kind 'house').
   const solid = track.props.filter((p) => p.kind === 'house');
   const out: Object3D[] = [];
+  const hawaii = harborTown();
   defs.forEach((h, k) => {
     const y = solid[k]?.y ?? track.ground!.height(h.at[0], h.at[1]);
     if (h.look === 'casino') {
@@ -63,6 +64,16 @@ export function buildHouses(track: Track): Object3D[] {
       out.push(...hotel(h, y, track.props.filter((p) => p.kind === 'house-column')));
       return;
     }
+    // (A landmark's solid block: the landmark's drawn instead.)
+    if (h.look === 'landmark') return;
+    if (h.look === 'banyan') {
+      out.push(banyan(h, y));
+      return;
+    }
+    if (h.look === 'plantation' || h.look === 'shop' || h.look === 'parked') {
+      hawaii.add(h, k, y);
+      return;
+    }
     const [w, d, high] = h.size;
     const color = STUCCO[Math.floor(hash01(k, 3, 11) * STUCCO.length)];
     walls.push({ x: h.at[0], y: y + high / 2, z: h.at[1], yaw: h.rot, sx: w, sy: high, sz: d, color });
@@ -71,7 +82,175 @@ export function buildHouses(track: Track): Object3D[] {
     roofs.push({ x: h.at[0], y: y + high, z: h.at[1], yaw: h.rot + (across ? Math.PI / 2 : 0), sx: (across ? d : w) + 0.8, sy: Math.min(w, d) * 0.18, sz: (across ? w : d) + 0.8, color: TILES[Math.floor(hash01(k, 7, 11) * TILES.length)] });
   });
   if (walls.length) out.push(instanced(new BoxGeometry(1, 1, 1), toon({ map: facade() }), walls), instanced(prism(), toon({ side: DoubleSide }), roofs));
+  out.push(...hawaii.build());
   return out;
+}
+
+// ---- Harbor Town (Paradise Open; the owner: Hawaii, Lahaina's Front Street) ----
+
+/** Board walls in faded plantation colours: teal, mustard, coral, sea green, cream, sky. */
+const BOARDS = [0x6fb8a8, 0xe0b35a, 0xe68a6e, 0x8cc49a, 0xf2e6c8, 0x8fc2d8, 0xd9a0b8, 0xf0d27a];
+/** Corrugated tin roofs: red, green, rust, grey-blue. */
+const TIN = [0xb5463a, 0x4f8a5c, 0x9a5b38, 0x6d7f8e, 0xc25a3c];
+/** White trim (fascia, posts, rails). */
+const WHITE = 0xf4f1e6;
+/** Parked cars' paint. */
+const PAINT = [0xe8483b, 0x2f7fd8, 0xf2f2f0, 0x2b2b30, 0xf2c23a, 0x46b07a, 0xb8bfc8, 0xe07ab0];
+
+/** A board wall's texture: clapboard lines, a door between two shuttered windows, white trim (the instance's colour tints it). */
+function boardFacade(shop: boolean) {
+  return canvas(128, 128, (g) => {
+    g.fillStyle = '#ffffff';
+    g.fillRect(0, 0, 128, 128);
+    g.fillStyle = 'rgba(0,0,0,0.10)';
+    for (let y = 4; y < 128; y += 8) g.fillRect(0, y, 128, 2);
+    if (shop) {
+      // Shopfront glass below, the boardwalk's shade over it; a sign band above.
+      g.fillStyle = '#2d3a4a';
+      g.fillRect(8, 74, 50, 46);
+      g.fillRect(70, 74, 50, 46);
+      g.fillStyle = '#f4f1e6';
+      g.fillRect(6, 70, 116, 4);
+      g.fillRect(31, 74, 3, 46);
+      g.fillRect(94, 74, 3, 46);
+      g.fillStyle = '#2d3a4a';
+      for (const x of [22, 84]) g.fillRect(x, 20, 22, 30);
+      g.fillStyle = '#f4f1e6';
+      for (const x of [22, 84]) g.strokeRect(x, 20, 22, 30);
+    } else {
+      g.fillStyle = '#5a3f2e';
+      g.fillRect(54, 64, 20, 64);
+      g.fillStyle = '#2d3a4a';
+      for (const x of [14, 90]) g.fillRect(x, 58, 24, 30);
+      g.fillStyle = '#f4f1e6';
+      for (const x of [14, 90]) {
+        g.fillRect(x - 3, 56, 30, 3);
+        g.fillRect(x - 3, 88, 30, 3);
+        g.fillRect(x + 11, 58, 2, 30);
+      }
+    }
+  });
+}
+
+/** A hip roof, a unit box's worth: its eaves round the bottom, its ridge along x halfway in. */
+function hip() {
+  const g = new BufferGeometry();
+  const [a, b, c, d, r0, r1] = [
+    [-0.5, 0, -0.5],
+    [0.5, 0, -0.5],
+    [0.5, 0, 0.5],
+    [-0.5, 0, 0.5],
+    [-0.25, 1, 0],
+    [0.25, 1, 0],
+  ];
+  const tris = [d, c, r1, d, r1, r0, b, a, r0, b, r0, r1, a, d, r0, c, b, r1];
+  g.setAttribute('position', new Float32BufferAttribute(tris.flat(), 3));
+  g.computeVertexNormals();
+  return g;
+}
+
+/**
+ * Harbor Town's houses, instanced: plantation cottages (board walls, a tin hip roof, a lanai roof
+ * over the front on posts), Front Street's shops (a false front over the eaves, a veranda over the
+ * boardwalk), and parked cars (a body and a cabin).
+ */
+function harborTown() {
+  const homes: Part[] = [];
+  const shops: Part[] = [];
+  const roofs: Part[] = [];
+  const trim: Part[] = [];
+  const bodies: Part[] = [];
+  const glass: Part[] = [];
+  /** A part at (lx, ly, lz) in the house's own frame (its front toward +z). */
+  const at = (h: HouseDef, y: number, lx: number, ly: number, lz: number, sx: number, sy: number, sz: number, color: number): Part => {
+    const [c, s] = [Math.cos(h.rot), Math.sin(h.rot)];
+    return { x: h.at[0] + lx * c + lz * s, y: y + ly, z: h.at[1] - lx * s + lz * c, yaw: h.rot, sx, sy, sz, color };
+  };
+  return {
+    add(h: HouseDef, k: number, y: number) {
+      const [w, d, high] = h.size;
+      const pick = <T>(list: T[], salt: number) => list[Math.floor(hash01(k, salt, 23) * list.length)];
+      if (h.look === 'parked') {
+        const paint = pick(PAINT, 3);
+        bodies.push(at(h, y, 0, 0.45, 0, w, 0.7, d, paint));
+        bodies.push(at(h, y, 0, 1.05, -0.2, w * 0.86, 0.55, d * 0.5, paint));
+        glass.push(at(h, y, 0, 1.06, -0.2, w * 0.88, 0.42, d * 0.46, 0x26303c));
+        return;
+      }
+      const wall = pick(BOARDS, 5);
+      const tin = pick(TIN, 7);
+      if (h.look === 'shop') {
+        shops.push(at(h, y, 0, high / 2, 0, w, high, d, wall));
+        // The false front: up past the eaves, flat-topped, a white cap.
+        const front = high + 1.6;
+        shops.push(at(h, y, 0, front / 2, d / 2 + 0.1, w + 0.2, front, 0.3, wall));
+        trim.push(at(h, y, 0, front + 0.1, d / 2 + 0.1, w + 0.5, 0.25, 0.5, WHITE));
+        roofs.push({ ...at(h, y, 0, high, -0.2, w + 0.4, 1.2, d + 0.2, tin) });
+        // The veranda over the boardwalk, on posts at its front edge.
+        trim.push(at(h, y, 0, 3.3, d / 2 + 1.4, w + 0.2, 0.18, 2.6, tin));
+        for (const px of [-w / 2 + 0.3, 0, w / 2 - 0.3]) trim.push(at(h, y, px, 1.65, d / 2 + 2.55, 0.18, 3.3, 0.18, WHITE));
+        return;
+      }
+      homes.push(at(h, y, 0, high / 2, 0, w, high, d, wall));
+      // A hip roof, its ridge across the front, and a lanai's roof over the front on posts.
+      roofs.push(at(h, y, 0, high, 0, w + 1, Math.min(w, d) * 0.32, d + 1, tin));
+      trim.push(at(h, y, 0, high - 0.5, d / 2 + 1.1, w * 0.8, 0.15, 2.2, tin));
+      for (const px of [-w * 0.38, w * 0.38]) trim.push(at(h, y, px, (high - 0.5) / 2, d / 2 + 2.05, 0.16, high - 0.5, 0.16, WHITE));
+      trim.push(at(h, y, 0, 0.5, d / 2 + 2.05, w * 0.76, 0.1, 0.1, WHITE));
+    },
+    build(): Object3D[] {
+      const out: Object3D[] = [];
+      if (homes.length) out.push(instanced(new BoxGeometry(1, 1, 1), toon({ map: boardFacade(false) }), homes));
+      if (shops.length) out.push(instanced(new BoxGeometry(1, 1, 1), toon({ map: boardFacade(true) }), shops));
+      if (roofs.length) out.push(instanced(hip(), toon({ side: DoubleSide }), roofs));
+      if (trim.length) out.push(instanced(new BoxGeometry(1, 1, 1), toon(), trim));
+      if (bodies.length) out.push(instanced(new BoxGeometry(1, 1, 1), toon(), bodies), instanced(new BoxGeometry(1, 1, 1), toon(), glass));
+      return out;
+    },
+  };
+}
+
+/**
+ * The banyan in the square (Lahaina's, by the harbour): its solid block the trunk; drawn as a knot
+ * of trunks and the aerial roots round it, under a crown far wider than it, low and spreading.
+ */
+function banyan(h: HouseDef, y: number): Object3D {
+  const root = new Group();
+  root.position.set(h.at[0], y, h.at[1]);
+  const BARK = 0x7a6a58;
+  const LEAF = [0x2f6b34, 0x3d7d3c, 0x2a5e30, 0x4a8a44];
+  const [w, , high] = h.size;
+  const trunk = new Mesh(faceted(new CylinderGeometry(w * 0.45, w * 0.7, high * 0.7, 9)), toon({ color: BARK }));
+  trunk.position.y = high * 0.35;
+  root.add(trunk);
+  // Roots dropped from its limbs, a ring of them out under the crown.
+  for (let k = 0; k < 14; k++) {
+    const a = (k / 14) * Math.PI * 2 + hash01(k, 1, 31);
+    const r = 5 + hash01(k, 2, 31) * 9;
+    const tall = high * (0.55 + hash01(k, 3, 31) * 0.2);
+    const rootM = new Mesh(faceted(new CylinderGeometry(0.22, 0.4, tall, 6)), toon({ color: BARK }));
+    rootM.position.set(Math.cos(a) * r, tall / 2, Math.sin(a) * r);
+    root.add(rootM);
+  }
+  // Limbs out to them, and the crown: wide flattened lumps.
+  for (let k = 0; k < 5; k++) {
+    const a = (k / 5) * Math.PI * 2;
+    const limb = new Mesh(faceted(new CylinderGeometry(0.4, 0.7, 11, 6)), toon({ color: BARK }));
+    limb.position.set(Math.cos(a) * 4.5, high * 0.68, Math.sin(a) * 4.5);
+    limb.rotation.set(Math.sin(a) * 1.25, 0, -Math.cos(a) * 1.25);
+    root.add(limb);
+  }
+  for (let k = 0; k < 9; k++) {
+    const a = (k / 9) * Math.PI * 2 + hash01(k, 4, 31);
+    const r = k === 0 ? 0 : 6 + hash01(k, 5, 31) * 7;
+    const lump = new Mesh(faceted(new SphereGeometry(1, 9, 6)), toon({ color: LEAF[k % LEAF.length] }));
+    const size = 6 + hash01(k, 6, 31) * 3;
+    lump.scale.set(size, size * 0.42, size);
+    lump.position.set(Math.cos(a) * r, high * 0.82 + hash01(k, 7, 31) * 1.5, Math.sin(a) * r);
+    root.add(lump);
+  }
+  root.updateMatrixWorld(true);
+  return root;
 }
 
 const CREAM = 0xf1e2c2;
