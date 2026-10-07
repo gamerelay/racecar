@@ -111,7 +111,7 @@ describe('buildings', () => {
     expect(glass.map((b) => b.id)).toEqual(['market-hall-in', 'market-hall-out']);
     const fast = { throttle: 1 };
     const sim = setup(track, CLASSES, SURFACES, { road: 'market-street', s: hall.s[0] - 25 }, fast, { kmh: 110 });
-    const { summary, events } = run(sim, fast, 3.5, 0.5);
+    const { summary, events, rows } = run(sim, fast, 3.5, 0.05);
     expect(summary.wrecks).toEqual([]);
     const broke = events.filter((e) => e.type === 'wall_break');
     expect(broke.length).toBeGreaterThanOrEqual(2);
@@ -119,7 +119,9 @@ describe('buildings', () => {
     const br = sim.world!.breakables;
     for (let k = 0; k < br.n; k++) if (glass.some((b) => track.layout.breakables!.indexOf(b) === br.wall[k])) expect(panelLook(track.layout.breakables, br, k)).toBe('glass');
     // Its doors' thresholds are the street: no takeoff at them (a floor's plane at a door kicked cars up).
-    expect(events.filter((e) => e.type === 'takeoff')).toEqual([]);
+    // (Out of the far door, past it, the street's bump: that one's meant.)
+    const bump = track.layout.ramps!.find((r) => r.spline === 'market-street')!;
+    expect(rows.filter((r) => r.on === 'air' && r.s < bump.s)).toEqual([]);
     const crawl = { throttle: 0.05 };
     const slow = run(setup(track, CLASSES, SURFACES, { road: 'market-street', s: hall.s[0] - 6 }, crawl, { kmh: 12 }), crawl, 4, 0.5);
     expect(slow.events.filter((e) => e.type === 'wall_break')).toEqual([]);
@@ -169,8 +171,16 @@ describe('buildings', () => {
     expect(validateLayout(over, SURFACES, CLASSES).some((p) => p.level === 'error' && p.message.startsWith("a building's walls stand on the main road"))).toBe(true);
   }, 60_000);
 
-  test('its floor is sand blown in off the beach (a zone), wall to wall, door to door', () => {
-    const zone = street.zones.find((z) => track.surfaces[z.surface].id === 'sand')!;
-    expect([zone.s0, zone.s1]).toEqual(hall.s);
-  });
+  test('through it is flat out (no sand on its floor), and out of its far door a bump throws you in the air', () => {
+    // (The owner, 2026-10-07: "we shouldn't slow them down, instead we add some bumps when they come
+    // out the other side so they go flying in the air".)
+    expect(street.zones.filter((z) => z.s1 > hall.s[0] && z.s0 < hall.s[1])).toEqual([]);
+    const bump = track.layout.ramps!.find((r) => r.spline === 'market-street')!;
+    expect(bump.s).toBeGreaterThan(hall.s[1]);
+    const fast = { throttle: 1 };
+    const { summary, rows } = run(setup(track, CLASSES, SURFACES, { road: 'market-street', s: hall.s[0] - 25 }, fast, { kmh: 110 }), fast, 4, 0.05);
+    expect(summary.wrecks).toEqual([]);
+    // Off the bump, most of a second in the air.
+    expect(rows.filter((r) => r.on === 'air' && r.road === 'market-street' && r.s > bump.s).length * 0.05).toBeGreaterThan(0.6);
+  }, 30_000);
 });

@@ -423,6 +423,26 @@ packed-sand line "across the bulge" (PARADISE's Sandbar-style beach road; `BEACH
   sea (a new landmark, `lifeguard-tower`, standing in a solid block). Eight racks of surfboards
   beside the line (a new smashable, `surf-rack`).
 
+**Flying, not slowing (2026-10-07):** the owner: through the market hall "we shouldn't slow them
+down, instead we add some bumps when they come out the other side so they go flying in the air"
+(what makes the game magical is "the ai flying in the air, cars colliding"); and the volcano's
+jump's chevrons "blue and white and more animated, and give a little more speed boost".
+- **The market hall:** its sand floor is gone (it drove as sand, door to door). Out of its far
+  door, 8 m on, a rounded kicker (`MARKET.bumps`: 9 m up to 1.6 m, rolling back over 9 m). Out of
+  the hall at 140–170 km/h, every car is about 0.8 s in the air, 3 m up, landing about 55 m on,
+  30 m short of the merge. Its glass still costs the first car through 7% a pane.
+- **The jump's boost:** its kicker is a boost pad (a `boost-pad` zone, `JUMP.boost` m of run-up
+  before it: 0). Flat out from 170 km/h a coupe leaves the lip at 203 km/h (was 180); the fastest
+  entries still land on the bridge (248 at the lip; the far side's safe to about 240–250). Off the
+  throttle at 120–150 km/h it's still the lava. (The whole bridge's last 26 m as a pad was too
+  much: 170 to 239, and from 220 it flew into the far side.)
+- **The chevrons:** one every 2 m up the kicker (were every 3, red and white), blue, every other
+  a little deeper, a band of white light running up them to the lip (tube.ts's `CHEVRONS`, an
+  unlit shader on the tube's clock).
+- **Numbers** (with the beach line's change): floor 68.07 -> 67.28 s; field wrecks over seeds 1-72
+  51 -> 41, none at the bump or the jump (213 jumps over 12 seeds, none down in the lava). Most
+  left are the lava bombs by the rim road at 3150–3200 m, as before.
+
 
 ## What we learned (2026-10-02)
 

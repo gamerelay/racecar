@@ -256,6 +256,8 @@ describe('Paradise Open: the island (docs/PARADISE.md)', () => {
   test('palms by the sea and jungle inland, none in the water, up the bare cone or on a road', () => {
     const p = track.pines!;
     expect(p.n).toBeGreaterThan(300);
+    const plant = track.layout.ground?.pines?.plant ?? [];
+    const planted = (x: number, z: number) => plant.some(([px, pz]) => Math.hypot(px - x, pz - z) < 0.5);
     let palms = 0;
     for (let k = 0; k < p.n; k++) {
       expect(p.y[k]).toBeGreaterThan(g.sea! + 0.5);
@@ -266,9 +268,10 @@ describe('Paradise Open: the island (docs/PARADISE.md)', () => {
       expect(Math.abs(g.lateral[gz * g.nx + gx])).toBeGreaterThan(m.width[i] / 2 + m.shoulder[i]);
       if (p.kind[k] === 1) {
         palms++;
-        // (Or anywhere on a beach, however far back from the water it runs.)
+        // (Or anywhere on a beach, however far back from the water it runs; or planted along Harbor
+        // Town's streets, up the hill.)
         const onBeach = g.beach[i] * g.lateral[gz * g.nx + gx] > 0;
-        if (!onBeach) expect(g.coast(p.x[k], p.z[k])).toBeLessThan(75);
+        if (!onBeach && !planted(p.x[k], p.z[k])) expect(g.coast(p.x[k], p.z[k])).toBeLessThan(75);
       }
     }
     expect(palms).toBeGreaterThan(50);

@@ -232,15 +232,24 @@ const TUBE = { from: S(2685), to: S(3255), bridge: VOLCANO.lava + 4, width: 12, 
  * The jump over the lava, in the middle of the crossing: the gap (m), and the kicker up to its edge
  * (its length and its lip's height over the bridge).
  */
-const JUMP = { gap: 40, kicker: 12, lift: 2.5 };
+const JUMP = { gap: 40, kicker: 12, lift: 2.5, boost: 0 };
 // (40 m takes 150 km/h off the lip, the bus 160: flat out, the slowest car gets there at 175. Off
 // the throttle, or off a wall, it's the lava.)
+// (The owner, 2026-10-07: "give a little more speed boost". The bridge's last `boost` m up to the
+// kicker, and the kicker, a boost pad: the chevrons painted on it, blue and white, chasing to the lip.)
 /**
  * Harbor Town's market street: where it leaves the harbour front and rejoins it (m), the hall on it
- * (its length and ceiling, m, and what its floor drives as), its road, and the glass across the hall's doors (how tall, the speed
- * that smashes it, m/s, and how far in from each end, m).
+ * (its length and ceiling, m), its road, the glass across the hall's doors (how tall, the speed
+ * that smashes it, m/s, and how far in from each end, m), and the bumps out of its far door (each
+ * a rounded kicker `at` m past the hall's end, `length` m up to `height` m, rolling back down over
+ * `back` m).
  */
-const MARKET = { from: 170, to: 455, hall: 80, ceiling: 7, width: 12, shoulder: 1.5, floor: 'sand', glass: { height: 4, breaks: 8, in: 1.5 } };
+const MARKET = {
+  from: 170, to: 455, hall: 80, ceiling: 7, width: 12, shoulder: 1.5, glass: { height: 4, breaks: 8, in: 1.5 },
+  bumps: [
+    { at: 8, length: 9, height: 1.6, back: 9 },
+  ],
+};
 /** The barricade across the tube's first mouth: this far in past it (m), this tall, broken by a car meeting it at this (m/s, about 43 km/h). */
 const BOARDS = { in: 4, height: 3, breaks: 12 };
 /** Its tunnels run where the volcano is at least this far over the road (the ceiling and a roof). */
@@ -506,6 +515,11 @@ for (let i = 0, best = Infinity; i < tube.n; i++) {
 const lip = Math.round(mid - JUMP.gap / 2);
 const far = Math.round(mid + JUMP.gap / 2);
 layout.ramps = [...(layout.ramps ?? []), { spline: 'lava-tube', s: lip - JUMP.kicker, length: JUMP.kicker, height: JUMP.lift }];
+{
+  const k = Math.round(lip / tube.step);
+  const edge = tube.width[k] / 2 + tube.shoulder[k];
+  layout.zones = [...(layout.zones ?? []), { spline: 'lava-tube', s: [lip - JUMP.kicker - JUMP.boost, lip], lateral: [-edge, edge], surface: 'boost-pad' }];
+}
 layout.pieces = [
   ...(layout.pieces ?? []),
   { id: 'lava-tube-in', road: 'lava-tube', s: [Math.round(portalIn - 6), lip], ceiling: TUBE_H, indoor: 'lava' },
@@ -561,10 +575,10 @@ layout.pieces = [
   const h0 = Math.round((sp.length - MARKET.hall) / 2);
   const h1 = h0 + MARKET.hall;
   layout.pieces = [...(layout.pieces ?? []), { id: 'market-hall', road: street.id, s: [h0, h1], ceiling: MARKET.ceiling, building: 'market' }];
-  // Its floor's sand blown in off the beach (the owner: through it flat out was a little too good):
-  // wall to wall, door to door.
-  const edge = MARKET.width / 2 + MARKET.shoulder;
-  layout.zones = [...(layout.zones ?? []), { spline: street.id, s: [h0, h1], lateral: [-edge, edge], surface: MARKET.floor }];
+  // (Its floor was sand blown in off the beach, slow: through it flat out was a little too good. The
+  // owner, 2026-10-07: "we shouldn't slow them down, instead we add some bumps when they come out
+  // the other side so they go flying in the air". Out of the far door, the street's bumps.)
+  layout.ramps = [...(layout.ramps ?? []), ...MARKET.bumps.map((b) => ({ spline: street.id, s: h1 + b.at, length: b.length, height: b.height, back: b.back }))];
   // Its glass doors: wall to wall across the road and its shoulders, just inside each end.
   const door = (s: number) => {
     const k = Math.round(s / sp.step);
@@ -748,7 +762,7 @@ for (const { from, to } of LOTS.list) {
  * `water` m in from the coast, along it (every `keep`th point of it, smoothed), a point every `every`
  * m; `width` m across.
  */
-const BEACH_LINE = { from: 540, to: S(1135), water: 30, every: 8, keep: 9, width: 9, shoulder: 1.5 };
+const BEACH_LINE = { from: 540, to: S(1135), water: 30, every: 8, keep: 14, width: 9, shoulder: 1.5 };
 {
   const g = bakeTrack(layout, surfaces);
   const ground = g.ground!;

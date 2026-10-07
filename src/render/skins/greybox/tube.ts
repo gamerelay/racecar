@@ -7,7 +7,7 @@
 // it's a bridge of jagged black rock, hanging in spikes over the lava, its edges open: off it is
 // down into the lava. Its road is painted on the rock either way.
 
-import { DoubleSide, Mesh, type Object3D } from 'three';
+import { DoubleSide, Float32BufferAttribute, Mesh, ShaderMaterial, type Object3D } from 'three';
 import { hash01 } from '../../../core/rng';
 import type { BakedSpline, Track } from '../../../core/track/bake';
 import { GALLERY, OUTLINE_POINTS, outlineAt, windowIn } from '../../../core/track/ground';
@@ -33,13 +33,21 @@ const SPIKE = 5;
 const LIFT = 0.04;
 /** How deep (m) a gallery's windows' reveals are, out from its wall. */
 const REVEAL = 1.2;
+/**
+ * A kicker's chevrons (the owner, 2026-10-07: "blue and white and more animated"): one every `every`
+ * m, blue, a band of white light running up them to the lip at `run` m/s, one every `wave` m.
+ */
+const CHEVRONS = { every: 2, run: 16, wave: 8, blue: [0.1, 0.45, 1], white: [1, 1, 1] };
 /** Scratch for an outline. */
 const OUTLINE = new Float64Array(OUTLINE_POINTS * 2);
 
-export function buildTubes(track: Track): Object3D[] {
+export function buildTubes(track: Track, time: { value: number }): Object3D[] {
   const g = track.ground!;
   const out: Object3D[] = [];
   const geo = new Geo();
+  const arrows = new Geo();
+  /** Each arrow vertex's distance along its road (m), for the light running up them. */
+  const along: number[] = [];
   const glow: number[] = [];
   const lamps: number[] = [];
   for (const sp of track.splines) {
@@ -126,9 +134,12 @@ export function buildTubes(track: Track): Object3D[] {
         if (!walled(i - 1)) arch(geo, sp, i, edge(i), ceiling(i), -1, shaft(i - 8), look, main);
         if (!walled(j)) arch(geo, sp, j, edge(j), ceiling(j), 1, shaft(j + 8), look, main);
       } else {
-        // Up a kicker (the jump's): chevrons pointing over the edge, red and white, every 3 m.
+        // Up a kicker (the jump's, a boost pad): chevrons pointing over the edge, lit running up it.
         const at = i * sp.step;
-        if (sp.ramp[i] > 0 && sp.ramp[j] > 0 && at % 3 < sp.step) chevron(geo, sp, i, half(i), at % 6 < 3 ? '#e8433a' : '#f4efe6');
+        if (sp.ramp[i] > 0 && sp.ramp[j] > 0 && at % CHEVRONS.every < sp.step) {
+          chevron(arrows, sp, i, half(i), '#ffffff');
+          for (let k = 0; k < 8; k++) along.push(at);
+        }
         // The bridge: a slab of black rock under the road, spikes hanging off it over the lava.
         for (const side of [-1, 1]) geo.face(p(i, side * edge(i), 0), p(i, side * edge(i), -SLAB), p(j, side * edge(j), -SLAB), p(j, side * edge(j), 0), rock);
         geo.face(p(i, -edge(i), -SLAB), p(i, edge(i), -SLAB), p(j, edge(j), -SLAB), p(j, -edge(j), -SLAB), ROCK_DARK);
@@ -161,6 +172,14 @@ export function buildTubes(track: Track): Object3D[] {
     mesh.matrixAutoUpdate = false;
     out.push(mesh);
   }
+  if (arrows.pos.length) {
+    const ag = arrows.build();
+    ag.setAttribute('along', new Float32BufferAttribute(along, 1));
+    const mesh = new Mesh(ag, chevronMaterial(time));
+    mesh.matrixAutoUpdate = false;
+    mesh.name = 'kicker-chevrons';
+    out.push(mesh);
+  }
   if (glow.length) out.push(glowPoints(glow, 0xff6a1a, 7));
   if (lamps.length) out.push(glowPoints(lamps, 0xffb050, 5));
   return out;
@@ -173,6 +192,28 @@ function chevron(geo: Geo, sp: BakedSpline, i: number, half: number, color: stri
     return [sp.px[k] - sp.tz[k] * l, sp.py[k] + sp.ramp[k] - l * Math.tan(sp.bank[k]) + LIFT * 2, sp.pz[k] + sp.tx[k] * l];
   };
   for (const side of [-1, 1]) geo.face(p(side * half, 0), p(side * half, 0.8), p(0, 2.3), p(0, 1.5), color);
+}
+
+/** The chevrons' light: blue, every other one a little deeper, and a band of white running up them to the lip. Unlit: they glow over the lava's dark. */
+function chevronMaterial(time: { value: number }): ShaderMaterial {
+  const v3 = (c: number[]) => `vec3(${c.map((x) => x.toFixed(3)).join(',')})`;
+  return new ShaderMaterial({
+    uniforms: { uTime: time },
+    side: DoubleSide,
+    polygonOffset: true,
+    polygonOffsetFactor: -2,
+    polygonOffsetUnits: -4,
+    vertexShader: `attribute float along;varying float vA;void main(){vA=along;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);}`,
+    fragmentShader: `uniform float uTime;varying float vA;
+      void main(){
+        float k=floor(vA/${CHEVRONS.every.toFixed(1)}+0.5);
+        vec3 blue=${v3(CHEVRONS.blue)}*(mod(k,2.0)<0.5?1.0:0.7);
+        float w=fract((vA-uTime*${CHEVRONS.run.toFixed(1)})/${CHEVRONS.wave.toFixed(1)});
+        float lit=smoothstep(0.55,0.8,w)*(1.0-smoothstep(0.85,1.0,w));
+        float pulse=0.85+0.15*sin(uTime*9.0);
+        gl_FragColor=vec4(mix(blue*pulse,${v3(CHEVRONS.white)},lit),1.0);
+      }`,
+  });
 }
 
 /** A spike of rock from `top` hanging `len` m down (negative: a stub sticking up), `r` m across: a four-sided cone. */
