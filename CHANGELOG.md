@@ -4,9 +4,9 @@ What changed in each release of racecar, newest first. Releases are git tags on 
 reasons behind each change are in [docs/SPEC.md](./docs/SPEC.md) under "Changed while building",
 and where things stand is [docs/HANDOFF.md](./docs/HANDOFF.md).
 
-## Unreleased
+## alpha-1.38: Sahara
 
-- **Sahara, a new desert map (experimental: from a link, `?mode=free&map=sahara/dunes`).** A
+- **Sahara, a new desert map, in the lobby.** A
   4 km lap made to drift: S-chains over the dunes with a crest to fly off on every leg, bermed
   hairpins, a narrow wadi, switchbacks up a mesa and a jump off its edge onto the run home. The
   Great Pyramid is the set piece: drive straight up its face, over its top and off the far side
