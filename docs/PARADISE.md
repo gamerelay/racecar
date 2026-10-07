@@ -292,6 +292,232 @@ over the lava on a jagged rock bridge, out the other side):
 - **The volcano's ground in mixed tones:** dark rock, lighter ashy patches and warm earth, at two
   sizes.
 
+**Harbor Town (2026-10-06):** the owner, after Riviera's detail passes: "detail the map similar to
+what we did with Riviera", starting with Harbor Town, the theme Hawaii; "two sets of roads, the
+main front road which we have, then some side roads for cars to spawn on and move from", toward
+"a beach with a parking lot". Lahaina's Front Street, round the line (`TOWN_STREETS`, `TOWN`,
+`LOTS` in the generator).
+- **The streets** (Riviera's side streets, COASTAL steps 4 and 8h): the front road is the main road
+  along the shore. Inland, up the hill, two back streets, Waine'e (3575–3765 m) and Luakini
+  (22–182 m), loops off it a block up (54–62 m off its middle), on the hill's own heights (no
+  steeper than 12%). On the sand, two car parks, `lot-mauka` (3670–3792 m) and `lot-makai`
+  (45–162 m). No street crosses the line (the validator), so the town is two blocks, with the
+  square at the line between them. Open to drive; the AI keeps to the front road.
+- **The traffic:** against the lap, out of one car park, along the front road over the line, and
+  into the other. Up and down each back street, never on the front road. The Freeway's lanes as
+  they were. The town's old main-road lanes (both ways over 3789–109 m) are gone.
+  - Not the lap's way down Waine'e and onto the front road: pulling out at 12 m/s in front of
+    the field, short of the line, it was 35 traffic wrecks in 24 races there.
+  - Not into the east car park at 3765 m either: the front road bends left at 3700–3760 m and
+    the AI's line holds the left side through it (lateral −5 m), into the oncoming lane, head-on.
+    Its mouth moved to 3792 m (and the west one's to 45 m, 48 m apart), so the oncoming lane is
+    on the straight only, where the AI is at the middle.
+- **The buildings** (houses: solid, scraped along, a wreck only hit hard):
+  - Front Street's shops facing the front road (look `shop`): board walls, a false front over the
+    eaves, a veranda over the boardwalk on posts.
+  - Behind them, plantation cottages in rows up the hill and along both sides of the back
+    streets (look `plantation`): board walls in faded teal, mustard, coral and cream, a tin hip
+    roof, a lanai on posts.
+  - 16 shops and 107 cottages.
+- **The square at the line:** a banyan (look `banyan`: its solid block the trunk, its roots and a
+  crown far wider than it drawn round it), kept clear 20 m round.
+- **The car parks:** a bay every 3.2 m either side of each lot's aisle, paved two bays at a time
+  (landmark `car-park`, turned along the aisle), each side only where its bays fit. Parked cars,
+  nose in, in 70% of them (look `parked`: solid, a body and a cabin): 50 in all.
+- **On the beach,** the surf shack (the landmark, standing in a solid block: house look
+  `landmark`). Along the front road through town, tiki torches either side (a new smashable,
+  `tiki-torch`).
+- **Numbers:** floor 66.35 s (66.32); field wrecks over seeds 1–72 56 (65). Paradise Open
+  re-recorded; every other map identical.
+- **Next:** palms along the streets (done 2026-10-07, below). Then the beach run to the Freeway,
+  the jungle, the volcano and the finish, in that order.
+
+**The bulge (2026-10-06):** the owner, driving the west coast past the beach umbrellas: "have this
+road go a little deeper towards the mountain, also have the lava stream coming down the face of
+the mountain so you see it here, I think if this little turn could be a bulge that you could drift
+around that would be awesome" (a round D, not a hairpin; `BULGE`, `LAVA_WEST` in the generator).
+- **The road:** the island's road from 600 to 1075 m (a little right-left jog off the beach) is
+  one round bulge inland, built from arcs:
+  - a right off the coast, 55 m round, 120°;
+  - a short straight;
+  - one long left round its apex, 140 m round, 145°, banked into itself (−0.2, as the
+    jungle's);
+  - a short straight;
+  - a right back onto the island's road, heading as it does there.
+  The straights are as long as it takes to meet the island's road, solved. Its apex is about
+  100 m deeper toward the volcano than the jog's. A first try through waypoints and a spline
+  kinked where it met the island's road, and its left was lumpy.
+- **Everything after it moved on 110 m:** the lap is 3909 m, 110 m longer. The generator builds
+  the bulge first, from the island's lap, then moves every main distance past it (its own
+  constants through `S`, and the island's hazards, ramps, zones, smashables, takedown spots and
+  traffic sections), so the Freeway, the jungle's banks, the Lava Tube and the town stay where
+  they are on the ground. The tests' distances moved with them.
+- **The lava:** a second stream (`LAVA_WEST`), down the volcano's west face, ending in a pool
+  just past the bulge's apex, 25 m past the road's verge. You drift round the long left with the
+  lava ahead of you, and you see it coming down the mountain from the coast. It crosses no road,
+  so the first stream is still the barrier.
+  - **A pool at a stream's end** (`LavaStreamDef.pool`: its radius and its floor, level): its
+    banks are the channel's, and its lava is drawn as a disc and felt as the channel's is (a
+    wreck in it). The validator keeps roads off it too.
+- **Numbers:** floor 68.07 s (66.35: 110 m more road); field wrecks over seeds 1–72 48 (56), none
+  at the bulge. Paradise Open re-recorded; every other map identical.
+
+**The car parks, again (2026-10-07):** the owner: the first ones "don't look that good". They
+were bays strung along a curved U of road on a lumpy dune, paved in short angled pieces, the
+parked cars plain boxes. Now (`LOTS` in the generator):
+- **A pad each** (a new ground feature, `PadDef`, features/pad.ts): a level rectangle of ground
+  beside the front road, 2 m past its verge and 0.2 m over it, paved. Its edges ease back to the
+  sand round it over 4 m, and there are no trees on it. Its ground is a new kind, `KIND_PAVED`,
+  drawn and driven as asphalt; a pad's surface is asked before the coast's sand under it
+  (`Feature.first`).
+- **The aisle** (the lot's street, still the oncoming traffic's way in and out) runs straight
+  down the pad's middle, a corner every 8 m so the rounding leaves it straight. Its driveways
+  leave the front road 28 m along from the junction and reach the aisle 8 m after that.
+- **The bays:** a row either side of the aisle, 2.8 m apart and 6 m deep, nose in, 75% of them
+  taken. The cars are the traffic's own models (`trafficModels`: compact, sedan, van; look
+  `parked`, still solid). The landmark `car-park` draws the markings on the pad: the bays' lines,
+  a kerb along the sea side and the ends and along the road between the driveways, palms along
+  the sea side, and a BEACH PARKING sign by the road. 36 parked cars.
+- (A bug on the way: the bays' positions and the space check shared one hit, so the second row's
+  cars were placed from wherever the check last projected: none in the sea's row, three out on
+  the sand.)
+- **Numbers:** floor 68.07 s (unchanged); field wrecks over seeds 1–72 43 (48). Paradise Open
+  re-recorded; every other map identical.
+
+**Palms along the town's streets (2026-10-07):** the owner: "palms along the town streets".
+Planted trees (`PinesDef.plant`: palms at given spots, solid and drawn as the island's own; the
+generator keeps them off roads and houses), `PALMS` in the generator:
+- Down both sides of the front road through town, between the tiki torches (one every 16 m).
+- Down both sides of each back street, one every 14 m.
+- Each 1.6 m past the verge. None where another road comes within a metre (a junction's mouth, a
+  driveway), on a car park's pad, in the square, or within 1.5 m of a house's walls.
+- None on a street's corners (turning more than 0.25 rad over 10 m either side), and round the
+  grid (150 m before the line to 120 m after) none within 6 m of the front road's verge.
+  - With them there, the field crashed 136 times over seeds 1–72 (43). A racer shoved wide
+    off the start went up Luakini every race and ran wide into a palm on its bends.
+- Not on the front road's bends either (over 25 m either side): the field cut the bend into town
+  and hit them.
+- 21 palms. The town had none, because the trees keep 3 m off the houses. The front road's
+  straight through town is mostly round the grid, so it has few.
+
+**The beach run to the Freeway (2026-10-07):** the owner: "the beach run to the Freeway", its
+packed-sand line "across the bulge" (PARADISE's Sandbar-style beach road; `BEACH_LINE`,
+`BEACH_DRESS` in the generator).
+- **The beach line:** a shortcut from 540 m to 1245 m (just before the bulge to just after it),
+  576 m against the road's 705 m. It runs along the water: out to the sand 30 m in from the coast,
+  then along the coast's contour that far in (every ninth point of it, smoothed, so it's one
+  sweep: following every wiggle it was 661 m, about the road's length).
+- **Its surface, `packed-sand`** (new, last in surfaces.json): the beach's grip and drag (0.80,
+  0.20) through the soft sand round it (0.64, 0.30), drawn damper and darker. Two darker tyre ruts
+  run down it (openIsland.ts's `ruts`: every road on `packed-sand`), so it reads at speed.
+- **Even with the bulge** (the AI, from the fork to past the rejoin):
+
+  | | the bulge | the beach line |
+  |---|---|---|
+  | coupe | 13.08 s | 13.12 s |
+  | rally | 13.18 s | 13.22 s |
+  | bus | 14.37 s | 13.87 s |
+
+  The bus gains half a second on the sand: it's slow through the bulge's bends.
+- **Dressing:** three lifeguard towers on the sand between the line and the water, facing the
+  sea (a new landmark, `lifeguard-tower`, standing in a solid block). Eight racks of surfboards
+  beside the line (a new smashable, `surf-rack`).
+
+**Flying, not slowing (2026-10-07):** the owner: through the market hall "we shouldn't slow them
+down, instead we add some bumps when they come out the other side so they go flying in the air"
+(what makes the game magical is "the ai flying in the air, cars colliding"); and the volcano's
+jump's chevrons "blue and white and more animated, and give a little more speed boost".
+- **The market hall:** its sand floor is gone (it drove as sand, door to door). Out of its far
+  door, 8 m on, a rounded kicker (`MARKET.bumps`: 9 m up to 1.6 m, rolling back over 9 m). Out of
+  the hall at 140–170 km/h, every car is about 0.8 s in the air, 3 m up, landing about 55 m on,
+  30 m short of the merge. Its glass still costs the first car through 7% a pane.
+- **The jump's boost:** its kicker is a boost pad (a `boost-pad` zone, `JUMP.boost` m of run-up
+  before it: 0). Flat out from 170 km/h a coupe leaves the lip at 203 km/h (was 180); the fastest
+  entries still land on the bridge (248 at the lip; the far side's safe to about 240–250). Off the
+  throttle at 120–150 km/h it's still the lava. (The whole bridge's last 26 m as a pad was too
+  much: 170 to 239, and from 220 it flew into the far side.)
+- **The chevrons:** one every 2 m up the kicker (were every 3, red and white), blue, every other
+  a little deeper, a band of white light running up them to the lip (tube.ts's `CHEVRONS`, an
+  unlit shader on the tube's clock).
+- **Numbers** (with the beach line's change): floor 68.07 -> 67.28 s; field wrecks over seeds 1-72
+  51 -> 41, none at the bump or the jump (213 jumps over 12 seeds, none down in the lava). Most
+  left are the lava bombs by the rim road at 3150–3200 m, as before.
+- **The beach line made a real shortcut** (found on the way): the AI only takes a shortcut its
+  costs (racer.ts's `wayCosts`) say is quicker, and they had the beach line 1.4–2.6 s slower than
+  the bulge for every class, so no rival ever drove it (graph.test's "every shortcut is quicker"
+  caught it). Now every 14th point of the contour (550 m) and `packed-sand`'s drag 0.10 (was
+  0.20): 0.2–1.0 s quicker by the costs, so the roll decides, as on every other shortcut.
+
+**The beach run's dips and jumps (2026-10-07):** the owner: "add some dips / jumps to the sand
+path". Down its straight along the water (about 180–420 m along it; `BEACH_RUN`): two pairs of
+whoops (swales 24 m long, 1.1 and 1.2 m deep, at 185/209 and 320/344 m) and two rounded kickers
+(1.5 m at 250 m, 1.8 m at 385 m). Its points every 4 m (were 8) so the dips keep their shape,
+placed by distance along its baked road (which starts back on the main road, about 37 m before
+its first point).
+- Every class at 100–170 km/h: a hop of 0.2–0.4 s off each whoop's crest, about 0.7 s off each
+  kicker, no wrecks. Still 0.2–1.0 s quicker by the AI's costs.
+- Floor 67.28 -> 66.52 s; field wrecks over seeds 1-72 41 -> 51, none on the sand. Four new ones
+  are at its rejoin (1265–1367 m): a rival off the beach at about 187 km/h comes back in from the
+  left and cuts across to the racing line on the right, into one coming round at about 195 there.
+  The rest is the lava bombs by the rim road, up 5 (their timing, as laps change).
+- **More technical (later again):** the owner: "a little more technical with micro turns and maybe
+  some mogul like bumps too, right now it's a really fast shortcut". Its micro turns (`turns`: the
+  line swung 2 m either side and back every 38 m, 25–135 m and 405–480 m along it, easing in and
+  out) and moguls (`moguls`: bumps 0.45–0.5 m every 6.5–7 m, 95–168 m and 445–505 m along it),
+  clear of the jumps and their landings. Its points every 2 m (were 4), for the moguls. The
+  turns cost more than the AI's costs liked (2.5 m every 36 m had it 0.2–1.2 s slower than the
+  road for every class: nobody would take it), so `packed-sand`'s drag down to 0.05 (was 0.10)
+  for the straights between: by the costs now 0.1–0.5 s quicker for most, about even for the
+  police car, and 0.26 s slower for the muscle car, which keeps to the road (its top speed). (The
+  costs plan corners without the surface's grip: grip changed nothing.)
+- Over 12 seeds' races 118 rivals took it (hatch 39, rally 36, sedan 21, bus 9, coupe 9, van 4),
+  one wreck on it (two cars). Floor 66.52 -> 67.27 s; field wrecks over seeds 1-72 51 -> 49, one
+  on the sand; its rejoin's merge (above) 6 of them now.
+
+**The mud and the volcano (2026-10-07):** the owner: "add some more detail to the mud and volcano
+like we did on the original map". Drawn only (render's `wilds.ts`, its own random stream), so
+nothing the cars meet moves. On open ground anything standing must be solid, so all of it lies on
+the ground, low enough to drive over, or hangs from the jungle's trees, which are solid already.
+(The original's lava flows down the cone weren't brought over: in the open you'd drive across
+lava that isn't there. Nor its boulders: they'd be walls on a cone you now drive across freely.)
+- **The jungle's red earth:** tyre ruts, two in each lane (openIsland.ts's `ruts`, now on any
+  rutted surface: `RUTS`); puddles of mud on the road every 18–40 m, dark and wet with a sheen
+  sliding over them (opaque: the post pass reads a cleared alpha as a mirror, the rain's puddles');
+  ferns along both verges, some flowering; lianas hanging from the trees within 22 m of the verge;
+  and a rope bridge up in the crowns over the road at about 2430 m, 70 m between two trees (the
+  jungle stands well back from its 20 m road: no nearer pair), at least 6 m clear of the road.
+- **The volcano:** glowing cracks in the rock down the cone (the lava streams' shader, narrow:
+  0.5–1.1 m); steam vents on the cone and beside the rim road, each ringed with sulphur; cinders
+  over the cone and along the rim road's verges, mostly sunk in it.
+- Not re-recorded (the owner: no fingerprints for looks); the full suite still passes.
+
+**The merge, and live as Paradise (2026-10-07):** the owner: "let's fix the merge too and make
+this the displayed Paradise map in the game".
+- **The beach line's merge:** its last point 70 m before its rejoin (was 30), the rejoin at
+  1285 m (was 1245), so it eases onto the front road across its left half. Floor 67.27 -> 67.37 s. That alone made it
+  worse (6 -> 11 wrecks there): its rivals are on the front road from about 1240 m either way, and
+  went straight for the racing line on the right, across the front of the ones coming round on it
+  at 195 km/h to their 160–170. The AI never looked behind: avoid() marks what's ahead.
+- **The mirror** (racer.ts's `merging` and `mirror`, `MERGE`): a car coming off a branch (it notes
+  it: `aiMerge`, a new car field) checks its mirror from 50 m before the branch's rejoin to 90 m
+  past it. A car on its road alongside (three lengths behind to 6 m ahead, whatever its speed) or
+  coming up faster within 70 m and 2.5 s, on a line between it and its target, holds its target
+  2.5 m clear of that car's side till it's by.
+  - First every car in the zone checked: the pack off Backroads' start through the Barn's rejoin
+    held its lines into each other (80 -> 96 field wrecks over 72 seeds). Only the merging car now.
+  - Too tight at first (0.8 m clear, two lengths): a rival off the beach at the same speed half a
+    length behind was "not faster", and the merging car settled 1.2 m off its side.
+  - Field wrecks over seeds 1–72: Paradise 49 -> 48, its rejoin 6 -> 2; Backroads 80 -> 66.
+    Over seeds 1–24: Riviera 7 -> 8, Downtown 28 -> 25, Avalanche 6 -> 6.
+  - Every fingerprint re-recorded: they hash every car field, and there's a new one. Each drive's
+    marks are the same (a fingerprint's drive is one car alone: nobody to see in the mirror).
+- **Live:** Paradise Open is in the lobby, the vote and quick race as *Paradise* (its id stays
+  `paradise-open`, so `?mode=free&map=paradise-open/open` and the fingerprints keep working; the
+  generator writes its map.json). The old island lap is experimental, as *Paradise Classic*
+  (`?mode=free&map=paradise/island`). The tests listing the game's maps know (the lobby's keys,
+  LAP_KM 3.91, the soundtrack's: its tracks are named after its name, not its id).
+
+
 ## What we learned (2026-10-02)
 
 **The Lava Tube was too strong (the owner: "a bit too overpowered", "cuts thru so much time").**

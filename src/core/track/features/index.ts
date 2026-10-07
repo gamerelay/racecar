@@ -18,6 +18,7 @@ import { coastFeature } from './coast';
 import { hillsFeature } from './hills';
 import { lavaStreamFeature } from './lava-stream';
 import { mogulsFeature } from './moguls';
+import { padFeature } from './pad';
 import { seawallFeature } from './seawall';
 import { unevenFeature } from './uneven';
 import { volcanoFeature } from './volcano';
@@ -71,6 +72,8 @@ export interface Feature {
    * kind, or this becomes a surface id then.)
    */
   surface?(x: number, z: number, h: number, n: number, i: number, lat: number): number;
+  /** Its `surface` is asked before every other feature's (a pad's paving, over the coast's sand under it). */
+  first?: boolean;
   /** What's dangerous at (x, y, z) at time `t` (s into the race), if anything ('none' to leave it to the next); `height` is the ground's (x, z). */
   hazard?(x: number, y: number, z: number, t: number, height: (x: number, z: number) => number): Hazard;
   /** How far it has sunk the ground `s` m along the main road and `lat` across it (m): down in a canyon, the avalanche goes over you. */
@@ -100,6 +103,7 @@ export function groundFeatures(def: GroundDef, main: BakedSpline): Feature[] {
     else if (f.kind === 'uneven') out.push(unevenFeature(f));
     else if (f.kind === 'lava-stream') out.push(lavaStreamFeature(f));
     else if (f.kind === 'seawall') out.push(seawallFeature(f, main));
+    else if (f.kind === 'pad') out.push(padFeature(f));
   }
   return out;
 }

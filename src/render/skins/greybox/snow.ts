@@ -9,7 +9,7 @@ import { BufferAttribute, BufferGeometry, Color, type MeshToonMaterial, ConeGeom
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { smoothstep } from '../../../core/math';
 import { VERGE_DEFAULT, type Track } from '../../../core/track/bake';
-import { KIND_BEACH, KIND_BRANCH, KIND_LAVA_ROCK, KIND_ROAD, KIND_SAND, KIND_SHORE, noise, surfaceNoise } from '../../../core/track/ground';
+import { KIND_BEACH, KIND_BRANCH, KIND_LAVA_ROCK, KIND_PAVED, KIND_ROAD, KIND_SAND, KIND_SHORE, noise, surfaceNoise } from '../../../core/track/ground';
 import { TREE_PINE } from '../../../core/track/pines';
 import { hash01 } from '../../../core/rng';
 import { buildPortals, VERTEX } from './portal';
@@ -138,8 +138,10 @@ export function buildSnow(track: Track, green?: Color): Object3D[] {
           // (A beach's sand a little damper in patches.)
           else if (kind === KIND_BEACH) c.copy(SAND).lerp(SAND_WET, 0.25 * smoothstep(0, 1, (n - 0.5) * 3));
           // A lava stream's rock: dark, in patches, scorched darker toward the lava.
+          // A pad's paving: the road's asphalt.
+          else if (kind === KIND_PAVED) c.copy(surfaceColors[track.surfaceIndex.get('asphalt') ?? 0]);
           else if (kind === KIND_LAVA_ROCK) c.copy(LAVA_ROCK).lerp(LAVA_ROCK_2, smoothstep(0, 1, (n - 0.3) * 2.5)).lerp(ASH, 0.3 * smoothstep(0, 1, (noise(x, z, 9, 11) - 0.5) * 3));
-          if (isle && !road && kind !== KIND_SHORE && kind !== KIND_SAND && kind !== KIND_BEACH && kind !== KIND_LAVA_ROCK) {
+          if (isle && !road && kind !== KIND_SHORE && kind !== KIND_SAND && kind !== KIND_BEACH && kind !== KIND_LAVA_ROCK && kind !== KIND_PAVED) {
             const off = Math.abs(lateral[k]) - main.width[i] / 2;
             if (grass) {
               // Inland of the beach, the island's green, darkening into forest away from the roads;

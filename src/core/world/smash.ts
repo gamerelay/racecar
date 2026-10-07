@@ -35,6 +35,10 @@ export const SMASH_KINDS: readonly SmashKind[] = [
   { id: 'gate-blue', r: 0.25, h: 3.2, slow: 0.995, boost: 0.005, points: 25 },
   // A bush on open ground (SmashDef.at): Coastal's hillsides, where you cut down between the switchbacks. Costly to plough through.
   { id: 'bush', r: 1.1, h: 1.5, slow: 0.82, boost: 0.01, points: 50 },
+  // A tiki torch on Harbor Town's front road (Paradise Open): a bamboo pole, a flame on top.
+  { id: 'tiki-torch', r: 0.25, h: 2.4, slow: 0.995, boost: 0.02, points: 75 },
+  // A rack of surfboards on Paradise Open's beach line, upright in a frame.
+  { id: 'surf-rack', r: 0.9, h: 2.4, slow: 0.95, boost: 0.04, points: 150 },
 ];
 export const SMASH_IDS = SMASH_KINDS.map((k) => k.id);
 

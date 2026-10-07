@@ -10,7 +10,7 @@ import { bakeTrack, COLUMN, mainDistance, porchColumns, sampleIndex, wrap } from
 import { newHit, offRoad, projectGlobal } from './query';
 import { OVERRIDES } from '../maps';
 import { regionProblem, respawnProblem, type OverrideCode } from './overrides';
-import { LAVA_REACH, pathDistance } from './features/lava-stream';
+import { LAVA_REACH, streamDistance } from './features/lava-stream';
 import { atan2, cos, hypot, sin } from '../math';
 import { along, across } from './frame';
 import { newCast, RUN_IN } from './ground';
@@ -83,6 +83,9 @@ export function validateLayout(layout: TrackLayout, surfaces: SurfaceDef[], clas
     } else if (f.kind === 'lava-stream') {
       if (!Array.isArray(f.path) || f.path.length < 2 || f.path.some((p) => !Array.isArray(p) || p.length !== 2 || !p.every(Number.isFinite)) || !(f.width > 0) || !(f.depth > 0))
         bad('a lava stream needs a path of 2 points or more, a width and a depth');
+      if (f.pool && !(f.pool.r > f.width / 2 && Number.isFinite(f.pool.floor))) bad("a lava stream's pool needs a radius wider than its channel and a floor");
+    } else if (f.kind === 'pad') {
+      if (!(Array.isArray(f.at) && f.at.length === 2 && f.at.every(Number.isFinite) && Array.isArray(f.size) && f.size.length === 2 && f.size.every((v) => v > 0) && Number.isFinite(f.rot) && Number.isFinite(f.y))) bad('a pad needs a middle, a size over 0 each way, a heading and a height');
     } else err(`ground feature ${k}: unknown kind "${(f as { kind: unknown }).kind}"`);
   }
   if (out.some((p) => p.level === 'error')) return out;
@@ -94,7 +97,7 @@ export function validateLayout(layout: TrackLayout, surfaces: SurfaceDef[], clas
   // every road's shoulder. (Where one crosses a road, a bridge over it is a piece: not built yet.)
   for (const f of layout.ground?.features ?? []) {
     if (f.kind !== 'lava-stream') continue;
-    const dist = pathDistance(f.path, f.width / 2 + LAVA_REACH + 60);
+    const dist = streamDistance(f, f.width / 2 + LAVA_REACH + 60);
     for (const sp of track.splines) {
       for (let i = 0; i < sp.n; i++) {
         if (dist(sp.px[i], sp.pz[i]) - sp.width[i] / 2 - sp.shoulder[i] >= f.width / 2 + LAVA_REACH) continue;

@@ -36,6 +36,8 @@ import type { SceneLive } from '../../skin';
 import type { Keep } from './cityscape';
 import { animatedPoints, boxes, FONT, glowPoints, type Box } from './scenery';
 import { pontoon, quay } from './marina';
+import { instanced } from './forest';
+import { PALM_LEAVES, palmGeometry, swaying } from './island';
 import { water } from './terrain';
 import { faceted, toon } from './toon';
 
@@ -942,6 +944,95 @@ function surfShack(c: Ctx): Built {
   return { root };
 }
 
+/**
+ * A car park's markings (Paradise Open's Harbor Town, on the beach): it stands on its pad (a ground
+ * feature, paved and level) round its aisle (a street, the track's), its front (+z) along the
+ * aisle, the front road off its -x side, the sea off +x. A row of `bays` bays, `bay` m apart,
+ * either side of the aisle (`aisle` its half width), out to the pad's edge (`depth` across,
+ * `length` along): white lines between them; a kerb along its sea side and its ends and along the
+ * road between its driveways; palms along the sea side and a sign by the road. Its parked cars are
+ * houses (solid; look 'parked').
+ */
+function carPark(m: LandmarkDef, c: Ctx): Built {
+  const root = new Group();
+  const { length = 60, depth = 24, aisle = 5.5, bays = 16, bay = 2.8 } = m.params ?? {};
+  const half = depth / 2;
+  const row = (bays * bay) / 2;
+  const S = solids();
+  const LINE = 0xf2f2ee;
+  const KERB = 0xd8d2c4;
+  // The bays' lines, either side of the aisle.
+  for (const sd of [-1, 1])
+    for (let j = 0; j <= bays; j++) {
+      const z = -row + j * bay;
+      const x = sd * (aisle + half) / 2;
+      S.add(half - aisle - 0.6, 0.04, 0.14, LINE, x, c.ground(x, z) + 0.03, z);
+    }
+  // The bays' backs: a line along each row's far end.
+  for (const sd of [-1, 1]) S.add(0.14, 0.04, 2 * row, LINE, sd * (half - 0.5), 0.03, 0);
+  // The kerb: along the sea side and its half of the ends; along the road between the driveways.
+  const kerb = (w: number, d: number, x: number, z: number) => S.add(w, 0.2, d, KERB, x, c.ground(x, z) + 0.1, z);
+  kerb(0.3, length, half - 0.15, 0);
+  for (const e of [-1, 1]) kerb(half - aisle - 0.5, 0.3, (aisle + 0.5 + half) / 2, e * (length / 2 - 0.15));
+  kerb(0.3, 2 * row, -(half - 0.15), 0);
+  // A sign by the road at its middle, on two posts, facing it.
+  const SIGN = { x: -(half + 1.4), w: 4.4, h: 1.2, up: 2.4 };
+  for (const dz of [-1.8, 1.8]) S.add(0.12, SIGN.up + SIGN.h / 2, 0.12, 0x6b4a2a, SIGN.x, c.ground(SIGN.x, dz) + (SIGN.up + SIGN.h / 2) / 2, dz);
+  root.add(S.mesh());
+  const sign = staticCanvas(512, 140, (g) => {
+    g.fillStyle = '#1f6f8b';
+    g.fillRect(0, 0, 512, 140);
+    g.strokeStyle = '#f4f1e6';
+    g.lineWidth = 8;
+    g.strokeRect(8, 8, 496, 124);
+    g.fillStyle = '#f4f1e6';
+    g.font = `56px ${FONT}`;
+    g.textAlign = 'center';
+    g.textBaseline = 'middle';
+    g.fillText('BEACH PARKING', 256, 74);
+  });
+  const f = face(sign, SIGN.w, SIGN.h);
+  f.position.set(SIGN.x - 0.08, c.ground(SIGN.x, 0) + SIGN.up, 0);
+  f.rotation.y = -Math.PI / 2;
+  root.add(f);
+  // Palms along the sea side, leaning out to sea a little.
+  const palm = palmGeometry();
+  const trunk = swaying(c.time, 0.006);
+  trunk.color = new Color(0x8a6a44);
+  const spots = [-length / 2 + 3, -length / 6, length / 6, length / 2 - 3].map((z, k) => ({ x: half + 2.2, y: c.ground(half + 2.2, z) - 0.2, z, yaw: 0.3 * (k % 2 ? 1 : -1), sx: 1, sy: 0.9 + 0.1 * k, sz: 1, color: PALM_LEAVES[k % PALM_LEAVES.length] }));
+  root.add(instanced(palm.trunk, trunk, spots.map((q) => ({ ...q, color: 0xffffff }))), instanced(palm.fronds, swaying(c.time, 0.006), spots));
+  return { root };
+}
+
+/**
+ * A lifeguard tower on Paradise Open's beach (its solid block a house, look 'landmark'): a hut on
+ * four stilts, its front (+z) to the sea, a ramp down the back, a red and yellow flag on its roof.
+ */
+function lifeguardTower(c: Ctx): Built {
+  const root = new Group();
+  const S = solids();
+  const WOOD = 0xd9c9a3;
+  const UP = 2.6;
+  for (const [x, z] of [[-1.3, -1.1], [1.3, -1.1], [-1.3, 1.1], [1.3, 1.1]]) {
+    const g = c.ground(x, z);
+    S.add(0.22, UP - g, 0.22, WOOD, x, (UP + g) / 2, z);
+  }
+  S.add(3.2, 0.2, 2.8, WOOD, 0, UP, 0);
+  S.add(2.8, 1.9, 2.4, 0xf2c23a, 0, UP + 1.05, 0);
+  S.add(2.2, 0.8, 0.05, 0x2d3a4a, 0, UP + 1.3, 1.21);
+  S.add(3.4, 0.25, 3.0, 0xe24a3a, 0, UP + 2.15, 0);
+  // The ramp down the back, its foot on the sand.
+  const foot = c.ground(0, -4.6);
+  const ramp = box(1, 0.12, Math.hypot(UP - foot, 3.4), WOOD, 0, (UP + foot) / 2, -2.9);
+  ramp.rotation.x = -Math.atan2(UP - foot, 3.4);
+  root.add(ramp);
+  S.add(0.06, 2.2, 0.06, 0xf4f1e6, 1.2, UP + 3.3, -1);
+  S.add(0.9, 0.6, 0.03, 0xe24a3a, 1.65, UP + 4.1, -1);
+  S.add(0.9, 0.3, 0.04, 0xf2c23a, 1.65, UP + 4.1, -1);
+  root.add(S.mesh());
+  return { root };
+}
+
 /** A whale out at sea: every so often it breaches, arcing up out of the water and crashing back in a splash, and blows now and then between. */
 function whale(m: LandmarkDef, c: Ctx): Built {
   const every = m.params?.every ?? 80;
@@ -1169,4 +1260,6 @@ const BUILDERS: Record<string, (m: LandmarkDef, ctx: Ctx) => Built> = {
   fort: (m, c) => fort(m, c),
   pontoon: (m, c) => ({ root: new Group().add(pontoon(m, c.sea ?? 0)) }),
   quay: (m, c) => ({ root: new Group().add(quay(m, c.sea ?? 0)) }),
+  'car-park': (m, c) => carPark(m, c),
+  'lifeguard-tower': (_m, c) => lifeguardTower(c),
 };

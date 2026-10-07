@@ -251,7 +251,9 @@ export function buildTrackVisual(baked: Track, palette: Palette, seed: number): 
   const isle = track.ground && (track.ground.sea !== undefined || track.pines) ? buildOpenIsland(track, palette, seed) : null;
   // What the ground's features draw (features.ts): a lava stream's lava.
   const features = drawFeatures(track);
-  const extras: Object3D[] = track.ground ? [...buildSnow(track, track.layout.ground?.coast ? new Color(palette.ground) : undefined), ...decks, ...buildTubes(track), ...buildRockRails(track), ...buildHouses(track), ...buildBunting(track), ...buildBuildings(track), ...(isle?.objects ?? []), ...(track.layout.ground?.coast && !track.layout.ground.volcano ? [...buildTufts(track, new Color(palette.ground)), ...buildCliffs(track)] : []), ...features.objects] : city ? [] : land ? [...land.objects] : [plainGround()];
+  // The Lava Tube's kicker's chevrons run with the clock.
+  const tubeTime = { value: 0 };
+  const extras: Object3D[] = track.ground ? [...buildSnow(track, track.layout.ground?.coast ? new Color(palette.ground) : undefined), ...decks, ...buildTubes(track, tubeTime), ...buildRockRails(track), ...buildHouses(track), ...buildBunting(track), ...buildBuildings(track), ...(isle?.objects ?? []), ...(track.layout.ground?.coast && !track.layout.ground.volcano ? [...buildTufts(track, new Color(palette.ground)), ...buildCliffs(track)] : []), ...features.objects] : city ? [] : land ? [...land.objects] : [plainGround()];
   const wet = puddles(track);
   if (wet) extras.push(wet);
   // Solid props on the road (the pillars): tall striped boxes. The Trestle's legs are the forest's.
@@ -306,6 +308,7 @@ export function buildTrackVisual(baked: Track, palette: Palette, seed: number): 
   update = (t, dt, cam, live) => {
     scenery?.(t, dt, cam, live);
     features.update(t);
+    tubeTime.value = t;
     marks.update(t, live);
   };
 

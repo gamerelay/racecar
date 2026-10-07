@@ -355,7 +355,7 @@ export class Sim implements SimState {
     c.driftExit[i] = c.driftBank[i] = c.driftChain[i] = c.chainT[i] = c.chainPts[i] = 0;
     c.miniT[i] = c.stallT[i] = c.boosting[i] = c.oncomingT[i] = c.wreckT[i] = 0;
     c.draft[i] = c.draftT[i] = c.slingT[i] = c.cruise[i] = c.cruiseFull[i] = 0;
-    c.aiHold[i] = c.aiBack[i] = 0;
+    c.aiHold[i] = c.aiBack[i] = c.aiMerge[i] = 0;
     c.lastTakenBy[i] = 0;
     // Nor timers, the air, the body's tilt or who hit it last.
     c.ghostT[i] = c.resetCooldown[i] = c.stuckT[i] = c.wallT[i] = c.driftCooldown[i] = c.airT[i] = 0;

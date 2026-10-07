@@ -724,6 +724,8 @@ function avoid(sim: SimState, i: number, sp: BakedSpline, s: number, target: num
     candLat[k] = mid + CANDIDATES[k] * half;
     candTime[k] = HORIZON;
   }
+  // Merging off a branch, the mirror too (on the road it's on, not one it's turning off onto).
+  if (sp.index === c.spline[i] && merging(sim, i)) target = mirror(sim, i, target, speed, me);
   mk.speed = speed;
   mk.target = target;
   mk.here = c.lateral[i];
@@ -805,6 +807,69 @@ function avoid(sim: SimState, i: number, sp: BakedSpline, s: number, target: num
   c.aiLat[i] = candLat[best];
   c.aiHold[i] = 0.8;
   return candLat[best];
+}
+
+/**
+ * Where a branch rejoins a road, from `before` m before its rejoin (where it's on the road already)
+ * to `after` m past it: a merge, where a car checks its mirror. A threat there is a car `behind` m
+ * back at most, faster and `soon` s from alongside, or alongside already (`alongside` car lengths
+ * behind, whatever its speed, to `ahead` m in front);
+ * the merging car keeps `room` m between their sides.
+ */
+const MERGE = { before: 50, after: 90, behind: 70, ahead: 6, soon: 2.5, room: 2.5, alongside: 3 };
+/**
+ * Whether car `i` is merging: on a branch it notes it (c.aiMerge); back on the road the branch
+ * rejoins, it's merging till it's MERGE.after m past the rejoin. (Only the car coming off the
+ * branch: every car in the zone checking, the pack off Backroads' start through the Barn's rejoin
+ * held its lines into each other, 80 -> 96 field wrecks in 72 races.)
+ */
+function merging(sim: SimState, i: number): boolean {
+  const c = sim.cars;
+  const here = c.spline[i];
+  if (here !== 0 && sim.track.splines[here].toRoad !== undefined && sim.track.layout.branches?.[here - 1]) {
+    c.aiMerge[i] = here;
+    return false;
+  }
+  const from = c.aiMerge[i];
+  if (!from) return false;
+  const b = sim.track.splines[from];
+  if (b.toRoad !== here) {
+    c.aiMerge[i] = 0;
+    return false;
+  }
+  const road = sim.track.splines[here];
+  const d = road.closed ? signedGap(c.s[i], b.toS, road.length) : c.s[i] - b.toS;
+  if (d > MERGE.after) {
+    c.aiMerge[i] = 0;
+    return false;
+  }
+  return d > -MERGE.before;
+}
+
+/**
+ * The mirror at a merge: a faster car coming up behind (or alongside) on a line between here and
+ * `target` holds us on this side of it until it's by. Ahead, avoid() looks; behind it never did,
+ * and rivals off Paradise's beach line swung across the road onto the racing line in front of the
+ * ones coming round on it (6–11 field wrecks in 72 races at the rejoin).
+ */
+function mirror(sim: SimState, i: number, target: number, speed: number, me: number): number {
+  const c = sim.cars;
+  const sp = sim.track.splines[c.spline[i]];
+  const here = c.lateral[i];
+  const len = sim.classes[c.cls[i]].size[1];
+  for (let j = 0; j < c.count; j++) {
+    if (j === i || !c.active[j] || c.wreck[j] || c.spline[j] !== c.spline[i]) continue;
+    const ds = sp.closed ? signedGap(c.s[j], c.s[i], sp.length) : c.s[j] - c.s[i];
+    if (ds > MERGE.ahead || ds < -MERGE.behind) continue;
+    const closing = hypot(c.vx[j], c.vz[j]) - speed;
+    // (Within `alongside` lengths behind, it's alongside, whatever its speed.)
+    if (ds < -MERGE.alongside * len && (closing < 1 || Math.max(0, -ds - len) / closing > MERGE.soon)) continue;
+    const lat = c.lateral[j];
+    const band = sim.classes[c.cls[j]].size[0] + me + MERGE.room;
+    if (here < lat && target > lat - band) target = Math.min(target, lat - band);
+    else if (here > lat && target < lat + band) target = Math.max(target, lat + band);
+  }
+  return target;
 }
 
 const HORIZON = 3.2;

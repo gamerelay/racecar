@@ -87,6 +87,8 @@ export function buildPines(def: PinesDef, layout: TrackLayout, main: BakedSpline
       out.push([x, y, z, kind === TREE_PALM ? 0.5 : 0.9 + 0.04 * h, h, kind]);
     }
   }
+  // The planted palms (PinesDef.plant), each as tall as a palm grows here.
+  for (const [k, [x, z]] of (def.plant ?? []).entries()) out.push([x, ground.height(x, z), z, 0.5, 7 + 5 * hash01(def.seed + 3, k, 0), TREE_PALM]);
   const n = out.length;
   const pick = (c: number) => Float32Array.from(out, (t) => t[c]);
   const x = pick(0);

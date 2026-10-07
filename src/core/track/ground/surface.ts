@@ -24,6 +24,8 @@ export const KIND_SHORE = 4;
 export const KIND_BEACH = 5;
 /** Rock: a lava stream's banks and floor (drives as `lava-rock`). */
 export const KIND_LAVA_ROCK = 6;
+/** Paved ground: a pad (features/pad.ts), drawn and driven as its surface (asphalt). */
+export const KIND_PAVED = 7;
 
 /** Over a main-road tunnel's road: ground this far (m) over it is the rock, not the road come up to meet it. */
 const TUNNEL_OVER = 2;
@@ -38,7 +40,8 @@ export const surfaceNoise = (x: number, z: number) => noise(x, z, 23, 7);
 export function groundKinds(land: Land, main: BakedSpline, marks: BranchMarks, pieces: Pieces, features: readonly Feature[]): Uint8Array {
   const { x0, z0, cell, nx, nz, h, lateral, near } = land;
   const decks = pieces.floors(main.index);
-  const say = features.filter((f) => f.surface);
+  // (Those that say first before the rest: a pad's paving over the coast's sand.)
+  const say = [...features.filter((f) => f.surface && f.first), ...features.filter((f) => f.surface && !f.first)];
   const kind = new Uint8Array(nx * nz);
   for (let gz = 0; gz < nz; gz++)
     for (let gx = 0; gx < nx; gx++) {

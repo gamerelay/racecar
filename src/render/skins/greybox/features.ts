@@ -88,5 +88,32 @@ function lavaStream(f: LavaStreamDef, ground: Ground, time: { value: number }): 
   g.computeBoundingSphere();
   const mesh = new Mesh(g, lavaMaterial(time));
   mesh.name = 'lava-stream';
-  return [mesh, glowPoints(glow, 0xff5a14, 14)];
+  const out: Object3D[] = [mesh];
+  // Its pool: a level disc over its floor, out to meet its banks, the flow's texture swirling round.
+  if (f.pool) {
+    const [ex, ez] = f.path[f.path.length - 1];
+    const r = f.pool.r + LAVA_EDGE;
+    const y = f.pool.floor + LAVA_FILL;
+    const disc = new BufferGeometry();
+    const ring = 32;
+    const p: number[] = [ex, y, ez];
+    const u: number[] = [0.5, 0];
+    const k: number[] = [];
+    for (let j = 0; j <= ring; j++) {
+      const a = (j / ring) * Math.PI * 2;
+      p.push(ex + Math.cos(a) * r, y, ez + Math.sin(a) * r);
+      u.push(j % 2, 1);
+      if (j < ring) k.push(0, j + 2, j + 1);
+    }
+    disc.setAttribute('position', new Float32BufferAttribute(p, 3));
+    disc.setAttribute('uv', new Float32BufferAttribute(u, 2));
+    disc.setIndex(k);
+    disc.computeBoundingSphere();
+    const pond = new Mesh(disc, lavaMaterial(time));
+    pond.name = 'lava-pool';
+    out.push(pond);
+    for (let j = 0; j < 4; j++) glow.push(ex + Math.cos(j * 1.57) * r * 0.5, y + 2, ez + Math.sin(j * 1.57) * r * 0.5);
+  }
+  out.push(glowPoints(glow, 0xff5a14, 14));
+  return out;
 }

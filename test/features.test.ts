@@ -12,7 +12,7 @@ describe('feature modules', () => {
   const open = bakeTrack(layout('paradise-open/open'), SURFACES).ground!;
 
   test("a layout's features, in the order they shape the ground", () => {
-    expect(open.features.map((f) => f.kind)).toEqual(['volcano', 'coast', 'beach', 'uneven', 'lava-stream']);
+    expect(open.features.map((f) => f.kind)).toEqual(['volcano', 'coast', 'beach', 'uneven', 'lava-stream', 'lava-stream', 'pad', 'pad']);
     expect(bakeTrack(layout('avalanche/slope'), SURFACES).ground!.features.map((f) => f.kind)).toEqual(['moguls', 'moguls', 'canyon', 'canyon']);
   });
 
@@ -99,8 +99,8 @@ describe('feature modules', () => {
       }
       return d;
     };
-    expect(lumps(2520, 2590)).toBeGreaterThan(0.04);
-    expect(lumps(2200, 2330)).toBeLessThan(lumps(2520, 2590));
+    expect(lumps(2630, 2700)).toBeGreaterThan(0.04);
+    expect(lumps(2310, 2440)).toBeLessThan(lumps(2630, 2700));
   });
 
   test("the coast's distance from its grid is loopDist's to the bit, on the island and far off it", () => {

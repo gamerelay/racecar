@@ -49,6 +49,21 @@ const MODELS: Record<string, () => BufferGeometry> = {
       ...Array.from({ length: 8 }, (_, k) => part(new ConeGeometry(1.3, 0.55, 2, 1, false, (k * Math.PI) / 4, Math.PI / 4), k % 2 ? 0xffffff : 0xff2e88, 0, 2.45)),
       part(new ConeGeometry(0.5, 0.25, 8), 0xffffff, 0, 2.75),
     ])!,
+  // A tiki torch: a bamboo pole, banded, its bowl, and a flame.
+  'tiki-torch': () =>
+    mergeGeometries([
+      part(new CylinderGeometry(0.07, 0.09, 2.1, 6), 0xc9a86a, 0, 1.05),
+      ...[0.5, 1.1, 1.7].map((y) => part(new CylinderGeometry(0.1, 0.1, 0.08, 6), 0x6b4a2a, 0, y)),
+      part(new CylinderGeometry(0.18, 0.1, 0.3, 8), 0x5a3f2e, 0, 2.2),
+      part(new ConeGeometry(0.16, 0.5, 6), 0xffa020, 0, 2.6),
+    ])!,
+  // A surfboard rack: a bamboo frame and five boards upright in it, in a fan of colours.
+  'surf-rack': () =>
+    mergeGeometries([
+      ...[-0.85, 0.85].map((x) => part(new BoxGeometry(0.1, 1.4, 0.5), 0xc9a86a, x, 0.7)),
+      part(new BoxGeometry(1.8, 0.1, 0.5), 0xc9a86a, 0, 1.1),
+      ...[0xff2e88, 0x35f0ff, 0xffd23f, 0x7cff6b, 0xff6a00].map((c, k) => part(new BoxGeometry(0.08, 2.2, 0.45), c, -0.64 + k * 0.32, 1.15)),
+    ])!,
   // A slalom gate's flag: a pole and a panel across it, square to the road (seen from up the slope).
   'gate-red': () =>
     mergeGeometries([

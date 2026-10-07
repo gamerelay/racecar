@@ -4,7 +4,7 @@
 // along the coast, leaning out to sea, and jungle trees inland, each drawn where its collider
 // stands. The rest of the island's dressing stands on open ground only once it's solid too.
 
-import { BufferGeometry, Color, ConeGeometry, CylinderGeometry, IcosahedronGeometry, type Object3D } from 'three';
+import { BufferGeometry, Color, ConeGeometry, CylinderGeometry, Float32BufferAttribute, IcosahedronGeometry, Mesh, type Object3D } from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { Rng } from '../../../core/rng';
 import { coneHeight } from '../../../core/track/island';
@@ -19,6 +19,7 @@ import { crater, JUNGLE, PALM_LEAVES, palmGeometry, swaying } from './island';
 import type { Palette } from './palettes';
 import { sea } from './terrain';
 import { faceted, toon } from './toon';
+import { buildWilds } from './wilds';
 
 export interface OpenIsland {
   objects: Object3D[];
@@ -41,6 +42,7 @@ export function buildOpenIsland(track: Track, palette: Palette, seed: number): O
   const v = def.volcano;
   if (v) objects.push(...crater(v, seaY + v.lava, time, rng, v.pit !== undefined ? v.crater : undefined, v.pit !== undefined ? seaY + coneHeight(v, v.x + v.crater, v.z) : undefined));
 
+  objects.push(...ruts(track));
   const p = track.pines;
   if (p && p.n && def.pines?.look === 'riviera') objects.push(...riviera(track, time, rng), ...promenade(track, time, !!palette.day));
   else if (p && p.n) {
@@ -74,6 +76,8 @@ export function buildOpenIsland(track: Track, palette: Palette, seed: number): O
       objects.push(instanced(faceted(new IcosahedronGeometry(1, 0)), swaying(time, 0.01, 3), crowns));
     }
   }
+  // The jungle's mud and the volcano's cone, dressed (wilds.ts; its own stream, so the trees above keep theirs).
+  objects.push(...buildWilds(track, time, Rng.stream(seed, 'wilds')));
   return {
     objects,
     update(t) {
@@ -161,6 +165,62 @@ function umbrellaCrown(): BufferGeometry {
 /** A cypress, 1 m tall and a fifth of that wide: a slim dark flame, fullest a quarter of the way up. */
 function cypressGeometry(): BufferGeometry {
   return mergeGeometries([faceted(new ConeGeometry(0.1, 0.78, 7).translate(0, 0.58, 0)), faceted(new IcosahedronGeometry(0.1, 0)).scale(1, 1.6, 1).translate(0, 0.2, 0)]);
+}
+
+/**
+ * Ruts: down a packed-sand road (Paradise Open's beach line), two darker tyre tracks; down the
+ * jungle's red earth, two in each lane, darker and wetter. Each `apart` m either side of a lane's
+ * middle, this wide, a little over the ground.
+ */
+const RUTS = [
+  { surface: 'packed-sand', apart: 0.9, width: 0.55, over: 0.04, color: 0xa88f62, opacity: 0.55 },
+  { surface: 'red-earth', apart: 0.95, width: 0.5, over: 0.04, color: 0x5c3420, opacity: 0.45 },
+];
+
+/**
+ * Ruts down every road on a rutted surface (RUTS), wandering a little, laid on the ground, so the
+ * firm line reads across the loose ground round it at speed. Wherever a road's on that surface
+ * (the main road's jungle is a stretch of it). Drawn only.
+ */
+function ruts(track: Track): Object3D[] {
+  const g = track.ground!;
+  const out: Object3D[] = [];
+  for (const r of RUTS) {
+    const id = track.surfaceIndex.get(r.surface);
+    if (id === undefined) continue;
+    const pos: number[] = [];
+    const idx: number[] = [];
+    for (const sp of track.splines) {
+      // A lane's middle either side of the road's on a two-lane road; its own middle on one.
+      const lanes = sp.width[0] > 10 ? [-sp.width[0] / 4, sp.width[0] / 4] : [0];
+      for (const lane of lanes) {
+        for (const side of [-1, 1]) {
+          for (let i = 0; i + 1 < sp.n; i++) {
+            if (sp.surface[i] !== id || sp.surface[i + 1] !== id) continue;
+            const base = pos.length / 3;
+            for (const k of [i, i + 1]) {
+              const lat = lane + side * r.apart + 0.25 * Math.sin(k * 0.11 + side + lane);
+              for (const e of [-r.width / 2, r.width / 2]) {
+                const x = sp.px[k] - sp.tz[k] * (lat + e);
+                const z = sp.pz[k] + sp.tx[k] * (lat + e);
+                pos.push(x, g.height(x, z) + r.over, z);
+              }
+            }
+            idx.push(base, base + 1, base + 3, base, base + 3, base + 2);
+          }
+        }
+      }
+    }
+    if (!pos.length) continue;
+    const geo = new BufferGeometry();
+    geo.setAttribute('position', new Float32BufferAttribute(pos, 3));
+    geo.setIndex(idx);
+    geo.computeVertexNormals();
+    const mesh = new Mesh(geo, toon({ color: r.color, transparent: true, opacity: r.opacity, depthWrite: false }));
+    mesh.name = `ruts-${r.surface}`;
+    out.push(mesh);
+  }
+  return out;
 }
 
 /** Along a sea wall: a palm, then a lamp, each this far apart (m), on its ledge this far past the parapet's road face. */

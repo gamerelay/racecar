@@ -4,7 +4,37 @@ Where racecar stands and what's next, for whoever picks it up (a person or a fre
 The design is [SPEC.md](./SPEC.md): decisions in §17, and what building changed in "Changed while
 building". This file is "where are we"; the spec is "what are we making".
 
-**Last updated:** 2026-10-06. **`alpha-1.36`** (PRs #150, #151) is tagged and on the hosted build:
+**Last updated:** 2026-10-07. **In review: PR #152, Paradise Open's detail pass, and Paradise Open
+goes live as *Paradise*** (the owner: "detail the map similar to what we did with Riviera", Hawaii;
+then "make this the displayed Paradise map in the game"). Not tagged, not on the hosted build yet:
+that's on the owner's word. Paradise Open is in the lobby, the vote and quick race as *Paradise*
+(its id stays `paradise-open`: links, fingerprints); the old island lap, `paradise/island`, is
+experimental (*Paradise Classic*, from a link). It's all in PARADISE.md's "Built so far", from
+"Harbor Town (2026-10-06)" on:
+- **Harbor Town**, Lahaina's Front Street round the line: two back streets up the hill and two
+  beach car parks (level paved pads, `PadDef`), wooden shops, plantation cottages, a banyan, the
+  surf shack, tiki torches, palms along the streets (none on corners or round the grid). Traffic
+  out of one car park and into the other, and up and down the back streets.
+- **The bulge:** the west coast's jog is one round, banked D (the lap 110 m longer; every main
+  distance past it moves on through `S()`), a second lava stream down the west face into a pool.
+- **The beach run:** a packed-sand shortcut along the water across the bulge: whoops, two jumps,
+  micro turns and moguls (`BEACH_RUN`). A shortcut by the AI's costs for most classes (the
+  muscle car keeps to the road). Its merge back onto the front road eases in over 70 m.
+- **Flying, not slowing:** the market hall's sand floor gone, a kicker out of its far door; the
+  Lava Tube's jump's kicker a boost pad with blue and white chevrons chasing up it.
+- **The mud and the volcano dressed** (drawn only, `wilds.ts`): ruts, mud puddles, ferns,
+  lianas and a rope bridge in the jungle; glowing cracks, steam vents and cinders on the cone.
+- **The AI checks its mirror at a merge** (racer.ts's `mirror`, `MERGE`; a new car field,
+  `aiMerge`): a car coming off a branch, near the rejoin, holds its side of the road while a car is
+  alongside or coming up faster on a line it would cross. Field wrecks over seeds 1–72: Paradise's
+  rejoin 6 -> 2, Backroads 80 -> 66; over 1–24 Riviera 7 -> 8, Downtown 28 -> 25, Avalanche the
+  same. Every fingerprint re-recorded (they hash every car field; each drive's marks unchanged).
+- **Numbers:** floor 67.37 s; field wrecks over seeds 1–72: 48 (65 on main), most of them the
+  lava bombs by the rim road at 3150–3200 m. The full suite passes.
+- **Next on Paradise:** the finish; maybe more palms on the front road. Then merge #152, tag, and
+  deploy.
+
+Before it, **`alpha-1.36`** (PRs #150, #151) is tagged and on the hosted build:
 **no hop at the Rock Tunnel's mouths** (#150: half into a piece, a wheel off its end stands on its
 own ground near the floor, not on the floor at the car's middle; every class flew 15 m off each
 mouth, the owner's "bounce approaching the tunnel"; Paradise Open's pieces moved a little too) and

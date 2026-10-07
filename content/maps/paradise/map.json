@@ -1,1 +1,1 @@
-{ "id": "paradise", "name": "Paradise", "layouts": ["island"], "palette": "tropic", "sunset": "sunset", "weather": ["clear", "rain", "shower"] }
+{ "id": "paradise", "name": "Paradise Classic", "layouts": ["island"], "palette": "tropic", "sunset": "sunset", "weather": ["clear", "rain", "shower"], "experimental": true }

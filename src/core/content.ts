@@ -174,7 +174,8 @@ export interface LandmarkDef {
  * A house on open ground (docs/COASTAL.md: the Riviera town): a solid block in world space, standing
  * on the lowest ground under it, met as a building's wall is (scraped along, a wreck only hit hard).
  * Trees keep off it; the validator keeps every road clear of it. The skin draws its look (a key of
- * its own, the Riviera's stucco houses by default).
+ * its own, the Riviera's stucco houses by default; 'landmark': none, it's a landmark's solid block,
+ * the landmark standing in it drawn instead).
  */
 export interface HouseDef {
   /** Its middle, [x, z] (m). */
@@ -199,7 +200,7 @@ export const LANDMARK_KINDS = [
   // Backroads
   'windmill', 'cow', 'water-tower', 'drive-in', 'scarecrow', 'balloon',
   // Paradise (its lighthouse is the island's own scenery)
-  'shipwreck', 'tiki-head', 'surf-shack', 'whale', 'seaplanes',
+  'shipwreck', 'tiki-head', 'surf-shack', 'whale', 'seaplanes', 'car-park', 'lifeguard-tower',
   // Coastal
   'lighthouse', 'fort', 'pontoon', 'quay',
 ] as const;
@@ -368,6 +369,11 @@ export interface PinesDef {
   thicken: number;
   density: number;
   glade: number;
+  /**
+   * Palms planted at these spots ([x, z]) besides the rest (Paradise Open's town streets): each a
+   * palm, solid as any, drawn as the rest are. Whoever plants them keeps them off roads and houses.
+   */
+  plant?: [number, number][];
 }
 
 /**
@@ -591,9 +597,28 @@ export interface LavaStreamDef {
   path: [number, number][];
   width: number;
   depth: number;
+  /**
+   * A round pool it ends in instead of running on (Paradise Open's bulge): its floor `r` m round
+   * the path's last point, level at `floor` (m: the ground there, `depth` down), its banks as the
+   * channel's, lava in it as in the channel.
+   */
+  pool?: { r: number; floor: number };
 }
 
-export type FeatureDef = MogulsDef | CanyonDef | BeachDef | UnevenDef | LavaStreamDef | SeawallDef;
+/**
+ * A paved pad (Paradise Open's car parks): a level rectangle of ground, `size` m (along its heading,
+ * across it) round `at`, its heading `rot` (radians about y, 0 toward +z, as a landmark's), at
+ * height `y`, paved (asphalt), its edges easing back to the ground round it.
+ */
+export interface PadDef {
+  kind: 'pad';
+  at: [number, number];
+  size: [number, number];
+  rot: number;
+  y: number;
+}
+
+export type FeatureDef = MogulsDef | CanyonDef | BeachDef | UnevenDef | LavaStreamDef | SeawallDef | PadDef;
 
 export interface MapDef {
   id: string;
