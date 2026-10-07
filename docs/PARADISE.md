@@ -460,6 +460,19 @@ its first point).
   are at its rejoin (1265–1367 m): a rival off the beach at about 187 km/h comes back in from the
   left and cuts across to the racing line on the right, into one coming round at about 195 there.
   The rest is the lava bombs by the rim road, up 5 (their timing, as laps change).
+- **More technical (later again):** the owner: "a little more technical with micro turns and maybe
+  some mogul like bumps too, right now it's a really fast shortcut". Its micro turns (`turns`: the
+  line swung 2 m either side and back every 38 m, 25–135 m and 405–480 m along it, easing in and
+  out) and moguls (`moguls`: bumps 0.45–0.5 m every 6.5–7 m, 95–168 m and 445–505 m along it),
+  clear of the jumps and their landings. Its points every 2 m (were 4), for the moguls. The
+  turns cost more than the AI's costs liked (2.5 m every 36 m had it 0.2–1.2 s slower than the
+  road for every class: nobody would take it), so `packed-sand`'s drag down to 0.05 (was 0.10)
+  for the straights between: by the costs now 0.1–0.5 s quicker for most, about even for the
+  police car, and 0.26 s slower for the muscle car, which keeps to the road (its top speed). (The
+  costs plan corners without the surface's grip: grip changed nothing.)
+- Over 12 seeds' races 118 rivals took it (hatch 39, rally 36, sedan 21, bus 9, coupe 9, van 4),
+  one wreck on it (two cars). Floor 66.52 -> 67.27 s; field wrecks over seeds 1-72 51 -> 49, one
+  on the sand; its rejoin's merge (above) 6 of them now.
 
 **The mud and the volcano (2026-10-07):** the owner: "add some more detail to the mud and volcano
 like we did on the original map". Drawn only (render's `wilds.ts`, its own random stream), so

@@ -762,12 +762,17 @@ for (const { from, to } of LOTS.list) {
  * `water` m in from the coast, along it (every `keep`th point of it, smoothed), a point every `every`
  * m; `width` m across.
  */
-const BEACH_LINE = { from: 540, to: S(1135), water: 30, every: 8, keep: 14, width: 9, shoulder: 1.5, point: 4 };
+const BEACH_LINE = { from: 540, to: S(1135), water: 30, every: 8, keep: 14, width: 9, shoulder: 1.5, point: 2 };
 /**
  * Its dips and jumps (the owner, 2026-10-07: "add some dips / jumps to the sand path"), down its
  * straight along the water (about 180–420 m along it): each dip a swale `at` m along it, `length`
  * m long and `depth` m deep (in pairs: whoops); each jump a rounded kicker (RampDef: `at`, its
- * `length` up to `height`, rolling back over `back`).
+ * `length` up to `height`, rolling back over `back`). And, later the same day ("a little more
+ * technical with micro turns and maybe some mogul like bumps too, right now it's a really fast
+ * shortcut"): its micro turns, the line swung `amp` m either side and back every `wave` m from
+ * `from` to `to` (m along the line from its first point, easing in and out over a wave), and its
+ * moguls, bumps `height` m high every `spacing` m from `from` to `to`. All but the turns by distance
+ * along its baked road (which starts back on the main road, before its first point).
  */
 const BEACH_RUN = {
   dips: [
@@ -780,15 +785,37 @@ const BEACH_RUN = {
     { at: 250, length: 9, height: 1.5, back: 9 },
     { at: 385, length: 9, height: 1.8, back: 10 },
   ],
+  turns: [
+    { from: 25, to: 135, amp: 2, wave: 38 },
+    { from: 405, to: 480, amp: 2, wave: 38 },
+  ],
+  moguls: [
+    { from: 95, to: 168, height: 0.45, spacing: 7 },
+    { from: 445, to: 505, height: 0.5, spacing: 6.5 },
+  ],
 };
-/** How far down (m) the beach run's dips put it `d` m along it. */
+/** How far down (m) the beach run's dips put it, and up its moguls, `d` m along it. */
 const beachDip = (d: number) => {
   let y = 0;
   for (const dip of BEACH_RUN.dips) {
     const u = (d - dip.at) / dip.length;
     if (u > 0 && u < 1) y += dip.depth * 0.5 * (1 - Math.cos(2 * Math.PI * u));
   }
+  for (const m of BEACH_RUN.moguls) {
+    if (d <= m.from || d >= m.to) continue;
+    const ease = smoothstep(0, 1, Math.min(d - m.from, m.to - d) / m.spacing);
+    y -= ease * m.height * 0.5 * (1 - Math.cos((2 * Math.PI * (d - m.from)) / m.spacing));
+  }
   return y;
+};
+/** How far across (m, + left of its way) the beach run's micro turns swing it `r` m along its line. */
+const beachTurn = (r: number) => {
+  for (const t of BEACH_RUN.turns) {
+    if (r <= t.from || r >= t.to) continue;
+    const ease = smoothstep(0, 1, Math.min(r - t.from, t.to - r) / t.wave);
+    return ease * t.amp * Math.sin((2 * Math.PI * (r - t.from)) / t.wave);
+  }
+  return 0;
 };
 {
   const g = bakeTrack(layout, surfaces);
@@ -851,7 +878,9 @@ const beachDip = (d: number) => {
     const [bx, bz] = line[k + 1];
     const d = Math.hypot(bx - ax, bz - az);
     for (; left < d; left += BEACH_LINE.point) {
-      const [px, pz] = [ax + ((bx - ax) * left) / d, az + ((bz - az) * left) / d];
+      // (Swung across by its micro turns.)
+      const w = beachTurn(run + left);
+      const [px, pz] = [ax + ((bx - ax) * left) / d - ((bz - az) / d) * w, az + ((bz - az) * left) / d + ((bx - ax) / d) * w];
       runs.push(run + left);
       points.push({ p: [Math.round(px * 10) / 10, Math.round(ground.height(px, pz) * 10) / 10, Math.round(pz * 10) / 10], width: BEACH_LINE.width, lanes: 1, shoulder: BEACH_LINE.shoulder, surface: 'packed-sand', verge: 'sand' });
     }
@@ -862,17 +891,20 @@ const beachDip = (d: number) => {
   points.push({ p: [Math.round(lx * 10) / 10, Math.round(ground.height(lx, lz) * 10) / 10, Math.round(lz * 10) / 10], width: BEACH_LINE.width, lanes: 1, shoulder: BEACH_LINE.shoulder, surface: 'packed-sand', verge: 'sand' });
   layout.branches!.push({ id: 'beach-line', from: BEACH_LINE.from, to: BEACH_LINE.to, kind: 'shortcut', points });
   layout.walls!.gaps!.push({ spline: 'beach-line', s: [0, 1e4], side: 'both' });
-  // Down its dips, by distance along its road (which starts back on the main road, before its first
-  // point).
+  // Down its dips and over its moguls, by each point's distance along its baked road (which starts
+  // back on the main road, before its first point; and the turns make it longer than the line).
   {
     const sp = bakeTrack(layout, surfaces).splines.find((x) => x.id === 'beach-line')!;
-    const [x0, , z0] = points[0].p;
     let k0 = 0;
-    for (let i = 0, best = Infinity; i < sp.n; i++) {
-      const d = Math.hypot(sp.px[i] - x0, sp.pz[i] - z0);
-      if (d < best) [best, k0] = [d, i];
+    for (const pt of points) {
+      const [x, , z] = pt.p;
+      let best = Infinity;
+      for (let i = k0, until = Math.min(sp.n, k0 + 200); i < until; i++) {
+        const d = Math.hypot(sp.px[i] - x, sp.pz[i] - z);
+        if (d < best) [best, k0] = [d, i];
+      }
+      pt.p[1] = Math.round((pt.p[1] - beachDip(k0 * sp.step)) * 100) / 100;
     }
-    runs.forEach((r, k) => (points[k].p[1] = Math.round((points[k].p[1] - beachDip(r + k0 * sp.step)) * 10) / 10));
   }
   layout.ramps = [...(layout.ramps ?? []), ...BEACH_RUN.jumps.map((j) => ({ spline: 'beach-line', s: j.at, length: j.length, height: j.height, back: j.back }))];
   const sp = bakeTrack(layout, surfaces).splines.find((x) => x.id === 'beach-line')!;
