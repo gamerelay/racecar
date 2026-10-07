@@ -618,7 +618,23 @@ export interface PadDef {
   y: number;
 }
 
-export type FeatureDef = MogulsDef | CanyonDef | BeachDef | UnevenDef | LavaStreamDef | SeawallDef | PadDef;
+/**
+ * A pyramid (docs/SAHARA.md's Giza): a square stone pyramid round `at` ([x, z]), its foot `half` m
+ * from its middle to each side, rising `h` m over `y` (its foot's height) to a flat top `top` m from
+ * its middle to each side, turned `rot` (radians about y, as a landmark's). Its faces are ground,
+ * driven up (sandstone). Cut back to the main road, as a hill is; a branch over it shapes its own way.
+ */
+export interface PyramidDef {
+  kind: 'pyramid';
+  at: [number, number];
+  half: number;
+  top: number;
+  h: number;
+  y: number;
+  rot: number;
+}
+
+export type FeatureDef = MogulsDef | CanyonDef | BeachDef | UnevenDef | LavaStreamDef | SeawallDef | PadDef | PyramidDef;
 
 export interface MapDef {
   id: string;

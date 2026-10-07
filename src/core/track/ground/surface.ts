@@ -26,6 +26,8 @@ export const KIND_BEACH = 5;
 export const KIND_LAVA_ROCK = 6;
 /** Paved ground: a pad (features/pad.ts), drawn and driven as its surface (asphalt). */
 export const KIND_PAVED = 7;
+/** Dressed stone: a pyramid's faces (features/pyramid.ts), driven as `sandstone`. */
+export const KIND_STONE = 8;
 
 /** Over a main-road tunnel's road: ground this far (m) over it is the rock, not the road come up to meet it. */
 const TUNNEL_OVER = 2;
