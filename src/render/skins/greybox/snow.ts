@@ -9,7 +9,7 @@ import { BufferAttribute, BufferGeometry, Color, type MeshToonMaterial, ConeGeom
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { smoothstep } from '../../../core/math';
 import { VERGE_DEFAULT, type Track } from '../../../core/track/bake';
-import { KIND_BEACH, KIND_BRANCH, KIND_LAVA_ROCK, KIND_PAVED, KIND_ROAD, KIND_SAND, KIND_SHORE, KIND_STONE, noise, surfaceNoise } from '../../../core/track/ground';
+import { KIND_BEACH, KIND_BRANCH, KIND_LAVA_ROCK, KIND_PAVED, KIND_ROAD, KIND_SAND, KIND_SHORE, KIND_STONE, KIND_OASIS, KIND_WATER, noise, surfaceNoise } from '../../../core/track/ground';
 import { TREE_PINE } from '../../../core/track/pines';
 import { hash01 } from '../../../core/rng';
 import { buildPortals, VERTEX } from './portal';
@@ -60,6 +60,12 @@ const vergeC = new Color();
 const DUNE_LIGHT = new Color('#f0d39c');
 const DUNE_DARK = new Color('#d4a86c');
 const DRESSED = new Color('#ddd0ae');
+/** A desert's steep ground (a river's gorge, the walls): warm, sun-baked rock, not the mountains' grey. */
+const SANDSTONE_ROCK = new Color('#b58a5c');
+/** A river's bed under its water, and the oasis's green along its banks (two greens, in patches). */
+const RIVERBED = new Color('#6f7a52');
+const OASIS = new Color('#5f8f34');
+const OASIS_2 = new Color('#7fa040');
 const DRESSED_DARK = new Color('#c6b48e');
 /** A pyramid's courses: one this high (m) up its face, the seam between them its shadow. */
 const COURSE = 1.15;
@@ -208,7 +214,9 @@ export function buildSnow(track: Track, green?: Color): Object3D[] {
           else if (kind === KIND_STONE) c.copy(DRESSED).lerp(DRESSED_DARK, smoothstep(0, 1, (noise(x, z, 14, 5) - 0.4) * 2.5));
           else if (kind === KIND_LAVA_ROCK) c.copy(LAVA_ROCK).lerp(LAVA_ROCK_2, smoothstep(0, 1, (n - 0.3) * 2.5)).lerp(ASH, 0.3 * smoothstep(0, 1, (noise(x, z, 9, 11) - 0.5) * 3));
           // A desert's sand off the roads in broad drifts of two tones, the hollows a little darker.
-          if (sands && !road && kind !== KIND_STONE) {
+          if (kind === KIND_WATER) c.copy(RIVERBED);
+          else if (kind === KIND_OASIS) c.copy(OASIS).lerp(OASIS_2, smoothstep(0, 1, (n - 0.4) * 3));
+          else if (sands && !road && kind !== KIND_STONE) {
             c.copy(DUNE_LIGHT).lerp(DUNE_DARK, 0.65 * smoothstep(0, 1, (noise(x, z, 90, 41) - 0.35) * 2.2));
             c.lerp(DUNE_DARK, 0.25 * smoothstep(0, 1, (0.5 - noise(x, z, 25, 43)) * 3));
             // (By the road, its verge's own colour: the run-off reads as the road's edge.)
@@ -257,7 +265,7 @@ export function buildSnow(track: Track, green?: Color): Object3D[] {
               rock.copy(LIMESTONE).multiplyScalar(0.93 + 0.12 * noise(x, z, 40, 31));
               c.lerp(rock, smoothstep(0, 1, (steep - edge + 0.1) * 6));
             }
-          } else if (steep > ROCK) c.lerp(isle ? CRAG : ROCK_COLOR, Math.min(1, (steep - ROCK) * 2));
+          } else if (steep > ROCK) c.lerp(isle ? CRAG : sands ? SANDSTONE_ROCK : ROCK_COLOR, Math.min(1, (steep - ROCK) * 2));
           col[o] = c.r;
           col[o + 1] = c.g;
           col[o + 2] = c.b;

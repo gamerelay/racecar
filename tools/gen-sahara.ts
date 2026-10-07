@@ -16,7 +16,9 @@
 //   bun tools/gen-sahara.ts
 
 import { mkdirSync, writeFileSync } from 'node:fs';
-import type { BranchDef, FeatureDef, PyramidDef, RampDef, TrackLayout } from '../src/core/content';
+import type { BranchDef, FeatureDef, PyramidDef, RampDef, RiverDef, TrackLayout } from '../src/core/content';
+import { smoothstep } from '../src/core/math';
+import { riverAt } from '../src/core/track/features/river';
 import { bakeTrack } from '../src/core/track/bake';
 import { pyramidHeight } from '../src/core/track/features/pyramid';
 import { newHit, sampleAt } from '../src/core/track/query';
@@ -93,10 +95,100 @@ const crests = [
 // Hairpins bank hard (berms), sweepers less, flicks a little.
 const bankFor = (r: number) => (r < 35 ? 0.26 : r < 50 ? 0.14 : 0.1);
 
+const mainPoints = lapPoints(nodes, crests, { bankFor, drift: [28, 110] });
+
+/**
+ * The oasis river: it rises south of the Wadi, runs north under the Wadi's bridge, through the
+ * basin between the plateau and the Caravan Road, west across the Caravan Road at the ford and
+ * out into the low ground past it. Its water falls from `level[0]` to `level[1]` along it, `depth`
+ * over a floor `width` wide. Where it crosses the lap it crosses square, `square` m either side of
+ * the road's middle and on toward `far` times that. The ford: the road dips to `under` m beneath the water over `dip` (m along the
+ * road either side: under it within the first, back to its own height by the second), its points
+ * `every` m apart there so the water's edge is where it's drawn; driven as `ford`. The bridge: a
+ * deck `span` m long over the gorge.
+ */
+const RIVER = { width: 12, depth: 1.1, level: [6.5, 2.5] as [number, number], square: 26, far: 2.4, ford: { under: 0.35, dip: [4, 22] as [number, number], every: 3, zone: 9 }, bridge: { span: 44 } };
+/** Where it crosses the lap: the bridge on the Wadi (over its crest), then the ford on the Caravan Road. */
+const BRIDGE_AT: [number, number] = [110, -298];
+const FORD_AT: [number, number] = [-207, 215];
+/** The main road's nearest point to (x, z) as laid, and its direction across (right of the way). */
+const crossing = ([x, z]: [number, number]) => {
+  let k = 0;
+  for (let j = 1; j < mainPoints.length; j++) if (Math.hypot(mainPoints[j].p[0] - x, mainPoints[j].p[2] - z) < Math.hypot(mainPoints[k].p[0] - x, mainPoints[k].p[2] - z)) k = j;
+  const a = mainPoints[(k - 1 + mainPoints.length) % mainPoints.length].p;
+  const b = mainPoints[(k + 1) % mainPoints.length].p;
+  const l = Math.hypot(b[0] - a[0], b[2] - a[2]);
+  const [tx, tz] = [(b[0] - a[0]) / l, (b[2] - a[2]) / l];
+  return { x, z, rx: -tz, rz: tx };
+};
+const across = (c: ReturnType<typeof crossing>, side: number): [number, number] => [r1(c.x + c.rx * RIVER.square * side), r1(c.z + c.rz * RIVER.square * side)];
+const bridgeX = crossing(BRIDGE_AT);
+const fordX = crossing(FORD_AT);
+// (Which side of each road it comes from: the bridge's from the south, the ford's from the east.)
+// (And on square well past it, `far` times as far, so it bends to it, not round a kink at it.)
+const square = (c: ReturnType<typeof crossing>, first: (p: [number, number], q: [number, number]) => boolean): [number, number][] => {
+  const sd = first(across(c, 1), across(c, -1)) ? 1 : -1;
+  return [across(c, sd * RIVER.far), across(c, sd), across(c, -sd), across(c, -sd * RIVER.far)];
+};
+const bridgeSquare = square(bridgeX, (p, q) => p[1] < q[1]);
+const fordSquare = square(fordX, (p, q) => p[0] > q[0]);
+/** A course through `pts`, its corners cut `rounds` times (Chaikin's), its ends kept: a river's bends, not a polyline's kinks. */
+const rounded = (pts: [number, number][], rounds = 4): [number, number][] => {
+  let out = pts;
+  for (let r = 0; r < rounds; r++) {
+    const next: [number, number][] = [out[0]];
+    for (let k = 0; k < out.length - 1; k++) {
+      const [a, b] = [out[k], out[k + 1]];
+      next.push([a[0] * 0.75 + b[0] * 0.25, a[1] * 0.75 + b[1] * 0.25], [a[0] * 0.25 + b[0] * 0.75, a[1] * 0.25 + b[1] * 0.75]);
+    }
+    next.push(out[out.length - 1]);
+    out = next;
+  }
+  // (Thinned to a point every few metres: the ground asks its distance at every grid point.)
+  const thin: [number, number][] = [out[0]];
+  for (const q of out) if (Math.hypot(q[0] - thin[thin.length - 1][0], q[1] - thin[thin.length - 1][1]) >= 6) thin.push(q);
+  thin.push(out[out.length - 1]);
+  return thin.map(([x, z]) => [r1(x), r1(z)]);
+};
+const RIVER_DEF: RiverDef = {
+  kind: 'river',
+  path: rounded([[60, -480], ...bridgeSquare, [-20, -115], [-110, -45], [-160, 40], [-160, 150], ...fordSquare, [-320, 232], [-420, 245], [-540, 240]]),
+  width: RIVER.width,
+  depth: RIVER.depth,
+  level: RIVER.level,
+};
+/** The water's level at the ford, and the road's there. */
+const FORD_Y = (() => {
+  const w = { level: 0 };
+  riverAt(RIVER_DEF, 50)(FORD_AT[0], FORD_AT[1], w);
+  return w.level - RIVER.ford.under;
+})();
+// The ford's points: closer together over the dip (between the laid ones, on the straight), and down to it.
+{
+  const near = (p: { p: number[] }) => Math.hypot(p.p[0] - FORD_AT[0], p.p[2] - FORD_AT[1]);
+  const out: typeof mainPoints = [];
+  for (let k = 0; k < mainPoints.length; k++) {
+    const a = mainPoints[k];
+    out.push(a);
+    const b = mainPoints[(k + 1) % mainPoints.length];
+    if (k === mainPoints.length - 1 || Math.min(near(a), near(b)) > RIVER.ford.dip[1] + 10) continue;
+    const n = Math.max(1, Math.round(Math.hypot(b.p[0] - a.p[0], b.p[2] - a.p[2]) / RIVER.ford.every));
+    for (let j = 1; j < n; j++) {
+      const u = j / n;
+      out.push({ ...a, p: [r1(a.p[0] + (b.p[0] - a.p[0]) * u), r1(a.p[1] + (b.p[1] - a.p[1]) * u), r1(a.p[2] + (b.p[2] - a.p[2]) * u)], width: r1(a.width + (b.width - a.width) * u), ...(a.bank !== undefined || b.bank !== undefined ? { bank: Math.round(((a.bank ?? 0) + ((b.bank ?? 0) - (a.bank ?? 0)) * u) * 1000) / 1000 } : {}) });
+    }
+  }
+  for (const q of out) {
+    const k = smoothstep(RIVER.ford.dip[0], RIVER.ford.dip[1], near(q));
+    if (k < 1) q.p = [q.p[0], r1(FORD_Y + (q.p[1] - FORD_Y) * k), q.p[2]];
+  }
+  mainPoints.splice(0, mainPoints.length, ...out);
+}
+
 const layout: TrackLayout = {
   id: 'sahara-dunes',
   name: 'Dunes',
-  main: { points: lapPoints(nodes, crests, { bankFor, drift: [28, 110] }) },
+  main: { points: mainPoints },
   branches: [],
   zones: [],
   walls: { gaps: [] },
@@ -135,8 +227,31 @@ const QUEENS: PyramidDef[] = [
   { kind: 'pyramid', at: [300, 100], half: 22, top: 2.5, h: 8, y: 0, rot: 0.2 },
   { kind: 'pyramid', at: [150, -150], half: 26, top: 3, h: 10, y: 0, rot: -0.15 },
 ];
-const PYRAMIDS = [GREAT, ...QUEENS];
-/** Off the road by this much (m past its shoulder, to its foot), so none is cut back to the road. */
+/**
+ * Diamonds (the owner: "you probably won't drive them unless you can approach at an angle and use a
+ * side as a jump"): small pyramids on the outside of corners, turned 45° to the road, a corner
+ * `clear` m off its shoulder: run wide out of the corner and you're up a face at an angle, off over
+ * its ridge. Each `half` m to its foot, its faces `slope` up. (The near corner's cut back to the
+ * road, so the face comes up out of the run-off.)
+ */
+const DIAMONDS = { at: [150, 1500, 2150, 3640], half: 13, slope: 0.55, top: 1, clear: 2 };
+/** Which side of the road is the outside of the corner `s` m along it (-1 left, 1 right). */
+const outside = (s: number) => {
+  sampleAt(baked.main, ((s - 40 + L) % L), hit);
+  const [ax, az] = [hit.tx, hit.tz];
+  sampleAt(baked.main, (s + 10) % L, hit);
+  // (A right turn, the cross product positive, has its outside on the left.)
+  return ax * hit.tz - az * hit.tx > 0 ? -1 : 1;
+};
+const diamonds: PyramidDef[] = DIAMONDS.at.map((s) => {
+  const side = outside(s);
+  sampleAt(baked.main, s, hit);
+  const off = (hit.width / 2 + hit.shoulder + DIAMONDS.clear + DIAMONDS.half * Math.SQRT2) * side;
+  const rot = Math.atan2(hit.tx, hit.tz) + Math.PI / 4;
+  return { kind: 'pyramid', at: [r1(hit.cx - hit.tz * off), r1(hit.cz + hit.tx * off)], half: DIAMONDS.half, top: DIAMONDS.top, h: r1((DIAMONDS.half - DIAMONDS.top) * DIAMONDS.slope), y: 0, rot: Math.round(rot * 1000) / 1000 };
+});
+const PYRAMIDS = [GREAT, ...QUEENS, ...diamonds];
+/** Off the road by this much (m past its shoulder, to its foot), so none is cut back to the road (a diamond's its own). */
 const PYRAMID_CLEAR = 15;
 
 /** Kickers off the road's own crests and straights (rounded, launchable from their sides). */
@@ -153,6 +268,11 @@ layout.ground = {
   rough: { height: 3.2, size: 28 },
   features: [],
 };
+// The ford: driven as shallow water across the road where it's under it.
+{
+  const at = sAt(FORD_AT[0], FORD_AT[1]);
+  layout.zones = [{ s: [at - RIVER.ford.zone, at + RIVER.ford.zone], lateral: [-12, 12], surface: 'ford' }];
+}
 layout.walls = { gaps: wallGaps([], L) };
 layout.ramps = [kicker(150, 188, 1.6), kicker(80, 10, 1.8), { s: MESA_LIP, height: 1.4, length: 12 }];
 
@@ -160,7 +280,14 @@ layout.ramps = [kicker(150, 188, 1.6), kicker(80, 10, 1.8), { s: MESA_LIP, heigh
 {
   const bare = bakeTrack(layout, surfaces).ground!;
   for (const p of PYRAMIDS) p.y = Math.round(bare.height(p.at[0], p.at[1]) * 10) / 10;
-  layout.ground.features = PYRAMIDS as FeatureDef[];
+  layout.ground.features = [RIVER_DEF, ...PYRAMIDS] as FeatureDef[];
+}
+// The bridge: a deck over the river's gorge on the Wadi, the ground under it fallen to the river's floor.
+{
+  const at = sAt(BRIDGE_AT[0], BRIDGE_AT[1]);
+  const w = { level: 0 };
+  riverAt(RIVER_DEF, 50)(BRIDGE_AT[0], BRIDGE_AT[1], w);
+  layout.pieces = [{ id: 'wadi-bridge', s: [at - RIVER.bridge.span / 2, at + RIVER.bridge.span / 2], under: { floor: r1(w.level - RIVER.depth), ease: 6, reach: 12 } }];
 }
 // The Pyramid Run's points: on the ground (the pyramid's faces) along its line, the road's at its ends.
 {
@@ -194,7 +321,7 @@ layout.ramps = [kicker(150, 188, 1.6), kicker(80, 10, 1.8), { s: MESA_LIP, heigh
       const c = d - r - m.width[i] / 2 - m.shoulder[i];
       if (c < clear) [clear, worst] = [c, i * m.step];
     }
-    if (clear < PYRAMID_CLEAR) throw new Error(`a pyramid at ${p.at.join(', ')} is ${clear.toFixed(1)} m off the road at ${Math.round(worst)} m, (${m.px[Math.round(worst / m.step)].toFixed(0)}, ${m.pz[Math.round(worst / m.step)].toFixed(0)}) (want ${PYRAMID_CLEAR})`);
+    if (clear < (diamonds.includes(p) ? DIAMONDS.clear - 0.5 : PYRAMID_CLEAR)) throw new Error(`a pyramid at ${p.at.join(', ')} is ${clear.toFixed(1)} m off the road at ${Math.round(worst)} m, (${m.px[Math.round(worst / m.step)].toFixed(0)}, ${m.pz[Math.round(worst / m.step)].toFixed(0)}) (want ${PYRAMID_CLEAR})`);
     console.log(`  pyramid at ${p.at.join(', ')}: ${(p.half * 2).toFixed(0)} m across, ${p.h} m high on ${p.y} m, ${clear.toFixed(0)} m off the road`);
   }
 }

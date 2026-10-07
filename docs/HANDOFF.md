@@ -37,7 +37,9 @@ Paradise map in the game"; its id stays `paradise-open`: links, fingerprints); t
 map called Sahara using the Caldera engine ... very good for drifting ... jumps and berms, sand
 dunes, possibly a river, maybe pyramids". [SAHARA.md](./SAHARA.md) is the plan; step 1, the lap,
 is built (experimental): a 4.04 km serpentine on open ground, the Great Pyramid's Pyramid Run (a
-new ground feature, `PyramidDef`), the Mesa Drop, a desert palette and ground. Floor 79.25 s.
+new ground feature, `PyramidDef`), the Mesa Drop, a desert palette and ground; step 2, the oasis
+river (`RiverDef`: a ford and a bridge) and the diamonds (pyramids by the road to jump). Floor
+78.85 s, no field wrecks over seeds 1–8. Next (SAHARA.md's steps): Giza dressed, palms and reeds.
 Fingerprints not recorded yet (the owner's word): the golden test skips an experimental layout
 with none.
 

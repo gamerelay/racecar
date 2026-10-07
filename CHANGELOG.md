@@ -11,6 +11,9 @@ and where things stand is [docs/HANDOFF.md](./docs/HANDOFF.md).
   hairpins, a narrow wadi, switchbacks up a mesa and a jump off its edge onto the run home. The
   Great Pyramid is the set piece: drive straight up its face, over its top and off the far side
   (the Pyramid Run). Every pyramid, and every dune, can be driven up.
+- **Sahara's river:** an oasis river through the desert, crossed twice: a ford you splash through
+  on the Caravan Road, and a hump-backed bridge over its gorge on the Wadi. Small pyramids stand
+  on the outside of corners: run wide and use a face as a jump.
 
 ## alpha-1.37: Paradise goes open
 

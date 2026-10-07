@@ -634,7 +634,22 @@ export interface PyramidDef {
   rot: number;
 }
 
-export type FeatureDef = MogulsDef | CanyonDef | BeachDef | UnevenDef | LavaStreamDef | SeawallDef | PadDef | PyramidDef;
+/**
+ * A river (docs/SAHARA.md's oasis river): a channel `width` m wide (its floor) along `path` ([x, z]
+ * points, in world space), its water `depth` m over the floor and at a level falling from
+ * `level[0]` at the path's start to `level[1]` at its end (m), green banks either side. Shallow
+ * enough to drive through (the `river` surface). It may cross a road: there the road says how, by
+ * dipping under the water (a ford, with a `ford` zone) or on a deck piece over it (a bridge).
+ */
+export interface RiverDef {
+  kind: 'river';
+  path: [number, number][];
+  width: number;
+  depth: number;
+  level: [number, number];
+}
+
+export type FeatureDef = MogulsDef | CanyonDef | BeachDef | UnevenDef | LavaStreamDef | SeawallDef | PadDef | PyramidDef | RiverDef;
 
 export interface MapDef {
   id: string;

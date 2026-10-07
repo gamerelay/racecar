@@ -1,12 +1,13 @@
-// Sahara (docs/SAHARA.md), step 1: the pyramids are ground you drive up, stone to drive on, and the
-// Pyramid Run goes over the Great Pyramid's top. Experimental, so not in the every-map tests yet.
+// Sahara (docs/SAHARA.md): the pyramids are ground you drive up, stone to drive on, and the Pyramid
+// Run goes over the Great Pyramid's top; the river, its ford and its bridge. Experimental, so not in
+// the every-map tests yet.
 
 import { describe, expect, test } from 'bun:test';
 import { bakeTrack } from '../src/core/track/bake';
 import { pyramidHeight } from '../src/core/track/features/pyramid';
-import { KIND_STONE } from '../src/core/track/ground';
-import { newHit, projectGlobal, surfaceAt } from '../src/core/track/query';
-import type { PyramidDef } from '../src/core/content';
+import { KIND_STONE, KIND_WATER, riverAt } from '../src/core/track/ground';
+import { newHit, projectGlobal, sampleAt, surfaceAt } from '../src/core/track/query';
+import type { PyramidDef, RiverDef } from '../src/core/content';
 import { SURFACES, layout } from './helpers';
 
 describe('Sahara', () => {
@@ -29,7 +30,7 @@ describe('Sahara', () => {
   });
 
   test('the pyramids stand on the ground, stone, driven as sandstone', () => {
-    expect(pyramids.length).toBe(3);
+    expect(pyramids.length).toBe(7);
     const hit = newHit();
     for (const p of pyramids) {
       // Halfway up a face across its heading (the Pyramid Run goes along the Great Pyramid's).
@@ -48,5 +49,48 @@ describe('Sahara', () => {
     for (let i = 1; i < run.n; i++) if (run.py[i] > run.py[top]) top = i;
     expect(Math.hypot(run.px[top] - great.at[0], run.pz[top] - great.at[1])).toBeLessThan(great.top + 2);
     expect(run.py[top]).toBeGreaterThan(great.y + great.h - 1);
+  });
+});
+
+describe("Sahara's river", () => {
+  const sahara = layout('sahara/dunes');
+  const track = bakeTrack(sahara, SURFACES);
+  const g = track.ground!;
+  const river = sahara.ground!.features!.find((f): f is RiverDef => f.kind === 'river')!;
+  const at = riverAt(river, 60);
+  const w = { level: 0 };
+  const hit = newHit();
+  const surface = (x: number, y: number, z: number) => (projectGlobal(track.main, x, z, hit, y), SURFACES[surfaceAt(track, hit, x, y, z, false, track.surfaceIndex.get('sand')!)].id);
+
+  test('it falls along its course, in a channel under its water, wading', () => {
+    expect(river.level[0]).toBeGreaterThan(river.level[1]);
+    // Midway, away from the roads: its floor under the water, its banks over it, and wading (not a wreck).
+    const [x, z] = river.path[Math.floor(river.path.length * 0.45)];
+    at(x, z, w);
+    expect(g.height(x, z)).toBeCloseTo(w.level - river.depth, 1);
+    expect(g.kindAt(x, z)).toBe(KIND_WATER);
+    expect(surface(x, g.height(x, z), z)).toBe('river');
+    expect(g.hazard(x, g.height(x, z) + 0.5, z, 10)).toBe('none');
+  });
+
+  test('the ford: the road dips under the water, and drives as a ford', () => {
+    const zone = sahara.zones!.find((z) => z.surface === 'ford')!;
+    const s = (zone.s[0] + zone.s[1]) / 2;
+    sampleAt(track.main, s, hit);
+    const [x, y, z] = [hit.cx, hit.cy, hit.cz];
+    at(x, z, w);
+    expect(y).toBeLessThan(w.level);
+    expect(y).toBeGreaterThan(w.level - 0.6);
+    expect(surface(x, y, z)).toBe('ford');
+  });
+
+  test("the bridge: a deck over the water, the ground under it down at the river's floor", () => {
+    const piece = sahara.pieces!.find((p) => p.id === 'wadi-bridge')!;
+    sampleAt(track.main, (piece.s[0] + piece.s[1]) / 2, hit);
+    const [x, y, z] = [hit.cx, hit.cy, hit.cz];
+    at(x, z, w);
+    expect(y).toBeGreaterThan(w.level + 2);
+    expect(g.height(x, z)).toBeLessThan(w.level);
+    expect(g.pieceFloor(x, z, 1, y + 0.5)).toBeCloseTo(y, 1);
   });
 });

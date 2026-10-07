@@ -28,6 +28,10 @@ export const KIND_LAVA_ROCK = 6;
 export const KIND_PAVED = 7;
 /** Dressed stone: a pyramid's faces (features/pyramid.ts), driven as `sandstone`. */
 export const KIND_STONE = 8;
+/** A river's water (features/river.ts): its channel under the water's level, driven as `river`. */
+export const KIND_WATER = 9;
+/** An oasis's green along a river's banks, driven as `undergrowth`. */
+export const KIND_OASIS = 10;
 
 /** Over a main-road tunnel's road: ground this far (m) over it is the rock, not the road come up to meet it. */
 const TUNNEL_OVER = 2;

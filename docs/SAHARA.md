@@ -65,10 +65,8 @@ straight up its north face, over its top and off its south face, while the road 
 1. **The lap** (this one): the serpentine, the dunes, crests, kickers, berms, the Mesa Drop, the
    Great Pyramid and the Pyramid Run, two queens' pyramids, the palette and the ground's look.
    Experimental: open it from a link (`?mode=free&map=sahara/dunes`).
-2. **The river:** an oasis river (the Nile's green strip) down the low west side by the Caravan
-   Road, crossed twice: a ford (shallow water on the road: a splash, a little drag, grip down)
-   and a bridge (a deck piece). A `river` feature like the lava stream's channel, water in it,
-   drawn with the sea's water; palms and reeds along it.
+2. **The river and the diamonds** (built, below): the oasis river, crossed at a ford and on a
+   bridge; small pyramids by the road to jump off. Palms and reeds along it come with step 3.
 3. **Giza dressed:** the pyramids' capstones, the Sphinx as the plateau's landmark, obelisks,
    a ruined colonnade (solid props splitting the road into lanes), market stalls of smashables.
 4. **More of what drifts:** tune the berms by driving them (bank, width, the outside's lip),
@@ -81,12 +79,14 @@ straight up its north face, over its top and off its south face, while the road 
 
 ## Questions for the owner
 
-- **Length:** 4.04 km is past MAPS.md's 2.9–3.8 km; trim a pass, or keep it long and technical?
-- **The river:** a ford to splash through, a bridge, or both? And should it be on the lap
-  (the Caravan Road) or a shortcut along it?
-- **The pyramids:** go over the Great Pyramid (as built), or up a face and off a ramp into the
-  air? Should the off-road pyramids be climbable, as now, or walls?
 - **Surfaces:** more of the lap on packed sand (looser, more drift) or more asphalt to catch it?
+
+## The owner's answers (2026-10-07)
+
+- **Length:** "the length feels good": 4.04 km stays.
+- **The river:** "maybe 2 different river crossings so we can use both": a ford and a bridge.
+- **The pyramids:** drivable, but "you probably won't drive them unless you can approach at an
+  angle and use a side as a jump": the diamonds, by the road.
 
 ## Built so far
 
@@ -95,3 +95,27 @@ straight up its north face, over its top and off its south face, while the road 
 As in "The lap" above. The AI's costs are driven (the default): the Pyramid Run is quicker for the
 hard AI, which takes it. Fingerprints not recorded yet (the owner: hold off), so the golden test
 skips a layout with none.
+
+### Step 2, the river and the diamonds (2026-10-07, experimental)
+
+- **The oasis river** (a new ground feature, `RiverDef`, `features/river.ts`): it rises south of
+  the Wadi, runs north under the Wadi's bridge, through the basin and west across the Caravan
+  Road at the ford, out into the low ground. A channel 12 m wide along a path in world space (its
+  corners cut, Chaikin's, square to each road it crosses), its water 1.1 m deep at a level falling
+  from 6.5 m to 2.5 m along it, its banks at least a levee over the water, green (the oasis's:
+  `KIND_OASIS`, driven as `undergrowth`) 10 m past them. In it is the new `river` surface (grip
+  0.55, drag 0.9): slow wading, never a wreck. Unlike a lava stream it may cross a road, and the
+  road says how:
+  - **The ford** (Caravan Road, ~320 m): the road dips 0.35 m under the water (its points every
+    3 m there, so the water's edge is where it's drawn), a `ford` zone (new surface: grip 0.72,
+    drag 0.45). The car splashes down into it and hops out the far side.
+  - **The bridge** (the Wadi, ~3240 m): a deck piece 44 m long over the gorge (`under`: the ground
+    down to the river's floor), on the Wadi's crest, so it's a hump you fly off.
+  - Drawn: the water level across, deep in the middle and pale at its edges, opaque (the post pass
+    reads a cleared alpha as a mirror); a white spray off a ford or the river; a desert's steep
+    banks warm rock, not the mountains' grey.
+- **The diamonds** (`DIAMONDS` in the generator): four small pyramids (26 m across, faces 0.55 up)
+  on the outsides of corners at 150, 1500, 2150 and 3640 m, turned 45° to the road, a corner 2 m
+  off its shoulder. Run wide at 12–28° and you're up a face and off its ridge: 0.7–1.1 s of air,
+  no wreck.
+- **Numbers:** floor 78.85 s; field races on seeds 1–8 with no wrecks. Full suite 721 pass.

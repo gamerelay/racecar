@@ -87,6 +87,9 @@ const DUST: Record<string, Dust> = {
   sand: { rate: 0.6, puff: 14, colors: [0xe8d8a8, 0xd8c08a, 0xf2e6c4], kick: 0.18, spread: 3, y: 0.25, up: [2.2, 2.6], life: [0.55, 0.35], gravity: 16, drag: 0.9 },
   beach: { rate: 0.5, puff: 14, colors: [0xe8d8a8, 0xd8c08a, 0xf2e6c4], kick: 0.18, spread: 3, y: 0.25, up: [2.2, 2.6], life: [0.55, 0.35], gravity: 16, drag: 0.9 },
   shore: { rate: 0.6, puff: 14, colors: [0xcfe4e8, 0xe8d8a8], kick: 0.2, spread: 3, y: 0.2, up: [2.6, 2.4], life: [0.45, 0.3], gravity: 18, drag: 0.8 },
+  // Water: a white spray, thrown wide and high, falling fast (a river's ford, wading in one).
+  ford: { rate: 0.8, puff: 26, colors: [0xffffff, 0xd8f0f6, 0xa8d8e6], kick: 0.2, spread: 4, y: 0.2, up: [2.8, 3], life: [0.5, 0.35], gravity: 18, drag: 0.8 },
+  river: { rate: 0.9, puff: 30, colors: [0xffffff, 0xd8f0f6, 0xa8d8e6], kick: 0.18, spread: 4.5, y: 0.3, up: [3, 3.2], life: [0.55, 0.35], gravity: 18, drag: 0.8 },
   // Ash: a grey haze that rises a little and lingers.
   ash: { rate: 0.5, puff: 10, colors: [0x8a8288, 0x6f686e], kick: 0.06, spread: 3, y: 0.4, up: [0.8, 1.4], life: [1.6, 1], gravity: -0.8, drag: 2.4 },
   // Powder: a big white spray, thrown high, falling slowly, a fine mist with it. Groomed snow: a
