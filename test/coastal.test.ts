@@ -196,7 +196,14 @@ describe('coastal', () => {
     expect(inside).toBe(false);
   }, 30_000);
 
-  test("the Rock Tunnel's gallery (the owner: windows to see the country go by): windows along its right wall, a ledge under the road past them, and the wall still stops a car", () => {
+  test("a gallery (the Rock Tunnel's until the spur was one hill, 2026-10-06): windows along its right wall, a ledge under the road past them, and the wall still stops a car", () => {
+    // Riviera as it was: the spur a ridge falling away east of the tunnel, a gallery along it.
+    const ridged = layout('coastal/riviera');
+    const spur = ridged.ground!.hills!.findIndex((h) => h.x === 254 && h.z === -232);
+    ridged.ground!.hills!.splice(spur, 1, { x: 306, z: -113, to: [196, -310], h: 98, h2: 112, r: 150, r2: 60 }, { x: 300, z: -165, h: 95, r: 110 });
+    ridged.pieces = ridged.pieces!.map((p) => (p.id === 'rock-tunnel' ? { ...p, s: [1616, 1860], gallery: { side: 1, s: [1700, 1812] } } : p));
+    const track = bakeTrack(ridged, SURFACES);
+    const g = track.ground!;
     const tunnel = g.pieces.list.find((p) => p.id === 'rock-tunnel')!;
     const gal = tunnel.gallery!;
     expect(gal.side).toBe(1);
@@ -229,7 +236,7 @@ describe('coastal', () => {
       projectGlobal(track.main, sim.cars.x[0], sim.cars.z[0], hit);
       expect(Math.abs(hit.lateral)).toBeLessThan(hit.width / 2 + hit.shoulder);
     }
-  });
+  }, 30_000);
 
   test('into the Rock Tunnel off line, at an angle: nobody thrown up off its road at the mouths, nor onto the hill over it', () => {
     const tunnel = g.pieces.list.find((p) => p.id === 'rock-tunnel')!;
@@ -274,7 +281,7 @@ describe('coastal', () => {
     controls.throttle = 0.6;
     let runs = 0;
     let sunk = 0;
-    for (let s = tunnel.s[0] - 20; s <= tunnel.s[1] + 20; s += 30)
+    for (let s = tunnel.s[0] - 20; s <= tunnel.s[1] + 20; s += 15)
       for (const lateral of [-40, -25, 25, 40])
         for (let heading = 0; heading < 360; heading += 45)
           for (const kmh of [20, 50]) {
