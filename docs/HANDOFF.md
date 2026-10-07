@@ -4,13 +4,12 @@ Where racecar stands and what's next, for whoever picks it up (a person or a fre
 The design is [SPEC.md](./SPEC.md): decisions in §17, and what building changed in "Changed while
 building". This file is "where are we"; the spec is "what are we making".
 
-**Last updated:** 2026-10-07. **In review: PR #152, Paradise Open's detail pass, and Paradise Open
-goes live as *Paradise*** (the owner: "detail the map similar to what we did with Riviera", Hawaii;
-then "make this the displayed Paradise map in the game"). Not tagged, not on the hosted build yet:
-that's on the owner's word. Paradise Open is in the lobby, the vote and quick race as *Paradise*
-(its id stays `paradise-open`: links, fingerprints); the old island lap, `paradise/island`, is
-experimental (*Paradise Classic*, from a link). It's all in PARADISE.md's "Built so far", from
-"Harbor Town (2026-10-06)" on:
+**Last updated:** 2026-10-07. **`alpha-1.37`** (PR #152) is tagged and on the hosted build:
+**Paradise goes open.** Paradise Open is live as *Paradise* (the owner: "make this the displayed
+Paradise map in the game"; its id stays `paradise-open`: links, fingerprints); the old island lap,
+`paradise/island`, is experimental as *Paradise Classic* (from a link). With it, its detail pass
+(the owner: "detail the map similar to what we did with Riviera", Hawaii), all in PARADISE.md's
+"Built so far", from "Harbor Town (2026-10-06)" on:
 - **Harbor Town**, Lahaina's Front Street round the line: two back streets up the hill and two
   beach car parks (level paved pads, `PadDef`), wooden shops, plantation cottages, a banyan, the
   surf shack, tiki torches, palms along the streets (none on corners or round the grid). Traffic
@@ -29,10 +28,10 @@ experimental (*Paradise Classic*, from a link). It's all in PARADISE.md's "Built
   alongside or coming up faster on a line it would cross. Field wrecks over seeds 1–72: Paradise's
   rejoin 6 -> 2, Backroads 80 -> 66; over 1–24 Riviera 7 -> 8, Downtown 28 -> 25, Avalanche the
   same. Every fingerprint re-recorded (they hash every car field; each drive's marks unchanged).
-- **Numbers:** floor 67.37 s; field wrecks over seeds 1–72: 48 (65 on main), most of them the
-  lava bombs by the rim road at 3150–3200 m. The full suite passes.
-- **Next on Paradise:** the finish; maybe more palms on the front road. Then merge #152, tag, and
-  deploy.
+- **Numbers:** floor 67.37 s; field wrecks over seeds 1–72: 48 (65 on main before #152), most of
+  them the lava bombs by the rim road at 3150–3200 m.
+- **Next on Paradise** (the owner's order): the finish; maybe more palms on the front road; the
+  lava bombs at 3150–3200 m are most of the field's wrecks now.
 
 Before it, **`alpha-1.36`** (PRs #150, #151) is tagged and on the hosted build:
 **no hop at the Rock Tunnel's mouths** (#150: half into a piece, a wheel off its end stands on its

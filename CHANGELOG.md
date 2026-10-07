@@ -4,7 +4,7 @@ What changed in each release of racecar, newest first. Releases are git tags on 
 reasons behind each change are in [docs/SPEC.md](./docs/SPEC.md) under "Changed while building",
 and where things stand is [docs/HANDOFF.md](./docs/HANDOFF.md).
 
-## Unreleased
+## alpha-1.37: Paradise goes open
 
 - **A new Paradise.** Paradise is now the open island (it was *Paradise Open*, experimental): drive
   anywhere, off the road and across the sand. The old island lap is gone from the lobby (links to
