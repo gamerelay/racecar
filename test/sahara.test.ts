@@ -1,6 +1,5 @@
 // Sahara (docs/SAHARA.md): the pyramids are ground you drive up, stone to drive on, and the Pyramid
-// Run goes over the Great Pyramid's top; the river, its ford and its bridge. Experimental, so not in
-// the every-map tests yet.
+// Run goes over the Great Pyramid's top; the river, its ford and its bridge; Giza dressed.
 
 import { describe, expect, test } from 'bun:test';
 import { bakeTrack } from '../src/core/track/bake';

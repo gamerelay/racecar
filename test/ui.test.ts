@@ -115,7 +115,7 @@ describe('renamed maps and paints', () => {
   test('map and paint names are one word, and paint ids have no hyphens', () => {
     for (const key of LAYOUT_KEYS) expect(existsSync(join(CONTENT, 'maps', key.split('/')[0], 'map.json'))).toBe(true);
     const maps = LAYOUT_KEYS.map((k) => JSON.parse(readFileSync(join(CONTENT, 'maps', k.split('/')[0], 'map.json'), 'utf8')));
-    expect(maps.map((m) => m.name).sort()).toEqual(['Avalanche', 'Backroads', 'Downtown', 'Paradise', 'Riviera']);
+    expect(maps.map((m) => m.name).sort()).toEqual(['Avalanche', 'Backroads', 'Downtown', 'Paradise', 'Riviera', 'Sahara']);
     for (const p of PAINTS) {
       expect(p.name).toMatch(/^[A-Z][a-z]+$/);
       expect(p.id).toMatch(/^[a-z]+$/);
@@ -202,7 +202,7 @@ describe("the lobby's maps", () => {
   test('the game\'s maps only, by name (an experimental one opens from a link: not in the list, nor quick race)', () => {
     const keys = lobbyKeys(MAPS, [...EXPERIMENTAL_KEYS, ...LAYOUT_KEYS]);
     expect(EXPERIMENTAL_KEYS).toContain('paradise/island');
-    expect(keys).toEqual(['avalanche/slope', 'backroads/valley', 'downtown/downtown', 'paradise-open/open', 'coastal/riviera']);
+    expect(keys).toEqual(['avalanche/slope', 'backroads/valley', 'downtown/downtown', 'paradise-open/open', 'coastal/riviera', 'sahara/dunes']);
   });
 });
 

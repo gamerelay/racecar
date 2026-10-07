@@ -16,8 +16,8 @@ const SLOW = 60_000;
 
 describe('golden fingerprints', () => {
   const golden = readGolden();
-  // (An experimental map not recorded yet is skipped, by the owner's word (docs/SAHARA.md: "we can
-  // hold off on recording fingerprints for now"); a map in the game always has one.)
+  // (An experimental map not recorded yet is skipped, as Sahara was while it was built (docs/
+  // SAHARA.md: "we can hold off on recording fingerprints for now"); a map in the game always has one.)
   for (const key of GOLDEN_KEYS)
     (golden[key] || !EXPERIMENTAL_KEYS.includes(key) ? test : test.skip)(
       `${key} is as recorded`,

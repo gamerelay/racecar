@@ -11,7 +11,7 @@
 //   the Mesa           switchbacks up onto the mesa, berms in them, across its top, and the Mesa Drop
 //                      off its north edge onto the Caravan Road home
 //
-// Experimental (from a link, `?mode=free&map=sahara/dunes`) until the owner's drive says otherwise.
+// In the lobby since alpha-1.38 (the owner, 2026-10-07: "this map is good enough to merge, deploy and tag").
 //
 //   bun tools/gen-sahara.ts
 
@@ -404,5 +404,5 @@ baked = bakeTrack(layout, surfaces);
 
 mkdirSync(DIR, { recursive: true });
 writeFileSync(`${DIR}/dunes.track.json`, `${JSON.stringify(layout)}\n`);
-writeFileSync(`${DIR}/map.json`, `${JSON.stringify({ id: 'sahara', name: 'Sahara', layouts: ['dunes'], palette: 'sahara', weather: ['clear'], experimental: true })}\n`);
+writeFileSync(`${DIR}/map.json`, `${JSON.stringify({ id: 'sahara', name: 'Sahara', layouts: ['dunes'], palette: 'sahara', weather: ['clear'] })}\n`);
 console.log(`sahara/dunes: ${Math.round(baked.main.length)} m, ground ${baked.ground!.nx}×${baked.ground!.nz}; the Pyramid Run ${Math.round(baked.splines[1].length)} m (${RUN.from}–${RUN.to} m round)`);

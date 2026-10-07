@@ -75,8 +75,12 @@ describe('the soundtrack', () => {
     expect(playlistFor('downtown', true)).toEqual(['title', 'pursuit-orchestra']);
     expect(playlistFor('backroads', false)).toEqual(['backroads', 'backroads-acoustic', ...ANY_MAP]);
     // A map with its own has them first (named after it: its id, or its name, as Paradise's island
-    // is Paradise Open's), and every track is someone's.
+    // is Paradise Open's), and every track is someone's. (A map with none yet, Sahara, plays the eight.)
     for (const m of MAPS) {
+      if (!Object.hasOwn(MAP_TRACKS, m.id)) {
+        expect(playlistFor(m.id, false)).toEqual([...ANY_MAP]);
+        continue;
+      }
       expect([m.id, m.name.toLowerCase()]).toContain(MAP_TRACKS[m.id]![0]);
       expect(playlistFor(m.id, false)).toEqual([...MAP_TRACKS[m.id]!, ...ANY_MAP]);
     }

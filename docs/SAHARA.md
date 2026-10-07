@@ -74,9 +74,9 @@ straight up its north face, over its top and off its south face, while the road 
    and maybe a slot canyon in the Wadi (rock walls close either side, `GroundDef.face`).
 5. **Life:** a camel caravan crossing (traffic on a side street), dust devils (a hazard), a
    sandstorm weather, a sunset palette.
-6. **Fingerprints, tests and the lobby:** record its fingerprints, its own tests (the run
-   flown, the crests and the drop clean, berms banked the right way), and out of experimental
-   when the owner says.
+6. **Fingerprints, tests and the lobby** (done for alpha-1.38): its fingerprints recorded, in the
+   lobby (the owner: "this map is good enough to merge, deploy and tag"). Still to add: tests
+   that a hard lap flies the crests and the drop clean, and the berms bank the right way.
 
 ## Questions for the owner
 
@@ -135,3 +135,9 @@ The owner: "let's dress up Giza with the Sphinx and palms".
   pyramid or by a house. Solid, as Paradise's are. (openIsland.ts: with no coast to lean out to,
   a palm leans any way.)
 - **Numbers:** floor 78.85 s; field races on seeds 1–8 with no wrecks. Full suite 722 pass.
+
+### In the lobby (2026-10-07, alpha-1.38)
+
+The owner: "this map is good enough to merge, deploy and tag". Out of experimental, its
+fingerprints recorded (every other map's unchanged). It has no music of its own yet: a race on it
+plays the eight tracks for any map (test/audio.test.ts takes a map with none).
