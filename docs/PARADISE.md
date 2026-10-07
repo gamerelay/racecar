@@ -442,6 +442,41 @@ jump's chevrons "blue and white and more animated, and give a little more speed 
 - **Numbers** (with the beach line's change): floor 68.07 -> 67.28 s; field wrecks over seeds 1-72
   51 -> 41, none at the bump or the jump (213 jumps over 12 seeds, none down in the lava). Most
   left are the lava bombs by the rim road at 3150–3200 m, as before.
+- **The beach line made a real shortcut** (found on the way): the AI only takes a shortcut its
+  costs (racer.ts's `wayCosts`) say is quicker, and they had the beach line 1.4–2.6 s slower than
+  the bulge for every class, so no rival ever drove it (graph.test's "every shortcut is quicker"
+  caught it). Now every 14th point of the contour (550 m) and `packed-sand`'s drag 0.10 (was
+  0.20): 0.2–1.0 s quicker by the costs, so the roll decides, as on every other shortcut.
+
+**The beach run's dips and jumps (2026-10-07):** the owner: "add some dips / jumps to the sand
+path". Down its straight along the water (about 180–420 m along it; `BEACH_RUN`): two pairs of
+whoops (swales 24 m long, 1.1 and 1.2 m deep, at 185/209 and 320/344 m) and two rounded kickers
+(1.5 m at 250 m, 1.8 m at 385 m). Its points every 4 m (were 8) so the dips keep their shape,
+placed by distance along its baked road (which starts back on the main road, about 37 m before
+its first point).
+- Every class at 100–170 km/h: a hop of 0.2–0.4 s off each whoop's crest, about 0.7 s off each
+  kicker, no wrecks. Still 0.2–1.0 s quicker by the AI's costs.
+- Floor 67.28 -> 66.52 s; field wrecks over seeds 1-72 41 -> 51, none on the sand. Four new ones
+  are at its rejoin (1265–1367 m): a rival off the beach at about 187 km/h comes back in from the
+  left and cuts across to the racing line on the right, into one coming round at about 195 there.
+  The rest is the lava bombs by the rim road, up 5 (their timing, as laps change).
+
+**The mud and the volcano (2026-10-07):** the owner: "add some more detail to the mud and volcano
+like we did on the original map". Drawn only (render's `wilds.ts`, its own random stream), so
+nothing the cars meet moves. On open ground anything standing must be solid, so all of it lies on
+the ground, low enough to drive over, or hangs from the jungle's trees, which are solid already.
+(The original's lava flows down the cone weren't brought over: in the open you'd drive across
+lava that isn't there. Nor its boulders: they'd be walls on a cone you now drive across freely.)
+- **The jungle's red earth:** tyre ruts, two in each lane (openIsland.ts's `ruts`, now on any
+  rutted surface: `RUTS`); puddles of mud on the road every 18–40 m, dark and wet with a sheen
+  sliding over them (opaque: the post pass reads a cleared alpha as a mirror, the rain's puddles');
+  ferns along both verges, some flowering; lianas hanging from the trees within 22 m of the verge;
+  and a rope bridge up in the crowns over the road at about 2430 m, 70 m between two trees (the
+  jungle stands well back from its 20 m road: no nearer pair), at least 6 m clear of the road.
+- **The volcano:** glowing cracks in the rock down the cone (the lava streams' shader, narrow:
+  0.5–1.1 m); steam vents on the cone and beside the rim road, each ringed with sulphur; cinders
+  over the cone and along the rim road's verges, mostly sunk in it.
+- Not re-recorded (the owner: no fingerprints for looks); the full suite still passes.
 
 
 ## What we learned (2026-10-02)
