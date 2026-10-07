@@ -762,7 +762,34 @@ for (const { from, to } of LOTS.list) {
  * `water` m in from the coast, along it (every `keep`th point of it, smoothed), a point every `every`
  * m; `width` m across.
  */
-const BEACH_LINE = { from: 540, to: S(1135), water: 30, every: 8, keep: 14, width: 9, shoulder: 1.5 };
+const BEACH_LINE = { from: 540, to: S(1135), water: 30, every: 8, keep: 14, width: 9, shoulder: 1.5, point: 4 };
+/**
+ * Its dips and jumps (the owner, 2026-10-07: "add some dips / jumps to the sand path"), down its
+ * straight along the water (about 180–420 m along it): each dip a swale `at` m along it, `length`
+ * m long and `depth` m deep (in pairs: whoops); each jump a rounded kicker (RampDef: `at`, its
+ * `length` up to `height`, rolling back over `back`).
+ */
+const BEACH_RUN = {
+  dips: [
+    { at: 185, length: 24, depth: 1.1 },
+    { at: 209, length: 24, depth: 1.1 },
+    { at: 320, length: 24, depth: 1.2 },
+    { at: 344, length: 24, depth: 1.2 },
+  ],
+  jumps: [
+    { at: 250, length: 9, height: 1.5, back: 9 },
+    { at: 385, length: 9, height: 1.8, back: 10 },
+  ],
+};
+/** How far down (m) the beach run's dips put it `d` m along it. */
+const beachDip = (d: number) => {
+  let y = 0;
+  for (const dip of BEACH_RUN.dips) {
+    const u = (d - dip.at) / dip.length;
+    if (u > 0 && u < 1) y += dip.depth * 0.5 * (1 - Math.cos(2 * Math.PI * u));
+  }
+  return y;
+};
 {
   const g = bakeTrack(layout, surfaces);
   const ground = g.ground!;
@@ -813,23 +840,41 @@ const BEACH_LINE = { from: 540, to: S(1135), water: 30, every: 8, keep: 14, widt
       const [bx, bz] = line[k + 1];
       return [[0.75 * ax + 0.25 * bx, 0.75 * az + 0.25 * bz], [0.25 * ax + 0.75 * bx, 0.25 * az + 0.75 * bz]] as [number, number][];
     }), line[line.length - 1]];
-  // A point every BEACH_LINE.every m along it, on the sand.
+  // A point every BEACH_LINE.point m along it, on the sand, down its dips.
   const points: TrackPoint[] = [];
   let left = 0;
+  let run = 0;
+  /** Each point's distance along the line from its first. */
+  const runs: number[] = [];
   for (let k = 0; k + 1 < line.length; k++) {
     const [ax, az] = line[k];
     const [bx, bz] = line[k + 1];
     const d = Math.hypot(bx - ax, bz - az);
-    for (; left < d; left += BEACH_LINE.every) {
+    for (; left < d; left += BEACH_LINE.point) {
       const [px, pz] = [ax + ((bx - ax) * left) / d, az + ((bz - az) * left) / d];
+      runs.push(run + left);
       points.push({ p: [Math.round(px * 10) / 10, Math.round(ground.height(px, pz) * 10) / 10, Math.round(pz * 10) / 10], width: BEACH_LINE.width, lanes: 1, shoulder: BEACH_LINE.shoulder, surface: 'packed-sand', verge: 'sand' });
     }
     left -= d;
+    run += d;
   }
   const [lx, lz] = line[line.length - 1];
   points.push({ p: [Math.round(lx * 10) / 10, Math.round(ground.height(lx, lz) * 10) / 10, Math.round(lz * 10) / 10], width: BEACH_LINE.width, lanes: 1, shoulder: BEACH_LINE.shoulder, surface: 'packed-sand', verge: 'sand' });
   layout.branches!.push({ id: 'beach-line', from: BEACH_LINE.from, to: BEACH_LINE.to, kind: 'shortcut', points });
   layout.walls!.gaps!.push({ spline: 'beach-line', s: [0, 1e4], side: 'both' });
+  // Down its dips, by distance along its road (which starts back on the main road, before its first
+  // point).
+  {
+    const sp = bakeTrack(layout, surfaces).splines.find((x) => x.id === 'beach-line')!;
+    const [x0, , z0] = points[0].p;
+    let k0 = 0;
+    for (let i = 0, best = Infinity; i < sp.n; i++) {
+      const d = Math.hypot(sp.px[i] - x0, sp.pz[i] - z0);
+      if (d < best) [best, k0] = [d, i];
+    }
+    runs.forEach((r, k) => (points[k].p[1] = Math.round((points[k].p[1] - beachDip(r + k0 * sp.step)) * 10) / 10));
+  }
+  layout.ramps = [...(layout.ramps ?? []), ...BEACH_RUN.jumps.map((j) => ({ spline: 'beach-line', s: j.at, length: j.length, height: j.height, back: j.back }))];
   const sp = bakeTrack(layout, surfaces).splines.find((x) => x.id === 'beach-line')!;
   console.log(`  beach line: ${Math.round(sp.length)} m (the road round: ${Math.round(BEACH_LINE.to - BEACH_LINE.from)} m)`);
 }
