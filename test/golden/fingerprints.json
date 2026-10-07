@@ -2,8 +2,8 @@
  "paradise/island": {
   "track": "6cdc262cd169f8b3",
   "ground": null,
-  "drive": "ae43607596bd2cc6",
-  "branches": "0f7c6cdab789bb2a",
+  "drive": "df0f26a4b42c21b2",
+  "branches": "7a0a6783df013fb5",
   "marks": [
    {
     "t": 10,
@@ -43,8 +43,8 @@
  "downtown/downtown": {
   "track": "066f425165999191",
   "ground": null,
-  "drive": "e4586d07fac1f978",
-  "branches": "ff7dc8afd40d0cd4",
+  "drive": "da8ad38fd5d4ebcd",
+  "branches": "974ef1c18ce803b7",
   "marks": [
    {
     "t": 10,
@@ -84,8 +84,8 @@
  "backroads/valley": {
   "track": "ed0310fe65f6a7d5",
   "ground": null,
-  "drive": "c832a90f6232a25d",
-  "branches": "b7032b210f5e205a",
+  "drive": "2e95716f2d35e924",
+  "branches": "2f0f504f7581ef5c",
   "marks": [
    {
     "t": 10,
@@ -125,7 +125,7 @@
  "avalanche/slope": {
   "track": "8fac54e3a6f3d682",
   "ground": "5e7af95458dbcd88",
-  "drive": "96c64cbabc6d764e",
+  "drive": "3bb521aa0b2015a5",
   "branches": null,
   "marks": [
    {
@@ -164,10 +164,10 @@
   "wrecks": 0
  },
  "paradise-open/open": {
-  "track": "2c84bb9ec7e2ba14",
-  "ground": "42c858d9a9912e96",
-  "drive": "66d52b4a29d37cbd",
-  "branches": "5f00bbff0ba7a9ed",
+  "track": "73735613b2c5410c",
+  "ground": "6b47192a8ec3092c",
+  "drive": "96723ad0d0bb8e17",
+  "branches": "6c6ffb1a2ae1faa1",
   "marks": [
    {
     "t": 10,
@@ -179,27 +179,27 @@
    },
    {
     "t": 20,
-    "s": 385.37,
-    "x": -433.49,
-    "y": 6.02,
-    "z": 72.22,
-    "kmh": 178.51
+    "s": 389.21,
+    "x": -433.14,
+    "y": 6.46,
+    "z": 68.37,
+    "kmh": 180.34
    },
    {
     "t": 30,
-    "s": 1610.93,
-    "x": -271.5,
-    "y": 11.8,
-    "z": -388.89,
-    "kmh": 212.23
+    "s": 1636.89,
+    "x": -248.74,
+    "y": 11.94,
+    "z": -399.59,
+    "kmh": 213.44
    },
    {
     "t": 40,
-    "s": 2208.28,
-    "x": 311.03,
-    "y": 9.44,
-    "z": -378.61,
-    "kmh": 213.14
+    "s": 2233.45,
+    "x": 336.12,
+    "y": 8.87,
+    "z": -376.54,
+    "kmh": 200.99
    }
   ],
   "wrecks": 0,
@@ -208,8 +208,8 @@
  "coastal/riviera": {
   "track": "305b37f439659ab9",
   "ground": "e1718480c4378a6a",
-  "drive": "fc01edde2e38456d",
-  "branches": "ebe1560e06496a85",
+  "drive": "05de6696ccd9c1c7",
+  "branches": "29a319c5be149ac9",
   "marks": [
    {
     "t": 10,
@@ -245,7 +245,7 @@
    }
   ],
   "wrecks": 0,
-  "lifts": "cac292280e290af1",
+  "lifts": "5a00804080ab0694",
   "streets": "6d6bddab07d834b8"
  }
 }

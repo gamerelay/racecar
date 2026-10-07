@@ -5,8 +5,9 @@
 // volcano: into its flank where the rim road heads at it, out over the lava in its shaft on a rock
 // bridge, and out the other side where the road heads away.
 //
-// Experimental (map.json), so it's out of the lobby: open it from a link,
-// `?mode=free&map=paradise-open/open`.
+// In the lobby as *Paradise* (the owner, 2026-10-07: "make this the displayed Paradise map"; the
+// map's id stays `paradise-open`, so links and fingerprints keep working). The old island lap,
+// `paradise/island`, is experimental now (Paradise Classic): open it from a link.
 //
 //   bun tools/gen-paradise-open.ts
 
@@ -760,9 +761,12 @@ for (const { from, to } of LOTS.list) {
  * darker than the loose sand, with ruts down it (the skin's), so it reads at speed. The bulge is the asphalt, banked drift; this is shorter and looser.
  * It leaves the front road at `from` and rejoins it at `to` (main distances), out to the sand
  * `water` m in from the coast, along it (every `keep`th point of it, smoothed), a point every `every`
- * m; `width` m across.
+ * m; `width` m across. Its last point is `merge` m before `to`, just past the verge: from there it
+ * eases onto the front road. (It was 30 m before 1245 m, and its rivals swung across the road's
+ * whole left half in it, into the racing line coming round on the right: 6 field wrecks in 72
+ * races. Now over 70 m to 1285 m, where the line's coming back to the middle.)
  */
-const BEACH_LINE = { from: 540, to: S(1135), water: 30, every: 8, keep: 14, width: 9, shoulder: 1.5, point: 2 };
+const BEACH_LINE = { from: 540, to: S(1175), merge: 70, water: 30, every: 8, keep: 14, width: 9, shoulder: 1.5, point: 2 };
 /**
  * Its dips and jumps (the owner, 2026-10-07: "add some dips / jumps to the sand path"), down its
  * straight along the water (about 180–420 m along it): each dip a swale `at` m along it, `length`
@@ -828,7 +832,7 @@ const beachTurn = (r: number) => {
     return [hit.cx + hit.tz * lat, hit.cz - hit.tx * lat];
   };
   const start = fork(BEACH_LINE.from, 30);
-  const end = fork(BEACH_LINE.to, -30);
+  const end = fork(BEACH_LINE.to, -BEACH_LINE.merge);
   // Along the water: from where the sand's BEACH_LINE.water m from the coast off the start, round
   // the coast's contour that far in, until it's level with the end.
   const contour: [number, number][] = [];
@@ -1141,7 +1145,7 @@ const BEACH_DRESS = { towers: [0.22, 0.5, 0.78], out: 9, tower: [3.4, 3, 5] as [
 
 mkdirSync(DIR, { recursive: true });
 writeFileSync(`${DIR}/open.track.json`, `${JSON.stringify(layout)}\n`);
-writeFileSync(`${DIR}/map.json`, `${JSON.stringify({ id: 'paradise-open', name: 'Paradise Open', layouts: ['open'], palette: 'tropic', sunset: 'sunset', weather: ['clear', 'rain', 'shower'], experimental: true })}\n`);
+writeFileSync(`${DIR}/map.json`, `${JSON.stringify({ id: 'paradise-open', name: 'Paradise', layouts: ['open'], palette: 'tropic', sunset: 'sunset', weather: ['clear', 'rain', 'shower'] })}\n`);
 const track = bakeTrack(layout, surfaces);
 console.log(`paradise-open/open: ${Math.round(track.main.length)} m, ground ${track.ground!.nx}×${track.ground!.nz}, deck ${FREEWAY.join('–')} m`);
 console.log(`  lava tube: ${Math.round(tube.length)} m (the road round: ${TUBE.to - TUBE.from} m), tunnels ${Math.round(portalIn)}–${Math.round(shaftIn)} and ${Math.round(shaftOut)}–${Math.round(portalOut)} m, bridge ${Math.round(shaftIn)}–${Math.round(shaftOut)} m, the jump ${lip}–${far} m`);

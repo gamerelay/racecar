@@ -22,8 +22,9 @@ export const CAR_FIELDS = [
   // race position right now, 0 = leading (updated at the end of each tick)
   'rank',
   // AI: the lateral line it has committed to round something, and for how long (s); backing out
-  // when pinned (s left, or negative: s until it may try again).
-  'aiLat', 'aiHold', 'aiBack',
+  // when pinned (s left, or negative: s until it may try again); the branch it's merging off (its
+  // spline, till it's past where it rejoins; 0 none).
+  'aiLat', 'aiHold', 'aiBack', 'aiMerge',
   // identity: `remote` is another player's car online, which follows the pose it's given (net/cars.ts)
   'active', 'cls', 'paint', 'human', 'remote',
 ] as const;

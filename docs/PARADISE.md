@@ -491,6 +491,32 @@ lava that isn't there. Nor its boulders: they'd be walls on a cone you now drive
   over the cone and along the rim road's verges, mostly sunk in it.
 - Not re-recorded (the owner: no fingerprints for looks); the full suite still passes.
 
+**The merge, and live as Paradise (2026-10-07):** the owner: "let's fix the merge too and make
+this the displayed Paradise map in the game".
+- **The beach line's merge:** its last point 70 m before its rejoin (was 30), the rejoin at
+  1285 m (was 1245), so it eases onto the front road across its left half. Floor 67.27 -> 67.37 s. That alone made it
+  worse (6 -> 11 wrecks there): its rivals are on the front road from about 1240 m either way, and
+  went straight for the racing line on the right, across the front of the ones coming round on it
+  at 195 km/h to their 160–170. The AI never looked behind: avoid() marks what's ahead.
+- **The mirror** (racer.ts's `merging` and `mirror`, `MERGE`): a car coming off a branch (it notes
+  it: `aiMerge`, a new car field) checks its mirror from 50 m before the branch's rejoin to 90 m
+  past it. A car on its road alongside (three lengths behind to 6 m ahead, whatever its speed) or
+  coming up faster within 70 m and 2.5 s, on a line between it and its target, holds its target
+  2.5 m clear of that car's side till it's by.
+  - First every car in the zone checked: the pack off Backroads' start through the Barn's rejoin
+    held its lines into each other (80 -> 96 field wrecks over 72 seeds). Only the merging car now.
+  - Too tight at first (0.8 m clear, two lengths): a rival off the beach at the same speed half a
+    length behind was "not faster", and the merging car settled 1.2 m off its side.
+  - Field wrecks over seeds 1–72: Paradise 49 -> 48, its rejoin 6 -> 2; Backroads 80 -> 66.
+    Over seeds 1–24: Riviera 7 -> 8, Downtown 28 -> 25, Avalanche 6 -> 6.
+  - Every fingerprint re-recorded: they hash every car field, and there's a new one. Each drive's
+    marks are the same (a fingerprint's drive is one car alone: nobody to see in the mirror).
+- **Live:** Paradise Open is in the lobby, the vote and quick race as *Paradise* (its id stays
+  `paradise-open`, so `?mode=free&map=paradise-open/open` and the fingerprints keep working; the
+  generator writes its map.json). The old island lap is experimental, as *Paradise Classic*
+  (`?mode=free&map=paradise/island`). The tests listing the game's maps know (the lobby's keys,
+  LAP_KM 3.91, the soundtrack's: its tracks are named after its name, not its id).
+
 
 ## What we learned (2026-10-02)
 

@@ -807,7 +807,7 @@ export function respawn(sim: SimState, i: number): void {
   cars.ghostT[i] = T.ghostTime;
   cars.resetCooldown[i] = T.resetCooldown;
   // Not still stuck, nor backing out, nor holding a line from before the wreck.
-  cars.stuckT[i] = cars.aiBack[i] = cars.aiHold[i] = 0;
+  cars.stuckT[i] = cars.aiBack[i] = cars.aiHold[i] = cars.aiMerge[i] = 0;
   // No interpolation across the teleport.
   cars.px[i] = cars.x[i];
   cars.py[i] = cars.y[i];

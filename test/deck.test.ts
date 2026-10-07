@@ -108,9 +108,10 @@ describe('a road over the ground', () => {
 });
 
 describe('Paradise Open (docs/PARADISE.md)', () => {
-  test('is experimental: out of the game, opened from a link', () => {
-    expect(EXPERIMENTAL_KEYS).toContain('paradise-open/open');
-    expect(MAPS.some((m) => m.id === 'paradise-open')).toBe(false);
+  test('in the game as Paradise (the owner, 2026-10-07: "make this the displayed Paradise map"); the old island lap experimental, opened from a link', () => {
+    expect(MAPS.find((m) => m.id === 'paradise-open')).toMatchObject({ name: 'Paradise', layouts: ['open'] });
+    expect(MAPS.some((m) => m.id === 'paradise')).toBe(false);
+    expect(EXPERIMENTAL_KEYS).toContain('paradise/island');
   });
 
   test('the camera sees the deck ahead up the Freeway\'s ramp, not the bay under it', () => {

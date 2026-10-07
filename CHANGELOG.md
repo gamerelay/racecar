@@ -4,6 +4,24 @@ What changed in each release of racecar, newest first. Releases are git tags on 
 reasons behind each change are in [docs/SPEC.md](./docs/SPEC.md) under "Changed while building",
 and where things stand is [docs/HANDOFF.md](./docs/HANDOFF.md).
 
+## Unreleased
+
+- **A new Paradise.** Paradise is now the open island (it was *Paradise Open*, experimental): drive
+  anywhere, off the road and across the sand. The old island lap is gone from the lobby (links to
+  `paradise/island` still open it).
+- **Harbor Town**, round the start: wooden shops on the front street, plantation cottages up the
+  hill, back streets and beach car parks with traffic, a banyan in the square, tiki torches and
+  palms.
+- **The bulge:** the turn on the west coast is a long, banked bend you can drift round, with lava
+  coming down the volcano beside it.
+- **The beach run:** a sand shortcut along the water, with dips, jumps, quick S-bends and moguls.
+- **Through the market hall flat out**, and a bump out of its far door that throws you in the air.
+- **The volcano's jump** has a boost up its ramp, its chevrons blue and white and running.
+- **The jungle and the volcano:** mud puddles and ruts, ferns, vines and a rope bridge over the
+  road; glowing cracks, steam vents and cinders on the cone.
+- **Rivals look in their mirrors when they merge**, so they no longer cut across in front of a car
+  coming up behind.
+
 ## alpha-1.36: Riviera's Rock Tunnel, through the hill
 
 - **The Rock Tunnel goes through a hill.** The ridge is now one round, wooded hill, and the road

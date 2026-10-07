@@ -201,8 +201,8 @@ describe('after an online race', () => {
 describe("the lobby's maps", () => {
   test('the game\'s maps only, by name (an experimental one opens from a link: not in the list, nor quick race)', () => {
     const keys = lobbyKeys(MAPS, [...EXPERIMENTAL_KEYS, ...LAYOUT_KEYS]);
-    expect(EXPERIMENTAL_KEYS).toContain('paradise-open/open');
-    expect(keys).toEqual(['avalanche/slope', 'backroads/valley', 'downtown/downtown', 'paradise/island', 'coastal/riviera']);
+    expect(EXPERIMENTAL_KEYS).toContain('paradise/island');
+    expect(keys).toEqual(['avalanche/slope', 'backroads/valley', 'downtown/downtown', 'paradise-open/open', 'coastal/riviera']);
   });
 });
 

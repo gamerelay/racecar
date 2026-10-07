@@ -4,37 +4,35 @@ Where racecar stands and what's next, for whoever picks it up (a person or a fre
 The design is [SPEC.md](./SPEC.md): decisions in §17, and what building changed in "Changed while
 building". This file is "where are we"; the spec is "what are we making".
 
-**Last updated:** 2026-10-07. **In review: PR #152, Paradise Open's detail pass** (the owner:
-"detail the map similar to what we did with Riviera", Hawaii; still experimental, not tagged, not on
-the hosted build; open it at `?mode=free&map=paradise-open/open`). It's in PARADISE.md's "Built so
-far", from "Harbor Town (2026-10-06)" on:
-- **Harbor Town**, Lahaina's Front Street round the line:
-  - The streets: two back streets up the hill (Waine'e, Luakini) and two beach car parks.
-  - The buildings: wooden shops on the front road (house look `shop`), plantation cottages
-    behind (`plantation`), a banyan in the square at the line, the surf shack.
-  - Tiki torches along the front road (smashable `tiki-torch`).
-  - The traffic: against the lap out of one car park and into the other, and up and down the
-    back streets, never on the front road. The lap's way onto the front road was 35 wrecks in 24
-    races, and the east car park's mouth in the bend was head-ons.
-- **The bulge:** the west coast's jog is one round, banked D inland. The lap is 110 m longer, and
-  every main distance past it moves on through `S()`. A second lava stream comes down the west
-  face into a pool past its apex (`LavaStreamDef.pool`).
-- **The car parks rebuilt:** level paved pads (a new ground feature, `PadDef`; `KIND_PAVED`), a
-  straight aisle, rows of nose-in bays, and parked cars in the traffic's models (look `parked`).
-- **Palms along the town's streets** (`PinesDef.plant`, solid). None on corners or round the grid:
-  a racer shoved wide off the start hit them every race.
-- **The beach run:** a packed-sand shortcut along the water across the bulge (a new surface,
-  `packed-sand`, ruts drawn), about even with it (coupe 13.12 s against 13.08). Lifeguard towers
-  (landmark `lifeguard-tower`, solid) and surfboard racks (smashable `surf-rack`).
-- **Numbers:** floor 68.07 s (66.32 before: the longer lap). Field wrecks over seeds 1–72: 51
-  with the palms and beach line, before the towers and racks (65 on main). None at the new
-  pieces: the extra over the car parks' 43 are the old spots, mostly the lava bombs at 3200 m.
-  Only Paradise Open re-recorded.
-- **Not run:** the full test suite on the last commit (the palms and the beach run; skipped at
-  the owner's word). It passed, 715, on the bulge's commit.
-- **Next on Paradise Open** (the owner's order): the jungle, the volcano, the finish. Maybe more
-  palms on the front road (21 now: most of it is round the grid, so they'd stand further back,
-  between the shops). Then merge #152, tag, and deploy.
+**Last updated:** 2026-10-07. **In review: PR #152, Paradise Open's detail pass, and Paradise Open
+goes live as *Paradise*** (the owner: "detail the map similar to what we did with Riviera", Hawaii;
+then "make this the displayed Paradise map in the game"). Not tagged, not on the hosted build yet:
+that's on the owner's word. Paradise Open is in the lobby, the vote and quick race as *Paradise*
+(its id stays `paradise-open`: links, fingerprints); the old island lap, `paradise/island`, is
+experimental (*Paradise Classic*, from a link). It's all in PARADISE.md's "Built so far", from
+"Harbor Town (2026-10-06)" on:
+- **Harbor Town**, Lahaina's Front Street round the line: two back streets up the hill and two
+  beach car parks (level paved pads, `PadDef`), wooden shops, plantation cottages, a banyan, the
+  surf shack, tiki torches, palms along the streets (none on corners or round the grid). Traffic
+  out of one car park and into the other, and up and down the back streets.
+- **The bulge:** the west coast's jog is one round, banked D (the lap 110 m longer; every main
+  distance past it moves on through `S()`), a second lava stream down the west face into a pool.
+- **The beach run:** a packed-sand shortcut along the water across the bulge: whoops, two jumps,
+  micro turns and moguls (`BEACH_RUN`). A shortcut by the AI's costs for most classes (the
+  muscle car keeps to the road). Its merge back onto the front road eases in over 70 m.
+- **Flying, not slowing:** the market hall's sand floor gone, a kicker out of its far door; the
+  Lava Tube's jump's kicker a boost pad with blue and white chevrons chasing up it.
+- **The mud and the volcano dressed** (drawn only, `wilds.ts`): ruts, mud puddles, ferns,
+  lianas and a rope bridge in the jungle; glowing cracks, steam vents and cinders on the cone.
+- **The AI checks its mirror at a merge** (racer.ts's `mirror`, `MERGE`; a new car field,
+  `aiMerge`): a car coming off a branch, near the rejoin, holds its side of the road while a car is
+  alongside or coming up faster on a line it would cross. Field wrecks over seeds 1–72: Paradise's
+  rejoin 6 -> 2, Backroads 80 -> 66; over 1–24 Riviera 7 -> 8, Downtown 28 -> 25, Avalanche the
+  same. Every fingerprint re-recorded (they hash every car field; each drive's marks unchanged).
+- **Numbers:** floor 67.37 s; field wrecks over seeds 1–72: 48 (65 on main), most of them the
+  lava bombs by the rim road at 3150–3200 m. The full suite passes.
+- **Next on Paradise:** the finish; maybe more palms on the front road. Then merge #152, tag, and
+  deploy.
 
 Before it, **`alpha-1.36`** (PRs #150, #151) is tagged and on the hosted build:
 **no hop at the Rock Tunnel's mouths** (#150: half into a piece, a wheel off its end stands on its
