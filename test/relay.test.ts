@@ -51,6 +51,21 @@ class FakeRoom {
   emit(event: string, ...args: unknown[]): void {
     for (const m of this.members) m.fire(event, ...args);
   }
+  /**
+   * `c`'s connection gone past the server's grace (a hidden tab, a laptop asleep): out of the room
+   * (an empty one stays, state and all, for its idle time), and when its SDK reconnects it can't
+   * resume, so it hears `closed('lost')`.
+   */
+  timeOut(relay: FakeRelay): void {
+    const c = relay.room!;
+    // (The SDK forgets the room before it says so.)
+    relay.room = null;
+    const wasHost = this.host === c;
+    this.members = this.members.filter((m) => m !== c);
+    this.emit('player_left', c.id, 'timeout');
+    if (wasHost && this.host) this.emit('host_changed', this.host.id, c.id);
+    c.fire('closed', 'lost');
+  }
   remove(c: FakeClient): void {
     const wasHost = this.host === c;
     this.members = this.members.filter((m) => m !== c);
@@ -232,6 +247,44 @@ function players(hub: Hub, ...ids: string[]) {
     return { relay, backend: new RelayBackend(async () => relay) };
   });
 }
+
+describe('back after the connection was gone a while', () => {
+  // The server holds a dropped player's seat 30 s; past that a lone host's room is empty but still
+  // there (its idle time), with the lobby in its state. Coming back, the SDK can't resume it.
+  for (const visibility of ['invite', 'public'] as const)
+    test(`alone in a${visibility === 'invite' ? 'n invite-only' : ' public'} lobby: back in it, in your seat, still its host`, async () => {
+      const hub = new Hub();
+      const [ada] = players(hub, 'ada');
+      const lobby = await ada.backend.create(player('Ada'), { visibility, online: true });
+      await ada.backend.shareLink(lobby.id);
+      const seen: (string | null)[] = [];
+      ada.backend.subscribe(lobby.id, (l) => seen.push(l ? l.host : null));
+      hub.rooms.get(lobby.id)!.timeOut(ada.relay);
+      for (let n = 0; n < 5; n++) await settle();
+      const back = await ada.backend.get(lobby.id);
+      expect(back?.host).toBe('ada');
+      expect(back?.seats[0]).toMatchObject({ kind: 'player', id: 'ada' });
+      expect(ada.backend.current?.code).toBe(lobby.id);
+      expect(ada.backend.current?.isHost).toBe(true);
+      // The screen never saw it gone (that's the title screen).
+      expect(seen).not.toContain(null);
+    });
+
+  test('back as a new player (the SDK lost its token): you are who the SDK says, and sitting down makes the lobby yours', async () => {
+    const hub = new Hub();
+    const [ada] = players(hub, 'ada');
+    const lobby = await ada.backend.create(player('Ada'), { visibility: 'invite', online: true });
+    await ada.backend.shareLink(lobby.id);
+    (ada.relay as { playerId: string }).playerId = 'ada-2';
+    hub.rooms.get(lobby.id)!.timeOut(ada.relay);
+    for (let n = 0; n < 5; n++) await settle();
+    expect(ada.backend.youIn()).toBe('ada-2');
+    // Your old seat was freed (nobody's in it), the lobby hostless until you sit (the screen does).
+    const sat = await ada.backend.send(lobby.id, { type: 'join', player: { ...player('Ada'), id: 'ada-2' } });
+    expect(sat?.host).toBe('ada-2');
+    expect(sat?.seats.filter((s) => s.kind === 'player').map((s) => s.kind === 'player' && s.id)).toEqual(['ada-2']);
+  });
+});
 
 describe('online lobbies', () => {
   test("a lobby is a room: listed with its summary, joined by its code, everyone's changes seen by all", async () => {

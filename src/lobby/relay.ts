@@ -77,6 +77,16 @@ export const START_LEAD_MS = 6000;
 
 /** The room tag racecar's lobbies list under. */
 export const TAG = 'race';
+/** A short link's id: its `?join=` (a game without a slug), else its last path segment (`gamerelay.io/<game>/<link>`). */
+export function linkId(url: string): string {
+  try {
+    const u = new URL(url);
+    return u.searchParams.get('join') ?? u.pathname.split('/').filter(Boolean).pop() ?? url;
+  } catch {
+    return url;
+  }
+}
+
 /** setListing allows 10 changes in a row, then one a second: the listing follows at most this often (ms). */
 const LISTING_MS = 1000;
 
@@ -117,8 +127,15 @@ export class RelayBackend implements LobbyBackend {
     return this.room;
   }
 
-  /** Your player id in online lobbies ('' until connected). */
-  you = '';
+  /** The connection, once it's up (for your id, which the SDK may change on a reconnect). */
+  private connected: RelayLike | null = null;
+  /** Each link-only room's short-link id, by code: past the server's grace, the only way back in. */
+  private links = new Map<string, string>();
+
+  /** Your player id in online lobbies ('' until connected): the SDK's own, as it is now. */
+  get you(): string {
+    return this.connected?.playerId ?? '';
+  }
 
   youIn(): string {
     return this.you;
@@ -143,7 +160,7 @@ export class RelayBackend implements LobbyBackend {
 
   private async relayNow(): Promise<RelayLike> {
     this.relay ??= this.connect().then(
-      (r) => ((this.you = r.playerId), r),
+      (r) => ((this.connected = r), r),
       (err) => {
         // Try again next time (the server was down, or the network).
         this.relay = null;
@@ -236,7 +253,32 @@ export class RelayBackend implements LobbyBackend {
   /** Lobby `id`'s short link, if you're in it and the SDK has them. */
   async shareLink(id: string): Promise<string | null> {
     const room = this.room?.code === id ? this.room : null;
-    return (await room?.shareLink?.().catch(warned('getting the lobby link failed', null))) ?? null;
+    const url = (await room?.shareLink?.().catch(warned('getting the lobby link failed', null))) ?? null;
+    if (url) this.links.set(id, linkId(url));
+    return url;
+  }
+
+  /**
+   * Back into lobby `code` after its room was lost while reconnecting: gone longer than the
+   * server holds a seat (a hidden tab, a laptop asleep), it can't be resumed, but it may still be
+   * there, with your seat in its lobby. By its link if it's link-only (its code finds nothing for
+   * someone without a seat), else its code. Gone for good (closed), the screens hear it is.
+   */
+  private rejoin(code: string): Promise<void> {
+    return this.inTurn(async () => {
+      if (this.wanted !== code || this.room) return;
+      const relay = await this.relayNow();
+      const link = this.links.get(code);
+      const room = await (link && relay.joinLink ? relay.joinLink(link) : relay.joinRoom(code)).catch(warned('getting back into a lobby failed', null));
+      if (room && this.wanted === code) {
+        this.attach(room);
+        this.notify(this.lobbyOf(room));
+        return;
+      }
+      if (room) await room.leave().catch(() => {});
+      void this.party.leave();
+      this.notify(null);
+    });
   }
 
   /** The room for lobby `id`: the one you're in, or joined now (a reload resumes your seat). */
@@ -337,9 +379,10 @@ export class RelayBackend implements LobbyBackend {
       // to checks for anyone who left while nobody held it (and lists the room).
       room.on('player_left', () => room.isHost && this.tidy(room)),
       room.on('host_changed', () => room.isHost && this.tidy(room)),
-      room.on('closed', () => {
+      room.on('closed', (reason?: string) => {
         if (this.room !== room) return;
         this.detach();
+        if (reason === 'lost' && this.wanted === room.code) return void this.rejoin(room.code);
         // Kicked, or the room closed: out of its party too.
         void this.party.leave();
         this.notify(null);
@@ -347,6 +390,13 @@ export class RelayBackend implements LobbyBackend {
     ];
     if (room.isHost) this.tidy(room);
     void this.party.follow();
+    // A link-only room's link, kept for getting back in (rejoin).
+    if (room.linkOnly && !this.links.has(room.code)) void this.shareLinkOf(room);
+  }
+
+  private async shareLinkOf(room: RoomLike): Promise<void> {
+    const url = await room.shareLink?.().catch(() => null);
+    if (url) this.links.set(room.code, linkId(url));
   }
 
   private detach(): void {
