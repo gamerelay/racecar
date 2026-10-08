@@ -36,8 +36,7 @@ effects too"; then "merge it and deploy a new version"). SAHARA.md's "Step 5, th
   Not yet seen on screen (the poster stage draws no car particles): look at the ford in a race.
 - **Watch:** fields wreck a little more (11 in 12 races, was 8): the three new on the devils'
   stretches (802 m, resets at 992 and 3638 m). If that's too many, `DEVIL_SPIN` down a notch.
-- **Next on Sahara:** reeds; the berms tuned by driving them (358–368 m and 2124 m wrecks); a
-  track of its own.
+- **Next on Sahara:** reeds; the berms tuned by driving them (358–368 m and 2124 m wrecks).
 
 Before it, **`alpha-1.40`** (PR #155) is tagged and on the hosted build:
 **Sahara's life: a camel caravan and dust devils** (the owner: "let's do the camel caravan and dust

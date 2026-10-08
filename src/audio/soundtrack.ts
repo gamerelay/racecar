@@ -5,7 +5,7 @@
 // page is, say) falls back to the synth music (music.ts), the same as before there were tracks.
 
 /** The tracks, by name: the title's, each map's own, and the eight any race may play. */
-export const TRACKS = ['title', 'pursuit-orchestra', 'downtown', 'tokyo-dubstep', 'backroads', 'backroads-acoustic', 'paradise', 'hawaiian-vibes', 'coastal', 'avalanche', 'winter-pursuit', 'finish-line', 'final-sprint', 'relentless-pursuit', 'half-time-surge', 'propulsion', 'escape', 'forward', 'crashout'] as const;
+export const TRACKS = ['title', 'pursuit-orchestra', 'downtown', 'tokyo-dubstep', 'backroads', 'backroads-acoustic', 'paradise', 'hawaiian-vibes', 'coastal', 'avalanche', 'winter-pursuit', 'sahara', 'finish-line', 'final-sprint', 'relentless-pursuit', 'half-time-surge', 'propulsion', 'escape', 'forward', 'crashout'] as const;
 export type TrackName = (typeof TRACKS)[number];
 /** Behind the menus (the attract page): the title's own, and the orchestral one (the owner's, 2026-10-02). */
 export const TITLE_TRACKS: readonly TrackName[] = ['title', 'pursuit-orchestra'];
@@ -15,7 +15,7 @@ export const ANY_MAP: readonly TrackName[] = ['finish-line', 'final-sprint', 're
  * Each map's own tracks: the city has the Tokyo dubstep too, the island the Hawaiian one (2026-10-01)
  * and the coastal one (2026-10-03), the valley an acoustic one (2026-10-02), the mountain its two
  * (2026-10-03). Paradise Open is the island too, so it has the island's. Coastal has the coastal
- * one (2026-10-04; `forward` plays on every map).
+ * one (2026-10-04; `forward` plays on every map). Sahara has an Arabian one, its own only (2026-10-08).
  */
 export const MAP_TRACKS: Readonly<Record<string, readonly TrackName[]>> = {
   downtown: ['downtown', 'tokyo-dubstep'],
@@ -24,6 +24,7 @@ export const MAP_TRACKS: Readonly<Record<string, readonly TrackName[]>> = {
   'paradise-open': ['paradise', 'hawaiian-vibes', 'coastal'],
   avalanche: ['avalanche', 'winter-pursuit'],
   coastal: ['coastal'],
+  sahara: ['sahara'],
 };
 
 /** The page's playlist: the title's behind the menus (attract mode), else the map's own and the eight for any map. */

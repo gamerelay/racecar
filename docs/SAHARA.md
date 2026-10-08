@@ -137,8 +137,7 @@ The owner: "let's dress up Giza with the Sphinx and palms".
 ### In the lobby (2026-10-07, alpha-1.38)
 
 The owner: "this map is good enough to merge, deploy and tag". Out of experimental, its
-fingerprints recorded (every other map's unchanged). It has no music of its own yet: a race on it
-plays the eight tracks for any map (test/audio.test.ts takes a map with none).
+fingerprints recorded (every other map's unchanged). Its music came later (below, "Its own track").
 
 ### Step 3, the rest: the avenue (2026-10-07)
 
@@ -204,3 +203,10 @@ it would be cool to have some subtle effects too".
 - **Numbers:** field races, seeds 1–12: 11 wrecks (8 before), the three new ones on the devils'
   stretches (802 m car on car; resets at 992 m and 3638 m), about one race in four. Fingerprints
   unchanged (they race at mayhem off, in clear weather).
+
+### Its own track (2026-10-08)
+
+The owner: "could we also add this Arabian themed track as a Sahara only exclusive please". `sahara`
+(public/music/sahara.m4a, 2:30): the WAV was already at −15.8 LUFS, the others' level, so encoded as
+they are (`afconvert -f m4af -d aac -b 128000`). Sahara's own in `MAP_TRACKS`: a race on Sahara
+picks from it and the eight for any map; no other map plays it (test/audio.test.ts holds both).
