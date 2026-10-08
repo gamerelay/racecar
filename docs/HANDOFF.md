@@ -4,7 +4,20 @@ Where racecar stands and what's next, for whoever picks it up (a person or a fre
 The design is [SPEC.md](./SPEC.md): decisions in §17, and what building changed in "Changed while
 building". This file is "where are we"; the spec is "what are we making".
 
-**Last updated:** 2026-10-07. **`alpha-1.41`** (PR #156) is tagged and on the hosted build:
+**Last updated:** 2026-10-08. **`alpha-1.42`** (PR #157) is tagged and on the hosted build:
+**back into your lobby after a long disconnect** (the owner: alone in a private lobby, away from the
+tab a while, back to a lobby with no host; then "yes let's merge and deploy please"):
+- **Cause:** gone past the server's 30 s grace (a frozen hidden tab, a laptop asleep), the SDK
+  can't resume the room and closes it locally (`closed('lost')`), though an empty room waits out its
+  two idle minutes with the lobby in its state. relay.ts took that for the lobby gone (the title),
+  and a link-only (invite) room's code finds nothing for someone without a seat.
+- **Fix (relay.ts):** on `lost`, while the screens still want it, `rejoin`: by its short link
+  (kept on `attach` for a link-only room), else its code. `you` reads the SDK's `playerId` live.
+- **Repro:** the local server (gamerelay.io's `bun --filter '@gamerelay/server' dev`, :8787), the
+  dev build, and in the page a WebSocket wrapper that closes the relay's socket and fails reconnects
+  for 45 s. Past about 2.5 min the room itself has closed: the title is right then.
+
+Before it, **`alpha-1.41`** (PR #156) is tagged and on the hosted build:
 **Sahara's skies: a sandstorm and a sunset; dust devils that throw you; splashes in water** (the
 owner: "could we next add a sandstorm and a sunset, also I think the dust devils need to throw /
 spin you a little more ... also when splashing in water it would be cool to have some subtle

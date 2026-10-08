@@ -4,6 +4,13 @@ What changed in each release of racecar, newest first. Releases are git tags on 
 reasons behind each change are in [docs/SPEC.md](./docs/SPEC.md) under "Changed while building",
 and where things stand is [docs/HANDOFF.md](./docs/HANDOFF.md).
 
+## alpha-1.42: Back into your lobby
+
+- **Fixed: losing your lobby after time away.** Away from the tab long enough for the connection to
+  drop (a frozen background tab, a laptop asleep), you came back to the title screen, or to a lobby
+  with no host; a private lobby couldn't be found again at all. Now you're put back in it, in your
+  seat and still its host, as long as you're back within about two minutes.
+
 ## alpha-1.41: Sandstorms and sunsets
 
 - **Sandstorms on Sahara:** about one race in three a sandstorm blows in and over again. The air
