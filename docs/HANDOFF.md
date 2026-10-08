@@ -4,7 +4,27 @@ Where racecar stands and what's next, for whoever picks it up (a person or a fre
 The design is [SPEC.md](./SPEC.md): decisions in §17, and what building changed in "Changed while
 building". This file is "where are we"; the spec is "what are we making".
 
-**Last updated:** 2026-10-07. **`alpha-1.38`** (PR #153) is tagged and on the hosted build:
+**Last updated:** 2026-10-07. **`alpha-1.39`** (PR #154) is tagged and on the hosted build:
+**Sahara's Giza, finished, and the Pyramid Run opened** (the owner: "Next on Sahara, per the plan:
+capstones, a ruined colonnade and market stalls at Giza ..."; then "let's merge these please, deploy
+a new version"). SAHARA.md's "Step 3, the rest":
+- **The market:** two new smashables (`market-stall`, `clay-pots`), either side of the Sphinx avenue.
+- **Capstones:** each pyramid's top gilded (snow.ts's `desert()`), which now draws all seven
+  pyramids (it took four).
+- **The Pyramid Run's invisible walls, gone** (the owner: "there is an invisible wall on this
+  pyramid jump"): a branch is walled unless `layout.walls.gaps` opens it, and the run never was;
+  rails stood 8 m either side of it across both faces. Gapped now; a test holds every road on
+  Sahara open. *Any new branch on open ground wants its gap.*
+- **No colonnade:** solid columns down the avenue's middle, tried and taken out ("looks a little
+  crowded").
+- **Numbers:** floor 78.85 s; fields on seeds 1–8 with no wrecks; Sahara's fingerprint re-recorded,
+  every other map's identical; full suite 725 pass.
+- **Next on Sahara:** reeds along the river; the berms tuned by driving them (ask the owner which
+  hairpins feel off); life (a camel caravan, dust devils, a sandstorm, a sunset palette); a track of
+  its own; tests that a hard lap flies its crests and drop clean. Open question: more packed sand
+  or more asphalt?
+
+Before it, **`alpha-1.38`** (PR #153) is tagged and on the hosted build:
 **Sahara**, a new desert map in the lobby (the owner: "a new desert themed map called Sahara using
 the Caldera engine ... very good for drifting, have lots of jumps and berms, sand dunes, possibly a
 river, maybe pyramids"; then "this map is good enough to merge, deploy and tag").
@@ -24,10 +44,6 @@ river, maybe pyramids"; then "this map is good enough to merge, deploy and tag")
   courses; the roads laid over the sand), the `sahara` palette, a spray off the water.
 - **Numbers:** floor 78.85 s; 8-car fields on seeds 1–8 with no wrecks. Its fingerprints
   recorded; every other map's identical. No music of its own yet (it plays the eight for any map).
-- **Next on Sahara** (SAHARA.md's steps): a track of its own if the owner has one; capstones, a
-  ruined colonnade and market stalls at Giza; the berms tuned by driving them; life (a camel
-  caravan, dust devils, a sandstorm, a sunset palette); tests that a hard lap flies its crests and
-  drop clean. Open question: more of the lap on packed sand, or more asphalt?
 
 Before it, **`alpha-1.37`** (PR #152) is tagged and on the hosted build:
 **Paradise goes open.** Paradise Open is live as *Paradise* (the owner: "make this the displayed

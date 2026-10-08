@@ -4,6 +4,15 @@ What changed in each release of racecar, newest first. Releases are git tags on 
 reasons behind each change are in [docs/SPEC.md](./docs/SPEC.md) under "Changed while building",
 and where things stand is [docs/HANDOFF.md](./docs/HANDOFF.md).
 
+## alpha-1.39: Giza's market
+
+- **A market at Giza:** stalls under striped awnings, and clay pots between them, line both sides
+  of the Sphinx avenue. Drive through them for points and boost.
+- **Gold capstones** on every pyramid, and all seven are drawn in stone now (three of the small
+  ones by the road were plain sand).
+- **Fixed: invisible walls on the Pyramid Run.** Coming at the Great Pyramid from an angle, or
+  landing beside the run, no longer stops you dead.
+
 ## alpha-1.38: Sahara
 
 - **Sahara, a new desert map, in the lobby.** A
