@@ -664,7 +664,7 @@ export interface MapDef {
   palette: string;
   /** The palette for a race at sunset, if the map has one (the lobby's Time). */
   sunset?: string;
-  /** What weather it gets: `clear`, `rain`, `shower` for rain that passes, and `rare` for it seldom (world/weather.ts). */
+  /** What weather it gets: `clear`, `rain`, `shower` for rain that passes, `rare` for it seldom, `snow` for snow in its place and `sand` for sandstorms (world/weather.ts). */
   weather: string[];
   /**
    * Not for a release (docs/AVALANCHE.md): out of the lobby, the map lists and the validator. Its

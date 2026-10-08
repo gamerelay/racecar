@@ -1,6 +1,6 @@
 // Greybox visuals for the world systems: traffic (instanced, one mesh per kind, posed at the exact
 // render time since traffic is a formula), wrecked traffic tumbling as cosmetic debris (category L),
-// hazard pieces and telegraph markers, sign gantries, rain and snow, and one run's avalanche.
+// hazard pieces and telegraph markers, sign gantries, rain, snow and sandstorms, and one run's avalanche.
 
 import {
   AdditiveBlending,
@@ -199,6 +199,8 @@ export function buildWorldVisual(scene: Scene, sim: Sim, roof?: (x: number, z: n
   // Dust devils (Sahara's): a funnel of sand, three open cones stacked, narrow at the foot, each
   // turning at its own rate, see-through, and a skirt of dust round its foot; grown and faded with
   // its strength (hazards.ts gives its spin and strength).
+  const SWIRL = 140;
+  const swirlSeeds = Float32Array.from({ length: SWIRL * 3 }, () => Math.random());
   const devils = Array.from({ length: 6 }, () => {
     const g = new Group();
     const layers = [0, 1, 2].map((n) => {
@@ -211,9 +213,16 @@ export function buildWorldVisual(scene: Scene, sim: Sim, roof?: (x: number, z: n
     const skirt = new Mesh(new CylinderGeometry(4.5, 3, 1.2, 16, 1, true), new MeshBasicMaterial({ color: 0xa57a48, transparent: true, opacity: 0.5, side: DoubleSide, depthWrite: false }));
     skirt.position.y = 0.6;
     g.add(skirt);
+    // Sand whirled up it: grains spiralling round and up the funnel, wider as they climb, and
+    // flung out at the top (placed each frame, in the funnel's own space).
+    const swirl = new Points(new BufferGeometry(), new PointsMaterial({ color: 0x8a5e32, size: 0.35, transparent: true, opacity: 0.9, depthWrite: false }));
+    swirl.geometry.setAttribute('position', new BufferAttribute(new Float32Array(SWIRL * 3), 3));
+    swirl.frustumCulled = false;
+    g.add(swirl);
     g.visible = false;
     root.add(g);
-    return { g, layers, mats: [...layers, skirt].map((m) => m.material as MeshBasicMaterial), base: [...layers, skirt].map((m) => (m.material as MeshBasicMaterial).opacity) };
+    const mats = [...layers, skirt].map((m) => m.material as MeshBasicMaterial);
+    return { g, layers, swirl, mats: [...mats, swirl.material as PointsMaterial], base: [...mats.map((m) => m.opacity), 0.9] };
   });
   const nuts = new InstancedMesh(new IcosahedronGeometry(1, 0), toon({ color: 0x9cc23e }), 32);
   nuts.frustumCulled = false;
@@ -288,6 +297,29 @@ export function buildWorldVisual(scene: Scene, sim: Sim, roof?: (x: number, z: n
   flakes.visible = false;
   root.add(flakes);
   const flakeSeeds = Float32Array.from({ length: FLAKES * 3 }, () => Math.random());
+
+  // ---- a sandstorm (a map whose weather lists sand): sand streaking past on the wind, thickest
+  // low down, and clouds of dust rolling through it, in a box wrapped round the camera ----
+  const GRAINS = 1800;
+  const grainPos = new Float32Array(GRAINS * 6);
+  const grainGeo = new BufferGeometry();
+  grainGeo.setAttribute('position', new BufferAttribute(grainPos, 3));
+  const grains = new LineSegments(grainGeo, new LineBasicMaterial({ color: 0xe0b47a, transparent: true, opacity: 0.5, depthWrite: false }));
+  grains.frustumCulled = false;
+  grains.visible = false;
+  root.add(grains);
+  const grainSeeds = Float32Array.from({ length: GRAINS * 3 }, () => Math.random());
+  const PUFFS = 160;
+  const puffPos = new Float32Array(PUFFS * 3);
+  const puffGeo = new BufferGeometry();
+  puffGeo.setAttribute('position', new BufferAttribute(puffPos, 3));
+  const puffs = new Points(puffGeo, new PointsMaterial({ color: 0xc89660, size: 14, map: (flakes.material as PointsMaterial).map, transparent: true, opacity: 0.3, depthWrite: false }));
+  puffs.frustumCulled = false;
+  puffs.visible = false;
+  root.add(puffs);
+  const puffSeeds = Float32Array.from({ length: PUFFS * 3 }, () => Math.random());
+  /** The storm's wind: from the east-north-east, a little gusty (m/s). */
+  const WIND = { x: -0.92, z: -0.38, speed: 26 };
 
   function onEvent(ev: GameEvent): void {
     if (ev.type !== Ev.TrafficWreck) return;
@@ -461,6 +493,24 @@ export function buildWorldVisual(scene: Scene, sim: Sim, roof?: (x: number, z: n
         d.g.position.set(hz.px[p], hz.py[p], hz.pz[p]);
         d.g.scale.set(hz.phw[p] / 5, 0.4 + 0.6 * k, hz.phw[p] / 5);
         d.layers.forEach((l, n) => (l.rotation.y = hz.ph[p] * (1.5 - n * 0.35)));
+        const sp = (d.swirl.geometry.attributes.position as BufferAttribute).array as Float32Array;
+        for (let q = 0; q < SWIRL; q++) {
+          // Each grain rises up the funnel and round it, over and over (its own phase and pace).
+          const a = swirlSeeds[q * 3];
+          const b = swirlSeeds[q * 3 + 1];
+          const c = swirlSeeds[q * 3 + 2];
+          const u = (((a + hz.ph[p] * (0.05 + 0.04 * b)) % 1) + 1) % 1;
+          // (Past 0.8 up, flung: out and arcing down.)
+          const out = Math.max(0, u - 0.8);
+          const y = Math.min(u, 0.8) * 11 + out * 5 - out * out * 60;
+          // Out with the cones as it climbs, and past them near the top: flung off.
+          const r = 0.8 + Math.min(u, 0.8) * 4.6 + out * 30 * c + (b - 0.5) * 0.8;
+          const ang = hz.ph[p] * (2.2 - u) + c * Math.PI * 2;
+          sp[q * 3] = Math.cos(ang) * r;
+          sp[q * 3 + 1] = y;
+          sp[q * 3 + 2] = Math.sin(ang) * r;
+        }
+        d.swirl.geometry.attributes.position.needsUpdate = true;
         d.mats.forEach((m, n) => (m.opacity = d.base[n] * k));
       }
       for (; dv < devils.length; dv++) devils[dv].g.visible = false;
@@ -528,7 +578,7 @@ export function buildWorldVisual(scene: Scene, sim: Sim, roof?: (x: number, z: n
 
       // Snow, where it snows instead of raining: slow, swaying, and wrapped round the camera so a
       // car at speed drives through it.
-      flakes.visible = sim.snowing && sim.wetness > 0.05;
+      flakes.visible = sim.fall === 'snow' && sim.wetness > 0.05;
       if (flakes.visible) {
         const box = 80;
         rainT += dt;
@@ -548,8 +598,52 @@ export function buildWorldVisual(scene: Scene, sim: Sim, roof?: (x: number, z: n
         (flakes.material as PointsMaterial).opacity = 0.9 * Math.min(1, sim.wetness * 1.5);
       }
 
+      // A sandstorm: streaks of sand on the wind, low and fast, gusting; dust rolling slower above.
+      grains.visible = puffs.visible = sim.fall === 'sand' && sim.wetness > 0.05;
+      if (grains.visible) {
+        const box = 70;
+        rainT += dt;
+        const time = rainT;
+        const wrap = (v: number, at: number) => at + ((((v - at) % box) + box * 1.5) % box) - box / 2;
+        const gust = 1 + 0.25 * Math.sin(time * 0.9) + 0.15 * Math.sin(time * 2.3);
+        for (let d = 0; d < GRAINS; d++) {
+          const a = grainSeeds[d * 3];
+          const b = grainSeeds[d * 3 + 1];
+          const c = grainSeeds[d * 3 + 2];
+          const run = time * WIND.speed * gust * (0.7 + 0.6 * c);
+          const x = wrap(a * box * 9 + WIND.x * run, cam.x);
+          const z = wrap(b * box * 9 + WIND.z * run, cam.z);
+          // Most of it low, skimming the ground (the camera's a few meters up), some higher.
+          const y = cam.y - 3 + c * c * 16 + Math.sin(time * 3 + a * 50) * 0.3;
+          const len = 0.8 + c * 1.2;
+          const j = d * 6;
+          grainPos[j] = x;
+          grainPos[j + 1] = y;
+          grainPos[j + 2] = z;
+          grainPos[j + 3] = x - WIND.x * len;
+          grainPos[j + 4] = y + 0.05;
+          grainPos[j + 5] = z - WIND.z * len;
+        }
+        (grainGeo.attributes.position as BufferAttribute).needsUpdate = true;
+        (grains.material as LineBasicMaterial).opacity = 0.55 * Math.min(1, sim.wetness * 1.4);
+        const big = 160;
+        const wrapBig = (v: number, at: number) => at + ((((v - at) % big) + big * 1.5) % big) - big / 2;
+        for (let d = 0; d < PUFFS; d++) {
+          const a = puffSeeds[d * 3];
+          const b = puffSeeds[d * 3 + 1];
+          const c = puffSeeds[d * 3 + 2];
+          const run = time * WIND.speed * 0.45 * (0.8 + 0.4 * c);
+          const j = d * 3;
+          puffPos[j] = wrapBig(a * big * 5 + WIND.x * run, cam.x);
+          puffPos[j + 1] = cam.y - 2 + c * 14;
+          puffPos[j + 2] = wrapBig(b * big * 5 + WIND.z * run, cam.z);
+        }
+        (puffGeo.attributes.position as BufferAttribute).needsUpdate = true;
+        (puffs.material as PointsMaterial).opacity = 0.32 * Math.min(1, sim.wetness * 1.4);
+      }
+
       // Rain.
-      rain.visible = !sim.snowing && sim.wetness > 0.05;
+      rain.visible = sim.fall === 'rain' && sim.wetness > 0.05;
       if (rain.visible) {
         const box = 60;
         const fall = 40;

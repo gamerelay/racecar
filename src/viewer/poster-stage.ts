@@ -305,7 +305,7 @@ export class Stage {
     // A still: fully indoors inside an enclosed piece, as the game is once it's eased in.
     const g = this.track.ground;
     const inside = g ? indoorAt(g, camera.position.x, camera.position.y, camera.position.z) : null;
-    this.skin.update(this.time, camera.position.x, camera.position.y, camera.position.z, this.wet, false, { amount: inside ? 1 : 0, look: inside?.indoor ?? 'tunnel' });
+    this.skin.update(this.time, camera.position.x, camera.position.y, camera.position.z, this.wet, 'rain', { amount: inside ? 1 : 0, look: inside?.indoor ?? 'tunnel' });
   }
 
   dispose(): void {

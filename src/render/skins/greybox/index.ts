@@ -15,6 +15,7 @@ import {
 import type { CarClass, PaintDef } from '../../../core/content';
 import type { Track } from '../../../core/track/bake';
 import type { Sim } from '../../../core/sim';
+import type { Fall } from '../../../core/world/weather';
 import type { CarPlate, CarVisual, Grade, Indoor, Skin, TrackVisual, WorldVisual } from '../../skin';
 import { buildCar } from './car/build';
 import { WET } from './toon';
@@ -25,6 +26,8 @@ import { buildTrackVisual } from './track';
 const RAIN_FOG = new Color(0x3a4460);
 /** Snowfall's fog: a pale whiteout, not rain's grey. */
 const SNOW_FOG = new Color(0xdfe6ee);
+/** A sandstorm's: the air ochre with dust (the sky goes the same). */
+const SAND_FOG = new Color(0xb47a44);
 /** Rain cloud, for the sky. */
 const RAIN_SKY = 0x6d7488;
 const SUN_FROM: [number, number, number] = [-300, 400, -800];
@@ -37,6 +40,7 @@ export class GreyboxSkin implements Skin {
   private sky?: Mesh;
   private skyTime?: { value: number };
   private skyWet?: { value: number };
+  private skyCloud?: { value: Color };
   private sun?: DirectionalLight;
   private fog?: Fog;
   private hemi?: HemisphereLight;
@@ -80,7 +84,7 @@ export class GreyboxSkin implements Skin {
           uDay: { value: p.day ? 1 : 0 },
           uSunset: { value: p.sunset ? 1 : 0 },
           uWet: this.skyWet,
-          cloud: { value: new Color(RAIN_SKY) },
+          cloud: (this.skyCloud = { value: new Color(RAIN_SKY) }),
           uTime: this.skyTime,
         },
         vertexShader: `varying vec3 vDir;void main(){vDir=normalize(position);gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);}`,
@@ -129,21 +133,27 @@ export class GreyboxSkin implements Skin {
     return buildWorldVisual(scene, sim, track?.roof);
   }
 
-  update(time: number, x: number, y: number, z: number, wetness = 0, snow = false, indoor?: Indoor): void {
-    WET.value = snow ? 0 : wetness;
+  update(time: number, x: number, y: number, z: number, wetness = 0, fall: Fall = 'rain', indoor?: Indoor): void {
+    const snow = fall === 'snow';
+    const sand = fall === 'sand';
+    WET.value = fall === 'rain' ? wetness : 0;
     if (this.skyTime) this.skyTime.value = time;
     const p = this.palette;
     // How overcast the rain makes it: all the way in the city, a sunny shower in the tropics.
-    // Snow comes out of a full overcast, whatever the palette's showers do.
-    const cloud = wetness * (snow ? 1 : (p.overcast ?? 1));
-    if (this.skyWet) this.skyWet.value = cloud;
+    // Snow comes out of a full overcast, whatever the palette's showers do; a sandstorm's dust
+    // blots out most of the sky, the sun a pale disc in it.
+    const cloud = wetness * (snow ? 1 : sand ? 0.9 : (p.overcast ?? 1));
+    // (The sky all but lost in the dust: past the cloud's usual reach.)
+    if (this.skyWet) this.skyWet.value = sand ? wetness * 1.2 : cloud;
     if (this.fog) {
       // Rain still thickens the air where the sun stays out, if less.
-      // Snow closes in further (AVALANCHE.md: fog that closes in), and whiter.
-      const thick = wetness * (snow ? 1.2 : 0.5 + 0.5 * (p.overcast ?? 1));
-      this.fog.near = p.fogNear * (1 - 0.5 * thick);
+      // Snow closes in further (AVALANCHE.md: fog that closes in), and whiter; a sandstorm
+      // furthest, ochre: a few hundred meters, the pyramids gone into it.
+      const thick = wetness * (sand ? 1.5 : snow ? 1.2 : 0.5 + 0.5 * (p.overcast ?? 1));
+      this.fog.near = p.fogNear * (1 - 0.5 * Math.min(1.8, thick));
       this.fog.far = p.fogFar * (1 - 0.55 * thick);
       if (snow) this.fog.color.setHex(p.fog).lerp(SNOW_FOG, wetness * 0.8);
+      else if (sand) this.fog.color.setHex(p.fog).lerp(SAND_FOG, wetness * 0.85);
       else this.fog.color.setHex(p.fog).lerp(RAIN_FOG, wetness * 0.6 * (0.4 + 0.6 * (p.overcast ?? 1)));
       if (this.hemi) this.hemi.intensity = p.hemiIntensity * (1 - 0.35 * cloud);
       if (this.sun) this.sun.intensity = p.dirIntensity * (1 - 0.6 * cloud);
@@ -159,6 +169,9 @@ export class GreyboxSkin implements Skin {
         this.hemi.intensity += (look.hemiIntensity - this.hemi.intensity) * k;
       }
       if (this.sun) this.sun.intensity *= 1 - (1 - look.sun) * k;
+      // A sandstorm's sky is its dust, lit a little brighter overhead.
+      if (sand) this.skyCloud?.value.copy(this.fog.color).multiplyScalar(1.12);
+      else this.skyCloud?.value.setHex(RAIN_SKY);
       // What shows past the sky's reach is the fog's color, in any weather.
       if (this.background) this.background.copy(this.fog.color);
     }

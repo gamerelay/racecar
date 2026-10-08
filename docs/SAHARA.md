@@ -71,8 +71,7 @@ straight up its north face, over its top and off its south face, while the road 
    capstones, market stalls of smashables either side of the Sphinx avenue. Still to come: reeds.
 4. **More of what drifts:** tune the berms by driving them (bank, width, the outside's lip),
    and maybe a slot canyon in the Wadi (rock walls close either side, `GroundDef.face`).
-5. **Life:** a camel caravan and dust devils (built, below); still to come: a sandstorm weather,
-   a sunset palette.
+5. **Life:** a camel caravan and dust devils, a sandstorm weather and a sunset (built, below).
 6. **Fingerprints, tests and the lobby** (done for alpha-1.38): its fingerprints recorded, in the
    lobby (the owner: "this map is good enough to merge, deploy and tag"). Still to add: tests
    that a hard lap flies the crests and the drop clean, and the berms bank the right way.
@@ -180,3 +179,28 @@ The owner: "let's do the camel caravan and dust devils next".
   2124 m (the plateau's corner by a diamond) was there before any of this (1 race in 12): one for
   the berms (step 4). Sahara's fingerprint re-recorded, every other map's unchanged; full suite
   728 pass.
+
+### Step 5, the skies: a sandstorm and a sunset; devils that throw you; splashes (2026-10-07)
+
+The owner: "could we next add a sandstorm and a sunset, also I think the dust devils need to throw
+/ spin you a little more, maybe make them had a little more effects, also when splashing in water
+it would be cool to have some subtle effects too".
+- **The sandstorm** (map.json's weather lists `sand`; the lobby's Weather: Random, Clear,
+  Sandstorm): on Random about one race in three, it blows in somewhere in the first two laps over
+  15 s, lasts 35–60 s and blows over in 20 s (as a shower does on Paradise). Nothing gets wet; grip
+  drops 6%; the fog closes to about 350 m, ochre, and the sky goes the same dust. Sand streaks past
+  on a gusting east-north-east wind, thickest low, with clouds of dust rolling through, and a gale
+  howls under the engine (`sim.fall`: rain, snow or sand; the skin's `update` takes it).
+- **The sunset** (`sahara-sunset`, the lobby's Time): a low sun into the dunes, the sky burnt
+  orange into violet, copper light and purple shade.
+- **Dust devils throw you now:** a harder shove (26 m/s² at the middle, was 16), twice the turn
+  and more (`DEVIL_SPIN`), and near the eye a lift off the ground (`DEVIL_LIFT`, up to 5 m/s): a
+  hop out the side, still never a wreck. Drawn with grains of sand spiralling up each funnel and
+  flung off the top; caught in one, sand churns round the car, the camera shakes, and its roar
+  rises as it closes from 40 m.
+- **Splashes** (every map's water: a river, a ford, a puddle): driving or landing in it throws a
+  ring of spray up and a ripple out (and a splash you hear); wading leaves rings spreading on the
+  water, a wake behind you at speed, and a bow wave off the nose. A puddle's are smaller.
+- **Numbers:** field races, seeds 1–12: 11 wrecks (8 before), the three new ones on the devils'
+  stretches (802 m car on car; resets at 992 m and 3638 m), about one race in four. Fingerprints
+  unchanged (they race at mayhem off, in clear weather).

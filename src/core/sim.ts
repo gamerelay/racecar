@@ -29,7 +29,7 @@ import { Breakables } from './world/breakables';
 import { Smashables } from './world/smash';
 import { AVALANCHE_UNDER, Avalanche } from './world/avalanche';
 import { Slalom } from './rules/slalom';
-import { planWeather, weatherAt, type WeatherOption, type WeatherPlan, type WeatherState } from './world/weather';
+import { planWeather, weatherAt, type Fall, type WeatherOption, type WeatherPlan, type WeatherState } from './world/weather';
 
 export const TICK_RATE = 60;
 export const MAX_CARS = 16;
@@ -327,6 +327,11 @@ export class Sim implements SimState {
   /** It's snow that's falling, not rain (sim.wetness is how hard). */
   get snowing(): boolean {
     return !!this.weatherPlan.snow;
+  }
+
+  /** What's in the air when sim.wetness is up: rain, snow, or a sandstorm's sand. */
+  get fall(): Fall {
+    return this.weatherPlan.snow ? 'snow' : this.weatherPlan.sand ? 'sand' : 'rain';
   }
 
   /** Plans the weather again (another map behind the menu, which may not see rain). */
