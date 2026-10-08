@@ -1,6 +1,6 @@
 // Sahara (docs/SAHARA.md): the pyramids are ground you drive up, stone to drive on, and the Pyramid
 // Run goes over the Great Pyramid's top, open either side; the river, its ford and its bridge; Giza
-// dressed, its avenue's market.
+// dressed, its avenue's market; its life, a camel caravan and dust devils.
 
 import { describe, expect, test } from 'bun:test';
 import { bakeTrack } from '../src/core/track/bake';
@@ -9,7 +9,12 @@ import { KIND_STONE, KIND_WATER, riverAt } from '../src/core/track/ground';
 import { newHit, projectGlobal, sampleAt, surfaceAt } from '../src/core/track/query';
 import type { PyramidDef, RiverDef } from '../src/core/content';
 import { SMASH_IDS, Smashables } from '../src/core/world/smash';
-import { SURFACES, layout } from './helpers';
+import { TRAFFIC_KINDS, Traffic, newTrafficPose } from '../src/core/world/traffic';
+import { Sim } from '../src/core/sim';
+import { Ev } from '../src/core/events';
+import { neutralControls } from '../src/core/controls';
+import { wrap } from '../src/core/track/bake';
+import { CLASSES, SURFACES, layout } from './helpers';
 
 describe('Sahara', () => {
   const sahara = layout('sahara/dunes');
@@ -134,5 +139,79 @@ describe('Giza dressed', () => {
       }
       expect(sides.size).toBe(2);
     }
+  });
+});
+
+describe("Sahara's life: the caravan and the dust devils", () => {
+  const sahara = layout('sahara/dunes');
+  const track = bakeTrack(sahara, SURFACES);
+
+  test('the caravan: camels only, in strings of five nose to tail, on the Caravan Road', () => {
+    const tr = new Traffic(track, 7, 1);
+    expect(tr.count).toBeGreaterThan(0);
+    expect(new Set(Array.from(tr.kind, (k) => TRAFFIC_KINDS[k].id))).toEqual(new Set(['camel']));
+    const s = Array.from({ length: tr.count }, (_, k) => tr.sAt(k, 0));
+    // Each string's camels 3.6 m apart; a string's last and the next one's head much further.
+    for (let k = 0; k + 1 < 5; k++) expect(Math.abs(wrap(s[k] - s[k + 1] + 50, track.main.length) - 50)).toBeCloseTo(3.6, 3);
+    expect(Math.abs(wrap(s[4] - s[5] + 2000, track.main.length) - 2000)).toBeGreaterThan(50);
+  });
+
+  test('a camel hit scatters: the camel gone for a while, the car a little slower, nobody wrecked', () => {
+    const sim = new Sim(track, CLASSES, SURFACES, { seed: 7, traffic: 1, mayhem: 'off' });
+    const c = sim.addCar({ cls: 'coupe', human: true });
+    sim.time = 20;
+    const tr = sim.world.traffic;
+    const k = Array.from({ length: tr.count }, (_, k) => k).find((k) => tr.visibility(k, 20) === 1)!;
+    expect(k).toBeDefined();
+    // 15 m short of it, in its lane, at 100 km/h.
+    const s = tr.sAt(k, 20);
+    const at = sampleAt(track.main, s, newHit());
+    const lat = (tr.poseAt(k, 20, newTrafficPose()).x - at.cx) * -at.tz + (tr.poseAt(k, 20, newTrafficPose()).z - at.cz) * at.tx;
+    sim.placeCar(c, 0, s - 15, lat, 100 / 3.6);
+    let scattered = false;
+    let wrecked = false;
+    let cursor = sim.events.head;
+    let before = 0;
+    for (let n = 0; n < 60 && !scattered; n++) {
+      before = Math.hypot(sim.cars.vx[c], sim.cars.vz[c]);
+      sim.step([{ ...neutralControls(), throttle: 1 }]);
+      cursor = sim.events.read(cursor, (e) => {
+        if (e.type === Ev.TrafficWreck && TRAFFIC_KINDS[tr.kind[e.other]].animal) scattered = true;
+        if (e.type === Ev.Wreck) wrecked = true;
+      });
+    }
+    expect(scattered).toBe(true);
+    expect(wrecked).toBe(false);
+    expect(sim.cars.wreck[c]).toBe(0);
+    const after = Math.hypot(sim.cars.vx[c], sim.cars.vz[c]);
+    expect(after).toBeLessThan(before * 0.9);
+    expect(after).toBeGreaterThan(before * 0.7);
+  });
+
+  test('a dust devil crosses the Dune Sea and shoves a car off its line, never wrecking it', () => {
+    const run = (mayhem: 'normal' | 'off') => {
+      const sim = new Sim(track, CLASSES, SURFACES, { seed: 7, traffic: 0, mayhem });
+      const c = sim.addCar({ cls: 'coupe', human: true });
+      // The first devil, 3 s after it's up: the car 3 m from its middle, going along the road.
+      const h = new Sim(track, CLASSES, SURFACES, { seed: 7, traffic: 0, mayhem: 'normal' }).world.hazards;
+      const o = h.occurrences.find((o) => h.kindOf(o).id === 'dust-devil')!;
+      h.update(o.t0 + 3, sim.events, 0);
+      const p = Array.from({ length: h.pieces }, (_, p) => p).find((p) => h.pOcc[p] === o.id)!;
+      const near = newHit();
+      projectGlobal(track.main, h.px[p], h.pz[p], near);
+      sim.time = o.t0 + 3;
+      sim.placeCar(c, 0, near.s - 3, near.lateral, 80 / 3.6);
+      let wrecked = false;
+      let cursor = sim.events.head;
+      for (let n = 0; n < 30; n++) {
+        sim.step([neutralControls()]);
+        cursor = sim.events.read(cursor, (e) => void (e.type === Ev.Wreck && (wrecked = true)));
+      }
+      return { x: sim.cars.x[c], z: sim.cars.z[c], wrecked };
+    };
+    const calm = run('off');
+    const devil = run('normal');
+    expect(devil.wrecked).toBe(false);
+    expect(Math.hypot(devil.x - calm.x, devil.z - calm.z)).toBeGreaterThan(0.3);
   });
 });

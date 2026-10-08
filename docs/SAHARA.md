@@ -71,8 +71,8 @@ straight up its north face, over its top and off its south face, while the road 
    capstones, market stalls of smashables either side of the Sphinx avenue. Still to come: reeds.
 4. **More of what drifts:** tune the berms by driving them (bank, width, the outside's lip),
    and maybe a slot canyon in the Wadi (rock walls close either side, `GroundDef.face`).
-5. **Life:** a camel caravan crossing (traffic on a side street), dust devils (a hazard), a
-   sandstorm weather, a sunset palette.
+5. **Life:** a camel caravan and dust devils (built, below); still to come: a sandstorm weather,
+   a sunset palette.
 6. **Fingerprints, tests and the lobby** (done for alpha-1.38): its fingerprints recorded, in the
    lobby (the owner: "this map is good enough to merge, deploy and tag"). Still to add: tests
    that a hard lap flies the crests and the drop clean, and the berms bank the right way.
@@ -156,3 +156,27 @@ plays the eight tracks for any map (test/audio.test.ts takes a map with none).
   faces. Open now, as the main road is (a test holds every road on Sahara open).
 - **Numbers:** floor 78.85 s; field races on seeds 1–8 with no wrecks. Sahara's fingerprint
   re-recorded (every other map's unchanged); full suite 725 pass.
+
+### Step 5, life: the caravan and the dust devils (2026-10-07)
+
+The owner: "let's do the camel caravan and dust devils next".
+- **The caravan** (traffic, a new kind `camel`, `animal`): strings of five camels, 3.6 m nose to
+  nose, walking toward you at 2.2 m/s down the left edge of the Caravan Road's opening straight
+  (30–120 m; one string on it at a time, about). Two new lane options do it, `kinds` (only
+  camels) and `string` (`[count, gap]`); with neither, a lane draws as before (every other map's
+  traffic identical). Hit a camel and it scatters (a cloud of sand, a soft thump), back as a
+  wrecked car comes back; you keep 80% of your speed. Never a wreck, nothing tumbles.
+  - Tried and dropped: a caravan each way the whole road to the ford. Bunched on the first lap, the
+    field crashed into itself behind them (a dozen wrecks in eight races).
+- **Dust devils** (hazard `dust-devil`): a whirlwind rises beside the road (2.5 s, a marker, the
+  funnel growing), wanders across it at a slant over 10 s and dies on the far side. Inside one
+  you're shoved round with its wind and out from its middle (up to 16 m/s² at its middle) and
+  turned a little; never a wreck. About every 18 s somewhere on the Dune Sea (400–1080 m), every
+  30 s on the Mesa's top (3480–3840 m). Off at mayhem 'off'. Drawn as a dark funnel of sand
+  (three turning cones and a skirt).
+- **Numbers:** floor 78.77 s. Field races wreck a little more than before: 8 wrecks in 12 races
+  (seeds 1–12), every one car on car, about as Paradise, Riviera and Downtown do (0.5 a race).
+  Most come at 358–368 m, the left onto the Dune Sea, two slower cars side by side into it. One at
+  2124 m (the plateau's corner by a diamond) was there before any of this (1 race in 12): one for
+  the berms (step 4). Sahara's fingerprint re-recorded, every other map's unchanged; full suite
+  728 pass.

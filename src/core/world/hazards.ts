@@ -42,10 +42,13 @@ export interface HazardKind {
 }
 
 /** Piece types, for the renderer. */
-export const Piece = { Log: 1, Sign: 2, Bomb: 3, Coconut: 4 } as const;
+export const Piece = { Log: 1, Sign: 2, Bomb: 3, Coconut: 4, Devil: 5 } as const;
 
-/** `pSolid`: a piece you bounce off (and wreck on, fast enough), or one you hop over (a coconut). */
-export const Solid = { None: 0, Hard: 1, Bump: 2 } as const;
+/**
+ * `pSolid`: a piece you bounce off (and wreck on, fast enough), one you hop over (a coconut), or a
+ * wind that shoves you round it (a dust devil: never a wreck).
+ */
+export const Solid = { None: 0, Hard: 1, Bump: 2, Gust: 3 } as const;
 
 const MAX_PIECES = 256;
 const MAX_MARKERS = 64;
@@ -410,11 +413,58 @@ const coconuts: HazardKind = {
   },
 };
 
+/**
+ * A dust devil (Sahara's dunes): a whirlwind that rises off the sand beside the road, wanders across
+ * it and dies out on the far side. Inside it a car is shoved round with the wind and out from its
+ * middle, the more the nearer its middle and the stronger it is (it grows over the telegraph and
+ * fades over its last second or two). Never a wreck: off line and turned, that's all. Each crosses
+ * at a random spot in the def's range, from a random side, at a slant along the road.
+ *   params: every (mean s between them, 22), life (s it crosses over, 10), r (its radius, 5),
+ *   push (m/s² at its middle, 16)
+ */
+const DEVIL_OUT = 16;
+const dustDevil: HazardKind = {
+  id: 'dust-devil',
+  schedule: 'random',
+  // Rising off the sand, beside the road: the dust before the wind.
+  telegraph: 2.5,
+  life: (def) => def.params?.life ?? 10,
+  every: (def) => def.params?.every ?? 22,
+  at(h, occ, u) {
+    const def = h.defs[occ.def];
+    const [a, b] = typeof def.s === 'number' ? [def.s - 40, def.s + 40] : def.s;
+    const L = h.track.main.length;
+    const s0 = wrap(a + hash01(occ.seed, 0, 31) * wrapSpan(a, b, L), L);
+    const side = def.side ?? (hash01(occ.seed, 0, 32) < 0.5 ? -1 : 1);
+    const life = dustDevil.life(def);
+    const r = def.params?.r ?? 5;
+    // How far across it is (0 where it rose, 1 where it dies) and along (a slant, either way).
+    const f = (u + dustDevil.telegraph) / (life + dustDevil.telegraph);
+    const slant = (hash01(occ.seed, 0, 33) - 0.5) * 50;
+    const at = sampleAt(h.track.main, wrap(s0 + slant * f, L), h.hit);
+    const reach = at.width / 2 + DEVIL_OUT;
+    // (Wandering a little as it goes.)
+    const lat = side * reach * (1 - 2 * f) + sin(u * 1.3 + occ.seed) * 2.5;
+    const x = at.cx - at.tz * lat;
+    const z = at.cz + at.tx * lat;
+    const y = h.track.ground ? h.track.ground.top(x, z) : at.cy - lat * tan(at.bank);
+    // Its strength: rising over the telegraph, full, then dying over its last 1.5 s.
+    const strength = u < 0 ? 0.25 + 0.75 * (1 + u / dustDevil.telegraph) : Math.min(1, (life - u) / 1.5);
+    if (u < 0) h.addMarker(x, y, z, r * 1.2, 1 + u / dustDevil.telegraph);
+    // Its spin (radians) for the renderer, in `ph`; its strength in `pTilt`.
+    h.addPiece(occ.id, Piece.Devil, at.s, x, y, z, u * 4, r, r, 9, u < 0 ? Solid.None : Solid.Gust, Infinity, strength);
+  },
+};
+
+/** How hard a dust devil shoves (m/s² at its middle, at full strength): a def's `push`, or this. */
+export const DEVIL_PUSH = 16;
+
 /** Every hazard kind a layout can `use`, by id. */
 export const KINDS: Record<string, HazardKind> = {
   'log-truck': logTruck,
   'falling-sign': fallingSign,
   'volcano-bombs': volcanoBombs,
   coconuts,
+  'dust-devil': dustDevil,
 };
 

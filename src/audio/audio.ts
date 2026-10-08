@@ -16,6 +16,7 @@ import { Cause, Ev, type GameEvent } from '../core/events';
 import type { Sim } from '../core/sim';
 import { newHit, sampleAt } from '../core/track/query';
 import { panelLook } from '../core/world/breakables';
+import { TRAFFIC_KINDS } from '../core/world/traffic';
 import { doppler, engineHz, engineSound, gearbox, musicMix, spatial, type Gear, type Spatial } from './model';
 import { Music, type Intensity } from './music';
 import type { Soundtrack } from './soundtrack';
@@ -566,6 +567,14 @@ export class GameAudio {
         });
         break;
       case Ev.TrafficWreck:
+        // A camel scattering: a soft thump in the sand, no crunch.
+        if (TRAFFIC_KINDS[this.sim.world?.traffic.kind[e.other] ?? -1]?.animal) {
+          this.play(at(0.35), pan, (s) => {
+            noiseShot(s, 'lowpass', 500, 120, 0.004, 0.3, 0.8);
+            toneShot(s, 'sine', 70, 40, 0.003, 0.2);
+          });
+          break;
+        }
         this.play(at(0.55), pan, (s) => {
           noiseShot(s, 'lowpass', 1600, 200, 0.002, 0.4, 0.7);
           toneShot(s, 'sine', 80, 35, 0.002, 0.3);
