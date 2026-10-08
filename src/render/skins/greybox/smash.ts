@@ -89,6 +89,30 @@ const MODELS: Record<string, () => BufferGeometry> = {
       part(new IcosahedronGeometry(0.22, 0), 0x7cff6b, 0.35, 1, 0),
       part(new IcosahedronGeometry(0.2, 0), 0xff2e88, 0.75, 1, 0.2),
     ])!,
+  // A market stall (Sahara's, at Giza): a plank counter of baskets (spice, dates, oranges) under an
+  // awning in red and cream stripes on four poles.
+  'market-stall': () =>
+    mergeGeometries([
+      part(new BoxGeometry(2.3, 0.85, 1), 0x8a5a33, 0, 0.42),
+      part(new BoxGeometry(2.4, 0.08, 1.15), 0xa87a4a, 0, 0.88),
+      ...[-1.1, 1.1].flatMap((x) => [-0.5, 0.5].map((z) => part(new BoxGeometry(0.08, 2.4, 0.08), 0x5a3f2e, x, 1.2, z))),
+      ...Array.from({ length: 6 }, (_, k) => part(new BoxGeometry(0.42, 0.07, 1.5), k % 2 ? 0xf4e6c8 : 0xc8322a, -1.05 + k * 0.42, 2.45, 0.1, 0)),
+      part(new CylinderGeometry(0.28, 0.22, 0.2, 8), 0x6b4a2a, -0.65, 1.02, 0.1),
+      part(new ConeGeometry(0.24, 0.22, 8), 0xd9661f, -0.65, 1.22, 0.1),
+      part(new CylinderGeometry(0.28, 0.22, 0.2, 8), 0x6b4a2a, 0, 1.02, 0.15),
+      part(new ConeGeometry(0.24, 0.2, 8), 0xe8b23a, 0, 1.2, 0.15),
+      part(new CylinderGeometry(0.28, 0.22, 0.2, 8), 0x6b4a2a, 0.65, 1.02, 0.1),
+      part(new IcosahedronGeometry(0.2, 0), 0xff8a1a, 0.6, 1.24, 0.1),
+    ])!,
+  // Clay pots: two big jars and one on top, terracotta.
+  'clay-pots': () =>
+    mergeGeometries([
+      part(new CylinderGeometry(0.22, 0.2, 0.6, 9), 0xb5562e, -0.25, 0.3, 0),
+      part(new CylinderGeometry(0.12, 0.2, 0.22, 9), 0x9c4726, -0.25, 0.7, 0),
+      part(new CylinderGeometry(0.25, 0.2, 0.55, 9), 0xc96b3a, 0.25, 0.28, 0.05),
+      part(new CylinderGeometry(0.13, 0.22, 0.2, 9), 0xa8532c, 0.25, 0.65, 0.05),
+      part(new CylinderGeometry(0.16, 0.13, 0.3, 9), 0xd98a4f, 0, 0.92, 0),
+    ])!,
   // A Mediterranean bush: a few low, lumpy greens in a clump.
   bush: () =>
     mergeGeometries([

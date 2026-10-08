@@ -1,5 +1,6 @@
 // Sahara (docs/SAHARA.md): the pyramids are ground you drive up, stone to drive on, and the Pyramid
-// Run goes over the Great Pyramid's top; the river, its ford and its bridge; Giza dressed.
+// Run goes over the Great Pyramid's top; the river, its ford and its bridge; Giza dressed, its
+// avenue's colonnade and market.
 
 import { describe, expect, test } from 'bun:test';
 import { bakeTrack } from '../src/core/track/bake';
@@ -7,6 +8,7 @@ import { pyramidHeight } from '../src/core/track/features/pyramid';
 import { KIND_STONE, KIND_WATER, riverAt } from '../src/core/track/ground';
 import { newHit, projectGlobal, sampleAt, surfaceAt } from '../src/core/track/query';
 import type { PyramidDef, RiverDef } from '../src/core/content';
+import { SMASH_IDS, Smashables } from '../src/core/world/smash';
 import { SURFACES, layout } from './helpers';
 
 describe('Sahara', () => {
@@ -109,5 +111,32 @@ describe('Giza dressed', () => {
         projectGlobal(sp, x, z, hit);
         expect(Math.abs(hit.lateral) > hit.width / 2 + hit.shoulder || Math.hypot(hit.cx - x, hit.cz - z) > hit.width / 2 + hit.shoulder).toBe(true);
       }
+  });
+
+  test('the Sphinx avenue: a ruined colonnade down its middle, solid, between the obelisks, and a market either side', () => {
+    const cols = track.props.filter((p) => p.kind === 'ruin-column');
+    expect(cols.length).toBe(7);
+    // On the main road's middle, solid (the AI threads them), some whole and some broken.
+    for (const c of cols) expect([c.solid, c.spline, c.lateral]).toEqual([true, 0, 0]);
+    expect(cols.some((c) => c.hy * 2 < 7) && cols.some((c) => c.hy * 2 >= 7)).toBe(true);
+    // Between the obelisks along the road.
+    const hit = newHit();
+    const along = sahara.landmarks!.filter((m) => m.kind === 'obelisk').map((m) => (projectGlobal(track.main, m.at[0], m.at[1], hit), hit.s));
+    for (const c of cols) expect(c.s > Math.min(...along) && c.s < Math.max(...along)).toBe(true);
+    expect(sahara.takedownSpots!.map((t) => t.name)).toContain('The Colonnade');
+    // The market: stalls and pots on both verges, off the road itself.
+    const sm = new Smashables(track);
+    for (const id of ['market-stall', 'clay-pots']) {
+      const mine = Array.from({ length: sm.n }, (_, k) => k).filter((k) => SMASH_IDS[sm.kind[k]] === id);
+      expect(mine.length).toBeGreaterThan(8);
+      const sides = new Set<number>();
+      for (const k of mine) {
+        sampleAt(track.main, sm.s[k], hit);
+        const lat = (sm.x[k] - hit.cx) * -hit.tz + (sm.z[k] - hit.cz) * hit.tx;
+        expect(Math.abs(lat)).toBeGreaterThan(hit.width / 2);
+        sides.add(Math.sign(lat));
+      }
+      expect(sides.size).toBe(2);
+    }
   });
 });
