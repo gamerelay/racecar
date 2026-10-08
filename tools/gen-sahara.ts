@@ -304,6 +304,9 @@ layout.ramps = [kicker(150, 188, 1.6), kicker(80, 10, 1.8), { s: MESA_LIP, heigh
   }
   const run: BranchDef = { id: 'pyramid-run', kind: 'shortcut', from: RUN.from, to: RUN.to, points: points.slice(1, -1) };
   layout.branches = [run];
+  // No walls along it, as none along the main road: it's a way over open ground, and you come at
+  // the pyramid from any side (walled, its rails stood invisible 8 m either side of its middle).
+  layout.walls!.gaps!.push({ spline: run.id, s: [0, 1e4], side: 'both' });
 }
 // None of the pyramids is near the main road (the Great Pyramid's run is its own way over it).
 {
@@ -352,6 +355,23 @@ const GIZA = { sphinx: [340, 88] as [number, number], size: [13, 34, 12] as [num
       layout.landmarks.push({ kind: 'obelisk', at, rot: 0, r: 0 });
     }
   console.log(`  giza: the Sphinx at ${GIZA.sphinx.join(', ')}, ${Math.round(Math.hypot(rx - x, rz - z))} m from the road, and ${GIZA.obelisks.length * 2} obelisks`);
+}
+
+/**
+ * The Sphinx avenue's market (docs/SAHARA.md, step 3): either side, past the shoulder, stalls every
+ * `stalls` m, `out` m out, from `market` m along from where the Sphinx looks at the road, and clay
+ * pots on the shoulder between them. (A ruined colonnade stood down its middle, solid, for a day:
+ * the owner, 2026-10-07, "looks a little crowded, maybe we remove the columns from the middle of the road".)
+ */
+const AVENUE = { stalls: 14, out: 3.8, pots: 1.6, market: [-50, 46] as [number, number] };
+{
+  const s0 = sAt(GIZA.sphinx[0], GIZA.sphinx[1]);
+  const market: [number, number] = [r1(s0 + AVENUE.market[0]), r1(s0 + AVENUE.market[1])];
+  layout.smashables = [
+    { kind: 'market-stall', s: market, every: AVENUE.stalls, lateral: AVENUE.out },
+    { kind: 'clay-pots', s: [r1(market[0] + AVENUE.stalls / 2), market[1]], every: AVENUE.stalls, lateral: AVENUE.pots },
+  ];
+  console.log(`  the avenue: a market either side, ${market.join('–')} m`);
 }
 
 /**

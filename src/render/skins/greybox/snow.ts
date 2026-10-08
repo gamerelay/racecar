@@ -70,12 +70,15 @@ const DRESSED_DARK = new Color('#c6b48e');
 /** A pyramid's courses: one this high (m) up its face, the seam between them its shadow. */
 const COURSE = 1.15;
 /** The most pyramids a desert's ground draws in courses (the shader's uniforms). */
-const PYRAMIDS = 4;
+const PYRAMIDS = 8;
+/** A pyramid's capstone: its top this high (m) gilded, as they were when they were new. */
+const CAPSTONE = 1.8;
+const GOLD = new Color('#e9b949');
 
 /**
  * The ground's material in a desert (scenery 'desert'): the wind's ripples across the sand (lines
  * every metre or so, wavering, faint on the roads' packed sand, none on asphalt), and each pyramid's
- * faces laid in courses of stone by each pixel's height over its foot.
+ * faces laid in courses of stone by each pixel's height over its foot, its capstone gilded.
  */
 function desert(track: Track): MeshToonMaterial {
   const mat = toon({ vertexColors: true });
@@ -91,15 +94,17 @@ function desert(track: Track): MeshToonMaterial {
   mat.onBeforeCompile = (shader) => {
     shader.uniforms.uPyrA = { value: a };
     shader.uniforms.uPyrB = { value: b };
+    shader.uniforms.uGold = { value: GOLD };
     shader.vertexShader = chunks(shader.vertexShader, 'desert')
       .replace('#include <common>', '#include <common>\nvarying vec3 vDesertPos;')
       .after('#include <begin_vertex>', 'vDesertPos = (modelMatrix * vec4(transformed, 1.0)).xyz;').text;
     shader.fragmentShader = chunks(shader.fragmentShader, 'desert')
-      .replace('#include <common>', `#include <common>\nvarying vec3 vDesertPos;\nuniform vec4 uPyrA[${PYRAMIDS}];\nuniform vec4 uPyrB[${PYRAMIDS}];`)
+      .replace('#include <common>', `#include <common>\nvarying vec3 vDesertPos;\nuniform vec4 uPyrA[${PYRAMIDS}];\nuniform vec4 uPyrB[${PYRAMIDS}];\nuniform vec3 uGold;`)
       .after(
         '#include <color_fragment>',
         `float stone = 0.0;
         float course = 0.0;
+        float gild = 0.0;
         for (int k = 0; k < ${PYRAMIDS}; k++) {
           vec4 pa = uPyrA[k];
           if (pa.z <= 0.0) continue;
@@ -110,6 +115,7 @@ function desert(track: Track): MeshToonMaterial {
           float up = vDesertPos.y - uPyrB[k].x;
           if (up < 0.05) continue;
           stone = 1.0;
+          gild = smoothstep(uPyrB[k].y - ${CAPSTONE.toFixed(2)} - 0.05, uPyrB[k].y - ${CAPSTONE.toFixed(2)}, up);
           // The seam under each course: a dark line, and the course's face lighter at its top.
           float c = fract(up / ${COURSE.toFixed(2)});
           course = 1.0 - smoothstep(0.0, 0.16, c) + 0.25 * smoothstep(0.6, 1.0, c);
@@ -118,7 +124,9 @@ function desert(track: Track): MeshToonMaterial {
         float sandy = smoothstep(0.08, 0.16, diffuseColor.r - diffuseColor.b) * (1.0 - stone);
         float ripple = sin(vDesertPos.x * 4.1 + vDesertPos.z * 2.3 + 2.2 * sin(vDesertPos.z * 0.11 + vDesertPos.x * 0.04) + 1.4 * sin(vDesertPos.x * 0.07));
         diffuseColor.rgb *= 1.0 - 0.045 * sandy * smoothstep(0.3, 1.0, ripple);
-        diffuseColor.rgb *= 1.0 - stone * (0.45 * (1.0 - smoothstep(0.0, 0.5, 1.0 - course)) - 0.05 * course);`,
+        diffuseColor.rgb *= 1.0 - stone * (0.45 * (1.0 - smoothstep(0.0, 0.5, 1.0 - course)) - 0.05 * course) * (1.0 - 0.6 * gild);
+        // The capstone: gold over its top courses (the seams still in it, fainter).
+        diffuseColor.rgb = mix(diffuseColor.rgb, uGold * (0.9 + 0.1 * course), gild);`,
       ).text;
   };
   mat.customProgramCacheKey = () => 'desert';

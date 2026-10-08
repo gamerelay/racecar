@@ -39,6 +39,9 @@ export const SMASH_KINDS: readonly SmashKind[] = [
   { id: 'tiki-torch', r: 0.25, h: 2.4, slow: 0.995, boost: 0.02, points: 75 },
   // A rack of surfboards on Paradise Open's beach line, upright in a frame.
   { id: 'surf-rack', r: 0.9, h: 2.4, slow: 0.95, boost: 0.04, points: 150 },
+  // Sahara's market at Giza, either side of the Sphinx avenue: a stall under a striped awning, and clay pots stacked by it.
+  { id: 'market-stall', r: 1.3, h: 2.6, slow: 0.93, boost: 0.05, points: 200 },
+  { id: 'clay-pots', r: 0.6, h: 1.1, slow: 0.98, boost: 0.03, points: 100 },
 ];
 export const SMASH_IDS = SMASH_KINDS.map((k) => k.id);
 

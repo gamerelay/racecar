@@ -67,9 +67,8 @@ straight up its north face, over its top and off its south face, while the road 
    Experimental: open it from a link (`?mode=free&map=sahara/dunes`).
 2. **The river and the diamonds** (built, below): the oasis river, crossed at a ford and on a
    bridge; small pyramids by the road to jump off. Palms and reeds along it come with step 3.
-3. **Giza dressed** (built, below): the Sphinx, obelisks, palms along the river. Still to come:
-   the pyramids' capstones, a ruined colonnade (solid props splitting the road into lanes),
-   market stalls of smashables, reeds.
+3. **Giza dressed** (built, below): the Sphinx, obelisks, palms along the river; the pyramids'
+   capstones, market stalls of smashables either side of the Sphinx avenue. Still to come: reeds.
 4. **More of what drifts:** tune the berms by driving them (bank, width, the outside's lip),
    and maybe a slot canyon in the Wadi (rock walls close either side, `GroundDef.face`).
 5. **Life:** a camel caravan crossing (traffic on a side street), dust devils (a hazard), a
@@ -141,3 +140,19 @@ The owner: "let's dress up Giza with the Sphinx and palms".
 The owner: "this map is good enough to merge, deploy and tag". Out of experimental, its
 fingerprints recorded (every other map's unchanged). It has no music of its own yet: a race on it
 plays the eight tracks for any map (test/audio.test.ts takes a map with none).
+
+### Step 3, the rest: the avenue (2026-10-07)
+
+- **The market** (two new smashables): stalls under red-and-cream awnings (`market-stall`, as a
+  fruit stand: 200 points) every 14 m either side of the Sphinx avenue past the shoulder, and clay
+  pots (`clay-pots`) on the shoulder between them.
+- **No colonnade:** seven columns stood down the avenue's middle for a drive. The owner: "this
+  section looks a little crowded, maybe we remove the columns from the middle of the road".
+- **Capstones:** each pyramid's top 1.8 m gilded (the desert shader). It now draws all seven
+  pyramids in courses (it took four; three diamonds were plain sand).
+- **The Pyramid Run's walls, gone** (the owner: "there is an invisible wall on this pyramid
+  jump"): a branch is walled unless the layout opens it, and the run never was, so a rail stood
+  invisible 8 m either side of its middle over 173 m of it, across both of the Great Pyramid's
+  faces. Open now, as the main road is (a test holds every road on Sahara open).
+- **Numbers:** floor 78.85 s; field races on seeds 1–8 with no wrecks. Sahara's fingerprint
+  re-recorded (every other map's unchanged); full suite 725 pass.
