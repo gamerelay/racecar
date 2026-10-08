@@ -211,6 +211,8 @@ export const LANDMARK_KINDS = [
   'lighthouse', 'fort', 'pontoon', 'quay',
   // Sahara
   'sphinx', 'obelisk',
+  // The getaway's city
+  'alcatraz',
 ] as const;
 
 /**

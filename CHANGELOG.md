@@ -17,7 +17,8 @@ and where things stand is [docs/HANDOFF.md](./docs/HANDOFF.md).
   piers out into it, and the Ferry Building its clock tower. Lombard Street is a planter slalom down
   a 25% hill, Dolores Park is lawn and palms, and the streets have crosswalks and centre lines.
   The streets have pavements and kerbs, street lamps, trees and shrubs (knock them flat for a few
-  points, never a crash), and neon signs over the shops.
+  points, never a crash), and neon signs over the shops. The bay runs out to the horizon past the piers, with
+  Alcatraz out in it, its lighthouse beam turning after dark.
 - **Look back on Q** as well as C.
 
 ## alpha-1.43: Sahara's music, and Single player

@@ -444,8 +444,16 @@ houses.push({ at: [0, FREEWAY.z + FREEWAY.width / 2 + 3 + 4], size: [FREEWAY.dec
 
 /** The sea's level (m): the city's 3 m over it. */
 const SEA = -3;
-/** The sea wall on the main road's bay side (its left): from Bay Street's west end, through the start, down the Embarcadero to China Basin. */
-const BAY_S: P = [sAt(-470, -460), sAt(598, 300)];
+/**
+ * The sea wall on the main road's bay side (its left): from the top of Van Ness, round its corner,
+ * along Bay Street through the start, down the Embarcadero and round its corner to the Freeway's
+ * foot. Past it, water out to the horizon; the land is west of Van Ness and south of the Freeway.
+ */
+const BAY_S: P = [sAt(-560, -420), sAt(420, FREEWAY.z)];
+/** The piers stand off this much of it: Bay Street's west end to China Basin. */
+const PIER_S: P = [sAt(-470, -460), sAt(598, 300)];
+/** Alcatraz, out in the bay off Bay Street (a landmark: the skin's). */
+const ALCATRAZ: P = [200, -980];
 /**
  * The Ferry Building: on its own land out past the Embarcadero where Market meets it (no sea wall
  * `land` m either side of it), `long` m along the road, `deep` m deep, `out` m past the road's
@@ -476,16 +484,17 @@ let ferryLand: PadDef | null = null;
     const o = q.edge + SEAWALL_FACE + land * (FERRY.quay - 6 - SEAWALL_FACE);
     coast.push([r1(q.x + q.nx * o), r1(q.z + q.nz * o)]);
   }
-  // Round the land to the south and west, far out, and back in north of Van Ness.
-  coast.push([760, 380], [760, 1700], [-1700, 1700], [-1700, -640], [-620, -640]);
+  // Round the land to the south and west, far out, and back in at the top of Van Ness.
+  const last = coast[coast.length - 1];
+  coast.push([last[0], 1700], [-1700, 1700], [-1700, coast[0][1]]);
   // The piers.
   let n = 0;
   const north: number[] = [];
   const south: number[] = [];
-  for (let d = PIERS.clear + 20; d <= span - PIERS.clear; d += PIERS.every) {
-    const s = (BAY_S[0] + d) % L;
+  for (let d = PIERS.clear + 20; d <= ahead(PIER_S[0], PIER_S[1]) - PIERS.clear; d += PIERS.every) {
+    const s = (PIER_S[0] + d) % L;
     if (Math.min(ahead(s, FERRY.s), ahead(FERRY.s, s)) < FERRY.land + PIERS.clear) continue;
-    (ahead(BAY_S[0], s) < ahead(BAY_S[0], FERRY.s) ? north : south).push(s);
+    (ahead(PIER_S[0], s) < ahead(PIER_S[0], FERRY.s) ? north : south).push(s);
   }
   // (Odd numbers north of the Ferry Building, up to Pier 39 at the wharf; even south of it.)
   const label = (s: number) => {
@@ -668,6 +677,7 @@ layout.walls = {
 // The Freeway's deck, the ground under it at the city's level (its street).
 layout.pieces = [{ id: 'freeway', s: DECK_S, under: { floor: 0, ease: 30, reach: 30 } }];
 layout.houses = houses;
+layout.landmarks = [{ kind: 'alcatraz', at: ALCATRAZ, rot: 0.35, r: 0 }];
 layout.traffic = {
   lanes: [
     { pos: 0.3, dir: 1, speed: 14 },

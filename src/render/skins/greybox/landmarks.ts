@@ -28,6 +28,7 @@ import {
   Float32BufferAttribute,
   IcosahedronGeometry,
   SphereGeometry,
+  RepeatWrapping,
 } from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import type { LandmarkDef, TrackLayout } from '../../../core/content';
@@ -1300,6 +1301,93 @@ function obelisk(c: Ctx): Built {
   return { root };
 }
 
+/**
+ * Alcatraz (the getaway's city, the owner: "an alcatraz set piece in the background"): out in the
+ * bay off Bay Street, scenery only. A craggy rock about 260 m long rising in tiers out of the sea,
+ * scrub on its ledges; the long concrete cellhouse along its top, its barred windows in rows; the
+ * lighthouse at its end, its lamp lit and its beam turning after dark; the water tower on its legs;
+ * the dock buildings down at the water.
+ */
+function alcatraz(c: Ctx): Built {
+  const root = new Group();
+  const sea = c.sea ?? 0;
+  const rng = new Rng(0xa1ca);
+  const ROCK = [0x6f6258, 0x7d6f62, 0x5f544c];
+  const SCRUB = [0x4c6a3a, 0x5d7a40, 0x3f5c34];
+  // The rock: tiers of craggy, faceted slabs, each a squashed many-sided column, its corners jittered.
+  const slab = (rx: number, rz: number, h: number, y: number, x: number, z: number, color: number) => {
+    const g = new CylinderGeometry(0.82, 1, h, 11, 2);
+    const p = g.getAttribute('position');
+    for (let k = 0; k < p.count; k++) {
+      const top = p.getY(k) > 0;
+      const j = rng.range(0.85, 1.12);
+      p.setXYZ(k, p.getX(k) * rx * j, p.getY(k) + (top ? rng.range(-0.6, 0.8) : 0), p.getZ(k) * rz * j);
+    }
+    root.add(posed(new Mesh(faceted(g), toon({ color })), x, y + h / 2, z));
+  };
+  slab(135, 62, 14, sea - 4, 0, 0, ROCK[0]);
+  slab(112, 50, 10, sea + 8, -8, 2, ROCK[1]);
+  slab(84, 38, 8, sea + 16, -14, 0, ROCK[2]);
+  for (let k = 0; k < 9; k++) slab(rng.range(10, 22), rng.range(8, 14), 2.5, sea + rng.range(9, 22), rng.range(-90, 70), rng.range(-30, 30), SCRUB[k % SCRUB.length]);
+  const top = sea + 24;
+  // The cellhouse: a long concrete block, rows of barred windows, a lower wing off one end.
+  const bars = new CanvasTexture(
+    (() => {
+      const cv = document.createElement('canvas');
+      cv.width = cv.height = 64;
+      const g = cv.getContext('2d')!;
+      g.fillStyle = '#ffffff';
+      g.fillRect(0, 0, 64, 64);
+      g.fillStyle = '#3a3a44';
+      g.fillRect(14, 10, 36, 40);
+      g.fillStyle = '#d8d4cc';
+      for (let x = 18; x < 50; x += 6) g.fillRect(x, 10, 2, 40);
+      return cv;
+    })(),
+  );
+  bars.wrapS = bars.wrapT = RepeatWrapping;
+  const wall = (w: number, h: number, d: number, x: number, z: number, color: number) => {
+    const g = new BoxGeometry(w, h, d);
+    const uv = g.getAttribute('uv');
+    for (let k = 0; k < uv.count; k++) uv.setXY(k, uv.getX(k) * Math.round(Math.max(w, d) / 4), uv.getY(k) * Math.round(h / 4));
+    root.add(posed(new Mesh(g, toon({ color, map: bars })), x, top + h / 2, z));
+    root.add(posed(new Mesh(new BoxGeometry(w + 0.8, 0.8, d + 0.8), toon({ color: 0xbdb7ac })), x, top + h + 0.4, z));
+  };
+  wall(78, 13, 26, -10, 0, 0xe6e1d6);
+  wall(30, 9, 18, 40, -6, 0xd8d2c4);
+  wall(22, 7, 14, -58, 10, 0xd8d2c4);
+  // The lighthouse at its west end.
+  const lx = -62;
+  const lz = -16;
+  root.add(posed(cyl(1.8, 2.4, 22, 0xf4f1ea, 0, 10), lx, top + 11, lz));
+  root.add(posed(cyl(2.6, 2.6, 0.6, 0x2a2f38, 0, 10), lx, top + 22.3, lz));
+  root.add(posed(cyl(1.5, 1.5, 2.2, 0xfff2b0, 0, 8), lx, top + 23.7, lz));
+  root.add(posed(new Mesh(faceted(new ConeGeometry(1.9, 1.6, 8)), toon({ color: 0x2a2f38 })), lx, top + 25.6, lz));
+  const lamp = glowPoints([lx, top + 23.7, lz], 0xfff2b0, 14);
+  root.add(lamp);
+  const beamMat = new MeshBasicMaterial({ color: 0xfff4c0, transparent: true, opacity: 0.12, blending: AdditiveBlending, depthWrite: false, side: DoubleSide, fog: false });
+  const cone = new ConeGeometry(12, 320, 16, 1, true).translate(0, -160, 0).rotateX(Math.PI / 2);
+  const beam = new Mesh(mergeGeometries([cone, cone.clone().rotateY(Math.PI)])!, beamMat);
+  beam.position.set(lx, top + 23.7, lz);
+  beam.visible = !c.day;
+  root.add(beam);
+  // The water tower on its legs, at the east end.
+  const tx = 62;
+  for (const [ox, oz] of [[-3, -3], [3, -3], [3, 3], [-3, 3]]) root.add(posed(new Mesh(new BoxGeometry(0.5, 16, 0.5), toon({ color: 0x8a5a3a })), tx + ox, top - 4 + 8, 8 + oz));
+  root.add(posed(cyl(5, 5, 7, 0x9a6440, 0, 12), tx, top + 7.5, 8));
+  root.add(posed(new Mesh(faceted(new ConeGeometry(5.4, 2.4, 12)), toon({ color: 0x7a4c32 })), tx, top + 12.2, 8));
+  // The dock: a quay and its low buildings at the water, on the city's side.
+  root.add(posed(new Mesh(new BoxGeometry(70, 3, 14), toon({ color: 0x9a8f80 })), 30, sea + 0.5, 58));
+  root.add(posed(new Mesh(new BoxGeometry(26, 8, 10), toon({ color: 0xcfc6b4 })), 18, sea + 6, 54));
+  root.add(posed(new Mesh(new BoxGeometry(16, 6, 9), toon({ color: 0xb9ad98 })), 46, sea + 5, 54));
+  return {
+    root,
+    update(t) {
+      beam.rotation.y = t * 0.4;
+    },
+  };
+}
+
 const BUILDERS: Record<string, (m: LandmarkDef, ctx: Ctx) => Built> = {
   sphinx: (_m, c) => sphinx(c),
   obelisk: (_m, c) => obelisk(c),
@@ -1325,4 +1413,5 @@ const BUILDERS: Record<string, (m: LandmarkDef, ctx: Ctx) => Built> = {
   quay: (m, c) => ({ root: new Group().add(quay(m, c.sea ?? 0)) }),
   'car-park': (m, c) => carPark(m, c),
   'lifeguard-tower': (_m, c) => lifeguardTower(c),
+  alcatraz: (_m, c) => alcatraz(c),
 };

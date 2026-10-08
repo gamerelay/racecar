@@ -269,6 +269,20 @@ themselves, so a sloppy line wrecks you. (Smashables in `smash.ts` never wreck; 
 
 ## Built so far
 
+### Open water, and Alcatraz (2026-10-08)
+
+The owner: "could we make the set beyond the piers water please, maybe we can add an alcatraz set
+piece in the background".
+
+- **The bay to the horizon:** the sea wall now runs from the top of Van Ness, round its corner,
+  along Bay Street, down the Embarcadero and round its corner to the Freeway's foot. Past it, open
+  water all the way out (the land that was left beyond China Basin and north of Van Ness is gone).
+  The land is west of Van Ness and south of the Freeway only. The piers stand where they did.
+- **Alcatraz** (a landmark, `alcatraz`; scenery only), about 500 m off Bay Street: a craggy rock in
+  tiers with scrub on its ledges, the long cellhouse with its barred windows along the top, the
+  lighthouse at its west end, its beam turning after dark, the water tower on its legs, the dock
+  and its buildings on the city's side. Seen down the piers from the Embarcadero and along Bay Street.
+
 ### Street life (2026-10-08)
 
 The owner: "let's add some more details too like some street lamps, maybe some sidewalks, some
