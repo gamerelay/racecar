@@ -282,6 +282,12 @@ piece in the background".
   tiers with scrub on its ledges, the long cellhouse with its barred windows along the top, the
   lighthouse at its west end, its beam turning after dark, the water tower on its legs, the dock
   and its buildings on the city's side. Seen down the piers from the Embarcadero and along Bay Street.
+- **The Golden Gate Bridge** (the owner: "add the Golden Gate Bridge in the background too"; a
+  landmark, `golden-gate`, scenery only), west of Alcatraz, across the strait from the land past Van
+  Ness north to the Marin headlands (green domes): two orange towers 105 m over the sea and 580 m
+  apart, stepped, portal struts across them; the deck 44 m up on its truss; the main cables hanging
+  from the tops to the anchorages, a suspender every 10 m; red lights on the towers at night. The
+  dusk haze takes the far tower, as the fog would. Best seen from Bay Street and the piers.
 
 ### Street life (2026-10-08)
 

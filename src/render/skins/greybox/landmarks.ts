@@ -1388,6 +1388,105 @@ function alcatraz(c: Ctx): Built {
   };
 }
 
+/**
+ * The Golden Gate Bridge (the getaway's city, the owner: "add the Golden Gate Bridge in the
+ * background too"): scenery only, across the strait west of Alcatraz, along its local z from the
+ * land past Van Ness (+z) to the Marin headlands (-z). Two International Orange towers (MAIN m
+ * apart, TOWER m over the sea), stepped, portal struts across them; the deck between, on its truss;
+ * the two main cables hanging from the towers' tops to the anchorages at either end, a suspender down
+ * to the deck every few metres; the headlands, green over rock, at the far end. Its towers' tops
+ * lit at night.
+ */
+function goldenGate(c: Ctx): Built {
+  const root = new Group();
+  const sea = c.sea ?? 0;
+  const ORANGE = 0xc0402e;
+  const DARK = 0x9a3224;
+  const MAIN = 580;
+  const SIDE = 170;
+  const TOWER = 105;
+  const DECK = sea + 44;
+  const HALF = 13;
+  const paint = toon({ color: ORANGE });
+  const parts: Mesh[] = [];
+  const box = (w: number, h: number, d: number, x: number, y: number, z: number, mat = paint) => {
+    const m = new Mesh(new BoxGeometry(w, h, d), mat);
+    m.position.set(x, y, z);
+    parts.push(m);
+  };
+  const towers = [MAIN / 2, -MAIN / 2];
+  for (const tz of towers) {
+    // Two legs, stepped in as they rise, and the portal struts across them.
+    for (const side of [-1, 1]) {
+      const steps = 4;
+      for (let k = 0; k < steps; k++) {
+        const y0 = sea + (k * (TOWER + 6)) / steps;
+        const h = (TOWER + 6) / steps;
+        const w = 7 - k * 1.1;
+        box(w, h, 9 - k * 1.2, side * (HALF + 2), y0 + h / 2, tz);
+      }
+    }
+    for (const y of [DECK - 6, DECK + 22, DECK + 40, DECK + 56, sea + TOWER - 2]) box(2 * HALF + 4, 4, 4, 0, y, tz);
+    // Its pier in the water.
+    box(2 * HALF + 16, 10, 24, 0, sea - 3, tz, toon({ color: 0x8f877c }));
+  }
+  // The deck, its truss under it, end to end.
+  const LONG = MAIN + 2 * SIDE;
+  box(2 * HALF + 2, 1.6, LONG, 0, DECK, 0, toon({ color: 0x5a5560 }));
+  box(2 * HALF, 5, LONG, 0, DECK - 3.3, 0, toon({ color: DARK }));
+  // The anchorages, and the approaches down to them.
+  for (const end of [1, -1]) box(2 * HALF + 10, DECK - sea + 4, 30, 0, (DECK + sea) / 2 - 2, end * (LONG / 2 + 15), toon({ color: 0x9a9286 }));
+  root.add(...parts);
+  // The main cables: a parabola across the main span, and down each side span to the anchorage.
+  const top = sea + TOWER + 2;
+  const cableY = (z: number) => {
+    const a = Math.abs(z);
+    if (a <= MAIN / 2) {
+      const u = z / (MAIN / 2);
+      return DECK + 3 + (top - DECK - 3) * u * u;
+    }
+    const u = (a - MAIN / 2) / SIDE;
+    return top + (DECK + 4 - top) * (u * 0.9 + 0.1 * u * u);
+  };
+  const cable = toon({ color: ORANGE });
+  const hang: Mesh[] = [];
+  for (const side of [-1, 1]) {
+    const x = side * (HALF + 1);
+    const step = 10;
+    for (let z = -LONG / 2; z < LONG / 2; z += step) {
+      const y0 = cableY(z);
+      const y1 = cableY(z + step);
+      const len = Math.hypot(step, y1 - y0);
+      const seg = new Mesh(new CylinderGeometry(0.9, 0.9, len, 6), cable);
+      seg.position.set(x, (y0 + y1) / 2, z + step / 2);
+      seg.rotation.x = Math.PI / 2 - Math.atan2(y1 - y0, step);
+      hang.push(seg);
+      // A suspender down from it to the deck.
+      const h = (y0 + y1) / 2 - DECK;
+      if (h > 3) {
+        const sus = new Mesh(new BoxGeometry(0.3, h, 0.3), cable);
+        sus.position.set(x, DECK + h / 2, z + step / 2);
+        hang.push(sus);
+      }
+    }
+  }
+  root.add(...hang);
+  // Red lights on the towers' tops, lit at night.
+  if (!c.day) root.add(glowPoints(towers.flatMap((tz) => [-HALF - 2, top + 4, tz, HALF + 2, top + 4, tz]), 0xff3a2a, 7));
+  // The Marin headlands at the far end: green over rock, rising out of the sea.
+  const rng = new Rng(0x6a7e);
+  for (let k = 0; k < 6; k++) {
+    const r = rng.range(90, 170);
+    const h = rng.range(60, 120);
+    // (A low dome, not a cone: rolling hills.)
+    const hill = new Mesh(faceted(new SphereGeometry(r, 10, 5, 0, Math.PI * 2, 0, Math.PI / 2)), toon({ color: k % 2 ? 0x5d7444 : 0x6b7a4c }));
+    hill.position.set(rng.range(-320, 260), sea - 8, -LONG / 2 - rng.range(60, 260));
+    hill.scale.set(1, h / r, rng.range(0.6, 1));
+    root.add(hill);
+  }
+  return { root };
+}
+
 const BUILDERS: Record<string, (m: LandmarkDef, ctx: Ctx) => Built> = {
   sphinx: (_m, c) => sphinx(c),
   obelisk: (_m, c) => obelisk(c),
@@ -1414,4 +1513,5 @@ const BUILDERS: Record<string, (m: LandmarkDef, ctx: Ctx) => Built> = {
   'car-park': (m, c) => carPark(m, c),
   'lifeguard-tower': (_m, c) => lifeguardTower(c),
   alcatraz: (_m, c) => alcatraz(c),
+  'golden-gate': (_m, c) => goldenGate(c),
 };

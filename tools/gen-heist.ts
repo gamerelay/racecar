@@ -452,8 +452,9 @@ const SEA = -3;
 const BAY_S: P = [sAt(-560, -420), sAt(420, FREEWAY.z)];
 /** The piers stand off this much of it: Bay Street's west end to China Basin. */
 const PIER_S: P = [sAt(-470, -460), sAt(598, 300)];
-/** Alcatraz, out in the bay off Bay Street (a landmark: the skin's). */
+/** Alcatraz, out in the bay off Bay Street; the Golden Gate Bridge west of it, from the land past Van Ness north to Marin (landmarks: the skin's). */
 const ALCATRAZ: P = [200, -980];
+const GOLDEN_GATE: P = [-900, -930];
 /**
  * The Ferry Building: on its own land out past the Embarcadero where Market meets it (no sea wall
  * `land` m either side of it), `long` m along the road, `deep` m deep, `out` m past the road's
@@ -677,7 +678,10 @@ layout.walls = {
 // The Freeway's deck, the ground under it at the city's level (its street).
 layout.pieces = [{ id: 'freeway', s: DECK_S, under: { floor: 0, ease: 30, reach: 30 } }];
 layout.houses = houses;
-layout.landmarks = [{ kind: 'alcatraz', at: ALCATRAZ, rot: 0.35, r: 0 }];
+layout.landmarks = [
+  { kind: 'alcatraz', at: ALCATRAZ, rot: 0.35, r: 0 },
+  { kind: 'golden-gate', at: GOLDEN_GATE, rot: 0.2, r: 0 },
+];
 layout.traffic = {
   lanes: [
     { pos: 0.3, dir: 1, speed: 14 },
