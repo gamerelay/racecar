@@ -122,7 +122,8 @@ export function buildWorldVisual(scene: Scene, sim: Sim, roof?: (x: number, z: n
     // simple model if a new kind doesn't yet.
     const detailed = trafficModel(k.id, [k.hw, k.hl, k.hh]);
     const parts = detailed ? detailed.map((p) => instanced(p.geometry, p.material, p.tint, p.ink, p.inkOnly)) : [instanced(simple.geos[k.id], simple.material, true)];
-    return { parts, lamps: lampSpots(k.id) };
+    // (An animal has none.)
+    return { parts, lamps: k.animal ? null : lampSpots(k.id) };
   });
   /** Uploads what an instanced mesh got this frame, or hides it if nothing. */
   const commit = (m: InstancedMesh) => {
@@ -162,7 +163,8 @@ export function buildWorldVisual(scene: Scene, sim: Sim, roof?: (x: number, z: n
     e.updateMatrix();
     put(tr.kind[k], e.matrix, trafficColor(k), v);
     // Lamps are glow sprites that can't fade: they come on once the car is mostly there.
-    if (v > 0.6 && lit < MAX_TRAFFIC) lamps.write(lit++, e.matrix, bodies[tr.kind[k]].lamps);
+    const spots = bodies[tr.kind[k]].lamps;
+    if (spots && v > 0.6 && lit < MAX_TRAFFIC) lamps.write(lit++, e.matrix, spots);
   };
 
   // ---- debris: wrecked traffic, tumbling for a few seconds ----
@@ -194,6 +196,25 @@ export function buildWorldVisual(scene: Scene, sim: Sim, roof?: (x: number, z: n
   bombs.frustumCulled = false;
   bombs.count = 0;
   bombs.setColorAt(0, col.setHex(0));
+  // Dust devils (Sahara's): a funnel of sand, three open cones stacked, narrow at the foot, each
+  // turning at its own rate, see-through, and a skirt of dust round its foot; grown and faded with
+  // its strength (hazards.ts gives its spin and strength).
+  const devils = Array.from({ length: 6 }, () => {
+    const g = new Group();
+    const layers = [0, 1, 2].map((n) => {
+      // (Darker than the sand it's over, and thick at its foot: pale, it vanished into the dunes.)
+      const cone = new Mesh(new CylinderGeometry(1.6 + n * 1.3, 0.5 + n * 1.4, 4, 14, 1, true), new MeshBasicMaterial({ color: [0x9c6f3e, 0xb3844f, 0xc99c66][n], transparent: true, opacity: 0.7 - n * 0.12, side: DoubleSide, depthWrite: false }));
+      cone.position.y = 2 + n * 3.4;
+      g.add(cone);
+      return cone;
+    });
+    const skirt = new Mesh(new CylinderGeometry(4.5, 3, 1.2, 16, 1, true), new MeshBasicMaterial({ color: 0xa57a48, transparent: true, opacity: 0.5, side: DoubleSide, depthWrite: false }));
+    skirt.position.y = 0.6;
+    g.add(skirt);
+    g.visible = false;
+    root.add(g);
+    return { g, layers, mats: [...layers, skirt].map((m) => m.material as MeshBasicMaterial), base: [...layers, skirt].map((m) => (m.material as MeshBasicMaterial).opacity) };
+  });
   const nuts = new InstancedMesh(new IcosahedronGeometry(1, 0), toon({ color: 0x9cc23e }), 32);
   nuts.frustumCulled = false;
   nuts.count = 0;
@@ -272,6 +293,8 @@ export function buildWorldVisual(scene: Scene, sim: Sim, roof?: (x: number, z: n
     if (ev.type !== Ev.TrafficWreck) return;
     const k = ev.other;
     const tr = sim.world.traffic;
+    // An animal scatters (a puff of dust, the renderer's from the contact): nothing tumbles.
+    if (TRAFFIC_KINDS[tr.kind[k]].animal) return;
     // Its way and speed as it was going (on a side street too).
     const pose = tr.poseAt(k, sim.time, wreckPose);
     if (debris.length >= DEBRIS) debris.shift();
@@ -429,6 +452,18 @@ export function buildWorldVisual(scene: Scene, sim: Sim, roof?: (x: number, z: n
           e.scale.set(1, 1, 1);
         }
       }
+      let dv = 0;
+      for (let p = 0; p < hz.pieces && dv < devils.length; p++) {
+        if (hz.pType[p] !== Piece.Devil) continue;
+        const d = devils[dv++];
+        const k = hz.pTilt[p];
+        d.g.visible = true;
+        d.g.position.set(hz.px[p], hz.py[p], hz.pz[p]);
+        d.g.scale.set(hz.phw[p] / 5, 0.4 + 0.6 * k, hz.phw[p] / 5);
+        d.layers.forEach((l, n) => (l.rotation.y = hz.ph[p] * (1.5 - n * 0.35)));
+        d.mats.forEach((m, n) => (m.opacity = d.base[n] * k));
+      }
+      for (; dv < devils.length; dv++) devils[dv].g.visible = false;
       bombs.count = 0;
       nuts.count = 0;
       let hot = 0;

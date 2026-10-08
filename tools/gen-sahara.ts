@@ -420,6 +420,27 @@ const PALMS = { every: 7, out: [-3, 9] as [number, number], road: 6, grove: 0.35
   console.log(`  oasis: ${palms.length} palms along the river`);
 }
 
+/**
+ * Life on the Caravan Road (docs/SAHARA.md, step 5): a camel caravan walking toward you down its
+ * left edge on the opening straight: strings of `camels`, `gap` m nose to nose, `speed` m/s, `pos`
+ * of the way out from its middle (TrafficLaneDef.string, kinds 'camel': hit one and it scatters,
+ * never a wreck), over `section` of it, a string about every `every` m round the lap (only those
+ * on the section are seen). (One each way, the whole road to the ford, wrecked the field: bunched
+ * on the first lap, a racer behind a caravan going its way braked and the next ran into it.) And dust devils (hazard `dust-devil`) wandering across the Dune Sea and the Mesa's top,
+ * one about every `every` s on each.
+ */
+const CARAVAN = { section: [30, 120] as [number, number], camels: 5, gap: 3.6, speed: 2.2, pos: 0.95, every: 160 };
+const DEVILS = [
+  { s: [400, 1080] as [number, number], every: 18 },
+  { s: [3480, 3840] as [number, number], every: 30 },
+];
+{
+  const lane = { pos: -CARAVAN.pos, dir: -1 as const, speed: CARAVAN.speed, sections: [CARAVAN.section], kinds: ['camel'], string: [CARAVAN.camels, CARAVAN.gap] as [number, number] };
+  layout.traffic = { lanes: [lane], density: r1((CARAVAN.camels * 1000) / CARAVAN.every) };
+  layout.hazards = DEVILS.map((d) => ({ use: 'dust-devil', s: d.s, params: { every: d.every } }));
+  console.log(`  life: caravans of ${CARAVAN.camels} camels toward you on the Caravan Road (${CARAVAN.section.join('–')} m), dust devils on ${DEVILS.map((d) => d.s.join('–')).join(' and ')} m`);
+}
+
 baked = bakeTrack(layout, surfaces);
 
 mkdirSync(DIR, { recursive: true });

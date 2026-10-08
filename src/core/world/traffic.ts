@@ -32,7 +32,13 @@ export interface TrafficKind {
   hh: number;
   /** Too big to check out of the way, even boosting. */
   big: boolean;
+  /** How often it's picked for a lane of any kind (0: only a lane that names it, TrafficLaneDef.kinds). */
   weight: number;
+  /**
+   * An animal (Sahara's camels): never wrecked, never a wreck. Hit, it scatters (gone as a wrecked
+   * car is, back as one comes back) and the car loses a little speed; nothing tumbles.
+   */
+  animal?: boolean;
 }
 
 export const TRAFFIC_KINDS: TrafficKind[] = [
@@ -41,7 +47,11 @@ export const TRAFFIC_KINDS: TrafficKind[] = [
   { id: 'van', hw: 1.0, hl: 2.5, hh: 1.1, big: false, weight: 2 },
   { id: 'truck', hw: 1.2, hl: 3.8, hh: 1.5, big: true, weight: 1 },
   { id: 'bus', hw: 1.25, hl: 5.2, hh: 1.5, big: true, weight: 0.6 },
+  // A camel in a caravan (Sahara's Caravan Road): only in a lane that names it.
+  { id: 'camel', hw: 0.45, hl: 1.5, hh: 1.05, big: false, weight: 0, animal: true },
 ];
+/** A car hitting an animal keeps this much of its speed. */
+export const ANIMAL_SLOW = 0.8;
 export const TRUCK = 3;
 
 /** How close (along the road, or in a straight line) a traffic car must be to a racer to be posed this tick. */
@@ -209,19 +219,29 @@ export class Traffic {
     this.s0 = new Float64Array(this.count);
     this.kind = new Uint8Array(this.count);
     this.wreckedAt = new Float64Array(this.count).fill(-1);
-    const totalWeight = TRAFFIC_KINDS.reduce((a, k) => a + k.weight, 0);
+    // (Every kind with a weight, in order; a lane naming its kinds draws from those, evenly.)
+    const anyKind = TRAFFIC_KINDS.flatMap((x, n) => (x.weight > 0 ? [n] : []));
     let k = 0;
     perLane.forEach((n, l) => {
       // (A route's car's s0 is where it is round its loop, not a main distance.)
       const loop = this.routes[l]?.C ?? L;
-      const spacing = loop / Math.max(1, n);
+      const lane = this.lanes[l];
+      const pool = lane.kinds ? lane.kinds.map((id) => TRAFFIC_KINDS.findIndex((x) => x.id === id)).filter((x) => x >= 0) : anyKind;
+      const weight = (x: number) => (lane.kinds ? 1 : TRAFFIC_KINDS[x].weight);
+      const totalWeight = pool.reduce((a, x) => a + weight(x), 0);
+      // In strings (a caravan, TrafficLaneDef.string): each string's head spaced round the loop as
+      // a car would be, the rest nose to tail behind it, `gap` m apart.
+      const [per, gap] = lane.string ?? [1, 0];
+      const heads = Math.max(1, Math.ceil(n / per));
+      const spacing = loop / heads;
       for (let j = 0; j < n; j++, k++) {
         this.lane[k] = l;
-        this.s0[k] = wrap(j * spacing + (hash01(seed, k, 1) - 0.5) * spacing * 0.5, loop);
+        const head = Math.floor(j / per);
+        this.s0[k] = per > 1 ? wrap(head * spacing + (hash01(seed, k - (j % per), 1) - 0.5) * spacing * 0.5 - lane.dir * (j % per) * gap, loop) : wrap(j * spacing + (hash01(seed, k, 1) - 0.5) * spacing * 0.5, loop);
         let r = hash01(seed, k, 2) * totalWeight;
-        let kind = 0;
-        while (kind < TRAFFIC_KINDS.length - 1 && r > TRAFFIC_KINDS[kind].weight) r -= TRAFFIC_KINDS[kind++].weight;
-        this.kind[k] = kind;
+        let at = 0;
+        while (at < pool.length - 1 && r > weight(pool[at])) r -= weight(pool[at++]);
+        this.kind[k] = pool[at];
       }
     });
   }

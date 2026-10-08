@@ -18,6 +18,7 @@ import type { CarPlate, CarVisual, Indoor, SceneLive, Skin, TrackVisual, WorldVi
 import { positions } from '../core/rules/progress';
 import { SMASH_IDS } from '../core/world/smash';
 import { panelLook } from '../core/world/breakables';
+import { TRAFFIC_KINDS } from '../core/world/traffic';
 import { Skids } from './skids';
 
 const STAGE_COLORS = [0xffffff, 0x35a8ff, 0xff8a1a, 0xff2e88];
@@ -700,6 +701,13 @@ export class GameRenderer {
         if (mine) {
           this.shake = Math.max(this.shake, 0.35);
           this.impact = Math.max(this.impact, 0.2);
+        }
+        break;
+      case Ev.TrafficWreck:
+        // A camel scattering (traffic kind `animal`): a cloud of sand where it was, nothing tumbles.
+        if (this.sim.world && TRAFFIC_KINDS[this.sim.world.traffic.kind[e.other]]?.animal) {
+          this.fx.burst(e.x, e.y + 1, e.z, 50, 5, 0xe0c08a);
+          this.fx.burst(e.x, e.y + 0.5, e.z, 25, 3, 0xc99a5b);
         }
         break;
       case Ev.CarContact:

@@ -12,14 +12,14 @@ import { Cause, Ev } from '../events';
 import { hash01 } from '../rng';
 import type { SimState } from '../state';
 import { mainDistance, signedGap } from '../track/bake';
-import { Solid, type Hazards } from '../world/hazards';
+import { DEVIL_PUSH, Solid, type Hazards } from '../world/hazards';
 import type { Breakables } from '../world/breakables';
 import { SMASH_KINDS, SMASH_OPEN, type Smashables } from '../world/smash';
-import { laneActive, newTrafficPose, TRAFFIC_KINDS, type Traffic } from '../world/traffic';
+import { ANIMAL_SLOW, laneActive, newTrafficPose, TRAFFIC_KINDS, type Traffic } from '../world/traffic';
 import { collideBreakables } from './breakables';
 import { bounce as wallBounce } from './walls';
 import { newContact, obbOverlap } from './obb';
-import { cos, hypot, sin } from '../math';
+import { cos, hypot, sin, wrapAngle } from '../math';
 
 const contact = newContact();
 
@@ -81,6 +81,14 @@ export function collideWorld(sim: SimState, i: number, ctx: WorldCtx): void {
     if (closing <= 0.5) continue;
     if (c.wreck[i]) {
       // A tumbling wreck takes the traffic car with it.
+      traffic.wreckedAt[k] = ctx.t;
+      sim.events.push(tick, Ev.TrafficWreck, i, traffic.x[p], traffic.y[p], traffic.z[p], closing, 0, k);
+      continue;
+    }
+    // An animal (a camel): it scatters, the car a little slower, nobody wrecked.
+    if (kind.animal) {
+      c.vx[i] = vx * ANIMAL_SLOW;
+      c.vz[i] = vz * ANIMAL_SLOW;
       traffic.wreckedAt[k] = ctx.t;
       sim.events.push(tick, Ev.TrafficWreck, i, traffic.x[p], traffic.y[p], traffic.z[p], closing, 0, k);
       continue;
@@ -165,6 +173,20 @@ export function collideWorld(sim: SimState, i: number, ctx: WorldCtx): void {
     if (Math.abs(c.x[i] - hazards.px[p]) > 14 || Math.abs(c.z[i] - hazards.pz[p]) > 14) continue;
     if (Math.abs(c.y[i] + 0.5 - hazards.py[p]) > hazards.phh[p] + 1.2) continue;
     if (ghost) continue;
+    if (hazards.pSolid[p] === Solid.Gust) {
+      // A dust devil: shoved round with its wind and out from its middle, turned with it a little.
+      const dx = c.x[i] - hazards.px[p];
+      const dz = c.z[i] - hazards.pz[p];
+      const d = hypot(dx, dz);
+      const r = hazards.phw[p];
+      if (d >= r || d < 1e-6 || c.wreck[i]) continue;
+      const dt = sim.dt * sim.timeScale;
+      const push = (hazards.defs[hazards.occurrenceOf(p).def].params?.push ?? DEVIL_PUSH) * (1 - d / r) * hazards.pTilt[p] * dt;
+      c.vx[i] += push * ((-dz / d) * 0.8 + (dx / d) * 0.6);
+      c.vz[i] += push * ((dx / d) * 0.8 + (dz / d) * 0.6);
+      c.h[i] = wrapAngle(c.h[i] + push * 0.02);
+      continue;
+    }
     if (!obbOverlap(c.x[i], c.z[i], c.h[i], cls.size[0], cls.size[1], hazards.px[p], hazards.pz[p], hazards.ph[p], hazards.phw[p], hazards.phl[p], contact)) continue;
     if (hazards.pSolid[p] === Solid.Bump) {
       // Run over: a hop, a little speed lost and a nudge off line, once (it lands past it).

@@ -135,6 +135,10 @@ export interface TrafficLaneDef {
    */
   road?: string;
   span?: [number, number];
+  /** The traffic kinds it draws from, evenly (world/traffic.ts's ids); any kind with a weight if left out. */
+  kinds?: string[];
+  /** Its cars in strings (a caravan): `[count, gap]`, each string `count` long, `gap` m nose to nose. */
+  string?: [number, number];
 }
 
 export interface HazardDef {

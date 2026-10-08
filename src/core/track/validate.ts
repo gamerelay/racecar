@@ -5,7 +5,7 @@ import { LANDMARK_KINDS, type CarClass, type PieceDef, type SurfaceDef, type Tra
 import { KINDS } from '../world/hazards';
 import { Breakables, MAX_PANELS, PANEL_WIDTH } from '../world/breakables';
 import { SMASH_IDS } from '../world/smash';
-import { JOIN, STREET_FADE } from '../world/traffic';
+import { JOIN, STREET_FADE, TRAFFIC_KINDS } from '../world/traffic';
 import { bakeTrack, COLUMN, mainDistance, porchColumns, sampleIndex, wrap } from './bake';
 import { newHit, offRoad, projectGlobal } from './query';
 import { OVERRIDES } from '../maps';
@@ -466,6 +466,9 @@ export function validateLayout(layout: TrackLayout, surfaces: SurfaceDef[], clas
     if (!(Math.abs(lane.pos) <= 1)) err(`traffic lane ${k}: pos ${lane.pos} is off the road (-1 to 1)`);
     if (lane.dir !== 1 && lane.dir !== -1) err(`traffic lane ${k}: dir must be 1 or -1`);
     if (!(lane.speed > 0)) err(`traffic lane ${k}: speed must be positive`);
+    for (const id of lane.kinds ?? []) if (!TRAFFIC_KINDS.some((x) => x.id === id)) err(`traffic lane ${k}: no traffic kind '${id}' (world/traffic.ts: ${TRAFFIC_KINDS.map((x) => x.id).join(', ')})`);
+    if (lane.kinds && !lane.kinds.length) err(`traffic lane ${k}: kinds is empty (leave it out for any kind)`);
+    if (lane.string && !(Number.isInteger(lane.string[0]) && lane.string[0] >= 1 && lane.string[1] > 0)) err(`traffic lane ${k}: string ${JSON.stringify(lane.string)} wants a whole count of 1 or more and a gap over 0 m`);
     for (const [a, b] of lane.sections ?? []) if (!(a >= 0 && a <= L && b >= 0 && b <= L)) err(`traffic lane ${k}: section [${a}, ${b}] is off the main spline`, 'main', a);
     if (lane.streets) checkStreets(track, k, lane, err);
     if (lane.road !== undefined) {

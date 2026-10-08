@@ -6,7 +6,7 @@
 // Each vertex carries a color and `surf` = (paint, glow): paint 1 takes the instance's color (the
 // body), paint 0 keeps its own (glass, trim, lamps); glow lights it regardless of the sun (lamps).
 
-import { BoxGeometry, BufferAttribute, BufferGeometry, Color, CylinderGeometry, type Material, type Matrix4, Mesh, type MeshToonMaterial } from 'three';
+import { BoxGeometry, BufferAttribute, BufferGeometry, Color, CylinderGeometry, type Material, type Matrix4, Mesh, type MeshToonMaterial, SphereGeometry } from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import type { PaintDef } from '../../../../core/content';
 import { SEAM } from '../../../ink';
@@ -198,6 +198,37 @@ function build(d: TrafficDesign): BufferGeometry {
   return merged;
 }
 
+const CAMEL = new Color(0xc99a5b);
+const CAMEL_DARK = new Color(0xa8773f);
+const ROPE = new Color(0x5a3f2e);
+const RUG = new Color(0xf2e6cc);
+
+/**
+ * A camel (traffic kind `camel`, Sahara's caravan), front toward +z, standing on y = 0: long legs, a
+ * hump, a curved neck and its head out front, a saddle blanket (painted the traffic colour, so a
+ * caravan's are a few colours) and a rolled rug on it. No lamps.
+ */
+function camel(): BufferGeometry {
+  const parts: BufferGeometry[] = [];
+  const add = (g: BufferGeometry, color: Color, paint = 0) => parts.push(tag(g, color, paint, 0));
+  for (const z of [0.75, -0.75]) for (const x of [-0.25, 0.25]) add(box(0.16, 1.25, 0.18, x, 0.62, z), CAMEL_DARK);
+  add(box(0.7, 0.75, 1.9, 0, 1.55, 0), CAMEL);
+  add(new SphereGeometry(0.42, 10, 6, 0, Math.PI * 2, 0, Math.PI / 2).scale(1, 1.1, 1.3).translate(0, 1.9, -0.05), CAMEL);
+  add(box(0.8, 0.12, 1.0, 0, 1.95, -0.05), WHITE, 1);
+  add(new CylinderGeometry(0.14, 0.14, 0.86, 8).rotateZ(Math.PI / 2).translate(0, 2.42, -0.05), RUG);
+  add(box(0.86, 0.5, 0.06, 0, 1.65, 0.42), WHITE, 1);
+  // Its neck: down and forward from the shoulders, then up to the head.
+  add(new BoxGeometry(0.26, 0.85, 0.3).rotateX(0.7).translate(0, 1.55, 1.1), CAMEL);
+  add(new BoxGeometry(0.24, 0.6, 0.26).rotateX(-0.2).translate(0, 1.95, 1.45), CAMEL);
+  add(box(0.26, 0.26, 0.55, 0, 2.28, 1.62), CAMEL);
+  add(box(0.04, 0.04, 0.5, 0.1, 2.18, 1.7), ROPE);
+  add(box(0.08, 0.5, 0.08, 0, 1.4, -0.98), CAMEL_DARK);
+  const merged = mergeGeometries(parts)!;
+  for (const p of parts) p.dispose();
+  merged.computeBoundingSphere();
+  return merged;
+}
+
 let cache: { geos: Record<string, BufferGeometry>; material: MeshToonMaterial } | undefined;
 
 /** One geometry per traffic kind (by id) and the shared material; built once. */
@@ -205,6 +236,7 @@ export function trafficModels(): { geos: Record<string, BufferGeometry>; materia
   if (cache) return cache;
   const geos: Record<string, BufferGeometry> = {};
   for (const [id, d] of Object.entries(DESIGNS)) geos[id] = build(d);
+  geos.camel = camel();
   const material = toon({ vertexColors: true });
   material.onBeforeCompile = (shader) => {
     shader.vertexShader = chunks(shader.vertexShader, 'traffic')
