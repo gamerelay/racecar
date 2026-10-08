@@ -14,6 +14,7 @@ import type { FeatureDef, GroundDef } from '../../content';
 import type { BakedSpline } from '../bake';
 import { beachFeature } from './beach';
 import { canyonFeature } from './canyon';
+import { cityFeature } from './city';
 import { coastFeature } from './coast';
 import { hillsFeature } from './hills';
 import { lavaStreamFeature } from './lava-stream';
@@ -108,6 +109,7 @@ export function groundFeatures(def: GroundDef, main: BakedSpline): Feature[] {
     else if (f.kind === 'pad') out.push(padFeature(f));
     else if (f.kind === 'pyramid') out.push(pyramidFeature(f));
     else if (f.kind === 'river') out.push(riverFeature(f));
+    else if (f.kind === 'city') out.push(cityFeature(f));
   }
   return out;
 }

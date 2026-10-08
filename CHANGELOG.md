@@ -4,6 +4,20 @@ What changed in each release of racecar, newest first. Releases are git tags on 
 reasons behind each change are in [docs/SPEC.md](./docs/SPEC.md) under "Changed while building",
 and where things stand is [docs/HANDOFF.md](./docs/HANDOFF.md).
 
+## Unreleased
+
+- **Getaway (experimental, from a link):** a test city where you run from the cops instead of
+  racing. The heat goes up every minute, with more and faster cops each time; your first crash, or
+  getting boxed in and stopped, ends the run, and the score is how long you lasted, with your best
+  kept. Open it with `?mode=race&map=heist/city&seats=p`. The city is San Francisco-ish: hills
+  with a jump at every crossing, Market Street cutting across, districts each with their own
+  grid, a freeway up on a deck, and the getaway starting outside the Bank.
+  Each district looks like itself: towers downtown, Chinatown's painted shopfronts, Victorians on
+  the hills, brick warehouses south of Market. The Bank has its columns and its name; the bay has
+  piers out into it, and the Ferry Building its clock tower. Lombard Street is a planter slalom down
+  a 25% hill, Dolores Park is lawn and palms, and the streets have crosswalks and centre lines.
+- **Look back on Q** as well as C.
+
 ## alpha-1.43: Sahara's music, and Single player
 
 - **Sahara has its own music:** an Arabian track that plays only in Sahara races.

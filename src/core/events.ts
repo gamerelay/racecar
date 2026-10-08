@@ -56,6 +56,10 @@ export const Ev = {
   Gate: 32,
   /** car broke a breakable wall's panel (world/breakables.ts). a = how fast it went through (m/s), b = the panel (no `other`: listeners read it as a car). car -1: another screen's break. */
   WallBreak: 33,
+  /** A getaway's heat went up (rules/getaway.ts). car = the getaway car, a = the heat now. */
+  Heat: 34,
+  /** A getaway's over (rules/getaway.ts). car = the getaway car, a = how long it lasted (s), b = 1 busted, 0 wrecked. */
+  Busted: 35,
 } as const;
 export type Ev = (typeof Ev)[keyof typeof Ev];
 
@@ -93,6 +97,8 @@ export const EV_NAMES: Record<number, string> = {
   31: 'overdrive',
   32: 'gate',
   33: 'wall_break',
+  34: 'heat',
+  35: 'busted',
 };
 
 /**

@@ -16,6 +16,7 @@ export const ANY_MAP: readonly TrackName[] = ['finish-line', 'final-sprint', 're
  * and the coastal one (2026-10-03), the valley an acoustic one (2026-10-02), the mountain its two
  * (2026-10-03). Paradise Open is the island too, so it has the island's. Coastal has the coastal
  * one (2026-10-04; `forward` plays on every map). Sahara has an Arabian one, its own only (2026-10-08).
+ * The getaway's city has the orchestral chase from the title.
  */
 export const MAP_TRACKS: Readonly<Record<string, readonly TrackName[]>> = {
   downtown: ['downtown', 'tokyo-dubstep'],
@@ -25,6 +26,8 @@ export const MAP_TRACKS: Readonly<Record<string, readonly TrackName[]>> = {
   avalanche: ['avalanche', 'winter-pursuit'],
   coastal: ['coastal'],
   sahara: ['sahara'],
+  // The getaway's test city (docs/CHASE_MODE.md): the chase music (`relentless-pursuit` and `escape` are any map's).
+  heist: ['pursuit-orchestra'],
 };
 
 /** The page's playlist: the title's behind the menus (attract mode), else the map's own and the eight for any map. */

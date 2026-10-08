@@ -189,6 +189,8 @@ export interface HouseDef {
   /** Which way its front faces, radians about y (0: toward +z). */
   rot: number;
   look?: string;
+  /** Words on it, for its look to show (a pier's number). Drawing only. */
+  label?: string;
   /**
    * A terrace out over its front on columns, you drive under (Coastal's hotel, its porte-cochère):
    * `depth` m out from its front, `width` across, its underside `high` m up, on `columns` columns
@@ -322,6 +324,8 @@ export interface TrackLayout {
   skiJump?: { lip: number; landing: number };
   /** One run's avalanche, at chaos (core/world/avalanche.ts). */
   avalanche?: AvalancheDef;
+  /** A getaway (docs/CHASE_MODE.md, core/rules/getaway.ts): a race on this map is a run from the cops, not laps. */
+  getaway?: GetawayDef;
   /** The escape hatch (core/track/overrides.ts): the map's own code for a small region, by id (core/maps). Rare. */
   overrides?: OverrideDef[];
 }
@@ -346,6 +350,23 @@ export interface SlalomGate {
   s: number;
   lateral: number;
   gap: number;
+}
+
+/**
+ * A getaway's streets (docs/CHASE_MODE.md): what the cops find their way round the city by, until
+ * the road graph has a city's streets. Crossings (and corners, and an alley's ends) as [x, z], and
+ * the streets between them as pairs of their indices, driven either way.
+ */
+export interface GetawayDef {
+  nodes: [number, number][];
+  links: [number, number][];
+  /** Where the getaway car starts, [x, z], and which way it faces (radians about y, 0 toward +z): outside the Bank. Unset, on the main road's grid. */
+  start?: { at: [number, number]; heading: number };
+  /**
+   * Per link, the width of the street it is (m), for the skin's paint (a centre line, the crosswalks
+   * at its ends); 0 for none (the main road and the Freeway, painted as roads; an alley). Drawing only.
+   */
+  paint?: number[];
 }
 
 /** An avalanche down a run: it breaks away `behind` m above the start line, `delay` s after the green light, at about `speed` m/s on a 20% slope. */
@@ -655,7 +676,26 @@ export interface RiverDef {
   level: [number, number];
 }
 
-export type FeatureDef = MogulsDef | CanyonDef | BeachDef | UnevenDef | LavaStreamDef | SeawallDef | PadDef | PyramidDef | RiverDef;
+export type FeatureDef = MogulsDef | CanyonDef | BeachDef | UnevenDef | LavaStreamDef | SeawallDef | PadDef | PyramidDef | RiverDef | CityDef;
+
+/**
+ * A city's ground (docs/CHASE_MODE.md; core/track/features/city.ts): inside `outline` (a closed
+ * [x, z] loop) it's paved, `y` m up plus its `hills` (round domes or ridges, as GroundDef's), and
+ * every crossing in `level` ([x, z, r]: its middle and radius) is flat at the hills' height at its
+ * middle, the street rising or falling away from its edge: San Francisco's level crossings on
+ * steep streets, the crest at each one a car flies off. Cut back to the main road, as hills are.
+ */
+export interface CityDef {
+  kind: 'city';
+  outline: [number, number][];
+  y: number;
+  hills: Hill[];
+  level: [number, number, number][];
+  /** Off the main road its ground comes in over this many metres past the road's edge (default 24): wider where a hill comes near the road. */
+  cut?: number;
+  /** Parks (closed [x, z] loops): lawn, not paving (driven as `undergrowth`). */
+  parks?: [number, number][][];
+}
 
 export interface MapDef {
   id: string;

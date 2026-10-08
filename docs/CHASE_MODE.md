@@ -269,4 +269,162 @@ themselves, so a sloppy line wrecks you. (Smashables in `smash.ts` never wreck; 
 
 ## Built so far
 
-(nothing yet)
+### The city, detailed (2026-10-08)
+
+The owner: "could we continue detailing the city", with the first cut's list left to do (the
+crooked street, cable car, hill tunnel, Dolores park, piers and bay, Ferry Building, mid-Freeway
+ramps, the Bank's look, road markings, street traffic).
+
+- **A look per district** (`HouseDef.look`; the skin's `render/skins/greybox/heist.ts`): each
+  facade a window a bay across and a storey high, tiled up the building over a ground floor of
+  shops, every building of a look one merged mesh (two draws a look):
+
+  | Look | Where | |
+  |---|---|---|
+  | `tower` | the Financial District | glass between mullions, stone or tinted, a plant room on the tall ones |
+  | `chinatown` | Chinatown | painted walls, balconies, red signs over the shops |
+  | `victorian` | the Hills, the Mission | painted ladies: pastels, white-framed bay windows, garage doors |
+  | `warehouse` | SoMa | brick, steel-framed windows, roll-up doors, water tanks on some roofs |
+
+- **The Bank:** a granite temple at the foot of its tower: steps, six columns, **BANK OF THE BAY**
+  over them, a pediment, a flag on the roof. All of it inside the building's solid box: a portico
+  out over the pavement would be one you drive through.
+- **The bay:** north of Bay Street and east of the Embarcadero, the sea 3 m under the city
+  (`GroundDef.sea`, `coast`), behind a sea wall (two `seawall` features, either side of the Ferry
+  Building's land). 16 **piers** out into it off the wall, on piles, a shed on each with its number
+  over its doors (odd up to **Pier 39** at the wharf, even south; `HouseDef.label`).
+- **The Ferry Building:** where Market meets the Embarcadero, out on its own paved quay (a `pad`):
+  long, cream, arched windows, its clock tower in the middle with four faces and a copper cupola.
+- **Lombard Street:** the Hills' steepest east-west block (25%, on Russian Hill), six planters
+  across it from alternate sides: a slalom down (or up) it, 7.5 m between them. Solid, so a wreck.
+  The cops know it's blocked (its street is dropped from theirs).
+- **Dolores Park:** the Mission's two blocks nearest the top of its hill, lawn instead of paving
+  (`CityDef.parks`, driven as `undergrowth`: a short cut that costs a little), palms round its edge
+  and across it. Solid: a trunk is a crash.
+- **Painted streets** (`GetawayDef.paint`, each street's width per link): crosswalks across each
+  end where three or more streets meet, a double yellow down the wide streets (16 m and up: Market,
+  Columbus, SoMa), a dashed white line down the rest. Laid on the ground, over each crest.
+- **The ground** at 2.5 m cells now (the sea wall's ledge needs them; the crossings' crests are
+  sharper too), the grid 245 m past the main road (`wallFrom` 200: no walls, flat out to the
+  edge). The bake is 0.9 s, about Paradise Open's. The coast's distance (`island.ts`'s
+  `loopDistance`, shared with Coastal and Paradise) now asks only the few segments that can be
+  nearest a point's cell: deep in the city, 600 m from the shore, it searched dozens of empty rings
+  for every point (the bake was 3 s). Exactly the same distances (a test checks it against the plain
+  scan); every other map's fingerprint is unchanged.
+- **Still not built, and why:**
+  - **The cable car** has to move along a street and be hit: a moving solid the sim knows about,
+    as the traffic is. The traffic runs on the main road only, so this is steps 2–3 (streets as
+    roads, traffic on them).
+  - **A tunnel under a hill:** the ground is a heightfield, so it can't have a hole under it; only
+    the main road has tunnels (pieces). Steps 2–3 again (a street as a road, then a tunnel piece).
+  - **Ramps partway along the Freeway:** a ramp is a road from a street up to the deck, joining it.
+    Branches can do that, but not yet from the open ground of a city street. With steps 2–3.
+  - **Traffic on the streets:** steps 2–3.
+  - **Street names on signs**; the start line's flags still stand on the main road's grid.
+
+### The city, first cut (2026-10-08)
+
+The owner, after step 1: "this is pretty fun! I think we need to have a quick look back button
+like 'q' ... let's continue detailing out the city and building the map." Built on the engine as
+it is (the city's streets are still the gaps between its buildings, step 1's way), ahead of steps
+2–5: the layout first, to drive and shape, the road graph after. `heist/city` is this city now
+(the test grid is gone).
+
+- **Look back on Q** as well as C (B on a pad), held: the camera turns round, the car drives on.
+- **The plan** (`tools/gen-heist.ts`; north is -z):
+
+  | Where | What | Streets | Built up with |
+  |---|---|---|---|
+  | **The main road** | a 3.9 km loop round the city, traffic both ways: **Bay Street** (north), **the Embarcadero** (east, curving down the waterfront past the Ferry Building), **the Freeway** (south), **Van Ness** (west) | 16–20 m, four lanes | walled on its outer side |
+  | **The Freeway** | up on a deck 11 m over the city for 660 m, ramps at either end, walled both sides; **under it**, a street along its foot, a wall on its outer side | 18 m | |
+  | **Market Street** | corner to corner, Van Ness to the Ferry Building: every grid's streets end on it | 22 m | |
+  | **The Financial District** | North of Market, east | the north grid, 14 m | towers, 9–23 storeys; **the Bank** (16) |
+  | **Chinatown** | North of Market, middle | the north grid, at 10 m; alleys through nine blocks in ten | narrow lots, 3–6 storeys |
+  | **The Hills** | North of Market, west and north: **Nob Hill** (30 m), **Russian Hill** (34 m), **Telegraph Hill** (22 m) | the north grid laid straight over them | 3–5 storeys |
+  | **Columbus Avenue** | across North of Market, from near Market up to Bay Street | 16 m | |
+  | **SoMa** | south of Market, east | its own grid, turned to Market's line: big blocks | warehouses, 2–4 storeys |
+  | **The Mission** | south-west, past **Division Street** | its own grid, turned 7°; **Dolores** (a 16 m hill) | narrow lots, 2–4 storeys |
+
+  1,082 buildings, 59 alleys; the cops' streets 449 crossings, 725 streets.
+- **The city's ground** (`features/city.ts`, `CityDef`): paved inside the main road's outer edge,
+  the hills under it, and **every crossing level** at the hill's height at its middle, the street
+  climbing or falling away from its edge: the crest at each crossing is a jump. Over Nob Hill at
+  about 175 km/h a car is in the air off most crossings, up and down. Cut back to the main road over
+  50 m. (Its outline test is banded by z: the bake is 0.45 s, 3.7 s with a plain point-in-polygon.)
+- **The start:** outside **the Bank** in the Financial District, 35 m from its crossing, facing it
+  (`GetawayDef.start`; the rules put you there after the grid). The first two cops come out at the
+  crossings behind you, about 100 m back.
+- **The cops' streets:** every street, alley, Market, Columbus, the Division, the street under
+  the Freeway and the main road on the ground as lines, a node wherever two cross; the Freeway's
+  deck a street from foot to foot that crosses nothing. Only the biggest connected part is kept.
+  `Streets` finds the houses near a line of sight by a 40 m grid, and A* scans only its open set.
+- **Cops, tuned in the city:** coming up on you without seeing you (round a corner), or at heat 1
+  at all, a cop is never faster than it could still pull up behind you from: one came round a corner
+  at 40 m/s and took the parked getaway car out 4 s in. At heat 1, on your bumper, it holds just
+  under your speed (it held you +1 m/s, and shoved a parked car into the Embarcadero's wall). Stopped,
+  any cop close by pulls up: being stopped is busted, not a shove.
+- **Not yet:** the crooked street, the cable car, the tunnel under a hill, the park at Dolores, piers
+  and the bay past the Embarcadero, the Ferry Building, mid-Freeway ramps, the Bank's own look, and
+  the street names on signs. The streets still aren't roads (no markings); traffic only on the main
+  road.
+
+### Step 1: getaway rules and cops on a test city (2026-10-08)
+
+Experimental: `?mode=race&map=heist/city&seats=p` (any car: `&car=`). Not in the lobby yet.
+
+- **The test city** (`tools/gen-heist.ts`, `content/maps/heist/`):
+  - **The Avenue:** the main road, a 2.4 km loop round the city. It has four lanes of two-way
+    traffic, is walled on its outer side and open on the city's.
+  - **Inside the Avenue:** one patch of unevenly spaced grid, with 271 buildings (solid houses) up
+    to the pavement, taller toward the middle. About half the blocks have an alley through them.
+  - **A diagonal boulevard** runs corner to corner. Where it cuts the blocks it leaves wedges of
+    open paving.
+  - **The Bank** stands on the Avenue at the start.
+  - **The floor:** the whole city is one level paved pad (`PadDef`), so the streets are the gaps
+    between the buildings and you can drive anywhere they leave room.
+  - **Not yet:** streets aren't roads yet (no markings; the minimap draws the buildings instead),
+    and there's no hill (it waits for step 5's hilly streets).
+- **Its streets for the cops** (`TrackLayout.getaway`, `world/streets.ts`): every crossing as a
+  node and every street, alley and the Avenue as links (102 nodes and 172 links). The generator
+  throws if a building stands across one. `Streets` searches them with A* and checks a line of
+  sight against the buildings' boxes, with a car's width to spare.
+- **The rules** (`rules/getaway.ts`, wired from `Sim.step`'s rules system as slalom is):
+  - **Map-specific:** a race on a map with `getaway`, offline, is you and the cops. The lobby's
+    other seats are dropped.
+  - **Heat** goes up every 60 s and never comes down. Each level calls out one more cop, from a
+    pool of 10 police cars added at the start and kept out of the race (`active` 0) until called.
+  - **Calling cops out:** the first two start behind you on green. Later ones come out at a
+    crossing out of your sight, 150–340 m off. At heat 1 that's behind you; from heat 2 ahead of
+    you too, but never nearer than 220 m.
+  - **Cops coming back:** a wrecked or stuck cop comes back out of sight, and so does one more
+    than 320 m off.
+  - **The end:** any wreck of yours (a reset too) ends the run, and so does being **busted**:
+    under 2.5 m/s with a cop within 7.5 m for 2 s. Your wreck stays where it lies (physics.ts holds
+    its respawn), your car pulls up, the cops pull up, and laps of the Avenue never finish it.
+- **The cops** (`ai/cop.ts`):
+  - **Steering:** the pace car's pure pursuit. In sight (160 m, nothing in the way) they aim at
+    you, and from heat 2 a little ahead of you (up to 1.2 s). Out of sight they follow the streets
+    to where you'll be, cutting corners they can see across.
+  - **Speed:** whatever they can still brake from for the next corner, up to a share of your car's
+    top speed: 74% at heat 1, past yours at heat 4, and on up from there. They're 12% quicker out
+    of sight and over 120 m away, and from heat 3 they boost in on a straight.
+  - **At heat 1** a cop on your bumper matches your speed rather than ramming you.
+- **The HUD:**
+  - **The stats:** Heat where Lap was, then the run's time and your best (on this device:
+    `racecar.getaway.<map>`). No position badge.
+  - **Calls:** "Heat N!" each minute, and a "Busted ▮▮▯▯▯" warning filling while you're boxed in.
+  - **The end screen:** Busted! or Wrecked!, the time you got away for, the heat reached, your
+    best ("new best!"), and the cops you took out. Go again is a fresh seed.
+- **Music:** the orchestral chase from the title, beside the eight for any map.
+- **Numbers:** the race AI driving the getaway car (laps of the Avenue, no traffic, 4 seeds) lasts
+  1:22–4:05, heat 2–5, every run ended by a cop takedown. Before cops were called out ahead and
+  given their catch-up, it lapped the Avenue for good: lapping it was the way to win. With traffic
+  on, the race AI crashes into it inside 20 s, so it's no stand-in for a player there.
+- **Tests:** `test/getaway.test.ts`. Every other map's fingerprint is identical. The city's isn't
+  recorded while it's experimental.
+- **Not yet:**
+  - **The start:** the start line and its flags still stand on the Avenue.
+  - **Replays:** the F8 snapshot doesn't save the getaway's state, so a getaway's report won't
+    replay exactly.
+  - **Sirens and lights:** none yet (step 4).
+  - **Online:** a getaway from an online lobby is an ordinary race.

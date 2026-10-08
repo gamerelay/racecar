@@ -53,6 +53,8 @@ export class Hud {
   private shownStage = -1;
   /** The focus car's best lap before the one just finished (for the lap pop's delta). */
   private bestBefore = 0;
+  /** A getaway's best time on this device, before this run (main.ts). */
+  getawayBest = 0;
 
   constructor(private readonly sim: Sim) {
     document.body.insertAdjacentHTML(
@@ -127,8 +129,12 @@ export class Hud {
     text('pos', `${this.order.indexOf(i) + 1}/${this.order.length}`);
     const laps = this.sim.race.laps;
     const run = this.sim.track.run;
-    text('lapLabel', run ? 'To go' : 'Lap');
-    if (run) {
+    const getaway = this.sim.getaway;
+    document.body.classList.toggle('getaway', !!getaway);
+    text('lapLabel', getaway ? 'Heat' : run ? 'To go' : 'Lap');
+    // A getaway (docs/CHASE_MODE.md): the heat for the lap, how long you've lasted, your best.
+    if (getaway) text('lap', String(Math.max(1, getaway.heat)));
+    else if (run) {
       // One run: how far to the bottom, not a lap count.
       const left = c.lap[i] > 0 ? 0 : Math.max(0, this.sim.track.graph.route.length - c.progress[i]);
       text('lap', left >= 1000 ? `${(left / 1000).toFixed(1)} km` : `${Math.round(left / 10) * 10} m`);
@@ -137,12 +143,20 @@ export class Hud {
     else text('lap', racing ? `${Math.min(laps, c.lap[i] + 1)}/${laps}` : String(c.lap[i] + 1));
     $('statLap').classList.toggle('final', racing && laps > 1 && c.lap[i] + 1 >= laps && !c.finished[i]);
     text('time', c.finished[i] ? fmt(c.finishTime[i]) : racing ? fmt(Math.max(0, this.sim.time - this.sim.race.goTime)) : fmt(this.sim.time - c.lapStartTime[i]));
-    text('best', c.bestLap[i] ? fmt(c.bestLap[i]) : '–');
+    if (getaway) text('best', this.getawayBest ? fmt(this.getawayBest) : '–');
+    else text('best', c.bestLap[i] ? fmt(c.bestLap[i]) : '–');
     // The avalanche behind you: how far, once it's within a few hundred meters.
     const gap = run && this.sim.avalancheFront > -Infinity && !c.finished[i] && !c.wreck[i] ? c.progress[i] + run.start - this.sim.avalancheFront : Infinity;
     $('avalanche').classList.toggle('on', gap < AVALANCHE_WARN);
     $('avalanche').classList.toggle('near', gap < AVALANCHE_WARN / 3);
     if (gap < AVALANCHE_WARN) text('avalanche', `Avalanche! ${Math.max(0, Math.round(gap / 10) * 10)} m`);
+    // A getaway: stopped with a cop on you, the warning fills (the avalanche's banner, rules/getaway.ts's BUSTED).
+    else if (getaway) {
+      const busted = !getaway.end && getaway.busted > 0.05;
+      $('avalanche').classList.toggle('on', busted);
+      $('avalanche').classList.toggle('near', busted && getaway.busted > 0.5);
+      if (busted) text('avalanche', `Busted ${'▮'.repeat(Math.ceil(getaway.busted * 5))}${'▯'.repeat(5 - Math.ceil(getaway.busted * 5))}`);
+    }
     const score = Math.floor(c.score[i]);
     if (score !== this.shownScore) text('score', (this.shownScore = score).toLocaleString());
     const mph = Math.hypot(c.vx[i], c.vz[i]) * MPH;
@@ -185,7 +199,7 @@ export class Hud {
     if (e.type === Ev.ChainLost && e.car === i) this.pop(`Chain lost ×${e.b}`, 'bad');
     if (e.type === Ev.DriftBoost && e.car === i) this.pop(`Powerglide +${Math.round(e.a * 100)}%`, e.a > 0.25 ? 's2' : 's1');
     if (e.type === Ev.MiniTurbo && e.car === i) this.pop(['', 'Mini-turbo', 'Super turbo', 'Ultra turbo'][e.b] + '!', `s${e.b}`);
-    if (e.type === Ev.Wreck && e.car === i && e.other < 0) this.pop(e.b === Cause.Reset ? 'Reset' : e.b === Cause.Hazard && this.sim.avalanche ? 'Buried!' : 'Wrecked', 'bad');
+    if (e.type === Ev.Wreck && e.car === i && e.other < 0 && !this.sim.getaway) this.pop(e.b === Cause.Reset ? 'Reset' : e.b === Cause.Hazard && this.sim.avalanche ? 'Buried!' : 'Wrecked', 'bad');
     if (e.type === Ev.Takedown && e.car === i) this.pop(e.b ? 'Revenge!' : 'Takedown!', 'big');
     if (e.type === Ev.NearMiss && e.car === i) this.pop(e.b ? 'Oncoming near miss' : 'Near miss', e.b ? 'hot' : '');
     // Weaving in and out of the oncoming lane restarts the streak; one pop per few seconds is enough.
@@ -203,14 +217,17 @@ export class Hud {
     }
     if (e.type === Ev.StartBoost && e.car === i) this.pop(e.b ? 'Perfect start!' : 'Stalled', e.b ? 's2' : 'bad');
     if (e.type === Ev.Finish && e.car === i) this.pop(`Finished ${ordinal(e.b)}`, 'big');
-    if (e.type === Ev.Wreck && e.car === i && e.other >= 0 && e.other !== i) this.pop('Taken down', 'bad');
+    if (e.type === Ev.Wreck && e.car === i && e.other >= 0 && e.other !== i && !this.sim.getaway) this.pop('Taken down', 'bad');
     if (e.type === Ev.SpinOut && e.car === i) this.pop('Spin out', 'bad');
     if (e.type === Ev.AirBoost && e.car === i) {
       const gain = e.a >= 0.01 ? ` +${Math.round(e.a * 100)}%` : '';
       if (e.other === 1) this.pop(`Superman! ${e.b.toFixed(1)}s${gain}`, 'big');
       else this.pop(`${e.b > 0.9 ? 'Big air' : 'Air'} ${e.b.toFixed(1)}s${gain}`, e.b > 0.9 ? 'hot' : 's1');
     }
-    if (e.type === Ev.Lap && e.car === i) this.lap(e.a, e.b);
+    // (A getaway's laps of the Avenue are nothing to call out.)
+    if (e.type === Ev.Lap && e.car === i && !this.sim.getaway) this.lap(e.a, e.b);
+    if (e.type === Ev.Heat && e.car === i) this.pop(`Heat ${e.a}!`, 'big');
+    if (e.type === Ev.Busted && e.car === i) this.pop(e.b ? 'Busted!' : 'Wrecked!', 'big');
     if (e.type === Ev.Gate && e.car === i) this.pop(e.b >= 2 ? `Gate ×${e.b}` : 'Gate', e.b >= 5 ? 's3' : e.b >= 3 ? 's2' : 's1');
   };
 }

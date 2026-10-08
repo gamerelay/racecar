@@ -91,6 +91,11 @@ export function validateLayout(layout: TrackLayout, surfaces: SurfaceDef[], clas
     } else if (f.kind === 'river') {
       if (!Array.isArray(f.path) || f.path.length < 2 || f.path.some((p) => !Array.isArray(p) || p.length !== 2 || !p.every(Number.isFinite)) || !(f.width > 0) || !(f.depth > 0) || !(Array.isArray(f.level) && f.level.length === 2 && f.level.every(Number.isFinite)))
         bad('a river needs a path of 2 points or more, a width, a depth and its level at each end');
+    } else if (f.kind === 'city') {
+      const loop = (l: unknown) => Array.isArray(l) && l.length >= 3 && l.every((p) => Array.isArray(p) && p.length === 2 && p.every(Number.isFinite));
+      if (!loop(f.outline) || !Number.isFinite(f.y) || !Array.isArray(f.hills) || !Array.isArray(f.level) || f.level.some((c) => !(Array.isArray(c) && c.length === 3 && c.every(Number.isFinite) && c[2] > 0)))
+        bad('a city needs an outline (a loop of 3 points or more), a height, its hills and its crossings ([x, z, r], r over 0)');
+      if (f.parks && !f.parks.every(loop)) bad("a city's parks must each be a loop of 3 points or more");
     } else err(`ground feature ${k}: unknown kind "${(f as { kind: unknown }).kind}"`);
   }
   if (out.some((p) => p.level === 'error')) return out;

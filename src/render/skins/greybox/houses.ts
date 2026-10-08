@@ -9,6 +9,7 @@ import type { HouseDef } from '../../../core/content';
 import { hash01 } from '../../../core/rng';
 import { COLUMN as COLUMN_R, porchColumns, type BakedProp, type Track } from '../../../core/track/bake';
 import { trafficModels } from './car/traffic';
+import { buildHeistCity, CITY_LOOKS } from './heist';
 import { instanced, prism, type Part } from './forest';
 import { canvas } from './scenery';
 import { faceted, toon } from './toon';
@@ -51,8 +52,14 @@ export function buildHouses(track: Track): Object3D[] {
   const solid = track.props.filter((p) => p.kind === 'house');
   const out: Object3D[] = [];
   const hawaii = harborTown();
+  const city: { h: HouseDef; k: number; y: number }[] = [];
   defs.forEach((h, k) => {
     const y = solid[k]?.y ?? track.ground!.height(h.at[0], h.at[1]);
+    // (The getaway's city: heist.ts.)
+    if (h.look && CITY_LOOKS.has(h.look)) {
+      city.push({ h, k, y });
+      return;
+    }
     if (h.look === 'casino') {
       out.push(casino(h, y));
       return;
@@ -84,6 +91,7 @@ export function buildHouses(track: Track): Object3D[] {
   });
   if (walls.length) out.push(instanced(new BoxGeometry(1, 1, 1), toon({ map: facade() }), walls), instanced(prism(), toon({ side: DoubleSide }), roofs));
   out.push(...hawaii.build());
+  if (city.length) out.push(...buildHeistCity(track, city));
   return out;
 }
 

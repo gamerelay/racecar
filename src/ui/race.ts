@@ -45,6 +45,9 @@ export class RaceUi {
   /** A layout key's map name, for the vote. */
   mapName: (key: string) => string = (key) => key;
   private voteHtml = '';
+  /** A getaway's best before this run (main.ts), and what to do with this run's time once it's over. */
+  getawayBest = 0;
+  onGetawayOver: (time: number) => void = () => {};
 
   constructor(
     private readonly sim: Sim,
@@ -91,6 +94,21 @@ export class RaceUi {
     this.roads.height = this.map.height;
     const g = this.roads.getContext('2d')!;
     g.lineJoin = 'round';
+    // A getaway's city (docs/CHASE_MODE.md): its streets are the gaps between its buildings, so the buildings are the map.
+    if (t.layout.getaway)
+      for (const h of t.layout.houses ?? []) {
+        const [w, d] = h.size;
+        const fx = Math.sin(h.rot);
+        const fz = Math.cos(h.rot);
+        g.beginPath();
+        for (const [a, b] of [[-1, -1], [1, -1], [1, 1], [-1, 1]]) {
+          const [x, y] = this.project(h.at[0] + (a * w * fz) / 2 + (b * d * fx) / 2, h.at[1] - (a * w * fx) / 2 + (b * d * fz) / 2);
+          g.lineTo(x, y);
+        }
+        g.closePath();
+        g.fillStyle = 'rgba(18,10,32,.6)';
+        g.fill();
+      }
     paths.forEach((p, k) => {
       g.strokeStyle = 'rgba(18,10,32,.85)';
       g.lineWidth = 14;
@@ -131,7 +149,7 @@ export class RaceUi {
       setTimeout(show, 2500);
     }
     // Results stay live (once a second) until the last car is in, and while there's a vote.
-    if (this.open && (sim.race.finishedCount < sim.cars.count || this.vote()) && performance.now() > this.refreshAt) {
+    if (this.open && !sim.getaway && (sim.race.finishedCount < sim.cars.count || this.vote()) && performance.now() > this.refreshAt) {
       this.refreshAt = performance.now() + 1000;
       this.rows();
       this.renderVote();
@@ -179,6 +197,7 @@ export class RaceUi {
   }
 
   showResults(): void {
+    if (this.sim.getaway) return this.showGetaway();
     this.results.innerHTML = `<div class="card results"><h1 id="rPlace">${ordinal(this.sim.cars.place[this.focus])}</h1>
       <table><thead><tr><th></th><th>Driver</th><th>Car</th><th>Time</th><th>${this.sim.track.run ? 'Best run' : 'Best lap'}</th><th>Takedowns</th><th>Wrecks</th><th>Score</th></tr></thead><tbody id="rRows"></tbody></table>
       <div id="rVote"></div>
@@ -186,6 +205,29 @@ export class RaceUi {
     this.voteHtml = '';
     this.rows();
     this.renderVote();
+    this.results.classList.add('on');
+    const again = document.getElementById('rAgain') as HTMLButtonElement | null;
+    if (again) again.onclick = () => this.onAgain();
+    (document.getElementById('rSetup') as HTMLButtonElement).onclick = () => this.onSetup();
+    (again ?? (document.getElementById('rSetup') as HTMLButtonElement)).focus();
+  }
+
+  /** A getaway's end (docs/CHASE_MODE.md): how it ended, how long you lasted, the heat you reached, your best. */
+  private showGetaway(): void {
+    const g = this.sim.getaway!;
+    const c = this.sim.cars;
+    const time = g.time;
+    const best = this.getawayBest;
+    const record = time > best;
+    this.onGetawayOver(time);
+    this.results.innerHTML = `<div class="card results"><h1 id="rPlace">${g.end === 'busted' ? 'Busted!' : 'Wrecked!'}</h1>
+      <p class="getawayTime">You got away for <b>${fmt(time)}</b></p>
+      <table><tbody>
+        <tr><td>Heat reached</td><td>${g.heat}</td></tr>
+        <tr><td>Best</td><td>${record ? `<b class="fast">${fmt(time)}</b> new best!` : best ? fmt(best) : '–'}</td></tr>
+        <tr><td>Cops taken out</td><td>${c.takedowns[this.focus]}</td></tr>
+      </tbody></table>
+      <div class="row">${this.canAgain ? '<button id="rAgain">Go again</button>' : ''}<button id="rSetup" class="${this.canAgain ? 'ghost' : ''}">${this.setupLabel}</button></div></div>`;
     this.results.classList.add('on');
     const again = document.getElementById('rAgain') as HTMLButtonElement | null;
     if (again) again.onclick = () => this.onAgain();
