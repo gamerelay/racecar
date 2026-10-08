@@ -10,7 +10,9 @@
 // its doors), Lombard's planters, Dolores Park's palms, the Freeway's wall. Every building of a look
 // is one mesh (merged, vertex coloured): a draw for its walls, one for its ground floors.
 
-import { BoxGeometry, BufferGeometry, CanvasTexture, ConeGeometry, CylinderGeometry, Float32BufferAttribute, Group, Mesh, type Object3D, RepeatWrapping } from 'three';
+import { BoxGeometry, BufferGeometry, CanvasTexture, ConeGeometry, CylinderGeometry, Float32BufferAttribute, Group, Matrix4, Mesh, MeshBasicMaterial, type Object3D, PlaneGeometry, RepeatWrapping } from 'three';
+import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
+import { KIND_ROAD } from '../../../core/track/ground';
 import type { HouseDef } from '../../../core/content';
 import { hash01 } from '../../../core/rng';
 import type { Track } from '../../../core/track/bake';
@@ -236,6 +238,7 @@ export function buildHeistCity(track: Track, list: { h: HouseDef; k: number; y: 
   const planters: Part[] = [];
   const blooms: Part[] = [];
   const palms: Part[] = [];
+  const neon = new Neon();
   for (const { h, k, y } of list) {
     const [w, d, high] = h.size;
     const style = STYLES[h.look ?? ''];
@@ -246,6 +249,7 @@ export function buildHeistCity(track: Track, list: { h: HouseDef; k: number; y: 
       const base = Math.min(style.base, high);
       ground.get(look)!.box(h.at[0], h.at[1], h.rot, w, d, y, y + base, wall, style.bay, base);
       if (high > base) upper.get(look)!.box(h.at[0], h.at[1], h.rot, w, d, y + base, y + high, wall, style.bay, STOREY);
+      if (h.label) neon.add(h, y, base, plain);
       // A cornice, a little proud, and the roof under it.
       const trim = pick(style.trim, k, 2);
       plain.box(h.at[0], h.at[1], h.rot, w + 0.6, d + 0.6, y + high - 0.2, y + high + 0.6, trim, 0, 0, false);
@@ -292,6 +296,7 @@ export function buildHeistCity(track: Track, list: { h: HouseDef; k: number; y: 
   }
   const rest = plain.mesh();
   if (rest) out.push(rest);
+  out.push(...neon.build());
   if (planters.length) out.push(instanced(new BoxGeometry(1, 1, 1), toon(), planters), instanced(faceted(new BoxGeometry(1, 1, 1, 3, 1, 1)), toon(), blooms));
   if (palms.length) {
     const geo = palmGeometry();
@@ -482,6 +487,10 @@ function pier(h: HouseDef, sea: number): Object3D {
 
 const PAINT_WHITE = 0xeeeeea;
 const PAINT_YELLOW = 0xf0c63a;
+/** The pavements (gen-heist's SIDEWALK, m: from the kerb to the buildings), their concrete and kerb. */
+const SIDEWALK = 3;
+const PAVEMENT = 0x8f8898;
+const KERB = 0xc4bdc8;
 /** A crossing's level ground reaches this far from its middle (gen-heist's crossings, r 9): the crosswalks start just past it. */
 const CROSSING = 9.5;
 /** A crosswalk's depth along the street (m), its bars' width across and the gap between them. */
@@ -500,21 +509,29 @@ export function buildStreetPaint(track: Track): Object3D[] {
   const ground = track.ground;
   if (!def?.paint || !ground) return [];
   const m = new Merge();
+  const walks = new Merge();
   const ys = (x: number, z: number) => ground.height(x, z) + LIFT;
-  /** A strip from (x0, z0) to (x1, z1), `w` m wide, in pieces so it lies on the ground. */
-  const strip = (x0: number, z0: number, x1: number, z1: number, w: number, color: number) => {
+  /** A strip from (x0, z0) to (x1, z1), `w` m wide, in pieces so it lies on the ground (into `into`; not on the main road). */
+  const strip = (x0: number, z0: number, x1: number, z1: number, w: number, color: number, into = m, piece = PIECE) => {
     const len = Math.hypot(x1 - x0, z1 - z0);
-    const n = Math.max(1, Math.ceil(len / PIECE));
+    const n = Math.max(1, Math.ceil(len / piece));
     const [ax, az] = [(-(z1 - z0) / len) * (w / 2), ((x1 - x0) / len) * (w / 2)];
     for (let k = 0; k < n; k++) {
       const [px, pz] = [x0 + ((x1 - x0) * k) / n, z0 + ((z1 - z0) * k) / n];
       const [qx, qz] = [x0 + ((x1 - x0) * (k + 1)) / n, z0 + ((z1 - z0) * (k + 1)) / n];
+      if (into === walks && ground.kindAt((px + qx) / 2, (pz + qz) / 2) === KIND_ROAD) continue;
       // (Counter-clockwise seen from above.)
-      m.quad([[px - ax, ys(px - ax, pz - az), pz - az], [px + ax, ys(px + ax, pz + az), pz + az], [qx + ax, ys(qx + ax, qz + az), qz + az], [qx - ax, ys(qx - ax, qz - az), qz - az]], [0, 1, 0], [[0, 0], [1, 0], [1, 1], [0, 1]], color);
+      into.quad([[px - ax, ys(px - ax, pz - az), pz - az], [px + ax, ys(px + ax, pz + az), pz + az], [qx + ax, ys(qx + ax, qz + az), qz + az], [qx - ax, ys(qx - ax, qz - az), qz - az]], [0, 1, 0], [[0, 0], [1, 0], [1, 1], [0, 1]], color);
     }
   };
   const degree = new Uint16Array(def.nodes.length);
   for (const [a, b] of def.links) degree[a]++, degree[b]++;
+  // The widest street at each crossing: a pavement starts at its edge.
+  const widest = new Float32Array(def.nodes.length);
+  def.links.forEach(([a, b], k) => {
+    widest[a] = Math.max(widest[a], def.paint![k]);
+    widest[b] = Math.max(widest[b], def.paint![k]);
+  });
   def.links.forEach(([a, b], k) => {
     const w = def.paint![k];
     if (!w) return;
@@ -525,6 +542,12 @@ export function buildStreetPaint(track: Track): Object3D[] {
     const [dx, dz] = [(bx - ax) / len, (bz - az) / len];
     const [cx, cz] = [-dz, dx];
     const along = (t: number, lat: number): [number, number] => [ax + dx * t + cx * lat, az + dz * t + cz * lat];
+    // Its pavements, a kerb along each.
+    const [t0, t1] = [widest[a] / 2, len - widest[b] / 2];
+    for (const side of [-1, 1]) {
+      strip(...along(t0, side * (w / 2 + SIDEWALK / 2)), ...along(t1, side * (w / 2 + SIDEWALK / 2)), SIDEWALK - 0.1, PAVEMENT, walks, 2.5);
+      strip(...along(t0, side * (w / 2 + 0.15)), ...along(t1, side * (w / 2 + 0.15)), 0.3, KERB, walks, 2.5);
+    }
     // The crosswalks: bars along the street, side by side across it.
     for (const [end, node] of [[0, a], [1, b]] as const) {
       if (degree[node] < 3) continue;
@@ -536,11 +559,109 @@ export function buildStreetPaint(track: Track): Object3D[] {
     if (w >= 16) for (const lat of [-0.2, 0.2]) strip(...along(from, lat), ...along(to, lat), 0.15, PAINT_YELLOW);
     else for (let t = from; t + 3 <= to; t += 7) strip(...along(t, 0), ...along(t + 3, 0), 0.15, PAINT_WHITE);
   });
+  const out: Object3D[] = [];
+  const pavement = walks.mesh();
+  if (pavement) {
+    const mat = pavement.material as ReturnType<typeof toon>;
+    mat.polygonOffset = true;
+    mat.polygonOffsetFactor = -1;
+    mat.polygonOffsetUnits = -1;
+    out.push(pavement);
+  }
   const mesh = m.mesh();
-  if (!mesh) return [];
+  if (!mesh) return out;
   const mat = mesh.material as ReturnType<typeof toon>;
   mat.polygonOffset = true;
   mat.polygonOffsetFactor = -2;
   mat.polygonOffsetUnits = -2;
-  return [mesh];
+  return [...out, mesh];
+}
+
+// ---- Neon ----
+
+/** Neon's colours: pink, cyan, yellow, green, red, violet. */
+const NEON = ['#ff3d9a', '#3df2ff', '#ffe14d', '#6dff7a', '#ff4a3d', '#c27dff'];
+/** A letter's height on a sign (m), and a blade sign's depth out from its wall. */
+const LETTER = 0.62;
+const BLADE = 1.1;
+
+/** A sign's face: the word in neon on a dark board, its letters stacked (a blade) or in a row. */
+function neonFace(word: string, upright: boolean): CanvasTexture {
+  const color = NEON[Math.floor(hash01(word.length, word.charCodeAt(0), word.charCodeAt(word.length - 1)) * NEON.length)];
+  const n = word.length;
+  const [w, h] = upright ? [64, 64 * n + 32] : [48 * n + 48, 80];
+  return canvas(w, h, (g) => {
+    g.fillStyle = '#16111f';
+    g.fillRect(0, 0, w, h);
+    g.strokeStyle = color;
+    g.lineWidth = 3;
+    g.shadowColor = color;
+    g.shadowBlur = 10;
+    g.strokeRect(5, 5, w - 10, h - 10);
+    g.fillStyle = '#ffffff';
+    g.font = 'bold 46px "Arial Black", Arial, sans-serif';
+    g.textAlign = 'center';
+    g.textBaseline = 'middle';
+    g.shadowBlur = 16;
+    // (Twice: a coloured halo, then the white-hot tube over it.)
+    for (const fill of [color, '#fff6fb']) {
+      g.fillStyle = fill;
+      if (upright) [...word].forEach((ch, k) => g.fillText(ch, w / 2, 16 + 64 * k + 34));
+      else g.fillText(word, w / 2, h / 2 + 2);
+    }
+  });
+}
+
+/**
+ * The city's neon signs (a house's `label`): a blade out over the pavement from the street front
+ * (its front, gen-heist turns each building to face its street), up its first floors, the word's
+ * letters stacked; on a building too low for one, a sign across its front over the shops. Unlit
+ * (they glow at dusk). Merged per word: a draw each.
+ */
+class Neon {
+  private readonly faces = new Map<string, BufferGeometry[]>();
+
+  add(h: HouseDef, y: number, base: number, frame: Merge): void {
+    const word = h.label!;
+    const [w, d, high] = h.size;
+    const tall = word.replace(/ /g, '').length * LETTER + 0.5;
+    const m = new Matrix4().makeRotationY(h.rot).setPosition(h.at[0], y, h.at[1]);
+    const cs = Math.cos(h.rot);
+    const sn = Math.sin(h.rot);
+    const W = (lx: number, lz: number): [number, number] => [h.at[0] + lx * cs + lz * sn, h.at[1] - lx * sn + lz * cs];
+    if (high - base - 1 >= tall && w > 6) {
+      // A blade: out from the front near one end, from just over the shops.
+      const lx = (hash01(Math.round(h.at[0]), Math.round(h.at[1]), 41) < 0.5 ? -1 : 1) * (w / 2 - 1.4);
+      const lz = d / 2 + BLADE / 2 + 0.1;
+      const y0 = base + 0.6;
+      for (const side of [1, -1]) {
+        const g = new PlaneGeometry(BLADE, tall).rotateY((side * Math.PI) / 2).translate(lx + side * 0.13, y0 + tall / 2, lz);
+        this.put(`${word}|1`, g.applyMatrix4(m));
+      }
+      const [fx, fz] = W(lx, lz);
+      frame.box(fx, fz, h.rot, 0.22, BLADE + 0.16, y + y0 - 0.08, y + y0 + tall + 0.08, 0x2a2433);
+      // Its bracket to the wall.
+      const [bx, bz] = W(lx, d / 2 + 0.05);
+      frame.box(bx, bz, h.rot, 0.12, 0.2, y + y0 + tall - 0.2, y + y0 + tall + 0.3, 0x2a2433);
+    } else {
+      // Across the front, over the shops.
+      const long = Math.min(w - 1.5, word.length * 0.75 + 1);
+      if (long < 3) return;
+      const g = new PlaneGeometry(long, 1.1).translate(0, base + 0.75, d / 2 + 0.12);
+      this.put(`${word}|0`, g.applyMatrix4(m));
+    }
+  }
+
+  private put(key: string, g: BufferGeometry): void {
+    const list = this.faces.get(key);
+    if (list) list.push(g);
+    else this.faces.set(key, [g]);
+  }
+
+  build(): Mesh[] {
+    return [...this.faces].map(([key, list]) => {
+      const [word, up] = key.split('|');
+      return new Mesh(mergeGeometries(list)!, new MeshBasicMaterial({ map: neonFace(word, up === '1') }));
+    });
+  }
 }

@@ -269,6 +269,26 @@ themselves, so a sloppy line wrecks you. (Smashables in `smash.ts` never wreck; 
 
 ## Built so far
 
+### Street life (2026-10-08)
+
+The owner: "let's add some more details too like some street lamps, maybe some sidewalks, some
+shrubs, trees, some neon signs".
+
+- **Pavements:** concrete from the kerb to the buildings along every painted street, a pale kerb
+  at its edge (drawn on the ground, as the paint is; none on the main road). They start at the
+  widest street at each crossing, so the corners meet.
+- **Street lamps, street trees, shrubs:** smashables on open ground (`SmashDef.at`; new kinds
+  `street-lamp`, `street-tree`, `shrub`): knocked flat, a little speed lost, a few points, never a
+  wreck (a crash ends the run, and a lamp you clip shouldn't). Lamps at the kerb every 34 m, staggered
+  side to side, on every street; trees in the Mission (every 16 m), SoMa (22) and the Hills (26);
+  shrubs by the doors in the Hills, the Mission and the Financial District. None within 14 m of a
+  crossing. 998 lamps, 897 trees, 773 shrubs (the sim's smashable checks: +0.01 ms a step).
+- **Neon:** 205 buildings with a sign (`HouseDef.label`): a blade out over the pavement, its
+  letters stacked, or across the shopfront on a building too low for one. Chinatown nearly every
+  other building (NOODLES, DIM SUM, JADE, LUCKY...), the Mission's TAQUERIA and BAKERY, SoMa's
+  CLUB, JAZZ and PAWN, a few HOTELs downtown. Unlit, so they glow at dusk. Each building is turned to
+  face its street now (the same box), so its shops and sign are on the street's side.
+
 ### The city, detailed (2026-10-08)
 
 The owner: "could we continue detailing the city", with the first cut's list left to do (the

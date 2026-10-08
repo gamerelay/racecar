@@ -116,6 +116,10 @@ interface District {
   storeys: P;
   /** How its buildings are drawn (the skin's city looks: render/skins/greybox/heist.ts). */
   look: string;
+  /** A share of its buildings with a neon sign over the pavement, and the words they say. */
+  neon: { share: number; words: string[] };
+  /** What stands along its pavements: a street tree every `trees` m (0: none), a shrub by a door every `shrubs` m. */
+  green: { trees: number; shrubs: number };
   in: (x: number, z: number) => boolean;
   /** Its grid's streets run over all of this (districts sharing a grid share it), not just the district. */
   grid?: (x: number, z: number) => boolean;
@@ -141,6 +145,8 @@ const DISTRICTS: District[] = [
     lot: [18, 34],
     storeys: [9, 23],
     look: 'tower',
+    neon: { share: 0.12, words: ['HOTEL', 'BAR', 'DELI', 'CAFE', 'DINER'] },
+    green: { trees: 0, shrubs: 40 },
     in: (x, z) => northOfMarket(x, z) && x > 230,
     grid: northOfMarket,
   },
@@ -156,6 +162,8 @@ const DISTRICTS: District[] = [
     lot: [8, 14],
     storeys: [3, 6],
     look: 'chinatown',
+    neon: { share: 0.45, words: ['NOODLES', 'DIM SUM', 'TEA', 'JADE', 'LUCKY', 'BAR', 'HOTEL', 'OPEN', 'DRAGON', 'GIFTS'] },
+    green: { trees: 0, shrubs: 0 },
     in: (x, z) => northOfMarket(x, z) && x > -60 && x <= 230,
     grid: northOfMarket,
   },
@@ -171,6 +179,8 @@ const DISTRICTS: District[] = [
     lot: [10, 16],
     storeys: [3, 5],
     look: 'victorian',
+    neon: { share: 0.06, words: ['CAFE', 'BAR', 'LIQUOR', 'BOOKS'] },
+    green: { trees: 26, shrubs: 18 },
     in: (x, z) => northOfMarket(x, z) && x <= -60,
     grid: northOfMarket,
   },
@@ -187,6 +197,8 @@ const DISTRICTS: District[] = [
     lot: [24, 48],
     storeys: [2, 4],
     look: 'warehouse',
+    neon: { share: 0.18, words: ['CLUB', 'BAR', 'JAZZ', 'PAWN', 'TATTOO', 'MOTEL', 'DINER'] },
+    green: { trees: 22, shrubs: 0 },
     in: (x, z) => !northOfMarket(x, z) && !westOfDivision(x, z),
   },
   {
@@ -201,6 +213,8 @@ const DISTRICTS: District[] = [
     lot: [9, 14],
     storeys: [2, 4],
     look: 'victorian',
+    neon: { share: 0.25, words: ['TAQUERIA', 'CAFE', 'BAR', 'LIQUOR', 'TACOS', 'BAKERY'] },
+    green: { trees: 16, shrubs: 22 },
     in: (x, z) => !northOfMarket(x, z) && westOfDivision(x, z),
   },
 ];
@@ -299,6 +313,8 @@ for (const d of DISTRICTS) {
 // ---- The buildings ----
 
 const rng = new Rng(0x5f2026);
+/** The neon signs' own draw (so adding them didn't move a building). */
+const signs = new Rng(0x7e0);
 const houses: HouseDef[] = [];
 const alleys: Line[] = [];
 const cutters = [MARKET, COLUMBUS, DIVISION];
@@ -327,36 +343,41 @@ function block(d: District, u0: number, u1: number, v0: number, v1: number): voi
   const alley = rng.next() < d.alleys && Math.max(a1 - a0, b1 - b0) > 40;
   const half = alley ? d.alley / 2 : GAP / 2;
   const alongU = a1 - a0 >= b1 - b0;
-  /** One building, a..b along u by c..e along v (local). */
-  const build = (a: number, b: number, c: number, e: number) => {
+  /** One building, a..b along u by c..e along v (local), its front to the street on its `face` side (+v, -v, +u, -u). */
+  const build = (a: number, b: number, c: number, e: number, face: number) => {
     const corners = [world(a, c), world(b, c), world(a, e), world(b, e), world((a + b) / 2, c), world((a + b) / 2, e), world(a, (c + e) / 2), world(b, (c + e) / 2)];
     if (b - a < 6 || e - c < 6 || !clear(d, corners)) return;
     const [x, z] = world((a + b) / 2, (c + e) / 2);
     const storeys = Math.round(rng.range(d.storeys[0], d.storeys[1]));
-    // (Its front faces +v: across it is along u.)
-    houses.push({ at: [r1(x), r1(z)], size: [r1(b - a), r1(e - c), r1(storeys * 3.4)], rot: Math.round(-d.angle * 1000) / 1000, look: d.look });
+    // (Turned to face it: the same box either way round, its shopfronts and signs on the street's side.)
+    const turn = [0, Math.PI, Math.PI / 2, -Math.PI / 2][face];
+    const rot = Math.atan2(Math.sin(turn - d.angle), Math.cos(turn - d.angle));
+    const size: [number, number, number] = face < 2 ? [r1(b - a), r1(e - c), r1(storeys * 3.4)] : [r1(e - c), r1(b - a), r1(storeys * 3.4)];
+    const house: HouseDef = { at: [r1(x), r1(z)], size, rot: Math.round(rot * 1000) / 1000, look: d.look };
+    if (signs.next() < d.neon.share) house.label = d.neon.words[Math.floor(signs.next() * d.neon.words.length)];
+    houses.push(house);
   };
   /** A row of lots along u (a..b), c..e deep; or along v. */
-  const row = (a: number, b: number, c: number, e: number, u: boolean) => {
+  const row = (a: number, b: number, c: number, e: number, u: boolean, face: number) => {
     let x = u ? a : c;
     const end = u ? b : e;
     while (end - x > d.lot[0] * 0.6) {
       const w = rng.range(d.lot[0], d.lot[1]);
       const to = end - (x + w) < d.lot[0] * 0.6 ? end : x + w;
-      if (u) build(x, to - GAP, c, e);
-      else build(a, b, x, to - GAP);
+      if (u) build(x, to - GAP, c, e, face);
+      else build(a, b, x, to - GAP, face);
       x = to;
     }
   };
   if (alongU) {
     const m = (b0 + b1) / 2;
-    row(a0, a1, b0, m - half, true);
-    row(a0, a1, m + half, b1, true);
+    row(a0, a1, b0, m - half, true, 1);
+    row(a0, a1, m + half, b1, true, 0);
     if (alley) alleyIn(d, world(u0 - 2, m), world(u1 + 2, m));
   } else {
     const m = (a0 + a1) / 2;
-    row(a0, m - half, b0, b1, false);
-    row(m + half, a1, b0, b1, false);
+    row(a0, m - half, b0, b1, false, 3);
+    row(m + half, a1, b0, b1, false, 2);
     if (alley) alleyIn(d, world(m, v0 - 2), world(m, v1 + 2));
   }
 }
@@ -693,6 +714,53 @@ layout.getaway = getaway;
   getaway.paint = getaway.paint!.filter((_, k) => part[getaway.links[k][0]] === big);
   getaway.links = getaway.links.filter(([a]) => part[a] === big).map(([a, b]) => [renum[a], renum[b]]);
   getaway.nodes = kept;
+}
+
+// ---- Along the pavements: street lamps at the kerb, street trees, shrubs by the doors ----
+// (Smashables: knocked flat, a little speed lost, never a wreck. Not within `clear` m of a crossing, so its corners stay open.)
+
+const FURNITURE = { lamp: 34, kerb: 0.7, tree: 1.4, shrub: 2.4, clear: 14 };
+{
+  const lamps: P[] = [];
+  const trees: P[] = [];
+  const shrubs: P[] = [];
+  /** Whether (x, z) is within `r` m of a building. */
+  const inHouse = (x: number, z: number, r: number) =>
+    houses.some((h) => {
+      const dx = x - h.at[0];
+      const dz = z - h.at[1];
+      const reach = Math.max(h.size[0], h.size[1]) / 2 + r;
+      if (Math.abs(dx) > reach || Math.abs(dz) > reach) return false;
+      const [c, sn] = [Math.cos(h.rot), Math.sin(h.rot)];
+      return Math.abs(dx * c - dz * sn) < h.size[0] / 2 + r && Math.abs(dx * sn + dz * c) < h.size[1] / 2 + r;
+    });
+  const painted = getaway.links.map(([a, b], k) => ({ a: getaway.nodes[a], b: getaway.nodes[b], w: getaway.paint![k] })).filter((l) => l.w > 0);
+  /** Whether (x, z) is out on some street but `own` (its carriageway), or the main road. */
+  const onStreet = (x: number, z: number, own: (typeof painted)[number]) =>
+    inside(x, z) < 1 || painted.some((l) => l !== own && off({ a: l.a, b: l.b, width: 0, name: '' }, x, z) < l.w / 2 + 0.4);
+  const place = (list: P[], x: number, z: number, r: number, own: (typeof painted)[number]) => {
+    if (!onStreet(x, z, own) && !inHouse(x, z, r)) list.push([r1(x), r1(z)]);
+  };
+  for (const l of painted) {
+    const len = Math.hypot(l.b[0] - l.a[0], l.b[1] - l.a[1]);
+    const [dx, dz] = [(l.b[0] - l.a[0]) / len, (l.b[1] - l.a[1]) / len];
+    const at = (t: number, lat: number): P => [l.a[0] + dx * t - dz * lat, l.a[1] + dz * t + dx * lat];
+    const mid = at(len / 2, 0);
+    const d = DISTRICTS.find((q) => q.in(mid[0], mid[1]));
+    for (const side of [-1, 1]) {
+      // Lamps staggered side to side.
+      for (let t = FURNITURE.clear + (side > 0 ? 0 : FURNITURE.lamp / 2); t <= len - FURNITURE.clear; t += FURNITURE.lamp) place(lamps, ...at(t, side * (l.w / 2 + FURNITURE.kerb)), 0.3, l);
+      if (d?.green.trees) for (let t = FURNITURE.clear + 6; t <= len - FURNITURE.clear; t += d.green.trees) place(trees, ...at(t, side * (l.w / 2 + FURNITURE.tree)), 0.5, l);
+      // (Up against the walls: only clear of them, not a car's width off.)
+      if (d?.green.shrubs) for (let t = FURNITURE.clear + 3 + rng.range(0, 6); t <= len - FURNITURE.clear; t += d.green.shrubs * rng.range(0.7, 1.3)) place(shrubs, ...at(t, side * (l.w / 2 + FURNITURE.shrub)), 0.05, l);
+    }
+  }
+  layout.smashables = [
+    { kind: 'street-lamp', s: [0, 0], every: 0, at: lamps },
+    { kind: 'street-tree', s: [0, 0], every: 0, at: trees },
+    { kind: 'shrub', s: [0, 0], every: 0, at: shrubs },
+  ];
+  console.log(`  along the pavements: ${lamps.length} lamps, ${trees.length} trees, ${shrubs.length} shrubs; ${houses.filter((h) => h.label && h.look !== 'pier').length} neon signs`);
 }
 
 const baked = bakeTrack(layout, surfaces);

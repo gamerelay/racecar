@@ -16,6 +16,8 @@ and where things stand is [docs/HANDOFF.md](./docs/HANDOFF.md).
   the hills, brick warehouses south of Market. The Bank has its columns and its name; the bay has
   piers out into it, and the Ferry Building its clock tower. Lombard Street is a planter slalom down
   a 25% hill, Dolores Park is lawn and palms, and the streets have crosswalks and centre lines.
+  The streets have pavements and kerbs, street lamps, trees and shrubs (knock them flat for a few
+  points, never a crash), and neon signs over the shops.
 - **Look back on Q** as well as C.
 
 ## alpha-1.43: Sahara's music, and Single player
