@@ -4,7 +4,26 @@ Where racecar stands and what's next, for whoever picks it up (a person or a fre
 The design is [SPEC.md](./SPEC.md): decisions in §17, and what building changed in "Changed while
 building". This file is "where are we"; the spec is "what are we making".
 
-**Last updated:** 2026-10-07. **`alpha-1.39`** (PR #154) is tagged and on the hosted build:
+**Last updated:** 2026-10-07. **`alpha-1.40`** (PR #155) is tagged and on the hosted build:
+**Sahara's life: a camel caravan and dust devils** (the owner: "let's do the camel caravan and dust
+devils next"; then "merge it and deploy a new version"). SAHARA.md's "Step 5, life":
+- **The caravan:** traffic kind `camel` (`animal`: hit, it scatters and the car keeps 80% of its
+  speed; never a wreck, no debris; a sand burst in renderer.ts, a soft thump in audio.ts) and two
+  new lane options, `TrafficLaneDef.kinds` and `.string` (`[count, gap]`). A lane with neither
+  draws exactly as before (every other map's fingerprint identical). Strings of five walk toward
+  you down the opening straight's left edge (30–120 m).
+- **Dust devils:** hazard `dust-devil` (hazards.ts; `Piece.Devil`, `Solid.Gust`: collide/world.ts
+  shoves a car round it and out, never a wreck), on the Dune Sea and the Mesa top; drawn in
+  greybox/world.ts as a dark funnel. The poster stage (`tools/shot.ts`) runs with mayhem off and
+  never updates hazards: to see one in a shot, patch it locally.
+- **Watch:** fields wreck a little more (8 in 12 races, car on car, as other maps do), mostly two
+  slower cars side by side into the left onto the Dune Sea (358–368 m); a caravan each way the
+  whole road was a dozen in eight, so it's one. The 2124 m wreck (plateau corner by a diamond)
+  predates it: one for the berms.
+- **Next on Sahara:** reeds; the berms tuned by driving them; a sandstorm weather and a sunset
+  palette; a track of its own.
+
+Before it, **`alpha-1.39`** (PR #154) is tagged and on the hosted build:
 **Sahara's Giza, finished, and the Pyramid Run opened** (the owner: "Next on Sahara, per the plan:
 capstones, a ruined colonnade and market stalls at Giza ..."; then "let's merge these please, deploy
 a new version"). SAHARA.md's "Step 3, the rest":
@@ -19,10 +38,6 @@ a new version"). SAHARA.md's "Step 3, the rest":
   crowded").
 - **Numbers:** floor 78.85 s; fields on seeds 1–8 with no wrecks; Sahara's fingerprint re-recorded,
   every other map's identical; full suite 725 pass.
-- **Next on Sahara:** reeds along the river; the berms tuned by driving them (ask the owner which
-  hairpins feel off); life (a camel caravan, dust devils, a sandstorm, a sunset palette); a track of
-  its own; tests that a hard lap flies its crests and drop clean. Open question: more packed sand
-  or more asphalt?
 
 Before it, **`alpha-1.38`** (PR #153) is tagged and on the hosted build:
 **Sahara**, a new desert map in the lobby (the owner: "a new desert themed map called Sahara using

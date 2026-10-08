@@ -4,6 +4,13 @@ What changed in each release of racecar, newest first. Releases are git tags on 
 reasons behind each change are in [docs/SPEC.md](./docs/SPEC.md) under "Changed while building",
 and where things stand is [docs/HANDOFF.md](./docs/HANDOFF.md).
 
+## alpha-1.40: Camels and dust devils
+
+- **A camel caravan** walks toward you down the edge of Sahara's opening straight. Clip one and it
+  scatters in a cloud of sand: you lose a little speed, never a wreck.
+- **Dust devils** spin up beside the road on the Dune Sea and the Mesa, wander across it and blow
+  you off your line if you drive into one. They're off when mayhem is off.
+
 ## alpha-1.39: Giza's market
 
 - **A market at Giza:** stalls under striped awnings, and clay pots between them, line both sides
