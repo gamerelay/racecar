@@ -217,6 +217,10 @@ svg.thumb .lap { stroke: var(--ink); stroke-width: 2.5; }
 svg.thumb .cut { stroke: var(--sun); stroke-width: 1.5; stroke-dasharray: 3 2; }
 svg.thumb .end { fill: var(--sun); stroke: var(--ink); stroke-width: 1; }
 .card button.big { display: block; width: 100%; font-size: clamp(22px, 4vw, 30px); padding: 14px 20px; margin: 0 0 14px; box-shadow: 7px 7px 0 var(--pink); }
+/* The title's two big ones, side by side (stacked on a phone); the row under them 4px further down. */
+.card.title .bigs { display: grid; grid-template-columns: 1fr 1fr; gap: 0 18px; }
+.card.title .bigs button.big { margin-bottom: 18px; padding-inline: 12px; white-space: nowrap; font-size: clamp(18px, 3.2vw, 30px); }
+@media (max-width: 560px) { .card.title .bigs { grid-template-columns: 1fr; } }
 .card button.danger { color: #ff8fb8; border-color: #ff8fb8; }
 .card button.danger:hover { color: var(--pink); border-color: var(--pink); }
 .card.setup .grid label.wide { grid-column: 1 / -1; }

@@ -357,7 +357,7 @@ export class Menu {
         <div class="lobbies">${rows}
           ${this.titleNote(lobbies)}
         </div>
-        <button id="mCreate" class="big">Create lobby</button>
+        <div class="bigs"><button id="mSolo" class="big">Single player</button><button id="mCreate" class="big">Create lobby</button></div>
         <div class="row"><button id="mQuick" class="ghost">Quick race</button><button id="mFree" class="ghost">Free drive</button><button id="mSettings" class="ghost">Settings</button></div>
         <p class="muted">Every race is a lobby, and bots fill the open seats. Quick race is you and seven bots on a random map. Drift (Shift / RB) to take corners tighter; air, near misses and the oncoming lane fill boost.</p>
       </div>`,
@@ -365,6 +365,7 @@ export class Menu {
     );
     for (const l of lobbies) this.on(`lobby-${l.id}`, () => void this.show({ kind: 'lobby', id: l.id }));
     this.on('mCreate', () => void this.show({ kind: 'create' }));
+    this.on('mSolo', () => void this.singlePlayer());
     this.on('mPlate', () => void this.show({ kind: 'plate' }));
     this.on('mQuick', () => this.quickRace());
     this.on('mFree', () => void this.freeDrive());
@@ -389,6 +390,15 @@ export class Menu {
   }
 
   /** Straight into a race, no lobby: your car and seven bots, on a map picked at random, in random weather. */
+  /** Single player: straight into a Private lobby (you and bots, in this browser), as Create's form starts it. */
+  private async singlePlayer(): Promise<void> {
+    const here = this.screen;
+    const options: LobbyOptions = { ...DEFAULT_OPTIONS, map: Object.keys(this.content.layouts)[0], ...this.defaults };
+    const lobby = await this.backend.create(this.newcomer(LOCAL_ID), { name: `${this.plate}'s lobby`, visibility: 'public', online: false, options }).catch(() => null);
+    if (this.screen !== here) return void (lobby && this.backend.abandon?.(lobby.id));
+    if (lobby) void this.show({ kind: 'lobby', id: lobby.id });
+  }
+
   private quickRace(): void {
     goTo(toQuery(quickRaceSetup(this.lobbyKeys(), this.yours)));
   }
