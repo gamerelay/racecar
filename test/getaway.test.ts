@@ -137,10 +137,11 @@ describe('the getaway', () => {
     }
   });
 
-  test('Dolores Park is lawn, the streets round it paving; the bay is under the sea', () => {
+  test('the parks are lawn, the streets round it paving; the bay is under the sea', () => {
     const ground = bakeTrack(city, SURFACES).ground!;
     const park = (city.ground!.features!.find((f) => f.kind === 'city') as CityDef).parks!;
-    expect(park.length).toBe(2);
+    // (Dolores Park's two blocks, and Pioneer Park round Coit Tower.)
+    expect(park.length).toBe(3);
     for (const loop of park) {
       const x = loop.reduce((a, p) => a + p[0], 0) / loop.length;
       const z = loop.reduce((a, p) => a + p[1], 0) / loop.length;

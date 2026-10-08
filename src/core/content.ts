@@ -212,7 +212,7 @@ export const LANDMARK_KINDS = [
   // Sahara
   'sphinx', 'obelisk',
   // The getaway's city
-  'alcatraz', 'golden-gate', 'bay-bridge',
+  'alcatraz', 'golden-gate', 'bay-bridge', 'transamerica', 'coit-tower',
 ] as const;
 
 /**
@@ -369,6 +369,19 @@ export interface GetawayDef {
    * at its ends); 0 for none (the main road and the Freeway, painted as roads; an alley). Drawing only.
    */
   paint?: number[];
+  /** Drawing only: what's round the city, past its walls (none of it is driven or met). */
+  scenery?: GetawayScenery;
+}
+
+/**
+ * The getaway city's surroundings (docs/CHASE_MODE.md), for the skin: each bridge's approach (a deck
+ * on columns, [x, z, y] along it, `width` m) down to where it's closed, police cars parked across it
+ * ([x, z, heading]) and a barrier from one side to the other; and the Presidio, woods over a box of
+ * land ([x0, z0, x1, z1]).
+ */
+export interface GetawayScenery {
+  approaches: { path: [number, number, number][]; width: number; cars: [number, number, number][]; barrier: [[number, number], [number, number]] }[];
+  presidio: [number, number, number, number];
 }
 
 /** An avalanche down a run: it breaks away `behind` m above the start line, `delay` s after the green light, at about `speed` m/s on a 20% slope. */

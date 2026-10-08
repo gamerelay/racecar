@@ -420,6 +420,24 @@ const park: P[][] = [];
   }
 }
 
+// ---- Telegraph Hill's top: Pioneer Park (lawn) and Coit Tower in it; the Transamerica Pyramid's block ----
+
+/** The north grid's block (between its lines u0..u1 and v0..v1) as a rectangle `inset` m in from its streets' middles. */
+const northBlock = (u0: number, u1: number, v0: number, v1: number, inset: number): P[] => [
+  [u0 + inset, v0 + inset],
+  [u1 - inset, v0 + inset],
+  [u1 - inset, v1 - inset],
+  [u0 + inset, v1 - inset],
+];
+/** Coit Tower, in the middle of Pioneer Park: the block just off Telegraph Hill's top. */
+const COIT = { block: [132, 192, -385, -305], tower: 12, high: 64 };
+park.push(northBlock(COIT.block[0], COIT.block[1], COIT.block[2], COIT.block[3], 8));
+const COIT_AT: P = [(COIT.block[0] + COIT.block[1]) / 2, (COIT.block[2] + COIT.block[3]) / 2];
+/** The Transamerica Pyramid: the block across the street from the Bank, where Columbus Avenue comes into the Financial District. */
+const PYRAMID = { block: [252, 312, -95, -30], base: 38 };
+const PYRAMID_AT: P = [(PYRAMID.block[0] + PYRAMID.block[1]) / 2, (PYRAMID.block[2] + PYRAMID.block[3]) / 2];
+park.push(northBlock(PYRAMID.block[0], PYRAMID.block[1], PYRAMID.block[2], PYRAMID.block[3], 10));
+
 for (const d of DISTRICTS)
   for (let a = 0; a < d.u.length - 1; a++)
     for (let b = 0; b < d.v.length - 1; b++) {
@@ -431,6 +449,12 @@ for (const d of DISTRICTS)
       const corners = [[d.u[a], d.v[b]], [d.u[a + 1], d.v[b]], [d.u[a], d.v[b + 1]], [d.u[a + 1], d.v[b + 1]], [mu, mv]].map(([p, q]) => [d.origin[0] + u[0] * p + v[0] * q, d.origin[1] + u[1] * p + v[1] * q]);
       if (corners.some(([x, z]) => d.in(x, z) && inCity(x, z))) block(d, d.u[a], d.u[a + 1], d.v[b], d.v[b + 1]);
     }
+// (The pyramid's block was kept clear as a "park": it's its plaza, not a lawn. Each landmark's own
+// solid base: the drawn landmark stands in it, house look 'landmark'.)
+park.pop();
+houses.push({ at: PYRAMID_AT, size: [PYRAMID.base, PYRAMID.base, 24], rot: 0, look: 'landmark' });
+houses.push({ at: COIT_AT, size: [COIT.tower, COIT.tower, COIT.high], rot: 0, look: 'landmark' });
+
 // An alley only where it's open end to end: none whose line a building stands across (its ends in another district's blocks).
 {
   const st = new Streets({ nodes: [], links: [] }, houses);
@@ -489,7 +513,8 @@ let ferryLand: PadDef | null = null;
   }
   // Round the land to the south and west, far out, and back in at the top of Van Ness.
   const last = coast[coast.length - 1];
-  coast.push([last[0], 1700], [-1700, 1700], [-1700, coast[0][1]]);
+  // (North of Van Ness, the Presidio's shore out to where the Golden Gate comes ashore.)
+  coast.push([last[0], 1700], [-1700, 1700], [-1700, -560], [-830, -560], [-700, -500]);
   // The piers.
   let n = 0;
   const north: number[] = [];
@@ -684,6 +709,8 @@ layout.landmarks = [
   { kind: 'alcatraz', at: ALCATRAZ, rot: 0.35, r: 0 },
   { kind: 'golden-gate', at: GOLDEN_GATE, rot: 0.2, r: 0 },
   { kind: 'bay-bridge', at: BAY_BRIDGE, rot: -1.45, r: 0 },
+  { kind: 'transamerica', at: PYRAMID_AT, rot: 0, r: 0, params: { base: PYRAMID.base } },
+  { kind: 'coit-tower', at: COIT_AT, rot: 0, r: 0, params: { high: COIT.high } },
 ];
 layout.traffic = {
   lanes: [
@@ -695,6 +722,30 @@ layout.traffic = {
   density: 8,
 };
 layout.getaway = getaway;
+/**
+ * Round the city: the bridges' approaches, each closed by the police where it comes down (behind
+ * the main road's wall: you see the roadblock, you can't reach it). The Golden Gate's comes off its
+ * south end through the Presidio and down beside Van Ness; the Bay Bridge's off its west anchorage,
+ * over the Embarcadero's corner and alongside the Freeway, merging at its deck's height.
+ */
+getaway.scenery = {
+  approaches: [
+    {
+      // (On down to the ground and along it to Van Ness's wall: closed at the wall.)
+      path: [[-803, -450, 41], [-790, -392, 37], [-762, -338, 29], [-712, -306, 18], [-655, -298, 6], [-620, -298, 0.5], [-580, -298, 0.5]],
+      width: 16,
+      cars: [[-592, -303, 0.7], [-592, -292, 2.4], [-602, -298, 1.57]],
+      barrier: [[-584, -307], [-584, -289]],
+    },
+    {
+      path: [[680, 332, 49], [604, 350, 46], [540, 420, 38], [500, 492, 29], [400, 492, 18], [310, 492, 12.5], [240, 492, 11.2], [160, 492, 11.2]],
+      width: 16,
+      cars: [[172, 488, 1.2], [172, 497, 1.9], [182, 492, 1.57]],
+      barrier: [[190, 484], [190, 500]],
+    },
+  ],
+  presidio: [-1400, -545, -615, 460],
+};
 
 // Every street the cops are given is one a car fits down: nothing built across it (the Freeway's
 // deck is over everything, and checked by its own road).

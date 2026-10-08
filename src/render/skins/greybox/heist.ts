@@ -10,7 +10,10 @@
 // its doors), Lombard's planters, Dolores Park's palms, the Freeway's wall. Every building of a look
 // is one mesh (merged, vertex coloured): a draw for its walls, one for its ground floors.
 
-import { BoxGeometry, BufferGeometry, CanvasTexture, ConeGeometry, CylinderGeometry, Float32BufferAttribute, Group, Matrix4, Mesh, MeshBasicMaterial, type Object3D, PlaneGeometry, RepeatWrapping } from 'three';
+import { BoxGeometry, BufferGeometry, CanvasTexture, CatmullRomCurve3, ConeGeometry, CylinderGeometry, Float32BufferAttribute, Group, IcosahedronGeometry, Matrix4, Mesh, MeshBasicMaterial, type Object3D, PlaneGeometry, Quaternion, RepeatWrapping, Vector3 } from 'three';
+import { Rng } from '../../../core/rng';
+import { buildCar } from './car/build';
+import { glowPoints } from './scenery';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { KIND_ROAD } from '../../../core/track/ground';
 import type { HouseDef } from '../../../core/content';
@@ -664,4 +667,124 @@ class Neon {
       return new Mesh(mergeGeometries(list)!, new MeshBasicMaterial({ map: neonFace(word, up === '1') }));
     });
   }
+}
+
+// ---- Round the city: the bridges' approaches, closed by the police; the Presidio ----
+
+const DECK_GREY = 0x8d8a92;
+/** The police car's size (content/cars/police.json): half width, half length, height. */
+const POLICE_SIZE: [number, number, number] = [0.95, 2.25, 0.72];
+const PARAPET = 0xb8b4bc;
+const COLUMN = 0xa39d94;
+
+/**
+ * What's round the getaway's city past its walls (GetawayDef.scenery; drawing only): each bridge's
+ * approach, a deck on columns curving down from the bridge's end, its parapets, lane lines, police
+ * cars parked across it where it's closed and a striped barrier in front of them, their light bars
+ * lit; and the Presidio's woods, cypress and eucalyptus over the land past Van Ness, kept off the
+ * approach through them.
+ */
+export function buildCitySurrounds(track: Track): Object3D[] {
+  const sc = track.layout.getaway?.scenery;
+  const ground = track.ground;
+  if (!sc || !ground) return [];
+  const out: Object3D[] = [];
+  const decks = new Merge();
+  const lines = new Merge();
+  const geos: BufferGeometry[] = [];
+  const up = new Vector3(0, 1, 0);
+  const q = new Quaternion();
+  const m4 = new Matrix4();
+  /** A box `w` × `h` × `len` from a to b (its length along a→b, level across it), coloured. */
+  const beam = (a: Vector3, b: Vector3, w: number, h: number, color: number) => {
+    const d = new Vector3().subVectors(b, a);
+    const len = d.length();
+    const g = new BoxGeometry(w, h, len);
+    q.setFromUnitVectors(new Vector3(0, 0, 1), d.normalize());
+    m4.compose(new Vector3().addVectors(a, b).multiplyScalar(0.5), q, new Vector3(1, 1, 1));
+    g.applyMatrix4(m4);
+    const n = g.getAttribute('position').count;
+    const c = [((color >> 16) & 255) / 255, ((color >> 8) & 255) / 255, (color & 255) / 255];
+    g.setAttribute('color', new Float32BufferAttribute(Array.from({ length: n * 3 }, (_, k) => c[k % 3]), 3));
+    geos.push(g.index ? g.toNonIndexed() : g);
+  };
+  const lights: number[] = [];
+  const near: [number, number][] = [];
+  for (const ap of sc.approaches) {
+    const curve = new CatmullRomCurve3(ap.path.map(([x, z, y]) => new Vector3(x, y, z)));
+    const n = Math.ceil(curve.getLength() / 6);
+    const pts = curve.getSpacedPoints(n);
+    const half = ap.width / 2;
+    for (let k = 0; k < n; k++) {
+      const a = pts[k];
+      const b = pts[k + 1];
+      const side = new Vector3().subVectors(b, a).cross(up).setY(0).normalize();
+      beam(a.clone().setY(a.y - 0.7), b.clone().setY(b.y - 0.7), ap.width, 1.4, DECK_GREY);
+      for (const s of [-1, 1]) beam(a.clone().addScaledVector(side, s * (half - 0.3)).setY(a.y + 0.5), b.clone().addScaledVector(side, s * (half - 0.3)).setY(b.y + 0.5), 0.5, 1.1, PARAPET);
+      // Dashed lane lines.
+      if (k % 2 === 0) for (const s of [-1, 1]) beam(a.clone().addScaledVector(side, (s * half) / 3).setY(a.y + 0.03), b.clone().addScaledVector(side, (s * half) / 3).setY(b.y + 0.03), 0.18, 0.02, 0xeeeeea);
+      // A column every 30 m, down to the ground (or the sea bed).
+      if (k % 5 === 2 && a.y > 3) {
+        const foot = ground.height(a.x, a.z);
+        beam(new Vector3(a.x, foot - 1, a.z), new Vector3(a.x, a.y - 1.4, a.z), 2.4, 3.2, COLUMN);
+      }
+      near.push([a.x, a.z]);
+    }
+    // The roadblock: police cars parked across it, a barrier in front.
+    // (The cops' own model: buildCar reads only the design's id and the car's size, content/cars/police.json's.
+    // Not src/content.ts's list: that's the bundler's, and the skin also builds under the tests.)
+    const police = { id: 'police', size: POLICE_SIZE };
+    for (const [x, z, h] of ap.cars) {
+      const y = curve.getPoint(1).y;
+      const car = buildCar(police, { id: 'roadblock', name: 'Police', color: '#15151b', finish: 'gloss' });
+      car.root.position.set(x, y, z);
+      car.root.rotation.y = h;
+      out.push(car.root);
+      lights.push(x - 0.3, y + 1.6, z, x + 0.3, y + 1.6, z);
+    }
+    const [[bx0, bz0], [bx1, bz1]] = ap.barrier;
+    const y = curve.getPoint(1).y;
+    const len = Math.hypot(bx1 - bx0, bz1 - bz0);
+    for (let t = 0; t <= len; t += 2.4) {
+      const x = bx0 + ((bx1 - bx0) * t) / len;
+      const z = bz0 + ((bz1 - bz0) * t) / len;
+      // A sawhorse: two legs, its striped board.
+      lines.box(x, z, Math.atan2(bx1 - bx0, bz1 - bz0) + Math.PI / 2, 2, 0.25, y + 0.8, y + 1.15, Math.round(t / 2.4) % 2 ? 0xffffff : 0xff6a1a);
+      decks.box(x, z, 0, 0.12, 0.12, y, y + 0.8, 0x444444);
+    }
+  }
+  const merged = mergeGeometries(geos);
+  if (merged) out.push(new Mesh(merged, toon({ vertexColors: true })));
+  for (const m of [decks.mesh(), lines.mesh()]) if (m) out.push(m);
+  if (lights.length) {
+    // Red and blue in turn.
+    const red: number[] = [];
+    const blue: number[] = [];
+    for (let k = 0; k < lights.length; k += 3) (k % 6 ? blue : red).push(lights[k], lights[k + 1], lights[k + 2]);
+    out.push(glowPoints(red, 0xff2a2a, 3), glowPoints(blue, 0x2a6bff, 3));
+  }
+  // The Presidio: woods over the land in its box, off the shore, the main road and the approaches.
+  const [x0, z0, x1, z1] = sc.presidio;
+  const sea = track.layout.ground?.sea ?? 0;
+  const rng = new Rng(0x9e51d10);
+  const cypress: Part[] = [];
+  const gums: Part[] = [];
+  const trunks: Part[] = [];
+  for (let x = x0; x <= x1; x += 11)
+    for (let z = z0; z <= z1; z += 11) {
+      const px = x + rng.range(-4, 4);
+      const pz = z + rng.range(-4, 4);
+      const y = ground.height(px, pz);
+      if (y < sea + 1.2 || rng.next() < 0.25) continue;
+      if (near.some(([nx, nz]) => Math.abs(nx - px) < 14 && Math.abs(nz - pz) < 14)) continue;
+      const h = rng.range(9, 16);
+      if (rng.next() < 0.55) cypress.push({ x: px, y, z: pz, yaw: rng.range(0, 6.3), sx: h * 0.3, sy: h, sz: h * 0.3, color: rng.next() < 0.5 ? 0x2f5a3a : 0x3a6640 });
+      else {
+        trunks.push({ x: px, y, z: pz, yaw: 0, sx: 0.5, sy: h * 0.6, sz: 0.5, color: 0xb8a890 });
+        gums.push({ x: px, y: y + h * 0.7, z: pz, yaw: rng.range(0, 6.3), sx: h * 0.28, sy: h * 0.35, sz: h * 0.28, color: rng.next() < 0.5 ? 0x6f8a5c : 0x5f7a52 });
+      }
+    }
+  if (cypress.length) out.push(instanced(faceted(new ConeGeometry(1, 1, 7).translate(0, 0.5, 0)), toon(), cypress));
+  if (trunks.length) out.push(instanced(new CylinderGeometry(0.6, 1, 1, 5).translate(0, 0.5, 0), toon(), trunks), instanced(faceted(new IcosahedronGeometry(1, 0)), toon(), gums));
+  return out;
 }

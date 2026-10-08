@@ -1568,6 +1568,88 @@ function bayBridge(c: Ctx): Built {
   return { root };
 }
 
+/** A window grid on white, a cell a storey high (tiled over a face by its uv). */
+let gridTex: CanvasTexture | undefined;
+function windowGrid(): CanvasTexture {
+  if (gridTex) return gridTex;
+  const cv = document.createElement('canvas');
+  cv.width = cv.height = 32;
+  const g = cv.getContext('2d')!;
+  g.fillStyle = '#ffffff';
+  g.fillRect(0, 0, 32, 32);
+  g.fillStyle = '#5d6b80';
+  g.fillRect(6, 6, 20, 18);
+  gridTex = new CanvasTexture(cv);
+  gridTex.wrapS = gridTex.wrapT = RepeatWrapping;
+  return gridTex;
+}
+
+/**
+ * The Transamerica Pyramid (the owner, 2026-10-08): across the street from the Bank, the city's
+ * tallest by far: a white four-sided spire `base` m across at its foot (params.base) narrowing to
+ * a point, windows in rows up its faces, the two "wings" up its sides (its lift shafts and stairs)
+ * from two thirds up, its crown and the lit tip. Its foot is the house's solid base.
+ */
+function transamerica(m: LandmarkDef): Built {
+  const root = new Group();
+  const B = m.params?.base ?? 38;
+  // (Twice the Financial District's towers: it stands up out of the skyline.)
+  const H = 175;
+  const spire = 22;
+  const body = new CylinderGeometry(1.5 / Math.SQRT2, B / Math.SQRT2, H, 4, 1, true).rotateY(Math.PI / 4);
+  const uv = body.getAttribute('uv');
+  for (let k = 0; k < uv.count; k++) uv.setXY(k, uv.getX(k) * 4 * 8, uv.getY(k) * (H / 3.6));
+  const white = toon({ color: 0xf2efe8, map: windowGrid() });
+  root.add(posed(new Mesh(faceted(body), white), 0, H / 2, 0));
+  // The wings, east and west, from 0.55 of the way up.
+  for (const side of [-1, 1]) {
+    const y0 = H * 0.55;
+    const h = H * 0.35;
+    const at = (y: number) => (B / 2) * (1 - y / H);
+    const wing = new Mesh(new BoxGeometry(5, h, 9), toon({ color: 0xe8e4dc }));
+    wing.position.set(side * (at(y0 + h / 2) + 1.5), y0 + h / 2, 0);
+    root.add(wing);
+  }
+  root.add(posed(new Mesh(faceted(new ConeGeometry(1.2, spire, 4)), toon({ color: 0xd9d4c8 })), 0, H + spire / 2 - 1, 0));
+  root.add(glowPoints([0, H + spire, 0], 0xff4a3a, 6));
+  // Its base: a plinth over the plaza.
+  root.add(posed(new Mesh(new BoxGeometry(B + 4, 1.2, B + 4), toon({ color: 0xb9b2a6 })), 0, 0.6, 0));
+  return { root };
+}
+
+/**
+ * Coit Tower (the owner, 2026-10-08), on Telegraph Hill in Pioneer Park: a fluted white concrete
+ * column `high` m tall (params.high), a ring of tall arched openings at its top under a flat crown,
+ * on a low square base. The house is its solid trunk.
+ */
+function coitTower(m: LandmarkDef, c: Ctx): Built {
+  const root = new Group();
+  const H = m.params?.high ?? 64;
+  const r = 5.2;
+  // Fluted: a many-sided column, every other face set in.
+  const g = new CylinderGeometry(r, r * 1.04, H, 24, 1);
+  const p = g.getAttribute('position');
+  for (let k = 0; k < p.count; k++) {
+    const a = Math.atan2(p.getZ(k), p.getX(k));
+    const flute = Math.round((a / (Math.PI * 2)) * 24) % 2 ? 0.88 : 1;
+    p.setXYZ(k, p.getX(k) * flute, p.getY(k), p.getZ(k) * flute);
+  }
+  root.add(posed(new Mesh(faceted(g), toon({ color: 0xf1ebdc })), 0, H / 2 + 3, 0));
+  // The arcade at its top: dark openings round it, the crown over them.
+  for (let k = 0; k < 8; k++) {
+    const a = (k / 8) * Math.PI * 2;
+    const o = new Mesh(new BoxGeometry(1.4, 4.5, 0.6), toon({ color: 0x3a3a46 }));
+    o.position.set(Math.sin(a) * (r - 0.1), H - 2, Math.cos(a) * (r - 0.1));
+    o.rotation.y = a;
+    root.add(o);
+  }
+  root.add(cyl(r + 0.5, r + 0.5, 1.4, 0xe2dccb, H + 3.7, 24));
+  // Its base, square, stepped; a lit window or two at night.
+  root.add(posed(new Mesh(new BoxGeometry(18, 3, 18), toon({ color: 0xe2dccb })), 0, 1.5, 0));
+  if (!c.day) root.add(glowPoints([0, H + 5, 0], 0xfff2c8, 9));
+  return { root };
+}
+
 const BUILDERS: Record<string, (m: LandmarkDef, ctx: Ctx) => Built> = {
   sphinx: (_m, c) => sphinx(c),
   obelisk: (_m, c) => obelisk(c),
@@ -1596,4 +1678,6 @@ const BUILDERS: Record<string, (m: LandmarkDef, ctx: Ctx) => Built> = {
   alcatraz: (_m, c) => alcatraz(c),
   'golden-gate': (_m, c) => goldenGate(c),
   'bay-bridge': (_m, c) => bayBridge(c),
+  transamerica: (m) => transamerica(m),
+  'coit-tower': (m, c) => coitTower(m, c),
 };

@@ -294,6 +294,30 @@ piece in the background".
   concrete anchorage in the middle of the bay between them, a double deck on its truss, and after dark
   the Bay Lights strung along the cables. Seen down the Embarcadero and from the south piers.
 
+### Landmarks, the Presidio and the closed approaches (2026-10-08)
+
+The owner: "add the Transamerica Pyramid and Coit Tower too, also I think we need to add the
+presidio and the connecting ends for the bridges, but the ramps can be blocked off by parked
+polic[e]" (cut off there: read as parked police cars).
+
+- **The Transamerica Pyramid** (landmark `transamerica`): across the street from the Bank, on the
+  block where Columbus Avenue comes into the Financial District, a white four-sided spire 175 m
+  high (twice the towers round it) with its wings and lit tip; the block is its plaza, its foot a
+  solid base (a house, look `landmark`). You start looking at it.
+- **Coit Tower** (landmark `coit-tower`): on Telegraph Hill, the fluted white column (64 m, solid)
+  in the middle of **Pioneer Park**, its block lawn (a third park).
+- **The Presidio:** the land past Van Ness now runs north to where the Golden Gate comes ashore
+  (the coast moved out), wooded: cypress and eucalyptus, drawn (`GetawayScenery.presidio`), past
+  the walls.
+- **The bridges' approaches, closed** (`GetawayScenery.approaches`; drawn, not driven): the Golden
+  Gate's comes off its south end, curves down through the Presidio and runs along the ground to Van
+  Ness's wall; the Bay Bridge's comes off its west anchorage over the Embarcadero's corner and runs
+  in alongside the Freeway's deck at its height. Each is closed where it meets the city: three police
+  cars parked across it (the cops' own model) with their light bars lit, a striped barrier in front.
+  Both are behind the main road's wall, so nothing about driving changed: you see the roadblock, you
+  can't reach it. (A ramp you could drive up would be a road: the road graph, steps 2–3.)
+
+
 ### Street life (2026-10-08)
 
 The owner: "let's add some more details too like some street lamps, maybe some sidewalks, some
