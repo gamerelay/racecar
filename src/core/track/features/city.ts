@@ -1,7 +1,7 @@
 // A city's ground (GroundDef.features; docs/CHASE_MODE.md, the getaway's city): paved inside its
-// outline, its hills raised under it, and every crossing level at the hills' height at its middle:
-// San Francisco's flat crossings on steep streets. A street climbing a hill meets each crossing at
-// an edge, a crest a car flies off at speed (the hill jumps). Off the main road it's cut back to
+// outline, its hills raised under it, and every crossing nearly level at the hills' height at its
+// middle: San Francisco's flattened crossings on steep streets. A street climbing a hill meets each
+// crossing at a rounded crest, a lift at speed (the hill jumps). Off the main road it's cut back to
 // the road over CUT m, as the hills are, so the road round it keeps its own heights. Its parks are
 // lawn (Dolores Park, on its hill).
 
@@ -13,8 +13,17 @@ import type { Feature } from '.';
 
 /** Off the main road, the city's ground comes in over this many metres past the road's edge. */
 const CUT = 24;
-/** A crossing's level eases into the street's slope over this many metres past its radius: sharp, so its edge is a crest. */
-const EDGE = 2.5;
+/**
+ * A crossing's level eases into the street's slope over this many metres past its radius: long
+ * enough that the street's grade comes back gradually (a crest, rounded) and no cell is a step. At
+ * 2.5 m it was a lip a few metres high at 55° on the steep hills, and jagged where drawn.
+ */
+const EDGE = 16;
+/**
+ * How much of the way to level a crossing comes (1: flat). Not all of it: on a 30% hill two
+ * crossings a block apart, each flat, left the street between them twice as steep as the hill.
+ */
+const FLATTEN = 0.7;
 /** The crossings are found by a grid of this many metres a cell. */
 const CELL = 40;
 
@@ -80,16 +89,19 @@ export function cityHeight(c: CityDef): (x: number, z: number) => number {
     const raw = c.y + hillHeight(c.hills, x, z);
     const list = cells.get(key(Math.floor(x / CELL), Math.floor(z / CELL)));
     if (!list) return raw;
-    // The nearest crossing's level, by how far out of it.
-    let best = Infinity;
-    let at = -1;
+    // Every crossing near enough pulls toward its level, by how far out of it (1 on it, 0 past its
+    // edge); where two reach, together and no more than all the way (no seam where one's nearer).
+    let pull = 0;
+    let sum = 0;
     for (const k of list) {
       const [cx, cz, r] = c.level[k];
-      const d = hypot(x - cx, z - cz) - r;
-      if (d < best) (best = d), (at = k);
+      const w = 1 - smooth(0, EDGE, hypot(x - cx, z - cz) - r);
+      if (w <= 0) continue;
+      pull += w;
+      sum += w * FLATTEN * (levels[k] - raw);
     }
-    if (at < 0 || best > EDGE) return raw;
-    return levels[at] + (raw - levels[at]) * smooth(0, EDGE, best);
+    if (pull <= 0) return raw;
+    return raw + sum / Math.max(1, pull);
   };
 }
 

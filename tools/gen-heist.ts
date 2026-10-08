@@ -675,7 +675,10 @@ const city: CityDef = {
   y: 0,
   hills: HILLS,
   // Every crossing level, and a little past the street's edge (none on the main road: it's level of its own).
-  level: getaway.nodes.filter(([x, z]) => inside(x, z) > 0).map(([x, z]) => [x, z, 9] as [number, number, number]),
+  // Every crossing of two streets or more (an alley's mouth isn't one: levelling those too stepped the hills), a little past its middle.
+  level: getaway.nodes
+    .filter(([x, z], k) => inside(x, z) > 0 && getaway.links.filter(([a, b], j) => (a === k || b === k) && getaway.paint![j] > 0).length >= 3)
+    .map(([x, z]) => [x, z, 6] as [number, number, number]),
   cut: 50,
   parks: park,
 };
@@ -852,10 +855,20 @@ const CRUISE = { loops: 9, cars: [2, 4] as P, speed: [8.5, 12] as P, reach: [300
     const shared = back.filter((k, q) => taken.has(key(q ? back[q - 1] : b, k))).length;
     if (shared > back.length / 3) continue;
     const n = Math.round(cruise.range(CRUISE.cars[0], CRUISE.cars[1] + 0.99));
-    lanes.push({ pos: CRUISE.keep, dir: 1, speed: Math.round(cruise.range(CRUISE.speed[0], CRUISE.speed[1]) * 10) / 10, path: loop.map((k) => getaway.nodes[k]), count: n, kinds: ['sedan', 'sedan', 'compact', 'compact', 'van'] });
+    // Its stops: every turn, and most crossings it goes straight over (three streets or more; the
+    // same ones whichever loop comes by: a stop sign is the crossing's).
+    const painted = (k: number) => getaway.links.filter(([a, b], j) => (a === k || b === k) && getaway.paint![j] > 0).length;
+    const stops = loop.flatMap((k, q) => {
+      const [px, pz] = getaway.nodes[loop[(q + loop.length - 1) % loop.length]];
+      const [cx, cz] = getaway.nodes[k];
+      const [nx, nz] = getaway.nodes[loop[(q + 1) % loop.length]];
+      const turn = Math.abs(Math.atan2((cx - px) * (nz - cz) - (cz - pz) * (nx - cx), (cx - px) * (nx - cx) + (cz - pz) * (nz - cz)));
+      return turn > 0.5 || (painted(k) >= 3 && ((k * 2654435761) >>> 0) % 4 !== 0) ? [q] : [];
+    });
+    lanes.push({ pos: CRUISE.keep, dir: 1, speed: Math.round(cruise.range(CRUISE.speed[0], CRUISE.speed[1]) * 10) / 10, path: loop.map((k) => getaway.nodes[k]), count: n, kinds: ['sedan', 'sedan', 'compact', 'compact', 'van'], stops });
   }
   layout.traffic!.lanes.push(...lanes);
-  console.log(`  cruising the streets: ${lanes.length} loops, ${lanes.reduce((a, l) => a + (l.count ?? 0), 0)} cars`);
+  console.log(`  cruising the streets: ${lanes.length} loops, ${lanes.reduce((a, l) => a + (l.count ?? 0), 0)} cars, ${lanes.reduce((a, l) => a + (l.stops?.length ?? 0), 0)} stops`);
 }
 
 // ---- Along the pavements: street lamps at the kerb, street trees, shrubs by the doors ----

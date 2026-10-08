@@ -147,6 +147,8 @@ export interface TrafficLaneDef {
   path?: [number, number][];
   /** How many cars, instead of the layout's density (times the race's traffic setting). */
   count?: number;
+  /** A path's corners (indices into `path`) its cars stop before, at the crossing's line, for a moment. */
+  stops?: number[];
 }
 
 export interface HazardDef {
@@ -704,9 +706,10 @@ export type FeatureDef = MogulsDef | CanyonDef | BeachDef | UnevenDef | LavaStre
 /**
  * A city's ground (docs/CHASE_MODE.md; core/track/features/city.ts): inside `outline` (a closed
  * [x, z] loop) it's paved, `y` m up plus its `hills` (round domes or ridges, as GroundDef's), and
- * every crossing in `level` ([x, z, r]: its middle and radius) is flat at the hills' height at its
- * middle, the street rising or falling away from its edge: San Francisco's level crossings on
- * steep streets, the crest at each one a car flies off. Cut back to the main road, as hills are.
+ * every crossing in `level` ([x, z, r]: its middle and radius) is nearly level at the hills'
+ * height at its middle, the street's grade easing back off it: San Francisco's flattened crossings
+ * on steep streets, a rounded crest at each one (a lift at speed). Crossings near each other blend.
+ * Cut back to the main road, as hills are.
  */
 export interface CityDef {
   kind: 'city';

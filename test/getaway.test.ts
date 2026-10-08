@@ -114,16 +114,26 @@ describe('the getaway', () => {
     expect(g.time).toBeGreaterThan(BUSTED - 0.1);
   });
 
-  test("a city's crossing is level on its hill, and the street off it climbs from its edge (the crest a car flies off)", () => {
-    const c: CityDef = { kind: 'city', outline: [], y: 2, hills: [{ x: 0, z: 0, h: 30, r: 200 }], level: [[100, 0, 9]] };
+  test("a city's crossing is nearly level on its hill, the street's grade easing back off it (a rounded crest, no step)", () => {
+    const c: CityDef = { kind: 'city', outline: [], y: 2, hills: [{ x: 0, z: 0, h: 30, r: 200 }], level: [[100, 0, 6]] };
     const h = cityHeight(c);
-    // Level across it, at the hill's height at its middle.
-    expect(h(100, 0)).toBeCloseTo(h(108, 0), 9);
-    expect(h(92, 3)).toBeCloseTo(h(100, 0), 9);
-    // Off it (uphill, toward the top), the hill's own height, higher than the crossing's.
-    expect(h(80, 0)).toBeGreaterThan(h(100, 0) + 1);
-    // Away from any crossing, just the hill.
+    const raw = cityHeight({ ...c, level: [] });
+    const grade = (f: (x: number, z: number) => number, x: number) => Math.abs(f(x + 0.5, 0) - f(x - 0.5, 0));
+    // On it, most of the slope gone (about 30% of the hill's left).
+    expect(grade(h, 100)).toBeLessThan(grade(raw, 100) * 0.35);
+    // Well off it, the hill's own.
+    expect(h(60, 0)).toBeCloseTo(raw(60, 0), 6);
     expect(h(0, 0)).toBeCloseTo(32, 6);
+    // And no step or cliff on the way: nowhere steeper than twice the hill.
+    for (let x = 60; x <= 140; x += 0.5) expect(grade(h, x)).toBeLessThan(2 * Math.max(grade(raw, x), 0.05));
+  });
+
+  test('two crossings close together blend: no seam between them', () => {
+    const c: CityDef = { kind: 'city', outline: [], y: 0, hills: [{ x: 0, z: 0, h: 30, r: 200 }], level: [[100, 0, 6], [124, 0, 6]] };
+    const h = cityHeight(c);
+    let worst = 0;
+    for (let x = 90; x <= 135; x += 0.25) worst = Math.max(worst, Math.abs(h(x + 0.25, 0) - h(x, 0)) / 0.25);
+    expect(worst).toBeLessThan(0.6);
   });
 
   test("the banded outline test agrees with the plain one", () => {
@@ -166,7 +176,7 @@ describe('the getaway', () => {
     }
   });
 
-  test('cars cruise the streets: on their loops, never in a building, not by the Bank at the start', () => {
+  test('cars cruise the streets: on their loops, never in a building, not by the Bank at the start, stopping at crossings', () => {
     // (Traffic on, as a race has it: the helper's getaway runs without.)
     const sim = new Sim(bakeTrack(city, SURFACES), CLASSES, SURFACES, { seed: 4, traffic: 1, mayhem: 'off', weather: 'clear' });
     const tr = sim.world.traffic;
@@ -186,6 +196,18 @@ describe('the getaway', () => {
         expect(st.clear(pose.x, pose.z, pose.x + Math.sin(pose.h), pose.z + Math.cos(pose.h))).toBe(true);
         if (t < 8) expect(Math.hypot(pose.x - start[0], pose.z - start[1])).toBeGreaterThan(100);
       }
+    // They stop at crossings: each comes to a standstill now and then, and never goes over its lane's speed.
+    for (const k of cars) {
+      let stood = false;
+      const v = tr.lanes[tr.lane[k]].speed;
+      for (let t = 0; t < 120; t += 0.25) {
+        tr.poseAt(k, t, pose);
+        const speed = Math.hypot(pose.vx, pose.vz);
+        stood ||= speed < 0.01;
+        expect(speed).toBeLessThanOrEqual(v + 1e-9);
+      }
+      expect(stood).toBe(true);
+    }
   });
 
   test('the getaway starts outside the Bank, facing its way, the cops behind', () => {

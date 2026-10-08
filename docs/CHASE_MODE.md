@@ -269,6 +269,31 @@ themselves, so a sloppy line wrecks you. (Smashables in `smash.ts` never wreck; 
 
 ## Built so far
 
+### Stops at crossings, and smoother hills (2026-10-08)
+
+The owner: "make the traffic stop at intersections, also some of the geometry for the hills and
+intersections looks a little jagged, especially by coit tower, but really for most of the hills and
+intersections".
+
+- **Traffic stops** (`TrafficLaneDef.stops`): a path lane's cars stop at the line 13 m before each of
+  its stop corners (the crosswalk's near side), slowing at 3.5 m/s², standing 2 s and pulling away.
+  Still closed form: a car's distance round its loop is a piecewise function of the time round it
+  (cruise, slow, stand, pull away), the loop starting in its longest run between stops so none
+  straddles its end. Stops too close for a car to slow and pull away between are dropped. Every turn
+  is a stop, and three crossings in four it goes straight over (the same ones whichever loop comes
+  by): 9 loops, about 120 stops, cars stood a sixth of the time. Cars of one loop are tens of
+  seconds apart, so one never runs into another waiting.
+- **Their lane, evened out:** each loop's corners are moved over to the right of the street before
+  it's rounded and spaced, not after (moving it after stretched the outside of a left turn: 60%
+  over speed through it).
+- **The hills, smooth** (features/city.ts): a crossing was a flat disc 9 m round, its edge easing
+  into the street over 2.5 m: on a 30% hill a lip 3–4 m high at 55°, and where two crossings' reach
+  met, a seam where the nearer one changed. Now: only crossings of two streets or more (an alley's
+  mouth isn't one; levelling those too terraced the hills, their discs 30 m apart), 6 m round, 70%
+  of the way to level, easing into the street over 16 m, and every crossing near enough blended (no
+  seam). The steepest street grade went from 1.16 to 0.52 (the hills alone: 0.31). The crest at each
+  crossing is still there, rounded: still a lift at speed, not a ledge.
+
 ### Cars cruising the streets (2026-10-08)
 
 The owner: "could we have a little bit of traffic on the inner city roads, not a lot, but just some
