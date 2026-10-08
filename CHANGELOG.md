@@ -22,7 +22,7 @@ and where things stand is [docs/HANDOFF.md](./docs/HANDOFF.md).
   strait to the west, and the Bay Bridge out east to Yerba Buena Island, its lights on at night.
   The Transamerica Pyramid stands across the street from the Bank, Coit Tower on Telegraph Hill;
   the Presidio's woods run up to the Golden Gate, and both bridges' approaches come down to the
-  city, closed off by parked police cars.
+  city, closed off by parked police cars. A few cars cruise the city's streets.
 - **Look back on Q** as well as C.
 
 ## alpha-1.43: Sahara's music, and Single player

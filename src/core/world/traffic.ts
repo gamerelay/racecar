@@ -16,11 +16,15 @@
 // half of the next. Its cars go round the route and a short stretch out of sight (HIDDEN) in turn,
 // fading at the streets' middles, and are blended from street to main road and back over JOIN m.
 // Still a formula of the seed and the race time, still no overtaking.
+//
+// Or a lane loops a path through open ground's streets (TrafficLaneDef.path, the getaway's city):
+// corners rounded, resampled every PATH_STEP m, each sample's main distance and offset found once
+// at load. Its cars cruise round it on the ground and are met where they are (not by main distance).
 
 import type { TrafficLaneDef } from '../content';
 import { hash01 } from '../rng';
 import type { BakedSpline, Track } from '../track/bake';
-import { sampleAt, type TrackHit } from '../track/query';
+import { projectGlobal, sampleAt, type TrackHit } from '../track/query';
 import { newHit } from '../track/query';
 import { mainDistance, signedGap, wrap } from '../track/bake';
 import { atan2, hypot, smoothstep, sq, tan } from '../math';
@@ -71,6 +75,77 @@ const HIDDEN = 60;
 export const JOIN = 24;
 /** Over this much (m) of a street's middle a route's car fades in or out (not FADE: on a short street, that reached back toward the main road). */
 export const STREET_FADE = 20;
+/** A path lane's samples are this far apart (m), and its corners rounded over this much either side. */
+const PATH_STEP = 2;
+const PATH_CORNER = 7;
+/** No path lane's car within this much (m) of the getaway's start in the start grid's clear time (it'd pull up on the parked car). */
+const PATH_CLEAR = 110;
+
+/** A path lane's loop, resampled (TrafficLaneDef.path): positions, headings, main distances and offsets, every PATH_STEP m. */
+export interface TrafficPath {
+  n: number;
+  x: Float64Array;
+  z: Float64Array;
+  tx: Float64Array;
+  tz: Float64Array;
+  s: Float64Array;
+  lat: Float64Array;
+}
+
+/** A loop's corners rounded (a curve PATH_CORNER m in from each), resampled every PATH_STEP m, moved `pos` m to its right. */
+function pathLoop(track: Track, corners: readonly [number, number][], pos: number): TrafficPath {
+  const pts: [number, number][] = [];
+  const m = corners.length;
+  for (let k = 0; k < m; k++) {
+    const [px, pz] = corners[(k + m - 1) % m];
+    const [cx, cz] = corners[k];
+    const [nx, nz] = corners[(k + 1) % m];
+    const a = Math.min(PATH_CORNER, hypot(cx - px, cz - pz) / 2);
+    const b = Math.min(PATH_CORNER, hypot(nx - cx, nz - cz) / 2);
+    const la = hypot(cx - px, cz - pz) || 1;
+    const lb = hypot(nx - cx, nz - cz) || 1;
+    // In from the previous corner to `a` short of this one, a quadratic round it to `b` past it.
+    const p0: [number, number] = [cx - ((cx - px) / la) * a, cz - ((cz - pz) / la) * a];
+    const p2: [number, number] = [cx + ((nx - cx) / lb) * b, cz + ((nz - cz) / lb) * b];
+    for (let q = 0; q <= 4; q++) {
+      const t = q / 4;
+      pts.push([(1 - t) * (1 - t) * p0[0] + 2 * (1 - t) * t * cx + t * t * p2[0], (1 - t) * (1 - t) * p0[1] + 2 * (1 - t) * t * cz + t * t * p2[1]]);
+    }
+  }
+  // Resampled by length round the closed loop.
+  const cum = [0];
+  for (let k = 1; k <= pts.length; k++) cum.push(cum[k - 1] + hypot(pts[k % pts.length][0] - pts[k - 1][0], pts[k % pts.length][1] - pts[k - 1][1]));
+  const R = cum[pts.length];
+  const n = Math.max(3, Math.round(R / PATH_STEP));
+  const out: TrafficPath = { n, x: new Float64Array(n), z: new Float64Array(n), tx: new Float64Array(n), tz: new Float64Array(n), s: new Float64Array(n), lat: new Float64Array(n) };
+  let seg = 0;
+  for (let i = 0; i < n; i++) {
+    const d = (i / n) * R;
+    while (cum[seg + 1] < d) seg++;
+    const [ax, az] = pts[seg];
+    const [bx, bz] = pts[(seg + 1) % pts.length];
+    const f = (d - cum[seg]) / (cum[seg + 1] - cum[seg] || 1);
+    out.x[i] = ax + (bx - ax) * f;
+    out.z[i] = az + (bz - az) * f;
+  }
+  const hit = newHit();
+  for (let i = 0; i < n; i++) {
+    const dx = out.x[(i + 1) % n] - out.x[(i + n - 1) % n];
+    const dz = out.z[(i + 1) % n] - out.z[(i + n - 1) % n];
+    const len = hypot(dx, dz) || 1;
+    out.tx[i] = dx / len;
+    out.tz[i] = dz / len;
+  }
+  // Over to its right, then where it is by the main road.
+  for (let i = 0; i < n; i++) {
+    out.x[i] -= out.tz[i] * pos;
+    out.z[i] += out.tx[i] * pos;
+    projectGlobal(track.main, out.x[i], out.z[i], hit);
+    out.s[i] = hit.s;
+    out.lat[i] = hit.lateral;
+  }
+  return out;
+}
 
 /**
  * A route (TrafficLaneDef.streets): in up `inSp` from its middle, along the main road from `on` to
@@ -90,6 +165,7 @@ export interface TrafficRoute {
   C: number;
   road?: BakedSpline;
   from?: number;
+  path?: TrafficPath;
 }
 
 /**
@@ -102,6 +178,15 @@ export function trafficLanes(track: Track, defs: readonly TrafficLaneDef[]): { l
   const routes: (TrafficRoute | null)[] = [];
   const L = track.main.length;
   for (const def of defs) {
+    if (def.path) {
+      // Round its loop through the streets, never on the main road's lanes.
+      if (!track.ground || def.path.length < 3) continue;
+      const path = pathLoop(track, def.path, def.pos);
+      const R = path.n * PATH_STEP;
+      lanes.push({ ...def, sections: [] });
+      routes.push({ inSp: track.main, outSp: track.main, on: 0, off: 0, a: R, b: 0, c: 0, R, C: R, path });
+      continue;
+    }
     if (def.road !== undefined) {
       // Along one street: never on the main road (no sections: no main road's lane is it).
       const sp = track.splines.find((x) => x.id === def.road);
@@ -213,7 +298,7 @@ export class Traffic {
     const L = track.main.length;
     // Cars loop the whole lap but only appear in their lane's sections, so size the fleet so the
     // sections get `density` cars per km. A route's cars loop the route: `density` per km of it.
-    const perLane = this.lanes.map((_, l) => Math.max(0, Math.round(((this.routes[l]?.R ?? L) / 1000) * (def?.density ?? 0) * density)));
+    const perLane = this.lanes.map((lane, l) => Math.max(0, Math.round(lane.count !== undefined ? lane.count * density : ((this.routes[l]?.R ?? L) / 1000) * (def?.density ?? 0) * density)));
     this.count = perLane.reduce((a, b) => a + b, 0);
     this.lane = new Uint8Array(this.count);
     this.s0 = new Float64Array(this.count);
@@ -252,12 +337,19 @@ export class Traffic {
     const r = this.routes[this.lane[k]];
     // (The pose's own s, blend and all: an s that differed from the pool's flipped a near miss's
     // order every tick at a street's mouth, paying it out again and again.)
+    if (r?.path) return r.path.s[this.pathIndex(k, t)];
     if (r) return this.routePose(r, lane, this.dAt(k, t), this.sScratch, this.sHit).s;
     return wrap(this.s0[k] + lane.dir * lane.speed * t, this.track.main.length);
   }
 
   private readonly sScratch: TrafficPose = newTrafficPose();
   private readonly sHit: TrackHit = newHit();
+
+  /** A path lane's car's sample at race time t (the one before it). */
+  private pathIndex(k: number, t: number): number {
+    const r = this.routes[this.lane[k]]!;
+    return Math.floor(this.dAt(k, t) / PATH_STEP) % r.path!.n;
+  }
 
   /** How far round its route's loop car k is at race time t (a route's car only). */
   private dAt(k: number, t: number): number {
@@ -309,7 +401,7 @@ export class Traffic {
     const r = this.routes[this.lane[k]];
     if (w >= 0 && t >= w) {
       if (t < w + TRAFFIC_RESPAWN) return 0;
-      if (r) {
+      if (r && !r.path) {
         // By side streets: gone until it next comes round to the first street's middle (back on
         // the main road where it was hit would be the pop this is all to avoid), then in as ever.
         const lap = r.C / lane.speed;
@@ -317,6 +409,17 @@ export class Traffic {
         if (back < w + TRAFFIC_RESPAWN) back += Math.ceil((w + TRAFFIC_RESPAWN - back) / lap) * lap;
         if (t < back) return 0;
       } else v = Math.min(1, (t - w - TRAFFIC_RESPAWN) / FADE_BACK);
+    }
+    if (r?.path) {
+      // Round its loop, always there; but kept off the getaway's start while the grid's clear (a
+      // car rolling into the parked getaway car), fading back in as the rest do.
+      const start = this.track.layout.getaway?.start;
+      if (start && t < GRID_CLEAR.seconds + FADE_BACK) {
+        const i = this.pathIndex(k, t);
+        const away = hypot(r.path.x[i] - start.at[0], r.path.z[i] - start.at[1]);
+        v = Math.min(v, Math.max(Math.min(1, Math.max(0, (away - PATH_CLEAR) / FADE)), (t - GRID_CLEAR.seconds) / FADE_BACK));
+      }
+      return Math.max(0, v);
     }
     const s = this.sAt(k, t);
     const L = this.track.main.length;
@@ -359,6 +462,7 @@ export class Traffic {
   poseAt(k: number, t: number, out: TrafficPose, hit = this.renderHit): TrafficPose {
     const lane = this.lanes[this.lane[k]];
     const r = this.routes[this.lane[k]];
+    if (r?.path) return this.pathPose(r.path, lane, this.dAt(k, t), out);
     if (r) return this.routePose(r, lane, this.dAt(k, t), out, hit);
     const s = this.sAt(k, t);
     const at = sampleAt(this.track.main, s, hit);
@@ -372,6 +476,26 @@ export class Traffic {
     out.h = lane.dir > 0 ? h : h + Math.PI;
     out.vx = at.tx * lane.dir * lane.speed;
     out.vz = at.tz * lane.dir * lane.speed;
+    return out;
+  }
+
+  /** The pose of a car `d` m round a path lane's loop: between its samples, on the ground. */
+  private pathPose(p: TrafficPath, lane: TrafficLaneDef, d: number, out: TrafficPose): TrafficPose {
+    const f = d / PATH_STEP;
+    const i = Math.floor(f) % p.n;
+    const j = (i + 1) % p.n;
+    const u = f - Math.floor(f);
+    out.x = p.x[i] + (p.x[j] - p.x[i]) * u;
+    out.z = p.z[i] + (p.z[j] - p.z[i]) * u;
+    out.y = this.track.ground!.height(out.x, out.z);
+    const tx = p.tx[i] + (p.tx[j] - p.tx[i]) * u;
+    const tz = p.tz[i] + (p.tz[j] - p.tz[i]) * u;
+    const n = hypot(tx, tz) || 1;
+    out.h = atan2(tx / n, tz / n);
+    out.vx = (tx / n) * lane.speed;
+    out.vz = (tz / n) * lane.speed;
+    out.s = p.s[i];
+    out.lat = p.lat[i];
     return out;
   }
 
@@ -448,7 +572,7 @@ export class Traffic {
     else {
       const m = this.mainHit;
       const d = this.dAt(k, t);
-      if (!r.road && d < r.a) {
+      if (!r.road && !r.path && d < r.a) {
         // On its way in: on the main road already, as far before where it joins as it is up the street.
         this.seenS[p] = wrap(r.on - (r.a - d) * lane.dir, this.track.main.length);
         sampleAt(this.track.main, this.seenS[p], m);

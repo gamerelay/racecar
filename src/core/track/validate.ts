@@ -468,7 +468,13 @@ export function validateLayout(layout: TrackLayout, surfaces: SurfaceDef[], clas
 
   // Traffic lanes: inside the road, one way or the other, moving.
   for (const [k, lane] of (layout.traffic?.lanes ?? []).entries()) {
-    if (!(Math.abs(lane.pos) <= 1)) err(`traffic lane ${k}: pos ${lane.pos} is off the road (-1 to 1)`);
+    if (lane.path) {
+      // Round a city's streets: its pos is metres right of its line, and it needs open ground to drive on.
+      if (!layout.ground) err(`traffic lane ${k}: a path needs open ground`);
+      if (lane.path.length < 3 || lane.path.some((p) => !(Array.isArray(p) && p.length === 2 && p.every(Number.isFinite)))) err(`traffic lane ${k}: a path is a loop of 3 corners or more`);
+      if (!(Math.abs(lane.pos) <= 6)) err(`traffic lane ${k}: a path's pos ${lane.pos} m is off any street (-6 to 6)`);
+      if (lane.count !== undefined && !(lane.count >= 0)) err(`traffic lane ${k}: count must be 0 or more`);
+    } else if (!(Math.abs(lane.pos) <= 1)) err(`traffic lane ${k}: pos ${lane.pos} is off the road (-1 to 1)`);
     if (lane.dir !== 1 && lane.dir !== -1) err(`traffic lane ${k}: dir must be 1 or -1`);
     if (!(lane.speed > 0)) err(`traffic lane ${k}: speed must be positive`);
     for (const id of lane.kinds ?? []) if (!TRAFFIC_KINDS.some((x) => x.id === id)) err(`traffic lane ${k}: no traffic kind '${id}' (world/traffic.ts: ${TRAFFIC_KINDS.map((x) => x.id).join(', ')})`);

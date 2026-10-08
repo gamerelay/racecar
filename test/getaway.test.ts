@@ -166,6 +166,28 @@ describe('the getaway', () => {
     }
   });
 
+  test('cars cruise the streets: on their loops, never in a building, not by the Bank at the start', () => {
+    // (Traffic on, as a race has it: the helper's getaway runs without.)
+    const sim = new Sim(bakeTrack(city, SURFACES), CLASSES, SURFACES, { seed: 4, traffic: 1, mayhem: 'off', weather: 'clear' });
+    const tr = sim.world.traffic;
+    const loops = tr.lanes.flatMap((l, n) => (l.path ? [n] : []));
+    expect(loops.length).toBeGreaterThan(4);
+    const cars = Array.from({ length: tr.count }, (_, k) => k).filter((k) => loops.includes(tr.lane[k]));
+    expect(cars.length).toBeGreaterThan(15);
+    expect(cars.length).toBeLessThan(45);
+    const st = new Streets(city.getaway!, city.houses!);
+    const start = city.getaway!.start!.at;
+    const pose = { s: 0, lat: 0, x: 0, y: 0, z: 0, h: 0, vx: 0, vz: 0 };
+    for (let t = 0; t < 240; t += 0.7)
+      for (const k of cars) {
+        if (!tr.present(k, t)) continue;
+        tr.poseAt(k, t, pose);
+        // (A point in a building's box: no clear line from it to itself nudged a metre on.)
+        expect(st.clear(pose.x, pose.z, pose.x + Math.sin(pose.h), pose.z + Math.cos(pose.h))).toBe(true);
+        if (t < 8) expect(Math.hypot(pose.x - start[0], pose.z - start[1])).toBeGreaterThan(100);
+      }
+  });
+
   test('the getaway starts outside the Bank, facing its way, the cops behind', () => {
     const { sim, g } = getaway();
     const c = sim.cars;

@@ -139,6 +139,14 @@ export interface TrafficLaneDef {
   kinds?: string[];
   /** Its cars in strings (a caravan): `[count, gap]`, each string `count` long, `gap` m nose to nose. */
   string?: [number, number];
+  /**
+   * A loop through open ground's streets instead (the getaway's city, docs/CHASE_MODE.md): [x, z]
+   * corners in world space, driven in order and back to the first, on the ground, `pos` m right of
+   * the line (the right-hand side of the street), corners rounded. Never on the main road's lanes.
+   */
+  path?: [number, number][];
+  /** How many cars, instead of the layout's density (times the race's traffic setting). */
+  count?: number;
 }
 
 export interface HazardDef {

@@ -784,6 +784,80 @@ getaway.scenery = {
   getaway.nodes = kept;
 }
 
+// ---- Cars cruising the streets: a few loops through the city, a few cars round each ----
+
+/**
+ * The owner, 2026-10-08: "a little bit of traffic on the inner city roads, not a lot, but just some
+ * cars cruising around". Each loop: out from a crossing to one `reach` m off by the streets (the
+ * shortest way, each street's length jittered per loop so the loops differ), and back by other streets
+ * (those it took out cost CRUISE.other times as much). Only proper streets (painted: no alley, the
+ * main road, the Freeway), and no crossing on the main road. On the right of the street.
+ */
+const CRUISE = { loops: 9, cars: [2, 4] as P, speed: [8.5, 12] as P, reach: [300, 650] as P, other: 6, keep: 2.6 };
+{
+  const cruise = new Rng(0xc0a57);
+  const N = getaway.nodes.length;
+  const ok = getaway.nodes.map(([x, z]) => inside(x, z) > 6);
+  const adj: { to: number; len: number }[][] = getaway.nodes.map(() => []);
+  getaway.links.forEach(([a, b], k) => {
+    if (!getaway.paint![k] || !ok[a] || !ok[b]) return;
+    const len = Math.hypot(getaway.nodes[a][0] - getaway.nodes[b][0], getaway.nodes[a][1] - getaway.nodes[b][1]);
+    adj[a].push({ to: b, len });
+    adj[b].push({ to: a, len });
+  });
+  const key = (a: number, b: number) => (a < b ? a * N + b : b * N + a);
+  /** The cheapest way from a to b (Dijkstra), each street's cost its length times `cost`; the nodes after a up to b. */
+  const way = (a: number, b: number, cost: (a: number, b: number) => number): number[] | null => {
+    const dist = new Float64Array(N).fill(Infinity);
+    const from = new Int32Array(N).fill(-1);
+    const done = new Uint8Array(N);
+    dist[a] = 0;
+    for (;;) {
+      let u = -1;
+      for (let k = 0; k < N; k++) if (!done[k] && dist[k] < Infinity && (u < 0 || dist[k] < dist[u])) u = k;
+      if (u < 0) return null;
+      if (u === b) break;
+      done[u] = 1;
+      for (const e of adj[u]) {
+        const d = dist[u] + e.len * cost(u, e.to);
+        if (d < dist[e.to]) (dist[e.to] = d), (from[e.to] = u);
+      }
+    }
+    const out: number[] = [];
+    for (let k = b; k !== a; k = from[k]) out.unshift(k);
+    return out;
+  };
+  const lanes: NonNullable<TrackLayout['traffic']>['lanes'] = [];
+  const usable = getaway.nodes.flatMap((_, k) => (adj[k].length >= 2 ? [k] : []));
+  for (let tries = 0; lanes.length < CRUISE.loops && tries < 200; tries++) {
+    const a = usable[Math.floor(cruise.next() * usable.length)];
+    const far = cruise.range(CRUISE.reach[0], CRUISE.reach[1]);
+    const b = usable.find((k) => Math.abs(Math.hypot(getaway.nodes[k][0] - getaway.nodes[a][0], getaway.nodes[k][1] - getaway.nodes[a][1]) - far) < 40 && cruise.next() < 0.3);
+    if (b === undefined) continue;
+    const jitter = new Map<number, number>();
+    const j = (u: number, v: number) => {
+      const id = key(u, v);
+      if (!jitter.has(id)) jitter.set(id, cruise.range(0.7, 1.5));
+      return jitter.get(id)!;
+    };
+    const out = way(a, b, j);
+    if (!out) continue;
+    const taken = new Set<number>();
+    let prev = a;
+    for (const k of out) taken.add(key(prev, k)), (prev = k);
+    const back = way(b, a, (u, v) => j(u, v) * (taken.has(key(u, v)) ? CRUISE.other : 1));
+    if (!back) continue;
+    const loop = [a, ...out, ...back.slice(0, -1)];
+    // (No loop that's mostly the same streets out and back: it'd be a U-turn.)
+    const shared = back.filter((k, q) => taken.has(key(q ? back[q - 1] : b, k))).length;
+    if (shared > back.length / 3) continue;
+    const n = Math.round(cruise.range(CRUISE.cars[0], CRUISE.cars[1] + 0.99));
+    lanes.push({ pos: CRUISE.keep, dir: 1, speed: Math.round(cruise.range(CRUISE.speed[0], CRUISE.speed[1]) * 10) / 10, path: loop.map((k) => getaway.nodes[k]), count: n, kinds: ['sedan', 'sedan', 'compact', 'compact', 'van'] });
+  }
+  layout.traffic!.lanes.push(...lanes);
+  console.log(`  cruising the streets: ${lanes.length} loops, ${lanes.reduce((a, l) => a + (l.count ?? 0), 0)} cars`);
+}
+
 // ---- Along the pavements: street lamps at the kerb, street trees, shrubs by the doors ----
 // (Smashables: knocked flat, a little speed lost, never a wreck. Not within `clear` m of a crossing, so its corners stay open.)
 

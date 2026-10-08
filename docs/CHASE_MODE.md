@@ -269,6 +269,26 @@ themselves, so a sloppy line wrecks you. (Smashables in `smash.ts` never wreck; 
 
 ## Built so far
 
+### Cars cruising the streets (2026-10-08)
+
+The owner: "could we have a little bit of traffic on the inner city roads, not a lot, but just some
+cars cruising around please".
+
+- **Path lanes** (`TrafficLaneDef.path`, `count`; world/traffic.ts): a lane can loop a path through
+  open ground's streets instead of a road: [x, z] corners, driven in order, corners rounded (7 m),
+  resampled every 2 m, `pos` m right of the line (the right of the street), on the ground. Still a
+  formula of the seed and the race time, like all traffic, so nothing new goes over the network and
+  no two cars of a loop ever meet. Met where they are, as a back street's are (not by main
+  distance). Kept away from the Bank while the start grid's clear (a car rolling into you parked).
+  The skin tips them to the hill. Other maps' traffic is unchanged (fingerprints identical).
+- **The loops** (`tools/gen-heist.ts`, CRUISE): 9, each out from a crossing to one 300–650 m off
+  the shortest way (its streets' lengths jittered per loop, so they differ) and back by other
+  streets: proper streets only (no alleys, no main road), 2–4 cars each at 8.5–12 m/s (31–43 km/h):
+  30 cars, sedans, compacts and vans. At those speeds one can't wreck a stopped car (traffic
+  wrecks you over 21 m/s closing), but you hit one at speed, you're done.
+- **Not yet:** they don't stop at crossings or for each other (two loops' cars pass through each
+  other where they cross), and they don't react to you. That's the road graph's traffic, step 3.
+
 ### Open water, and Alcatraz (2026-10-08)
 
 The owner: "could we make the set beyond the piers water please, maybe we can add an alcatraz set
