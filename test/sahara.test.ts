@@ -1,6 +1,6 @@
 // Sahara (docs/SAHARA.md): the pyramids are ground you drive up, stone to drive on, and the Pyramid
-// Run goes over the Great Pyramid's top; the river, its ford and its bridge; Giza dressed, its
-// avenue's colonnade and market.
+// Run goes over the Great Pyramid's top, open either side; the river, its ford and its bridge; Giza
+// dressed, its avenue's market.
 
 import { describe, expect, test } from 'bun:test';
 import { bakeTrack } from '../src/core/track/bake';
@@ -113,17 +113,13 @@ describe('Giza dressed', () => {
       }
   });
 
-  test('the Sphinx avenue: a ruined colonnade down its middle, solid, between the obelisks, and a market either side', () => {
-    const cols = track.props.filter((p) => p.kind === 'ruin-column');
-    expect(cols.length).toBe(7);
-    // On the main road's middle, solid (the AI threads them), some whole and some broken.
-    for (const c of cols) expect([c.solid, c.spline, c.lateral]).toEqual([true, 0, 0]);
-    expect(cols.some((c) => c.hy * 2 < 7) && cols.some((c) => c.hy * 2 >= 7)).toBe(true);
-    // Between the obelisks along the road.
+  test('no road has walls: the Pyramid Run is open either side, as the main road is', () => {
+    for (const sp of track.splines) expect([sp.id, sp.wallL.some((w) => w > 0) || sp.wallR.some((w) => w > 0)]).toEqual([sp.id, false]);
+  });
+
+  test("the Sphinx avenue: a market either side, and its road clear", () => {
+    expect(track.props.filter((p) => p.solid && p.spline === 0)).toEqual([]);
     const hit = newHit();
-    const along = sahara.landmarks!.filter((m) => m.kind === 'obelisk').map((m) => (projectGlobal(track.main, m.at[0], m.at[1], hit), hit.s));
-    for (const c of cols) expect(c.s > Math.min(...along) && c.s < Math.max(...along)).toBe(true);
-    expect(sahara.takedownSpots!.map((t) => t.name)).toContain('The Colonnade');
     // The market: stalls and pots on both verges, off the road itself.
     const sm = new Smashables(track);
     for (const id of ['market-stall', 'clay-pots']) {

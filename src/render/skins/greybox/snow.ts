@@ -13,7 +13,6 @@ import { KIND_BEACH, KIND_BRANCH, KIND_LAVA_ROCK, KIND_PAVED, KIND_ROAD, KIND_SA
 import { TREE_PINE } from '../../../core/track/pines';
 import { hash01 } from '../../../core/rng';
 import { buildPortals, VERTEX } from './portal';
-import { buildColonnade } from './ruins';
 import { chunks } from '../../shader';
 import { toon } from './toon';
 
@@ -417,8 +416,6 @@ export function buildSnow(track: Track, green?: Color): Object3D[] {
   if (gates) out.push(gates);
   const tower = buildTower(track);
   if (tower) out.push(tower);
-  const ruins = buildColonnade(track);
-  if (ruins) out.push(ruins);
   out.push(...buildPines(track));
   return out;
 }

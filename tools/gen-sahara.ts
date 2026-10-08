@@ -304,6 +304,9 @@ layout.ramps = [kicker(150, 188, 1.6), kicker(80, 10, 1.8), { s: MESA_LIP, heigh
   }
   const run: BranchDef = { id: 'pyramid-run', kind: 'shortcut', from: RUN.from, to: RUN.to, points: points.slice(1, -1) };
   layout.branches = [run];
+  // No walls along it, as none along the main road: it's a way over open ground, and you come at
+  // the pyramid from any side (walled, its rails stood invisible 8 m either side of its middle).
+  layout.walls!.gaps!.push({ spline: run.id, s: [0, 1e4], side: 'both' });
 }
 // None of the pyramids is near the main road (the Great Pyramid's run is its own way over it).
 {
@@ -355,28 +358,20 @@ const GIZA = { sphinx: [340, 88] as [number, number], size: [13, 34, 12] as [num
 }
 
 /**
- * The Sphinx avenue's ruins and its market (docs/SAHARA.md, step 3). Down the avenue's middle, on
- * the straight between the obelisks, a ruined colonnade: `columns` columns `every` m apart from
- * `from` m along from where the Sphinx looks at the road, `r` m in radius, splitting it into two
- * lanes (solid props, which the AI threads; a takedown spot). Whole ones are `whole` m high; a
- * broken one `broken` (a range), each its own. Either side, past the shoulder, the market: stalls
- * every `stalls` m, `out` m out, and clay pots between them.
+ * The Sphinx avenue's market (docs/SAHARA.md, step 3): either side, past the shoulder, stalls every
+ * `stalls` m, `out` m out, from `market` m along from where the Sphinx looks at the road, and clay
+ * pots on the shoulder between them. (A ruined colonnade stood down its middle, solid, for a day:
+ * the owner, 2026-10-07, "looks a little crowded, maybe we remove the columns from the middle of the road".)
  */
-const AVENUE = { from: -45, every: 12.5, columns: 7, r: 0.9, whole: 8.5, broken: [2.6, 5.2] as [number, number], ruined: [1, 2, 4, 5], stalls: 14, out: 3.8, pots: 1.6, market: [-50, 46] as [number, number] };
+const AVENUE = { stalls: 14, out: 3.8, pots: 1.6, market: [-50, 46] as [number, number] };
 {
   const s0 = sAt(GIZA.sphinx[0], GIZA.sphinx[1]);
-  const rng = new Rng(0x6c0e);
-  layout.props = Array.from({ length: AVENUE.columns }, (_, k) => {
-    const high = AVENUE.ruined.includes(k) ? AVENUE.broken[0] + rng.next() * (AVENUE.broken[1] - AVENUE.broken[0]) : AVENUE.whole;
-    return { kind: 'ruin-column', s: r1(s0 + AVENUE.from + k * AVENUE.every), lateral: 0, size: [AVENUE.r * 2, r1(high), AVENUE.r * 2] as [number, number, number] };
-  });
-  layout.takedownSpots = [{ s: r1(s0), name: 'The Colonnade' }];
   const market: [number, number] = [r1(s0 + AVENUE.market[0]), r1(s0 + AVENUE.market[1])];
   layout.smashables = [
     { kind: 'market-stall', s: market, every: AVENUE.stalls, lateral: AVENUE.out },
     { kind: 'clay-pots', s: [r1(market[0] + AVENUE.stalls / 2), market[1]], every: AVENUE.stalls, lateral: AVENUE.pots },
   ];
-  console.log(`  the avenue: ${AVENUE.columns} columns (${AVENUE.ruined.length} broken) at ${layout.props[0].s}–${layout.props[layout.props.length - 1].s} m, a market either side`);
+  console.log(`  the avenue: a market either side, ${market.join('–')} m`);
 }
 
 /**
