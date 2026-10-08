@@ -4,7 +4,19 @@ Where racecar stands and what's next, for whoever picks it up (a person or a fre
 The design is [SPEC.md](./SPEC.md): decisions in §17, and what building changed in "Changed while
 building". This file is "where are we"; the spec is "what are we making".
 
-**Last updated:** 2026-10-08. **`alpha-1.42`** (PR #157) is tagged and on the hosted build:
+**Last updated:** 2026-10-08. **`alpha-1.43`** (PRs #158, #159) is tagged and on the hosted build
+(the owner: "merge both and deploy please"):
+- **Sahara's own track** (#158; the owner: "add this Arabian themed track as a Sahara only
+  exclusive"): `sahara` in soundtrack.ts's `MAP_TRACKS`, played on Sahara only, beside the eight for
+  any map (so about one Sahara race in nine). The WAV was already −15.8 LUFS; encoded as the others
+  (`afconvert -f m4af -d aac -b 128000`), and on the CDN (`tools/publish-assets.ts`, checked: 200
+  with CORS). If the owner wants it every Sahara race, its playlist would be `sahara` alone.
+- **Single player** (#159; "a single player button on the title screen which just opens a lobby in
+  private mode ... as prominent as create lobby"): beside Create lobby, the same size (stacked under
+  560px), straight into a Private (local) lobby with Create's starting options (menu.ts
+  `singlePlayer`). The row of white buttons under them 4px further down.
+
+Before it, **`alpha-1.42`** (PR #157) is tagged and on the hosted build:
 **back into your lobby after a long disconnect** (the owner: alone in a private lobby, away from the
 tab a while, back to a lobby with no host; then "yes let's merge and deploy please"):
 - **Cause:** gone past the server's 30 s grace (a frozen hidden tab, a laptop asleep), the SDK

@@ -4,6 +4,12 @@ What changed in each release of racecar, newest first. Releases are git tags on 
 reasons behind each change are in [docs/SPEC.md](./docs/SPEC.md) under "Changed while building",
 and where things stand is [docs/HANDOFF.md](./docs/HANDOFF.md).
 
+## alpha-1.43: Sahara's music, and Single player
+
+- **Sahara has its own music:** an Arabian track that plays only in Sahara races.
+- **Single player** on the title screen, as big as Create lobby: straight into a private lobby,
+  you and the bots, to change the map and settings and race.
+
 ## alpha-1.42: Back into your lobby
 
 - **Fixed: losing your lobby after time away.** Away from the tab long enough for the connection to
