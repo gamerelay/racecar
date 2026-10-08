@@ -7,13 +7,16 @@ import { bakeTrack } from '../src/core/track/bake';
 import { pyramidHeight } from '../src/core/track/features/pyramid';
 import { KIND_STONE, KIND_WATER, riverAt } from '../src/core/track/ground';
 import { newHit, projectGlobal, sampleAt, surfaceAt } from '../src/core/track/query';
-import type { PyramidDef, RiverDef } from '../src/core/content';
 import { SMASH_IDS, Smashables } from '../src/core/world/smash';
 import { TRAFFIC_KINDS, Traffic, newTrafficPose } from '../src/core/world/traffic';
 import { Sim } from '../src/core/sim';
+import { planWeather, weatherAt } from '../src/core/world/weather';
+import { paletteFor, type MapDef, type PyramidDef, type RiverDef } from '../src/core/content';
+import { readFileSync } from 'node:fs';
 import { Ev } from '../src/core/events';
 import { neutralControls } from '../src/core/controls';
 import { wrap } from '../src/core/track/bake';
+import { wrapAngle } from '../src/core/math';
 import { CLASSES, SURFACES, layout } from './helpers';
 
 describe('Sahara', () => {
@@ -188,30 +191,67 @@ describe("Sahara's life: the caravan and the dust devils", () => {
     expect(after).toBeGreaterThan(before * 0.7);
   });
 
-  test('a dust devil crosses the Dune Sea and shoves a car off its line, never wrecking it', () => {
+  test('a dust devil crosses the Dune Sea and throws a car: off its line, spun and hopped, never wrecked', () => {
     const run = (mayhem: 'normal' | 'off') => {
       const sim = new Sim(track, CLASSES, SURFACES, { seed: 7, traffic: 0, mayhem });
       const c = sim.addCar({ cls: 'coupe', human: true });
-      // The first devil, 3 s after it's up: the car 3 m from its middle, going along the road.
+      // The first devil, 3 s after it's up (over the road then): the car driven into it at 80 km/h
+      // from 25 m back, along the road (placed on its spot, open ground there would throw it up).
       const h = new Sim(track, CLASSES, SURFACES, { seed: 7, traffic: 0, mayhem: 'normal' }).world.hazards;
       const o = h.occurrences.find((o) => h.kindOf(o).id === 'dust-devil')!;
       h.update(o.t0 + 3, sim.events, 0);
       const p = Array.from({ length: h.pieces }, (_, p) => p).find((p) => h.pOcc[p] === o.id)!;
       const near = newHit();
       projectGlobal(track.main, h.px[p], h.pz[p], near);
-      sim.time = o.t0 + 3;
-      sim.placeCar(c, 0, near.s - 3, near.lateral, 80 / 3.6);
+      sim.time = o.t0 + 3 - 1.1;
+      sim.placeCar(c, 0, near.s - 25, near.lateral, 80 / 3.6);
       let wrecked = false;
+      let air = 0;
       let cursor = sim.events.head;
-      for (let n = 0; n < 30; n++) {
+      for (let n = 0; n < 120; n++) {
         sim.step([neutralControls()]);
+        if (n > 5 && !sim.cars.grounded[c]) air++;
         cursor = sim.events.read(cursor, (e) => void (e.type === Ev.Wreck && (wrecked = true)));
       }
-      return { x: sim.cars.x[c], z: sim.cars.z[c], wrecked };
+      return { x: sim.cars.x[c], z: sim.cars.z[c], h: sim.cars.h[c], air, wrecked };
     };
     const calm = run('off');
     const devil = run('normal');
     expect(devil.wrecked).toBe(false);
-    expect(Math.hypot(devil.x - calm.x, devil.z - calm.z)).toBeGreaterThan(0.3);
+    // Thrown: well off its line, spun round, and off the ground for a moment.
+    expect(Math.hypot(devil.x - calm.x, devil.z - calm.z)).toBeGreaterThan(1.5);
+    expect(Math.abs(wrapAngle(devil.h - calm.h))).toBeGreaterThan(0.15);
+    expect(calm.air).toBe(0);
+    expect(devil.air).toBeGreaterThan(10);
+  });
+});
+
+describe("Sahara's skies: sandstorms and sunsets", () => {
+  const map = JSON.parse(readFileSync(`${import.meta.dir}/../content/maps/sahara/map.json`, 'utf8')) as MapDef;
+  const state = () => ({ wetness: 0, grip: 1, wet: false, visibility: 1 });
+
+  test('a sandstorm blows in about one race in three, and blows over again', () => {
+    const plans = Array.from({ length: 600 }, (_, seed) => planWeather('random', seed + 1, map.weather));
+    const storms = plans.filter((p) => p.to > 0);
+    expect(storms.length / plans.length).toBeGreaterThan(0.25);
+    expect(storms.length / plans.length).toBeLessThan(0.45);
+    for (const p of storms) {
+      expect(p.sand).toBe(true);
+      expect(p.t0).toBeGreaterThan(30);
+      expect(weatherAt(p, p.t3! + 1, state()).wetness).toBe(0);
+    }
+  });
+
+  test('in a sandstorm nothing is wet, the air thickens and grip drops a touch', () => {
+    const at = weatherAt(planWeather('rain', 1, map.weather), 10, state());
+    expect(at.wetness).toBe(1);
+    expect(at.wet).toBe(false);
+    expect(at.grip).toBeCloseTo(0.94);
+    expect(at.visibility).toBeLessThan(0.4);
+  });
+
+  test('it has a sunset', () => {
+    expect(paletteFor(map, 'sunset', 1)).toBe('sahara-sunset');
+    expect(paletteFor(map, 'day', 1)).toBe('sahara');
   });
 });

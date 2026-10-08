@@ -17,6 +17,7 @@ import type { Sim } from '../core/sim';
 import { newHit, sampleAt } from '../core/track/query';
 import { panelLook } from '../core/world/breakables';
 import { TRAFFIC_KINDS } from '../core/world/traffic';
+import { Piece } from '../core/world/hazards';
 import { doppler, engineHz, engineSound, gearbox, musicMix, spatial, type Gear, type Spatial } from './model';
 import { Music, type Intensity } from './music';
 import type { Soundtrack } from './soundtrack';
@@ -48,6 +49,8 @@ const MASTER_LEVEL = 0.8;
 /** Snow under the wheels and the avalanche's rumble: the owner heard them first in a race (2026-10-02) and asked for both a little down (from 1, about 4.5 dB). */
 const SNOW_LEVEL = 0.6;
 const RUMBLE_LEVEL = 0.6;
+/** What splashes as the focus car drives into it. */
+const WATER = new Set(['river', 'ford', 'puddle']);
 /** The room's echo lasts this long (s). */
 const ROOM_S = 1.6;
 /** Indoors (an enclosed piece: docs/CALDERA.md step 3), the engines and effects ring this much in the room's echo. */
@@ -105,6 +108,8 @@ interface Graph {
   crunch: NoiseVoice;
   hiss: NoiseVoice;
   wind: NoiseVoice;
+  /** A gale: a sandstorm's, and a dust devil's roar as it closes on you (louder, higher, inside it). */
+  gale: NoiseVoice;
   roar: NoiseVoice;
   /** The avalanche, a low rumble that grows as it closes on you. */
   rumble: NoiseVoice;
@@ -129,6 +134,8 @@ export class GameAudio {
   private readonly where: Spatial = { pan: 0, gain: 1 };
   private readonly fwd = new Vector3();
   private rpm = 0;
+  /** The focus car was in water last frame (the splash is going in). */
+  private wading = false;
   private beeped = 0;
   /** Each drawbridge's middle (x, z) on `bellsOf`'s track, for its bells; and the last ring heard, per bridge. */
   private bells: { x: number; z: number }[] = [];
@@ -258,6 +265,7 @@ export class GameAudio {
       crunch: new NoiseVoice(ctx, sfx, 'bandpass', 2100, 1.4),
       hiss: new NoiseVoice(ctx, sfx, 'bandpass', 5200, 0.6),
       wind: new NoiseVoice(ctx, sfx, 'lowpass', 500, 0.5),
+      gale: new NoiseVoice(ctx, sfx, 'bandpass', 700, 0.7),
       roar: new NoiseVoice(ctx, sfx, 'bandpass', 220, 1.2),
       rumble: new NoiseVoice(ctx, sfx, 'lowpass', 110, 0.8),
       horn,
@@ -443,6 +451,27 @@ export class GameAudio {
     g.hiss.out.set((surf.offroad ? inSnow * 0.55 : inSnow * 0.12) * SNOW_LEVEL, 0, now, 0.1);
     glide(g.wind.filter.frequency, 350 + speed * 22, now);
     g.wind.out.set(clamp((speed - 8) / 60, 0, 1) ** 2 * 0.3, 0, now, 0.2);
+    // The gale: a sandstorm's steady howl, gusting; the nearest dust devil's whirl over it, rising
+    // as it closes in (from 40 m) and loudest with you inside it.
+    const storm = sim.fall === 'sand' ? sim.wetness * (0.75 + 0.25 * Math.sin(now * 0.9)) : 0;
+    let devil = 0;
+    const hz = sim.world?.hazards;
+    for (let p = 0; hz && p < hz.pieces; p++) {
+      if (hz.pType[p] !== Piece.Devil) continue;
+      devil = Math.max(devil, clamp(1 - (Math.hypot(c.x[i] - hz.px[p], c.z[i] - hz.pz[p]) - hz.phw[p]) / 40, 0, 1) ** 2 * hz.pTilt[p]);
+    }
+    glide(g.gale.filter.frequency, (520 + 380 * storm + 900 * devil) * slow, now);
+    g.gale.out.set(f.menu ? 0 : Math.max(storm * 0.22, devil * 0.4), 0, now, 0.15);
+    // Into water: a splash, the bigger the faster.
+    const inWater = WATER.has(surf.id) && onRoad;
+    if (inWater && !this.wading && speed > 4 && !f.menu) {
+      const big = clamp(speed / 30, 0.3, 1) * (surf.id === 'puddle' ? 0.4 : 1);
+      this.play(0.5 * big, 0, (s) => {
+        noiseShot(s, 'bandpass', 2600, 500, 0.004, 0.45, 0.8);
+        noiseShot(s, 'lowpass', 900, 200, 0.002, 0.25, 0.7);
+      });
+    }
+    this.wading = inWater;
     g.roar.out.set(boosting && !wrecked ? 0.32 : 0, 0, now, 0.08);
     // The avalanche: from 500 m behind you, louder as it closes (and on top of you, loudest).
     const run = sim.track.run;

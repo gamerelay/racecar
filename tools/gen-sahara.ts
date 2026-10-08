@@ -445,5 +445,5 @@ baked = bakeTrack(layout, surfaces);
 
 mkdirSync(DIR, { recursive: true });
 writeFileSync(`${DIR}/dunes.track.json`, `${JSON.stringify(layout)}\n`);
-writeFileSync(`${DIR}/map.json`, `${JSON.stringify({ id: 'sahara', name: 'Sahara', layouts: ['dunes'], palette: 'sahara', weather: ['clear'] })}\n`);
+writeFileSync(`${DIR}/map.json`, `${JSON.stringify({ id: 'sahara', name: 'Sahara', layouts: ['dunes'], palette: 'sahara', sunset: 'sahara-sunset', weather: ['clear', 'sand'] })}\n`);
 console.log(`sahara/dunes: ${Math.round(baked.main.length)} m, ground ${baked.ground!.nx}×${baked.ground!.nz}; the Pyramid Run ${Math.round(baked.splines[1].length)} m (${RUN.from}–${RUN.to} m round)`);

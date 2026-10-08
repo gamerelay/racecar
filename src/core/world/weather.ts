@@ -3,11 +3,16 @@
 // thickens the fog; the skin draws the rain. A map whose weather lists `shower` (Paradise) gets
 // tropical showers for random weather: rain that rolls in partway through and passes again. A map
 // whose weather lists `snow` (Avalanche) gets snowfall wherever another map gets rain: a little less
-// grip, no puddles, the fog closing in, and the skin draws flakes.
+// grip, no puddles, the fog closing in, and the skin draws flakes. A map whose weather lists `sand`
+// (Sahara) gets sandstorms: one rolls in partway through and blows over again, like a shower; a
+// touch less grip, nothing wet, the air thick with dust, and the skin draws sand on the wind.
 
 import { Rng } from '../rng';
 
 export type WeatherOption = 'clear' | 'rain' | 'random';
+
+/** What falls (or blows) when the weather turns. */
+export type Fall = 'rain' | 'snow' | 'sand';
 
 export interface WeatherPlan {
   /** Wetness 0 (dry) … 1 (pouring), ramping from `from` to `to` over [t0, t1]. */
@@ -20,6 +25,8 @@ export interface WeatherPlan {
   t3?: number;
   /** It snows rather than rains (the map lists `snow`). */
   snow?: boolean;
+  /** A sandstorm rather than rain (the map lists `sand`). */
+  sand?: boolean;
 }
 
 export interface WeatherState {
@@ -34,19 +41,21 @@ export interface WeatherState {
 /** Picks the race's weather. `allowed` is the map's list (a desert never rains). */
 export function planWeather(option: WeatherOption, seed: number, allowed: string[] = ['clear', 'rain']): WeatherPlan {
   const plan = planFall(option, seed, allowed);
-  return allowed.includes('snow') ? { ...plan, snow: true } : plan;
+  if (allowed.includes('snow')) return { ...plan, snow: true };
+  return allowed.includes('sand') ? { ...plan, sand: true } : plan;
 }
 
 /** Rain's timeline, or snow's (the same, under another sky). */
 function planFall(option: WeatherOption, seed: number, allowed: string[]): WeatherPlan {
-  const canRain = allowed.includes('rain') || allowed.includes('snow');
+  const canRain = allowed.includes('rain') || allowed.includes('snow') || allowed.includes('sand');
   if (option === 'clear' || !canRain) return { from: 0, to: 0, t0: 0, t1: 0 };
   if (option === 'rain') return { from: 1, to: 1, t0: 0, t1: 0 };
   const r = Rng.stream(seed, 'weather');
   const roll = r.next();
-  // (`rare`: mostly blue skies, Coastal's, a shower one race in about seven.)
-  if (roll < (allowed.includes('rare') ? 0.85 : 0.4)) return { from: 0, to: 0, t0: 0, t1: 0 };
-  if (allowed.includes('shower')) {
+  // (`rare`: mostly blue skies, Coastal's, a shower one race in about seven. A sandstorm about one
+  // race in three.)
+  if (roll < (allowed.includes('rare') ? 0.85 : allowed.includes('sand') ? 0.65 : 0.4)) return { from: 0, to: 0, t0: 0, t1: 0 };
+  if (allowed.includes('shower') || allowed.includes('sand')) {
     // A shower: in over 15 s somewhere in the first two laps, 35–60 s of it, out over 20 s.
     const t0 = r.range(40, 120);
     const t2 = t0 + 15 + r.range(35, 60);
@@ -64,8 +73,8 @@ export function weatherAt(plan: WeatherPlan, t: number, out: WeatherState): Weat
   if (plan.t2 !== undefined && plan.t3 !== undefined) u -= ramp(plan.t2, plan.t3);
   const w = plan.from + (plan.to - plan.from) * u;
   out.wetness = w;
-  out.grip = 1 - (plan.snow ? 0.1 : 0.2) * w;
-  out.wet = !plan.snow && w > 0.5;
-  out.visibility = 1 - (plan.snow ? 0.55 : 0.4) * w;
+  out.grip = 1 - (plan.sand ? 0.06 : plan.snow ? 0.1 : 0.2) * w;
+  out.wet = !plan.snow && !plan.sand && w > 0.5;
+  out.visibility = 1 - (plan.sand ? 0.7 : plan.snow ? 0.55 : 0.4) * w;
   return out;
 }

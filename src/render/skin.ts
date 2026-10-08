@@ -5,6 +5,7 @@
 import type { Object3D, Scene, Vector3 } from 'three';
 import type { CarClass, PaintDef } from '../core/content';
 import type { Sim } from '../core/sim';
+import type { Fall } from '../core/world/weather';
 import type { Track } from '../core/track/bake';
 
 export interface CarVisual {
@@ -71,8 +72,8 @@ export interface Skin {
   car(cls: CarClass, paint: PaintDef, plate?: CarPlate): CarVisual;
   /** `track` is this track's visual, for what it covers (rain stops under a roof). */
   world(scene: Scene, sim: Sim, track?: TrackVisual): WorldVisual;
-  /** Per frame, for animated skies and the like; `snow`: what's falling (wetness of it) is snow; `indoor`: how far inside an enclosed piece the camera is, for the light and fog. */
-  update?(time: number, cameraX: number, cameraY: number, cameraZ: number, wetness: number, snow?: boolean, indoor?: Indoor): void;
+  /** Per frame, for animated skies and the like; `fall`: what's falling (wetness of it): rain, snow, or a sandstorm's sand; `indoor`: how far inside an enclosed piece the camera is, for the light and fog. */
+  update?(time: number, cameraX: number, cameraY: number, cameraZ: number, wetness: number, fall?: Fall, indoor?: Indoor): void;
 }
 
 /** How indoors the camera is (docs/CALDERA.md, step 3): 0 under the sky to 1 inside, eased, and the enclosed piece's look (PieceDef.indoor). */

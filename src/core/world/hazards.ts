@@ -457,7 +457,11 @@ const dustDevil: HazardKind = {
 };
 
 /** How hard a dust devil shoves (m/s² at its middle, at full strength): a def's `push`, or this. */
-export const DEVIL_PUSH = 16;
+export const DEVIL_PUSH = 26;
+/** How far it turns you with it (radians per m/s of shove): a spin you have to catch. */
+export const DEVIL_SPIN = 0.04;
+/** How fast it lifts you near its eye (m/s up, at full strength there): a hop out the side. */
+export const DEVIL_LIFT = 5;
 
 /** Every hazard kind a layout can `use`, by id. */
 export const KINDS: Record<string, HazardKind> = {

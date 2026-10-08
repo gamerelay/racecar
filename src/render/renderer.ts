@@ -20,6 +20,10 @@ import { SMASH_IDS } from '../core/world/smash';
 import { panelLook } from '../core/world/breakables';
 import { TRAFFIC_KINDS } from '../core/world/traffic';
 import { Skids } from './skids';
+import { Ripples } from './ripples';
+import { riverAt } from '../core/track/ground';
+import { Piece } from '../core/world/hazards';
+import type { RiverDef } from '../core/content';
 
 const STAGE_COLORS = [0xffffff, 0x35a8ff, 0xff8a1a, 0xff2e88];
 /** How many particles to emit this frame for `rate` a second: whole ones, and the fraction by chance (so it holds at any frame rate). */
@@ -99,6 +103,12 @@ const DUST: Record<string, Dust> = {
   snow: { rate: 0.45, puff: 0, colors: [0xffffff, 0xe6eef7], kick: 0.16, spread: 3, y: 0.2, up: [1.6, 2], life: [0.5, 0.4], gravity: 9, drag: 1.6, sliding: true },
 };
 
+/** What a car wades through: its splash, its ripples. */
+const WATER = new Set(['river', 'ford', 'puddle']);
+const SPLASH = [0xffffff, 0xd8f0f6, 0xa8d8e6];
+/** A dust devil's sand round a car caught in it. */
+const DEVIL_SAND = [0xc89660, 0xa87a48, 0xe0b47a];
+
 export class GameRenderer {
   readonly renderer: WebGLRenderer;
   readonly scene = new Scene();
@@ -117,6 +127,14 @@ export class GameRenderer {
   private readonly spin: number[] = [];
   /** Each car's surface last frame (a puff of dust as it runs off the road). */
   private readonly lastSurface: number[] = [];
+  /** Each car on the ground last frame (a splash as it lands in water), and its next ripple (s). */
+  private readonly lastGrounded: number[] = [];
+  private readonly rippleT: number[] = [];
+  /** Rings spreading on the water where cars wade and splash down. */
+  private readonly ripples = new Ripples();
+  /** The water's surface over the track's rivers, by track (the editor's rebuilt one gets its own). */
+  private rivers: { track: Track; at: ((x: number, z: number, out: { level: number }) => number)[] } | null = null;
+  private readonly riverOut = { level: 0 };
   private trackVisual: TrackVisual;
   private worldVisual: WorldVisual;
   private cursor = 0;
@@ -181,6 +199,7 @@ export class GameRenderer {
     this.scene.add(this.trackVisual.debug);
     this.scene.add(this.fx.points);
     this.scene.add(this.skids.mesh);
+    this.scene.add(this.ripples.mesh);
     this.worldVisual = skin.world(this.scene, sim, this.trackVisual);
     this.showroom = new Showroom(skin);
     this.scene.add(this.showroom.root);
@@ -204,6 +223,7 @@ export class GameRenderer {
     // Marks lie on the old road.
     this.skids.clear();
     this.snowTracks?.clear();
+    this.ripples.clear();
     // Gantries and the like are placed from the track, so the world visual is rebuilt too.
     this.worldVisual.dispose();
     this.worldVisual = this.skin.world(this.scene, this.sim, this.trackVisual);
@@ -345,6 +365,7 @@ export class GameRenderer {
       }
     }
     this.fx.update(sdt);
+    this.ripples.update(sdt);
     const haze = this.scene.fog as Fog | null;
     this.skids.update(sdt, haze?.near, haze?.far);
     this.snowTracks?.update(sdt, haze?.near, haze?.far);
@@ -365,7 +386,7 @@ export class GameRenderer {
     this.live.leader = this.opts.plates?.[positions(this.sim, this.order)[0]]?.text ?? null;
     this.live.wetness = this.sim.wetness;
     this.trackVisual.update?.(this.worldTime, sdt, this.camera.position, this.live);
-    this.skin.update?.(this.worldTime, this.camera.position.x, this.camera.position.y, this.camera.position.z, this.sim.wetness, this.sim.snowing, this.indoor);
+    this.skin.update?.(this.worldTime, this.camera.position.x, this.camera.position.y, this.camera.position.z, this.sim.wetness, this.sim.fall, this.indoor);
 
     const stage = this.showroom.visible ? this.showroom : null;
     if (stage) {
@@ -388,8 +409,8 @@ export class GameRenderer {
       u.uFogFar.value = fog.far;
       u.uSky.value.copy(fog.color);
     }
-    // Snowfall doesn't wet the road (no sheen on the snow).
-    u.uWet.value = this.sim.snowing ? 0 : this.sim.wetness;
+    // Snowfall doesn't wet the road (no sheen on the snow), nor does a sandstorm.
+    u.uWet.value = this.sim.fall === 'rain' ? this.sim.wetness : 0;
     u.uWater.value = this.trackVisual.water ? 1 : 0;
     this.camera.updateMatrixWorld();
     u.uProj.value.copy(this.camera.projectionMatrix);
@@ -546,6 +567,10 @@ export class GameRenderer {
     const surf = this.sim.surfaces[c.surface[i]];
     const was = this.lastSurface[i];
     this.lastSurface[i] = c.surface[i];
+    const landed = c.grounded[i] === 1 && this.lastGrounded[i] === 0;
+    this.lastGrounded[i] = c.grounded[i];
+    if (surf && WATER.has(surf.id) && c.grounded[i]) this.waterFx(i, x, y, z, fx, fz, speed, back, cls.size[0], landed || (was !== undefined && !WATER.has(this.sim.surfaces[was]?.id ?? '')), dt);
+    this.devilFx(i, x, y, z, dt);
     const d = surf && (DUST[surf.id] ?? (surf.offroad ? DUST.dirt : undefined));
     const sliding = c.drift[i] === 1 || Math.abs(c.slip[i]) > 0.15;
     if (d && (!d.sliding || sliding) && c.grounded[i] && speed > 6) {
@@ -583,6 +608,86 @@ export class GameRenderer {
         for (let n = emits(60, dt); n > 0; n--)
           this.fx.emit(x - fx * (back + 0.5) + rx * s, y + 0.55, z - fz * (back + 0.5) + rz * s, -fx * speed * 0.3 + (Math.random() - 0.5), Math.random(), -fz * speed * 0.3 + (Math.random() - 0.5), 0.15 + Math.random() * 0.1, color, 0, 0);
       }
+    }
+  }
+
+  /** The water's surface (m) under (x, z): a river's level, else a little over the car's wheels (a ford's, a puddle's). */
+  private waterLevel(x: number, z: number, y: number, surface: string): number {
+    if (surface === 'puddle') return y + 0.03;
+    const track = this.sim.track;
+    if (this.rivers?.track !== track) {
+      const defs = (track.layout.ground?.features ?? []).filter((f): f is RiverDef => f.kind === 'river');
+      this.rivers = { track, at: defs.map((f) => riverAt(f, 40)) };
+    }
+    for (const at of this.rivers.at) if (at(x, z, this.riverOut) < Infinity) return Math.max(y + 0.05, this.riverOut.level);
+    return y + 0.35;
+  }
+
+  /**
+   * Water (a river, a ford, a puddle): a splash as the car goes in or lands in it, rings spreading
+   * on the surface as it wades (a wake behind it at speed), and a bow wave off its nose.
+   */
+  private waterFx(i: number, x: number, y: number, z: number, fx: number, fz: number, speed: number, back: number, half: number, entered: boolean, dt: number): void {
+    const c = this.sim.cars;
+    const surface = this.sim.surfaces[c.surface[i]].id;
+    const wl = this.waterLevel(x, z, y, surface);
+    const puddle = surface === 'puddle';
+    const scale = puddle ? 0.4 : 1;
+    if (entered && speed > 4) {
+      // Out in a ring and up, the faster the bigger; a ring on the water with it.
+      const n = Math.round(Math.min(70, 16 + speed * 1.4) * scale);
+      for (let e = 0; e < n; e++) {
+        const a = Math.random() * Math.PI * 2;
+        const out = 2 + Math.random() * (2 + speed * 0.12);
+        const color = SPLASH[Math.floor(Math.random() * SPLASH.length)];
+        this.fx.emit(x + Math.cos(a) * 1.2, wl, z + Math.sin(a) * 1.2, Math.cos(a) * out + c.vx[i] * 0.35, (3 + Math.random() * 4) * (0.6 + 0.4 * scale), Math.sin(a) * out + c.vz[i] * 0.35, 0.6 + Math.random() * 0.4, color, 18, 0.8);
+      }
+      this.ripples.add(x, wl + 0.02, z, 1.2, 5 + speed * 0.12 * scale, 1.5, 0.55 * scale);
+      if (i === this.focus) this.shake = Math.max(this.shake, 0.18 * scale);
+    }
+    // Rings: often, at speed (a wake trailing behind), slowly while it sits in the water.
+    this.rippleT[i] = (this.rippleT[i] ?? 0) - dt;
+    if (this.rippleT[i] <= 0) {
+      this.rippleT[i] = puddle ? 0.2 : 0.09 + 0.45 * (1 - Math.min(1, speed / 20));
+      this.ripples.add(x - fx * back * 0.5, wl + 0.02, z - fz * back * 0.5, 1.4, 3 + Math.min(4, speed * 0.12), puddle ? 0.6 : 1.2, (puddle ? 0.14 : 0.3) * (0.5 + 0.5 * Math.min(1, speed / 15)));
+    }
+    // The bow wave: a sheet of spray off each front corner, out to the sides.
+    if (speed > 8 && !puddle) {
+      const front = back + 0.9;
+      for (let s = -1; s <= 1; s += 2) {
+        for (let n = emits(speed * 0.9, dt); n > 0; n--) {
+          const out = 1.5 + speed * 0.1 + Math.random() * 1.5;
+          this.fx.emit(x + fx * front * 0.6 - fz * s * half, wl, z + fz * front * 0.6 + fx * s * half, -fz * s * out + fx * speed * 0.4, 1.4 + Math.random() * 1.6, fx * s * out + fz * speed * 0.4, 0.35 + Math.random() * 0.2, SPLASH[n % SPLASH.length], 18, 1);
+        }
+      }
+    }
+  }
+
+  /** Caught in a dust devil: sand churning round the car, and for the car watched, a shake. */
+  private devilFx(i: number, x: number, y: number, z: number, dt: number): void {
+    const hz = this.sim.world?.hazards;
+    if (!hz) return;
+    for (let p = 0; p < hz.pieces; p++) {
+      if (hz.pType[p] !== Piece.Devil || !hz.pSolid[p]) continue;
+      const dx = x - hz.px[p];
+      const dz = z - hz.pz[p];
+      const r = hz.phw[p];
+      const d = Math.hypot(dx, dz);
+      if (d >= r * 1.3) continue;
+      const k = (1 - d / (r * 1.3)) * hz.pTilt[p];
+      for (let n = emits(90 * k, dt); n > 0; n--) {
+        // Round the devil's middle with its wind, and up.
+        const a = Math.random() * Math.PI * 2;
+        const rr = 0.8 + Math.random() * 2;
+        const px = x + Math.cos(a) * rr;
+        const pz = z + Math.sin(a) * rr;
+        const ox = px - hz.px[p];
+        const oz = pz - hz.pz[p];
+        const od = Math.hypot(ox, oz) || 1;
+        const sp = 6 + Math.random() * 6;
+        this.fx.emit(px, y + 0.3 + Math.random() * 1.2, pz, (-oz / od) * sp, 2 + Math.random() * 5, (ox / od) * sp, 0.6 + Math.random() * 0.5, DEVIL_SAND[n % DEVIL_SAND.length], 6, 1.2);
+      }
+      if (i === this.focus) this.shake = Math.max(this.shake, 0.3 * k);
     }
   }
 

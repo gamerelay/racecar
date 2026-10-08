@@ -6,6 +6,7 @@ import type { Grade } from '../../skin';
 // Sunset is its evening: a low whole sun over the sea, a pink-to-orange sky and violet shadows.
 // Riviera is the Côte d'Azur's (docs/COASTAL.md, "The look and the sound"): a dry, bright summer
 // day, olive and sage on the hills, warm stone, and a deep blue sea, clear only by the shore.
+// Sahara's is a hazy desert noon, and sahara-sunset its evening.
 
 export interface Palette {
   top: number;
@@ -203,6 +204,31 @@ export const PALETTES: Record<string, Palette> = {
     overcast: 0.3,
     surfaces: { sand: '#e6c48c', 'packed-sand': '#c8a06a', asphalt: '#55504e', sandstone: '#ddd0ae' },
     grade: { saturation: 1.15, contrast: 1.1, shadow: 0x8a7cc8, vignette: 0.22 },
+  },
+  // Sahara's evening: the sun low and huge over the dunes, the sky burnt orange into violet, the
+  // light long and copper, and the shade deep purple so every dune's face stands out.
+  'sahara-sunset': {
+    top: 0x2a2a78,
+    mid: 0xc8546e,
+    horizon: 0xff9a3c,
+    sun: 0xffd890,
+    fog: 0xe89462,
+    fogNear: 300,
+    fogFar: 2100,
+    hemiSky: 0xffb890,
+    hemiGround: 0x5a3456,
+    hemiIntensity: 1.15,
+    dir: 0xff9c5a,
+    dirIntensity: 2.7,
+    blocks: [0xd9a07e, 0xc98a62, 0xe6b896, 0xb87a58],
+    ground: 0xd8a070,
+    ink: 0x2e1424,
+    windows: 0.6,
+    sunset: true,
+    sunFrom: [300, 160, -800],
+    overcast: 0.3,
+    surfaces: { sand: '#e6bc8c', 'packed-sand': '#c8986a', asphalt: '#524650', sandstone: '#ddc4ae' },
+    grade: { saturation: 1.2, contrast: 1.1, shadow: 0x7a4cb8, vignette: 0.3 },
   },
   sunset: {
     top: 0x23307e,

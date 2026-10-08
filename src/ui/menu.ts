@@ -496,10 +496,11 @@ export class Menu {
     return chooser(id, opts, value, disabled);
   }
 
-  /** The weather choices: on a map where it snows (map.json lists `snow`), rain's is snow's. */
+  /** The weather choices: on a map where it snows (map.json lists `snow`), rain's is snow's; where sandstorms blow (`sand`), a sandstorm's. */
   private weathers(key: string): [string, string][] {
-    const snow = this.content.maps.find((m) => key.startsWith(m.id + '/'))?.weather.includes('snow');
-    return snow ? WEATHERS.map(([v, l]) => [v, v === 'rain' ? 'Snow' : l]) : WEATHERS;
+    const weather = this.content.maps.find((m) => key.startsWith(m.id + '/'))?.weather;
+    const fall = weather?.includes('snow') ? 'Snow' : weather?.includes('sand') ? 'Sandstorm' : null;
+    return fall ? WEATHERS.map(([v, l]) => [v, v === 'rain' ? fall : l]) : WEATHERS;
   }
 
   /** A race's length in words: "3 laps", or "one run" on a map that's one run down (layout.run). */
