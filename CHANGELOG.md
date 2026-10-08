@@ -4,6 +4,16 @@ What changed in each release of racecar, newest first. Releases are git tags on 
 reasons behind each change are in [docs/SPEC.md](./docs/SPEC.md) under "Changed while building",
 and where things stand is [docs/HANDOFF.md](./docs/HANDOFF.md).
 
+## alpha-1.41: Sandstorms and sunsets
+
+- **Sandstorms on Sahara:** about one race in three a sandstorm blows in and over again. The air
+  turns ochre and closes in, sand streaks past on the wind, and grip drops a little. Pick it
+  every race with Weather: Sandstorm.
+- **Sahara at sunset:** a low sun over the dunes, a burnt-orange sky. Pick it with Time: Sunset.
+- **Dust devils throw you now:** a harder shove, more spin, and a hop near the middle, with sand
+  swirling up the funnel and round your car. Still never a wreck.
+- **Splashes:** driving into water throws up spray and ripples, and wading leaves a wake.
+
 ## alpha-1.40: Camels and dust devils
 
 - **A camel caravan** walks toward you down the edge of Sahara's opening straight. Clip one and it

@@ -4,7 +4,29 @@ Where racecar stands and what's next, for whoever picks it up (a person or a fre
 The design is [SPEC.md](./SPEC.md): decisions in §17, and what building changed in "Changed while
 building". This file is "where are we"; the spec is "what are we making".
 
-**Last updated:** 2026-10-07. **`alpha-1.40`** (PR #155) is tagged and on the hosted build:
+**Last updated:** 2026-10-07. **`alpha-1.41`** (PR #156) is tagged and on the hosted build:
+**Sahara's skies: a sandstorm and a sunset; dust devils that throw you; splashes in water** (the
+owner: "could we next add a sandstorm and a sunset, also I think the dust devils need to throw /
+spin you a little more ... also when splashing in water it would be cool to have some subtle
+effects too"; then "merge it and deploy a new version"). SAHARA.md's "Step 5, the skies":
+- **Sandstorm:** weather `sand` (weather.ts: `WeatherPlan.sand`, a shower's timeline, about one race
+  in three on Random; grip -6%, never wet). `sim.fall` (`rain | snow | sand`) is what the skin's
+  `update` takes now, in place of a snow flag. greybox/index.ts closes the fog to ochre and turns
+  the sky to the dust; greybox/world.ts streaks sand on the wind with dust clouds; audio.ts's
+  `gale` voice howls. The lobby's Weather says Sandstorm on Sahara.
+- **Sunset:** palette `sahara-sunset` (palettes.ts), map.json's `sunset`.
+- **Dust devils:** `DEVIL_PUSH` 26 (was 16), `DEVIL_SPIN`, `DEVIL_LIFT` (a hop near the eye); a
+  swirl of sand up each funnel (world.ts), sand round a car caught in one and a shake (renderer.ts
+  `devilFx`), a roar as one closes (audio.ts `gale`).
+- **Splashes:** renderer.ts `waterFx` (river, ford, puddle): a splash and ripple going in or landing,
+  rings and a wake wading, a bow wave; render/ripples.ts draws the rings; a splash in audio.ts.
+  Not yet seen on screen (the poster stage draws no car particles): look at the ford in a race.
+- **Watch:** fields wreck a little more (11 in 12 races, was 8): the three new on the devils'
+  stretches (802 m, resets at 992 and 3638 m). If that's too many, `DEVIL_SPIN` down a notch.
+- **Next on Sahara:** reeds; the berms tuned by driving them (358–368 m and 2124 m wrecks); a
+  track of its own.
+
+Before it, **`alpha-1.40`** (PR #155) is tagged and on the hosted build:
 **Sahara's life: a camel caravan and dust devils** (the owner: "let's do the camel caravan and dust
 devils next"; then "merge it and deploy a new version"). SAHARA.md's "Step 5, life":
 - **The caravan:** traffic kind `camel` (`animal`: hit, it scatters and the car keeps 80% of its
@@ -20,9 +42,6 @@ devils next"; then "merge it and deploy a new version"). SAHARA.md's "Step 5, li
   slower cars side by side into the left onto the Dune Sea (358–368 m); a caravan each way the
   whole road was a dozen in eight, so it's one. The 2124 m wreck (plateau corner by a diamond)
   predates it: one for the berms.
-- **Next on Sahara:** reeds; the berms tuned by driving them; a sandstorm weather and a sunset
-  palette; a track of its own.
-
 Before it, **`alpha-1.39`** (PR #154) is tagged and on the hosted build:
 **Sahara's Giza, finished, and the Pyramid Run opened** (the owner: "Next on Sahara, per the plan:
 capstones, a ruined colonnade and market stalls at Giza ..."; then "let's merge these please, deploy
