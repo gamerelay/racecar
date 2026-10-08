@@ -455,6 +455,8 @@ const PIER_S: P = [sAt(-470, -460), sAt(598, 300)];
 /** Alcatraz, out in the bay off Bay Street; the Golden Gate Bridge west of it, from the land past Van Ness north to Marin (landmarks: the skin's). */
 const ALCATRAZ: P = [200, -980];
 const GOLDEN_GATE: P = [-900, -930];
+/** The Bay Bridge: from just off the Embarcadero past the south piers, out east (its local -z) to Yerba Buena Island. */
+const BAY_BRIDGE: P = [700, 330];
 /**
  * The Ferry Building: on its own land out past the Embarcadero where Market meets it (no sea wall
  * `land` m either side of it), `long` m along the road, `deep` m deep, `out` m past the road's
@@ -681,6 +683,7 @@ layout.houses = houses;
 layout.landmarks = [
   { kind: 'alcatraz', at: ALCATRAZ, rot: 0.35, r: 0 },
   { kind: 'golden-gate', at: GOLDEN_GATE, rot: 0.2, r: 0 },
+  { kind: 'bay-bridge', at: BAY_BRIDGE, rot: -1.45, r: 0 },
 ];
 layout.traffic = {
   lanes: [

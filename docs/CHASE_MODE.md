@@ -288,6 +288,11 @@ piece in the background".
   apart, stepped, portal struts across them; the deck 44 m up on its truss; the main cables hanging
   from the tops to the anchorages, a suspender every 10 m; red lights on the towers at night. The
   dusk haze takes the far tower, as the fog would. Best seen from Bay Street and the piers.
+- **The Bay Bridge** (the owner: "can we add the bay bridge too please"; a landmark, `bay-bridge`,
+  scenery only): its west span, out east from just past the south piers toward Yerba Buena Island
+  (a wooded hill). Two grey suspension bridges end to end, 98 m towers with bracing, the great
+  concrete anchorage in the middle of the bay between them, a double deck on its truss, and after dark
+  the Bay Lights strung along the cables. Seen down the Embarcadero and from the south piers.
 
 ### Street life (2026-10-08)
 

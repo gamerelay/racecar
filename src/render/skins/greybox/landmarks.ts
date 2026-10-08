@@ -1487,6 +1487,87 @@ function goldenGate(c: Ctx): Built {
   return { root };
 }
 
+/**
+ * The Bay Bridge's west span (the getaway's city, the owner: "can we add the bay bridge too
+ * please"): scenery only, out east from the Embarcadero past the south piers toward Yerba Buena
+ * Island, along its local -z. Two suspension bridges end to end, grey steel: from the anchorage by
+ * the shore up over a tower, the main span, another tower, down to the great concrete anchorage in
+ * the middle of the bay; then again to the island, a wooded hill. A double deck on its truss end to
+ * end, on piers between. After dark, the Bay Lights: white lights strung along the cables.
+ */
+function bayBridge(c: Ctx): Built {
+  const root = new Group();
+  const sea = c.sea ?? 0;
+  const STEEL = toon({ color: 0x9ea6b0 });
+  const DARK = toon({ color: 0x6f7782 });
+  const CONCRETE = toon({ color: 0x9a9286 });
+  const DECK = sea + 52;
+  const TOWER = 98;
+  const HALF = 12;
+  // Each suspension bridge: its anchorages and towers along z (m, from the shore's anchorage at 0).
+  const units = [
+    { a: 0, t: [-190, -500], b: -690 },
+    { a: -690, t: [-880, -1190], b: -1380 },
+  ];
+  const parts: Mesh[] = [];
+  const box = (w: number, h: number, d: number, x: number, y: number, z: number, mat = STEEL) => {
+    const m = new Mesh(new BoxGeometry(w, h, d), mat);
+    m.position.set(x, y, z);
+    parts.push(m);
+  };
+  const END = -1380;
+  // The deck: two levels on a deep truss, shore to island.
+  box(2 * HALF, 1.4, -END, 0, DECK, END / 2, DARK);
+  box(2 * HALF, 1.2, -END, 0, DECK - 7, END / 2, DARK);
+  box(2 * HALF - 1, 7, -END, 0, DECK - 3.5, END / 2, STEEL);
+  // The anchorages: the shore's, the one in the middle of the bay (big, a tower's height), the island's.
+  box(2 * HALF + 14, DECK - sea + 8, 40, 0, (DECK + sea) / 2, 0, CONCRETE);
+  box(2 * HALF + 20, DECK - sea + 30, 60, 0, (DECK + sea + 30) / 2 - 4, -690, CONCRETE);
+  const lights: number[] = [];
+  const top = sea + TOWER;
+  for (const u of units) {
+    for (const tz of u.t) {
+      // A tower: two legs and the X-bracing between them, on its pier.
+      for (const side of [-1, 1]) box(4, TOWER + 6, 6, side * (HALF + 1.5), sea + (TOWER + 6) / 2 - 6, tz);
+      for (const y of [DECK - 10, DECK + 18, DECK + 34, top - 2]) box(2 * HALF + 4, 3, 3, 0, y, tz);
+      box(2 * HALF + 12, 12, 22, 0, sea - 4, tz, CONCRETE);
+    }
+    // The cables: up from the anchorage to the first tower, sagging across, down to the next anchorage.
+    const [t0, t1] = u.t;
+    const y = (z: number) => {
+      if (z > t0) return DECK + 4 + (top - DECK - 4) * ((u.a - z) / (u.a - t0)) ** 1.15;
+      if (z < t1) return DECK + 4 + (top - DECK - 4) * ((z - u.b) / (t1 - u.b)) ** 1.15;
+      const m = (z - (t0 + t1) / 2) / ((t0 - t1) / 2);
+      return DECK + 4 + (top - DECK - 4) * m * m;
+    };
+    for (const side of [-1, 1]) {
+      const x = side * (HALF + 0.5);
+      const step = 10;
+      for (let z = u.a; z > u.b; z -= step) {
+        const y0 = y(z);
+        const y1 = y(z - step);
+        const seg = new Mesh(new CylinderGeometry(0.8, 0.8, Math.hypot(step, y1 - y0), 6), STEEL);
+        seg.position.set(x, (y0 + y1) / 2, z - step / 2);
+        seg.rotation.x = -(Math.PI / 2 - Math.atan2(y1 - y0, step));
+        parts.push(seg);
+        const h = (y0 + y1) / 2 - DECK;
+        if (h > 3) box(0.3, h, 0.3, x, DECK + h / 2, z - step / 2);
+        lights.push(x, y0 + 1, z);
+      }
+    }
+  }
+  // Piers under the deck between the spans' ends and the island.
+  for (let z = -1380; z > END - 1; z -= 100) box(10, DECK - sea, 10, 0, (DECK + sea) / 2, z, CONCRETE);
+  root.add(...parts);
+  if (!c.day) root.add(glowPoints(lights, 0xf4f8ff, 3.5));
+  // Yerba Buena Island at the far end: a wooded hill out of the bay.
+  const isle = new Mesh(faceted(new SphereGeometry(170, 12, 6, 0, Math.PI * 2, 0, Math.PI / 2)), toon({ color: 0x4f6a3e }));
+  isle.scale.set(1, 0.55, 0.8);
+  isle.position.set(30, sea - 6, END - 150);
+  root.add(isle);
+  return { root };
+}
+
 const BUILDERS: Record<string, (m: LandmarkDef, ctx: Ctx) => Built> = {
   sphinx: (_m, c) => sphinx(c),
   obelisk: (_m, c) => obelisk(c),
@@ -1514,4 +1595,5 @@ const BUILDERS: Record<string, (m: LandmarkDef, ctx: Ctx) => Built> = {
   'lifeguard-tower': (_m, c) => lifeguardTower(c),
   alcatraz: (_m, c) => alcatraz(c),
   'golden-gate': (_m, c) => goldenGate(c),
+  'bay-bridge': (_m, c) => bayBridge(c),
 };
