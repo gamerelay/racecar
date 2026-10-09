@@ -15,7 +15,7 @@ import { Ev } from './core/events';
 import { Sim, TICK_RATE } from './core/sim';
 import { Getaway } from './core/rules/getaway';
 import { bakeTrack } from './core/track/bake';
-import { Input } from './input/input';
+import { Input, routedKey } from './input/input';
 import { GameRenderer } from './render/renderer';
 import { GreyboxSkin } from './render/skins/greybox';
 import { posthogBuilt, posthogEnabled, posthogSink, setTelemetryOptOut, telemetryOptedOut } from './telemetry/posthog';
@@ -28,6 +28,7 @@ import { accept, navigate } from './ui/nav';
 import { installChoosers } from './ui/chooser';
 import { installClicks } from './ui/click';
 import { fadeIn, ready, veiled } from './ui/fade';
+import { KeysCard } from './ui/keys';
 import { GETAWAY_MAP, installEmbed, keepEmbed, startsGetaway } from './ui/embed';
 import { SettingsPanel } from './ui/settings';
 import { ControlsPanel } from './ui/controls';
@@ -343,6 +344,33 @@ let last = performance.now();
 // The car you drive; none in attract mode, where car 0 (the camera's) is an AI.
 const human = attract ? -1 : me;
 
+// ---- the keys card: your first race here shows the keys (ui/keys.ts) ----
+// Up once the loading screen has lifted. Offline the race waits for it (the countdown from the
+// start, as behind the loading screen); online it doesn't, the others are on the same clock. It's a
+// menu while it's up (openMenu): the menu's keys and the pad's buttons put it away through
+// input.on, on the press, and go no further. The game's own keys (M, N, F8…) still do their thing.
+const keysCard = human >= 0 && KeysCard.due(storage()) ? new KeysCard(storage()) : null;
+/** It's been shown (and may still be up). */
+let keysShown = false;
+if (keysCard) {
+  // Any other key puts it away too (Space, Enter, Q…), but not a browser's or the OS's shortcuts.
+  const anyKey = (e: KeyboardEvent) => {
+    if (!keysCard.isOpen || e.repeat || e.metaKey || e.ctrlKey || e.altKey || e.code === 'Tab' || /^F\d+$/.test(e.code) || routedKey(e.code)) return;
+    // Not stopped: the game's handler ignores it behind a menu, and the audio's first gesture is in it.
+    e.preventDefault();
+    keysCard.close();
+  };
+  window.addEventListener('keydown', anyKey, true);
+  keysCard.onClose = () => window.removeEventListener('keydown', anyKey, true);
+}
+/** Up as the loading screen lifts, a pad's buttons already down then not counting as presses. */
+function keysFrame(): void {
+  if (!keysCard || keysShown || veiled()) return;
+  keysShown = true;
+  input.settleButtons();
+  keysCard.open();
+}
+
 // ---- rumble for your car's moments ----
 let rumbleCursor = 0;
 function rumble(): void {
@@ -386,10 +414,11 @@ function frame(now: number): void {
   }
   // A menu up: arrows and the pad move focus there (and Start still works while paused).
   input.menuOpen = !!openMenu();
-  if (paused) input.pollMenu();
+  if (paused || keysCard?.isOpen) input.pollMenu();
   // An online race doesn't stop for your pause menu: the others are still driving (yours coasts).
   // Offline, the race waits behind the loading screen, so you see its countdown from the start.
-  const stepping = (!paused || onlineRace) && !editorOpen && (onlineRace || !veiled());
+  keysFrame();
+  const stepping = (!paused || onlineRace) && !editorOpen && (onlineRace || (!veiled() && !keysCard?.isOpen));
   if (stepping) {
     if (paused) Object.assign(controls, neutralControls());
     else input.poll(controls, dt);
@@ -433,7 +462,7 @@ requestAnimationFrame(frame);
 
 /** The menu on screen, if any, topmost first: the F8 form, Settings or Controls, the pause menu, results, or the title and lobbies. */
 function openMenu(): HTMLElement | null {
-  for (const sel of ['#reportForm', '#settings.on', '#controls.on', '#pause.on', '#results.on', '#menu']) {
+  for (const sel of ['#reportForm', '#settings.on', '#controls.on', '#keys.on', '#pause.on', '#results.on', '#menu']) {
     const el = document.querySelector<HTMLElement>(sel);
     if (el) return el;
   }
@@ -446,13 +475,16 @@ const awayPause = () => {
   // Online the race steps on in a hidden tab (net/stepper.ts): no frames poll your keys there, so
   // your car coasts, as behind the menu.
   if (onlineRace) Object.assign(controls, neutralControls());
-  if (!attract && !onlineRace && !editorOpen && !paused && !raceUi.shown) setPaused(true);
+  // Not behind the keys card: the race is held there already, and it'd be a menu under a menu.
+  if (!attract && !onlineRace && !editorOpen && !paused && !raceUi.shown && !keysCard?.isOpen) setPaused(true);
 };
 window.addEventListener('blur', awayPause);
 document.addEventListener('visibilitychange', () => document.hidden && awayPause());
 
 // ---- system keys ----
 input.on((a) => {
+  // The keys card: the menu's keys, A, B and Start put it away (and do nothing else).
+  if (keysCard?.isOpen && !closeReport && (a.startsWith('nav-') || a.startsWith('pick-') || a === 'accept' || a === 'back' || a === 'pause')) return keysCard.close();
   const menu = openMenu();
   if (a.startsWith('nav-') || a.startsWith('pick-')) {
     const dir = a.slice(a.indexOf('-') + 1) as 'up' | 'down' | 'left' | 'right';

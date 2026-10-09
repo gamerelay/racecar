@@ -6,6 +6,7 @@ and where things stand is [docs/HANDOFF.md](./docs/HANDOFF.md).
 
 ## Unreleased
 
+- **The keys, the first time you race:** a card over your first race shows WASD, Shift and Space on a drawn keyboard, each pointed at what it does. Any key or click puts it away, and the race waits for it (online, it doesn't).
 - **A new track, Punch In,** in the mix for every map's races.
 - **− and + change the track:** the previous or next in the playlist (the keypad's too), with its name shown.
 

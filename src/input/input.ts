@@ -53,6 +53,11 @@ const SYSTEM: Record<string, SystemAction> = {
   NumpadAdd: 'track-next',
 };
 
+/** A key the game's own handler routes (a system key, or a menu's), so others leave it to it. */
+export function routedKey(code: string): boolean {
+  return Object.hasOwn(SYSTEM, code) || Object.hasOwn(MENU_KEYS, code);
+}
+
 export type InputDevice = 'keyboard' | 'gamepad' | 'touch';
 
 export class Input {
@@ -168,6 +173,12 @@ export class Input {
   pollMenu(): void {
     const pad = this.pad();
     if (pad) this.buttons(pad);
+  }
+
+  /** The pad's buttons that are down now aren't presses: only their next press is (a menu coming up under a held button). */
+  settleButtons(): void {
+    const pad = this.pad();
+    if (pad) for (let k = 0; k < pad.buttons.length; k++) this.prevButtons[k] = pad.buttons[k].pressed;
   }
 
   /** Fires system and menu actions on the press (not while held). */
