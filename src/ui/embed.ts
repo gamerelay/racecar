@@ -18,12 +18,14 @@ export function keepEmbed(search: string): string {
 export const GETAWAY_MAP = 'heist/city';
 
 /**
- * The card's first page: nothing but `embed` in the address. It starts a getaway (main.ts), so a
- * post plays at once. Anything else (a room's `join`, a lobby, the menu after a race, which keeps
- * your choices) stays what it is.
+ * A page that starts a getaway (main.ts), so a link plays at once: the X card's first page
+ * (`?embed=1`), or the game's link (`?start=getaway`, its play URL on GameRelay, which people who
+ * open the card's link land on). Nothing else may be in the address: a room's `join`, a lobby, or
+ * the menu after a race (which keeps your choices) stays what it is.
  */
-export function cardFirstPage(q: URLSearchParams): boolean {
-  return q.has('embed') && [...q.keys()].every((k) => k === 'embed');
+export function startsGetaway(q: URLSearchParams): boolean {
+  const asked = q.has('embed') || q.get('start') === 'getaway';
+  return asked && [...q.keys()].every((k) => k === 'embed' || k === 'start');
 }
 
 /** This page without the flag: the full game. */
