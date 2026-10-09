@@ -81,7 +81,8 @@ describe('the soundtrack', () => {
         expect(playlistFor(m.id, false)).toEqual([...ANY_MAP]);
         continue;
       }
-      expect([m.id, m.name.toLowerCase()]).toContain(MAP_TRACKS[m.id]![0]);
+      // (But Heist's: the getaway's chase music, the title's own track.)
+      if (m.id !== 'heist') expect([m.id, m.name.toLowerCase()]).toContain(MAP_TRACKS[m.id]![0]);
       expect(playlistFor(m.id, false)).toEqual([...MAP_TRACKS[m.id]!, ...ANY_MAP]);
     }
     expect(playlistFor('avalanche', false)).toEqual(['avalanche', 'winter-pursuit', ...ANY_MAP]);

@@ -1,6 +1,6 @@
 // Generator for the getaway's city (docs/CHASE_MODE.md): San Francisco-ish, not a grid. Built on
-// Caldera's open ground, laid out in world space; north is -z. Experimental: it opens from a link,
-// `?mode=race&map=heist/city&seats=p`.
+// Caldera's open ground, laid out in world space; north is -z. In the lobby (alpha-1.44), or from a link,
+// `?mode=race&map=heist/city&seats=p`. A race of your own on it is a getaway; online, a race round the loop.
 //
 // Round the outside, the main road (a loop, traffic both ways):
 //   Bay Street        along the north
@@ -1189,7 +1189,7 @@ const height = cityHeight(city);
 const top = Math.max(...getaway.nodes.map(([x, z]) => height(x, z)));
 mkdirSync(DIR, { recursive: true });
 writeFileSync(`${DIR}/city.track.json`, `${JSON.stringify(layout)}\n`);
-writeFileSync(`${DIR}/map.json`, `${JSON.stringify({ id: 'heist', name: 'Heist', layouts: ['city'], palette: 'dusk', weather: ['clear', 'rain'], experimental: true })}\n`);
+writeFileSync(`${DIR}/map.json`, `${JSON.stringify({ id: 'heist', name: 'Heist', layouts: ['city'], palette: 'dusk', weather: ['clear', 'rain'] })}\n`);
 console.log(`heist/city: the main road ${Math.round(L)} m (the Freeway's deck ${DECK_S.map(Math.round).join('–')} m), ground ${baked.ground!.nx}×${baked.ground!.nz}`);
 for (const d of DISTRICTS) console.log(`  ${d.name}: ${houses.filter((h) => d.in(h.at[0], h.at[1])).length} buildings`);
 console.log(`  ${houses.length} buildings, ${streets.length} streets, ${alleys.length} alleys; the cops' streets ${getaway.nodes.length} nodes / ${getaway.links.length} links; the highest crossing ${top.toFixed(1)} m; the start ${getaway.start!.at.join(', ')}`);

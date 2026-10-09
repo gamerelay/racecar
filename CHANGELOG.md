@@ -6,28 +6,27 @@ and where things stand is [docs/HANDOFF.md](./docs/HANDOFF.md).
 
 ## Unreleased
 
-- **Getaway (experimental, from a link):** a test city where you run from the cops instead of
-  racing. The heat goes up every minute, with more and faster cops each time; your first crash, or
-  getting boxed in and stopped, ends the run, and the score is how long you lasted, with your best
-  kept. Open it with `?mode=race&map=heist/city&seats=p`. The city is San Francisco-ish: hills
-  with a jump at every crossing, Market Street cutting across, districts each with their own
-  grid, a freeway up on a deck, and the getaway starting outside the Bank.
-  Each district looks like itself: towers downtown, Chinatown's painted shopfronts, Victorians on
-  the hills, brick warehouses south of Market. The Bank has its columns and its name; the bay has
-  piers out into it, and the Ferry Building its clock tower. Lombard Street is a planter slalom down
-  a 25% hill, Dolores Park is lawn and palms, and the streets have crosswalks and centre lines.
-  The streets have pavements and kerbs, street lamps, trees and shrubs (knock them flat for a few
-  points, never a crash), and neon signs over the shops. The bay runs out to the horizon past the piers, with
-  Alcatraz out in it, its lighthouse beam turning after dark, the Golden Gate Bridge across the
-  strait to the west, and the Bay Bridge out east to Yerba Buena Island, its lights on at night.
-  The Transamerica Pyramid stands across the street from the Bank, Coit Tower on Telegraph Hill;
-  the Presidio's woods run up to the Golden Gate, and both bridges' approaches come down to the
-  city, closed off by parked police cars. A few cars cruise the city's streets, stopping at crossings. The hills and crossings are
-  smooth now, a rounded crest at each crossing instead of a ledge.
-  Broadway is a strip of clubs and strip joints (XXX, GIRLS, PEEP SHOW), every one lit up with a marquee and neon, and the Condor's showgirl in neon on its corner, blinking, its bulbs chasing; Chinatown has the Dragon
-  Gate on Grant Avenue, lanterns strung across every street and pagoda roofs. The Presidio is open
-  past Van Ness: lawns and cypress groves with a winding drive through them, made for drifting.
-  Street signs on the corners name the crossings: Grant and Bush, Broadway, Lombard, 16th and Valencia.
+## alpha-1.44: Heist, the getaway
+
+- **Heist, a new map and a new way to play:** start outside the Bank in a San Francisco-ish city
+  and run from the cops. Pick Heist in Single player (or a lobby of your own). The heat goes up
+  every minute, with more and faster cops each time. Your first crash, or getting boxed in and
+  stopped, ends the run; the score is how long you lasted, and your best is kept. In an online
+  lobby with others, Heist is a race round the city's outer loop (online getaways come later).
+- **The city:** hills with a jump at every crossing, Lombard's planter slalom, Market Street
+  cutting across, a freeway up on a deck, and districts that each look like themselves: towers
+  downtown, Victorians on the hills, warehouses south of Market, the Mission's palms round
+  Dolores Park.
+  - **Chinatown and Broadway:** the Dragon Gate on Grant Avenue, lanterns strung across
+    Chinatown's streets, pagoda roofs, and Broadway's clubs and strip joints (XXX, GIRLS, PEEP
+    SHOW), every one lit up, with the Condor's neon showgirl blinking on its corner.
+  - **The bay:** piers, the Ferry Building, Alcatraz, the Golden Gate and Bay Bridges, the
+    Transamerica Pyramid and Coit Tower on Telegraph Hill.
+  - **The Presidio:** open past Van Ness, lawns and cypress groves with a winding drive through
+    them, made for drifting.
+  - **Street life:** pavements, plazas, street lamps, trees and shrubs (knock them flat, never a
+    crash), neon signs, street signs naming every crossing, and a few cars cruising the streets
+    and stopping at crossings.
 - **Look back on Q** as well as C.
 
 ## alpha-1.43: Sahara's music, and Single player

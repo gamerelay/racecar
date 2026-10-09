@@ -16,6 +16,7 @@ import { curve, loopDist, loopDistance } from '../src/core/track/island';
 import { Rng } from '../src/core/rng';
 import type { CityDef } from '../src/core/content';
 import { CLASSES, SURFACES, layout } from './helpers';
+import { ALL_MAPS } from '../tools/content';
 
 const city = layout('heist/city');
 
@@ -31,6 +32,12 @@ function getaway(seed = 1): { sim: Sim; g: Getaway } {
 }
 
 describe('the getaway', () => {
+  test('in the lobby as Heist (the owner, 2026-10-08: "include this in the online version"), one layout', () => {
+    const map = ALL_MAPS.find((m) => m.id === 'heist')!;
+    expect(map).toMatchObject({ name: 'Heist', layouts: ['city'] });
+    expect(map.experimental).toBeUndefined();
+  });
+
   test('every street the cops are given is one a car fits down, and they join the city up', () => {
     const def = city.getaway!;
     const st = new Streets(def, city.houses!);
