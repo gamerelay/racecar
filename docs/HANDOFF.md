@@ -4,7 +4,23 @@ Where racecar stands and what's next, for whoever picks it up (a person or a fre
 The design is [SPEC.md](./SPEC.md): decisions in §17, and what building changed in "Changed while
 building". This file is "where are we"; the spec is "what are we making".
 
-**Last updated:** 2026-10-08. **`alpha-1.44`** (PR #160) is tagged and on the hosted build (the
+**Last updated:** 2026-10-09. **`alpha-1.45`** (PRs #164, #165) is tagged and on the hosted build
+(the owner: "merge both and deploy please"):
+- **Punch In** (#164; the owner's track): `punch-in`, the ninth in soundtrack.ts's `ANY_MAP`. The
+  WAV 2.3 dB down from −13.6 to −16.0 LUFS, AAC 128 kb/s, and on the CDN (checked: 200, CORS `*`).
+- **− and + change the track** (#164): the playlist's previous or next, in order and round the
+  ends (`Soundtrack.step`), its name in a toast. Off or muted, the new one waits for the music.
+- **The keys card** (#165; "when people first join a game ... show a modal with the basic keys ...
+  just WASD/SHIFT/SPACE"): `ui/keys.ts`, an SVG keyboard over your first race on a device, each key
+  pointed at its job. Offline the race waits behind it; online it doesn't. A menu while it's up
+  (`openMenu`): Esc, WASD, the arrows and the pad's A/B/Start close it and go no further; any other
+  key or a click closes it too, but not browser shortcuts or the game's own keys (M, N, −/+, F8).
+  `racecar.seenKeys` keeps it away; not on touch-only screens or with storage blocked. Checked in
+  headless Chrome over CDP with a faked pad. `localStorage.removeItem('racecar.seenKeys')` to see it again.
+- **The hosted build:** `Z442EE` updated in place. The previous html (`alpha-1.44`) was saved
+  before the update, in the session's scratchpad only.
+
+Before it, **`alpha-1.44`** (PR #160) is tagged and on the hosted build (the
 owner: "ok can we include this in the online version, and deploy a new version please", then "in
 every lobby"): **Heist, the getaway.** A new mode on a new map: you start outside a bank in an
 SF-ish city and run from the cops until you crash or get boxed in; the score is how long you
