@@ -285,7 +285,8 @@ export function buildHeistCity(track: Track, list: { h: HouseDef; k: number; y: 
       const base = Math.min(style.base, high);
       ground.get(look)!.box(h.at[0], h.at[1], h.rot, w, d, y, y + base, wall, style.bay, base);
       if (high > base) upper.get(look)!.box(h.at[0], h.at[1], h.rot, w, d, y + base, y + high, wall, style.bay, STOREY);
-      if (h.label) neon.add(h, y, base, plain);
+      if (h.label === 'CONDOR' && look === 'broadway') out.push(condor(h, y, base, high));
+      else if (h.label) neon.add(h, y, base, plain);
       // A cornice, a little proud, and the roof under it.
       const trim = pick(style.trim, k, 2);
       plain.box(h.at[0], h.at[1], h.rot, w + 0.6, d + 0.6, y + high - 0.2, y + high + 0.6, trim, 0, 0, false);
@@ -392,6 +393,111 @@ function marquee(h: HouseDef, y: number, base: number, into: Merge, bulbs: numbe
   for (let t = 0.3; t <= out; t += 0.6) for (const s of [-1, 1]) bulbs.push(...xyz(W(lx + (s * across) / 2, d / 2 + t), y0 + 0.95));
 }
 const xyz = ([x, z]: [number, number], y: number) => [x, y, z];
+
+/** The Condor's sign: a board `CONDOR_SIGN` m wide, its name at the top, under it the dancer, a showgirl drawn in neon. */
+const CONDOR_SIGN = { wide: 3.8, low: 1, over: 4 };
+let condorTex: CanvasTexture | undefined;
+function condorFace(): CanvasTexture {
+  if (condorTex) return condorTex;
+  condorTex = canvas(256, 640, (g) => {
+    g.fillStyle = '#140d1c';
+    g.fillRect(0, 0, 256, 640);
+    const pink = '#ff3d9a';
+    const tube = (color: string, width: number, draw: () => void) => {
+      g.strokeStyle = color;
+      g.shadowColor = color;
+      g.lineWidth = width;
+      g.lineCap = g.lineJoin = 'round';
+      g.shadowBlur = 18;
+      g.beginPath();
+      draw();
+      g.stroke();
+    };
+    // Its border, and the name across the top.
+    tube('#ffe14d', 4, () => g.rect(8, 8, 240, 624));
+    g.font = 'bold 50px "Arial Black", Arial, sans-serif';
+    g.textAlign = 'center';
+    g.textBaseline = 'middle';
+    g.shadowColor = '#ffe14d';
+    g.shadowBlur = 16;
+    for (const fill of ['#ffe14d', '#fffbe8']) (g.fillStyle = fill), g.fillText('CONDOR', 128, 62);
+    // The dancer: one arm up over her head, the other on her hip, a knee bent, in heels. Twice: the
+    // pink glow, then the white-hot tube over it.
+    const dancer = () => {
+      // Head and her hair, swept back.
+      g.moveTo(150, 170);
+      g.arc(130, 170, 20, 0, Math.PI * 2);
+      g.moveTo(112, 160);
+      g.quadraticCurveTo(92, 190, 104, 230);
+      // The raised arm, from her shoulder up past her head.
+      g.moveTo(146, 205);
+      g.quadraticCurveTo(178, 160, 166, 112);
+      g.moveTo(154, 214);
+      g.quadraticCurveTo(186, 168, 176, 116);
+      // Her back, waist and hip, the leg she stands on down to a heel.
+      g.moveTo(114, 204);
+      g.quadraticCurveTo(122, 262, 108, 300);
+      g.quadraticCurveTo(96, 340, 112, 420);
+      g.quadraticCurveTo(118, 470, 108, 528);
+      g.lineTo(98, 548);
+      g.lineTo(122, 546);
+      // Her front: bust, waist, hip, the bent knee forward and back down to the other heel.
+      g.moveTo(152, 210);
+      g.quadraticCurveTo(170, 240, 146, 268);
+      g.quadraticCurveTo(136, 290, 160, 318);
+      g.quadraticCurveTo(176, 350, 180, 396);
+      g.quadraticCurveTo(156, 440, 150, 500);
+      g.lineTo(146, 536);
+      g.lineTo(168, 530);
+      // The arm on her hip.
+      g.moveTo(116, 208);
+      g.quadraticCurveTo(80, 250, 108, 296);
+      // The inside of her legs.
+      g.moveTo(128, 340);
+      g.quadraticCurveTo(136, 380, 128, 430);
+      g.quadraticCurveTo(122, 480, 116, 528);
+      g.moveTo(140, 336);
+      g.quadraticCurveTo(160, 360, 164, 400);
+    };
+    tube(pink, 9, dancer);
+    tube('#ffe6f3', 3, dancer);
+    // Stars round her.
+    for (const [x, y] of [[60, 140], [200, 250], [52, 380], [210, 470], [70, 560]]) tube('#3df2ff', 3, () => (g.moveTo(x - 9, y), g.lineTo(x + 9, y), g.moveTo(x, y - 9), g.lineTo(x, y + 9)));
+    g.shadowBlur = 0;
+    g.font = 'bold 30px "Arial Black", Arial, sans-serif';
+    g.shadowColor = '#3df2ff';
+    g.shadowBlur = 12;
+    for (const fill of ['#3df2ff', '#eaffff']) (g.fillStyle = fill), g.fillText('CLUB', 128, 598);
+  });
+  return condorTex;
+}
+
+/**
+ * The Condor (the owner, 2026-10-08: "add the neon dancer silhouette like the Condor"): its marquee
+ * as every club's, and over it, on the corner, a tall blade sign from just over the shops to past
+ * the roof: CONDOR across its top, the dancer in neon under it, both faces.
+ */
+function condor(h: HouseDef, y: number, base: number, high: number): Object3D {
+  const [w, d] = h.size;
+  const root = new Group();
+  const tall = Math.max(10, high - base - CONDOR_SIGN.low + CONDOR_SIGN.over);
+  const y0 = base + CONDOR_SIGN.low;
+  const lx = (hash01(Math.round(h.at[0]), Math.round(h.at[1]), 41) < 0.5 ? -1 : 1) * (w / 2 - 1.2);
+  const lz = d / 2 + CONDOR_SIGN.wide / 2 + 0.15;
+  const face = new MeshBasicMaterial({ map: condorFace() });
+  for (const side of [1, -1]) {
+    const m = new Mesh(new PlaneGeometry(CONDOR_SIGN.wide, tall), face);
+    m.rotation.y = (side * Math.PI) / 2;
+    m.position.set(lx + side * 0.16, y0 + tall / 2, lz);
+    root.add(m);
+  }
+  part(root, 0.28, tall + 0.3, CONDOR_SIGN.wide + 0.3, 0x2a2433, lx, y0 + tall / 2, lz);
+  // Its brackets to the wall, top and bottom.
+  for (const by of [y0 + 0.4, y0 + tall - 0.4]) part(root, 0.15, 0.25, 0.4, 0x2a2433, lx, by, d / 2 + 0.2);
+  root.position.set(h.at[0], y, h.at[1]);
+  root.rotation.y = h.rot;
+  return root;
+}
 
 // ---- The one-offs ----
 

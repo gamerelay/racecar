@@ -280,7 +280,11 @@ open areas like the presidio that have more curvy roads to drift".
   dark fronts, lit windows, a lit doorway, a marquee out over the pavement lined with bulbs, and a
   neon sign each. About 33 of them. The owner, after: "for broadway can we add some light XXX
   themes": North Beach's strip joints, by their signs only (XXX, GIRLS, LIVE GIRLS, PEEP SHOW,
-  ADULT, BURLESQUE, GO GO), among the CONDOR, CABARET, JAZZ, COMEDY, BOOKS and BAR.
+  ADULT, BURLESQUE, GO GO), among the CABARET, JAZZ, COMEDY, BOOKS and BAR. Then: "add the neon
+  dancer silhouette like the Condor": the club nearest Columbus & Broadway (the real one's corner)
+  is the only CONDOR, and its sign is a tall blade from over its marquee to past its roof: CONDOR
+  across the top and under it a showgirl in pink neon, one arm up, a hand on her hip, in heels
+  (an outline, no more), with stars round her and CLUB at the foot (`heist.ts` `condor`).
 - **Chinatown:**
   - **The Dragon Gate** (landmark `chinatown-gate`) across Grant Avenue's south end (the grid's
     line at x 62). Its two stone posts stand on the pavements (solid houses), with a red beam and

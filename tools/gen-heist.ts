@@ -243,7 +243,7 @@ const BROADWAY = {
   strip: [-70, 340] as P,
   storeys: [3, 6] as P,
   // (The owner, 2026-10-08: "some light XXX themes": North Beach's strip clubs, by their signs.)
-  words: ['CONDOR', 'XXX', 'GIRLS', 'LIVE GIRLS', 'PEEP SHOW', 'ADULT', 'BURLESQUE', 'XXX', 'GO GO', 'CABARET', 'JAZZ', 'COMEDY', 'LOUNGE', 'BOOKS', 'BAR'],
+  words: ['XXX', 'GIRLS', 'LIVE GIRLS', 'PEEP SHOW', 'ADULT', 'BURLESQUE', 'XXX', 'GO GO', 'CABARET', 'JAZZ', 'COMEDY', 'LOUNGE', 'BOOKS', 'BAR'],
 };
 /** Grant Avenue: Chinatown's main street, North of Market's line at `x`; the Dragon Gate across its south end, `gate` m north of the crossing at `z`. */
 const GRANT = { x: 62, z: 35, gate: 22, post: 1.4, high: 11 };
@@ -478,6 +478,15 @@ for (const d of DISTRICTS)
       const corners = [[d.u[a], d.v[b]], [d.u[a + 1], d.v[b]], [d.u[a], d.v[b + 1]], [d.u[a + 1], d.v[b + 1]], [mu, mv]].map(([p, q]) => [d.origin[0] + u[0] * p + v[0] * q, d.origin[1] + u[1] * p + v[1] * q]);
       if (corners.some(([x, z]) => d.in(x, z) && inCity(x, z))) block(d, d.u[a], d.u[a + 1], d.v[b], d.v[b + 1]);
     }
+// The Condor: Broadway's club nearest where Columbus crosses it (its corner), its sign the dancer in
+// neon (the skin's: a club labelled CONDOR).
+{
+  const cx = COLUMBUS.a[0] + ((COLUMBUS.b[0] - COLUMBUS.a[0]) * (BROADWAY.z - COLUMBUS.a[1])) / (COLUMBUS.b[1] - COLUMBUS.a[1]);
+  let best = -1;
+  for (let k = 0; k < houses.length; k++) if (houses[k].look === 'broadway' && (best < 0 || Math.hypot(houses[k].at[0] - cx, houses[k].at[1] - BROADWAY.z) < Math.hypot(houses[best].at[0] - cx, houses[best].at[1] - BROADWAY.z))) best = k;
+  if (best < 0) throw new Error('no club on Broadway for the Condor');
+  houses[best].label = 'CONDOR';
+}
 // (The pyramid's block was kept clear as a "park": it's its plaza, not a lawn. Each landmark's own
 // solid base: the drawn landmark stands in it, house look 'landmark'.)
 park.pop();
