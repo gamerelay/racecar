@@ -722,7 +722,7 @@ let presidioGround: RollingDef;
       const thin = Math.max(0, (px - PRESIDIO.west) / 40);
       const keep = wood.next() < woods.keep * (1 - thin);
       const gum = wood.next() < woods.gums;
-      if (!keep || !clearAt(px, pz, 1.2) || trees.some(([tx, tz]) => Math.abs(tx - px) < 4 && Math.abs(tz - pz) < 4)) continue;
+      if (!keep || !clearAt(px, pz, 1.2) || trees.some(([tx, tz]) => Math.abs(tx - px) < 4 && Math.abs(tz - pz) < 4) || brush.some(([bx, bz]) => Math.hypot(bx - px, bz - pz) < 3)) continue;
       trees.push([r1(px), r1(pz)]);
       (gum ? gumTrees : groveTrees).push([r1(px), r1(pz)]);
     }
@@ -957,8 +957,6 @@ getaway.scenery = {
   ],
   // (Its woods past the hedge: inside it, the lawns and groves are the layout's.)
   presidio: [-1400, -545, PRESIDIO.west - 6, 460],
-  // (Not over the woods inside the hedges: those trees are the layout's.)
-  presidioWoods: [PRESIDIO.woods.west - 6, PRESIDIO.woods.north - 6, PRESIDIO.west, PRESIDIO.south + 6],
 };
 
 // Every street the cops are given is one a car fits down: nothing built across it (the Freeway's

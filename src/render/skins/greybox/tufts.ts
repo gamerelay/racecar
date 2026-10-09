@@ -12,6 +12,7 @@ import { hash01 } from '../../../core/rng';
 import { VERGE_DEFAULT, type Track } from '../../../core/track/bake';
 import { KIND_OASIS, KIND_VERGE, noise } from '../../../core/track/ground';
 import { instanced, type Part } from './forest';
+import { OASIS, OASIS_2 } from './snow';
 import { toon } from './toon';
 
 /**
@@ -22,8 +23,6 @@ import { toon } from './toon';
 const TUFTS = { every: 3, patch: 40, patchy: 0.68, keep: 0.3, steep: 0.6, clear: 2, chunk: 200 };
 /** On a park's lawn: more of them, in bigger patches. */
 const LAWN = { patchy: 0.5, keep: 0.45 };
-/** A park's lawn (snow.ts's OASIS greens), a shade either way. */
-const LAWN_SHADES = [0x3f6a26, 0x47742a, 0x507d30];
 
 /** A low clump: three stubby, faceted cones round one, about 0.6 m tall. */
 function tuftModel(): BufferGeometry {
@@ -52,6 +51,10 @@ export function buildTufts(track: Track, green: Color): InstancedMesh[] {
   // The ground's own grass (snow.ts's: the palette's, softened toward the forest), a shade either way.
   const grass = green.clone().lerp(new Color('#2a6b33'), 0.3);
   const shades = [grass.clone().multiplyScalar(0.94), grass.clone(), grass.clone().multiplyScalar(1.05)].map((c) => c.getHex());
+  // A park's lawn (snow.ts's two greens, between them), a little darker: in the toon light a clump
+  // the lawn's own colour stands out lighter than the ground under it.
+  const lawnGreen = OASIS.clone().lerp(OASIS_2, 0.4);
+  const lawnShades = [0.8, 0.86, 0.92].map((k) => lawnGreen.clone().multiplyScalar(k).getHex());
   const span = g.cell * (g.nx - 1);
   const depth = g.cell * (g.nz - 1);
   // (A park's lawn too, on a city's ground: the oasis kind there is lawn.)
@@ -59,14 +62,18 @@ export function buildTufts(track: Track, green: Color): InstancedMesh[] {
   let n = 0;
   for (let z = 0; z < depth; z += TUFTS.every)
     for (let x = 0; x < span; x += TUFTS.every, n++) {
-      if (hash01(n, 61, 7) > (parks ? LAWN.keep : TUFTS.keep)) continue;
+      // The cheap tests first, at the looser of the two (a lawn's), then by what the ground is.
+      const keep = hash01(n, 61, 7);
+      if (keep > (parks ? LAWN.keep : TUFTS.keep)) continue;
       const px = g.x0 + x + hash01(n, 62, 7) * TUFTS.every;
       const pz = g.z0 + z + hash01(n, 63, 7) * TUFTS.every;
+      const patch = noise(px, pz, TUFTS.patch, 37);
+      if (patch < (parks ? LAWN.patchy : TUFTS.patchy)) continue;
       const kind = g.kindAt(px, pz);
       const lawn = parks && kind === KIND_OASIS;
-      if (kind !== KIND_VERGE && !lawn) continue;
-      if (hash01(n, 61, 7) > (lawn ? LAWN.keep : TUFTS.keep)) continue;
-      if (noise(px, pz, TUFTS.patch, 37) < (lawn ? LAWN.patchy : TUFTS.patchy)) continue;
+      if (!lawn && (kind !== KIND_VERGE || keep > TUFTS.keep || patch < TUFTS.patchy)) continue;
+      // (Off a branch and its verge: a park's drive, a street by a park.)
+      if (g.onBranch[Math.round((pz - g.z0) / g.cell) * g.nx + Math.round((px - g.x0) / g.cell)]) continue;
       const y = g.height(px, pz);
       if (y < sea + 0.5) continue;
       const e = g.cell;
@@ -82,7 +89,7 @@ export function buildTufts(track: Track, green: Color): InstancedMesh[] {
       if (!list) chunks.set(key, (list = []));
       const size = 0.8 + hash01(n, 64, 7) * 0.7;
       // Sunk as far as the ground falls across it (0.42 m out at full size): no rim standing clear downhill.
-      list.push({ x: px, y: y - 0.05 - slope * 0.42 * size, z: pz, yaw: hash01(n, 65, 7) * Math.PI * 2, sx: size, sy: size, sz: size, color: (lawn ? LAWN_SHADES : shades)[Math.floor(hash01(n, 66, 7) * shades.length)] });
+      list.push({ x: px, y: y - 0.05 - slope * 0.42 * size, z: pz, yaw: hash01(n, 65, 7) * Math.PI * 2, sx: size, sy: size, sz: size, color: (lawn ? lawnShades : shades)[Math.floor(hash01(n, 66, 7) * 3)] });
     }
   const geo = tuftModel();
   const mat = toon({});

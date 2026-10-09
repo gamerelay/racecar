@@ -56,6 +56,10 @@ export const SMASH_IDS = SMASH_KINDS.map((k) => k.id);
 /** The road of one on open ground (SmashDef.at): none; it's met wherever a car is. */
 export const SMASH_OPEN = 255;
 
+/** The open-ground ones are found by a grid of this many metres a cell (at least twice the reach a car's met at, 8 m). */
+const CELL = 16;
+const cellKey = (gx: number, gz: number) => (gx + 32768) * 65536 + (gz + 32768);
+
 /** Seconds a smashed prop stays down. */
 export const SMASH_RESPAWN = 30;
 
@@ -69,6 +73,9 @@ export class Smashables {
   readonly z: Float64Array;
   /** World time each was last smashed (-Infinity: never). */
   readonly brokenAt: Float64Array;
+  /** The ones by a road (all checked), and the open-ground ones by grid cell (each ascending). */
+  private readonly byRoad: number[] = [];
+  private readonly cells = new Map<number, number[]>();
 
   constructor(track: Track) {
     const hit = newHit();
@@ -129,6 +136,35 @@ export class Smashables {
     this.y = Float64Array.from(out, (p) => p.y);
     this.z = Float64Array.from(out, (p) => p.z);
     this.brokenAt = new Float64Array(this.n).fill(-Infinity);
+    for (let k = 0; k < this.n; k++) {
+      if (this.spline[k] !== SMASH_OPEN) {
+        this.byRoad.push(k);
+        continue;
+      }
+      const key = cellKey(Math.floor(this.x[k] / CELL), Math.floor(this.z[k] / CELL));
+      const list = this.cells.get(key);
+      if (list) list.push(k);
+      else this.cells.set(key, [k]);
+    }
+  }
+
+  /**
+   * Into `out` (emptied first), in index order: every one by a road, and the open-ground ones in the
+   * cells round (x, z) (all those within CELL m). A car checks these, not all of them (Heist has
+   * thousands of trees).
+   */
+  near(x: number, z: number, out: number[]): number[] {
+    out.length = 0;
+    for (const k of this.byRoad) out.push(k);
+    const gx = Math.floor(x / CELL);
+    const gz = Math.floor(z / CELL);
+    for (let i = -1; i <= 1; i++)
+      for (let j = -1; j <= 1; j++) {
+        const list = this.cells.get(cellKey(gx + i, gz + j));
+        if (list) for (const k of list) out.push(k);
+      }
+    // (In index order, as when every one was checked: the same smashes in the same order.)
+    return out.sort((a, b) => a - b);
   }
 
   standing(k: number, t: number): boolean {

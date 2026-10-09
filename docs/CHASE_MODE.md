@@ -286,7 +286,7 @@ trees".
   over the lawn's first 40 m: some 900 cypresses (`grove-tree`) and 800 eucalyptus (new kind
   `gum-tree`: tall, pale-trunked, `slow` 0.8 against the cypress's 0.88), and brush. Crashed
   through, not wrecked on: a tree's smash throws leaves and shakes the camera harder than a cone.
-  The drawn woods outside keep off the driven ones (`GetawayScenery.presidioWoods`).
+  The drawn woods outside keep off the park (its lawn kind) and clear of its hedges.
 - **The drive through them:** off Van Ness at the south, west along the south hedge into the
   woods, a slalom of S-bends down their west side, and back east onto the lawns, then on north as
   before. About 1.58 km (was 1.28), no bend tighter than 35 m.

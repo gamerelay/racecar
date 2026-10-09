@@ -22,6 +22,8 @@ import { newContact, obbOverlap } from './obb';
 import { cos, hypot, sin, wrapAngle } from '../math';
 
 const contact = newContact();
+/** The smashables near a car (Smashables.near), refilled per car. */
+const nearSmash: number[] = [];
 
 export interface WorldCtx {
   traffic: Traffic;
@@ -126,7 +128,7 @@ export function collideWorld(sim: SimState, i: number, ctx: WorldCtx): void {
     const sp = sim.track.splines[c.spline[i]];
     const fx = sin(c.h[i]);
     const fz = cos(c.h[i]);
-    for (let k = 0; k < sm.n; k++) {
+    for (const k of sm.near(c.x[i], c.z[i], nearSmash)) {
       // One on open ground by where it is (a car cutting down a hillside is placed on whichever pass
       // of the road it's nearest); one by a road by the car's place along that road.
       if (sm.spline[k] === SMASH_OPEN) {

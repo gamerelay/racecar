@@ -392,8 +392,6 @@ export interface GetawayDef {
 export interface GetawayScenery {
   approaches: { path: [number, number, number][]; width: number; cars: [number, number, number][]; barrier: [[number, number], [number, number]] }[];
   presidio: [number, number, number, number];
-  /** The Presidio's woods inside its hedges ([x0, z0, x1, z1]): driven, their trees the layout's smashables, so none drawn there. */
-  presidioWoods?: [number, number, number, number];
   /** Chinatown's lanterns, strung across its streets: each street's middle from [x0, z0] to [x1, z1], and its width ([x0, z0, x1, z1, width]). */
   lanterns?: [number, number, number, number, number][];
   /**

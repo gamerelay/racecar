@@ -17,7 +17,7 @@ import { Rng } from '../../../core/rng';
 import { buildCar } from './car/build';
 import { glowPoints } from './scenery';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
-import { KIND_ROAD } from '../../../core/track/ground';
+import { KIND_OASIS, KIND_ROAD } from '../../../core/track/ground';
 import type { HouseDef } from '../../../core/content';
 import { hash01 } from '../../../core/rng';
 import type { Track } from '../../../core/track/bake';
@@ -1012,8 +1012,8 @@ export function buildCitySurrounds(track: Track): Object3D[] {
   }
   // The Presidio: woods over the land in its box, off the shore, the main road and the approaches.
   const [x0, z0, x1, z1] = sc.presidio;
-  const woods = sc.presidioWoods;
-  const inWoods = (x: number, z: number) => !!woods && x > woods[0] && x < woods[2] && z > woods[1] && z < woods[3];
+  // (Not in the park, nor through its hedge: its lawns and woods are driven, their trees the layout's.)
+  const inPark = (x: number, z: number) => [[0, 0], [6, 0], [-6, 0], [0, 6], [0, -6]].some(([dx, dz]) => ground.kindAt(x + dx, z + dz) === KIND_OASIS);
   const sea = track.layout.ground?.sea ?? 0;
   const rng = new Rng(0x9e51d10);
   const cypress: Part[] = [];
@@ -1026,7 +1026,7 @@ export function buildCitySurrounds(track: Track): Object3D[] {
       const y = ground.height(px, pz);
       if (y < sea + 1.2 || rng.next() < 0.25) continue;
       if (near.some(([nx, nz]) => Math.abs(nx - px) < 14 && Math.abs(nz - pz) < 14)) continue;
-      if (inWoods(px, pz)) continue;
+      if (inPark(px, pz)) continue;
       const h = rng.range(9, 16);
       if (rng.next() < 0.55) cypress.push({ x: px, y, z: pz, yaw: rng.range(0, 6.3), sx: h * 0.3, sy: h, sz: h * 0.3, color: rng.next() < 0.5 ? 0x2f5a3a : 0x3a6640 });
       else {
