@@ -8,7 +8,7 @@ import { delta, fmt, ordinal, pingClass } from '../src/ui/format';
 import { esc } from '../src/ui/html';
 import { pickNext, type Box } from '../src/ui/nav';
 import { menuQuery, offline, quickRaceSetup, randomCar, readChoices, readSetup, toQuery } from '../src/ui/setup';
-import { cardFirstPage, GETAWAY_MAP } from '../src/ui/embed';
+import { GETAWAY_MAP, startsGetaway } from '../src/ui/embed';
 
 // The HUD's formatting, the URL setup parser (hand-edited and stale links), and menu navigation.
 
@@ -38,10 +38,10 @@ describe('format', () => {
 });
 
 describe('the X card (ui/embed.ts)', () => {
-  test("its first page (nothing but embed) is a getaway; a room's link, a lobby or the menu after a race isn't", () => {
-    expect(cardFirstPage(new URLSearchParams('embed=1'))).toBe(true);
-    for (const q of ['', 'embed=1&join=AbC123xyz00', 'embed=1&lobby=K7Q2', 'embed=1&map=heist/city&car=bus', 'join=AbC123xyz00']) {
-      expect(cardFirstPage(new URLSearchParams(q))).toBe(false);
+  test("its first page and the game's link start a getaway; a room's link, a lobby or the menu after a race don't", () => {
+    for (const q of ['embed=1', 'start=getaway', 'start=getaway&embed=1']) expect(startsGetaway(new URLSearchParams(q))).toBe(true);
+    for (const q of ['', 'start=menu', 'embed=1&join=AbC123xyz00', 'start=getaway&join=AbC123xyz00', 'embed=1&lobby=K7Q2', 'embed=1&map=heist/city&car=bus', 'join=AbC123xyz00']) {
+      expect(startsGetaway(new URLSearchParams(q))).toBe(false);
     }
   });
 
