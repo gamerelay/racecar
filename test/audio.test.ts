@@ -4,7 +4,7 @@ import { doppler, ENGINE_SOUNDS, engineHz, engineSound, gearbox, musicMix, MUSIC
 import { CLASSES } from './helpers';
 import { existsSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
-import { ANY_MAP, MAP_TRACKS, pickTrack, playlistFor, Soundtrack, TITLE_TRACKS, TRACKS, trackUrl } from '../src/audio/soundtrack';
+import { ANY_MAP, MAP_TRACKS, pickTrack, playlistFor, Soundtrack, TITLE_TRACKS, TRACKS, trackTitle, trackUrl } from '../src/audio/soundtrack';
 import { MAPS } from '../tools/content';
 
 // The sound model is pure (the Web Audio graph isn't testable in Bun): gears, pitch, where a sound
@@ -211,6 +211,33 @@ describe('the soundtrack player', () => {
     expect(el.src).toBe(`/music/${t.current}.m4a`);
     expect(el.paused).toBe(false);
     expect(played).toEqual([first, t.current]);
+  });
+
+  test('- and + step through the playlist in order, round the ends, and play the new track (or hold it while the music is off)', async () => {
+    FakeAudio.answer = () => Promise.resolve();
+    (globalThis as { Audio?: unknown }).Audio = FakeAudio;
+    const list = playlistFor('sahara', false);
+    const played: string[] = [];
+    const t = new Soundtrack(list, '/music/', { last: null, remember: (x) => played.push(x) }, () => 0);
+    const el = t.el as unknown as FakeAudio;
+    t.connect({ createMediaElementSource: () => ({ connect() {} }) } as unknown as AudioContext, {} as AudioNode);
+    expect(t.current).toBe(list[0]);
+    expect(t.step(-1, true)).toBe(list[list.length - 1]);
+    expect(el.src).toBe(`/music/${list[list.length - 1]}.m4a`);
+    await settle();
+    expect(played).toEqual([list[list.length - 1]]);
+    el.paused = true;
+    expect(t.step(1, false)).toBe(list[0]);
+    expect(t.step(1, false)).toBe(list[1]);
+    await settle();
+    expect(el.paused).toBe(true);
+    expect(el.src).toBe(`/music/${list[1]}.m4a`);
+  });
+
+  test("a track's title is its name as said", () => {
+    expect(trackTitle('punch-in')).toBe('Punch In');
+    expect(trackTitle('title')).toBe('Title');
+    expect(trackTitle('backroads-acoustic')).toBe('Backroads Acoustic');
   });
 
   const ctxOf = (sources: { n: number } = { n: 0 }) =>

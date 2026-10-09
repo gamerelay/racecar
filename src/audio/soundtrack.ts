@@ -1,16 +1,16 @@
 // The recorded soundtrack: the title's tracks behind the menus, and in a race a playlist of the
-// map's own tracks and the eight that go anywhere, so the same song never plays twice in a row (from
+// map's own tracks and the nine that go anywhere, so the same song never plays twice in a row (from
 // one race to the next either). A streamed <audio> element played through the music bus (so N, M,
 // the slow-mo duck and the level all apply to it). A track that can't load (not hosted where the
 // page is, say) falls back to the synth music (music.ts), the same as before there were tracks.
 
-/** The tracks, by name: the title's, each map's own, and the eight any race may play. */
-export const TRACKS = ['title', 'pursuit-orchestra', 'downtown', 'tokyo-dubstep', 'backroads', 'backroads-acoustic', 'paradise', 'hawaiian-vibes', 'coastal', 'avalanche', 'winter-pursuit', 'sahara', 'finish-line', 'final-sprint', 'relentless-pursuit', 'half-time-surge', 'propulsion', 'escape', 'forward', 'crashout'] as const;
+/** The tracks, by name: the title's, each map's own, and the nine any race may play. */
+export const TRACKS = ['title', 'pursuit-orchestra', 'downtown', 'tokyo-dubstep', 'backroads', 'backroads-acoustic', 'paradise', 'hawaiian-vibes', 'coastal', 'avalanche', 'winter-pursuit', 'sahara', 'finish-line', 'final-sprint', 'relentless-pursuit', 'half-time-surge', 'propulsion', 'escape', 'forward', 'crashout', 'punch-in'] as const;
 export type TrackName = (typeof TRACKS)[number];
 /** Behind the menus (the attract page): the title's own, and the orchestral one (the owner's, 2026-10-02). */
 export const TITLE_TRACKS: readonly TrackName[] = ['title', 'pursuit-orchestra'];
-/** Tracks for any map's race (`relentless-pursuit` and `half-time-surge`, the owner's, 2026-10-02; `propulsion`, `escape` and `forward`, 2026-10-03; `crashout`, 2026-10-05). */
-export const ANY_MAP: readonly TrackName[] = ['finish-line', 'final-sprint', 'relentless-pursuit', 'half-time-surge', 'propulsion', 'escape', 'forward', 'crashout'];
+/** Tracks for any map's race (`relentless-pursuit` and `half-time-surge`, the owner's, 2026-10-02; `propulsion`, `escape` and `forward`, 2026-10-03; `crashout`, 2026-10-05; `punch-in`, 2026-10-09). */
+export const ANY_MAP: readonly TrackName[] = ['finish-line', 'final-sprint', 'relentless-pursuit', 'half-time-surge', 'propulsion', 'escape', 'forward', 'crashout', 'punch-in'];
 /**
  * Each map's own tracks: the city has the Tokyo dubstep too, the island the Hawaiian one (2026-10-01)
  * and the coastal one (2026-10-03), the valley an acoustic one (2026-10-02), the mountain its two
@@ -30,7 +30,7 @@ export const MAP_TRACKS: Readonly<Record<string, readonly TrackName[]>> = {
   heist: ['pursuit-orchestra'],
 };
 
-/** The page's playlist: the title's behind the menus (attract mode), else the map's own and the eight for any map. */
+/** The page's playlist: the title's behind the menus (attract mode), else the map's own and the nine for any map. */
 export function playlistFor(mapId: string, attract: boolean): TrackName[] {
   if (attract) return [...TITLE_TRACKS];
   return [...(Object.hasOwn(MAP_TRACKS, mapId) ? MAP_TRACKS[mapId] : []), ...ANY_MAP];
@@ -135,4 +135,22 @@ export class Soundtrack {
   pause(): void {
     if (!this.el.paused) this.el.pause();
   }
+
+  /**
+   * - and +: the playlist's previous or next track, from the start (in the playlist's order, round
+   * from the end to the start). It plays from here if `play`, else when the music is next on.
+   */
+  step(dir: 1 | -1, play: boolean): TrackName {
+    const i = this.list.indexOf(this.current);
+    this.current = this.list[(i + dir + this.list.length) % this.list.length];
+    this.el.src = trackUrl(this.current, this.base);
+    this.tried = -Infinity;
+    if (play) this.play(true);
+    return this.current;
+  }
+}
+
+/** A track's name as a person would say it: `punch-in` → "Punch In". */
+export function trackTitle(name: TrackName): string {
+  return name.replace(/(^|-)(\w)/g, (_, dash: string, c: string) => (dash ? ' ' : '') + c.toUpperCase());
 }
