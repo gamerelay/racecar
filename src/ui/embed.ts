@@ -14,6 +14,18 @@ export function keepEmbed(search: string): string {
   return `?${q}`;
 }
 
+/** The chase mode's map (docs/CHASE_MODE.md): a getaway is a race on it. */
+export const GETAWAY_MAP = 'heist/city';
+
+/**
+ * The card's first page: nothing but `embed` in the address. It starts a getaway (main.ts), so a
+ * post plays at once. Anything else (a room's `join`, a lobby, the menu after a race, which keeps
+ * your choices) stays what it is.
+ */
+export function cardFirstPage(q: URLSearchParams): boolean {
+  return q.has('embed') && [...q.keys()].every((k) => k === 'embed');
+}
+
 /** This page without the flag: the full game. */
 function fullPage(): string {
   const u = new URL(location.href);

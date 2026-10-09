@@ -28,11 +28,11 @@ import { accept, navigate } from './ui/nav';
 import { installChoosers } from './ui/chooser';
 import { installClicks } from './ui/click';
 import { fadeIn, ready, veiled } from './ui/fade';
-import { installEmbed } from './ui/embed';
+import { cardFirstPage, GETAWAY_MAP, installEmbed, keepEmbed } from './ui/embed';
 import { SettingsPanel } from './ui/settings';
 import { ControlsPanel } from './ui/controls';
 import { SettingsStore } from './settings';
-import { backToSetup, raceAgain, readChoices, readSetup, restart, type RaceSetup } from './ui/setup';
+import { backToSetup, quickRaceSetup, raceAgain, randomCar, readChoices, readSetup, restart, toQuery, type RaceSetup } from './ui/setup';
 import { Menu, type Preview } from './ui/menu';
 import { GameRelay } from '@gamerelay/sdk';
 import { Lobbies, LocalBackend, LOCAL_ID } from './lobby/backend';
@@ -71,7 +71,12 @@ const BUILD = `${import.meta.env.MODE}-${__BUILD_TIME__}`;
 const LAYOUT_KEYS = Object.keys(LAYOUTS);
 const DEFAULT_LAYOUT = 'downtown/downtown';
 const known = { cars: CLASSES.map((c) => c.id), paints: PAINTS.length, layouts: LAYOUT_KEYS };
-const setup: RaceSetup | null = readSetup(params, DEFAULT_LAYOUT, known);
+// In a post on X, the card's first page is a getaway in a random car and paint (ui/embed.ts). This
+// page is that race, and the address becomes its link, so Restart and the menu after it work as
+// for any race.
+const straightIn = cardFirstPage(params) && LAYOUT_KEYS.includes(GETAWAY_MAP) ? quickRaceSetup([GETAWAY_MAP], randomCar(known.cars, PAINTS.length)) : null;
+if (straightIn) history.replaceState(null, '', keepEmbed(toQuery(straightIn)));
+const setup: RaceSetup | null = straightIn ?? readSetup(params, DEFAULT_LAYOUT, known);
 // No setup yet: attract mode, a hard AI race on Downtown behind the menu.
 const attract = !setup;
 /** Your lobby, in this browser. */
