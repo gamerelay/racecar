@@ -307,6 +307,23 @@ open areas like the presidio that have more curvy roads to drift".
   - its solid base is the plinth's 20 m, not the column's 12.
   The lanterns stop at Broadway: north of it is North Beach and Telegraph Hill, and they had been
   strung across the streets round the park.
+- **A polish pass** (the owner: "go around and cleanup the map a little bit, make sure things look
+  good"). A tour of the city found:
+  - **Bare asphalt in the leftover lots.** Where Market, Columbus and Division cut across the
+    grids, the triangles too odd to build on were bare asphalt with no kerb or pavement. So were
+    block corners left empty, and the ground between Bay Street and Columbus's end. Now every
+    leftover lot is a plaza (`GetawayScenery.plazas`, 4 m cells, about 76,000 m²), paved in the
+    pavements' stone. The cells reach up to the kerbs, so the corners where a street meets another
+    askew (its pavement cut off square) are paved too. The bigger plazas have street trees and
+    the odd shrub (smashables).
+  - **Lombard's crooked block had no pavement**: it isn't one of the cops' streets (its planters
+    block their line of sight), so it wasn't painted. It's painted now as one of theirs
+    (`GetawayScenery.painted`), with crosswalks and kerbs.
+  - **Lanterns over Columbus's crossings.** These are wide and askew, so strings across a street
+    piece ending on Columbus hung over open asphalt. Those pieces have none now.
+  - **The generator's "near a building" test** (lamps, trees, plazas) missed the corners of a
+    turned building (its quick reject was the square of its longer side, not its diagonal).
+  A test keeps every plaza off the streets' carriageways and out of every building.
 - **Chinatown:**
   - **The Dragon Gate** (landmark `chinatown-gate`) across Grant Avenue's south end (the grid's
     line at x 62). Its two stone posts stand on the pavements (solid houses), with a red beam and

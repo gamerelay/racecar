@@ -724,6 +724,8 @@ const PAINT_YELLOW = 0xf0c63a;
 const SIDEWALK = 3;
 const PAVEMENT = 0x8f8898;
 const KERB = 0xc4bdc8;
+/** A plaza's cell (gen-heist's PLAZA, m). */
+const PLAZA_CELL = 4;
 /** A crossing's level ground reaches this far from its middle (gen-heist's crossings, r 9): the crosswalks start just past it. */
 const CROSSING = 9.5;
 /** A crosswalk's depth along the street (m), its bars' width across and the gap between them. */
@@ -757,19 +759,28 @@ export function buildStreetPaint(track: Track): Object3D[] {
       into.quad([[px - ax, ys(px - ax, pz - az), pz - az], [px + ax, ys(px + ax, pz + az), pz + az], [qx + ax, ys(qx + ax, qz + az), qz + az], [qx - ax, ys(qx - ax, qz - az), qz - az]], [0, 1, 0], [[0, 0], [1, 0], [1, 1], [0, 1]], color);
     }
   };
-  const degree = new Uint16Array(def.nodes.length);
-  for (const [a, b] of def.links) degree[a]++, degree[b]++;
+  // The cops' streets, and those painted but not theirs (meeting them at their crossings).
+  const nodes = [...def.nodes];
+  const links = [...def.links];
+  const paint = [...def.paint];
+  const node = (x: number, z: number) => {
+    const k = nodes.findIndex(([nx, nz]) => Math.hypot(nx - x, nz - z) < 3);
+    return k >= 0 ? k : nodes.push([x, z]) - 1;
+  };
+  for (const [x0, z0, x1, z1, w] of def.scenery?.painted ?? []) links.push([node(x0, z0), node(x1, z1)]), paint.push(w);
+  const degree = new Uint16Array(nodes.length);
+  for (const [a, b] of links) degree[a]++, degree[b]++;
   // The widest street at each crossing: a pavement starts at its edge.
-  const widest = new Float32Array(def.nodes.length);
-  def.links.forEach(([a, b], k) => {
-    widest[a] = Math.max(widest[a], def.paint![k]);
-    widest[b] = Math.max(widest[b], def.paint![k]);
+  const widest = new Float32Array(nodes.length);
+  links.forEach(([a, b], k) => {
+    widest[a] = Math.max(widest[a], paint[k]);
+    widest[b] = Math.max(widest[b], paint[k]);
   });
-  def.links.forEach(([a, b], k) => {
-    const w = def.paint![k];
+  links.forEach(([a, b], k) => {
+    const w = paint[k];
     if (!w) return;
-    const [ax, az] = def.nodes[a];
-    const [bx, bz] = def.nodes[b];
+    const [ax, az] = nodes[a];
+    const [bx, bz] = nodes[b];
     const len = Math.hypot(bx - ax, bz - az);
     if (len < 2 * (CROSSING + ZEBRA.deep) + 2) return;
     const [dx, dz] = [(bx - ax) / len, (bz - az) / len];
@@ -792,6 +803,12 @@ export function buildStreetPaint(track: Track): Object3D[] {
     if (w >= 16) for (const lat of [-0.2, 0.2]) strip(...along(from, lat), ...along(to, lat), 0.15, PAINT_YELLOW);
     else for (let t = from; t + 3 <= to; t += 7) strip(...along(t, 0), ...along(t + 3, 0), 0.15, PAINT_WHITE);
   });
+  // The plazas: each cell paved as the pavements are (they meet them, the same stone), its corners on the ground.
+  const half = PLAZA_CELL / 2;
+  for (const [x, z] of def.scenery?.plazas ?? []) {
+    const c = [[x - half, z + half], [x + half, z + half], [x + half, z - half], [x - half, z - half]];
+    walks.quad(c.map(([cx, cz]) => [cx, ys(cx, cz), cz]), [0, 1, 0], [[0, 0], [1, 0], [1, 1], [0, 1]], PAVEMENT);
+  }
   const out: Object3D[] = [];
   const pavement = walks.mesh();
   if (pavement) {

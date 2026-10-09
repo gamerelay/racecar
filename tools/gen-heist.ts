@@ -923,6 +923,8 @@ getaway.scenery = {
   const deck = (a: number, b: number) => Math.abs(getaway.nodes[a][1] - FREEWAY.z) < 2 && Math.abs(getaway.nodes[b][1] - FREEWAY.z) < 2;
   const blocked = getaway.links.filter(([a, b]) => !deck(a, b) && !st.clear(st.x(a), st.z(a), st.x(b), st.z(b)));
   if (blocked.length) console.warn(`  ${blocked.length} streets with a building across them, dropped: ${blocked.slice(0, 6).map(([a, b]) => `${getaway.nodes[a].join(',')} – ${getaway.nodes[b].join(',')}`).join('; ')}`);
+  // (Still streets, painted and paved: Lombard's crooked block, its planters across it.)
+  getaway.scenery!.painted = getaway.links.flatMap(([a, b], k) => (blocked.includes(getaway.links[k]) && getaway.paint![k] > 0 ? [[...getaway.nodes[a], ...getaway.nodes[b], getaway.paint![k]] as [number, number, number, number, number]] : []));
   getaway.paint = getaway.paint!.filter((_, k) => !blocked.includes(getaway.links[k]));
   getaway.links = getaway.links.filter((l) => !blocked.includes(l));
   // Only the streets joined to the rest: the biggest part of the graph, its nodes renumbered.
@@ -963,6 +965,8 @@ getaway.scenery = {
     // it is North Beach and Telegraph Hill.)
     const [mx, mz] = [(p[0] + q[0]) / 2, (p[1] + q[1]) / 2];
     if (w !== DISTRICTS[0].street || !china.in(mx, mz) || mz < BROADWAY.z) return [];
+    // (Nor a piece of one ending on Columbus: its crossings are wide and askew, strings over them hang over nothing.)
+    if ([p, q].some(([x, z]) => off(COLUMBUS, x, z) < COLUMBUS.width / 2 + 4)) return [];
     return [[p[0], p[1], q[0], q[1], w] as [number, number, number, number, number]];
   });
   console.log(`  Chinatown: ${getaway.scenery!.lanterns.length} streets hung with lanterns, the Dragon Gate at ${GATE_AT.join(', ')}`);
@@ -1099,6 +1103,8 @@ const CRUISE = { loops: 9, cars: [2, 4] as P, speed: [8.5, 12] as P, reach: [300
 // (Smashables: knocked flat, a little speed lost, never a wreck. Not within `clear` m of a crossing, so its corners stay open.)
 
 const FURNITURE = { lamp: 34, kerb: 0.7, tree: 1.4, shrub: 2.4, clear: 14 };
+/** A plaza's cell (m): the leftover lots are found, and paved, this square at a time. */
+const PLAZA = 4;
 {
   const lamps: P[] = [];
   const trees: P[] = [];
@@ -1108,7 +1114,8 @@ const FURNITURE = { lamp: 34, kerb: 0.7, tree: 1.4, shrub: 2.4, clear: 14 };
     houses.some((h) => {
       const dx = x - h.at[0];
       const dz = z - h.at[1];
-      const reach = Math.max(h.size[0], h.size[1]) / 2 + r;
+      // (Its corners reach its half diagonal, turned.)
+      const reach = Math.hypot(h.size[0], h.size[1]) / 2 + r;
       if (Math.abs(dx) > reach || Math.abs(dz) > reach) return false;
       const [c, sn] = [Math.cos(h.rot), Math.sin(h.rot)];
       return Math.abs(dx * c - dz * sn) < h.size[0] / 2 + r && Math.abs(dx * sn + dz * c) < h.size[1] / 2 + r;
@@ -1134,6 +1141,39 @@ const FURNITURE = { lamp: 34, kerb: 0.7, tree: 1.4, shrub: 2.4, clear: 14 };
       if (d?.green.shrubs) for (let t = FURNITURE.clear + 3 + rng.range(0, 6); t <= len - FURNITURE.clear; t += d.green.shrubs * rng.range(0.7, 1.3)) place(shrubs, ...at(t, side * (l.w / 2 + FURNITURE.shrub)), 0.05, l);
     }
   }
+  // Plazas: what's left over between the streets and the buildings, where a street cutting across
+  // a grid (Market, Columbus, Division) left lots too odd to build on, or a block's corner was
+  // left empty: paved (the skin's: GetawayScenery.plazas, a PLAZA m square each), a tree in the
+  // middle of the bigger ones, a shrub now and then.
+  // (The streets as laid out, and as the cops' streets run node to node and are painted: a crossing
+  // merged into a nearby one leaves a street a little off its line.)
+  const lines = [...streets, ...alleys, MARKET, COLUMBUS, DIVISION, UNDER, ...painted.map((l) => ({ a: l.a, b: l.b, width: l.w, name: '' })), ...getaway.scenery!.painted!.map(([x0, z0, x1, z1, w]): Line => ({ a: [x0, z0], b: [x1, z1], width: w, name: '' }))];
+  const plazas: P[] = [];
+  const isLot = (x: number, z: number) =>
+    inCity(x, z) &&
+    inside(x, z) > 1 &&
+    // (Up to the kerbs: a cell's corner, askew to a street, reaches 2.9 m. Over the pavements, the
+    // same stone: so the corners where a street meets another askew, its pavement cut off square, are paved.)
+    lines.every((l) => off(l, x, z) > l.width / 2 + PLAZA * 0.71 + 0.1) &&
+    !park.some((q) => insideLoop(q, x, z)) &&
+    !inHouse(x, z, 0.6);
+  const [minX, maxX, minZ, maxZ] = [Math.min(...outline.map((p) => p[0])), Math.max(...outline.map((p) => p[0])), Math.min(...outline.map((p) => p[1])), Math.max(...outline.map((p) => p[1]))];
+  const lot = new Set<string>();
+  for (let x = Math.ceil(minX / PLAZA) * PLAZA; x <= maxX; x += PLAZA)
+    for (let z = Math.ceil(minZ / PLAZA) * PLAZA; z <= maxZ; z += PLAZA)
+      if (isLot(x, z)) {
+        plazas.push([x, z]);
+        lot.add(`${x},${z}`);
+      }
+  // (A tree where the lot's open all round it, every other cell; a shrub at some of the rest.)
+  const open = (x: number, z: number) => [-1, 0, 1].every((i) => [-1, 0, 1].every((j) => lot.has(`${x + i * PLAZA},${z + j * PLAZA}`)));
+  for (const [x, z] of plazas) {
+    const h = hash01(x, z, 71);
+    if (open(x, z) && (x / PLAZA + z / PLAZA) % 2 === 0 && h < 0.7) trees.push([x, z]);
+    else if (h < 0.12 && !inHouse(x, z, 1)) shrubs.push([x, z]);
+  }
+  getaway.scenery!.plazas = plazas;
+  console.log(`  plazas: ${plazas.length} cells (${Math.round(plazas.length * PLAZA * PLAZA)} m²)`);
   layout.smashables = [
     { kind: 'street-lamp', s: [0, 0], every: 0, at: lamps },
     { kind: 'street-tree', s: [0, 0], every: 0, at: trees },

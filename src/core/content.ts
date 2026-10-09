@@ -400,6 +400,10 @@ export interface GetawayScenery {
    * ([x, z, rot, along, across]).
    */
   signs?: [number, number, number, string, string][];
+  /** Streets painted and paved as the cops' are, but not theirs (Lombard's crooked block): [x0, z0, x1, z1, width]. */
+  painted?: [number, number, number, number, number][];
+  /** Plazas: the city's leftover lots, paved, as the middles of 4 m cells ([x, z]). */
+  plazas?: [number, number][];
 }
 
 /** An avalanche down a run: it breaks away `behind` m above the start line, `delay` s after the green light, at about `speed` m/s on a 20% slope. */

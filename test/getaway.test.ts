@@ -231,6 +231,27 @@ describe('the getaway', () => {
       });
   });
 
+  test("the plazas (the leftover lots, paved) are off every street's carriageway and out of every building", () => {
+    const def = city.getaway!;
+    const plazas = def.scenery!.plazas!;
+    expect(plazas.length).toBeGreaterThan(1000);
+    const off = (x: number, z: number, [ax, az]: number[], [bx, bz]: number[]) => {
+      const [dx, dz] = [bx - ax, bz - az];
+      const t = Math.max(0, Math.min(1, ((x - ax) * dx + (z - az) * dz) / (dx * dx + dz * dz)));
+      return Math.hypot(x - ax - dx * t, z - az - dz * t);
+    };
+    const streets: [number[], number[], number][] = [...def.links.map(([a, b], k): [number[], number[], number] => [def.nodes[a], def.nodes[b], def.paint![k]]), ...def.scenery!.painted!.map(([x0, z0, x1, z1, w]): [number[], number[], number] => [[x0, z0], [x1, z1], w])];
+    // (A cell's middle a cell's half diagonal off the carriageway: none of it on the road.)
+    for (const [x, z] of plazas) for (const [a, b, w] of streets) if (w > 0) expect(off(x, z, a, b)).toBeGreaterThan(w / 2 + 2.8);
+    const solid = city.houses!.filter((h) => h.look !== 'landmark');
+    for (const [x, z] of plazas)
+      for (const h of solid) {
+        const [dx, dz] = [x - h.at[0], z - h.at[1]];
+        const [c, sn] = [Math.cos(h.rot), Math.sin(h.rot)];
+        expect(Math.abs(dx * c - dz * sn) < h.size[0] / 2 + 0.5 && Math.abs(dx * sn + dz * c) < h.size[1] / 2 + 0.5).toBe(false);
+      }
+  });
+
   test("a coast's distance, from its cells' few segments, is the plain scan's, exactly", () => {
     const line = city.ground!.coast!;
     const loop = curve([...line, line[0]], 12);

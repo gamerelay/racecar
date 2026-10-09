@@ -42,7 +42,7 @@ http://localhost:5178/?mode=race&map=heist/city&seats=p.
   - `CityDef.parks` work outside the city's outline too (the Presidio's lawns).
   - Every other map's fingerprint is identical. `heist/city` is "not recorded" (fine while
     experimental).
-- **Green on the branch:** `bun run test` (752, 1 skip), typecheck, `bun tools/validate.ts`,
+- **Green on the branch:** `bun run test` (753, 1 skip), typecheck, `bun tools/validate.ts`,
   fingerprints.
 - **Watch:** with nobody at the controls, the game's autopilot drives your car, and in a getaway it
   crashes and ends the run in a few seconds (seen in an idle Chrome tab).
