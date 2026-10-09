@@ -4,7 +4,22 @@ Where racecar stands and what's next, for whoever picks it up (a person or a fre
 The design is [SPEC.md](./SPEC.md): decisions in §17, and what building changed in "Changed while
 building". This file is "where are we"; the spec is "what are we making".
 
-**Last updated:** 2026-10-09. **`alpha-1.46`** (PR #166) is tagged and on the hosted build (the
+**Last updated:** 2026-10-09. **`alpha-1.47`** (PR #167) is tagged and on the hosted build (the
+owner: "merge and deploy please"): **Heist's draw call pass** ("yes do the draw call pass on heist
+please"), from 650–950 calls a frame to 140–270 (SPEC §15: 250). What and how, in
+[CHASE_MODE.md](./CHASE_MODE.md)'s "The draw call pass":
+- **`flatten.ts`:** a model's plain toon parts merged into vertex-coloured meshes; every landmark,
+  all but what its update moves (marked `moves`, landmarks.ts) and parts with render state of their own.
+- **`atlas` (scenery.ts):** Heist's neon words, street names and pier numbers on shared, paged
+  textures (edges drawn out against mip bleed); `atlasMeshes` merges per page.
+- **Instanced:** the piers' piles, the warehouses' tanks, the roadblocks' police (`parked`, lamp
+  glows as points). **Traffic** (every map): parts merged per material, ink ids as ink-only meshes.
+- **Not done:** the racers' own cars (~30 draws each: their paint shader, their wheels), building
+  chunks (30–50), Riviera (~530 at one spot).
+- **The hosted build:** `Z442EE` updated in place; the previous html (`alpha-1.46`) saved in the
+  session's scratchpad only.
+
+Before it, **`alpha-1.46`** (PR #166) is tagged and on the hosted build (the
 owner: "merge and deploy please"): **the Presidio, rolling and wooded** (Heist; "the ground should
 have some soft hills and mogul like bumps, ... grass effects, ... a real wooded area with crashable
 trees"). Details in [CHASE_MODE.md](./CHASE_MODE.md)'s "Built so far".
@@ -19,7 +34,7 @@ trees"). Details in [CHASE_MODE.md](./CHASE_MODE.md)'s "Built so far".
 - **The hosted build:** `Z442EE` updated in place; the previous html (`alpha-1.45`) saved in the
   session's scratchpad only.
 
-Before it, **`alpha-1.45`** (PRs #164, #165) is tagged and on the hosted build
+Before that, **`alpha-1.45`** (PRs #164, #165) is tagged and on the hosted build
 (the owner: "merge both and deploy please"):
 - **Punch In** (#164; the owner's track): `punch-in`, the ninth in soundtrack.ts's `ANY_MAP`. The
   WAV 2.3 dB down from −13.6 to −16.0 LUFS, AAC 128 kb/s, and on the CDN (checked: 200, CORS `*`).
@@ -35,7 +50,7 @@ Before it, **`alpha-1.45`** (PRs #164, #165) is tagged and on the hosted build
 - **The hosted build:** `Z442EE` updated in place. The previous html (`alpha-1.44`) was saved
   before the update, in the session's scratchpad only.
 
-Before that, **`alpha-1.44`** (PR #160) is tagged and on the hosted build (the
+And before, **`alpha-1.44`** (PR #160) is tagged and on the hosted build (the
 owner: "ok can we include this in the online version, and deploy a new version please", then "in
 every lobby"): **Heist, the getaway.** A new mode on a new map: you start outside a bank in an
 SF-ish city and run from the cops until you crash or get boxed in; the score is how long you
