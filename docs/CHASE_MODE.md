@@ -278,7 +278,9 @@ open areas like the presidio that have more curvy roads to drift".
   a double yellow down it. From Chinatown's west edge on past Columbus into the Financial District
   its blocks are turned to front it, and every building fronting it is a club (look `broadway`):
   dark fronts, lit windows, a lit doorway, a marquee out over the pavement lined with bulbs, and a
-  neon sign each (CONDOR, JAZZ, COMEDY, CABARET, BOOKS...). About 33 of them.
+  neon sign each. About 33 of them. The owner, after: "for broadway can we add some light XXX
+  themes": North Beach's strip joints, by their signs only (XXX, GIRLS, LIVE GIRLS, PEEP SHOW,
+  ADULT, BURLESQUE, GO GO), among the CONDOR, CABARET, JAZZ, COMEDY, BOOKS and BAR.
 - **Chinatown:**
   - **The Dragon Gate** (landmark `chinatown-gate`) across Grant Avenue's south end (the grid's
     line at x 62). Its two stone posts stand on the pavements (solid houses), with a red beam and

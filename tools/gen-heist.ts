@@ -234,7 +234,7 @@ const GAP = 0.8;
 const BANK = { near: [320, -95] as P, storeys: 16 };
 /**
  * Broadway: North of Market's grid line at `z`, wider than the rest (`width` m), and between
- * `strip` (x) its clubs and bars, every one lit up (look 'broadway': a marquee over its door, neon
+ * `strip` (x) its clubs, bars and strip joints, every one lit up (look 'broadway': a marquee over its door, neon
  * over that), from Chinatown's west edge on past Columbus into the Financial District.
  */
 const BROADWAY = {
@@ -242,7 +242,8 @@ const BROADWAY = {
   width: 22,
   strip: [-70, 340] as P,
   storeys: [3, 6] as P,
-  words: ['CONDOR', 'CLUB', 'JAZZ', 'LIVE', 'CABARET', 'COMEDY', 'LOUNGE', 'DANCE', 'PIZZA', 'BOOKS', 'HOTEL', 'BAR', 'BEAT', 'GO GO'],
+  // (The owner, 2026-10-08: "some light XXX themes": North Beach's strip clubs, by their signs.)
+  words: ['CONDOR', 'XXX', 'GIRLS', 'LIVE GIRLS', 'PEEP SHOW', 'ADULT', 'BURLESQUE', 'XXX', 'GO GO', 'CABARET', 'JAZZ', 'COMEDY', 'LOUNGE', 'BOOKS', 'BAR'],
 };
 /** Grant Avenue: Chinatown's main street, North of Market's line at `x`; the Dragon Gate across its south end, `gate` m north of the crossing at `z`. */
 const GRANT = { x: 62, z: 35, gate: 22, post: 1.4, high: 11 };
