@@ -46,6 +46,8 @@ export const SMASH_KINDS: readonly SmashKind[] = [
   { id: 'street-lamp', r: 0.3, h: 5.2, slow: 0.97, boost: 0.03, points: 100 },
   { id: 'street-tree', r: 0.5, h: 6.5, slow: 0.9, boost: 0.02, points: 75 },
   { id: 'shrub', r: 0.6, h: 1.1, slow: 0.96, boost: 0.02, points: 50 },
+  // A tree in one of the Presidio's groves (the getaway's): a cypress, tall and dark; drifted into, flattened, not a wreck.
+  { id: 'grove-tree', r: 0.6, h: 9, slow: 0.88, boost: 0.02, points: 75 },
 ];
 export const SMASH_IDS = SMASH_KINDS.map((k) => k.id);
 

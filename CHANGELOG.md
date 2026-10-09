@@ -24,6 +24,9 @@ and where things stand is [docs/HANDOFF.md](./docs/HANDOFF.md).
   the Presidio's woods run up to the Golden Gate, and both bridges' approaches come down to the
   city, closed off by parked police cars. A few cars cruise the city's streets, stopping at crossings. The hills and crossings are
   smooth now, a rounded crest at each crossing instead of a ledge.
+  Broadway is a strip of clubs, every one lit up with a marquee and neon; Chinatown has the Dragon
+  Gate on Grant Avenue, lanterns strung across every street and pagoda roofs. The Presidio is open
+  past Van Ness: lawns and cypress groves with a winding drive through them, made for drifting.
 - **Look back on Q** as well as C.
 
 ## alpha-1.43: Sahara's music, and Single player

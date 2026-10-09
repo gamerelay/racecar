@@ -35,7 +35,7 @@ import type { LandmarkDef, TrackLayout } from '../../../core/content';
 import { Rng } from '../../../core/rng';
 import type { SceneLive } from '../../skin';
 import type { Keep } from './cityscape';
-import { animatedPoints, boxes, FONT, glowPoints, type Box } from './scenery';
+import { animatedPoints, boxes, canvas, FONT, glowPoints, type Box } from './scenery';
 import { pontoon, quay } from './marina';
 import { instanced } from './forest';
 import { PALM_LEAVES, palmGeometry, swaying } from './island';
@@ -1650,6 +1650,88 @@ function coitTower(m: LandmarkDef, c: Ctx): Built {
   return { root };
 }
 
+/**
+ * Chinatown's Dragon Gate (the owner, 2026-10-08: "a detailed Broadway street and China town"),
+ * across Grant Avenue's south end: two stone posts `span` m apart (params.span: the pavements' middles;
+ * the houses at them are the solid posts, `post` m square), a red beam across between them, under a
+ * green-tiled roof, its eaves turned up at the corners, gold on its ridge; its sign over the street
+ * both ways; and a lower roof out over each pavement to the buildings. Lanterns under the eaves, lit.
+ */
+function chinatownGate(m: LandmarkDef, c: Ctx): Built {
+  const root = new Group();
+  const S = m.params?.span ?? 17;
+  const H = m.params?.high ?? 11;
+  const P = m.params?.post ?? 1.4;
+  const STONE = 0xe6dfcf;
+  const RED = 0xb8332a;
+  const TILE = 0x2f7a4a;
+  const GOLD = 0xd9a33a;
+  const beam = H - 3.6;
+  // The posts (over the solid houses), each on a plinth, a red band near the top.
+  for (const s of [-1, 1]) {
+    root.add(posed(new Mesh(new BoxGeometry(P + 0.1, beam, P + 0.1), toon({ color: STONE })), (s * S) / 2, beam / 2, 0));
+    root.add(posed(new Mesh(new BoxGeometry(P + 0.6, 0.8, P + 0.6), toon({ color: 0xcfc6b2 })), (s * S) / 2, 0.4, 0));
+    root.add(posed(new Mesh(new BoxGeometry(P + 0.3, 0.7, P + 0.3), toon({ color: RED })), (s * S) / 2, beam - 1.2, 0));
+  }
+  // The beam, gold-banded, and the frieze over it.
+  root.add(posed(new Mesh(new BoxGeometry(S + P + 1.2, 1.1, 1.3), toon({ color: RED })), 0, beam + 0.55, 0));
+  root.add(posed(new Mesh(new BoxGeometry(S + P + 1.3, 0.22, 1.4), toon({ color: GOLD })), 0, beam + 0.05, 0));
+  root.add(posed(new Mesh(new BoxGeometry(S + P - 1, 1.2, 1), toon({ color: 0x1f6a5a })), 0, beam + 1.7, 0));
+  /** A hipped roof, `w` × `d` at its eaves, `h` high, a ridge `ridge` long; gold horns up at its four corners. */
+  const roof = (w: number, d: number, h: number, ridge: number, x: number, y: number) => {
+    const g = new CylinderGeometry(Math.SQRT1_2, Math.SQRT1_2, 1, 4, 1).rotateY(Math.PI / 4);
+    const pos = g.getAttribute('position');
+    for (let k = 0; k < pos.count; k++) {
+      const top = pos.getY(k) > 0;
+      // (The top's corners pulled in to the ridge: a hip roof.)
+      pos.setXYZ(k, top ? Math.sign(pos.getX(k)) * (ridge / w) * 0.5 : pos.getX(k), pos.getY(k), top ? 0 : pos.getZ(k));
+    }
+    g.computeVertexNormals();
+    root.add(posed(new Mesh(faceted(g.scale(w, h, d)), toon({ color: TILE })), x, y + h / 2, 0));
+    root.add(posed(new Mesh(new BoxGeometry(w + 0.2, 0.25, d + 0.2), toon({ color: 0x24603a })), x, y, 0));
+    root.add(posed(new Mesh(new BoxGeometry(ridge + 0.4, 0.4, 0.4), toon({ color: GOLD })), x, y + h + 0.1, 0));
+    for (const [cx, cz] of [[-1, -1], [-1, 1], [1, -1], [1, 1]]) root.add(posed(new Mesh(new ConeGeometry(0.22, 1.1, 5), toon({ color: GOLD })), x + (cx * w) / 2, y + 0.4, (cz * d) / 2, cz * 0.6, 0, -cx * 0.6));
+    for (const s of [-1, 1]) root.add(posed(new Mesh(faceted(new IcosahedronGeometry(0.45, 0)), toon({ color: GOLD })), x + (s * ridge) / 2, y + h + 0.5, 0));
+  };
+  roof(S + P + 4, 4.6, 2.2, S * 0.55, 0, beam + 2.3);
+  // Over each pavement, lower: from the post out to the buildings.
+  for (const s of [-1, 1]) {
+    root.add(posed(new Mesh(new BoxGeometry(3.2, 0.7, 0.9), toon({ color: RED })), (s * (S + 3.2)) / 2, beam - 1.6, 0));
+    roof(3.6, 3.2, 1.4, 1.2, (s * (S + 3.6)) / 2, beam - 1.2);
+  }
+  // Its sign, both ways: four characters in gold on blue.
+  const sign = toon({
+    map: canvas(256, 72, (g) => {
+      g.fillStyle = '#1f3a6a';
+      g.fillRect(0, 0, 256, 72);
+      g.strokeStyle = '#d9a33a';
+      g.lineWidth = 5;
+      g.strokeRect(4, 4, 248, 64);
+      g.fillStyle = '#f2c84a';
+      g.font = 'bold 46px "PingFang TC", "Hiragino Sans", "Noto Sans CJK TC", serif';
+      g.textAlign = 'center';
+      g.textBaseline = 'middle';
+      g.fillText('天下為公', 128, 38);
+    }),
+  });
+  for (const s of [-1, 1]) {
+    const face = new Mesh(new PlaneGeometry(4.4, 1.25), sign);
+    face.position.set(0, beam + 1.7, s * 0.52);
+    face.rotation.y = s > 0 ? 0 : Math.PI;
+    root.add(face);
+  }
+  // Red lanterns under the beam.
+  const lamps: number[] = [];
+  const red = toon({ color: 0xd8302a });
+  for (let k = -2; k <= 2; k++)
+    for (const z of [-2, 2]) {
+      root.add(posed(new Mesh(faceted(new IcosahedronGeometry(0.4, 1)).scale(1, 1.25, 1), red), (k * S) / 5, beam - 0.6, z * 0.4));
+      lamps.push((k * S) / 5, beam - 0.6, z * 0.4);
+    }
+  if (!c.day) root.add(glowPoints(lamps, 0xff5a3a, 2.2));
+  return { root };
+}
+
 const BUILDERS: Record<string, (m: LandmarkDef, ctx: Ctx) => Built> = {
   sphinx: (_m, c) => sphinx(c),
   obelisk: (_m, c) => obelisk(c),
@@ -1680,4 +1762,5 @@ const BUILDERS: Record<string, (m: LandmarkDef, ctx: Ctx) => Built> = {
   'bay-bridge': (_m, c) => bayBridge(c),
   transamerica: (m) => transamerica(m),
   'coit-tower': (m, c) => coitTower(m, c),
+  'chinatown-gate': (m, c) => chinatownGate(m, c),
 };

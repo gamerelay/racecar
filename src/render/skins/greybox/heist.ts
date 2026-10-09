@@ -5,9 +5,11 @@
 //   chinatown  painted walls, balconies, signs over the shops
 //   victorian  the Hills and the Mission: painted ladies, bay windows, white trim
 //   warehouse  SoMa: brick, big steel windows, loading doors
+//   broadway   Broadway's clubs: dark fronts, lit windows, a marquee of bulbs over each door
+// Now and then a Chinatown building has a pagoda roof, tiered, green tile.
 // And the one-offs: the Bank (a granite temple at the foot of its tower, its name over the
 // columns), the Ferry Building (its clock tower), the piers out in the bay (each its number over
-// its doors), Lombard's planters, Dolores Park's palms, the Freeway's wall. Every building of a look
+// its doors), Lombard's planters, Dolores Park's palms, the Freeway's wall, the Presidio's hedges. Every building of a look
 // is one mesh (merged, vertex coloured): a draw for its walls, one for its ground floors.
 
 import { BoxGeometry, BufferGeometry, CanvasTexture, CatmullRomCurve3, ConeGeometry, CylinderGeometry, Float32BufferAttribute, Group, IcosahedronGeometry, Matrix4, Mesh, MeshBasicMaterial, type Object3D, PlaneGeometry, Quaternion, RepeatWrapping, Vector3 } from 'three';
@@ -25,7 +27,7 @@ import { canvas } from './scenery';
 import { faceted, toon } from './toon';
 
 /** The looks drawn here (any other is houses.ts's). */
-export const CITY_LOOKS: ReadonlySet<string> = new Set(['tower', 'chinatown', 'victorian', 'warehouse', 'bank', 'ferry', 'pier', 'planter', 'palm', 'wall']);
+export const CITY_LOOKS: ReadonlySet<string> = new Set(['tower', 'chinatown', 'victorian', 'warehouse', 'broadway', 'bank', 'ferry', 'pier', 'planter', 'palm', 'wall', 'hedge']);
 
 /** A storey (m): the generator's houses are a whole number of them high. */
 const STOREY = 3.4;
@@ -171,6 +173,34 @@ const STYLES: Record<string, Style> = {
       g.fillRect(8, 12, 48, 2);
     }),
   },
+  broadway: {
+    bay: 4,
+    base: STOREY,
+    walls: [0x3d3346, 0x5a2a36, 0x2f3a4f, 0x6a4a34, 0x4a4652, 0x2a4440, 0x6a3a5a],
+    trim: [0xd9a33a, 0xc8c0d0, 0xff6aa8],
+    roof: 0x2a262e,
+    upper: tile((g) => {
+      // A window lit warm or coloured, its blind half down.
+      g.fillStyle = '#ffd98a';
+      g.fillRect(14, 10, 36, 34);
+      g.fillStyle = 'rgba(160,40,90,0.55)';
+      g.fillRect(14, 10, 36, 14);
+      g.fillStyle = 'rgba(0,0,0,0.3)';
+      g.fillRect(31, 10, 2, 34);
+      g.fillRect(10, 46, 44, 3);
+    }),
+    ground: tile((g) => {
+      // A club's front: a lit doorway between dark glass, a poster each side.
+      g.fillStyle = '#1a1420';
+      g.fillRect(0, 8, 64, 56);
+      g.fillStyle = '#ffcf6a';
+      g.fillRect(24, 20, 16, 44);
+      g.fillStyle = '#e04a8a';
+      g.fillRect(5, 24, 13, 20);
+      g.fillStyle = '#4ad8e0';
+      g.fillRect(46, 24, 13, 20);
+    }),
+  },
 };
 
 /** Faces, merged: positions, normals, uvs and colours, a quad at a time. */
@@ -241,6 +271,9 @@ export function buildHeistCity(track: Track, list: { h: HouseDef; k: number; y: 
   const planters: Part[] = [];
   const blooms: Part[] = [];
   const palms: Part[] = [];
+  const pagodas: Part[] = [];
+  const bulbs: number[] = [];
+  const hedges: Part[] = [];
   const neon = new Neon();
   for (const { h, k, y } of list) {
     const [w, d, high] = h.size;
@@ -259,6 +292,15 @@ export function buildHeistCity(track: Track, list: { h: HouseDef; k: number; y: 
       plain.box(h.at[0], h.at[1], h.rot, w + 0.2, d + 0.2, y + high, y + high + 0.3, style.roof, 0, 0, true);
       // A tower's plant room; a warehouse's rooftop water tank, now and then.
       if (look === 'tower' && high > 30) plain.box(h.at[0], h.at[1], h.rot, w * 0.45, d * 0.45, y + high, y + high + 4, 0x7a818c, 0, 0, true);
+      if (look === 'broadway') marquee(h, y, base, plain, bulbs);
+      // A pagoda roof: two tiers of green (or gold) tile, a red drum between, on a low building that's square enough.
+      if (look === 'chinatown' && hash01(k, 7, 29) < 0.22 && w >= 8 && d >= 8 && high <= 18) {
+        const tile = hash01(k, 8, 29) < 0.75 ? 0x2f7a4a : 0xd9a33a;
+        const top = y + high + 0.6;
+        pagodas.push({ x: h.at[0], y: top, z: h.at[1], yaw: h.rot, sx: w + 1.8, sy: 2.4, sz: d + 1.8, color: tile });
+        plain.box(h.at[0], h.at[1], h.rot, w * 0.5, d * 0.5, top + 1.6, top + 3.6, 0xb8332a, 0, 0, false);
+        pagodas.push({ x: h.at[0], y: top + 3.6, z: h.at[1], yaw: h.rot, sx: w * 0.62, sy: 2.2, sz: d * 0.62, color: tile });
+      }
       if (look === 'warehouse' && hash01(k, 3, 29) < 0.3) {
         const t = new Mesh(faceted(new CylinderGeometry(1.6, 1.6, 3, 8)), toon({ color: 0x7a5a40 }));
         t.position.set(h.at[0] + Math.cos(h.rot) * w * 0.2, y + high + 4, h.at[1] - Math.sin(h.rot) * w * 0.2);
@@ -291,6 +333,18 @@ export function buildHeistCity(track: Track, list: { h: HouseDef; k: number; y: 
       case 'wall':
         plain.box(h.at[0], h.at[1], h.rot, w, d, y, y + high, 0xa8a49c, 0, 0, true);
         break;
+      case 'hedge': {
+        // Clipped cypress: a dark box, lumps along its top.
+        plain.box(h.at[0], h.at[1], h.rot, w, d, y - 6, y + high - 0.4, 0x2b4f31, 0, 0, true);
+        const long = Math.max(w, d);
+        const [ux, uz] = w >= d ? [Math.cos(h.rot), -Math.sin(h.rot)] : [Math.sin(h.rot), Math.cos(h.rot)];
+        for (let t = -long / 2 + 1.5; t <= long / 2 - 1.5; t += 2.6) {
+          const lx = h.at[0] + ux * t;
+          const lz = h.at[1] + uz * t;
+          hedges.push({ x: lx, y: y + high - 0.6, z: lz, yaw: hash01(Math.round(t), k, 33) * 6.28, sx: Math.min(w, d) * 0.62, sy: 1.1, sz: Math.min(w, d) * 0.62, color: hash01(Math.round(t), k, 34) < 0.5 ? 0x2f5a36 : 0x36643c });
+        }
+        break;
+      }
     }
   }
   for (const [look, m] of upper) {
@@ -300,6 +354,9 @@ export function buildHeistCity(track: Track, list: { h: HouseDef; k: number; y: 
   const rest = plain.mesh();
   if (rest) out.push(rest);
   out.push(...neon.build());
+  if (pagodas.length) out.push(instanced(faceted(pagodaRoof()), toon(), pagodas));
+  if (hedges.length) out.push(instanced(faceted(new IcosahedronGeometry(1, 0)), toon(), hedges));
+  if (bulbs.length) out.push(glowPoints(bulbs, 0xfff0b0, 0.9));
   if (planters.length) out.push(instanced(new BoxGeometry(1, 1, 1), toon(), planters), instanced(faceted(new BoxGeometry(1, 1, 1, 3, 1, 1)), toon(), blooms));
   if (palms.length) {
     const geo = palmGeometry();
@@ -307,6 +364,34 @@ export function buildHeistCity(track: Track, list: { h: HouseDef; k: number; y: 
   }
   return out;
 }
+
+/** A pagoda roof's tier, 1 m square at its eaves and 1 m high: steep to a small top, its eaves flared out flatter. */
+function pagodaRoof(): BufferGeometry {
+  const g = new CylinderGeometry(0.16, Math.SQRT1_2, 1, 4, 2).rotateY(Math.PI / 4);
+  const p = g.getAttribute('position');
+  // (The middle ring pulled in and up: a concave sweep, the eaves turned out.)
+  for (let k = 0; k < p.count; k++) if (Math.abs(p.getY(k)) < 0.01) p.setXYZ(k, p.getX(k) * 0.55, 0.15, p.getZ(k) * 0.55);
+  return g.translate(0, 0.5, 0);
+}
+
+/** A Broadway club's marquee: a canopy out over the pavement from its door, its edges lined with bulbs. */
+function marquee(h: HouseDef, y: number, base: number, into: Merge, bulbs: number[]): void {
+  const [w, d] = h.size;
+  const cs = Math.cos(h.rot);
+  const sn = Math.sin(h.rot);
+  const W = (lx: number, lz: number): [number, number] => [h.at[0] + lx * cs + lz * sn, h.at[1] - lx * sn + lz * cs];
+  const across = Math.min(w - 2, 9);
+  const out = 2.2;
+  const lx = (hash01(Math.round(h.at[0]), Math.round(h.at[1]), 43) - 0.5) * (w - across - 2);
+  const [mx, mz] = W(lx, d / 2 + out / 2);
+  const y0 = y + base - 0.2;
+  into.box(mx, mz, h.rot, across, out, y0, y0 + 0.9, 0x2a2433, 0, 0, true);
+  into.box(mx, mz, h.rot, across + 0.1, out + 0.1, y0 + 0.25, y0 + 0.65, pick([0xf2c84a, 0xe8e0f0, 0xff6aa8], Math.round(h.at[0] * 7 + h.at[1]), 9));
+  // Bulbs along its three outer edges.
+  for (let t = -across / 2; t <= across / 2; t += 0.6) bulbs.push(...xyz(W(lx + t, d / 2 + out + 0.05), y0 + 0.95));
+  for (let t = 0.3; t <= out; t += 0.6) for (const s of [-1, 1]) bulbs.push(...xyz(W(lx + (s * across) / 2, d / 2 + t), y0 + 0.95));
+}
+const xyz = ([x, z]: [number, number], y: number) => [x, y, z];
 
 // ---- The one-offs ----
 
@@ -786,5 +871,54 @@ export function buildCitySurrounds(track: Track): Object3D[] {
     }
   if (cypress.length) out.push(instanced(faceted(new ConeGeometry(1, 1, 7).translate(0, 0.5, 0)), toon(), cypress));
   if (trunks.length) out.push(instanced(new CylinderGeometry(0.6, 1, 1, 5).translate(0, 0.5, 0), toon(), trunks), instanced(faceted(new IcosahedronGeometry(1, 0)), toon(), gums));
+  out.push(...lanterns(track));
+  return out;
+}
+
+/** Chinatown's lanterns: strung zigzag across a street from wall to wall every `every` m, `high` m up, sagging `sag` m; one every `gap` m along a string. */
+const LANTERN = { every: 9, high: 6.5, sag: 0.9, gap: 1.5, from: CROSSING + 3 };
+
+/** Strings of red lanterns across Chinatown's streets (GetawayScenery.lanterns), lit at dusk. */
+function lanterns(track: Track): Object3D[] {
+  const list = track.layout.getaway?.scenery?.lanterns;
+  const ground = track.ground;
+  if (!list?.length || !ground) return [];
+  const wires = new Merge();
+  const lamps: Part[] = [];
+  const glow: number[] = [];
+  for (const [ax, az, bx, bz, w] of list) {
+    const len = Math.hypot(bx - ax, bz - az);
+    const [dx, dz] = [(bx - ax) / len, (bz - az) / len];
+    const half = w / 2 + SIDEWALK - 0.3;
+    const at = (t: number, lat: number): [number, number] => [ax + dx * t - dz * lat, az + dz * t + dx * lat];
+    let side = 1;
+    for (let t = LANTERN.from; t + LANTERN.every / 2 <= len - LANTERN.from; t += LANTERN.every / 2, side = -side) {
+      const [px, pz] = at(t, side * half);
+      const [qx, qz] = at(t + LANTERN.every / 2, -side * half);
+      const [py, qy] = [ground.height(px, pz) + LANTERN.high, ground.height(qx, qz) + LANTERN.high];
+      const span = Math.hypot(qx - px, qz - pz);
+      const n = Math.max(2, Math.round(span / LANTERN.gap));
+      let prev: number[] | null = null;
+      for (let k = 0; k <= n; k++) {
+        const u = k / n;
+        const p = [px + (qx - px) * u, py + (qy - py) * u - LANTERN.sag * 4 * u * (1 - u), pz + (qz - pz) * u];
+        if (prev) wires.box((prev[0] + p[0]) / 2, (prev[2] + p[2]) / 2, Math.atan2(p[0] - prev[0], p[2] - prev[2]), 0.05, Math.hypot(p[0] - prev[0], p[2] - prev[2]), Math.min(prev[1], p[1]) - 0.03, Math.max(prev[1], p[1]) + 0.03, 0x2a2228);
+        prev = p;
+        if (k === 0 || k === n) continue;
+        const gold = hash01(Math.round(p[0] * 3), Math.round(p[2] * 3), 47) < 0.12;
+        lamps.push({ x: p[0], y: p[1] - 0.55, z: p[2], yaw: 0, sx: 1, sy: 1, sz: 1, color: gold ? 0xf2b83a : 0xd8302a });
+        if (k % 2) glow.push(p[0], p[1] - 0.55, p[2]);
+      }
+    }
+  }
+  const out: Object3D[] = [];
+  const m = wires.mesh();
+  if (m) out.push(m);
+  if (lamps.length) {
+    // (A lantern: a fat round body, a dark cap and a tassel.)
+    const geo = mergeGeometries([faceted(new IcosahedronGeometry(0.3, 1)).scale(1, 0.85, 1), new CylinderGeometry(0.12, 0.12, 0.12, 6).translate(0, 0.3, 0), new CylinderGeometry(0.03, 0.03, 0.3, 4).translate(0, -0.38, 0)].map((g) => (g.index ? g.toNonIndexed() : g)));
+    if (geo) out.push(instanced(geo, toon(), lamps));
+    out.push(glowPoints(glow, 0xff4a32, 1.6));
+  }
   return out;
 }

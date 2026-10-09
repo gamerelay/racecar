@@ -150,17 +150,65 @@ describe('the getaway', () => {
   test('the parks are lawn, the streets round it paving; the bay is under the sea', () => {
     const ground = bakeTrack(city, SURFACES).ground!;
     const park = (city.ground!.features!.find((f) => f.kind === 'city') as CityDef).parks!;
-    // (Dolores Park's two blocks, and Pioneer Park round Coit Tower.)
-    expect(park.length).toBe(3);
-    for (const loop of park) {
+    // (Dolores Park's two blocks, Pioneer Park round Coit Tower; and the Presidio's lawns, past Van Ness.)
+    expect(park.length).toBe(4);
+    for (const loop of park.slice(0, 3)) {
       const x = loop.reduce((a, p) => a + p[0], 0) / loop.length;
       const z = loop.reduce((a, p) => a + p[1], 0) / loop.length;
       expect(ground.kindAt(x, z)).toBe(KIND_OASIS);
     }
+    expect(ground.kindAt(-590, 30)).toBe(KIND_OASIS);
     // The start's street is paving; off the Embarcadero past the sea wall, deep water.
     const [sx, sz] = city.getaway!.start!.at;
     expect(ground.kindAt(sx, sz)).toBe(KIND_PAVED);
     expect(ground.height(660, -250)).toBeLessThan(city.ground!.sea! - 5);
+  });
+
+  test('past Van Ness, the Presidio: open to its lawns, a drive winding through them in sweepers, hedged in', () => {
+    const track = bakeTrack(city, SURFACES);
+    const main = track.main;
+    const drive = track.splines.find((sp) => sp.id === 'presidio-drive')!;
+    expect(drive).toBeDefined();
+    // Van Ness's west side (its left: the road runs north) has no wall beside the lawns; the bay's side north of them does.
+    const at = (z: number) => {
+      let best = 0;
+      for (let i = 0; i < main.n; i++) if (Math.hypot(main.px[i] + 560, main.pz[i] - z) < Math.hypot(main.px[best] + 560, main.pz[best] - z)) best = i;
+      return best;
+    };
+    for (const z of [300, 0, -300]) expect(main.wallL[at(z)]).toBe(0);
+    expect(main.wallL[at(-440)]).toBe(1);
+    // Its corners sweep (no tighter than 35 m, but at its mouths) and it turns a lot: back and forth across the park.
+    const k = Math.round(10 / drive.step);
+    let turned = 0;
+    for (let i = k; i < drive.n - k; i += 2 * k) {
+      let d = Math.atan2(drive.tx[i + k], drive.tz[i + k]) - Math.atan2(drive.tx[i - k], drive.tz[i - k]);
+      d = Math.atan2(Math.sin(d), Math.cos(d));
+      turned += Math.abs(d);
+      if (i * drive.step > 60 && i * drive.step < drive.length - 60) expect((2 * k * drive.step) / Math.abs(d || 1e-9)).toBeGreaterThan(35);
+    }
+    expect(turned).toBeGreaterThan(5 * Math.PI);
+    // Hedged in to the west and south: a solid house along each.
+    const hedges = city.houses!.filter((h) => h.look === 'hedge');
+    expect(hedges.length).toBe(2);
+    expect(Math.max(...hedges.map((h) => Math.max(h.size[0], h.size[1])))).toBeGreaterThan(800);
+  });
+
+  test("Broadway: wider, its clubs fronting it, every one lit; Chinatown's Dragon Gate on Grant Avenue's pavements", () => {
+    const clubs = city.houses!.filter((h) => h.look === 'broadway');
+    expect(clubs.length).toBeGreaterThan(20);
+    for (const h of clubs) {
+      expect(h.label).toBeDefined();
+      // Its front (local +z) toward Broadway's line, z -230.
+      expect(Math.cos(h.rot) * Math.sign(-230 - h.at[1])).toBeGreaterThan(0.99);
+    }
+    const paint = city.getaway!.paint!;
+    expect(Math.max(...paint)).toBe(22);
+    const gate = city.landmarks!.find((m) => m.kind === 'chinatown-gate')!;
+    expect(gate).toBeDefined();
+    // Its posts (solid) either side of the street, on the pavements: none out in the street.
+    const posts = city.houses!.filter((h) => h.look === 'landmark' && Math.abs(h.at[1] - gate.at[1]) < 0.5);
+    expect(posts.length).toBe(2);
+    for (const p of posts) expect(Math.abs(p.at[0] - gate.at[0]) - p.size[0] / 2).toBeGreaterThan(7);
   });
 
   test("a coast's distance, from its cells' few segments, is the plain scan's, exactly", () => {

@@ -222,7 +222,7 @@ export const LANDMARK_KINDS = [
   // Sahara
   'sphinx', 'obelisk',
   // The getaway's city
-  'alcatraz', 'golden-gate', 'bay-bridge', 'transamerica', 'coit-tower',
+  'alcatraz', 'golden-gate', 'bay-bridge', 'transamerica', 'coit-tower', 'chinatown-gate',
 ] as const;
 
 /**
@@ -392,6 +392,8 @@ export interface GetawayDef {
 export interface GetawayScenery {
   approaches: { path: [number, number, number][]; width: number; cars: [number, number, number][]; barrier: [[number, number], [number, number]] }[];
   presidio: [number, number, number, number];
+  /** Chinatown's lanterns, strung across its streets: each street's middle from [x0, z0] to [x1, z1], and its width ([x0, z0, x1, z1, width]). */
+  lanterns?: [number, number, number, number, number][];
 }
 
 /** An avalanche down a run: it breaks away `behind` m above the start line, `delay` s after the green light, at about `speed` m/s on a 20% slope. */
@@ -719,7 +721,7 @@ export interface CityDef {
   level: [number, number, number][];
   /** Off the main road its ground comes in over this many metres past the road's edge (default 24): wider where a hill comes near the road. */
   cut?: number;
-  /** Parks (closed [x, z] loops): lawn, not paving (driven as `undergrowth`). */
+  /** Parks (closed [x, z] loops): lawn, not paving (driven as `undergrowth`); inside the outline or out past it. */
   parks?: [number, number][][];
 }
 

@@ -269,6 +269,46 @@ themselves, so a sloppy line wrecks you. (Smashables in `smash.ts` never wreck; 
 
 ## Built so far
 
+### Broadway, Chinatown and the Presidio's drive (2026-10-08)
+
+The owner: "I think we should add a detailed broadway street and china town, also maybe some more
+open areas like the presidio that have more curvy roads to drift".
+
+- **Broadway:** North of Market's line at z -230, 22 m wide (the grid's other streets are 14), so
+  a double yellow down it. From Chinatown's west edge on past Columbus into the Financial District
+  its blocks are turned to front it, and every building fronting it is a club (look `broadway`):
+  dark fronts, lit windows, a lit doorway, a marquee out over the pavement lined with bulbs, and a
+  neon sign each (CONDOR, JAZZ, COMEDY, CABARET, BOOKS...). About 33 of them.
+- **Chinatown:**
+  - **The Dragon Gate** (landmark `chinatown-gate`) across Grant Avenue's south end (the grid's
+    line at x 62). Its two stone posts stand on the pavements (solid houses), with a red beam and
+    a green-tiled roof over the street, turned-up gold horns at the eaves, a lower roof over each
+    pavement, its sign (天下為公) both ways, and red lanterns under the beam.
+  - **Lanterns** strung zigzag across every Chinatown street from wall to wall, 6.5 m up, every
+    4.5 m, sagging (`GetawayScenery.lanterns`: each street's line and width; the skin strings
+    them). Every other one glows at dusk; about one in eight is gold.
+  - **Pagoda roofs:** about one low Chinatown building in five has two tiers of green (or gold)
+    tile with a red drum between.
+  - **Wider pavements:** a district's setback from its streets is now its grid's street width (the
+    width the streets are drawn and painted), not its own. Chinatown's 10 m had left its pavements
+    1 m wide under the painted 3 m.
+- **The Presidio, drivable:** Van Ness's west side is open (no wall) from near its foot to near its
+  top, onto lawn (a city park out past the outline: `CityDef.parks` now works outside it, driven as
+  undergrowth). Presidio Drive (branch `presidio-drive`, kind `street`, 12 m, about 1.3 km) leaves
+  Van Ness near the Freeway and swings back and forth across the park in sweepers (45–90 m radius;
+  tightest 40 m) and rejoins near the top. It's in the cops' streets. A hedge (solid) runs down
+  the west side from the water and along the south; past it, the drawn woods, and the Golden Gate's
+  approach now comes down beyond the hedge to its roadblock. To the north, the beach and the bay.
+  About 30 groves (some 230 cypresses) and brush stand about the lawns: smashables (new kind
+  `grove-tree`), so drifting through them costs speed but never a wreck.
+- **Engine:** the validator's "house on a road" test also wants the house near where it projected.
+  A winding branch, projected onto from far away, could stop on a sample whose tangent pointed at
+  the house, so it reported city blocks 200 m off as standing on the Presidio's drive. Other maps
+  validate as before, and their fingerprints are identical.
+- **Known:** a car that crosses the drive from the lawn (not along it from a mouth) reads the
+  drive's asphalt as the main road's verge (sidewalk, grip 0.9). Other maps' branches behave the
+  same way.
+
 ### Stops at crossings, and smoother hills (2026-10-08)
 
 The owner: "make the traffic stop at intersections, also some of the geometry for the hills and

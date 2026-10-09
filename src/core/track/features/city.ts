@@ -119,13 +119,13 @@ export function cityFeature(c: CityDef): Feature {
       return y + (height(p.x, p.z) - y) * (p.rock ? 1 : smooth(p.edge, p.edge + (c.cut ?? CUT), p.d));
     },
     surface(x, z) {
-      if (!within(x, z)) return -1;
-      // (A park's lawn: driven as undergrowth, a short cut that costs a little.)
+      // (A park's lawn: driven as undergrowth, a short cut that costs a little. Out past the city
+      // too: the Presidio's lawns, past Van Ness.)
       for (const park of parks) if (park(x, z)) return KIND_OASIS;
-      return KIND_PAVED;
+      return within(x, z) ? KIND_PAVED : -1;
     },
     bare(_s, _lat, x, z) {
-      return within(x, z);
+      return within(x, z) || parks.some((park) => park(x, z));
     },
   };
 }

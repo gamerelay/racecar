@@ -6,8 +6,8 @@ import { KINDS } from '../world/hazards';
 import { Breakables, MAX_PANELS, PANEL_WIDTH } from '../world/breakables';
 import { SMASH_IDS } from '../world/smash';
 import { JOIN, STREET_FADE, TRAFFIC_KINDS } from '../world/traffic';
-import { bakeTrack, COLUMN, mainDistance, porchColumns, sampleIndex, wrap } from './bake';
-import { newHit, offRoad, projectGlobal } from './query';
+import { bakeTrack, type BakedSpline, COLUMN, mainDistance, porchColumns, sampleIndex, wrap } from './bake';
+import { newHit, offRoad, projectGlobal, type TrackHit } from './query';
 import { OVERRIDES } from '../maps';
 import { regionProblem, respawnProblem, type OverrideCode } from './overrides';
 import { LAVA_REACH, streamDistance } from './features/lava-stream';
@@ -428,6 +428,12 @@ export function validateLayout(layout: TrackLayout, surfaces: SurfaceDef[], clas
     if ([a, b].some((s) => !(s >= 0 && s <= L))) err(`hazard ${h.use} at ${JSON.stringify(h.s)} is off the main spline (0–${L.toFixed(0)})`, 'main', a);
     if (kind.schedule === 'trigger' && typeof h.s !== 'number') err(`hazard ${h.use} is a trigger: it needs one point (s), not a range, or it never fires`, 'main', a);
   }
+  /**
+   * Whether (x, z) is within `reach` of road `sp`'s middle, `at` its projection onto it: across it,
+   * and by the straight way to where it projected too (a projection off a winding road, from far
+   * away, can stop on a sample whose tangent points at the point: across it, nothing; it isn't near).
+   */
+  const onRoad = (sp: BakedSpline, x: number, z: number, at: TrackHit, reach: number) => offRoad(sp, x, z, at) < reach && hypot(x - at.cx, z - at.cz) < reach + 1;
   // Houses: on open ground, clear of every road and its verge, with some size.
   for (const [k, h] of (layout.houses ?? []).entries()) {
     if (!layout.ground) {
@@ -444,7 +450,7 @@ export function validateLayout(layout: TrackLayout, surfaces: SurfaceDef[], clas
       const z = h.at[1] - (a * h.size[0] * fx) / 2 + (b * h.size[1] * fz) / 2;
       for (const sp of track.splines) {
         projectGlobal(sp, x, z, at);
-        if (offRoad(sp, x, z, at) < at.width / 2 + at.shoulder + 1) {
+        if (onRoad(sp, x, z, at, at.width / 2 + at.shoulder + 1)) {
           err(`house ${k} at [${h.at.join(', ')}] stands on ${sp.index === 0 ? 'the main road' : sp.id} (${at.s.toFixed(0)} m)`, sp.id, at.s);
           break;
         }
@@ -458,7 +464,7 @@ export function validateLayout(layout: TrackLayout, surfaces: SurfaceDef[], clas
       for (const [x, z] of porchColumns(h))
         for (const sp of track.splines) {
           projectGlobal(sp, x, z, at);
-          if (offRoad(sp, x, z, at) < at.width / 2 + at.shoulder + COLUMN + 0.5) {
+          if (onRoad(sp, x, z, at, at.width / 2 + at.shoulder + COLUMN + 0.5)) {
             err(`house ${k}: a porch column at [${x.toFixed(1)}, ${z.toFixed(1)}] stands on ${sp.index === 0 ? 'the main road' : sp.id} (${at.s.toFixed(0)} m)`, sp.id, at.s);
             break;
           }

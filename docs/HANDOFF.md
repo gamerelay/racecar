@@ -24,18 +24,24 @@ http://localhost:5178/?mode=race&map=heist/city&seats=p.
   - **Streets:** painted with sidewalks; lamps, trees and shrubs you knock flat (smashables, never
     a wreck); Lombard's planter slalom, Dolores and Pioneer Parks.
   - **The bay:** a sea wall, piers, the Ferry Building, and Alcatraz and both bridges as landmarks.
-  - **Round the city:** Transamerica and Coit Tower; the Presidio, and the bridges' approaches
-    drawn down to police roadblocks behind the wall.
+  - **Round the city:** Transamerica and Coit Tower, and the bridges' approaches drawn down to
+    police roadblocks behind the wall.
+  - **Broadway and Chinatown:** Broadway's clubs (marquees, neon), the Dragon Gate on Grant Avenue,
+    lanterns across Chinatown's streets, and pagoda roofs.
+  - **The Presidio:** open off Van Ness's west side. Lawns, cypress groves (smashables) and Presidio
+    Drive, a 1.3 km branch of sweepers for drifting, hedged in.
   - **Traffic:** 30 cars cruising 9 loops of streets and stopping at crossings (traffic path lanes,
     `TrafficLaneDef.path`/`stops`, still closed form).
 - **Engine changes other maps share:**
   - The coast distance (`island.ts`'s `loopDistance`) asks only each cell's candidate segments,
     exactly the same results and a test for it.
   - New smashable kinds and landmark kinds are appended.
-  - The validator knows the city feature and path lanes.
+  - The validator knows the city feature and path lanes, and its house-on-a-road test ignores a
+    projection that stopped short of the house (a winding branch, from far off).
+  - `CityDef.parks` work outside the city's outline too (the Presidio's lawns).
   - Every other map's fingerprint is identical. `heist/city` is "not recorded" (fine while
     experimental).
-- **Green on the branch:** `bun run test` (749, 1 skip), typecheck, `bun tools/validate.ts`,
+- **Green on the branch:** `bun run test` (751, 1 skip), typecheck, `bun tools/validate.ts`,
   fingerprints.
 - **Watch:** with nobody at the controls, the game's autopilot drives your car, and in a getaway it
   crashes and ends the run in a few seconds (seen in an idle Chrome tab).

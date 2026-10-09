@@ -232,6 +232,20 @@ const SIDEWALK = 3;
 const GAP = 0.8;
 /** The Bank: the corner of North of Market nearest here, its block's building on the street out front, this many storeys. */
 const BANK = { near: [320, -95] as P, storeys: 16 };
+/**
+ * Broadway: North of Market's grid line at `z`, wider than the rest (`width` m), and between
+ * `strip` (x) its clubs and bars, every one lit up (look 'broadway': a marquee over its door, neon
+ * over that), from Chinatown's west edge on past Columbus into the Financial District.
+ */
+const BROADWAY = {
+  z: -230,
+  width: 22,
+  strip: [-70, 340] as P,
+  storeys: [3, 6] as P,
+  words: ['CONDOR', 'CLUB', 'JAZZ', 'LIVE', 'CABARET', 'COMEDY', 'LOUNGE', 'DANCE', 'PIZZA', 'BOOKS', 'HOTEL', 'BAR', 'BEAT', 'GO GO'],
+};
+/** Grant Avenue: Chinatown's main street, North of Market's line at `x`; the Dragon Gate across its south end, `gate` m north of the crossing at `z`. */
+const GRANT = { x: 62, z: 35, gate: 22, post: 1.4, high: 11 };
 
 // ---- Baked once without the city, to place things by the main road ----
 
@@ -306,8 +320,16 @@ for (const d of DISTRICTS) {
   gridsDone.add(d.grid);
   const u: P = [Math.cos(d.angle), Math.sin(d.angle)];
   const v: P = [-u[1], u[0]];
-  for (const a of d.u) streets.push(...clip(d, [d.origin[0] + u[0] * a, d.origin[1] + u[1] * a], v, d.street, `${d.name} ${a}`));
-  for (const b of d.v) streets.push(...clip(d, [d.origin[0] + v[0] * b, d.origin[1] + v[1] * b], u, d.street, `${d.name} ${b}`));
+  for (const a of d.u) streets.push(...clip(d, [d.origin[0] + u[0] * a, d.origin[1] + u[1] * a], v, lineWidth(d, 'u', a), d.grid === northOfMarket && a === GRANT.x ? 'Grant Avenue' : `${d.name} ${a}`));
+  for (const b of d.v) streets.push(...clip(d, [d.origin[0] + v[0] * b, d.origin[1] + v[1] * b], u, lineWidth(d, 'v', b), d.grid === northOfMarket && b === BROADWAY.z ? 'Broadway' : `${d.name} ${b}`));
+}
+/**
+ * A district's grid line's street width: its grid's (the first of the districts sharing it: its
+ * streets are drawn and painted that wide), but Broadway's.
+ */
+function lineWidth(d: District, axis: 'u' | 'v', at: number): number {
+  if (d.grid === northOfMarket && axis === 'v' && at === BROADWAY.z) return BROADWAY.width;
+  return (d.grid ? DISTRICTS.find((q) => q.grid === d.grid)! : d).street;
 }
 
 // ---- The buildings ----
@@ -336,25 +358,31 @@ function block(d: District, u0: number, u1: number, v0: number, v1: number): voi
   const u: P = [Math.cos(d.angle), Math.sin(d.angle)];
   const v: P = [-u[1], u[0]];
   const world = (a: number, b: number): P => [d.origin[0] + u[0] * a + v[0] * b, d.origin[1] + u[1] * a + v[1] * b];
-  const setback = d.street / 2 + SIDEWALK;
+  const setback = (axis: 'u' | 'v', at: number) => lineWidth(d, axis, at) / 2 + SIDEWALK;
   if (park.some((q) => insideLoop(q, ...world((u0 + u1) / 2, (v0 + v1) / 2)))) return;
-  const [a0, a1, b0, b1] = [u0 + setback, u1 - setback, v0 + setback, v1 - setback];
+  const [a0, a1, b0, b1] = [u0 + setback('u', u0), u1 - setback('u', u1), v0 + setback('v', v0), v1 - setback('v', v1)];
   if (a1 - a0 < 10 || b1 - b0 < 10) return;
   const alley = rng.next() < d.alleys && Math.max(a1 - a0, b1 - b0) > 40;
   const half = alley ? d.alley / 2 : GAP / 2;
-  const alongU = a1 - a0 >= b1 - b0;
+  // (Its rows along its long way; along Broadway on its strip, so its clubs front it.)
+  const mid = world((u0 + u1) / 2, (v0 + v1) / 2);
+  const onBroadway = d.grid === northOfMarket && (v0 === BROADWAY.z || v1 === BROADWAY.z) && mid[0] > BROADWAY.strip[0] && mid[0] < BROADWAY.strip[1];
+  const alongU = onBroadway || a1 - a0 >= b1 - b0;
   /** One building, a..b along u by c..e along v (local), its front to the street on its `face` side (+v, -v, +u, -u). */
   const build = (a: number, b: number, c: number, e: number, face: number) => {
     const corners = [world(a, c), world(b, c), world(a, e), world(b, e), world((a + b) / 2, c), world((a + b) / 2, e), world(a, (c + e) / 2), world(b, (c + e) / 2)];
     if (b - a < 6 || e - c < 6 || !clear(d, corners)) return;
     const [x, z] = world((a + b) / 2, (c + e) / 2);
-    const storeys = Math.round(rng.range(d.storeys[0], d.storeys[1]));
+    // (On Broadway's strip, fronting it: a club, lower, lit up.)
+    const broadway = d.grid === northOfMarket && face < 2 && [v1, v0][face] === BROADWAY.z && x > BROADWAY.strip[0] && x < BROADWAY.strip[1];
+    const storeys = Math.round(broadway ? rng.range(BROADWAY.storeys[0], BROADWAY.storeys[1]) : rng.range(d.storeys[0], d.storeys[1]));
     // (Turned to face it: the same box either way round, its shopfronts and signs on the street's side.)
     const turn = [0, Math.PI, Math.PI / 2, -Math.PI / 2][face];
     const rot = Math.atan2(Math.sin(turn - d.angle), Math.cos(turn - d.angle));
     const size: [number, number, number] = face < 2 ? [r1(b - a), r1(e - c), r1(storeys * 3.4)] : [r1(e - c), r1(b - a), r1(storeys * 3.4)];
-    const house: HouseDef = { at: [r1(x), r1(z)], size, rot: Math.round(rot * 1000) / 1000, look: d.look };
-    if (signs.next() < d.neon.share) house.label = d.neon.words[Math.floor(signs.next() * d.neon.words.length)];
+    const house: HouseDef = { at: [r1(x), r1(z)], size, rot: Math.round(rot * 1000) / 1000, look: broadway ? 'broadway' : d.look };
+    if (broadway) house.label = BROADWAY.words[Math.floor(signs.next() * BROADWAY.words.length)];
+    else if (signs.next() < d.neon.share) house.label = d.neon.words[Math.floor(signs.next() * d.neon.words.length)];
     houses.push(house);
   };
   /** A row of lots along u (a..b), c..e deep; or along v. */
@@ -454,6 +482,11 @@ for (const d of DISTRICTS)
 park.pop();
 houses.push({ at: PYRAMID_AT, size: [PYRAMID.base, PYRAMID.base, 24], rot: 0, look: 'landmark' });
 houses.push({ at: COIT_AT, size: [COIT.tower, COIT.tower, COIT.high], rot: 0, look: 'landmark' });
+// The Dragon Gate: across Grant Avenue's south end, its two great posts on the pavements (solid),
+// the rest of it (its roofs, over the street and the pavements) the landmark's.
+const GATE_AT: P = [GRANT.x, GRANT.z - GRANT.gate];
+const GATE_SPAN = 2 * (lineWidth(DISTRICTS[1], 'u', GRANT.x) / 2 + SIDEWALK / 2);
+for (const s of [-1, 1]) houses.push({ at: [r1(GATE_AT[0] + (s * GATE_SPAN) / 2), GATE_AT[1]], size: [GRANT.post, GRANT.post, GRANT.high - 3], rot: 0, look: 'landmark' });
 
 // An alley only where it's open end to end: none whose line a building stands across (its ends in another district's blocks).
 {
@@ -547,7 +580,93 @@ let ferryLand: PadDef | null = null;
   console.log(`  the bay: ${n} piers, the Ferry Building at ${Math.round(FERRY.s)} m`);
 }
 
-// ---- The cops' streets ----
+// ---- The Presidio: open parkland past Van Ness, a winding drive through it ----
+
+/**
+ * The owner, 2026-10-08: "more open areas like the presidio that have more curvy roads to drift".
+ * Van Ness's west side open (no wall) between `open` (z, south to north), onto lawn: out to a hedge
+ * along `west` (x) and `south` (z), the bay's beach to the north. Through it, Presidio Drive: off
+ * Van Ness near its foot and back on near its top, swinging west and back east between `zig`
+ * (corners, Chaikin-rounded into sweepers and two hairpins), `width` m. Groves of trees about the
+ * lawns (smashables: knocked flat, not a wreck), and brush.
+ */
+const PRESIDIO = {
+  open: [392, -378] as P,
+  west: -800,
+  south: 392,
+  hedge: { thick: 2.4, high: 3.4 },
+  width: 12,
+  zig: [[-600, 345], [-690, 362], [-758, 325], [-752, 255], [-680, 228], [-628, 180], [-648, 112], [-726, 96], [-766, 30], [-738, -36], [-650, -46], [-606, -104], [-650, -172], [-742, -184], [-766, -256], [-722, -322], [-640, -332], [-600, -330]] as P[],
+  groves: 30,
+  brush: 70,
+};
+/** The bay's shore past Van Ness's top, west to the Golden Gate (the coast's own corners, below). */
+const SHORE: P[] = [[-830, -560], [-700, -500], [-575, -420]];
+const shoreZ = (x: number) => {
+  for (let k = 0; k + 1 < SHORE.length; k++) if (x <= SHORE[k + 1][0]) return SHORE[k][1] + ((SHORE[k + 1][1] - SHORE[k][1]) * (x - SHORE[k][0])) / (SHORE[k + 1][0] - SHORE[k][0]);
+  return SHORE[SHORE.length - 1][1];
+};
+/** Presidio Drive's middle, every few metres, from Van Ness and back to it. */
+const presidio: P[] = [];
+const PRESIDIO_ID = 'presidio-drive';
+const groveTrees: P[] = [];
+const presidioLawn: P[] = [];
+const brush: P[] = [];
+{
+  // (Van Ness's middle where the drive leaves and rejoins it: 30 m before its first point, 30 m past its last.)
+  const vanNess = (z: number): P => [main.px[at(sAt(-560, z)).i], z];
+  const edge = (z: number): P => [vanNess(z)[0] - (VAN_NESS(0, 0).w / 2 + 3 + PRESIDIO.width / 2 + 1), z];
+  const first = PRESIDIO.zig[0][1] + 20;
+  const last = PRESIDIO.zig[PRESIDIO.zig.length - 1][1] - 20;
+  let line: P[] = [edge(first), ...PRESIDIO.zig, edge(last)];
+  for (let pass = 0; pass < 3; pass++)
+    line = [line[0], ...line.slice(0, -1).flatMap(([ax, az], k) => {
+      const [bx, bz] = line[k + 1];
+      return [[0.75 * ax + 0.25 * bx, 0.75 * az + 0.25 * bz], [0.25 * ax + 0.75 * bx, 0.25 * az + 0.75 * bz]] as P[];
+    }), line[line.length - 1]];
+  // Every 6 m.
+  let left = 0;
+  for (let k = 0; k + 1 < line.length; k++) {
+    const [ax, az] = line[k];
+    const [bx, bz] = line[k + 1];
+    const len = Math.hypot(bx - ax, bz - az);
+    for (; left < len; left += 6) presidio.push([r1(ax + ((bx - ax) * left) / len), r1(az + ((bz - az) * left) / len)]);
+    left -= len;
+  }
+  presidio.push(line[line.length - 1]);
+  const from = Math.round(sAt(-560, first + 30));
+  const to = Math.round(sAt(-560, last - 30));
+  layout.branches = [
+    { id: PRESIDIO_ID, from, to, kind: 'street', points: presidio.map(([x, z]) => ({ p: [x, 0, z], width: PRESIDIO.width, lanes: 2, shoulder: 2, surface: 'asphalt', verge: 'undergrowth' })) },
+  ];
+  // The hedges: along the west from the water to the south one, and that east to Van Ness's wall.
+  const { thick, high } = PRESIDIO.hedge;
+  const northEnd = shoreZ(PRESIDIO.west) - 20;
+  const eastEnd = vanNess(PRESIDIO.south)[0] - (VAN_NESS(0, 0).w / 2 + 3 + 1.6);
+  houses.push({ at: [PRESIDIO.west, r1((northEnd + PRESIDIO.south) / 2)], size: [thick, r1(PRESIDIO.south - northEnd + thick), high], rot: 0, look: 'hedge' });
+  houses.push({ at: [r1((PRESIDIO.west + eastEnd) / 2), PRESIDIO.south], size: [r1(eastEnd - PRESIDIO.west), thick, high], rot: 0, look: 'hedge' });
+  // Groves and brush on the lawns: clear of the drive, Van Ness, the hedges and the beach.
+  const woods = new Rng(0x9e5);
+  const clearAt = (x: number, z: number, r: number) =>
+    x > PRESIDIO.west + 6 && z < PRESIDIO.south - 6 && x < -560 - (9 + 3 + 10) && z > shoreZ(x) + 26 && presidio.every(([px, pz]) => Math.hypot(px - x, pz - z) > PRESIDIO.width / 2 + 2 + r);
+  for (let g = 0; g < PRESIDIO.groves; g++) {
+    const [cx, cz] = [woods.range(PRESIDIO.west + 20, -600), woods.range(shoreZ(-700) + 40, PRESIDIO.south - 20)];
+    const n = Math.round(woods.range(7, 16));
+    for (let k = 0; k < n; k++) {
+      const a = woods.range(0, Math.PI * 2);
+      const r = Math.sqrt(woods.next()) * 22;
+      const [x, z] = [cx + Math.cos(a) * r, cz + Math.sin(a) * r];
+      if (clearAt(x, z, 3) && groveTrees.every(([tx, tz]) => Math.hypot(tx - x, tz - z) > 4.5)) groveTrees.push([r1(x), r1(z)]);
+    }
+  }
+  for (let k = 0; k < PRESIDIO.brush; k++) {
+    const [x, z] = [woods.range(PRESIDIO.west, -580), woods.range(shoreZ(-700), PRESIDIO.south)];
+    if (clearAt(x, z, 2) && groveTrees.every(([tx, tz]) => Math.hypot(tx - x, tz - z) > 3)) brush.push([r1(x), r1(z)]);
+  }
+  const verge = vanNess(0)[0] - (VAN_NESS(0, 0).w / 2 + 3 + 0.5);
+  presidioLawn.push(...[PRESIDIO.west, -700, verge].map((x): P => [r1(x), r1(shoreZ(x) + 14)]), [r1(verge), PRESIDIO.south], [PRESIDIO.west, PRESIDIO.south]);
+  console.log(`  the Presidio: its drive ${Math.round(presidio.length * 6)} m (${from}–${to} m on Van Ness), open ${PRESIDIO.open.join(' to ')}; ${groveTrees.length} trees, ${brush.length} bushes`);
+}
 
 /**
  * Every line (the main road where it's on the ground, as a run of short lines; under the Freeway;
@@ -574,6 +693,16 @@ function graph(): GetawayDef {
   const footW: P = [main.px[Math.round(FOOT_S[1] / main.step)], main.pz[Math.round(FOOT_S[1] / main.step)]];
   lines.push({ a: footE, b: footW, width: FREEWAY.width, name: 'the Freeway', through: false });
   lines.push(UNDER, MARKET, COLUMBUS, DIVISION, ...streets, ...alleys);
+  // Presidio Drive, a line every 24 m or so, and in from Van Ness's middle at each end (a little past
+  // it, to be sure to cross it).
+  const drive = presidio.filter((_, k) => k % 4 === 0 || k === presidio.length - 1);
+  const mouth = ([x, z]: P): P => {
+    const q = at(sAt(x, z));
+    const len = Math.hypot(q.x - x, q.z - z);
+    return [q.x + ((q.x - x) / len) * 3, q.z + ((q.z - z) / len) * 3];
+  };
+  const way = [mouth(drive[0]), ...drive, mouth(drive[drive.length - 1])];
+  for (let k = 0; k + 1 < way.length; k++) lines.push({ a: way[k], b: way[k + 1], width: PRESIDIO.width, name: 'Presidio Drive' });
 
   const nodes: P[] = [];
   const nodeAt = (x: number, z: number) => {
@@ -604,7 +733,7 @@ function graph(): GetawayDef {
       const k = nodeAt(ax + (bx - ax) * t, az + (bz - az) * t);
       if (prevK >= 0 && prevK !== k) {
         const id = prevK < k ? `${prevK},${k}` : `${k},${prevK}`;
-        const paint = l.name === 'main' || l.through === false || alleys.includes(l) ? 0 : l.width;
+        const paint = l.name === 'main' || l.name === 'Presidio Drive' || l.through === false || alleys.includes(l) ? 0 : l.width;
         links.set(id, Math.max(links.get(id) ?? 0, paint));
       }
       prevK = k;
@@ -680,7 +809,8 @@ const city: CityDef = {
     .filter(([x, z], k) => inside(x, z) > 0 && getaway.links.filter(([a, b], j) => (a === k || b === k) && getaway.paint![j] > 0).length >= 3)
     .map(([x, z]) => [x, z, 6] as [number, number, number]),
   cut: 50,
-  parks: park,
+  // (And the Presidio's lawns: from its hedges to Van Ness's verge, down to the beach.)
+  parks: [...park, presidioLawn],
 };
 layout.ground = {
   // (2.5 m: the sea wall's ledge is a cell's diagonal; and the crossings' crests are sharp.)
@@ -688,6 +818,8 @@ layout.ground = {
   // No walls: the bay and the land round it lie flat out to the grid's edge (it reaches this far past the main road, and 45 m more).
   wallFrom: 200,
   wallRise: 0,
+  // (Out past the Presidio's hedge: the Golden Gate's approach comes down beyond it.)
+  wallOut: 60,
   sea: SEA,
   coast,
   features: [
@@ -703,6 +835,9 @@ layout.walls = {
   gaps: [
     { s: [0, FOOT_S[0]], side: 'right' },
     { s: [FOOT_S[1], L], side: 'right' },
+    // Van Ness's west side, onto the Presidio's lawns.
+    { s: [Math.round(sAt(-560, PRESIDIO.open[0])), Math.round(sAt(-560, PRESIDIO.open[1]))], side: 'left' },
+    { spline: PRESIDIO_ID, s: [0, 1e4], side: 'both' },
   ],
 };
 // The Freeway's deck, the ground under it at the city's level (its street).
@@ -714,6 +849,7 @@ layout.landmarks = [
   { kind: 'bay-bridge', at: BAY_BRIDGE, rot: -1.45, r: 0 },
   { kind: 'transamerica', at: PYRAMID_AT, rot: 0, r: 0, params: { base: PYRAMID.base } },
   { kind: 'coit-tower', at: COIT_AT, rot: 0, r: 0, params: { high: COIT.high } },
+  { kind: 'chinatown-gate', at: GATE_AT, rot: 0, r: 0, params: { span: GATE_SPAN, high: GRANT.high, post: GRANT.post } },
 ];
 layout.traffic = {
   lanes: [
@@ -735,10 +871,11 @@ getaway.scenery = {
   approaches: [
     {
       // (On down to the ground and along it to Van Ness's wall: closed at the wall.)
-      path: [[-803, -450, 41], [-790, -392, 37], [-762, -338, 29], [-712, -306, 18], [-655, -298, 6], [-620, -298, 0.5], [-580, -298, 0.5]],
+      // (Down past the Presidio's hedge, closed there: seen over it from the drive.)
+      path: [[-803, -450, 41], [-815, -395, 35], [-824, -340, 24], [-829, -285, 12], [-831, -240, 3], [-831, -205, 0.5], [-831, -180, 0.5]],
       width: 16,
-      cars: [[-592, -303, 0.7], [-592, -292, 2.4], [-602, -298, 1.57]],
-      barrier: [[-584, -307], [-584, -289]],
+      cars: [[-826, -192, 0.3], [-836, -192, -0.4], [-831, -200, 0]],
+      barrier: [[-839, -184], [-823, -184]],
     },
     {
       path: [[680, 332, 49], [604, 350, 46], [540, 420, 38], [500, 492, 29], [400, 492, 18], [310, 492, 12.5], [240, 492, 11.2], [160, 492, 11.2]],
@@ -747,7 +884,8 @@ getaway.scenery = {
       barrier: [[190, 484], [190, 500]],
     },
   ],
-  presidio: [-1400, -545, -615, 460],
+  // (Its woods past the hedge: inside it, the lawns and groves are the layout's.)
+  presidio: [-1400, -545, PRESIDIO.west - 6, 460],
 };
 
 // Every street the cops are given is one a car fits down: nothing built across it (the Freeway's
@@ -785,6 +923,19 @@ getaway.scenery = {
   getaway.paint = getaway.paint!.filter((_, k) => part[getaway.links[k][0]] === big);
   getaway.links = getaway.links.filter(([a]) => part[a] === big).map(([a, b]) => [renum[a], renum[b]]);
   getaway.nodes = kept;
+}
+
+// ---- Chinatown's lanterns: strung across its streets (the skin's; here each street's middle line, node to node, and its width) ----
+{
+  const china = DISTRICTS.find((q) => q.name === 'Chinatown')!;
+  getaway.scenery!.lanterns = getaway.links.flatMap(([a, b], k) => {
+    const [p, q] = [getaway.nodes[a], getaway.nodes[b]];
+    const w = getaway.paint![k];
+    // (Chinatown's own streets: not Broadway, Columbus or Market.)
+    if (w !== DISTRICTS[0].street || !china.in((p[0] + q[0]) / 2, (p[1] + q[1]) / 2)) return [];
+    return [[p[0], p[1], q[0], q[1], w] as [number, number, number, number, number]];
+  });
+  console.log(`  Chinatown: ${getaway.scenery!.lanterns.length} streets hung with lanterns, the Dragon Gate at ${GATE_AT.join(', ')}`);
 }
 
 // ---- Cars cruising the streets: a few loops through the city, a few cars round each ----
@@ -914,6 +1065,8 @@ const FURNITURE = { lamp: 34, kerb: 0.7, tree: 1.4, shrub: 2.4, clear: 14 };
     { kind: 'street-lamp', s: [0, 0], every: 0, at: lamps },
     { kind: 'street-tree', s: [0, 0], every: 0, at: trees },
     { kind: 'shrub', s: [0, 0], every: 0, at: shrubs },
+    { kind: 'grove-tree', s: [0, 0], every: 0, at: groveTrees },
+    { kind: 'bush', s: [0, 0], every: 0, at: brush },
   ];
   console.log(`  along the pavements: ${lamps.length} lamps, ${trees.length} trees, ${shrubs.length} shrubs; ${houses.filter((h) => h.label && h.look !== 'pier').length} neon signs`);
 }
