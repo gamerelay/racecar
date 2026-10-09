@@ -7,6 +7,7 @@
 // (the host's to set; everyone else sees a summary). The screens only see a LobbyBackend: your
 // own lobby is in this browser, and online ones are GameRelay rooms (lobby/relay.ts).
 
+import { EMBED, keepEmbed } from './embed';
 import { esc } from './html';
 import { chooser } from './chooser';
 import { goTo } from './fade';
@@ -190,7 +191,7 @@ export class Menu {
     const was = this.screen;
     this.screen = screen;
     this.lobby = this.picked = null;
-    history.replaceState(null, '', screen.kind === 'lobby' ? `?lobby=${encodeURIComponent(screen.id)}` : location.pathname);
+    history.replaceState(null, '', screen.kind === 'lobby' ? keepEmbed(`?lobby=${encodeURIComponent(screen.id)}`) : EMBED ? keepEmbed('') : location.pathname);
     // Another screen: the one up fades out first (nothing in it can be pressed meanwhile), and the
     // new one fades in from the way you're going: back to the title (or a lobby, from the plate)
     // comes in from the left.
