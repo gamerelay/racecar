@@ -18,6 +18,25 @@ please"), from 650–950 calls a frame to 140–270 (SPEC §15: 250). What and h
   chunks (30–50), Riviera (~530 at one spot).
 - **The hosted build:** `Z442EE` updated in place; the previous html (`alpha-1.46`) saved in the
   session's scratchpad only.
+- **To look into: maybe some lag.** The owner, after the deploy: "it def feels slower and choppier
+  now", "even on other maps", with the F2 overlay showing 120 fps; then, comparing builds, "can't
+  really tell right now ... maybe there is some lag on the newer version and we can investigate
+  later". Not reproduced. What's known:
+  - **Headless Chrome** (SwiftShader, capped at 60 fps) shows no long frames on the live page, and
+    the per-frame CPU work (sim + render submit) is lower in 1.47 than 1.44–1.46 (Heist: about 2
+    ms against 3.5).
+  - **The SDK isn't it:** it's bundled at `0.1.0-alpha.5` (since Oct 1). On the live page its
+    websocket is quiet (a keep-alive every few seconds), with no reconnects or errors. The host
+    page only adds meta tags.
+  - **Shared by every map since 1.44:**
+    - 1.45: the keys card and the −/+ track keys, a couple of cheap checks a frame (`keysFrame`,
+      `openMenu`'s `#keys.on`).
+    - 1.46: the smashables' grid (`Smashables.near`: a small sort per car per tick).
+    - 1.47: traffic merged per material, its ink ids as ink-only meshes; every landmark flattened.
+  - **Next:** a real-GPU profile on the owner's machine (Chrome's Performance panel, 120 Hz), and
+    an A/B of the single-file builds of 1.44–1.47 (`git worktree add <dir> alpha-1.4N && bun run
+    build:single` in it). A smooth 1.44 and a choppy 1.47 would point at 1.47's GPU side (the ink
+    pass, merged meshes no longer culled per part); all four alike would point outside the game.
 
 Before it, **`alpha-1.46`** (PR #166) is tagged and on the hosted build (the
 owner: "merge and deploy please"): **the Presidio, rolling and wooded** (Heist; "the ground should
