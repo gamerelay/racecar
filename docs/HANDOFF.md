@@ -4,7 +4,22 @@ Where racecar stands and what's next, for whoever picks it up (a person or a fre
 The design is [SPEC.md](./SPEC.md): decisions in §17, and what building changed in "Changed while
 building". This file is "where are we"; the spec is "what are we making".
 
-**Last updated:** 2026-10-09. **`alpha-1.45`** (PRs #164, #165) is tagged and on the hosted build
+**Last updated:** 2026-10-09. **`alpha-1.46`** (PR #166) is tagged and on the hosted build (the
+owner: "merge and deploy please"): **the Presidio, rolling and wooded** (Heist; "the ground should
+have some soft hills and mogul like bumps, ... grass effects, ... a real wooded area with crashable
+trees"). Details in [CHASE_MODE.md](./CHASE_MODE.md)'s "Built so far".
+- **Ground:** a new feature kind, `rolling` (features/rolling.ts): soft hills up to 9 m and mogul
+  bumps in patches over the park, easing in over 60 m from its edge. The drive takes the hills'
+  heights (`rollingSwell`), not the bumps'. `GroundDef.reach` widens the ground's grid over the woods.
+- **The woods:** past a new hedge, the park runs west to x −1040: ~900 cypresses and ~800
+  eucalyptus (new smashable `gum-tree`, `slow` 0.8), the drive (now 1.58 km) winding through.
+- **Smashables near a car only** (from review): open-ground ones by a 16 m grid
+  (`Smashables.near`), in index order, so every fingerprint is identical.
+- **Tufts** on a city's park lawns, off any branch and its verge (coast maps' branches too).
+- **The hosted build:** `Z442EE` updated in place; the previous html (`alpha-1.45`) saved in the
+  session's scratchpad only.
+
+Before it, **`alpha-1.45`** (PRs #164, #165) is tagged and on the hosted build
 (the owner: "merge both and deploy please"):
 - **Punch In** (#164; the owner's track): `punch-in`, the ninth in soundtrack.ts's `ANY_MAP`. The
   WAV 2.3 dB down from −13.6 to −16.0 LUFS, AAC 128 kb/s, and on the CDN (checked: 200, CORS `*`).
@@ -20,7 +35,7 @@ building". This file is "where are we"; the spec is "what are we making".
 - **The hosted build:** `Z442EE` updated in place. The previous html (`alpha-1.44`) was saved
   before the update, in the session's scratchpad only.
 
-Before it, **`alpha-1.44`** (PR #160) is tagged and on the hosted build (the
+Before that, **`alpha-1.44`** (PR #160) is tagged and on the hosted build (the
 owner: "ok can we include this in the online version, and deploy a new version please", then "in
 every lobby"): **Heist, the getaway.** A new mode on a new map: you start outside a bank in an
 SF-ish city and run from the cops until you crash or get boxed in; the score is how long you
