@@ -479,6 +479,10 @@ input.on((a) => {
   else if (a === 'ink') settings.set({ graphics: { outline: !settings.get().graphics.outline } });
   else if (a === 'mute') toast(audio.toggleMute() ? 'Sound off (M)' : 'Sound on (M)');
   else if (a === 'music') toast(audio.toggleMusic() ? 'Music on (N)' : 'Music off (N)');
+  else if (a === 'track-prev' || a === 'track-next') {
+    const name = audio.stepTrack(a === 'track-next' ? 1 : -1);
+    if (name) toast(`♪ ${name} (− +)`);
+  }
 });
 
 function setPaused(on: boolean): void {

@@ -6,7 +6,7 @@
 import type { Controls } from '../core/controls';
 import { approach, clamp } from '../core/math';
 
-export type SystemAction = 'pause' | 'report' | 'editor' | 'debug' | 'tuning' | 'ink' | 'mute' | 'music' | MenuAction;
+export type SystemAction = 'pause' | 'report' | 'editor' | 'debug' | 'tuning' | 'ink' | 'mute' | 'music' | 'track-prev' | 'track-next' | MenuAction;
 /**
  * In a menu (menuOpen): move focus, press the focused control, or back out. WASD (and the pad's
  * bumpers) pick: in the lobby they cycle your car and paint, and elsewhere they move focus too.
@@ -46,6 +46,11 @@ const SYSTEM: Record<string, SystemAction> = {
   F6: 'ink',
   KeyM: 'mute',
   KeyN: 'music',
+  // - and + (= unshifted, and the keypad's): the previous or next track.
+  Minus: 'track-prev',
+  NumpadSubtract: 'track-prev',
+  Equal: 'track-next',
+  NumpadAdd: 'track-next',
 };
 
 export type InputDevice = 'keyboard' | 'gamepad' | 'touch';

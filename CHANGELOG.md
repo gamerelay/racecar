@@ -6,6 +6,9 @@ and where things stand is [docs/HANDOFF.md](./docs/HANDOFF.md).
 
 ## Unreleased
 
+- **A new track, Punch In,** in the mix for every map's races.
+- **− and + change the track:** the previous or next in the playlist (the keypad's too), with its name shown.
+
 ## alpha-1.44: Heist, the getaway
 
 - **Heist, a new map and a new way to play:** start outside the Bank in a San Francisco-ish city

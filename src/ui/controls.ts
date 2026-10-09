@@ -19,7 +19,7 @@ export class ControlsPanel extends Overlay {
         <dt>Look back</dt><dd>Q or C (B), held: the car drives on</dd>
         <dt>Horn</dt><dd>H (press the left stick)</dd>
         <dt>Menu</dt><dd>Esc (Start)</dd>
-        <dt>Sound</dt><dd>M mutes everything, N turns the music on or off</dd>
+        <dt>Sound</dt><dd>M mutes everything, N turns the music on or off, − and + change the track</dd>
         <dt>Felt wrong?</dt><dd>F8 (Select+Start) saves the last 30 s with a note</dd>
       </dl>
       <p class="muted">Changing the keys is coming next.</p>

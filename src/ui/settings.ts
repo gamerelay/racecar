@@ -51,7 +51,7 @@ export class SettingsPanel extends Overlay {
       <h1>Settings</h1>
       <h2>Sound</h2>
       <div class="sliders">${sliders}</div>
-      <p class="muted">M mutes everything, N turns the music on or off.</p>
+      <p class="muted">M mutes everything, N turns the music on or off, − and + change the track.</p>
       <h2>Graphics</h2>
       <div class="grid">
         <label>Quality ${chooser('gQuality', qualities, g.quality)}</label>

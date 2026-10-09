@@ -20,7 +20,7 @@ import { TRAFFIC_KINDS } from '../core/world/traffic';
 import { Piece } from '../core/world/hazards';
 import { doppler, engineHz, engineSound, gearbox, musicMix, spatial, type Gear, type Spatial } from './model';
 import { Music, type Intensity } from './music';
-import type { Soundtrack } from './soundtrack';
+import { type Soundtrack, trackTitle } from './soundtrack';
 import { EngineVoice, glide, NoiseVoice, noiseShot, note, Out, roomImpulse, toneShot, type Shot } from './synth';
 
 const RIVALS = 3;
@@ -355,6 +355,12 @@ export class GameAudio {
     this.settings.music = !this.settings.music;
     this.save();
     return this.settings.music;
+  }
+
+  /** - and +: the previous or next track, played at once if the music's on. Null with no track (the synth's). */
+  stepTrack(dir: 1 | -1): string | null {
+    if (!this.track || this.track.failed) return null;
+    return trackTitle(this.track.step(dir, !!this.g && this.settings.music && !this.settings.muted));
   }
 
   private save(): void {
