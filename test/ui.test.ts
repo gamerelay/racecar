@@ -8,6 +8,7 @@ import { delta, fmt, ordinal, pingClass } from '../src/ui/format';
 import { esc } from '../src/ui/html';
 import { pickNext, type Box } from '../src/ui/nav';
 import { menuQuery, offline, quickRaceSetup, randomCar, readChoices, readSetup, toQuery } from '../src/ui/setup';
+import { cardFirstPage, GETAWAY_MAP } from '../src/ui/embed';
 
 // The HUD's formatting, the URL setup parser (hand-edited and stale links), and menu navigation.
 
@@ -33,6 +34,21 @@ describe('format', () => {
     expect(delta(64.1, 65.3)).toBe('−1.2');
     expect(delta(66.1, 65.3)).toBe('+0.8');
     expect(delta(65.3, 65.3)).toBe('+0.0');
+  });
+});
+
+describe('the X card (ui/embed.ts)', () => {
+  test("its first page (nothing but embed) is a getaway; a room's link, a lobby or the menu after a race isn't", () => {
+    expect(cardFirstPage(new URLSearchParams('embed=1'))).toBe(true);
+    for (const q of ['', 'embed=1&join=AbC123xyz00', 'embed=1&lobby=K7Q2', 'embed=1&map=heist/city&car=bus', 'join=AbC123xyz00']) {
+      expect(cardFirstPage(new URLSearchParams(q))).toBe(false);
+    }
+  });
+
+  test('the getaway map is a listed layout, and a getaway on it reads back as one', () => {
+    expect(LAYOUT_KEYS).toContain(GETAWAY_MAP);
+    const s = quickRaceSetup([GETAWAY_MAP], { car: 'bus', paint: 2 }, () => 0.5);
+    expect(readSetup(new URLSearchParams(toQuery(s)), 'downtown/downtown', { cars: ['bus'], paints: PAINTS.length, layouts: LAYOUT_KEYS })).toMatchObject({ mode: 'race', map: GETAWAY_MAP, car: 'bus', paint: 2 });
   });
 });
 
