@@ -325,6 +325,26 @@ describe('the getaway', () => {
     expect(g.end).toBe('busted');
   });
 
+  test('parked at heat 1, the cops still pull up close enough to bust you (no safe place to park)', () => {
+    for (const seed of [1, 2, 4, 5]) {
+      const { sim, g } = getaway(seed);
+      for (let k = 0; k < 60 * (HEAT_EVERY - 5) && !g.end; k++) sim.step([]);
+      expect(g.heat).toBe(1);
+      expect(g.end).toBe('busted');
+    }
+  });
+
+  test("a race on Heist that isn't a getaway (online, behind the menu): a wreck after the finish respawns", () => {
+    const sim = new Sim(bakeTrack(city, SURFACES), CLASSES, SURFACES, { seed: 1, traffic: 0, mayhem: 'off', weather: 'clear' });
+    sim.addCar({ cls: 'coupe', human: true });
+    sim.startRace(1, 0.05);
+    expect(sim.getaway).toBeNull();
+    sim.cars.finished[0] = 1;
+    wreckCar(sim, 0, Cause.Wall, 0, 0, -1);
+    for (let k = 0; k < 60 * 6 && sim.cars.wreck[0]; k++) sim.step([]);
+    expect(sim.cars.wreck[0]).toBe(0);
+  });
+
   test('a race on any other map has no getaway', () => {
     const sim = new Sim(bakeTrack(layout('downtown/downtown'), SURFACES), CLASSES, SURFACES, { seed: 1, traffic: 0 });
     sim.addCar({ cls: 'coupe', human: true });

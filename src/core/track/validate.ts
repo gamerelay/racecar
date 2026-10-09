@@ -429,11 +429,16 @@ export function validateLayout(layout: TrackLayout, surfaces: SurfaceDef[], clas
     if (kind.schedule === 'trigger' && typeof h.s !== 'number') err(`hazard ${h.use} is a trigger: it needs one point (s), not a range, or it never fires`, 'main', a);
   }
   /**
-   * Whether (x, z) is within `reach` of road `sp`'s middle, `at` its projection onto it: across it,
-   * and by the straight way to where it projected too (a projection off a winding road, from far
-   * away, can stop on a sample whose tangent points at the point: across it, nothing; it isn't near).
+   * Whether (x, z) is within `reach` of road `sp`'s middle, `at` its projection onto it: across it
+   * (offRoad), unless the projection stopped short of beside it. Off a winding road, from far away,
+   * it can stop on a sample whose tangent points at the point: across it, nothing; it isn't near.
    */
-  const onRoad = (sp: BakedSpline, x: number, z: number, at: TrackHit, reach: number) => offRoad(sp, x, z, at) < reach && hypot(x - at.cx, z - at.cz) < reach + 1;
+  const onRoad = (sp: BakedSpline, x: number, z: number, at: TrackHit, reach: number) => {
+    // (Past an open road's end the projection stops at the end: offRoad's own, kept.)
+    const end = !sp.closed && (at.s <= 0.01 || at.s >= sp.length - 0.01);
+    const stray = !end && hypot(x - at.cx, z - at.cz) - Math.abs(at.lateral) > 1;
+    return offRoad(sp, x, z, at) < reach && !stray;
+  };
   // Houses: on open ground, clear of every road and its verge, with some size.
   for (const [k, h] of (layout.houses ?? []).entries()) {
     if (!layout.ground) {

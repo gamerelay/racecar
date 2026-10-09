@@ -73,8 +73,10 @@ export function collideWorld(sim: SimState, i: number, ctx: WorldCtx): void {
     // junction, is still the boulevard's beside it, up to 36 m apart: by how far apart they are.)
     // (A car round a city's streets, TrafficLaneDef.path, likewise: met where it is.)
     const lane = traffic.lanes[traffic.lane[k]];
-    if (Math.abs(ds) > 14 && ((lane.road === undefined && lane.path === undefined) || hypot(traffic.x[p] - c.x[i], traffic.z[p] - c.z[i]) > 14)) continue;
-    if (!c.wreck[i] && !ghost && onMain) nearMiss(sim, i, ctx, p, ds, speed);
+    // (Its main distance is the main road's nearest, from across the city: only where it is says.)
+    if (lane.path !== undefined ? hypot(traffic.x[p] - c.x[i], traffic.z[p] - c.z[i]) > 14 : Math.abs(ds) > 14 && (lane.road === undefined || hypot(traffic.x[p] - c.x[i], traffic.z[p] - c.z[i]) > 14)) continue;
+    // (A near miss is passing along the main road: not for a car round the city's streets.)
+    if (!c.wreck[i] && !ghost && onMain && lane.path === undefined) nearMiss(sim, i, ctx, p, ds, speed);
     if (ghost || Math.abs(c.y[i] - traffic.y[p]) > kind.hh * 2 + 0.8) continue;
     if (!obbOverlap(c.x[i], c.z[i], c.h[i], cls.size[0], cls.size[1], traffic.x[p], traffic.z[p], traffic.h[p], kind.hw, kind.hl, contact)) continue;
     const vx = c.vx[i];

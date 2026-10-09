@@ -31,6 +31,8 @@ export interface CopDriver {
 /** How often (s) a cop looks for you, and plans its way to you when it can't see you. */
 const LOOK = 0.25;
 const PLAN = 0.5;
+/** Pulling up on you stopped: its middle this far from yours (m), a car's length and a little. */
+const BOX = 5.5;
 /** It sees you this far off (m), with nothing in the way. */
 const SIGHT = 160;
 /** Within this far (m) of the next node on its way, it's there: on to the one after. */
@@ -88,7 +90,8 @@ export function driveCop(sim: SimState, i: number, d: CopDriver, out: Controls):
     tz = c.z[j] + c.vz[j] * lead;
     d.pathLen = 0;
   } else {
-    if (sim.time >= d.planAt || d.pathAt >= d.pathLen) {
+    // (Its way used up, it heads straight at you till the next plan: not a plan every tick.)
+    if (sim.time >= d.planAt) {
       d.planAt = sim.time + PLAN;
       // (From heat 2, where you'll be by the time it gets there, as near as it can tell.)
       const ahead = d.heat >= 2 ? Math.min(INTERCEPT, dist / Math.max(20, speed)) : 0;
@@ -134,8 +137,10 @@ export function driveCop(sim: SimState, i: number, d: CopDriver, out: Controls):
   const youSpeed = hypot(c.vx[j], c.vz[j]);
   if (!d.seen || d.heat <= 1) target = Math.min(target, Math.sqrt(youSpeed * youSpeed + 2 * BRAKING * Math.max(0, dist - 12)));
   if (d.seen && d.heat <= 1 && dist < 14) target = Math.min(target, Math.max(0, youSpeed - 0.5));
-  // You've stopped: close by, it pulls up and boxes you in (busted, rules/getaway.ts), rather than shove you down the street.
-  if (youSpeed < 4 && dist < 12) target = 0;
+  // You've stopped: close by, it creeps up to BOX m and stops there, boxing you in (busted within
+  // rules/getaway.ts's 7.5 m), rather than shove you down the street; at any heat (at heat 1 it
+  // had stopped at 12 m, too far to bust you: a safe place to park).
+  if (youSpeed < 4 && dist < 14) target = Math.min(top, Math.max(0, (dist - BOX) * 0.8));
   out.throttle = speed < target ? 1 : 0;
   out.brake = speed > target + 3 ? 0.7 : 0;
   // From heat 3, boost to close a gap on a straight while it can see you.

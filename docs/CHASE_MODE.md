@@ -324,6 +324,33 @@ open areas like the presidio that have more curvy roads to drift".
   - **The generator's "near a building" test** (lamps, trees, plazas) missed the corners of a
     turned building (its quick reject was the square of its longer side, not its diagonal).
   A test keeps every plaza off the streets' carriageways and out of every building.
+
+### In the lobby, and the review's fixes (2026-10-08, alpha-1.44)
+
+The owner: "ok can we include this in the online version, and deploy a new version please", and
+picked "in every lobby". Heist is out of experimental: in the lobby's map list and quick race. A
+race of your own on it (Single player, a lobby to yourself) is the getaway; an online race with
+others is a race round the city's outer loop (the AI laps it in 63 s), since online getaways wait
+on the road graph. Its fingerprint is recorded.
+
+`/code-review` on #160 found, and these were fixed:
+- **Respawn:** a car's wreck after the finish didn't respawn on Heist even in a race that isn't a
+  getaway (online, the attract race): the check was the map's (`layout.getaway`), now the race's
+  (`sim.getaway`). A test.
+- **Call-outs:** a cop could be called out 320–340 m off, past FAR (320): far again at once, so
+  called out again every tick, never driving. Now never past FAR − 10, and with nowhere in the ring
+  the nearest crossing past CALL_NEAR (so a far cop always comes back). Bringing a cop back no
+  longer resets the wait for the next new one, which had held the heat's cop count back.
+- **Parked:** a cop pulled up 12 m from you stopped, and at heat 1 stopped 9–14 m off, outside
+  busting's 7.5 m. Now it creeps up to 5.5 m at any heat. (The new test passes on the old code
+  too: in these runs a cop still came close enough. The fix closes the gap the review found.)
+- **A cop placed in the city** keeps its place on the main road (it had kept s 0: a respawn would
+  have put it across the map); a cop with its way used up heads at you till its next plan instead
+  of planning every tick; a car cruising the city's streets is met by where it is, never a near
+  miss on the main road; a run's best is kept as it ends, not when its results show (leaving
+  first lost it).
+- **The validator's** house-on-a-road test (this round's) keeps offRoad's own reading past an
+  open road's end; it ignores only a projection that stopped short beside the road.
 - **Chinatown:**
   - **The Dragon Gate** (landmark `chinatown-gate`) across Grant Avenue's south end (the grid's
     line at x 62). Its two stone posts stand on the pavements (solid houses), with a red beam and

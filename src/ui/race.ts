@@ -47,7 +47,6 @@ export class RaceUi {
   private voteHtml = '';
   /** A getaway's best before this run (main.ts), and what to do with this run's time once it's over. */
   getawayBest = 0;
-  onGetawayOver: (time: number) => void = () => {};
 
   constructor(
     private readonly sim: Sim,
@@ -219,7 +218,6 @@ export class RaceUi {
     const time = g.time;
     const best = this.getawayBest;
     const record = time > best;
-    this.onGetawayOver(time);
     this.results.innerHTML = `<div class="card results"><h1 id="rPlace">${g.end === 'busted' ? 'Busted!' : 'Wrecked!'}</h1>
       <p class="getawayTime">You got away for <b>${fmt(time)}</b></p>
       <table><tbody>

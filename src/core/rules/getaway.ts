@@ -11,6 +11,7 @@ import { Ev } from '../events';
 import { atan2, cos, hypot, sin } from '../math';
 import { Rng } from '../rng';
 import type { Sim } from '../sim';
+import { newHit, projectGlobal } from '../track/query';
 import { Streets } from '../world/streets';
 
 /** The heat goes up a level every this many seconds. */
@@ -27,7 +28,7 @@ const CALL_EVERY = 3;
  * "fair, not cheap").
  */
 const CALL_NEAR = 150;
-const CALL_FAR = 340;
+const CALL_FAR = 300;
 const CALL_AHEAD = 220;
 /** The first two start this far behind you on the road (m), one after the other. */
 const START_BEHIND = [130, 150];
@@ -58,6 +59,7 @@ export class Getaway {
   private readonly drivers: CopDriver[];
   private readonly streets: Streets;
   private readonly rng: Rng;
+  private readonly hit = newHit();
   private calledAt = -Infinity;
 
   /**
@@ -121,7 +123,8 @@ export class Getaway {
     }
     if (out < Math.min(COPS_FOR(this.heat), this.cops.length) && sim.time - this.calledAt > CALL_EVERY) {
       const k = this.cops.findIndex((i) => !c.active[i]);
-      if (k >= 0) this.callOut(k);
+      // (Only a new cop starts the wait for the next: bringing one back doesn't.)
+      if (k >= 0) this.callOut(k), (this.calledAt = sim.time);
     }
   }
 
@@ -186,6 +189,8 @@ export class Getaway {
       // Out of sight, not too far, behind you at first (ahead later, not too close), and a little luck.
       const ahead = dx * hx + dz * hz > 0;
       if (ahead && d < CALL_AHEAD) continue;
+      // (Never as far as FAR: it'd be far again at once, and called out again every tick.)
+      if (d > FAR - 10) continue;
       let score = this.rng.next() * 40 - Math.max(0, d - CALL_FAR);
       if (this.heat <= 1 ? !ahead : ahead) score += 60;
       if (!st.clear(c.x[p], c.z[p], st.x(n), st.z(n))) score += 100;
@@ -193,6 +198,12 @@ export class Getaway {
       for (const j of this.cops) if (c.active[j] && hypot(c.x[j] - st.x(n), c.z[j] - st.z(n)) < 12) score -= 200;
       if (score > bestScore) (bestScore = score), (best = n);
     }
+    // (None in the ring: the nearest crossing past CALL_NEAR, so a far cop is always brought back.)
+    if (best < 0)
+      for (let n = 0; n < st.n; n++) {
+        const d = hypot(st.x(n) - c.x[p], st.z(n) - c.z[p]);
+        if (d >= CALL_NEAR && (best < 0 || d < hypot(st.x(best) - c.x[p], st.z(best) - c.z[p]))) best = n;
+      }
     if (best < 0) return;
     const i = this.cops[k];
     const x = st.x(best);
@@ -204,14 +215,15 @@ export class Getaway {
     this.drivers[k].pathLen = 0;
     this.drivers[k].planAt = 0;
     this.drivers[k].lookAt = 0;
-    this.calledAt = sim.time;
   }
 
   /** Car `i` at (x, z) on the ground, facing `h`, stopped: everything about it reset (placeCar), then where it really is. */
   private put(i: number, x: number, z: number, h: number): void {
     const sim = this.sim;
     const c = sim.cars;
-    sim.placeCar(i, 0, 0, 0, 0);
+    // (On the main road where it's nearest, so its place along it, and a respawn, are near where it is.)
+    projectGlobal(sim.track.main, x, z, this.hit);
+    sim.placeCar(i, 0, this.hit.s, 0, 0);
     const ground = sim.track.ground;
     c.x[i] = c.px[i] = x;
     c.z[i] = c.pz[i] = z;
