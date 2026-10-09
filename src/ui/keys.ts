@@ -1,6 +1,6 @@
 // The keys card: your first race on this device shows the keys you drive with (WASD, Shift, Space),
-// drawn as a keyboard with each key's job pointed at. Any key, a click or a pad's button puts it
-// away, and it doesn't come back (`racecar.seenKeys`). Not on a touch screen: there are no keys there.
+// drawn as a keyboard with each key's job pointed at. A key, a click or a pad's button puts it
+// away (main.ts), and it doesn't come back (`racecar.seenKeys`). Not on a touch screen: there are no keys there.
 
 import { Overlay } from './overlay';
 
@@ -36,12 +36,15 @@ export class KeysCard extends Overlay {
     super('keys');
   }
 
-  /** Whether it's still to be shown here: never on this device, and there's a keyboard. */
+  /**
+   * Whether it's still to be shown here: never on this device, and there's a keyboard. Not where
+   * storage is blocked: it couldn't remember, and every race would wait behind it.
+   */
   static due(store: Storage | null): boolean {
     const touchOnly = !!window.matchMedia?.('(pointer: coarse)').matches && !window.matchMedia?.('(any-pointer: fine)').matches;
-    if (touchOnly) return false;
+    if (touchOnly || !store) return false;
     try {
-      return store?.getItem(SEEN) !== '1';
+      return store.getItem(SEEN) !== '1';
     } catch {
       return false;
     }
@@ -55,8 +58,8 @@ export class KeysCard extends Overlay {
       <div class="row stack"><button id="kGo">Let's go</button></div>
       <p class="muted kAny">or press any key</p>
     </div>`;
-    document.getElementById('kGo')!.onclick = () => this.close();
-    this.el.onclick = (e) => e.target === this.el && this.close();
+    // A click anywhere puts it away, on the card or off it.
+    this.el.onclick = () => this.close();
     this.show(null);
     document.getElementById('kGo')!.focus({ preventScroll: true });
   }
