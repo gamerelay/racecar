@@ -135,4 +135,22 @@ export class Soundtrack {
   pause(): void {
     if (!this.el.paused) this.el.pause();
   }
+
+  /**
+   * - and +: the playlist's previous or next track, from the start (in the playlist's order, round
+   * from the end to the start). It plays from here if `play`, else when the music is next on.
+   */
+  step(dir: 1 | -1, play: boolean): TrackName {
+    const i = this.list.indexOf(this.current);
+    this.current = this.list[(i + dir + this.list.length) % this.list.length];
+    this.el.src = trackUrl(this.current, this.base);
+    this.tried = -Infinity;
+    if (play) this.play(true);
+    return this.current;
+  }
+}
+
+/** A track's name as a person would say it: `punch-in` → "Punch In". */
+export function trackTitle(name: TrackName): string {
+  return name.replace(/(^|-)(\w)/g, (_, dash: string, c: string) => (dash ? ' ' : '') + c.toUpperCase());
 }
