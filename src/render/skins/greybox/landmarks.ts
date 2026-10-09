@@ -40,6 +40,7 @@ import { pontoon, quay } from './marina';
 import { instanced } from './forest';
 import { PALM_LEAVES, palmGeometry, swaying } from './island';
 import { water } from './terrain';
+import { flatten } from './flatten';
 import { faceted, toon } from './toon';
 
 export interface Landmarks {
@@ -48,7 +49,8 @@ export interface Landmarks {
 }
 
 /** A landmark's builder: its objects, in its own frame (front toward +z), and what moves. */
-type Built = { root: Object3D; update?: (time: number, live?: SceneLive) => void };
+/** `flat`: its plain parts never move (its update moves only the rest), so they may be merged. */
+type Built = { root: Object3D; update?: (time: number, live?: SceneLive) => void; flat?: boolean };
 
 /** The ground each landmark keeps: its footprint square (and a sight line in front, `view`), or a canal's whole length. */
 export function landmarkKeeps(layout: TrackLayout): Keep[] {
@@ -109,6 +111,8 @@ export function buildLandmarks(layout: TrackLayout, floor: (x: number, z: number
     const ground = (lx: number, lz: number) => (floor(m.at[0] + (lx * cs + lz * sn) * sc, m.at[1] + (-lx * sn + lz * cs) * sc) - base) / sc;
     const seaY = landmarkSea(layout);
     const b = build(m, { time, ground, sea: seaY === undefined ? null : (seaY - base) / sc, day });
+    // (One that nothing moves afterwards: its plain parts merged, a few draws, not hundreds.)
+    if (!b.update || b.flat) flatten(b.root);
     b.root.position.set(m.at[0], floor(m.at[0], m.at[1]), m.at[1]);
     b.root.name = `landmark:${m.kind}`;
     b.root.rotation.y = m.rot ?? 0;
@@ -1382,6 +1386,8 @@ function alcatraz(c: Ctx): Built {
   root.add(posed(new Mesh(new BoxGeometry(16, 6, 9), toon({ color: 0xb9ad98 })), 46, sea + 5, 54));
   return {
     root,
+    // (The beam turns: not a plain part.)
+    flat: true,
     update(t) {
       beam.rotation.y = t * 0.4;
     },

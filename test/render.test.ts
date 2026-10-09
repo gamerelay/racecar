@@ -1,11 +1,13 @@
 import { describe, expect, test } from 'bun:test';
+import { flatten } from '../src/render/skins/greybox/flatten';
+import { toon } from '../src/render/skins/greybox/toon';
 import { chaseOffset, lookBackOffset } from '../src/render/camera';
 import { chunks } from '../src/render/shader';
 import { Skids } from '../src/render/skids';
 import { carPaint } from '../src/render/skins/greybox/car/paint';
 import { windowMaterial } from '../src/render/skins/greybox/city';
 import { SHADOW, shadowOpacity } from '../src/render/skins/greybox/car/shadow';
-import { Euler, Quaternion, ShaderLib } from 'three';
+import { BoxGeometry, Euler, Group, Mesh, MeshBasicMaterial, Quaternion, ShaderLib } from 'three';
 import { CLASSES } from './helpers';
 
 // Render logic that runs without WebGL: where the camera sits for every car, and that every shader
@@ -141,5 +143,32 @@ describe('contact shadow', () => {
     expect(one).toBeGreaterThan(0.2);
     expect(one).toBeLessThan(SHADOW);
     expect(shadowOpacity(SHADOW, flipped.x, flipped.z, true, 0)).toBe(0);
+  });
+});
+
+describe('flatten (the draw call pass)', () => {
+  test("a model's plain toon parts become one mesh, coloured per part and where they stood; the rest are left", () => {
+    const root = new Group();
+    for (let k = 0; k < 100; k++) {
+      const m = new Mesh(new BoxGeometry(1, 1, 1), toon({ color: k % 2 ? 0xff0000 : 0x0000ff }));
+      m.position.set(k * 3, 0, 0);
+      root.add(m);
+    }
+    const lit = new Mesh(new BoxGeometry(1, 1, 1), new MeshBasicMaterial({ color: 0xffffff }));
+    const glass = new Mesh(new BoxGeometry(1, 1, 1), toon({ transparent: true, opacity: 0.5 }));
+    root.add(lit, glass);
+    expect(flatten(root)).toBe(100);
+    const meshes = root.children.filter((o) => (o as Mesh).isMesh) as Mesh[];
+    expect(meshes.length).toBe(3);
+    const merged = meshes.find((m) => m !== lit && m !== glass)!;
+    const pos = merged.geometry.getAttribute('position');
+    const col = merged.geometry.getAttribute('color');
+    expect(pos.count).toBe(100 * 36);
+    // The last box (k 99, red) out at x 297.
+    let far = -Infinity;
+    for (let i = 0; i < pos.count; i++) far = Math.max(far, pos.getX(i));
+    expect(far).toBeCloseTo(297.5);
+    const last = pos.count - 1;
+    expect([col.getX(last), col.getY(last), col.getZ(last)]).toEqual([1, 0, 0]);
   });
 });

@@ -269,6 +269,33 @@ themselves, so a sloppy line wrecks you. (Smashables in `smash.ts` never wreck; 
 
 ## Built so far
 
+### The draw call pass (2026-10-09)
+
+The owner, after a check of the budgets: "yes do the draw call pass on heist please". Heist drew
+650–950 calls a frame in the main pass (SPEC §15's budget: 250); other maps 120–250 (Riviera up
+to 530 at one spot). Measured in headless Chrome by logging `renderBufferDirect` per object, at a
+dozen spots. What it was, and what it is now:
+
+- **The landmarks** (~1,000 meshes; the Golden Gate 407, the Bay Bridge 588: a box or cylinder
+  per suspender and cable segment): a landmark nothing moves afterwards is flattened as it's built
+  (`flatten.ts`): its plain toon parts (no map, opaque, not emissive, no shader hook of their own)
+  merged into one mesh per side/fog, each part's colour in its vertices. Alcatraz too (`flat`: its
+  update turns only the beam). Every map's static landmarks get this.
+- **The neon words and street names** (a mesh per word, ~60): one canvas atlas each (`atlas` in
+  scenery.ts), merged: two draws.
+- **The piers** (16, five draws each): built together (`piers`): one instanced mesh of piles, one
+  merge of sheds, their plain parts flattened, their numbers on an atlas.
+- **The warehouses' water tanks** (74 meshes): instanced.
+- **The roadblocks' police cars** (six whole cars, ~18 draws each): one car built per roadblock,
+  each of its parts instanced three times (`parked`). They leave the ink pass (seen over a wall).
+- **Traffic** (an instanced mesh per design per (material, ink id): ~100): one per material for
+  the main pass, and the ink ids as ink-only meshes (drawn only near, in the ink pass). Every map's
+  traffic gets this.
+
+Now 140–270 at the same spots (more with several cops on screen: a racer's car is ~30 draws and
+isn't merged). Downtown, Paradise Open and Backroads are a little lower too. Not done: the racers'
+own cars (their paint shader is per object; their wheels turn), the building chunks (LOD, 30–50).
+
 ### The Presidio: hills, bumps, grass and the woods (2026-10-09)
 
 The owner: "here I think the ground should have some soft hills and mogul like bumps, we can add

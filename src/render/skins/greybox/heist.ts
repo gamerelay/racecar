@@ -12,9 +12,10 @@
 // its doors), Lombard's planters, Dolores Park's palms, the Freeway's wall, the Presidio's hedges. Every building of a look
 // is one mesh (merged, vertex coloured): a draw for its walls, one for its ground floors.
 
-import { BoxGeometry, BufferGeometry, CanvasTexture, CatmullRomCurve3, ConeGeometry, CylinderGeometry, Float32BufferAttribute, Group, IcosahedronGeometry, Matrix4, Mesh, MeshBasicMaterial, type Object3D, PlaneGeometry, Quaternion, RepeatWrapping, Vector3 } from 'three';
+import { BoxGeometry, BufferGeometry, CanvasTexture, CatmullRomCurve3, ConeGeometry, CylinderGeometry, Float32BufferAttribute, Group, IcosahedronGeometry, InstancedMesh, Matrix4, Mesh, MeshBasicMaterial, type Object3D, PlaneGeometry, Quaternion, RepeatWrapping, Vector3 } from 'three';
 import { Rng } from '../../../core/rng';
 import { buildCar } from './car/build';
+import { unmarkInk } from '../../ink';
 import { glowPoints } from './scenery';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { KIND_OASIS, KIND_ROAD } from '../../../core/track/ground';
@@ -23,8 +24,12 @@ import { hash01 } from '../../../core/rng';
 import type { Track } from '../../../core/track/bake';
 import { instanced, type Part } from './forest';
 import { palmGeometry } from './island';
-import { canvas } from './scenery';
+import { atlas, type AtlasItem, canvas } from './scenery';
+import { flatten } from './flatten';
 import { faceted, toon } from './toon';
+
+/** A built piece with its plain parts merged (flatten.ts): a few draws, not one a part. */
+const flat = <T extends Object3D>(o: T): T => (flatten(o), o);
 
 /** The looks drawn here (any other is houses.ts's). */
 export const CITY_LOOKS: ReadonlySet<string> = new Set(['tower', 'chinatown', 'victorian', 'warehouse', 'broadway', 'bank', 'ferry', 'pier', 'planter', 'palm', 'wall', 'hedge']);
@@ -272,6 +277,10 @@ export function buildHeistCity(track: Track, list: { h: HouseDef; k: number; y: 
   const blooms: Part[] = [];
   const palms: Part[] = [];
   const pagodas: Part[] = [];
+  const pierList: HouseDef[] = [];
+  // (A warehouse's water tanks and their caps: one instanced mesh each, not two meshes a tank.)
+  const tanks: Part[] = [];
+  const caps: Part[] = [];
   const bulbs: number[] = [];
   const hedges: Part[] = [];
   const neon = new Neon();
@@ -303,24 +312,22 @@ export function buildHeistCity(track: Track, list: { h: HouseDef; k: number; y: 
         pagodas.push({ x: h.at[0], y: top + 3.6, z: h.at[1], yaw: h.rot, sx: w * 0.62, sy: 2.2, sz: d * 0.62, color: tile });
       }
       if (look === 'warehouse' && hash01(k, 3, 29) < 0.3) {
-        const t = new Mesh(faceted(new CylinderGeometry(1.6, 1.6, 3, 8)), toon({ color: 0x7a5a40 }));
-        t.position.set(h.at[0] + Math.cos(h.rot) * w * 0.2, y + high + 4, h.at[1] - Math.sin(h.rot) * w * 0.2);
-        const cap = new Mesh(faceted(new ConeGeometry(1.8, 1.4, 8)), toon({ color: 0x5a4a3a }));
-        cap.position.set(t.position.x, t.position.y + 2.2, t.position.z);
-        out.push(t, cap);
-        for (const [lx, lz] of [[-1, -1], [1, -1], [1, 1], [-1, 1]]) plain.box(t.position.x + lx * 1, t.position.z + lz * 1, 0, 0.2, 0.2, y + high, y + high + 2.5, 0x3a3a3a);
+        const [tx, ty, tz] = [h.at[0] + Math.cos(h.rot) * w * 0.2, y + high + 4, h.at[1] - Math.sin(h.rot) * w * 0.2];
+        tanks.push({ x: tx, y: ty, z: tz, yaw: 0, sx: 1, sy: 1, sz: 1, color: 0x7a5a40 });
+        caps.push({ x: tx, y: ty + 2.2, z: tz, yaw: 0, sx: 1, sy: 1, sz: 1, color: 0x5a4a3a });
+        for (const [lx, lz] of [[-1, -1], [1, -1], [1, 1], [-1, 1]]) plain.box(tx + lx * 1, tz + lz * 1, 0, 0.2, 0.2, y + high, y + high + 2.5, 0x3a3a3a);
       }
       continue;
     }
     switch (h.look) {
       case 'bank':
-        out.push(bank(h, y));
+        out.push(flat(bank(h, y)));
         break;
       case 'ferry':
-        out.push(ferry(h, y));
+        out.push(flat(ferry(h, y)));
         break;
       case 'pier':
-        out.push(pier(h, sea));
+        pierList.push(h);
         break;
       case 'planter':
         planters.push({ x: h.at[0], y: y + high / 2, z: h.at[1], yaw: h.rot, sx: w, sy: high, sz: d, color: 0xa8553e });
@@ -356,6 +363,8 @@ export function buildHeistCity(track: Track, list: { h: HouseDef; k: number; y: 
   if (rest) out.push(rest);
   out.push(...neon.build());
   if (pagodas.length) out.push(instanced(faceted(pagodaRoof()), toon(), pagodas));
+  out.push(...piers(pierList, sea));
+  if (tanks.length) out.push(instanced(faceted(new CylinderGeometry(1.6, 1.6, 3, 8)), toon(), tanks), instanced(faceted(new ConeGeometry(1.8, 1.4, 8)), toon(), caps));
   if (hedges.length) out.push(instanced(faceted(new IcosahedronGeometry(1, 0)), toon(), hedges));
   if (bulbs.length) out.push(glowPoints(bulbs, 0xfff0b0, 0.9));
   if (planters.length) out.push(instanced(new BoxGeometry(1, 1, 1), toon(), planters), instanced(faceted(new BoxGeometry(1, 1, 1, 3, 1, 1)), toon(), blooms));
@@ -686,34 +695,57 @@ function ferry(h: HouseDef, y: number): Object3D {
   return root;
 }
 
-/** A pier: a deck on piles just over the sea, a long shed on it, its doors and number toward the road. */
-function pier(h: HouseDef, sea: number): Object3D {
-  const [w, d] = h.size;
+/**
+ * The piers: each a deck on piles just over the sea, a long shed on it, its doors and number toward
+ * the road. All of them built together, a few draws in all (not four or five a pier): their piles
+ * one instanced mesh, their sheds one merge, their plain parts flattened, their numbers on one atlas.
+ */
+function piers(list: readonly HouseDef[], sea: number): Object3D[] {
+  if (!list.length) return [];
   const root = new Group();
   const deck = sea + 2.6;
-  part(root, w, 0.8, d, 0x8a7f72, 0, deck - 0.4, 0);
   const piles: Part[] = [];
-  for (let lz = -d / 2 + 3; lz <= d / 2 - 3; lz += 9) for (const lx of [-w / 2 + 1.5, 0, w / 2 - 1.5]) piles.push({ x: lx, y: sea - 3, z: lz, yaw: 0, sx: 0.7, sy: 5.5, sz: 0.7, color: 0x5a4a3c });
+  const sheds = new Merge();
+  const labels = new Map<string, BufferGeometry[]>();
+  for (const h of list) {
+    const [w, d] = h.size;
+    const [cs, sn] = [Math.cos(h.rot), Math.sin(h.rot)];
+    const g = new Group();
+    g.position.set(h.at[0], 0, h.at[1]);
+    g.rotation.y = h.rot;
+    root.add(g);
+    part(g, w, 0.8, d, 0x8a7f72, 0, deck - 0.4, 0);
+    for (let lz = -d / 2 + 3; lz <= d / 2 - 3; lz += 9)
+      for (const lx of [-w / 2 + 1.5, 0, w / 2 - 1.5]) piles.push({ x: h.at[0] + lx * cs + lz * sn, y: sea - 3, z: h.at[1] - lx * sn + lz * cs, yaw: 0, sx: 0.7, sy: 5.5, sz: 0.7, color: 0x5a4a3c });
+    const shed = { w: w - 4, d: d - 10, h: 9 };
+    const wall = [0xcfd2c4, 0xd8cdb4, 0xbac4b8][Math.round(hash01(Math.round(h.at[0]), Math.round(h.at[1]), 31) * 2)];
+    sheds.box(h.at[0], h.at[1], h.rot, shed.w, shed.d, deck, deck + shed.h, wall, 6, shed.h);
+    // A shallow pitched roof down its length.
+    const roof = new Mesh(faceted(new CylinderGeometry(1, 1, shed.d + 1, 3).rotateX(Math.PI / 2)), toon({ color: 0x6d7f8e }));
+    roof.scale.set(shed.w / 1.7, 2.2, 1);
+    roof.position.set(0, deck + shed.h + 0.6, 0);
+    g.add(roof);
+    // Its front: a taller headhouse with its number.
+    part(g, shed.w + 1, shed.h + 4, 2, wall, 0, deck + (shed.h + 4) / 2, shed.d / 2);
+    const label = h.label ?? 'PIER';
+    const plate = new BoxGeometry(12, 2.4, 0.3).applyMatrix4(new Matrix4().makeRotationY(h.rot).setPosition(h.at[0], 0, h.at[1]).multiply(new Matrix4().makeTranslation(0, deck + shed.h + 1.6, shed.d / 2 + 1.1)));
+    labels.set(label, [...(labels.get(label) ?? []), plate]);
+  }
+  flatten(root);
   root.add(instanced(new CylinderGeometry(0.5, 0.5, 1, 6).translate(0, 0.5, 0), toon(), piles));
-  const shed = { w: w - 4, d: d - 10, h: 9 };
-  const wall = [0xcfd2c4, 0xd8cdb4, 0xbac4b8][Math.round(hash01(Math.round(h.at[0]), Math.round(h.at[1]), 31) * 2)];
-  const m = new Merge();
-  m.box(0, 0, 0, shed.w, shed.d, deck, deck + shed.h, wall, 6, shed.h);
-  const body = m.mesh(STYLES.warehouse.ground());
+  const body = sheds.mesh(STYLES.warehouse.ground());
   if (body) root.add(body);
-  // A shallow pitched roof down its length.
-  const roof = new Mesh(faceted(new CylinderGeometry(1, 1, shed.d + 1, 3).rotateX(Math.PI / 2)), toon({ color: 0x6d7f8e }));
-  roof.scale.set(shed.w / 1.7, 2.2, 1);
-  roof.position.set(0, deck + shed.h + 0.6, 0);
-  root.add(roof);
-  // Its front: a taller headhouse with its number.
-  part(root, shed.w + 1, shed.h + 4, 2, wall, 0, deck + (shed.h + 4) / 2, shed.d / 2);
-  const label = new Mesh(new BoxGeometry(12, 2.4, 0.3), toon({ map: panel(h.label ?? 'PIER', 256, 52, '#f4f1e6', '#2f4a5a', 'bold 34px Georgia, serif') }));
-  label.position.set(0, deck + shed.h + 1.6, shed.d / 2 + 1.1);
-  root.add(label);
-  root.position.set(h.at[0], 0, h.at[1]);
-  root.rotation.y = h.rot;
-  return root;
+  const names = atlas(new Map([...labels.keys()].map((label): [string, AtlasItem] => [label, { w: 256, h: 52, draw: (g) => {
+    g.fillStyle = '#2f4a5a';
+    g.fillRect(0, 0, 256, 52);
+    g.fillStyle = '#f4f1e6';
+    g.font = 'bold 34px Georgia, serif';
+    g.textAlign = 'center';
+    g.textBaseline = 'middle';
+    g.fillText(label, 128, 28);
+  } }])));
+  root.add(new Mesh(mergeGeometries([...labels].flatMap(([label, geos]) => geos.map((g) => names.uv(label, g))))!, toon({ map: names.texture })));
+  return [root];
 }
 
 // ---- The streets' paint ----
@@ -836,11 +868,11 @@ const LETTER = 0.62;
 const BLADE = 1.1;
 
 /** A sign's face: the word in neon on a dark board, its letters stacked (a blade) or in a row. */
-function neonFace(word: string, upright: boolean): CanvasTexture {
+function neonFace(word: string, upright: boolean): AtlasItem {
   const color = NEON[Math.floor(hash01(word.length, word.charCodeAt(0), word.charCodeAt(word.length - 1)) * NEON.length)];
   const n = word.length;
   const [w, h] = upright ? [64, 64 * n + 32] : [48 * n + 48, 80];
-  return canvas(w, h, (g) => {
+  return { w, h, draw: (g) => {
     g.fillStyle = '#16111f';
     g.fillRect(0, 0, w, h);
     g.strokeStyle = color;
@@ -859,14 +891,14 @@ function neonFace(word: string, upright: boolean): CanvasTexture {
       if (upright) [...word].forEach((ch, k) => g.fillText(ch, w / 2, 16 + 64 * k + 34));
       else g.fillText(word, w / 2, h / 2 + 2);
     }
-  });
+  } };
 }
 
 /**
  * The city's neon signs (a house's `label`): a blade out over the pavement from the street front
  * (its front, gen-heist turns each building to face its street), up its first floors, the word's
  * letters stacked; on a building too low for one, a sign across its front over the shops. Unlit
- * (they glow at dusk). Merged per word: a draw each.
+ * (they glow at dusk). Every word on one atlas, merged: a draw for them all.
  */
 class Neon {
   private readonly faces = new Map<string, BufferGeometry[]>();
@@ -909,10 +941,10 @@ class Neon {
   }
 
   build(): Mesh[] {
-    return [...this.faces].map(([key, list]) => {
-      const [word, up] = key.split('|');
-      return new Mesh(mergeGeometries(list)!, new MeshBasicMaterial({ map: neonFace(word, up === '1') }));
-    });
+    if (!this.faces.size) return [];
+    const words = atlas(new Map([...this.faces.keys()].map((key) => [key, neonFace(key.split('|')[0], key.endsWith('|1'))])));
+    const geos = [...this.faces].flatMap(([key, list]) => list.map((g) => words.uv(key, g)));
+    return [new Mesh(mergeGeometries(geos)!, new MeshBasicMaterial({ map: words.texture }))];
   }
 }
 
@@ -981,14 +1013,14 @@ export function buildCitySurrounds(track: Track): Object3D[] {
     // (The cops' own model: buildCar reads only the design's id and the car's size, content/cars/police.json's.
     // Not src/content.ts's list: that's the bundler's, and the skin also builds under the tests.)
     const police = { id: 'police', size: POLICE_SIZE };
+    const poses: Matrix4[] = [];
     for (const [x, z, h] of ap.cars) {
       const y = curve.getPoint(1).y;
-      const car = buildCar(police, { id: 'roadblock', name: 'Police', color: '#15151b', finish: 'gloss' });
-      car.root.position.set(x, y, z);
-      car.root.rotation.y = h;
-      out.push(car.root);
+      poses.push(new Matrix4().makeRotationY(h).setPosition(x, y, z));
       lights.push(x - 0.3, y + 1.6, z, x + 0.3, y + 1.6, z);
     }
+    // (One car built, drawn as each of them: a draw a part for the roadblock, not for every car.)
+    if (poses.length) out.push(...parked(buildCar(police, { id: 'roadblock', name: 'Police', color: '#15151b', finish: 'gloss' }).root, poses));
     const [[bx0, bz0], [bx1, bz1]] = ap.barrier;
     const y = curve.getPoint(1).y;
     const len = Math.hypot(bx1 - bx0, bz1 - bz0);
@@ -1040,14 +1072,35 @@ export function buildCitySurrounds(track: Track): Object3D[] {
   return out;
 }
 
+/**
+ * Parked cars, all alike: a car built once (its root at the origin), each of its parts an instanced
+ * mesh with one instance per pose. Nothing on them moves; they're seen over a wall, so they leave
+ * the ink pass (the outline still traces them). Ink-only seams and hidden parts (flames) are dropped.
+ */
+function parked(root: Object3D, poses: readonly Matrix4[]): Object3D[] {
+  root.updateMatrixWorld(true);
+  const out: Object3D[] = [];
+  root.traverse((o) => {
+    const m = o as Mesh;
+    if (!m.isMesh || !m.layers.isEnabled(0)) return;
+    for (let p: Object3D | null = m; p; p = p.parent) if (!p.visible) return;
+    const inst = new InstancedMesh(m.geometry, m.material, poses.length);
+    poses.forEach((pose, k) => inst.setMatrixAt(k, new Matrix4().multiplyMatrices(pose, m.matrixWorld)));
+    inst.computeBoundingSphere();
+    out.push(inst);
+  });
+  unmarkInk(root);
+  return out;
+}
+
 /** A street sign: its post's height (m), a blade's height, its letters' width each (m), and the two blades' heights up the post. */
 const SIGN = { post: 3.7, blade: 0.34, letter: 0.2, pad: 0.5, y: [3.05, 3.45] };
 const SIGN_GREEN = 0x2f4a3c;
 
 /** A blade's face: the name in white on green, a thin white border (SF's). */
-function signFace(name: string): CanvasTexture {
+function signFace(name: string): AtlasItem {
   const w = 40 * name.length + 60;
-  return canvas(w, 68, (g) => {
+  return { w, h: 68, draw: (g) => {
     g.fillStyle = '#1f6a44';
     g.fillRect(0, 0, w, 68);
     g.strokeStyle = '#f4f4ee';
@@ -1058,10 +1111,10 @@ function signFace(name: string): CanvasTexture {
     g.textAlign = 'center';
     g.textBaseline = 'middle';
     g.fillText(name, w / 2, 36);
-  });
+  } };
 }
 
-/** The crossings' street signs (GetawayScenery.signs): a dark green post, a blade along each street with its name on both faces. Merged per name: a draw each. */
+/** The crossings' street signs (GetawayScenery.signs): a dark green post, a blade along each street with its name on both faces. Every name on one atlas: a draw for them all. */
 function streetSigns(track: Track): Object3D[] {
   const list = track.layout.getaway?.scenery?.signs;
   const ground = track.ground;
@@ -1088,7 +1141,10 @@ function streetSigns(track: Track): Object3D[] {
   const out: Object3D[] = [];
   const m = posts.mesh();
   if (m) out.push(m);
-  for (const [name, geos] of blades) out.push(new Mesh(mergeGeometries(geos)!, toon({ map: signFace(name) })));
+  if (blades.size) {
+    const names = atlas(new Map([...blades.keys()].map((name) => [name, signFace(name)])));
+    out.push(new Mesh(mergeGeometries([...blades].flatMap(([name, geos]) => geos.map((g) => names.uv(name, g))))!, toon({ map: names.texture })));
+  }
   return out;
 }
 
