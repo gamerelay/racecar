@@ -2,7 +2,8 @@
 // sprites, and points animated entirely in the shader (blinking lights, steam and smoke, fireflies,
 // embers, birds), so scenery that moves costs no CPU per frame.
 
-import { AdditiveBlending, BoxGeometry, NormalBlending, BufferGeometry, CanvasTexture, Color, Float32BufferAttribute, InstancedMesh, Matrix4, Points, Quaternion, ShaderMaterial, Vector3, type Material } from 'three';
+import { AdditiveBlending, BoxGeometry, NormalBlending, BufferGeometry, CanvasTexture, Color, Float32BufferAttribute, InstancedMesh, Matrix4, Mesh, Points, Quaternion, ShaderMaterial, Vector3, type Material } from 'three';
+import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import type { BakedSpline } from '../../../core/track/bake';
 import { newHit, projectGlobal } from '../../../core/track/query';
 import { glow } from './toon';
@@ -53,6 +54,95 @@ export function canvas(w: number, h: number, draw: (g: CanvasRenderingContext2D)
     t.needsUpdate = true;
   });
   return t;
+}
+
+/** One picture in an atlas: its size (px) and how it's drawn (from its own top left). */
+export interface AtlasItem {
+  w: number;
+  h: number;
+  draw: (g: CanvasRenderingContext2D) => void;
+}
+
+/** An atlas's pages are at most this big each way (px): what every GPU takes. */
+const ATLAS_MAX = 4096;
+/** Each picture's edge is drawn out this far round it (px), so a far-off, mipmapped sign samples its own edge, not its neighbour. */
+const ATLAS_PAD = 8;
+
+export interface Atlas {
+  pages: CanvasTexture[];
+  /** Which page a picture is on. */
+  page(key: string): number;
+  /** Maps a plane's 0–1 uvs onto the picture's place on its page (in place). */
+  uv(key: string, g: BufferGeometry): BufferGeometry;
+}
+
+/**
+ * Many small pictures on a few textures (the owner, 2026-10-09: "do the draw call pass on heist"):
+ * a mesh per picture is a draw per picture, and Heist's neon words and street names were a hundred.
+ * Packed in rows, tallest first, onto pages up to ATLAS_MAX square (another page when one's full; a
+ * picture too big for one scaled down to fit), each picture's edge pixels drawn out into the gap
+ * round it. Redrawn once the display font has loaded, as `canvas` is.
+ */
+export function atlas(items: ReadonlyMap<string, AtlasItem>): Atlas {
+  const P = ATLAS_PAD;
+  const widest = Math.max(...[...items.values()].map((it) => it.w));
+  const W = Math.min(ATLAS_MAX, 2 ** Math.ceil(Math.log2(Math.max(512, widest + 2 * P))));
+  /** Where each picture is: its page, its top left there, its size there and its scale. */
+  const at = new Map<string, { page: number; x: number; y: number; w: number; h: number; scale: number }>();
+  const used: number[] = [0];
+  let [x, y, row, page] = [P, P, 0, 0];
+  for (const [key, it] of [...items].sort((a, b) => b[1].h - a[1].h)) {
+    const scale = Math.min(1, (W - 2 * P) / it.w, (ATLAS_MAX - 2 * P) / it.h);
+    const [w, h] = [Math.ceil(it.w * scale), Math.ceil(it.h * scale)];
+    if (x + w + P > W) [x, y, row] = [P, y + row + 2 * P, 0];
+    if (y + h + P > ATLAS_MAX) [x, y, row, page] = [P, P, 0, page + 1];
+    at.set(key, { page, x, y, w, h, scale });
+    used[page] = Math.max(used[page] ?? 0, y + h + P);
+    x += w + 2 * P;
+    row = Math.max(row, h);
+  }
+  const heights = used.map((u) => 2 ** Math.ceil(Math.log2(Math.max(1, u))));
+  const pages = heights.map((H, n) =>
+    canvas(W, H, (g) => {
+      const cv = g.canvas;
+      for (const [key, it] of items) {
+        const a = at.get(key)!;
+        if (a.page !== n) continue;
+        g.save();
+        g.translate(a.x, a.y);
+        g.beginPath();
+        g.rect(0, 0, a.w, a.h);
+        g.clip();
+        g.scale(a.scale, a.scale);
+        it.draw(g);
+        g.restore();
+        // Its edges drawn out into the gap: the columns, then the rows (corners and all).
+        g.drawImage(cv, a.x, a.y, 1, a.h, a.x - P, a.y, P, a.h);
+        g.drawImage(cv, a.x + a.w - 1, a.y, 1, a.h, a.x + a.w, a.y, P, a.h);
+        g.drawImage(cv, a.x - P, a.y, a.w + 2 * P, 1, a.x - P, a.y - P, a.w + 2 * P, P);
+        g.drawImage(cv, a.x - P, a.y + a.h - 1, a.w + 2 * P, 1, a.x - P, a.y + a.h, a.w + 2 * P, P);
+      }
+    }),
+  );
+  return {
+    pages,
+    page: (key) => at.get(key)!.page,
+    uv(key, g) {
+      const a = at.get(key)!;
+      const H = heights[a.page];
+      const uv = g.getAttribute('uv');
+      // (The canvas's rows run down; the texture's v up.)
+      for (let k = 0; k < uv.count; k++) uv.setXY(k, (a.x + uv.getX(k) * a.w) / W, 1 - (a.y + (1 - uv.getY(k)) * a.h) / H);
+      return g;
+    },
+  };
+}
+
+/** The meshes for pictures on an atlas: each key's geometries, uv-mapped and merged by page, a material per page. */
+export function atlasMeshes(sheet: Atlas, parts: Iterable<[string, BufferGeometry[]]>, material: (map: CanvasTexture) => Material): Mesh[] {
+  const byPage = sheet.pages.map((): BufferGeometry[] => []);
+  for (const [key, geos] of parts) for (const g of geos) byPage[sheet.page(key)].push(sheet.uv(key, g));
+  return byPage.flatMap((geos, n) => (geos.length ? [new Mesh(mergeGeometries(geos)!, material(sheet.pages[n]))] : []));
 }
 
 export const FONT = "'Bungee', 'Impact', 'Arial Black', sans-serif";

@@ -40,6 +40,7 @@ import { pontoon, quay } from './marina';
 import { instanced } from './forest';
 import { PALM_LEAVES, palmGeometry, swaying } from './island';
 import { water } from './terrain';
+import { flatten } from './flatten';
 import { faceted, toon } from './toon';
 
 export interface Landmarks {
@@ -49,6 +50,11 @@ export interface Landmarks {
 
 /** A landmark's builder: its objects, in its own frame (front toward +z), and what moves. */
 type Built = { root: Object3D; update?: (time: number, live?: SceneLive) => void };
+
+/** Marks the parts an update moves, turns, shows or hides: flatten leaves them, and what's on them, as they are. */
+const moves = (...parts: Object3D[]) => {
+  for (const p of parts) p.userData.moves = true;
+};
 
 /** The ground each landmark keeps: its footprint square (and a sight line in front, `view`), or a canal's whole length. */
 export function landmarkKeeps(layout: TrackLayout): Keep[] {
@@ -109,6 +115,8 @@ export function buildLandmarks(layout: TrackLayout, floor: (x: number, z: number
     const ground = (lx: number, lz: number) => (floor(m.at[0] + (lx * cs + lz * sn) * sc, m.at[1] + (-lx * sn + lz * cs) * sc) - base) / sc;
     const seaY = landmarkSea(layout);
     const b = build(m, { time, ground, sea: seaY === undefined ? null : (seaY - base) / sc, day });
+    // (Its plain parts merged, a few draws, not hundreds: all but what its update moves, `moves`.)
+    flatten(b.root);
     b.root.position.set(m.at[0], floor(m.at[0], m.at[1]), m.at[1]);
     b.root.name = `landmark:${m.kind}`;
     b.root.rotation.y = m.rot ?? 0;
@@ -498,6 +506,7 @@ function canal(m: LandmarkDef, time: { value: number }): Built {
   const speed = 5;
   const period = len / speed + 25;
   root.add(S.mesh());
+  moves(tug, ...leaves, warn);
   return {
     root,
     update(t) {
@@ -572,6 +581,7 @@ function windmill(): Built {
   root.add(S.mesh());
   let angle = 0;
   let last = 0;
+  moves(wheel, head);
   return {
     root,
     update(t, live) {
@@ -626,6 +636,7 @@ function cow(): Built {
   const f = face(sign, 8, 1.5);
   f.position.set(0, 0.5, 3.06);
   root.add(f);
+  moves(tail);
   return {
     root,
     update(t) {
@@ -782,6 +793,7 @@ function scarecrow(c: Ctx): Built {
     colors.push(0.08, 0.06, 0.1);
   }
   root.add(animatedPoints(pos, phase, colors, 'bird', 1.6, c.time));
+  moves(figure);
   return {
     root,
     update(t, live) {
@@ -822,6 +834,7 @@ function balloon(m: LandmarkDef): Built {
   for (const [a, b] of [[-1, -1], [1, -1], [1, 1], [-1, 1]]) craft.add(posed(new Mesh(new BoxGeometry(0.06, 2.6, 0.06), toon({ color: 0x3a2a20 })), a * 1.2, 1.9, b * 1.2, b * 0.18, 0, -a * 0.18));
   const flame = glowPoints([0, 2.8, 0], 0xffa23a, 6);
   craft.add(flame);
+  moves(craft, flame);
   return {
     root,
     update(t) {
@@ -863,6 +876,7 @@ function shipwreck(): Built {
   sail.rotation.set(0.1, 0.3, 0.15);
   hull.add(sail);
   let last = 0;
+  moves(sail);
   return {
     root,
     update(t) {
@@ -896,6 +910,7 @@ function tikiHead(): Built {
   root.add(eyes);
   const fire = glowPoints([-5, 4.8, 1.5, 5, 4.8, 1.5], 0xffa040, 3.4);
   root.add(fire);
+  moves(eyes, fire);
   return {
     root,
     update(t) {
@@ -1066,6 +1081,7 @@ function whale(m: LandmarkDef, c: Ctx): Built {
   const splash = animatedPoints(pos, phase, colors, 'splash', 5, splashT);
   root.add(splash);
   const BREACH = 5;
+  moves(body, splash);
   return {
     root,
     update(t) {
@@ -1132,6 +1148,7 @@ function seaplanes(m: LandmarkDef, c: Ctx): Built {
   root.add(flyer.root);
   const R = m.params?.radius ?? 160;
   const alt = m.params?.alt ?? 55;
+  moves(...moored.map((m) => m.root), flyer.root, flyer.prop);
   return {
     root,
     update(t) {
@@ -1178,6 +1195,7 @@ function lighthouse(m: LandmarkDef, day: boolean): Built {
   beam.position.y = H + 1.7;
   beam.visible = !day;
   root.add(beam);
+  moves(beam);
   return {
     root,
     update(t) {
@@ -1232,6 +1250,7 @@ function fort(m: LandmarkDef, c: Ctx): Built {
   root.add(box(0.3, 9, 0.3, 0x3a3340, 0, y0 + 16.5, 0));
   const flag = box(4, 2.4, 0.15, 0xe0413a, 2.1, y0 + 19.5, 0);
   root.add(flag);
+  moves(flag);
   return {
     root,
     update(t) {
@@ -1380,6 +1399,7 @@ function alcatraz(c: Ctx): Built {
   root.add(posed(new Mesh(new BoxGeometry(70, 3, 14), toon({ color: 0x9a8f80 })), 30, sea + 0.5, 58));
   root.add(posed(new Mesh(new BoxGeometry(26, 8, 10), toon({ color: 0xcfc6b4 })), 18, sea + 6, 54));
   root.add(posed(new Mesh(new BoxGeometry(16, 6, 9), toon({ color: 0xb9ad98 })), 46, sea + 5, 54));
+  moves(beam);
   return {
     root,
     update(t) {

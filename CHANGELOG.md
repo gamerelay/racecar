@@ -6,6 +6,8 @@ and where things stand is [docs/HANDOFF.md](./docs/HANDOFF.md).
 
 ## Unreleased
 
+- **Heist draws far less:** the city now takes about 140–270 draw calls a frame, down from 650–950 (the budget is 250), so it should run smoother on laptops. Nothing looks different. The bridges, the piers, the neon and street signs, the parked police and the traffic are each drawn in a few batches instead of piece by piece.
+
 ## alpha-1.46: The Presidio's woods
 
 - **The Presidio, rolling and wooded (Heist):** its lawns roll over soft hills with patches of mogul bumps, and the drive rides up and down them. Grass tufts grow on the lawns. South of the old hedge the park runs on west into a real wood, about 1,700 cypress and eucalyptus, with the drive winding through it. Crash through the trees: they slow you (a eucalyptus more than a cypress) but never wreck you.

@@ -6,7 +6,7 @@
 // Each vertex carries a color and `surf` = (paint, glow): paint 1 takes the instance's color (the
 // body), paint 0 keeps its own (glass, trim, lamps); glow lights it regardless of the sun (lamps).
 
-import { BoxGeometry, BufferAttribute, BufferGeometry, Color, CylinderGeometry, type Material, type Matrix4, Mesh, type MeshToonMaterial, SphereGeometry } from 'three';
+import { BoxGeometry, BufferAttribute, BufferGeometry, Color, CylinderGeometry, Float32BufferAttribute, type Material, type Matrix4, Mesh, type MeshToonMaterial, SphereGeometry } from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import type { PaintDef } from '../../../../core/content';
 import { SEAM } from '../../../ink';
@@ -330,8 +330,9 @@ export interface TrafficPart {
 
 /**
  * Race traffic drawn from the racers' own designs, flattened for instancing: build the car once,
- * merge every static mesh into one geometry per (material, ink id), and let world.ts draw each as
- * an InstancedMesh. Nothing comes off and nothing crumples (a wrecked traffic car is cosmetic
+ * merge every static mesh into one geometry per material for the main pass, and one per ink id for
+ * the ink pass alone (its panel lines, drawn only near: the owner's draw call pass, 2026-10-09, as a
+ * part per (material, ink id) was a draw per panel), and let world.ts draw each as an InstancedMesh. Nothing comes off and nothing crumples (a wrecked traffic car is cosmetic
  * debris), so the pieces are just more triangles. The body paint is white, tinted per instance.
  */
 
@@ -351,12 +352,34 @@ export function trafficModel(design: string, size: [number, number, number]): Tr
     if (mat.transparent && !inkOnly) return;
     const g = (o.geometry as BufferGeometry).clone().applyMatrix4(o.matrixWorld);
     const flat = g.index ? g.toNonIndexed() : g;
+    if (!flat.getAttribute('normal')) flat.computeVertexNormals();
     for (const name of Object.keys(flat.attributes)) if (name !== 'position' && name !== 'normal' && name !== 'color' && name !== 'uv') flat.deleteAttribute(name);
-    const key = `${mat.uuid}:${o.userData.ink ?? ''}`;
-    const e = groups.get(key) ?? { list: [], part: { material: mat, ink: o.userData.ink as number | undefined, inkOnly, tint: mat === paint } };
-    e.list.push(flat);
-    groups.set(key, e);
+    const put = (key: string, geo: BufferGeometry, part: Omit<TrafficPart, 'geometry'>) => {
+      const e = groups.get(key) ?? { list: [], part };
+      e.list.push(geo);
+      groups.set(key, e);
+    };
+    const ink = o.userData.ink as number | undefined;
+    // Drawn: by material. Inked: by ink id, in the ink pass only.
+    if (!inkOnly) put(`draw:${mat.uuid}`, flat, { material: mat, inkOnly: false, tint: mat === paint });
+    if (ink !== undefined) {
+      // (The ink pass reads only where it is and which way it faces.)
+      const shape = new BufferGeometry();
+      shape.setAttribute('position', flat.getAttribute('position'));
+      shape.setAttribute('normal', flat.getAttribute('normal'));
+      put(`ink:${ink}`, shape, { material: mat, ink, inkOnly: true, tint: false });
+    }
   });
+  // A material's parts merged must carry the same attributes. What its shader reads: vertex colours
+  // if it takes them (white where a part has none), uvs if it has a texture (a part without is a
+  // mistake, said so). The rest, unread, only where all have them.
+  for (const [key, { list, part }] of groups) {
+    const mat = part.material as { vertexColors?: boolean; map?: unknown };
+    if (mat.vertexColors) for (const g of list) if (!g.getAttribute('color')) g.setAttribute('color', new Float32BufferAttribute(new Float32Array(g.getAttribute('position').count * 3).fill(1), 3));
+    if (mat.map && !part.inkOnly && list.some((g) => !g.getAttribute('uv'))) throw new Error(`traffic ${design}: a textured part (${key}) without uvs`);
+    const names = Object.keys(list[0].attributes).filter((n) => list.every((g) => g.getAttribute(n)));
+    for (const g of list) for (const n of Object.keys(g.attributes)) if (!names.includes(n)) g.deleteAttribute(n);
+  }
   const parts = [...groups.values()].map(({ list, part }) => {
     const geometry = mergeGeometries(list)!;
     for (const g of list) g.dispose();
