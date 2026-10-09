@@ -462,3 +462,9 @@ svg.thumb .end { fill: var(--sun); stroke: var(--ink); stroke-width: 1; }
   .chooser.nudge-r .cv, .chooser.nudge-l .cv { animation: none; }
 }
 @keyframes fadeOnly { from { opacity: 0; } }
+
+/* In a post on X (ui/embed.ts): the way out to the full game, small, in the menu's corner. */
+#embedOpen { position: fixed; top: 8px; right: 8px; z-index: 40; padding: 4px 8px; font: 700 11px/1.2 var(--ui); letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink); background: var(--panel); border: 2px solid var(--ink); text-decoration: none; }
+#embedOpen:hover, #embedOpen:focus-visible { color: var(--sun); border-color: var(--sun); outline: none; }
+/* In a race the corner is the minimap's: the menu (☰) leads back to the button. */
+body:not(.attract) #embedOpen { display: none; }

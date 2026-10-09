@@ -28,6 +28,7 @@ import { accept, navigate } from './ui/nav';
 import { installChoosers } from './ui/chooser';
 import { installClicks } from './ui/click';
 import { fadeIn, ready, veiled } from './ui/fade';
+import { installEmbed } from './ui/embed';
 import { SettingsPanel } from './ui/settings';
 import { ControlsPanel } from './ui/controls';
 import { SettingsStore } from './settings';
@@ -57,6 +58,7 @@ function storage(): Storage | null {
 let screens: Menu | undefined;
 // The page comes up out of the loading screen once it has drawn (every race and menu is a page load: ui/fade.ts).
 fadeIn();
+installEmbed();
 /** Frames drawn: the loading screen lifts after the second (the first compiles the shaders). */
 let drawn = 0;
 installChoosers();

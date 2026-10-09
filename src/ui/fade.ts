@@ -3,6 +3,7 @@
 // while the next page loads and builds its map (the loading screen is in index.html, so it's up
 // from the first paint), and it lifts once the page has drawn its first frames. The browser's
 // reduced-motion setting keeps it short and still.
+import { keepEmbed } from './embed';
 
 /** How long the screen takes to go dark before the next page (ms). */
 const OUT_MS = 180;
@@ -65,5 +66,5 @@ export function goTo(search: string): void {
   el.classList.remove('in');
   el.classList.add('out');
   const quick = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
-  setTimeout(() => (location.search = search), quick ? 60 : OUT_MS);
+  setTimeout(() => (location.search = keepEmbed(search)), quick ? 60 : OUT_MS);
 }
