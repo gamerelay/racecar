@@ -28,13 +28,14 @@ import {
   Float32BufferAttribute,
   IcosahedronGeometry,
   SphereGeometry,
+  RepeatWrapping,
 } from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import type { LandmarkDef, TrackLayout } from '../../../core/content';
 import { Rng } from '../../../core/rng';
 import type { SceneLive } from '../../skin';
 import type { Keep } from './cityscape';
-import { animatedPoints, boxes, FONT, glowPoints, type Box } from './scenery';
+import { animatedPoints, boxes, canvas, FONT, glowPoints, type Box } from './scenery';
 import { pontoon, quay } from './marina';
 import { instanced } from './forest';
 import { PALM_LEAVES, palmGeometry, swaying } from './island';
@@ -1300,6 +1301,455 @@ function obelisk(c: Ctx): Built {
   return { root };
 }
 
+/**
+ * Alcatraz (the getaway's city, the owner: "an alcatraz set piece in the background"): out in the
+ * bay off Bay Street, scenery only. A craggy rock about 260 m long rising in tiers out of the sea,
+ * scrub on its ledges; the long concrete cellhouse along its top, its barred windows in rows; the
+ * lighthouse at its end, its lamp lit and its beam turning after dark; the water tower on its legs;
+ * the dock buildings down at the water.
+ */
+function alcatraz(c: Ctx): Built {
+  const root = new Group();
+  const sea = c.sea ?? 0;
+  const rng = new Rng(0xa1ca);
+  const ROCK = [0x6f6258, 0x7d6f62, 0x5f544c];
+  const SCRUB = [0x4c6a3a, 0x5d7a40, 0x3f5c34];
+  // The rock: tiers of craggy, faceted slabs, each a squashed many-sided column, its corners jittered.
+  const slab = (rx: number, rz: number, h: number, y: number, x: number, z: number, color: number) => {
+    const g = new CylinderGeometry(0.82, 1, h, 11, 2);
+    const p = g.getAttribute('position');
+    for (let k = 0; k < p.count; k++) {
+      const top = p.getY(k) > 0;
+      const j = rng.range(0.85, 1.12);
+      p.setXYZ(k, p.getX(k) * rx * j, p.getY(k) + (top ? rng.range(-0.6, 0.8) : 0), p.getZ(k) * rz * j);
+    }
+    root.add(posed(new Mesh(faceted(g), toon({ color })), x, y + h / 2, z));
+  };
+  slab(135, 62, 14, sea - 4, 0, 0, ROCK[0]);
+  slab(112, 50, 10, sea + 8, -8, 2, ROCK[1]);
+  slab(84, 38, 8, sea + 16, -14, 0, ROCK[2]);
+  for (let k = 0; k < 9; k++) slab(rng.range(10, 22), rng.range(8, 14), 2.5, sea + rng.range(9, 22), rng.range(-90, 70), rng.range(-30, 30), SCRUB[k % SCRUB.length]);
+  const top = sea + 24;
+  // The cellhouse: a long concrete block, rows of barred windows, a lower wing off one end.
+  const bars = new CanvasTexture(
+    (() => {
+      const cv = document.createElement('canvas');
+      cv.width = cv.height = 64;
+      const g = cv.getContext('2d')!;
+      g.fillStyle = '#ffffff';
+      g.fillRect(0, 0, 64, 64);
+      g.fillStyle = '#3a3a44';
+      g.fillRect(14, 10, 36, 40);
+      g.fillStyle = '#d8d4cc';
+      for (let x = 18; x < 50; x += 6) g.fillRect(x, 10, 2, 40);
+      return cv;
+    })(),
+  );
+  bars.wrapS = bars.wrapT = RepeatWrapping;
+  const wall = (w: number, h: number, d: number, x: number, z: number, color: number) => {
+    const g = new BoxGeometry(w, h, d);
+    const uv = g.getAttribute('uv');
+    for (let k = 0; k < uv.count; k++) uv.setXY(k, uv.getX(k) * Math.round(Math.max(w, d) / 4), uv.getY(k) * Math.round(h / 4));
+    root.add(posed(new Mesh(g, toon({ color, map: bars })), x, top + h / 2, z));
+    root.add(posed(new Mesh(new BoxGeometry(w + 0.8, 0.8, d + 0.8), toon({ color: 0xbdb7ac })), x, top + h + 0.4, z));
+  };
+  wall(78, 13, 26, -10, 0, 0xe6e1d6);
+  wall(30, 9, 18, 40, -6, 0xd8d2c4);
+  wall(22, 7, 14, -58, 10, 0xd8d2c4);
+  // The lighthouse at its west end.
+  const lx = -62;
+  const lz = -16;
+  root.add(posed(cyl(1.8, 2.4, 22, 0xf4f1ea, 0, 10), lx, top + 11, lz));
+  root.add(posed(cyl(2.6, 2.6, 0.6, 0x2a2f38, 0, 10), lx, top + 22.3, lz));
+  root.add(posed(cyl(1.5, 1.5, 2.2, 0xfff2b0, 0, 8), lx, top + 23.7, lz));
+  root.add(posed(new Mesh(faceted(new ConeGeometry(1.9, 1.6, 8)), toon({ color: 0x2a2f38 })), lx, top + 25.6, lz));
+  const lamp = glowPoints([lx, top + 23.7, lz], 0xfff2b0, 14);
+  root.add(lamp);
+  const beamMat = new MeshBasicMaterial({ color: 0xfff4c0, transparent: true, opacity: 0.12, blending: AdditiveBlending, depthWrite: false, side: DoubleSide, fog: false });
+  const cone = new ConeGeometry(12, 320, 16, 1, true).translate(0, -160, 0).rotateX(Math.PI / 2);
+  const beam = new Mesh(mergeGeometries([cone, cone.clone().rotateY(Math.PI)])!, beamMat);
+  beam.position.set(lx, top + 23.7, lz);
+  beam.visible = !c.day;
+  root.add(beam);
+  // The water tower on its legs, at the east end.
+  const tx = 62;
+  for (const [ox, oz] of [[-3, -3], [3, -3], [3, 3], [-3, 3]]) root.add(posed(new Mesh(new BoxGeometry(0.5, 16, 0.5), toon({ color: 0x8a5a3a })), tx + ox, top - 4 + 8, 8 + oz));
+  root.add(posed(cyl(5, 5, 7, 0x9a6440, 0, 12), tx, top + 7.5, 8));
+  root.add(posed(new Mesh(faceted(new ConeGeometry(5.4, 2.4, 12)), toon({ color: 0x7a4c32 })), tx, top + 12.2, 8));
+  // The dock: a quay and its low buildings at the water, on the city's side.
+  root.add(posed(new Mesh(new BoxGeometry(70, 3, 14), toon({ color: 0x9a8f80 })), 30, sea + 0.5, 58));
+  root.add(posed(new Mesh(new BoxGeometry(26, 8, 10), toon({ color: 0xcfc6b4 })), 18, sea + 6, 54));
+  root.add(posed(new Mesh(new BoxGeometry(16, 6, 9), toon({ color: 0xb9ad98 })), 46, sea + 5, 54));
+  return {
+    root,
+    update(t) {
+      beam.rotation.y = t * 0.4;
+    },
+  };
+}
+
+/**
+ * The Golden Gate Bridge (the getaway's city, the owner: "add the Golden Gate Bridge in the
+ * background too"): scenery only, across the strait west of Alcatraz, along its local z from the
+ * land past Van Ness (+z) to the Marin headlands (-z). Two International Orange towers (MAIN m
+ * apart, TOWER m over the sea), stepped, portal struts across them; the deck between, on its truss;
+ * the two main cables hanging from the towers' tops to the anchorages at either end, a suspender down
+ * to the deck every few metres; the headlands, green over rock, at the far end. Its towers' tops
+ * lit at night.
+ */
+function goldenGate(c: Ctx): Built {
+  const root = new Group();
+  const sea = c.sea ?? 0;
+  const ORANGE = 0xc0402e;
+  const DARK = 0x9a3224;
+  const MAIN = 580;
+  const SIDE = 170;
+  const TOWER = 105;
+  const DECK = sea + 44;
+  const HALF = 13;
+  const paint = toon({ color: ORANGE });
+  const parts: Mesh[] = [];
+  const box = (w: number, h: number, d: number, x: number, y: number, z: number, mat = paint) => {
+    const m = new Mesh(new BoxGeometry(w, h, d), mat);
+    m.position.set(x, y, z);
+    parts.push(m);
+  };
+  const towers = [MAIN / 2, -MAIN / 2];
+  for (const tz of towers) {
+    // Two legs, stepped in as they rise, and the portal struts across them.
+    for (const side of [-1, 1]) {
+      const steps = 4;
+      for (let k = 0; k < steps; k++) {
+        const y0 = sea + (k * (TOWER + 6)) / steps;
+        const h = (TOWER + 6) / steps;
+        const w = 7 - k * 1.1;
+        box(w, h, 9 - k * 1.2, side * (HALF + 2), y0 + h / 2, tz);
+      }
+    }
+    for (const y of [DECK - 6, DECK + 22, DECK + 40, DECK + 56, sea + TOWER - 2]) box(2 * HALF + 4, 4, 4, 0, y, tz);
+    // Its pier in the water.
+    box(2 * HALF + 16, 10, 24, 0, sea - 3, tz, toon({ color: 0x8f877c }));
+  }
+  // The deck, its truss under it, end to end.
+  const LONG = MAIN + 2 * SIDE;
+  box(2 * HALF + 2, 1.6, LONG, 0, DECK, 0, toon({ color: 0x5a5560 }));
+  box(2 * HALF, 5, LONG, 0, DECK - 3.3, 0, toon({ color: DARK }));
+  // The anchorages, and the approaches down to them.
+  for (const end of [1, -1]) box(2 * HALF + 10, DECK - sea + 4, 30, 0, (DECK + sea) / 2 - 2, end * (LONG / 2 + 15), toon({ color: 0x9a9286 }));
+  root.add(...parts);
+  // The main cables: a parabola across the main span, and down each side span to the anchorage.
+  const top = sea + TOWER + 2;
+  const cableY = (z: number) => {
+    const a = Math.abs(z);
+    if (a <= MAIN / 2) {
+      const u = z / (MAIN / 2);
+      return DECK + 3 + (top - DECK - 3) * u * u;
+    }
+    const u = (a - MAIN / 2) / SIDE;
+    return top + (DECK + 4 - top) * (u * 0.9 + 0.1 * u * u);
+  };
+  const cable = toon({ color: ORANGE });
+  const hang: Mesh[] = [];
+  for (const side of [-1, 1]) {
+    const x = side * (HALF + 1);
+    const step = 10;
+    for (let z = -LONG / 2; z < LONG / 2; z += step) {
+      const y0 = cableY(z);
+      const y1 = cableY(z + step);
+      const len = Math.hypot(step, y1 - y0);
+      const seg = new Mesh(new CylinderGeometry(0.9, 0.9, len, 6), cable);
+      seg.position.set(x, (y0 + y1) / 2, z + step / 2);
+      seg.rotation.x = Math.PI / 2 - Math.atan2(y1 - y0, step);
+      hang.push(seg);
+      // A suspender down from it to the deck.
+      const h = (y0 + y1) / 2 - DECK;
+      if (h > 3) {
+        const sus = new Mesh(new BoxGeometry(0.3, h, 0.3), cable);
+        sus.position.set(x, DECK + h / 2, z + step / 2);
+        hang.push(sus);
+      }
+    }
+  }
+  root.add(...hang);
+  // Red lights on the towers' tops, lit at night.
+  if (!c.day) root.add(glowPoints(towers.flatMap((tz) => [-HALF - 2, top + 4, tz, HALF + 2, top + 4, tz]), 0xff3a2a, 7));
+  // The Marin headlands at the far end: green over rock, rising out of the sea.
+  const rng = new Rng(0x6a7e);
+  for (let k = 0; k < 6; k++) {
+    const r = rng.range(90, 170);
+    const h = rng.range(60, 120);
+    // (A low dome, not a cone: rolling hills.)
+    const hill = new Mesh(faceted(new SphereGeometry(r, 10, 5, 0, Math.PI * 2, 0, Math.PI / 2)), toon({ color: k % 2 ? 0x5d7444 : 0x6b7a4c }));
+    hill.position.set(rng.range(-320, 260), sea - 8, -LONG / 2 - rng.range(60, 260));
+    hill.scale.set(1, h / r, rng.range(0.6, 1));
+    root.add(hill);
+  }
+  return { root };
+}
+
+/**
+ * The Bay Bridge's west span (the getaway's city, the owner: "can we add the bay bridge too
+ * please"): scenery only, out east from the Embarcadero past the south piers toward Yerba Buena
+ * Island, along its local -z. Two suspension bridges end to end, grey steel: from the anchorage by
+ * the shore up over a tower, the main span, another tower, down to the great concrete anchorage in
+ * the middle of the bay; then again to the island, a wooded hill. A double deck on its truss end to
+ * end, on piers between. After dark, the Bay Lights: white lights strung along the cables.
+ */
+function bayBridge(c: Ctx): Built {
+  const root = new Group();
+  const sea = c.sea ?? 0;
+  const STEEL = toon({ color: 0x9ea6b0 });
+  const DARK = toon({ color: 0x6f7782 });
+  const CONCRETE = toon({ color: 0x9a9286 });
+  const DECK = sea + 52;
+  const TOWER = 98;
+  const HALF = 12;
+  // Each suspension bridge: its anchorages and towers along z (m, from the shore's anchorage at 0).
+  const units = [
+    { a: 0, t: [-190, -500], b: -690 },
+    { a: -690, t: [-880, -1190], b: -1380 },
+  ];
+  const parts: Mesh[] = [];
+  const box = (w: number, h: number, d: number, x: number, y: number, z: number, mat = STEEL) => {
+    const m = new Mesh(new BoxGeometry(w, h, d), mat);
+    m.position.set(x, y, z);
+    parts.push(m);
+  };
+  const END = -1380;
+  // The deck: two levels on a deep truss, shore to island.
+  box(2 * HALF, 1.4, -END, 0, DECK, END / 2, DARK);
+  box(2 * HALF, 1.2, -END, 0, DECK - 7, END / 2, DARK);
+  box(2 * HALF - 1, 7, -END, 0, DECK - 3.5, END / 2, STEEL);
+  // The anchorages: the shore's, the one in the middle of the bay (big, a tower's height), the island's.
+  box(2 * HALF + 14, DECK - sea + 8, 40, 0, (DECK + sea) / 2, 0, CONCRETE);
+  box(2 * HALF + 20, DECK - sea + 30, 60, 0, (DECK + sea + 30) / 2 - 4, -690, CONCRETE);
+  const lights: number[] = [];
+  const top = sea + TOWER;
+  for (const u of units) {
+    for (const tz of u.t) {
+      // A tower: two legs and the X-bracing between them, on its pier.
+      for (const side of [-1, 1]) box(4, TOWER + 6, 6, side * (HALF + 1.5), sea + (TOWER + 6) / 2 - 6, tz);
+      for (const y of [DECK - 10, DECK + 18, DECK + 34, top - 2]) box(2 * HALF + 4, 3, 3, 0, y, tz);
+      box(2 * HALF + 12, 12, 22, 0, sea - 4, tz, CONCRETE);
+    }
+    // The cables: up from the anchorage to the first tower, sagging across, down to the next anchorage.
+    const [t0, t1] = u.t;
+    const y = (z: number) => {
+      if (z > t0) return DECK + 4 + (top - DECK - 4) * ((u.a - z) / (u.a - t0)) ** 1.15;
+      if (z < t1) return DECK + 4 + (top - DECK - 4) * ((z - u.b) / (t1 - u.b)) ** 1.15;
+      const m = (z - (t0 + t1) / 2) / ((t0 - t1) / 2);
+      return DECK + 4 + (top - DECK - 4) * m * m;
+    };
+    for (const side of [-1, 1]) {
+      const x = side * (HALF + 0.5);
+      const step = 10;
+      for (let z = u.a; z > u.b; z -= step) {
+        const y0 = y(z);
+        const y1 = y(z - step);
+        const seg = new Mesh(new CylinderGeometry(0.8, 0.8, Math.hypot(step, y1 - y0), 6), STEEL);
+        seg.position.set(x, (y0 + y1) / 2, z - step / 2);
+        seg.rotation.x = -(Math.PI / 2 - Math.atan2(y1 - y0, step));
+        parts.push(seg);
+        const h = (y0 + y1) / 2 - DECK;
+        if (h > 3) box(0.3, h, 0.3, x, DECK + h / 2, z - step / 2);
+        lights.push(x, y0 + 1, z);
+      }
+    }
+  }
+  // Piers under the deck between the spans' ends and the island.
+  for (let z = -1380; z > END - 1; z -= 100) box(10, DECK - sea, 10, 0, (DECK + sea) / 2, z, CONCRETE);
+  root.add(...parts);
+  if (!c.day) root.add(glowPoints(lights, 0xf4f8ff, 3.5));
+  // Yerba Buena Island at the far end: a wooded hill out of the bay.
+  const isle = new Mesh(faceted(new SphereGeometry(170, 12, 6, 0, Math.PI * 2, 0, Math.PI / 2)), toon({ color: 0x4f6a3e }));
+  isle.scale.set(1, 0.55, 0.8);
+  isle.position.set(30, sea - 6, END - 150);
+  root.add(isle);
+  return { root };
+}
+
+/** A window grid on white, a cell a storey high (tiled over a face by its uv). */
+let gridTex: CanvasTexture | undefined;
+function windowGrid(): CanvasTexture {
+  if (gridTex) return gridTex;
+  const cv = document.createElement('canvas');
+  cv.width = cv.height = 32;
+  const g = cv.getContext('2d')!;
+  g.fillStyle = '#ffffff';
+  g.fillRect(0, 0, 32, 32);
+  g.fillStyle = '#5d6b80';
+  g.fillRect(6, 6, 20, 18);
+  gridTex = new CanvasTexture(cv);
+  gridTex.wrapS = gridTex.wrapT = RepeatWrapping;
+  return gridTex;
+}
+
+/**
+ * The Transamerica Pyramid (the owner, 2026-10-08): across the street from the Bank, the city's
+ * tallest by far: a white four-sided spire `base` m across at its foot (params.base) narrowing to
+ * a point, windows in rows up its faces, the two "wings" up its sides (its lift shafts and stairs)
+ * from two thirds up, its crown and the lit tip. Its foot is the house's solid base.
+ */
+function transamerica(m: LandmarkDef): Built {
+  const root = new Group();
+  const B = m.params?.base ?? 38;
+  // (Twice the Financial District's towers: it stands up out of the skyline.)
+  const H = 175;
+  const spire = 22;
+  const body = new CylinderGeometry(1.5 / Math.SQRT2, B / Math.SQRT2, H, 4, 1, true).rotateY(Math.PI / 4);
+  const uv = body.getAttribute('uv');
+  for (let k = 0; k < uv.count; k++) uv.setXY(k, uv.getX(k) * 4 * 8, uv.getY(k) * (H / 3.6));
+  const white = toon({ color: 0xf2efe8, map: windowGrid() });
+  root.add(posed(new Mesh(faceted(body), white), 0, H / 2, 0));
+  // The wings, east and west, from 0.55 of the way up.
+  for (const side of [-1, 1]) {
+    const y0 = H * 0.55;
+    const h = H * 0.35;
+    const at = (y: number) => (B / 2) * (1 - y / H);
+    const wing = new Mesh(new BoxGeometry(5, h, 9), toon({ color: 0xe8e4dc }));
+    wing.position.set(side * (at(y0 + h / 2) + 1.5), y0 + h / 2, 0);
+    root.add(wing);
+  }
+  root.add(posed(new Mesh(faceted(new ConeGeometry(1.2, spire, 4)), toon({ color: 0xd9d4c8 })), 0, H + spire / 2 - 1, 0));
+  root.add(glowPoints([0, H + spire, 0], 0xff4a3a, 6));
+  // Its base: a plinth over the plaza.
+  root.add(posed(new Mesh(new BoxGeometry(B + 4, 1.2, B + 4), toon({ color: 0xb9b2a6 })), 0, 0.6, 0));
+  return { root };
+}
+
+/**
+ * Coit Tower (the owner, 2026-10-08), on Telegraph Hill in Pioneer Park: a fluted white concrete
+ * column `high` m tall (params.high), a ring of tall arched openings at its top under a flat crown,
+ * on a low square base. The house is its solid trunk.
+ */
+function coitTower(m: LandmarkDef, c: Ctx): Built {
+  const root = new Group();
+  const H = m.params?.high ?? 64;
+  const r = 5.2;
+  // Fluted: a many-sided column, every other face set in.
+  const g = new CylinderGeometry(r, r * 1.04, H, 24, 1);
+  const p = g.getAttribute('position');
+  for (let k = 0; k < p.count; k++) {
+    const a = Math.atan2(p.getZ(k), p.getX(k));
+    const flute = Math.round((a / (Math.PI * 2)) * 24) % 2 ? 0.88 : 1;
+    p.setXYZ(k, p.getX(k) * flute, p.getY(k), p.getZ(k) * flute);
+  }
+  root.add(posed(new Mesh(faceted(g), toon({ color: 0xf1ebdc })), 0, H / 2 + 3, 0));
+  // The arcade at its top: dark openings round it, the crown over them.
+  for (let k = 0; k < 8; k++) {
+    const a = (k / 8) * Math.PI * 2;
+    const o = new Mesh(new BoxGeometry(1.4, 4.5, 0.6), toon({ color: 0x3a3a46 }));
+    o.position.set(Math.sin(a) * (r - 0.1), H - 2, Math.cos(a) * (r - 0.1));
+    o.rotation.y = a;
+    root.add(o);
+  }
+  root.add(cyl(r + 0.5, r + 0.5, 1.4, 0xe2dccb, H + 3.7, 24));
+  // Its base, square, stepped, on a round terrace: a stone retaining wall down into the hill's slope
+  // to the lowest ground round it (the hill falls away on its downhill side), a parapet round its top.
+  let low = 0;
+  for (let a = 0; a < Math.PI * 2; a += Math.PI / 8) for (const r of [9, 14]) low = Math.min(low, c.ground(Math.cos(a) * r, Math.sin(a) * r));
+  const T = 15;
+  const wall = low - 1.5;
+  root.add(posed(new Mesh(faceted(new CylinderGeometry(T, T + 0.6, 0.4 - wall, 16)), toon({ color: 0xcfc6b2 })), 0, (0.4 + wall) / 2, 0));
+  root.add(posed(new Mesh(new CylinderGeometry(T - 0.2, T - 0.2, 0.06, 16), toon({ color: 0x8a8478 })), 0, 0.43, 0));
+  root.add(posed(new Mesh(faceted(new CylinderGeometry(T + 0.15, T + 0.15, 0.8, 16, 1, true)), toon({ color: 0xe2dccb })), 0, 0.8, 0));
+  root.add(posed(new Mesh(new BoxGeometry(20, 1, 20), toon({ color: 0xd8d1bf })), 0, 0.9, 0));
+  root.add(posed(new Mesh(new BoxGeometry(18, 3, 18), toon({ color: 0xe2dccb })), 0, 1.5, 0));
+  // Trees round the terrace's foot, on the slope.
+  for (let k = 0; k < 10; k++) {
+    const a = (k / 10) * Math.PI * 2 + 0.2;
+    const x = Math.cos(a) * (T + 4);
+    const z = Math.sin(a) * (T + 4);
+    const y = c.ground(x, z);
+    root.add(posed(new Mesh(faceted(new ConeGeometry(2.2, 7, 7)), toon({ color: k % 2 ? 0x2f5a3a : 0x3a6640 })), x, y + 4, z));
+    root.add(posed(new Mesh(new CylinderGeometry(0.25, 0.3, 1.2, 5), toon({ color: 0x5a4232 })), x, y + 0.6, z));
+  }
+  if (!c.day) root.add(glowPoints([0, H + 5, 0], 0xfff2c8, 9));
+  return { root };
+}
+
+/**
+ * Chinatown's Dragon Gate (the owner, 2026-10-08: "a detailed Broadway street and China town"),
+ * across Grant Avenue's south end: two stone posts `span` m apart (params.span: the pavements' middles;
+ * the houses at them are the solid posts, `post` m square), a red beam across between them, under a
+ * green-tiled roof, its eaves turned up at the corners, gold on its ridge; its sign over the street
+ * both ways; and a lower roof out over each pavement to the buildings. Lanterns under the eaves, lit.
+ */
+function chinatownGate(m: LandmarkDef, c: Ctx): Built {
+  const root = new Group();
+  const S = m.params?.span ?? 17;
+  const H = m.params?.high ?? 11;
+  const P = m.params?.post ?? 1.4;
+  const STONE = 0xe6dfcf;
+  const RED = 0xb8332a;
+  const TILE = 0x2f7a4a;
+  const GOLD = 0xd9a33a;
+  const beam = H - 3.6;
+  // The posts (over the solid houses), each on a plinth, a red band near the top.
+  for (const s of [-1, 1]) {
+    root.add(posed(new Mesh(new BoxGeometry(P + 0.1, beam, P + 0.1), toon({ color: STONE })), (s * S) / 2, beam / 2, 0));
+    root.add(posed(new Mesh(new BoxGeometry(P + 0.6, 0.8, P + 0.6), toon({ color: 0xcfc6b2 })), (s * S) / 2, 0.4, 0));
+    root.add(posed(new Mesh(new BoxGeometry(P + 0.3, 0.7, P + 0.3), toon({ color: RED })), (s * S) / 2, beam - 1.2, 0));
+  }
+  // The beam, gold-banded, and the frieze over it.
+  root.add(posed(new Mesh(new BoxGeometry(S + P + 1.2, 1.1, 1.3), toon({ color: RED })), 0, beam + 0.55, 0));
+  root.add(posed(new Mesh(new BoxGeometry(S + P + 1.3, 0.22, 1.4), toon({ color: GOLD })), 0, beam + 0.05, 0));
+  root.add(posed(new Mesh(new BoxGeometry(S + P - 1, 1.2, 1), toon({ color: 0x1f6a5a })), 0, beam + 1.7, 0));
+  /** A hipped roof, `w` × `d` at its eaves, `h` high, a ridge `ridge` long; gold horns up at its four corners. */
+  const roof = (w: number, d: number, h: number, ridge: number, x: number, y: number) => {
+    const g = new CylinderGeometry(Math.SQRT1_2, Math.SQRT1_2, 1, 4, 1).rotateY(Math.PI / 4);
+    const pos = g.getAttribute('position');
+    for (let k = 0; k < pos.count; k++) {
+      const top = pos.getY(k) > 0;
+      // (The top's corners pulled in to the ridge: a hip roof.)
+      pos.setXYZ(k, top ? Math.sign(pos.getX(k)) * (ridge / w) * 0.5 : pos.getX(k), pos.getY(k), top ? 0 : pos.getZ(k));
+    }
+    g.computeVertexNormals();
+    root.add(posed(new Mesh(faceted(g.scale(w, h, d)), toon({ color: TILE })), x, y + h / 2, 0));
+    root.add(posed(new Mesh(new BoxGeometry(w + 0.2, 0.25, d + 0.2), toon({ color: 0x24603a })), x, y, 0));
+    root.add(posed(new Mesh(new BoxGeometry(ridge + 0.4, 0.4, 0.4), toon({ color: GOLD })), x, y + h + 0.1, 0));
+    for (const [cx, cz] of [[-1, -1], [-1, 1], [1, -1], [1, 1]]) root.add(posed(new Mesh(new ConeGeometry(0.22, 1.1, 5), toon({ color: GOLD })), x + (cx * w) / 2, y + 0.4, (cz * d) / 2, cz * 0.6, 0, -cx * 0.6));
+    for (const s of [-1, 1]) root.add(posed(new Mesh(faceted(new IcosahedronGeometry(0.45, 0)), toon({ color: GOLD })), x + (s * ridge) / 2, y + h + 0.5, 0));
+  };
+  roof(S + P + 4, 4.6, 2.2, S * 0.55, 0, beam + 2.3);
+  // Over each pavement, lower: from the post out to the buildings.
+  for (const s of [-1, 1]) {
+    root.add(posed(new Mesh(new BoxGeometry(3.2, 0.7, 0.9), toon({ color: RED })), (s * (S + 3.2)) / 2, beam - 1.6, 0));
+    roof(3.6, 3.2, 1.4, 1.2, (s * (S + 3.6)) / 2, beam - 1.2);
+  }
+  // Its sign, both ways: four characters in gold on blue.
+  const sign = toon({
+    map: canvas(256, 72, (g) => {
+      g.fillStyle = '#1f3a6a';
+      g.fillRect(0, 0, 256, 72);
+      g.strokeStyle = '#d9a33a';
+      g.lineWidth = 5;
+      g.strokeRect(4, 4, 248, 64);
+      g.fillStyle = '#f2c84a';
+      g.font = 'bold 46px "PingFang TC", "Hiragino Sans", "Noto Sans CJK TC", serif';
+      g.textAlign = 'center';
+      g.textBaseline = 'middle';
+      g.fillText('天下為公', 128, 38);
+    }),
+  });
+  for (const s of [-1, 1]) {
+    const face = new Mesh(new PlaneGeometry(4.4, 1.25), sign);
+    face.position.set(0, beam + 1.7, s * 0.52);
+    face.rotation.y = s > 0 ? 0 : Math.PI;
+    root.add(face);
+  }
+  // Red lanterns under the beam.
+  const lamps: number[] = [];
+  const red = toon({ color: 0xd8302a });
+  for (let k = -2; k <= 2; k++)
+    for (const z of [-2, 2]) {
+      root.add(posed(new Mesh(faceted(new IcosahedronGeometry(0.4, 1)).scale(1, 1.25, 1), red), (k * S) / 5, beam - 0.6, z * 0.4));
+      lamps.push((k * S) / 5, beam - 0.6, z * 0.4);
+    }
+  if (!c.day) root.add(glowPoints(lamps, 0xff5a3a, 2.2));
+  return { root };
+}
+
 const BUILDERS: Record<string, (m: LandmarkDef, ctx: Ctx) => Built> = {
   sphinx: (_m, c) => sphinx(c),
   obelisk: (_m, c) => obelisk(c),
@@ -1325,4 +1775,10 @@ const BUILDERS: Record<string, (m: LandmarkDef, ctx: Ctx) => Built> = {
   quay: (m, c) => ({ root: new Group().add(quay(m, c.sea ?? 0)) }),
   'car-park': (m, c) => carPark(m, c),
   'lifeguard-tower': (_m, c) => lifeguardTower(c),
+  alcatraz: (_m, c) => alcatraz(c),
+  'golden-gate': (_m, c) => goldenGate(c),
+  'bay-bridge': (_m, c) => bayBridge(c),
+  transamerica: (m) => transamerica(m),
+  'coit-tower': (m, c) => coitTower(m, c),
+  'chinatown-gate': (m, c) => chinatownGate(m, c),
 };

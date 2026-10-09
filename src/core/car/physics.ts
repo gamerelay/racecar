@@ -608,7 +608,9 @@ function stepWreck(sim: SimState, i: number, c: Controls, dt: number): void {
     cars.wy[i] *= 0.75;
     cars.wz[i] *= 0.75;
   }
-  if (cars.wreckT[i] >= T.wreckTime) respawn(sim, i);
+  // (A getaway's over at your first wreck, rules/getaway.ts: it stays where it lies. A race on its
+  // map that isn't one, online or behind the menu, respawns as any race does.)
+  if (cars.wreckT[i] >= T.wreckTime && !(cars.finished[i] && sim.getaway)) respawn(sim, i);
 }
 
 /**

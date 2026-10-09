@@ -60,43 +60,80 @@ export function loopDistance(loop: readonly (readonly [number, number])[]): (x: 
   }
   const seen = new Int32Array(n).fill(-1);
   let query = 0;
+  // (The points flat, for the hot loops below.)
+  const px = Float64Array.from(loop, (p) => p[0]);
+  const pz = Float64Array.from(loop, (p) => p[1]);
+  /** A segment's distance from (x, z). */
+  const dist = (k: number, x: number, z: number) => {
+    const j = k === 0 ? n - 1 : k - 1;
+    const ax = px[j];
+    const az = pz[j];
+    const bx = px[k];
+    const bz = pz[k];
+    const dx = bx - ax;
+    const dz = bz - az;
+    const t = Math.max(0, Math.min(1, ((x - ax) * dx + (z - az) * dz) / (dx * dx + dz * dz || 1)));
+    return hypot(x - ax - dx * t, z - az - dz * t);
+  };
+  // Per cell (made the first time a point in it asks), the only segments that can be nearest to a
+  // point in it: those whose distance from its middle, less its half diagonal, is within the
+  // nearest's plus it. Far from the loop (a city's middle, 600 m in) the rings below would search
+  // dozens of empty rings for each point.
+  const half = hypot(LOOP_CELL, LOOP_CELL) / 2;
+  const could: (Int32Array | undefined)[] = new Array(nx * nz);
+  const candidates = (c: number) => {
+    const mx = minX + ((c % nx) + 0.5) * LOOP_CELL;
+    const mz = minZ + (Math.floor(c / nx) + 0.5) * LOOP_CELL;
+    const d = new Float64Array(n);
+    let reach = Infinity;
+    for (let k = 0; k < n; k++) reach = Math.min(reach, (d[k] = dist(k, mx, mz)) + half);
+    const keep: number[] = [];
+    for (let k = 0; k < n; k++) if (d[k] - half <= reach) keep.push(k);
+    return (could[c] = Int32Array.from(keep));
+  };
   return (x, z) => {
     query++;
     let best = Infinity;
-    const near = (k: number) => {
-      if (seen[k] === query) return;
-      seen[k] = query;
-      const [ax, az] = loop[k === 0 ? n - 1 : k - 1];
-      const [bx, bz] = loop[k];
-      const dx = bx - ax;
-      const dz = bz - az;
-      const t = Math.max(0, Math.min(1, ((x - ax) * dx + (z - az) * dz) / (dx * dx + dz * dz || 1)));
-      best = Math.min(best, hypot(x - ax - dx * t, z - az - dz * t));
-    };
-    // Rings of cells round the point's (its own, clamped onto the grid), until no cell further out
-    // could hold a nearer one. A cell r rings out is r - 1 whole cells further than the point's own
-    // along x or along z, past however far the point is off the grid along each.
-    const cx = col(x);
-    const cz = row(z);
-    const offX = Math.max(0, minX - x, x - (minX + nx * LOOP_CELL));
-    const offZ = Math.max(0, minZ - z, z - (minZ + nz * LOOP_CELL));
-    for (let r = 0; r <= nx || r <= nz; r++) {
-      const ring = (r - 1) * LOOP_CELL;
-      if (r > 0 && best <= Math.min(hypot(offX + ring, offZ), hypot(offX, offZ + ring))) break;
-      for (let a = cz - r; a <= cz + r; a++) {
-        if (a < 0 || a >= nz) continue;
-        const edge = a === cz - r || a === cz + r;
-        for (let b = cx - r; b <= cx + r; b += edge ? 1 : 2 * r) {
-          if (b >= 0 && b < nx) for (const k of cells[a * nx + b]) near(k);
-          if (r === 0) break;
+    // On the grid: its cell's candidates.
+    if (x >= minX && x < minX + nx * LOOP_CELL && z >= minZ && z < minZ + nz * LOOP_CELL) {
+      const c = row(z) * nx + col(x);
+      const list = could[c] ?? candidates(c);
+      for (let q = 0; q < list.length; q++) best = Math.min(best, dist(list[q], x, z));
+    }
+    // Off the grid: rings of cells round the point's (its own, clamped onto the grid), until no
+    // cell further out could hold a nearer one. A cell r rings out is r - 1 whole cells further
+    // than the point's own along x or along z, past however far the point is off the grid along each.
+    if (best === Infinity) {
+      const near = (k: number) => {
+        if (seen[k] === query) return;
+        seen[k] = query;
+        best = Math.min(best, dist(k, x, z));
+      };
+      const cx = col(x);
+      const cz = row(z);
+      const offX = Math.max(0, minX - x, x - (minX + nx * LOOP_CELL));
+      const offZ = Math.max(0, minZ - z, z - (minZ + nz * LOOP_CELL));
+      for (let r = 0; r <= nx || r <= nz; r++) {
+        const ring = (r - 1) * LOOP_CELL;
+        if (r > 0 && best <= Math.min(hypot(offX + ring, offZ), hypot(offX, offZ + ring))) break;
+        for (let a = cz - r; a <= cz + r; a++) {
+          if (a < 0 || a >= nz) continue;
+          const edge = a === cz - r || a === cz + r;
+          for (let b = cx - r; b <= cx + r; b += edge ? 1 : 2 * r) {
+            if (b >= 0 && b < nx) for (const k of cells[a * nx + b]) near(k);
+            if (r === 0) break;
+          }
         }
       }
     }
     let inside = false;
     if (z >= minZ && z <= maxZ)
       for (const k of rows[row(z)]) {
-        const [ax, az] = loop[k === 0 ? n - 1 : k - 1];
-        const [bx, bz] = loop[k];
+        const j = k === 0 ? n - 1 : k - 1;
+        const ax = px[j];
+        const az = pz[j];
+        const bx = px[k];
+        const bz = pz[k];
         if (az > z !== bz > z && x < ax + ((z - az) * (bx - ax)) / (bz - az)) inside = !inside;
       }
     return inside ? best : -best;

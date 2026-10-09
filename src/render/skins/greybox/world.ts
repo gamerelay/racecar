@@ -159,7 +159,15 @@ export function buildWorldVisual(scene: Scene, sim: Sim, roof?: (x: number, z: n
     const d2 = (pose.x - camNow.x) ** 2 + (pose.z - camNow.z) ** 2;
     if (d2 < near2[tr.kind[k]]) near2[tr.kind[k]] = d2;
     e.position.set(pose.x, pose.y, pose.z);
-    e.rotation.set(0, pose.h, 0);
+    // (A car cruising a city's hills, TrafficLaneDef.path: tipped to the street's slope, nose up the hill.)
+    let pitch = 0;
+    const g = sim.track.ground;
+    if (g && tr.routes[tr.lane[k]]?.path) {
+      const fx = Math.sin(pose.h) * 2;
+      const fz = Math.cos(pose.h) * 2;
+      pitch = -Math.atan2(g.height(pose.x + fx, pose.z + fz) - g.height(pose.x - fx, pose.z - fz), 4);
+    }
+    e.rotation.set(pitch, pose.h, 0, 'YXZ');
     e.updateMatrix();
     put(tr.kind[k], e.matrix, trafficColor(k), v);
     // Lamps are glow sprites that can't fade: they come on once the car is mostly there.

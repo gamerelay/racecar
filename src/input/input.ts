@@ -31,6 +31,7 @@ const KEYS: Record<string, keyof typeof held> = {
   ShiftRight: 'drift',
   KeyR: 'reset',
   KeyC: 'look',
+  KeyQ: 'look',
   KeyH: 'horn',
 };
 

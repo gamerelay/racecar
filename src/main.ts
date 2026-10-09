@@ -13,6 +13,7 @@ import type { TrackLayout } from './core/content';
 import { neutralControls, type Controls } from './core/controls';
 import { Ev } from './core/events';
 import { Sim, TICK_RATE } from './core/sim';
+import { Getaway } from './core/rules/getaway';
 import { bakeTrack } from './core/track/bake';
 import { Input } from './input/input';
 import { GameRenderer } from './render/renderer';
@@ -105,8 +106,18 @@ const sim = new Sim(bakeTrack(layout, SURFACES), CLASSES, SURFACES, {
   traffic: run.traffic ? 1 : 0,
 });
 // The seats become the cars, in grid order; behind the menu, eight AIs of every skill.
-const { specs, names, me: you, remote, rivals: aiSeats } = roster(run.seats, CLASSES.map((c) => c.id), PAINTS.length, { ...run, plate }, run.others);
+const cast = roster(run.seats, CLASSES.map((c) => c.id), PAINTS.length, { ...run, plate }, run.others);
+/** A getaway (docs/CHASE_MODE.md): a race on its map, yours alone (not online, for now), is you and the cops. */
+const getaway = !!layout.getaway && run.mode === 'race' && !attract && !onlineRace && cast.me >= 0;
+const { specs, names, me: you, remote, rivals: aiSeats } = getaway ? { specs: [cast.specs[cast.me]], names: [cast.names[cast.me]], me: 0, remote: new Map<string, number>(), rivals: new Map<number, number>() } : cast;
 for (const s of specs) sim.addCar(s);
+/** Its rules, and its cops: added after your car, their plates the police's. */
+const chase = getaway ? new Getaway(sim, you) : null;
+const colors = specs.map((x) => PAINTS[(x.paint ?? 0) % PAINTS.length].color);
+chase?.cops.forEach(() => {
+  names.push('PD 911');
+  colors.push('#3b6cff');
+});
 /** The car the HUD, telemetry and the debug readout follow: yours, or the attract race's first. */
 const me = Math.max(0, you);
 // Online, the countdown holds until the connection says when green is (`run.at`, the server's clock).
@@ -199,8 +210,30 @@ settings.onChange((s) => {
 });
 const settingsPanel = new SettingsPanel(settings, posthogBuilt);
 const controlsPanel = new ControlsPanel();
-const raceUi = new RaceUi(sim, CLASSES, names, specs.map((x) => PAINTS[(x.paint ?? 0) % PAINTS.length].color));
+const raceUi = new RaceUi(sim, CLASSES, names, colors);
 raceUi.onAgain = () => raceAgain(run);
+// A getaway's best, on this device: the HUD and the results show it; a longer run keeps its time.
+const BEST_KEY = `racecar.getaway.${layoutKey}`;
+if (chase) {
+  let best = 0;
+  try {
+    best = Number(localStorage.getItem(BEST_KEY)) || 0;
+  } catch {
+    // Blocked storage: no best to beat.
+  }
+  hud.getawayBest = raceUi.getawayBest = best;
+}
+/** Whether the run's over and its time's been kept (as it ends: not when its results show, which leaving first skips). */
+let getawayKept = false;
+function keepGetaway(): void {
+  if (!chase?.end || getawayKept) return;
+  getawayKept = true;
+  try {
+    if (chase.time > (Number(localStorage.getItem(BEST_KEY)) || 0)) localStorage.setItem(BEST_KEY, String(chase.time));
+  } catch {
+    // Blocked storage: the record's for this page only.
+  }
+}
 raceUi.onSetup = () => backToSetup(run);
 if (run.lobby) raceUi.setupLabel = 'Back to lobby';
 // Nor raced again: the next race is the lobby's.
@@ -382,6 +415,7 @@ function frame(now: number): void {
     }
     hud.update();
     raceUi.update();
+    keepGetaway();
     rumble();
     if (fpsEl.classList.contains('on') && sim.tick % 15 === 0) fpsEl.textContent = `${renderer.fps.toFixed(0)} fps`;
     if (hud.debugOn) hud.debugText = `fps ${renderer.fps.toFixed(0)}  draws ${renderer.drawCalls}\ntick ${sim.tick}  scale ${sim.timeScale.toFixed(2)}\ns ${sim.cars.s[me].toFixed(1)} lat ${sim.cars.lateral[me].toFixed(2)} spline ${sim.cars.spline[me]}\nslip ${sim.cars.slip[me].toFixed(2)} charge ${sim.cars.driftCharge[me].toFixed(2)}\nsurface ${SURFACES[sim.cars.surface[me]]?.id}  input ${input.lastDevice}\nlayout ${sim.track.layout.id} ${sim.track.version}  ${(sim.track.main.length / 1000).toFixed(2)} km`;

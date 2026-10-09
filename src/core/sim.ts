@@ -2,6 +2,7 @@
 // clock, weather, traffic, hazards, own and AI cars, broadphase, collisions (walls, cars, world),
 // rules (progress, laps, the race), then the tick's events are in the queue for everyone else.
 
+import { driveCop, type CopDriver } from './ai/cop';
 import { driveFollow, type FollowDriver } from './ai/follow';
 import { driveRacer, type RacerDriver } from './ai/racer';
 import { collideLifts } from './collide/lifts';
@@ -29,6 +30,7 @@ import { Breakables } from './world/breakables';
 import { Smashables } from './world/smash';
 import { AVALANCHE_UNDER, Avalanche } from './world/avalanche';
 import { Slalom } from './rules/slalom';
+import type { Getaway } from './rules/getaway';
 import { planWeather, weatherAt, type Fall, type WeatherOption, type WeatherPlan, type WeatherState } from './world/weather';
 
 export const TICK_RATE = 60;
@@ -53,6 +55,8 @@ export interface CarSpec {
   follow?: FollowDriver;
   /** A racing driver (the AI). */
   racer?: RacerDriver;
+  /** A cop, after the getaway car (rules/getaway.ts adds these). */
+  cop?: CopDriver;
   /** Another player's car online: its pose comes from them (`setPose`), not from this sim's physics. */
   remote?: boolean;
 }
@@ -97,6 +101,9 @@ export class Sim implements SimState {
   shoulderSurface: number;
   readonly drivers: (FollowDriver | null)[] = [];
   readonly racers: (RacerDriver | null)[] = [];
+  readonly cops: (CopDriver | null)[] = [];
+  /** A getaway's rules (rules/getaway.ts), when this race is one: it sets itself here. */
+  getaway: Getaway | null = null;
   readonly controls: Controls[];
   readonly options: SimOptions;
   tick = 0;
@@ -173,6 +180,7 @@ export class Sim implements SimState {
     c.remote[i] = spec.remote ? 1 : 0;
     this.drivers[i] = spec.follow ?? null;
     this.racers[i] = spec.racer ?? null;
+    this.cops[i] = spec.cop ?? null;
     this.gridCar(i);
     return i;
   }
@@ -301,6 +309,8 @@ export class Sim implements SimState {
     // One run is one "lap", whatever the lobby asked for.
     this.race = { phase: 'countdown', goTime: this.time + seconds, laps: this.track.run ? 1 : Math.max(1, Math.floor(laps) || 1), finishedCount: 0 };
     this.timeScale = 1;
+    // A getaway starts outside its Bank, not on the grid.
+    this.getaway?.atStart();
   }
 
   /** Swaps in a rebaked track (the editor, or another map behind the menu) and finds every car on it again. */
@@ -488,9 +498,11 @@ export class Sim implements SimState {
       // somewhere else (it used to drop the Valley's sign on the cars still on the main road).
       if (!cars.remote[i]) this.slalom.cross(this, i, ctx.prevMain[i], sMain);
       if (!cars.wreck[i] && cars.spline[i] === 0) hazards.crossTriggers(i, ctx.prevMain[i], sMain, this.time, this.events, this.tick);
-      if (this.race.phase === 'racing' && !cars.finished[i] && cars.lap[i] >= this.race.laps) this.finishers[nf++] = i;
+      // (A getaway has no finish: it's over when the rules say.)
+      if (this.race.phase === 'racing' && !this.getaway && !cars.finished[i] && cars.lap[i] >= this.race.laps) this.finishers[nf++] = i;
     }
     this.finish(nf);
+    this.getaway?.step(dt);
     positions(this, this.order);
     for (let k = 0; k < this.order.length; k++) cars.rank[this.order[k]] = k;
     // Single-player slow-mo: a human's fresh wreck slows the world.
@@ -505,6 +517,16 @@ export class Sim implements SimState {
   }
 
   private controlsFor(i: number, input: readonly (Controls | undefined)[]): Controls {
+    const cop = this.cops[i];
+    if (cop) return driveCop(this, i, cop, this.controls[i]);
+    // A getaway that's over: the car pulls up, whatever you press.
+    if (this.getaway?.end && i === this.getaway.player) {
+      const c = this.controls[i];
+      c.steer = c.throttle = 0;
+      c.brake = hypot(this.cars.vx[i], this.cars.vz[i]) > 0.5 ? 1 : 0;
+      c.boost = c.drift = c.reset = c.lookBack = c.horn = false;
+      return c;
+    }
     const f = this.drivers[i];
     if (f) return driveFollow(this, i, f, this.controls[i]);
     const r = this.racers[i];

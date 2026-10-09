@@ -16,7 +16,7 @@ export class ControlsPanel extends Overlay {
         <dt>Drift</dt><dd>Shift (RB or X), held while steering</dd>
         <dt>Boost</dt><dd>Space (A)</dd>
         <dt>Reset</dt><dd>R (Y): back on the road</dd>
-        <dt>Look back</dt><dd>C (B)</dd>
+        <dt>Look back</dt><dd>Q or C (B), held: the car drives on</dd>
         <dt>Horn</dt><dd>H (press the left stick)</dd>
         <dt>Menu</dt><dd>Esc (Start)</dd>
         <dt>Sound</dt><dd>M mutes everything, N turns the music on or off</dd>

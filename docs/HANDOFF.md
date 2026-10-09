@@ -4,6 +4,54 @@ Where racecar stands and what's next, for whoever picks it up (a person or a fre
 The design is [SPEC.md](./SPEC.md): decisions in §17, and what building changed in "Changed while
 building". This file is "where are we"; the spec is "what are we making".
 
+**In progress (2026-10-08): Getaway, draft PR #160 (branch `getaway-plan`), not merged.** A new
+mode on a new map: you start outside a bank in an SF-ish city and run from the cops until you
+crash or get boxed in; the score is how long you lasted, and the heat rises every minute with no
+way to lose it. The plan, the owner's decisions and a dated "Built so far" for every round:
+[CHASE_MODE.md](./CHASE_MODE.md). Experimental (out of the lobby and map lists), opened from
+http://localhost:5178/?mode=race&map=heist/city&seats=p.
+- **The mode** (step 1): `core/rules/getaway.ts` (heat, calling out cops from a pool of 10, busted
+  and wrecked ends, no respawn), `core/ai/cop.ts` (pursuit, line of sight, A* round the city's
+  streets, `world/streets.ts`), the HUD's heat and busted meter, a results card with your best (in
+  localStorage). Look back on **Q** as well as C, everywhere.
+- **The city** (`tools/gen-heist.ts` → `content/maps/heist/city.track.json`; run
+  `bun tools/gen-heist.ts` after changing it):
+  - **Layout:** districts on grids of their own (Financial District, Chinatown, the Hills, SoMa,
+    the Mission), Market and Columbus cutting across, a loop of main road round it with the
+    Freeway up on a deck.
+  - **Ground** (`features/city.ts`): hills with nearly level crossings, each a rounded crest.
+  - **Buildings:** a look per district (render `greybox/heist.ts`), the Bank, neon signs.
+  - **Streets:** painted with sidewalks; lamps, trees and shrubs you knock flat (smashables, never
+    a wreck); Lombard's planter slalom, Dolores and Pioneer Parks.
+  - **The bay:** a sea wall, piers, the Ferry Building, and Alcatraz and both bridges as landmarks.
+  - **Round the city:** Transamerica and Coit Tower, and the bridges' approaches drawn down to
+    police roadblocks behind the wall.
+  - **Broadway and Chinatown:** Broadway's clubs and strip joints (marquees, neon, the Condor's
+    blinking showgirl), the Dragon Gate on Grant Avenue, lanterns across Chinatown's streets,
+    and pagoda roofs. Street signs with SF's names on the crossings.
+  - **The Presidio:** open off Van Ness's west side. Lawns, cypress groves (smashables) and Presidio
+    Drive, a 1.3 km branch of sweepers for drifting, hedged in.
+  - **Traffic:** 30 cars cruising 9 loops of streets and stopping at crossings (traffic path lanes,
+    `TrafficLaneDef.path`/`stops`, still closed form).
+- **Engine changes other maps share:**
+  - The coast distance (`island.ts`'s `loopDistance`) asks only each cell's candidate segments,
+    exactly the same results and a test for it.
+  - New smashable kinds and landmark kinds are appended.
+  - The validator knows the city feature and path lanes, and its house-on-a-road test ignores a
+    projection that stopped short of the house (a winding branch, from far off).
+  - `CityDef.parks` work outside the city's outline too (the Presidio's lawns).
+  - Every other map's fingerprint is identical. `heist/city` is "not recorded" (fine while
+    experimental).
+- **Green on the branch:** `bun run test` (753, 1 skip), typecheck, `bun tools/validate.ts`,
+  fingerprints.
+- **Watch:** with nobody at the controls, the game's autopilot drives your car, and in a getaway it
+  crashes and ends the run in a few seconds (seen in an idle Chrome tab).
+- **Not built, waiting on the road graph (CHASE_MODE steps 2–3):** streets as real roads (a
+  drivable bridge ramp, a tunnel under a hill, ramps partway along the Freeway, a cable car that
+  moves and is met, traffic that reacts to you), spike strips and roadblocks in play, sirens, online.
+- **Next:** whatever the owner asks on #160; when it's to ship, mark it ready, `/code-review`,
+  merge, record heist's fingerprint, and decide with the owner whether it leaves experimental.
+
 **Last updated:** 2026-10-08. **`alpha-1.43`** (PRs #158, #159) is tagged and on the hosted build
 (the owner: "merge both and deploy please"):
 - **Sahara's own track** (#158; the owner: "add this Arabian themed track as a Sahara only
@@ -1028,6 +1076,8 @@ the cone's far flanks.
 
 ## Next, in order
 
+- **Getaway** (draft PR #160, in progress; see the top and [CHASE_MODE.md](./CHASE_MODE.md)): the
+  city's being detailed with the owner round by round. Its own next steps are CHASE_MODE's 2–11.
 0. **Caldera, the engine** (now): [CALDERA.md](./CALDERA.md)'s build order, from step 0 (the
    safety net and the first tools). See "Next: Caldera" at the top.
 1. **Milestone 3 (online).** How it all works, end to end, and what Xbox Live does for each

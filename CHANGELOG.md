@@ -4,6 +4,31 @@ What changed in each release of racecar, newest first. Releases are git tags on 
 reasons behind each change are in [docs/SPEC.md](./docs/SPEC.md) under "Changed while building",
 and where things stand is [docs/HANDOFF.md](./docs/HANDOFF.md).
 
+## Unreleased
+
+## alpha-1.44: Heist, the getaway
+
+- **Heist, a new map and a new way to play:** start outside the Bank in a San Francisco-ish city
+  and run from the cops. Pick Heist in Single player (or a lobby of your own). The heat goes up
+  every minute, with more and faster cops each time. Your first crash, or getting boxed in and
+  stopped, ends the run; the score is how long you lasted, and your best is kept. In an online
+  lobby with others, Heist is a race round the city's outer loop (online getaways come later).
+- **The city:** hills with a jump at every crossing, Lombard's planter slalom, Market Street
+  cutting across, a freeway up on a deck, and districts that each look like themselves: towers
+  downtown, Victorians on the hills, warehouses south of Market, the Mission's palms round
+  Dolores Park.
+  - **Chinatown and Broadway:** the Dragon Gate on Grant Avenue, lanterns strung across
+    Chinatown's streets, pagoda roofs, and Broadway's clubs and strip joints (XXX, GIRLS, PEEP
+    SHOW), every one lit up, with the Condor's neon showgirl blinking on its corner.
+  - **The bay:** piers, the Ferry Building, Alcatraz, the Golden Gate and Bay Bridges, the
+    Transamerica Pyramid and Coit Tower on Telegraph Hill.
+  - **The Presidio:** open past Van Ness, lawns and cypress groves with a winding drive through
+    them, made for drifting.
+  - **Street life:** pavements, plazas, street lamps, trees and shrubs (knock them flat, never a
+    crash), neon signs, street signs naming every crossing, and a few cars cruising the streets
+    and stopping at crossings.
+- **Look back on Q** as well as C.
+
 ## alpha-1.43: Sahara's music, and Single player
 
 - **Sahara has its own music:** an Arabian track that plays only in Sahara races.

@@ -113,6 +113,38 @@ const MODELS: Record<string, () => BufferGeometry> = {
       part(new CylinderGeometry(0.13, 0.22, 0.2, 9), 0xa8532c, 0.25, 0.65, 0.05),
       part(new CylinderGeometry(0.16, 0.13, 0.3, 9), 0xd98a4f, 0, 0.92, 0),
     ])!,
+  // A city street lamp (the getaway's): a dark green pole on a fluted base, a lantern on top, round so it faces every way.
+  'street-lamp': () =>
+    mergeGeometries([
+      part(new CylinderGeometry(0.22, 0.28, 0.9, 8), 0x2f4a3c, 0, 0.45),
+      part(new CylinderGeometry(0.08, 0.11, 4.2, 6), 0x2f4a3c, 0, 2.9),
+      part(new CylinderGeometry(0.3, 0.18, 0.12, 8), 0x2f4a3c, 0, 5),
+      part(new CylinderGeometry(0.26, 0.2, 0.55, 8), 0xfff1b8, 0, 5.3),
+      part(new ConeGeometry(0.34, 0.3, 8), 0x2f4a3c, 0, 5.72),
+    ])!,
+  // A street tree in its square of earth: a slim trunk, a round crown.
+  'street-tree': () =>
+    mergeGeometries([
+      part(new BoxGeometry(1.1, 0.08, 1.1), 0x4a3a30, 0, 0.04),
+      part(new CylinderGeometry(0.13, 0.18, 3.4, 6), 0x6b4f3a, 0, 1.7),
+      part(new IcosahedronGeometry(1.7, 0), 0x4f8a3e, 0, 4.4),
+      part(new IcosahedronGeometry(1.2, 0), 0x5f9a46, 0.6, 5.2, 0.3),
+      part(new IcosahedronGeometry(1.1, 0), 0x467a38, -0.7, 4.9, -0.2),
+    ])!,
+  // A shrub in a pot by a door.
+  shrub: () =>
+    mergeGeometries([
+      part(new CylinderGeometry(0.42, 0.34, 0.5, 8), 0x8a8478, 0, 0.25),
+      part(new IcosahedronGeometry(0.55, 0), 0x3f7a3a, 0, 0.85),
+      part(new IcosahedronGeometry(0.35, 0), 0x5a9447, 0.2, 1.05, 0.1),
+    ])!,
+  // A Presidio cypress: a short trunk, a tall dark crown in two cones.
+  'grove-tree': () =>
+    mergeGeometries([
+      part(new CylinderGeometry(0.22, 0.32, 1.6, 6), 0x5a4232, 0, 0.8),
+      part(new ConeGeometry(2.2, 5.2, 7), 0x2f5a3a, 0, 3.8),
+      part(new ConeGeometry(1.6, 4.4, 7), 0x3a6640, 0, 6.6),
+    ])!,
   // A Mediterranean bush: a few low, lumpy greens in a clump.
   bush: () =>
     mergeGeometries([

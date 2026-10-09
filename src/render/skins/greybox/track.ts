@@ -40,6 +40,7 @@ import { buildCliffs } from './cliffs';
 import { buildBunting } from './bunting';
 import { drawFeatures } from './features';
 import { buildOpenIsland } from './openIsland';
+import { buildCitySurrounds, buildStreetPaint } from './heist';
 import { buildHouses } from './houses';
 import { buildRockRails } from './rails';
 import { buildTubes } from './tube';
@@ -253,7 +254,7 @@ export function buildTrackVisual(baked: Track, palette: Palette, seed: number): 
   const features = drawFeatures(track);
   // The Lava Tube's kicker's chevrons run with the clock.
   const tubeTime = { value: 0 };
-  const extras: Object3D[] = track.ground ? [...buildSnow(track, track.layout.ground?.coast ? new Color(palette.ground) : undefined), ...decks, ...buildTubes(track, tubeTime), ...buildRockRails(track), ...buildHouses(track), ...buildBunting(track), ...buildBuildings(track), ...(isle?.objects ?? []), ...(track.layout.ground?.coast && !track.layout.ground.volcano ? [...buildTufts(track, new Color(palette.ground)), ...buildCliffs(track)] : []), ...features.objects] : city ? [] : land ? [...land.objects] : [plainGround()];
+  const extras: Object3D[] = track.ground ? [...buildSnow(track, track.layout.ground?.coast ? new Color(palette.ground) : undefined), ...decks, ...buildTubes(track, tubeTime), ...buildRockRails(track), ...buildHouses(track), ...buildStreetPaint(track), ...buildCitySurrounds(track), ...buildBunting(track), ...buildBuildings(track), ...(isle?.objects ?? []), ...(track.layout.ground?.coast && !track.layout.ground.volcano ? [...buildTufts(track, new Color(palette.ground)), ...buildCliffs(track)] : []), ...features.objects] : city ? [] : land ? [...land.objects] : [plainGround()];
   const wet = puddles(track);
   if (wet) extras.push(wet);
   // Solid props on the road (the pillars): tall striped boxes. The Trestle's legs are the forest's.

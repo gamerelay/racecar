@@ -6,8 +6,8 @@ import { KINDS } from '../world/hazards';
 import { Breakables, MAX_PANELS, PANEL_WIDTH } from '../world/breakables';
 import { SMASH_IDS } from '../world/smash';
 import { JOIN, STREET_FADE, TRAFFIC_KINDS } from '../world/traffic';
-import { bakeTrack, COLUMN, mainDistance, porchColumns, sampleIndex, wrap } from './bake';
-import { newHit, offRoad, projectGlobal } from './query';
+import { bakeTrack, type BakedSpline, COLUMN, mainDistance, porchColumns, sampleIndex, wrap } from './bake';
+import { newHit, offRoad, projectGlobal, type TrackHit } from './query';
 import { OVERRIDES } from '../maps';
 import { regionProblem, respawnProblem, type OverrideCode } from './overrides';
 import { LAVA_REACH, streamDistance } from './features/lava-stream';
@@ -91,6 +91,11 @@ export function validateLayout(layout: TrackLayout, surfaces: SurfaceDef[], clas
     } else if (f.kind === 'river') {
       if (!Array.isArray(f.path) || f.path.length < 2 || f.path.some((p) => !Array.isArray(p) || p.length !== 2 || !p.every(Number.isFinite)) || !(f.width > 0) || !(f.depth > 0) || !(Array.isArray(f.level) && f.level.length === 2 && f.level.every(Number.isFinite)))
         bad('a river needs a path of 2 points or more, a width, a depth and its level at each end');
+    } else if (f.kind === 'city') {
+      const loop = (l: unknown) => Array.isArray(l) && l.length >= 3 && l.every((p) => Array.isArray(p) && p.length === 2 && p.every(Number.isFinite));
+      if (!loop(f.outline) || !Number.isFinite(f.y) || !Array.isArray(f.hills) || !Array.isArray(f.level) || f.level.some((c) => !(Array.isArray(c) && c.length === 3 && c.every(Number.isFinite) && c[2] > 0)))
+        bad('a city needs an outline (a loop of 3 points or more), a height, its hills and its crossings ([x, z, r], r over 0)');
+      if (f.parks && !f.parks.every(loop)) bad("a city's parks must each be a loop of 3 points or more");
     } else err(`ground feature ${k}: unknown kind "${(f as { kind: unknown }).kind}"`);
   }
   if (out.some((p) => p.level === 'error')) return out;
@@ -423,6 +428,17 @@ export function validateLayout(layout: TrackLayout, surfaces: SurfaceDef[], clas
     if ([a, b].some((s) => !(s >= 0 && s <= L))) err(`hazard ${h.use} at ${JSON.stringify(h.s)} is off the main spline (0–${L.toFixed(0)})`, 'main', a);
     if (kind.schedule === 'trigger' && typeof h.s !== 'number') err(`hazard ${h.use} is a trigger: it needs one point (s), not a range, or it never fires`, 'main', a);
   }
+  /**
+   * Whether (x, z) is within `reach` of road `sp`'s middle, `at` its projection onto it: across it
+   * (offRoad), unless the projection stopped short of beside it. Off a winding road, from far away,
+   * it can stop on a sample whose tangent points at the point: across it, nothing; it isn't near.
+   */
+  const onRoad = (sp: BakedSpline, x: number, z: number, at: TrackHit, reach: number) => {
+    // (Past an open road's end the projection stops at the end: offRoad's own, kept.)
+    const end = !sp.closed && (at.s <= 0.01 || at.s >= sp.length - 0.01);
+    const stray = !end && hypot(x - at.cx, z - at.cz) - Math.abs(at.lateral) > 1;
+    return offRoad(sp, x, z, at) < reach && !stray;
+  };
   // Houses: on open ground, clear of every road and its verge, with some size.
   for (const [k, h] of (layout.houses ?? []).entries()) {
     if (!layout.ground) {
@@ -439,7 +455,7 @@ export function validateLayout(layout: TrackLayout, surfaces: SurfaceDef[], clas
       const z = h.at[1] - (a * h.size[0] * fx) / 2 + (b * h.size[1] * fz) / 2;
       for (const sp of track.splines) {
         projectGlobal(sp, x, z, at);
-        if (offRoad(sp, x, z, at) < at.width / 2 + at.shoulder + 1) {
+        if (onRoad(sp, x, z, at, at.width / 2 + at.shoulder + 1)) {
           err(`house ${k} at [${h.at.join(', ')}] stands on ${sp.index === 0 ? 'the main road' : sp.id} (${at.s.toFixed(0)} m)`, sp.id, at.s);
           break;
         }
@@ -453,7 +469,7 @@ export function validateLayout(layout: TrackLayout, surfaces: SurfaceDef[], clas
       for (const [x, z] of porchColumns(h))
         for (const sp of track.splines) {
           projectGlobal(sp, x, z, at);
-          if (offRoad(sp, x, z, at) < at.width / 2 + at.shoulder + COLUMN + 0.5) {
+          if (onRoad(sp, x, z, at, at.width / 2 + at.shoulder + COLUMN + 0.5)) {
             err(`house ${k}: a porch column at [${x.toFixed(1)}, ${z.toFixed(1)}] stands on ${sp.index === 0 ? 'the main road' : sp.id} (${at.s.toFixed(0)} m)`, sp.id, at.s);
             break;
           }
@@ -463,7 +479,14 @@ export function validateLayout(layout: TrackLayout, surfaces: SurfaceDef[], clas
 
   // Traffic lanes: inside the road, one way or the other, moving.
   for (const [k, lane] of (layout.traffic?.lanes ?? []).entries()) {
-    if (!(Math.abs(lane.pos) <= 1)) err(`traffic lane ${k}: pos ${lane.pos} is off the road (-1 to 1)`);
+    if (lane.path) {
+      // Round a city's streets: its pos is metres right of its line, and it needs open ground to drive on.
+      if (!layout.ground) err(`traffic lane ${k}: a path needs open ground`);
+      if (lane.path.length < 3 || lane.path.some((p) => !(Array.isArray(p) && p.length === 2 && p.every(Number.isFinite)))) err(`traffic lane ${k}: a path is a loop of 3 corners or more`);
+      if (!(Math.abs(lane.pos) <= 6)) err(`traffic lane ${k}: a path's pos ${lane.pos} m is off any street (-6 to 6)`);
+      if (lane.count !== undefined && !(lane.count >= 0)) err(`traffic lane ${k}: count must be 0 or more`);
+      if (lane.stops?.some((c) => !Number.isInteger(c) || c < 0 || c >= lane.path!.length)) err(`traffic lane ${k}: a stop is a corner of its path (0 to ${lane.path.length - 1})`);
+    } else if (!(Math.abs(lane.pos) <= 1)) err(`traffic lane ${k}: pos ${lane.pos} is off the road (-1 to 1)`);
     if (lane.dir !== 1 && lane.dir !== -1) err(`traffic lane ${k}: dir must be 1 or -1`);
     if (!(lane.speed > 0)) err(`traffic lane ${k}: speed must be positive`);
     for (const id of lane.kinds ?? []) if (!TRAFFIC_KINDS.some((x) => x.id === id)) err(`traffic lane ${k}: no traffic kind '${id}' (world/traffic.ts: ${TRAFFIC_KINDS.map((x) => x.id).join(', ')})`);

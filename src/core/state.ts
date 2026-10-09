@@ -47,6 +47,8 @@ export interface SimState {
   race: RaceState;
   /** Surface index used beyond the road edge. */
   readonly shoulderSurface: number;
+  /** A getaway's rules (rules/getaway.ts), when this race is one (not just a race on its map). */
+  getaway?: object | null;
   /** Scratch track hits, reused every tick. */
   hitA: TrackHit;
   hitB: TrackHit;
