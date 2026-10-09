@@ -433,6 +433,18 @@ svg.thumb .end { fill: var(--sun); stroke: var(--ink); stroke-width: 1; }
 .card.pauseCard dl { margin-bottom: 0; }
 #controls { position: fixed; inset: 0; z-index: 14; display: none; place-items: center; background: rgba(13, 6, 32, 0.7); overflow: auto; padding: 16px; }
 #controls.on { display: grid; }
+/* The keys card (ui/keys.ts): the first race's keyboard, each key pointed at its job. */
+#keys { position: fixed; inset: 0; z-index: 14; display: none; place-items: center; background: rgba(13, 6, 32, 0.7); overflow: auto; padding: 16px; }
+#keys.on { display: grid; }
+.keysCard .keysArt { display: block; width: 100%; height: auto; margin: 4px 0 12px; }
+.keysArt .kCap { fill: var(--bg); stroke: var(--ink); stroke-width: 3; }
+.keysArt .kDrop { fill: var(--pink); }
+.keysArt .kLetter { font: 400 26px var(--display); fill: var(--sun); text-anchor: middle; }
+.keysArt .kLetter.small { font-size: 17px; }
+.keysArt .kLead { fill: none; stroke: var(--cyan); stroke-width: 2; stroke-dasharray: 5 4; }
+.keysArt .kDot { fill: var(--cyan); }
+.keysArt .kJob { font: 700 21px var(--ui); fill: var(--ink); }
+.keysCard .kAny { font-size: 13px; text-align: center; margin: 10px 0 0; }
 #fps { position: fixed; z-index: 3; left: calc(env(safe-area-inset-left, 0px) + 10px); bottom: calc(env(safe-area-inset-bottom, 0px) + 8px); font: 700 12px ui-monospace, monospace; color: var(--muted); text-shadow: 1px 1px 0 var(--outline); display: none; pointer-events: none; }
 #fps.on { display: block; }
 
@@ -445,7 +457,7 @@ svg.thumb .end { fill: var(--sun); stroke: var(--ink); stroke-width: 1; }
 #menu.entering[data-dir='back'] > * { animation-name: screenInBack; }
 @keyframes screenIn { from { opacity: 0; transform: translateX(18px); } }
 @keyframes screenInBack { from { opacity: 0; transform: translateX(-18px); } }
-#pause.on > .card, #settings.on > .card, #controls.on > .card, #results.on > .card { animation: popIn 0.16s ease-out both; }
+#pause.on > .card, #settings.on > .card, #controls.on > .card, #keys.on > .card, #results.on > .card { animation: popIn 0.16s ease-out both; }
 @keyframes popIn { from { opacity: 0; transform: scale(0.96); } }
 /* The loading screen's look is in index.html (it's up before this stylesheet). Up until the page is
    ready, then .in lifts it; .out brings it back before the next page. */
@@ -456,7 +468,7 @@ svg.thumb .end { fill: var(--sun); stroke: var(--ink); stroke-width: 1; }
 @media (prefers-reduced-motion: reduce) {
   #menu.leaving > *, #menu.leaving[data-dir='back'] > * { transform: none; }
   #menu.entering > *, #menu.entering[data-dir='back'] > * { animation: fadeOnly 0.1s ease-out both; }
-  #pause.on > .card, #settings.on > .card, #controls.on > .card, #results.on > .card { animation: fadeOnly 0.1s ease-out both; }
+  #pause.on > .card, #settings.on > .card, #controls.on > .card, #keys.on > .card, #results.on > .card { animation: fadeOnly 0.1s ease-out both; }
   #pageFade { transition-duration: 0.06s; }
   #pageFade.in { animation-duration: 0.12s; }
   .chooser.nudge-r .cv, .chooser.nudge-l .cv { animation: none; }

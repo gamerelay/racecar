@@ -28,6 +28,7 @@ import { accept, navigate } from './ui/nav';
 import { installChoosers } from './ui/chooser';
 import { installClicks } from './ui/click';
 import { fadeIn, ready, veiled } from './ui/fade';
+import { KeysCard } from './ui/keys';
 import { GETAWAY_MAP, installEmbed, keepEmbed, startsGetaway } from './ui/embed';
 import { SettingsPanel } from './ui/settings';
 import { ControlsPanel } from './ui/controls';
@@ -343,6 +344,33 @@ let last = performance.now();
 // The car you drive; none in attract mode, where car 0 (the camera's) is an AI.
 const human = attract ? -1 : me;
 
+// ---- the keys card: your first race here shows the keys (ui/keys.ts) ----
+// Up once the loading screen has lifted. Offline the race waits for it (the countdown from the
+// start, as behind the loading screen); online it doesn't, the others are on the same clock.
+const keysCard = human >= 0 && KeysCard.due(storage()) ? new KeysCard(storage()) : null;
+/** It's been shown (and may still be up). */
+let keysShown = false;
+if (keysCard) {
+  // Any key puts it away: before the game's own keys see it, so Esc doesn't open the menu as well
+  // (a driving key goes on through and drives).
+  const anyKey = (e: KeyboardEvent) => {
+    if (!keysCard.isOpen || e.repeat) return;
+    if (e.code === 'Escape' || e.code === 'Enter' || e.code === 'NumpadEnter') e.stopImmediatePropagation();
+    e.preventDefault();
+    keysCard.close();
+  };
+  window.addEventListener('keydown', anyKey, true);
+  keysCard.onClose = () => window.removeEventListener('keydown', anyKey, true);
+}
+/** The keys card up and it's yours to put away: from the frame loop, as the loading screen lifts, and a pad's button closes it. */
+function keysFrame(): void {
+  if (!keysCard) return;
+  if (!keysShown && !veiled()) {
+    keysShown = true;
+    keysCard.open();
+  } else if (keysCard.isOpen && navigator.getGamepads?.().some((p) => p?.buttons.some((b) => b.pressed))) keysCard.close();
+}
+
 // ---- rumble for your car's moments ----
 let rumbleCursor = 0;
 function rumble(): void {
@@ -389,7 +417,8 @@ function frame(now: number): void {
   if (paused) input.pollMenu();
   // An online race doesn't stop for your pause menu: the others are still driving (yours coasts).
   // Offline, the race waits behind the loading screen, so you see its countdown from the start.
-  const stepping = (!paused || onlineRace) && !editorOpen && (onlineRace || !veiled());
+  keysFrame();
+  const stepping = (!paused || onlineRace) && !editorOpen && (onlineRace || (!veiled() && !keysCard?.isOpen));
   if (stepping) {
     if (paused) Object.assign(controls, neutralControls());
     else input.poll(controls, dt);
