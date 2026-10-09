@@ -145,6 +145,15 @@ const MODELS: Record<string, () => BufferGeometry> = {
       part(new ConeGeometry(2.2, 5.2, 7), 0x2f5a3a, 0, 3.8),
       part(new ConeGeometry(1.6, 4.4, 7), 0x3a6640, 0, 6.6),
     ])!,
+  // A Presidio eucalyptus: a tall pale trunk, leaning a little, and a high, ragged crown.
+  'gum-tree': () =>
+    mergeGeometries([
+      part(new CylinderGeometry(0.28, 0.45, 9, 6), 0xc8bca4, 0, 4.5),
+      part(new CylinderGeometry(0.14, 0.2, 3, 5), 0xb8aa90, 0.5, 9.5, 0, -0.3),
+      part(new IcosahedronGeometry(2.6, 0), 0x6f8a5c, 0, 11.6),
+      part(new IcosahedronGeometry(1.9, 0), 0x5f7a52, 1.4, 12.8, 0.6),
+      part(new IcosahedronGeometry(1.7, 0), 0x7a9466, -1.3, 10.6, -0.5),
+    ])!,
   // A Mediterranean bush: a few low, lumpy greens in a clump.
   bush: () =>
     mergeGeometries([

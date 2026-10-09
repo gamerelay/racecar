@@ -10,6 +10,8 @@ import { BUSTED, COP_POOL, Getaway, HEAT_EVERY } from '../src/core/rules/getaway
 import { Sim } from '../src/core/sim';
 import { bakeTrack } from '../src/core/track/bake';
 import { Streets } from '../src/core/world/streets';
+import { SMASH_KINDS } from '../src/core/world/smash';
+import { newHit, projectGlobal } from '../src/core/track/query';
 import { cityHeight, inLoop, insideLoop } from '../src/core/track/features/city';
 import { KIND_OASIS, KIND_PAVED } from '../src/core/track/ground';
 import { curve, loopDist, loopDistance } from '../src/core/track/island';
@@ -194,10 +196,43 @@ describe('the getaway', () => {
       if (i * drive.step > 60 && i * drive.step < drive.length - 60) expect((2 * k * drive.step) / Math.abs(d || 1e-9)).toBeGreaterThan(35);
     }
     expect(turned).toBeGreaterThan(5 * Math.PI);
-    // Hedged in to the west and south: a solid house along each.
+    // Hedged in: to the west down to the woods, round them, and along the south.
     const hedges = city.houses!.filter((h) => h.look === 'hedge');
-    expect(hedges.length).toBe(2);
-    expect(Math.max(...hedges.map((h) => Math.max(h.size[0], h.size[1])))).toBeGreaterThan(800);
+    expect(hedges.length).toBe(4);
+    expect(Math.max(...hedges.map((h) => Math.max(h.size[0], h.size[1])))).toBeGreaterThan(450);
+  });
+
+  test("the Presidio's ground rolls, bumps in patches; the drive rides its hills; its woods, crashed through, not wrecked on", () => {
+    const track = bakeTrack(city, SURFACES);
+    const ground = track.ground!;
+    const drive = track.splines.find((sp) => sp.id === 'presidio-drive')!;
+    // Hills: metres of rise and fall over the lawns and woods (the city's flat at Van Ness).
+    const ys: number[] = [];
+    for (let x = -1000; x <= -620; x += 20) for (let z = -100; z <= 360; z += 20) ys.push(ground.height(x, z));
+    expect(Math.max(...ys) - Math.min(...ys)).toBeGreaterThan(5);
+    // The drive on them, gently (its own heights, the ground its), going up and down.
+    let grade = 0;
+    for (let i = 1; i < drive.n; i++) grade = Math.max(grade, Math.abs(drive.py[i] - drive.py[i - 1]) / drive.step);
+    expect(Math.max(...drive.py) - Math.min(...drive.py)).toBeGreaterThan(4);
+    expect(grade).toBeLessThan(0.2);
+    for (let i = 0; i < drive.n; i += 10) expect(Math.abs(ground.height(drive.px[i], drive.pz[i]) - drive.py[i])).toBeLessThan(0.3);
+    // Bumps: somewhere, the ground rises and falls back a metre within a few metres either way (no hill bends that sharply).
+    let bumpy = 0;
+    for (let x = -1000; x <= -620; x += 3) for (let z = -100; z <= 360; z += 37) bumpy = Math.max(bumpy, Math.abs(ground.height(x + 6.5, z) + ground.height(x - 6.5, z) - 2 * ground.height(x, z)));
+    expect(bumpy).toBeGreaterThan(1);
+    // The woods: past the old hedge's line, hundreds of trees, eucalyptus costlier than cypress; none on the drive.
+    const smash = city.smashables!;
+    const gums = smash.find((d) => d.kind === 'gum-tree')!.at!;
+    const trees = [...smash.find((d) => d.kind === 'grove-tree')!.at!, ...gums];
+    expect(trees.filter(([x]) => x < -805).length).toBeGreaterThan(1000);
+    expect(gums.length).toBeGreaterThan(400);
+    const kinds = new Map(SMASH_KINDS.map((k) => [k.id, k]));
+    expect(kinds.get('gum-tree')!.slow).toBeLessThan(kinds.get('grove-tree')!.slow);
+    const hit = newHit();
+    for (const [x, z] of trees) {
+      projectGlobal(drive, x, z, hit);
+      expect(Math.abs(hit.lateral)).toBeGreaterThan(drive.width[0] / 2 + 2);
+    }
   });
 
   test("Broadway: wider, its clubs fronting it, every one lit; Chinatown's Dragon Gate on Grant Avenue's pavements", () => {

@@ -22,6 +22,7 @@ import { mogulsFeature } from './moguls';
 import { padFeature } from './pad';
 import { pyramidFeature } from './pyramid';
 import { riverFeature } from './river';
+import { rollingFeature } from './rolling';
 import { seawallFeature } from './seawall';
 import { unevenFeature } from './uneven';
 import { volcanoFeature } from './volcano';
@@ -110,6 +111,7 @@ export function groundFeatures(def: GroundDef, main: BakedSpline): Feature[] {
     else if (f.kind === 'pyramid') out.push(pyramidFeature(f));
     else if (f.kind === 'river') out.push(riverFeature(f));
     else if (f.kind === 'city') out.push(cityFeature(f));
+    else if (f.kind === 'rolling') out.push(rollingFeature(f));
   }
   return out;
 }

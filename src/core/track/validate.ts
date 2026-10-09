@@ -96,6 +96,9 @@ export function validateLayout(layout: TrackLayout, surfaces: SurfaceDef[], clas
       if (!loop(f.outline) || !Number.isFinite(f.y) || !Array.isArray(f.hills) || !Array.isArray(f.level) || f.level.some((c) => !(Array.isArray(c) && c.length === 3 && c.every(Number.isFinite) && c[2] > 0)))
         bad('a city needs an outline (a loop of 3 points or more), a height, its hills and its crossings ([x, z, r], r over 0)');
       if (f.parks && !f.parks.every(loop)) bad("a city's parks must each be a loop of 3 points or more");
+    } else if (f.kind === 'rolling') {
+      const loop = Array.isArray(f.area) && f.area.length >= 3 && f.area.every((p) => Array.isArray(p) && p.length === 2 && p.every(Number.isFinite));
+      if (!loop || !(f.height > 0) || !(f.size > 0) || !(f.ease > 0) || (f.bumps && !(f.bumps.height > 0 && f.bumps.spacing > 0))) bad('rolling ground needs an area (a loop of 3 points or more), a height, a size, an ease, and its bumps a height and a spacing');
     } else err(`ground feature ${k}: unknown kind "${(f as { kind: unknown }).kind}"`);
   }
   if (out.some((p) => p.level === 'error')) return out;

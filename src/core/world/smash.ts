@@ -48,6 +48,8 @@ export const SMASH_KINDS: readonly SmashKind[] = [
   { id: 'shrub', r: 0.6, h: 1.1, slow: 0.96, boost: 0.02, points: 50 },
   // A tree in one of the Presidio's groves (the getaway's): a cypress, tall and dark; drifted into, flattened, not a wreck.
   { id: 'grove-tree', r: 0.6, h: 9, slow: 0.88, boost: 0.02, points: 75 },
+  // A eucalyptus in the Presidio's woods (the getaway's): tall, a pale trunk; a crash through it costs more than a cypress, still not a wreck.
+  { id: 'gum-tree', r: 0.7, h: 15, slow: 0.8, boost: 0.03, points: 100 },
 ];
 export const SMASH_IDS = SMASH_KINDS.map((k) => k.id);
 

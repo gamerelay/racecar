@@ -2,13 +2,15 @@
 // a solid color like the grass with a few outlines, and less scattered"): low clumps the grass's own
 // colour, inked like everything else, in patches here and there over a coast's grass where it isn't
 // road, sand or steep rock. Scenery only (the sim never sees them): where each stands is a hash of
-// its spot, the same on every screen. Instanced, a mesh per chunk of ground.
+// its spot, the same on every screen. Instanced, a mesh per chunk of ground. And a city's parks (the
+// owner, 2026-10-09, the Presidio: "we can add some of the grass effects"): their lawn's greener
+// green, thicker on the ground.
 
 import { Color, ConeGeometry, type BufferGeometry, type InstancedMesh } from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { hash01 } from '../../../core/rng';
 import { VERGE_DEFAULT, type Track } from '../../../core/track/bake';
-import { KIND_VERGE, noise } from '../../../core/track/ground';
+import { KIND_OASIS, KIND_VERGE, noise } from '../../../core/track/ground';
 import { instanced, type Part } from './forest';
 import { toon } from './toon';
 
@@ -18,6 +20,10 @@ import { toon } from './toon';
  * m of a road's edge.
  */
 const TUFTS = { every: 3, patch: 40, patchy: 0.68, keep: 0.3, steep: 0.6, clear: 2, chunk: 200 };
+/** On a park's lawn: more of them, in bigger patches. */
+const LAWN = { patchy: 0.5, keep: 0.45 };
+/** A park's lawn (snow.ts's OASIS greens), a shade either way. */
+const LAWN_SHADES = [0x3f6a26, 0x47742a, 0x507d30];
 
 /** A low clump: three stubby, faceted cones round one, about 0.6 m tall. */
 function tuftModel(): BufferGeometry {
@@ -48,14 +54,19 @@ export function buildTufts(track: Track, green: Color): InstancedMesh[] {
   const shades = [grass.clone().multiplyScalar(0.94), grass.clone(), grass.clone().multiplyScalar(1.05)].map((c) => c.getHex());
   const span = g.cell * (g.nx - 1);
   const depth = g.cell * (g.nz - 1);
+  // (A park's lawn too, on a city's ground: the oasis kind there is lawn.)
+  const parks = !!track.layout.ground?.features?.some((f) => f.kind === 'city');
   let n = 0;
   for (let z = 0; z < depth; z += TUFTS.every)
     for (let x = 0; x < span; x += TUFTS.every, n++) {
-      if (hash01(n, 61, 7) > TUFTS.keep) continue;
+      if (hash01(n, 61, 7) > (parks ? LAWN.keep : TUFTS.keep)) continue;
       const px = g.x0 + x + hash01(n, 62, 7) * TUFTS.every;
       const pz = g.z0 + z + hash01(n, 63, 7) * TUFTS.every;
-      if (noise(px, pz, TUFTS.patch, 37) < TUFTS.patchy) continue;
-      if (g.kindAt(px, pz) !== KIND_VERGE) continue;
+      const kind = g.kindAt(px, pz);
+      const lawn = parks && kind === KIND_OASIS;
+      if (kind !== KIND_VERGE && !lawn) continue;
+      if (hash01(n, 61, 7) > (lawn ? LAWN.keep : TUFTS.keep)) continue;
+      if (noise(px, pz, TUFTS.patch, 37) < (lawn ? LAWN.patchy : TUFTS.patchy)) continue;
       const y = g.height(px, pz);
       if (y < sea + 0.5) continue;
       const e = g.cell;
@@ -65,13 +76,13 @@ export function buildTufts(track: Track, green: Color): InstancedMesh[] {
       // a stretch's own verge (the town's pavements: snow.ts fades it into the grass ~60 m out).
       const i = g.nearAt(px, pz);
       const off = Math.abs(g.lateral[(Math.round((pz - g.z0) / g.cell)) * g.nx + Math.round((px - g.x0) / g.cell)] ?? 0) - main.width[i] / 2;
-      if (off < main.shoulder[i] + TUFTS.clear || (main.verge[i] !== VERGE_DEFAULT && off < 60)) continue;
+      if (off < main.shoulder[i] + TUFTS.clear || (!lawn && main.verge[i] !== VERGE_DEFAULT && off < 60)) continue;
       const key = `${Math.floor(px / TUFTS.chunk)},${Math.floor(pz / TUFTS.chunk)}`;
       let list = chunks.get(key);
       if (!list) chunks.set(key, (list = []));
       const size = 0.8 + hash01(n, 64, 7) * 0.7;
       // Sunk as far as the ground falls across it (0.42 m out at full size): no rim standing clear downhill.
-      list.push({ x: px, y: y - 0.05 - slope * 0.42 * size, z: pz, yaw: hash01(n, 65, 7) * Math.PI * 2, sx: size, sy: size, sz: size, color: shades[Math.floor(hash01(n, 66, 7) * shades.length)] });
+      list.push({ x: px, y: y - 0.05 - slope * 0.42 * size, z: pz, yaw: hash01(n, 65, 7) * Math.PI * 2, sx: size, sy: size, sz: size, color: (lawn ? LAWN_SHADES : shades)[Math.floor(hash01(n, 66, 7) * shades.length)] });
     }
   const geo = tuftModel();
   const mat = toon({});
