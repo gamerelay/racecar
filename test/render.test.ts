@@ -171,4 +171,37 @@ describe('flatten (the draw call pass)', () => {
     const last = pos.count - 1;
     expect([col.getX(last), col.getY(last), col.getZ(last)]).toEqual([1, 0, 0]);
   });
+
+  test('leaves what moves, what has render state of its own, and keeps a mirrored part facing out', () => {
+    const root = new Group();
+    const turning = new Group();
+    turning.userData.moves = true;
+    turning.add(new Mesh(new BoxGeometry(1, 1, 1), toon({ color: 0xff0000 })));
+    const decal = new Mesh(new BoxGeometry(1, 1, 1), toon({ polygonOffset: true, polygonOffsetFactor: -1 }));
+    const a = new Mesh(new BoxGeometry(1, 1, 1), toon({ color: 0x00ff00 }));
+    const b = new Mesh(new BoxGeometry(1, 1, 1), toon({ color: 0x00ff00 }));
+    b.scale.x = -1;
+    root.add(turning, decal, a, b);
+    expect(flatten(root)).toBe(2);
+    expect(turning.children.length).toBe(1);
+    expect(decal.parent).toBe(root);
+    // Each merged triangle still winds outward: its normal agrees with its corners' order.
+    const merged = root.children.find((o) => o !== turning && o !== decal) as Mesh;
+    const p = merged.geometry.getAttribute('position');
+    const n = merged.geometry.getAttribute('normal');
+    for (let k = 0; k < p.count; k += 3) {
+      const [ax, ay, az, bx, by, bz, cx, cy, cz] = [0, 1, 2].flatMap((j) => [p.getX(k + j), p.getY(k + j), p.getZ(k + j)]);
+      const [ux, uy, uz, vx, vy, vz] = [bx - ax, by - ay, bz - az, cx - ax, cy - ay, cz - az];
+      const face = [uy * vz - uz * vy, uz * vx - ux * vz, ux * vy - uy * vx];
+      expect(face[0] * n.getX(k) + face[1] * n.getY(k) + face[2] * n.getZ(k)).toBeGreaterThan(0);
+    }
+    // A mirrored root mirrors nothing in its own frame: none flipped.
+    const mirrored = new Group();
+    mirrored.scale.x = -1;
+    for (let k = 0; k < 2; k++) mirrored.add(new Mesh(new BoxGeometry(1, 1, 1), toon()));
+    flatten(mirrored);
+    const q = (mirrored.children[0] as Mesh).geometry.getAttribute('position');
+    const box = new BoxGeometry(1, 1, 1).toNonIndexed().getAttribute('position');
+    for (let k = 0; k < 9; k++) expect(q.getX(k)).toBeCloseTo(box.getX(k));
+  });
 });

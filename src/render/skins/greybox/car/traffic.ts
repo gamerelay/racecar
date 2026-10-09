@@ -370,9 +370,13 @@ export function trafficModel(design: string, size: [number, number, number]): Tr
       put(`ink:${ink}`, shape, { material: mat, ink, inkOnly: true, tint: false });
     }
   });
-  // A material's parts merged must carry the same attributes: a part without vertex colours gets white ones, and the rest only what all have.
-  for (const { list, part } of groups.values()) {
-    if ((part.material as { vertexColors?: boolean }).vertexColors) for (const g of list) if (!g.getAttribute('color')) g.setAttribute('color', new Float32BufferAttribute(new Float32Array(g.getAttribute('position').count * 3).fill(1), 3));
+  // A material's parts merged must carry the same attributes. What its shader reads: vertex colours
+  // if it takes them (white where a part has none), uvs if it has a texture (a part without is a
+  // mistake, said so). The rest, unread, only where all have them.
+  for (const [key, { list, part }] of groups) {
+    const mat = part.material as { vertexColors?: boolean; map?: unknown };
+    if (mat.vertexColors) for (const g of list) if (!g.getAttribute('color')) g.setAttribute('color', new Float32BufferAttribute(new Float32Array(g.getAttribute('position').count * 3).fill(1), 3));
+    if (mat.map && !part.inkOnly && list.some((g) => !g.getAttribute('uv'))) throw new Error(`traffic ${design}: a textured part (${key}) without uvs`);
     const names = Object.keys(list[0].attributes).filter((n) => list.every((g) => g.getAttribute(n)));
     for (const g of list) for (const n of Object.keys(g.attributes)) if (!names.includes(n)) g.deleteAttribute(n);
   }

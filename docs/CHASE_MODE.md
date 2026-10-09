@@ -279,15 +279,18 @@ dozen spots. What it was, and what it is now:
 - **The landmarks** (~1,000 meshes; the Golden Gate 407, the Bay Bridge 588: a box or cylinder
   per suspender and cable segment): a landmark nothing moves afterwards is flattened as it's built
   (`flatten.ts`): its plain toon parts (no map, opaque, not emissive, no shader hook of their own)
-  merged into one mesh per side/fog, each part's colour in its vertices. Alcatraz too (`flat`: its
-  update turns only the beam). Every map's static landmarks get this.
+  merged into one mesh per side/fog, each part's colour in its vertices. Every map's landmarks get
+  this; what a landmark's update moves, turns, shows or hides is marked (`moves`) and left as it
+  was, as is any part with render state of its own (a decal's polygon offset, say).
 - **The neon words and street names** (a mesh per word, ~60): one canvas atlas each (`atlas` in
-  scenery.ts), merged: two draws.
+  scenery.ts: pages up to 4096 px, each picture's edge drawn out 8 px round it so a far, mipmapped
+  sign doesn't pick up its neighbour), merged: two draws.
 - **The piers** (16, five draws each): built together (`piers`): one instanced mesh of piles, one
   merge of sheds, their plain parts flattened, their numbers on an atlas.
 - **The warehouses' water tanks** (74 meshes): instanced.
 - **The roadblocks' police cars** (six whole cars, ~18 draws each): one car built per roadblock,
-  each of its parts instanced three times (`parked`). They leave the ink pass (seen over a wall).
+  each of its parts instanced three times (`parked`), its lamps' glows as glow points. They leave
+  the ink pass (seen over a wall).
 - **Traffic** (an instanced mesh per design per (material, ink id): ~100): one per material for
   the main pass, and the ink ids as ink-only meshes (drawn only near, in the ink pass). Every map's
   traffic gets this.

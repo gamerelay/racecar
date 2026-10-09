@@ -12,7 +12,7 @@
 // its doors), Lombard's planters, Dolores Park's palms, the Freeway's wall, the Presidio's hedges. Every building of a look
 // is one mesh (merged, vertex coloured): a draw for its walls, one for its ground floors.
 
-import { BoxGeometry, BufferGeometry, CanvasTexture, CatmullRomCurve3, ConeGeometry, CylinderGeometry, Float32BufferAttribute, Group, IcosahedronGeometry, InstancedMesh, Matrix4, Mesh, MeshBasicMaterial, type Object3D, PlaneGeometry, Quaternion, RepeatWrapping, Vector3 } from 'three';
+import { BoxGeometry, BufferGeometry, CanvasTexture, CatmullRomCurve3, ConeGeometry, CylinderGeometry, Float32BufferAttribute, Group, IcosahedronGeometry, InstancedMesh, Matrix4, Mesh, MeshBasicMaterial, type Object3D, PlaneGeometry, Quaternion, RepeatWrapping, type Sprite, Vector3 } from 'three';
 import { Rng } from '../../../core/rng';
 import { buildCar } from './car/build';
 import { unmarkInk } from '../../ink';
@@ -24,7 +24,7 @@ import { hash01 } from '../../../core/rng';
 import type { Track } from '../../../core/track/bake';
 import { instanced, type Part } from './forest';
 import { palmGeometry } from './island';
-import { atlas, type AtlasItem, canvas } from './scenery';
+import { atlas, atlasMeshes, type AtlasItem, canvas } from './scenery';
 import { flatten } from './flatten';
 import { faceted, toon } from './toon';
 
@@ -555,16 +555,26 @@ const CREAM = 0xf1e6cc;
 const COPPER = 0x5f9a86;
 
 /** Words on a panel: `w`×`h` px, light letters on a dark ground or the other way. */
+/** A painted panel: `text` in `fg` on `bg`, centred (for an atlas: the piers' numbers). */
+function panelItem(text: string, w: number, h: number, fg: string, bg: string, font: string): AtlasItem {
+  return {
+    w,
+    h,
+    draw: (g) => {
+      g.fillStyle = bg;
+      g.fillRect(0, 0, w, h);
+      g.fillStyle = fg;
+      g.font = font;
+      g.textAlign = 'center';
+      g.textBaseline = 'middle';
+      g.fillText(text, w / 2, h / 2 + 2);
+    },
+  };
+}
+
+/** A painted panel on a texture of its own. */
 function panel(text: string, w: number, h: number, fg: string, bg: string, font: string): CanvasTexture {
-  return canvas(w, h, (g) => {
-    g.fillStyle = bg;
-    g.fillRect(0, 0, w, h);
-    g.fillStyle = fg;
-    g.font = font;
-    g.textAlign = 'center';
-    g.textBaseline = 'middle';
-    g.fillText(text, w / 2, h / 2 + 2);
-  });
+  return canvas(w, h, panelItem(text, w, h, fg, bg, font).draw);
 }
 
 /** A box in a group, its local middle at (x, y, z). */
@@ -735,16 +745,8 @@ function piers(list: readonly HouseDef[], sea: number): Object3D[] {
   root.add(instanced(new CylinderGeometry(0.5, 0.5, 1, 6).translate(0, 0.5, 0), toon(), piles));
   const body = sheds.mesh(STYLES.warehouse.ground());
   if (body) root.add(body);
-  const names = atlas(new Map([...labels.keys()].map((label): [string, AtlasItem] => [label, { w: 256, h: 52, draw: (g) => {
-    g.fillStyle = '#2f4a5a';
-    g.fillRect(0, 0, 256, 52);
-    g.fillStyle = '#f4f1e6';
-    g.font = 'bold 34px Georgia, serif';
-    g.textAlign = 'center';
-    g.textBaseline = 'middle';
-    g.fillText(label, 128, 28);
-  } }])));
-  root.add(new Mesh(mergeGeometries([...labels].flatMap(([label, geos]) => geos.map((g) => names.uv(label, g))))!, toon({ map: names.texture })));
+  const names = atlas(new Map([...labels.keys()].map((label) => [label, panelItem(label, 256, 52, '#f4f1e6', '#2f4a5a', 'bold 34px Georgia, serif')])));
+  root.add(...atlasMeshes(names, labels, (map) => toon({ map })));
   return [root];
 }
 
@@ -943,8 +945,7 @@ class Neon {
   build(): Mesh[] {
     if (!this.faces.size) return [];
     const words = atlas(new Map([...this.faces.keys()].map((key) => [key, neonFace(key.split('|')[0], key.endsWith('|1'))])));
-    const geos = [...this.faces].flatMap(([key, list]) => list.map((g) => words.uv(key, g)));
-    return [new Mesh(mergeGeometries(geos)!, new MeshBasicMaterial({ map: words.texture }))];
+    return atlasMeshes(words, this.faces, (map) => new MeshBasicMaterial({ map }));
   }
 }
 
@@ -1074,21 +1075,40 @@ export function buildCitySurrounds(track: Track): Object3D[] {
 
 /**
  * Parked cars, all alike: a car built once (its root at the origin), each of its parts an instanced
- * mesh with one instance per pose. Nothing on them moves; they're seen over a wall, so they leave
- * the ink pass (the outline still traces them). Ink-only seams and hidden parts (flames) are dropped.
+ * mesh with one instance per pose, and its lamps' glows (sprites) glow points, a draw per colour
+ * and size. Nothing on them moves; they're seen over a wall, so they leave the ink pass (the outline
+ * still traces them). Ink-only seams and hidden parts (flames, the beacons' flashes) are dropped.
  */
 function parked(root: Object3D, poses: readonly Matrix4[]): Object3D[] {
   root.updateMatrixWorld(true);
   const out: Object3D[] = [];
+  const glows = new Map<string, { pos: number[]; color: number; size: number }>();
+  const at = new Vector3();
   root.traverse((o) => {
+    for (let p: Object3D | null = o; p; p = p.parent) if (!p.visible) return;
+    const sprite = o as Sprite;
+    if (sprite.isSprite) {
+      const mat = sprite.material;
+      // (A sprite this wide is about a point this size: glowPoints' are in pixels at 300 over the distance.)
+      const color = mat.color.clone().multiplyScalar(mat.opacity).getHex();
+      const size = sprite.scale.x * 2.3;
+      const key = `${color}|${size}`;
+      const e = glows.get(key) ?? { pos: [], color, size };
+      for (const pose of poses) {
+        at.setFromMatrixPosition(sprite.matrixWorld).applyMatrix4(pose);
+        e.pos.push(at.x, at.y, at.z);
+      }
+      glows.set(key, e);
+      return;
+    }
     const m = o as Mesh;
     if (!m.isMesh || !m.layers.isEnabled(0)) return;
-    for (let p: Object3D | null = m; p; p = p.parent) if (!p.visible) return;
     const inst = new InstancedMesh(m.geometry, m.material, poses.length);
     poses.forEach((pose, k) => inst.setMatrixAt(k, new Matrix4().multiplyMatrices(pose, m.matrixWorld)));
     inst.computeBoundingSphere();
     out.push(inst);
   });
+  for (const { pos, color, size } of glows.values()) out.push(glowPoints(pos, color, size));
   unmarkInk(root);
   return out;
 }
@@ -1143,7 +1163,7 @@ function streetSigns(track: Track): Object3D[] {
   if (m) out.push(m);
   if (blades.size) {
     const names = atlas(new Map([...blades.keys()].map((name) => [name, signFace(name)])));
-    out.push(new Mesh(mergeGeometries([...blades].flatMap(([name, geos]) => geos.map((g) => names.uv(name, g))))!, toon({ map: names.texture })));
+    out.push(...atlasMeshes(names, blades, (map) => toon({ map })));
   }
   return out;
 }
