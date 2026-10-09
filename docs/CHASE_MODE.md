@@ -269,6 +269,31 @@ themselves, so a sloppy line wrecks you. (Smashables in `smash.ts` never wreck; 
 
 ## Built so far
 
+### The Presidio: hills, bumps, grass and the woods (2026-10-09)
+
+The owner: "here I think the ground should have some soft hills and mogul like bumps, we can add
+some of the grass effects, also maybe make it go deeper with a real wooded area with crashable
+trees".
+
+- **Rolling ground** (new feature kind `rolling`, features/rolling.ts): over the park's lawn loop,
+  soft hills up to 9 m (two sizes of smooth noise, 110 m and 44 m across) and, in patches, bumps 1.4 m high every 13 m, every other row offset like skied moguls. Both ease in
+  over 60 m from the park's edge, so Van Ness, the hedges and the beach stay level.
+- **The drive rides the hills:** its points take the hills' height (`rollingSwell`, not the
+  bumps'), and the ground eases to it over its verge, so the bumps stop short of the asphalt. Its
+  steepest grade is about 17%, at the mouth by Van Ness.
+- **The woods:** south of a new hedge at z -150 the park runs on west from x -800 to x -1040 (the
+  ground's grid reaches over it: `GroundDef.reach`). A tree about every 8 m, jittered, thinning
+  over the lawn's first 40 m: some 900 cypresses (`grove-tree`) and 800 eucalyptus (new kind
+  `gum-tree`: tall, pale-trunked, `slow` 0.8 against the cypress's 0.88), and brush. Crashed
+  through, not wrecked on: a tree's smash throws leaves and shakes the camera harder than a cone.
+  The drawn woods outside keep off the park (its lawn kind) and clear of its hedges.
+- **The drive through them:** off Van Ness at the south, west along the south hedge into the
+  woods, a slalom of S-bends down their west side, and back east onto the lawns, then on north as
+  before. About 1.58 km (was 1.28), no bend tighter than 35 m.
+- **Grass tufts** on a city's park lawns (Dolores Park and Pioneer Park too): the lawn's greens,
+  thicker and in bigger patches than on a coast's grass.
+- Heist's fingerprint is re-recorded; every other map's is identical.
+
 ### Broadway, Chinatown and the Presidio's drive (2026-10-08)
 
 The owner: "I think we should add a detailed broadway street and china town, also maybe some more

@@ -62,7 +62,9 @@ export interface RenderOptions {
 }
 
 /** A smashed prop's burst, in its colour. */
-const SMASH_BURST: Record<string, number> = { cone: 0xff7a1a, 'newspaper-box': 0x3a86ff, 'hay-bale': 0xe2c36a, mailbox: 0xb8bcc4, 'beach-umbrella': 0xff2e88, 'fruit-stand': 0xffd23f, bush: 0x4f7a32 };
+const SMASH_BURST: Record<string, number> = { cone: 0xff7a1a, 'newspaper-box': 0x3a86ff, 'hay-bale': 0xe2c36a, mailbox: 0xb8bcc4, 'beach-umbrella': 0xff2e88, 'fruit-stand': 0xffd23f, bush: 0x4f7a32, 'grove-tree': 0x3a6640, 'gum-tree': 0x6f8a5c };
+/** A tree's a crash, felt harder than a cone. */
+const SMASH_SHAKE: Record<string, number> = { 'grove-tree': 0.3, 'gum-tree': 0.4 };
 
 /** What a ground throws up under a car: per meter per second of speed, a puff on running onto it, how it flies. */
 interface Dust {
@@ -791,7 +793,7 @@ export class GameRenderer {
         break;
       case Ev.Smash:
         this.fx.burst(e.x, e.y, e.z, 28, 5 + Math.min(8, e.a * 0.12), SMASH_BURST[SMASH_IDS[e.b]] ?? 0xffffff);
-        if (mine) this.shake = Math.max(this.shake, 0.12);
+        if (mine) this.shake = Math.max(this.shake, SMASH_SHAKE[SMASH_IDS[e.b]] ?? 0.12);
         break;
       case Ev.WallBreak:
         if (this.sim.world && panelLook(this.sim.track.layout.breakables, this.sim.world.breakables, e.b) === 'glass') {

@@ -52,6 +52,28 @@ describe('smashables', () => {
     }
   });
 
+  test("a car checks only those near it: every one within reach, by a road or on open ground, in index order", () => {
+    const sm = new Smashables(bakeTrack(layout('heist/city'), SURFACES));
+    expect(sm.n).toBeGreaterThan(5000);
+    const out: number[] = [];
+    let most = 0;
+    for (let k = 0; k < 400; k++) {
+      // Round the Presidio's woods (thick with trees), and anywhere.
+      const [x, z] = k % 2 ? [-1040 + ((k * 37) % 480), -150 + ((k * 53) % 540)] : [-1100 + ((k * 211) % 2200), -700 + ((k * 157) % 1400)];
+      const near = sm.near(x, z, out);
+      most = Math.max(most, near.length);
+      for (let j = 1; j < near.length; j++) expect(near[j]).toBeGreaterThan(near[j - 1]);
+      const set = new Set(near);
+      for (let j = 0; j < sm.n; j++) if (Math.abs(sm.x[j] - x) <= 8 && Math.abs(sm.z[j] - z) <= 8) expect(set.has(j)).toBe(true);
+    }
+    expect(most).toBeLessThan(200);
+  });
+
+  test("a ground's reach must be a box", () => {
+    const l = { ...DOWNTOWN, ground: { cell: 4, wallFrom: 60, wallRise: 0.5, reach: [0, 0, -10, 10] as [number, number, number, number] } };
+    expect(validateLayout(l, SURFACES, CLASSES).some((p) => p.message.includes('reach'))).toBe(true);
+  });
+
   test('built the same from the same layout (online, every client has the same ones)', () => {
     const a = new Smashables(bakeTrack(DOWNTOWN, SURFACES));
     const b = new Smashables(bakeTrack(DOWNTOWN, SURFACES));

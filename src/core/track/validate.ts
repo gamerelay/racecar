@@ -58,6 +58,10 @@ export function validateLayout(layout: TrackLayout, surfaces: SurfaceDef[], clas
   // The ground's features (track/features), before baking: an unknown kind is dropped there, a
   // zero spacing is NaN heights, and a stretch the wrong way round is nothing at all.
   const ordered = (r: unknown) => Array.isArray(r) && r.length === 2 && r.every(Number.isFinite) && r[0] < r[1];
+  /** A closed [x, z] loop: 3 points or more. */
+  const loop = (l: unknown) => Array.isArray(l) && l.length >= 3 && l.every((p) => Array.isArray(p) && p.length === 2 && p.every(Number.isFinite));
+  const reach = layout.ground?.reach;
+  if (reach && !(Array.isArray(reach) && reach.length === 4 && reach.every(Number.isFinite) && reach[0] < reach[2] && reach[1] < reach[3])) err('ground: its reach must be a box [x0, z0, x1, z1], x0 < x1 and z0 < z1');
   for (const [k, f] of (layout.ground?.features ?? []).entries()) {
     const bad = (what: string) => err(`ground feature ${k} (${f.kind}): ${what}`);
     if (f.kind === 'moguls') {
@@ -92,10 +96,11 @@ export function validateLayout(layout: TrackLayout, surfaces: SurfaceDef[], clas
       if (!Array.isArray(f.path) || f.path.length < 2 || f.path.some((p) => !Array.isArray(p) || p.length !== 2 || !p.every(Number.isFinite)) || !(f.width > 0) || !(f.depth > 0) || !(Array.isArray(f.level) && f.level.length === 2 && f.level.every(Number.isFinite)))
         bad('a river needs a path of 2 points or more, a width, a depth and its level at each end');
     } else if (f.kind === 'city') {
-      const loop = (l: unknown) => Array.isArray(l) && l.length >= 3 && l.every((p) => Array.isArray(p) && p.length === 2 && p.every(Number.isFinite));
       if (!loop(f.outline) || !Number.isFinite(f.y) || !Array.isArray(f.hills) || !Array.isArray(f.level) || f.level.some((c) => !(Array.isArray(c) && c.length === 3 && c.every(Number.isFinite) && c[2] > 0)))
         bad('a city needs an outline (a loop of 3 points or more), a height, its hills and its crossings ([x, z, r], r over 0)');
       if (f.parks && !f.parks.every(loop)) bad("a city's parks must each be a loop of 3 points or more");
+    } else if (f.kind === 'rolling') {
+      if (!loop(f.area) || !(f.height > 0) || !(f.size > 0) || !(f.ease > 0) || (f.bumps && !(f.bumps.height > 0 && f.bumps.spacing > 0))) bad('rolling ground needs an area (a loop of 3 points or more), a height, a size, an ease, and its bumps a height and a spacing');
     } else err(`ground feature ${k}: unknown kind "${(f as { kind: unknown }).kind}"`);
   }
   if (out.some((p) => p.level === 'error')) return out;

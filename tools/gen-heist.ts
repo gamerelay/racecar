@@ -25,10 +25,11 @@
 //   bun tools/gen-heist.ts
 
 import { mkdirSync, writeFileSync } from 'node:fs';
-import type { CityDef, GetawayDef, Hill, HouseDef, PadDef, TrackLayout } from '../src/core/content';
+import type { CityDef, GetawayDef, Hill, HouseDef, PadDef, RollingDef, TrackLayout } from '../src/core/content';
 import { hash01, Rng } from '../src/core/rng';
 import { bakeTrack } from '../src/core/track/bake';
 import { cityHeight, insideLoop } from '../src/core/track/features/city';
+import { rollingSwell } from '../src/core/track/features/rolling';
 import { SEAWALL_FACE } from '../src/core/track/features/seawall';
 import { newHit, projectGlobal } from '../src/core/track/query';
 import { Streets } from '../src/core/world/streets';
@@ -606,7 +607,7 @@ let ferryLand: PadDef | null = null;
   console.log(`  the bay: ${n} piers, the Ferry Building at ${Math.round(FERRY.s)} m`);
 }
 
-// ---- The Presidio: open parkland past Van Ness, a winding drive through it ----
+// ---- The Presidio: open parkland past Van Ness, a winding drive through it, its woods ----
 
 /**
  * The owner, 2026-10-08: "more open areas like the presidio that have more curvy roads to drift".
@@ -615,6 +616,12 @@ let ferryLand: PadDef | null = null;
  * Van Ness near its foot and back on near its top, swinging west and back east between `zig`
  * (corners, Chaikin-rounded into sweepers and two hairpins), `width` m. Groves of trees about the
  * lawns (smashables: knocked flat, not a wreck), and brush.
+ *
+ * Then, 2026-10-09: "the ground should have some soft hills and mogul like bumps, we can add some of
+ * the grass effects, also maybe make it go deeper with a real wooded area with crashable trees". The
+ * lawns roll (`ground`: features/rolling.ts), and the drive rides the hills. South of `woods.north`
+ * the park runs on west past the old hedge to `woods.west`: a wood of cypress and eucalyptus every
+ * `woods.every` m or so (smashables, the eucalyptus costlier), the drive winding through it.
  */
 const PRESIDIO = {
   open: [392, -378] as P,
@@ -622,9 +629,11 @@ const PRESIDIO = {
   south: 392,
   hedge: { thick: 2.4, high: 3.4 },
   width: 12,
-  zig: [[-600, 345], [-690, 362], [-758, 325], [-752, 255], [-680, 228], [-628, 180], [-648, 112], [-726, 96], [-766, 30], [-738, -36], [-650, -46], [-606, -104], [-650, -172], [-742, -184], [-766, -256], [-722, -322], [-640, -332], [-600, -330]] as P[],
-  groves: 30,
+  zig: [[-600, 345], [-690, 362], [-800, 350], [-850, 374], [-912, 352], [-975, 344], [-1005, 264], [-948, 192], [-1002, 118], [-954, 46], [-886, 4], [-810, 22], [-742, -24], [-650, -46], [-606, -104], [-650, -172], [-742, -184], [-766, -256], [-722, -322], [-640, -334], [-604, -334]] as P[],
+  groves: 26,
   brush: 70,
+  woods: { west: -1040, north: -150, every: 8, keep: 0.86, gums: 0.55, brush: 90 },
+  ground: { height: 9, size: 110, ease: 60, bumps: { height: 1.4, spacing: 13 } },
 };
 /** The bay's shore past Van Ness's top, west to the Golden Gate (the coast's own corners, below). */
 const SHORE: P[] = [[-830, -560], [-700, -500], [-575, -420]];
@@ -636,12 +645,20 @@ const shoreZ = (x: number) => {
 const presidio: P[] = [];
 const PRESIDIO_ID = 'presidio-drive';
 const groveTrees: P[] = [];
+const gumTrees: P[] = [];
 const presidioLawn: P[] = [];
 const brush: P[] = [];
+let presidioGround: RollingDef;
 {
   // (Van Ness's middle where the drive leaves and rejoins it: 30 m before its first point, 30 m past its last.)
   const vanNess = (z: number): P => [main.px[at(sAt(-560, z)).i], z];
   const edge = (z: number): P => [vanNess(z)[0] - (VAN_NESS(0, 0).w / 2 + 3 + PRESIDIO.width / 2 + 1), z];
+  const { woods } = PRESIDIO;
+  // The lawns: from the hedges to Van Ness's verge, down to the beach; south of the woods' hedge, on west to theirs.
+  const verge = vanNess(0)[0] - (VAN_NESS(0, 0).w / 2 + 3 + 0.5);
+  presidioLawn.push(...[PRESIDIO.west, -700, verge].map((x): P => [r1(x), r1(shoreZ(x) + 14)]), [r1(verge), PRESIDIO.south], [woods.west, PRESIDIO.south], [woods.west, woods.north], [PRESIDIO.west, woods.north]);
+  presidioGround = { kind: 'rolling', area: presidioLawn, ...PRESIDIO.ground };
+  const swell = rollingSwell(presidioGround);
   const first = PRESIDIO.zig[0][1] + 20;
   const last = PRESIDIO.zig[PRESIDIO.zig.length - 1][1] - 20;
   let line: P[] = [edge(first), ...PRESIDIO.zig, edge(last)];
@@ -662,36 +679,58 @@ const brush: P[] = [];
   presidio.push(line[line.length - 1]);
   const from = Math.round(sAt(-560, first + 30));
   const to = Math.round(sAt(-560, last - 30));
+  // (Laid on the hills, not the bumps: the ground eases to it over its verge.)
   layout.branches = [
-    { id: PRESIDIO_ID, from, to, kind: 'street', points: presidio.map(([x, z]) => ({ p: [x, 0, z], width: PRESIDIO.width, lanes: 2, shoulder: 2, surface: 'asphalt', verge: 'undergrowth' })) },
+    { id: PRESIDIO_ID, from, to, kind: 'street', points: presidio.map(([x, z]) => ({ p: [x, r1(swell(x, z).y * 10) / 10, z], width: PRESIDIO.width, lanes: 2, shoulder: 2, surface: 'asphalt', verge: 'undergrowth' })) },
   ];
-  // The hedges: along the west from the water to the south one, and that east to Van Ness's wall.
+  // The hedges: along the west from the water to the woods', that west to the woods' own, down it,
+  // and the south one from there east to Van Ness's wall.
   const { thick, high } = PRESIDIO.hedge;
   const northEnd = shoreZ(PRESIDIO.west) - 20;
   const eastEnd = vanNess(PRESIDIO.south)[0] - (VAN_NESS(0, 0).w / 2 + 3 + 1.6);
-  houses.push({ at: [PRESIDIO.west, r1((northEnd + PRESIDIO.south) / 2)], size: [thick, r1(PRESIDIO.south - northEnd + thick), high], rot: 0, look: 'hedge' });
-  houses.push({ at: [r1((PRESIDIO.west + eastEnd) / 2), PRESIDIO.south], size: [r1(eastEnd - PRESIDIO.west), thick, high], rot: 0, look: 'hedge' });
+  houses.push({ at: [PRESIDIO.west, r1((northEnd + woods.north) / 2)], size: [thick, r1(woods.north - northEnd + thick), high], rot: 0, look: 'hedge' });
+  houses.push({ at: [r1((woods.west + PRESIDIO.west) / 2), woods.north], size: [r1(PRESIDIO.west - woods.west + thick), thick, high], rot: 0, look: 'hedge' });
+  houses.push({ at: [woods.west, r1((woods.north + PRESIDIO.south) / 2)], size: [thick, r1(PRESIDIO.south - woods.north + thick), high], rot: 0, look: 'hedge' });
+  houses.push({ at: [r1((woods.west + eastEnd) / 2), PRESIDIO.south], size: [r1(eastEnd - woods.west), thick, high], rot: 0, look: 'hedge' });
   // Groves and brush on the lawns: clear of the drive, Van Ness, the hedges and the beach.
-  const woods = new Rng(0x9e5);
-  const clearAt = (x: number, z: number, r: number) =>
-    x > PRESIDIO.west + 6 && z < PRESIDIO.south - 6 && x < -560 - (9 + 3 + 10) && z > shoreZ(x) + 26 && presidio.every(([px, pz]) => Math.hypot(px - x, pz - z) > PRESIDIO.width / 2 + 2 + r);
+  const rng = new Rng(0x9e5);
+  const offDrive = (x: number, z: number, r: number) => presidio.every(([px, pz]) => Math.hypot(px - x, pz - z) > PRESIDIO.width / 2 + 2 + r);
+  const inPark = (x: number, z: number) =>
+    z < PRESIDIO.south - 6 && x < -560 - (9 + 3 + 10) && z > shoreZ(x) + 26 && (x > PRESIDIO.west + 6 || (x > woods.west + 6 && z > woods.north + 6));
+  const clearAt = (x: number, z: number, r: number) => inPark(x, z) && offDrive(x, z, r);
   for (let g = 0; g < PRESIDIO.groves; g++) {
-    const [cx, cz] = [woods.range(PRESIDIO.west + 20, -600), woods.range(shoreZ(-700) + 40, PRESIDIO.south - 20)];
-    const n = Math.round(woods.range(7, 16));
+    const [cx, cz] = [rng.range(PRESIDIO.west + 20, -600), rng.range(shoreZ(-700) + 40, PRESIDIO.south - 20)];
+    const n = Math.round(rng.range(7, 16));
     for (let k = 0; k < n; k++) {
-      const a = woods.range(0, Math.PI * 2);
-      const r = Math.sqrt(woods.next()) * 22;
+      const a = rng.range(0, Math.PI * 2);
+      const r = Math.sqrt(rng.next()) * 22;
       const [x, z] = [cx + Math.cos(a) * r, cz + Math.sin(a) * r];
       if (clearAt(x, z, 3) && groveTrees.every(([tx, tz]) => Math.hypot(tx - x, tz - z) > 4.5)) groveTrees.push([r1(x), r1(z)]);
     }
   }
   for (let k = 0; k < PRESIDIO.brush; k++) {
-    const [x, z] = [woods.range(PRESIDIO.west, -580), woods.range(shoreZ(-700), PRESIDIO.south)];
+    const [x, z] = [rng.range(PRESIDIO.west, -580), rng.range(shoreZ(-700), PRESIDIO.south)];
     if (clearAt(x, z, 2) && groveTrees.every(([tx, tz]) => Math.hypot(tx - x, tz - z) > 3)) brush.push([r1(x), r1(z)]);
   }
-  const verge = vanNess(0)[0] - (VAN_NESS(0, 0).w / 2 + 3 + 0.5);
-  presidioLawn.push(...[PRESIDIO.west, -700, verge].map((x): P => [r1(x), r1(shoreZ(x) + 14)]), [r1(verge), PRESIDIO.south], [PRESIDIO.west, PRESIDIO.south]);
-  console.log(`  the Presidio: its drive ${Math.round(presidio.length * 6)} m (${from}–${to} m on Van Ness), open ${PRESIDIO.open.join(' to ')}; ${groveTrees.length} trees, ${brush.length} bushes`);
+  // The woods: a tree every few metres (jittered), thinning out over the lawn's first 40 m past the
+  // old hedge's line; the drive's verge kept clear, close up to it.
+  const wood = new Rng(0x3d00d);
+  const trees = [...groveTrees];
+  for (let x = woods.west + 6; x < PRESIDIO.west + 40; x += woods.every)
+    for (let z = woods.north + 6; z < PRESIDIO.south - 6; z += woods.every) {
+      const [px, pz] = [x + wood.range(-3, 3), z + wood.range(-3, 3)];
+      const thin = Math.max(0, (px - PRESIDIO.west) / 40);
+      const keep = wood.next() < woods.keep * (1 - thin);
+      const gum = wood.next() < woods.gums;
+      if (!keep || !clearAt(px, pz, 1.2) || trees.some(([tx, tz]) => Math.abs(tx - px) < 4 && Math.abs(tz - pz) < 4) || brush.some(([bx, bz]) => Math.hypot(bx - px, bz - pz) < 3)) continue;
+      trees.push([r1(px), r1(pz)]);
+      (gum ? gumTrees : groveTrees).push([r1(px), r1(pz)]);
+    }
+  for (let k = 0; k < woods.brush; k++) {
+    const [x, z] = [wood.range(woods.west, PRESIDIO.west), wood.range(woods.north, PRESIDIO.south)];
+    if (clearAt(x, z, 2) && trees.every(([tx, tz]) => Math.hypot(tx - x, tz - z) > 3)) brush.push([r1(x), r1(z)]);
+  }
+  console.log(`  the Presidio: its drive ${Math.round(presidio.length * 6)} m (${from}–${to} m on Van Ness), open ${PRESIDIO.open.join(' to ')}; ${groveTrees.length} cypresses, ${gumTrees.length} eucalyptus, ${brush.length} bushes`);
 }
 
 /**
@@ -837,7 +876,7 @@ const city: CityDef = {
     // (And Telegraph Hill's top, where Coit Tower stands on its terrace: as a crossing, wider.)
     .concat([[COIT_AT[0], COIT_AT[1], 16]]),
   cut: 50,
-  // (And the Presidio's lawns: from its hedges to Van Ness's verge, down to the beach.)
+  // (And the Presidio's lawns and woods: from its hedges to Van Ness's verge, down to the beach.)
   parks: [...park, presidioLawn],
 };
 layout.ground = {
@@ -848,10 +887,14 @@ layout.ground = {
   wallRise: 0,
   // (Out past the Presidio's hedge: the Golden Gate's approach comes down beyond it.)
   wallOut: 60,
+  // (And on west under the Presidio's woods, to past their hedge.)
+  reach: [PRESIDIO.woods.west - 60, PRESIDIO.woods.north, PRESIDIO.west, PRESIDIO.south],
   sea: SEA,
   coast,
   features: [
     city,
+    // (The Presidio's hills and bumps, out past the city.)
+    presidioGround!,
     ferryLand!,
     // (Either side of the Ferry Building's land; through the start, the first.)
     { kind: 'seawall', s: [BAY_S[0], (FERRY.s - FERRY.land + L) % L], side: 'left', floor: SEA - 10 },
@@ -1179,6 +1222,7 @@ const PLAZA = 4;
     { kind: 'street-tree', s: [0, 0], every: 0, at: trees },
     { kind: 'shrub', s: [0, 0], every: 0, at: shrubs },
     { kind: 'grove-tree', s: [0, 0], every: 0, at: groveTrees },
+    { kind: 'gum-tree', s: [0, 0], every: 0, at: gumTrees },
     { kind: 'bush', s: [0, 0], every: 0, at: brush },
   ];
   console.log(`  along the pavements: ${lamps.length} lamps, ${trees.length} trees, ${shrubs.length} shrubs; ${houses.filter((h) => h.label && h.look !== 'pier').length} neon signs`);

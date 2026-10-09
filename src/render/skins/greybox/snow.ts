@@ -64,8 +64,8 @@ const DRESSED = new Color('#ddd0ae');
 const SANDSTONE_ROCK = new Color('#b58a5c');
 /** A river's bed under its water, and the oasis's green along its banks (two greens, in patches). */
 const RIVERBED = new Color('#6f7a52');
-const OASIS = new Color('#5f8f34');
-const OASIS_2 = new Color('#7fa040');
+export const OASIS = new Color('#5f8f34');
+export const OASIS_2 = new Color('#7fa040');
 const DRESSED_DARK = new Color('#c6b48e');
 /** A pyramid's courses: one this high (m) up its face, the seam between them its shadow. */
 const COURSE = 1.15;

@@ -549,6 +549,8 @@ export interface GroundDef {
   wallRise: number;
   /** How far up the walls (m past `wallFrom`) the ground is drawn, plus 20 m, at its narrowest (default 25). All of it is in bounds. */
   wallOut?: number;
+  /** The grid covers this box ([x0, z0, x1, z1], m) too, past where the main road's margin takes it (the Presidio's woods). */
+  reach?: [number, number, number, number];
   /** Long, low rolls everywhere, the road too: this high (m, peak to trough), this wide (m). */
   swell?: { height: number; size: number };
   /** Bumps off the road: up to this high (m), this wide (m). */
@@ -713,7 +715,22 @@ export interface RiverDef {
   level: [number, number];
 }
 
-export type FeatureDef = MogulsDef | CanyonDef | BeachDef | UnevenDef | LavaStreamDef | SeawallDef | PadDef | PyramidDef | RiverDef | CityDef;
+/**
+ * Rolling parkland (core/track/features/rolling.ts; the getaway's Presidio): inside `area` (a closed
+ * [x, z] loop, in world space) soft hills up to `height` m, `size` m across, and over them mogul-like
+ * `bumps` in patches; all of it easing in from the area's edge over `ease` m. A road through it
+ * takes the hills' heights (`rollingSwell`), not the bumps': the ground eases to the road.
+ */
+export interface RollingDef {
+  kind: 'rolling';
+  area: [number, number][];
+  height: number;
+  size: number;
+  ease: number;
+  bumps?: { height: number; spacing: number };
+}
+
+export type FeatureDef = MogulsDef | CanyonDef | BeachDef | UnevenDef | LavaStreamDef | SeawallDef | PadDef | PyramidDef | RiverDef | CityDef | RollingDef;
 
 /**
  * A city's ground (docs/CHASE_MODE.md; core/track/features/city.ts): inside `outline` (a closed

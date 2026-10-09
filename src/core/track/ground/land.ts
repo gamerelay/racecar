@@ -67,6 +67,12 @@ export function buildLand(def: GroundDef, main: BakedSpline, pieces: Pieces, fea
   }
   const wallOut = def.wallOut ?? WALL_OUT;
   const margin = def.wallFrom + wallOut + 20;
+  if (def.reach) {
+    minX = Math.min(minX, def.reach[0] + margin);
+    minZ = Math.min(minZ, def.reach[1] + margin);
+    maxX = Math.max(maxX, def.reach[2] - margin);
+    maxZ = Math.max(maxZ, def.reach[3] - margin);
+  }
   const cell = def.cell;
   const x0 = Math.floor((minX - margin) / cell) * cell;
   const z0 = Math.floor((minZ - margin) / cell) * cell;
