@@ -297,6 +297,16 @@ open areas like the presidio that have more curvy roads to drift".
   on both faces (`GetawayScenery.signs`; 154 of them, 45 names). The corner is picked by the
   crossing, and moved round where Market, Columbus or Division cut over it. They're drawn only,
   not met.
+- **Coit Tower, seated on its hill** (the owner, with a screenshot: "make coit tower blend into the
+  landscape a little better"). Its square plinth stood at the ground's height under its middle, so
+  where Telegraph Hill falls away it hung out over the lawn. Now:
+  - the hilltop is levelled round it, as a crossing is but wider (r 16, in `CityDef.level`);
+  - the plinth stands on a round stone terrace whose retaining wall runs down to the lowest ground
+    round it, with a parapet;
+  - a ring of cypresses stands on the slope at the terrace's foot (drawn);
+  - its solid base is the plinth's 20 m, not the column's 12.
+  The lanterns stop at Broadway: north of it is North Beach and Telegraph Hill, and they had been
+  strung across the streets round the park.
 - **Chinatown:**
   - **The Dragon Gate** (landmark `chinatown-gate`) across Grant Avenue's south end (the grid's
     line at x 62). Its two stone posts stand on the pavements (solid houses), with a red beam and

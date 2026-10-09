@@ -475,7 +475,7 @@ const northBlock = (u0: number, u1: number, v0: number, v1: number, inset: numbe
   [u0 + inset, v1 - inset],
 ];
 /** Coit Tower, in the middle of Pioneer Park: the block just off Telegraph Hill's top. */
-const COIT = { block: [132, 192, -385, -305], tower: 12, high: 64 };
+const COIT = { block: [132, 192, -385, -305], tower: 20, high: 64 };
 park.push(northBlock(COIT.block[0], COIT.block[1], COIT.block[2], COIT.block[3], 8));
 const COIT_AT: P = [(COIT.block[0] + COIT.block[1]) / 2, (COIT.block[2] + COIT.block[3]) / 2];
 /** The Transamerica Pyramid: the block across the street from the Bank, where Columbus Avenue comes into the Financial District. */
@@ -833,7 +833,9 @@ const city: CityDef = {
   // Every crossing of two streets or more (an alley's mouth isn't one: levelling those too stepped the hills), a little past its middle.
   level: getaway.nodes
     .filter(([x, z], k) => inside(x, z) > 0 && getaway.links.filter(([a, b], j) => (a === k || b === k) && getaway.paint![j] > 0).length >= 3)
-    .map(([x, z]) => [x, z, 6] as [number, number, number]),
+    .map(([x, z]) => [x, z, 6] as [number, number, number])
+    // (And Telegraph Hill's top, where Coit Tower stands on its terrace: as a crossing, wider.)
+    .concat([[COIT_AT[0], COIT_AT[1], 16]]),
   cut: 50,
   // (And the Presidio's lawns: from its hedges to Van Ness's verge, down to the beach.)
   parks: [...park, presidioLawn],
@@ -957,8 +959,10 @@ getaway.scenery = {
   getaway.scenery!.lanterns = getaway.links.flatMap(([a, b], k) => {
     const [p, q] = [getaway.nodes[a], getaway.nodes[b]];
     const w = getaway.paint![k];
-    // (Chinatown's own streets: not Broadway, Columbus or Market.)
-    if (w !== DISTRICTS[0].street || !china.in((p[0] + q[0]) / 2, (p[1] + q[1]) / 2)) return [];
+    // (Chinatown's own streets: not Broadway, Columbus or Market, and south of Broadway: north of
+    // it is North Beach and Telegraph Hill.)
+    const [mx, mz] = [(p[0] + q[0]) / 2, (p[1] + q[1]) / 2];
+    if (w !== DISTRICTS[0].street || !china.in(mx, mz) || mz < BROADWAY.z) return [];
     return [[p[0], p[1], q[0], q[1], w] as [number, number, number, number, number]];
   });
   console.log(`  Chinatown: ${getaway.scenery!.lanterns.length} streets hung with lanterns, the Dragon Gate at ${GATE_AT.join(', ')}`);

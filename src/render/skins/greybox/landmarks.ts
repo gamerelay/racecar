@@ -1644,8 +1644,26 @@ function coitTower(m: LandmarkDef, c: Ctx): Built {
     root.add(o);
   }
   root.add(cyl(r + 0.5, r + 0.5, 1.4, 0xe2dccb, H + 3.7, 24));
-  // Its base, square, stepped; a lit window or two at night.
+  // Its base, square, stepped, on a round terrace: a stone retaining wall down into the hill's slope
+  // to the lowest ground round it (the hill falls away on its downhill side), a parapet round its top.
+  let low = 0;
+  for (let a = 0; a < Math.PI * 2; a += Math.PI / 8) for (const r of [9, 14]) low = Math.min(low, c.ground(Math.cos(a) * r, Math.sin(a) * r));
+  const T = 15;
+  const wall = low - 1.5;
+  root.add(posed(new Mesh(faceted(new CylinderGeometry(T, T + 0.6, 0.4 - wall, 16)), toon({ color: 0xcfc6b2 })), 0, (0.4 + wall) / 2, 0));
+  root.add(posed(new Mesh(new CylinderGeometry(T - 0.2, T - 0.2, 0.06, 16), toon({ color: 0x8a8478 })), 0, 0.43, 0));
+  root.add(posed(new Mesh(faceted(new CylinderGeometry(T + 0.15, T + 0.15, 0.8, 16, 1, true)), toon({ color: 0xe2dccb })), 0, 0.8, 0));
+  root.add(posed(new Mesh(new BoxGeometry(20, 1, 20), toon({ color: 0xd8d1bf })), 0, 0.9, 0));
   root.add(posed(new Mesh(new BoxGeometry(18, 3, 18), toon({ color: 0xe2dccb })), 0, 1.5, 0));
+  // Trees round the terrace's foot, on the slope.
+  for (let k = 0; k < 10; k++) {
+    const a = (k / 10) * Math.PI * 2 + 0.2;
+    const x = Math.cos(a) * (T + 4);
+    const z = Math.sin(a) * (T + 4);
+    const y = c.ground(x, z);
+    root.add(posed(new Mesh(faceted(new ConeGeometry(2.2, 7, 7)), toon({ color: k % 2 ? 0x2f5a3a : 0x3a6640 })), x, y + 4, z));
+    root.add(posed(new Mesh(new CylinderGeometry(0.25, 0.3, 1.2, 5), toon({ color: 0x5a4232 })), x, y + 0.6, z));
+  }
   if (!c.day) root.add(glowPoints([0, H + 5, 0], 0xfff2c8, 9));
   return { root };
 }
