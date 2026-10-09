@@ -394,6 +394,12 @@ export interface GetawayScenery {
   presidio: [number, number, number, number];
   /** Chinatown's lanterns, strung across its streets: each street's middle from [x0, z0] to [x1, z1], and its width ([x0, z0, x1, z1, width]). */
   lanterns?: [number, number, number, number, number][];
+  /**
+   * Street signs on the crossings' corners: each a post at [x, z], its two blades' names, the first
+   * along `rot` (radians from +x toward +z: the way that street runs), the second across it
+   * ([x, z, rot, along, across]).
+   */
+  signs?: [number, number, number, string, string][];
 }
 
 /** An avalanche down a run: it breaks away `behind` m above the start line, `delay` s after the green light, at about `speed` m/s on a 20% slope. */

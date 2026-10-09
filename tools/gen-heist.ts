@@ -26,7 +26,7 @@
 
 import { mkdirSync, writeFileSync } from 'node:fs';
 import type { CityDef, GetawayDef, Hill, HouseDef, PadDef, TrackLayout } from '../src/core/content';
-import { Rng } from '../src/core/rng';
+import { hash01, Rng } from '../src/core/rng';
 import { bakeTrack } from '../src/core/track/bake';
 import { cityHeight, insideLoop } from '../src/core/track/features/city';
 import { SEAWALL_FACE } from '../src/core/track/features/seawall';
@@ -121,6 +121,8 @@ interface District {
   /** What stands along its pavements: a street tree every `trees` m (0: none), a shrub by a door every `shrubs` m. */
   green: { trees: number; shrubs: number };
   in: (x: number, z: number) => boolean;
+  /** Its grid lines' names, as `u` and `v` ('': none), on its crossings' street signs (a grid's first district's). */
+  names?: { u: string[]; v: string[] };
   /** Its grid's streets run over all of this (districts sharing a grid share it), not just the district. */
   grid?: (x: number, z: number) => boolean;
 }
@@ -149,6 +151,11 @@ const DISTRICTS: District[] = [
     green: { trees: 0, shrubs: 40 },
     in: (x, z) => northOfMarket(x, z) && x > 230,
     grid: northOfMarket,
+    // (San Francisco's, west to east and north to south, a few left out: the city's smaller.)
+    names: {
+      u: ['', 'POLK ST', 'LARKIN ST', 'HYDE ST', 'LEAVENWORTH ST', 'JONES ST', 'MASON ST', 'STOCKTON ST', 'GRANT AV', 'KEARNY ST', 'MONTGOMERY ST', 'SANSOME ST', 'BATTERY ST', 'FRONT ST', 'DAVIS ST', 'DRUMM ST', 'STEUART ST', ''],
+      v: ['', 'CHESTNUT ST', 'LOMBARD ST', 'BROADWAY', 'JACKSON ST', 'CLAY ST', 'CALIFORNIA ST', 'BUSH ST', 'SUTTER ST', 'POST ST', 'GEARY ST', "O'FARRELL ST"],
+    },
   },
   {
     name: 'Chinatown',
@@ -200,6 +207,11 @@ const DISTRICTS: District[] = [
     neon: { share: 0.18, words: ['CLUB', 'BAR', 'JAZZ', 'PAWN', 'TATTOO', 'MOTEL', 'DINER'] },
     green: { trees: 22, shrubs: 0 },
     in: (x, z) => !northOfMarket(x, z) && !westOfDivision(x, z),
+    // (Along Market back from the Ferry Building, the numbered streets; across it, south.)
+    names: {
+      u: ['9TH ST', '8TH ST', '7TH ST', '6TH ST', '5TH ST', '4TH ST', '3RD ST', '2ND ST', '1ST ST', 'BEALE ST', 'SPEAR ST', ''],
+      v: ['', 'MISSION ST', 'HOWARD ST', 'FOLSOM ST', 'HARRISON ST', 'BRYANT ST', 'BRANNAN ST', 'TOWNSEND ST'],
+    },
   },
   {
     name: 'the Mission',
@@ -216,6 +228,10 @@ const DISTRICTS: District[] = [
     neon: { share: 0.25, words: ['TAQUERIA', 'CAFE', 'BAR', 'LIQUOR', 'TACOS', 'BAKERY'] },
     green: { trees: 16, shrubs: 22 },
     in: (x, z) => !northOfMarket(x, z) && westOfDivision(x, z),
+    names: {
+      u: ['CHURCH ST', 'DOLORES ST', 'GUERRERO ST', 'VALENCIA ST', 'MISSION ST', 'CAPP ST', 'S VAN NESS AV', 'SHOTWELL ST', 'FOLSOM ST'],
+      v: ['14TH ST', '15TH ST', '16TH ST', '17TH ST', '18TH ST', '19TH ST', '20TH ST', '21ST ST'],
+    },
   },
 ];
 
@@ -946,6 +962,49 @@ getaway.scenery = {
     return [[p[0], p[1], q[0], q[1], w] as [number, number, number, number, number]];
   });
   console.log(`  Chinatown: ${getaway.scenery!.lanterns.length} streets hung with lanterns, the Dragon Gate at ${GATE_AT.join(', ')}`);
+}
+
+// ---- Street signs: on a corner of every crossing of two named streets, a post and a blade for each ----
+{
+  const deg = new Uint16Array(getaway.nodes.length);
+  getaway.links.forEach(([a, b], k) => {
+    if (getaway.paint![k] > 0) deg[a]++, deg[b]++;
+  });
+  const signs: [number, number, number, string, string][] = [];
+  const painted: Line[] = getaway.links.flatMap(([a, b], k) => (getaway.paint![k] > 0 ? [{ a: getaway.nodes[a], b: getaway.nodes[b], width: getaway.paint![k], name: '' }] : []));
+  const grids = new Set<unknown>();
+  for (const d of DISTRICTS) {
+    if (!d.names || (d.grid && grids.has(d.grid))) continue;
+    grids.add(d.grid);
+    const u: P = [Math.cos(d.angle), Math.sin(d.angle)];
+    const v: P = [-u[1], u[0]];
+    const world = (a: number, b: number): P => [d.origin[0] + u[0] * a + v[0] * b, d.origin[1] + u[1] * a + v[1] * b];
+    const own = d.grid ? DISTRICTS.filter((q) => q.grid === d.grid) : [d];
+    d.u.forEach((a, i) =>
+      d.v.forEach((b, j) => {
+        const [uName, vName] = [d.names!.u[i], d.names!.v[j]];
+        if (!uName || !vName) return;
+        const [x, z] = world(a, b);
+        if (!own.some((q) => q.in(x, z)) || inside(x, z) < 20) return;
+        // (Only where both streets are there: a crossing of the cops' streets, three ways or more.)
+        const n = getaway.nodes.findIndex(([nx, nz]) => Math.hypot(nx - x, nz - z) < 4);
+        if (n < 0 || deg[n] < 3) return;
+        // On a corner (which, by the crossing; the next round if a street cutting across is over it), just in from the kerbs.
+        const first = Math.floor(hash01(i, j, 61) * 4);
+        for (let c = 0; c < 4; c++) {
+          const q = (first + c) % 4;
+          const [su, sv] = [q & 1 ? 1 : -1, q & 2 ? 1 : -1];
+          const [px, pz] = world(a + su * (lineWidth(d, 'u', a) / 2 + 1.2), b + sv * (lineWidth(d, 'v', b) / 2 + 1.2));
+          if (!painted.every((l) => off(l, px, pz) > l.width / 2 + 0.8)) continue;
+          // (The blade along u names the street that runs along u: the v line's.)
+          signs.push([r1(px), r1(pz), Math.round(d.angle * 1000) / 1000, vName, uName]);
+          break;
+        }
+      }),
+    );
+  }
+  getaway.scenery!.signs = signs;
+  console.log(`  street signs: ${signs.length}, ${new Set(signs.flatMap((q) => [q[3], q[4]])).size} names`);
 }
 
 // ---- Cars cruising the streets: a few loops through the city, a few cars round each ----

@@ -284,7 +284,19 @@ open areas like the presidio that have more curvy roads to drift".
   dancer silhouette like the Condor": the club nearest Columbus & Broadway (the real one's corner)
   is the only CONDOR, and its sign is a tall blade from over its marquee to past its roof: CONDOR
   across the top and under it a showgirl in pink neon, one arm up, a hand on her hip, in heels
-  (an outline, no more), with stars round her and CLUB at the foot (`heist.ts` `condor`).
+  (an outline, no more), with stars round her and CLUB at the foot (`heist.ts` `condor`). And
+  then it runs: the bulbs round its edge chase (four steps a second) and the dancer blinks out
+  twice every 3.2 s. It's four textures swapped as it's drawn, on the wall clock (render only).
+- **Street signs** (the owner: "should we add some street signs?"): the grids' streets have San
+  Francisco's names (`District.names`), in order where the city's grid allows. North of Market:
+  Polk to Steuart west to east, with Grant Av at the Dragon Gate; Chestnut, Lombard (the crooked
+  block's street), Broadway, Jackson, Clay, California, Bush (the gate's crossing), Sutter, Post,
+  Geary and O'Farrell north to south. SoMa: Mission to Townsend, and 1st to 9th back from the
+  Ferry Building. The Mission: Church to Folsom and 14th to 21st. On a corner of every crossing of
+  two named streets is a dark green post with a green blade along each street, its name in white
+  on both faces (`GetawayScenery.signs`; 154 of them, 45 names). The corner is picked by the
+  crossing, and moved round where Market, Columbus or Division cut over it. They're drawn only,
+  not met.
 - **Chinatown:**
   - **The Dragon Gate** (landmark `chinatown-gate`) across Grant Avenue's south end (the grid's
     line at x 62). Its two stone posts stand on the pavements (solid houses), with a red beam and

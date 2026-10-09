@@ -211,6 +211,26 @@ describe('the getaway', () => {
     for (const p of posts) expect(Math.abs(p.at[0] - gate.at[0]) - p.size[0] / 2).toBeGreaterThan(7);
   });
 
+  test('street signs on the crossings: named as San Francisco, on the pavement, out of the street', () => {
+    const def = city.getaway!;
+    const signs = def.scenery!.signs!;
+    expect(signs.length).toBeGreaterThan(100);
+    const names = new Set(signs.flatMap((q) => [q[3], q[4]]));
+    for (const n of ['BROADWAY', 'GRANT AV', 'LOMBARD ST', 'MISSION ST', '3RD ST', '16TH ST']) expect(names.has(n)).toBe(true);
+    // The Dragon Gate's corner: Grant and Bush.
+    expect(signs.some((q) => q[3] === 'BUSH ST' && q[4] === 'GRANT AV')).toBe(true);
+    // Every post off every painted street's carriageway.
+    const off = (x: number, z: number, [ax, az]: number[], [bx, bz]: number[]) => {
+      const [dx, dz] = [bx - ax, bz - az];
+      const t = Math.max(0, Math.min(1, ((x - ax) * dx + (z - az) * dz) / (dx * dx + dz * dz)));
+      return Math.hypot(x - ax - dx * t, z - az - dz * t);
+    };
+    for (const [x, z] of signs)
+      def.links.forEach(([a, b], k) => {
+        if (def.paint![k] > 0) expect(off(x, z, def.nodes[a], def.nodes[b])).toBeGreaterThan(def.paint![k] / 2 + 0.5);
+      });
+  });
+
   test("a coast's distance, from its cells' few segments, is the plain scan's, exactly", () => {
     const line = city.ground!.coast!;
     const loop = curve([...line, line[0]], 12);

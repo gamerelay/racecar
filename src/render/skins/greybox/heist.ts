@@ -394,12 +394,19 @@ function marquee(h: HouseDef, y: number, base: number, into: Merge, bulbs: numbe
 }
 const xyz = ([x, z]: [number, number], y: number) => [x, y, z];
 
-/** The Condor's sign: a board `CONDOR_SIGN` m wide, its name at the top, under it the dancer, a showgirl drawn in neon. */
-const CONDOR_SIGN = { wide: 3.8, low: 1, over: 4 };
-let condorTex: CanvasTexture | undefined;
-function condorFace(): CanvasTexture {
-  if (condorTex) return condorTex;
-  condorTex = canvas(256, 640, (g) => {
+/**
+ * The Condor's sign: a board `wide` m across, its name at the top, under it the dancer, a showgirl
+ * drawn in neon, bulbs round its edge. Lit, it runs: the bulbs chase `chase` steps a second, and the
+ * dancer blinks out twice every `cycle` s (at `blinks`, each `off` s long).
+ */
+const CONDOR_SIGN = { wide: 3.8, low: 1, over: 4, chase: 4, cycle: 3.2, blinks: [2.3, 2.75], off: 0.22 };
+const condorTex = new Map<string, CanvasTexture>();
+/** The sign's face with the dancer lit or not, its bulbs at chase step `phase` (0 or 1). */
+function condorFace(lit: boolean, phase: number): CanvasTexture {
+  const key = `${lit}|${phase}`;
+  const done = condorTex.get(key);
+  if (done) return done;
+  const tex = canvas(256, 640, (g) => {
     g.fillStyle = '#140d1c';
     g.fillRect(0, 0, 256, 640);
     const pink = '#ff3d9a';
@@ -413,8 +420,21 @@ function condorFace(): CanvasTexture {
       draw();
       g.stroke();
     };
-    // Its border, and the name across the top.
-    tube('#ffe14d', 4, () => g.rect(8, 8, 240, 624));
+    // Bulbs round its edge, every other one lit (which, by the chase's step); the name across the top.
+    let k = 0;
+    const bulb = (x: number, y: number) => {
+      const on = k++ % 2 === phase;
+      g.fillStyle = on ? '#fff3b0' : '#5a4a2a';
+      g.shadowColor = '#ffd23a';
+      g.shadowBlur = on ? 12 : 0;
+      g.beginPath();
+      g.arc(x, y, 4.5, 0, Math.PI * 2);
+      g.fill();
+    };
+    for (let x = 14; x <= 242; x += 19) bulb(x, 14);
+    for (let y = 33; y <= 607; y += 19) bulb(242, y);
+    for (let x = 242; x >= 14; x -= 19) bulb(x, 626);
+    for (let y = 607; y >= 33; y -= 19) bulb(14, y);
     g.font = 'bold 50px "Arial Black", Arial, sans-serif';
     g.textAlign = 'center';
     g.textBaseline = 'middle';
@@ -459,8 +479,18 @@ function condorFace(): CanvasTexture {
       g.moveTo(140, 336);
       g.quadraticCurveTo(160, 360, 164, 400);
     };
-    tube(pink, 9, dancer);
-    tube('#ffe6f3', 3, dancer);
+    // (Out: the bare tube, dark.)
+    if (lit) {
+      tube(pink, 9, dancer);
+      tube('#ffe6f3', 3, dancer);
+    } else {
+      g.shadowBlur = 0;
+      g.strokeStyle = '#4a2338';
+      g.lineWidth = 4;
+      g.beginPath();
+      dancer();
+      g.stroke();
+    }
     // Stars round her.
     for (const [x, y] of [[60, 140], [200, 250], [52, 380], [210, 470], [70, 560]]) tube('#3df2ff', 3, () => (g.moveTo(x - 9, y), g.lineTo(x + 9, y), g.moveTo(x, y - 9), g.lineTo(x, y + 9)));
     g.shadowBlur = 0;
@@ -469,7 +499,8 @@ function condorFace(): CanvasTexture {
     g.shadowBlur = 12;
     for (const fill of ['#3df2ff', '#eaffff']) (g.fillStyle = fill), g.fillText('CLUB', 128, 598);
   });
-  return condorTex;
+  condorTex.set(key, tex);
+  return tex;
 }
 
 /**
@@ -484,9 +515,17 @@ function condor(h: HouseDef, y: number, base: number, high: number): Object3D {
   const y0 = base + CONDOR_SIGN.low;
   const lx = (hash01(Math.round(h.at[0]), Math.round(h.at[1]), 41) < 0.5 ? -1 : 1) * (w / 2 - 1.2);
   const lz = d / 2 + CONDOR_SIGN.wide / 2 + 0.15;
-  const face = new MeshBasicMaterial({ map: condorFace() });
+  const face = new MeshBasicMaterial({ map: condorFace(true, 0) });
+  // Running: the frame's face picked as it's drawn (the wall clock: a sign's lights don't wait on the race).
+  const run = () => {
+    const t = performance.now() / 1000;
+    const c = t % CONDOR_SIGN.cycle;
+    const lit = !CONDOR_SIGN.blinks.some((b) => c >= b && c < b + CONDOR_SIGN.off);
+    face.map = condorFace(lit, Math.floor(t * CONDOR_SIGN.chase) % 2);
+  };
   for (const side of [1, -1]) {
     const m = new Mesh(new PlaneGeometry(CONDOR_SIGN.wide, tall), face);
+    m.onBeforeRender = run;
     m.rotation.y = (side * Math.PI) / 2;
     m.position.set(lx + side * 0.16, y0 + tall / 2, lz);
     root.add(m);
@@ -977,7 +1016,59 @@ export function buildCitySurrounds(track: Track): Object3D[] {
     }
   if (cypress.length) out.push(instanced(faceted(new ConeGeometry(1, 1, 7).translate(0, 0.5, 0)), toon(), cypress));
   if (trunks.length) out.push(instanced(new CylinderGeometry(0.6, 1, 1, 5).translate(0, 0.5, 0), toon(), trunks), instanced(faceted(new IcosahedronGeometry(1, 0)), toon(), gums));
-  out.push(...lanterns(track));
+  out.push(...lanterns(track), ...streetSigns(track));
+  return out;
+}
+
+/** A street sign: its post's height (m), a blade's height, its letters' width each (m), and the two blades' heights up the post. */
+const SIGN = { post: 3.7, blade: 0.34, letter: 0.2, pad: 0.5, y: [3.05, 3.45] };
+const SIGN_GREEN = 0x2f4a3c;
+
+/** A blade's face: the name in white on green, a thin white border (SF's). */
+function signFace(name: string): CanvasTexture {
+  const w = 40 * name.length + 60;
+  return canvas(w, 68, (g) => {
+    g.fillStyle = '#1f6a44';
+    g.fillRect(0, 0, w, 68);
+    g.strokeStyle = '#f4f4ee';
+    g.lineWidth = 3;
+    g.strokeRect(4, 4, w - 8, 60);
+    g.fillStyle = '#f4f4ee';
+    g.font = 'bold 46px "Arial Narrow", Arial, sans-serif';
+    g.textAlign = 'center';
+    g.textBaseline = 'middle';
+    g.fillText(name, w / 2, 36);
+  });
+}
+
+/** The crossings' street signs (GetawayScenery.signs): a dark green post, a blade along each street with its name on both faces. Merged per name: a draw each. */
+function streetSigns(track: Track): Object3D[] {
+  const list = track.layout.getaway?.scenery?.signs;
+  const ground = track.ground;
+  if (!list?.length || !ground) return [];
+  const posts = new Merge();
+  const blades = new Map<string, BufferGeometry[]>();
+  for (const [x, z, rot, along, across] of list) {
+    const y = ground.height(x, z);
+    posts.box(x, z, 0, 0.12, 0.12, y - 0.2, y + SIGN.post, SIGN_GREEN, 0, 0, true);
+    for (const [k, name] of [along, across].entries()) {
+      // (Along the street: `rot` from +x toward +z for the first, a quarter turn on for the second.)
+      const a = rot + (k ? Math.PI / 2 : 0);
+      const long = name.length * SIGN.letter + SIGN.pad;
+      const m = new Matrix4().makeRotationY(-a).setPosition(x, y + SIGN.y[k], z);
+      // (A plane faces +z; turned to run along the street, both faces.)
+      const front = new PlaneGeometry(long, SIGN.blade).translate(0, 0, 0.02).applyMatrix4(m);
+      const back = new PlaneGeometry(long, SIGN.blade).rotateY(Math.PI).translate(0, 0, -0.02).applyMatrix4(m);
+      const geos = blades.get(name) ?? [];
+      geos.push(front, back);
+      blades.set(name, geos);
+      posts.box(x, z, -a, long + 0.06, 0.03, y + SIGN.y[k] - SIGN.blade / 2 - 0.03, y + SIGN.y[k] + SIGN.blade / 2 + 0.03, SIGN_GREEN);
+    }
+  }
+  const out: Object3D[] = [];
+  const m = posts.mesh();
+  if (m) out.push(m);
+  for (const [name, geos] of blades) out.push(new Mesh(mergeGeometries(geos)!, toon({ map: signFace(name) })));
   return out;
 }
 

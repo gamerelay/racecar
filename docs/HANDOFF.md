@@ -26,8 +26,9 @@ http://localhost:5178/?mode=race&map=heist/city&seats=p.
   - **The bay:** a sea wall, piers, the Ferry Building, and Alcatraz and both bridges as landmarks.
   - **Round the city:** Transamerica and Coit Tower, and the bridges' approaches drawn down to
     police roadblocks behind the wall.
-  - **Broadway and Chinatown:** Broadway's clubs (marquees, neon), the Dragon Gate on Grant Avenue,
-    lanterns across Chinatown's streets, and pagoda roofs.
+  - **Broadway and Chinatown:** Broadway's clubs and strip joints (marquees, neon, the Condor's
+    blinking showgirl), the Dragon Gate on Grant Avenue, lanterns across Chinatown's streets,
+    and pagoda roofs. Street signs with SF's names on the crossings.
   - **The Presidio:** open off Van Ness's west side. Lawns, cypress groves (smashables) and Presidio
     Drive, a 1.3 km branch of sweepers for drifting, hedged in.
   - **Traffic:** 30 cars cruising 9 loops of streets and stopping at crossings (traffic path lanes,
@@ -41,7 +42,7 @@ http://localhost:5178/?mode=race&map=heist/city&seats=p.
   - `CityDef.parks` work outside the city's outline too (the Presidio's lawns).
   - Every other map's fingerprint is identical. `heist/city` is "not recorded" (fine while
     experimental).
-- **Green on the branch:** `bun run test` (751, 1 skip), typecheck, `bun tools/validate.ts`,
+- **Green on the branch:** `bun run test` (752, 1 skip), typecheck, `bun tools/validate.ts`,
   fingerprints.
 - **Watch:** with nobody at the controls, the game's autopilot drives your car, and in a getaway it
   crashes and ends the run in a few seconds (seen in an idle Chrome tab).
