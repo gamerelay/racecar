@@ -1,0 +1,29 @@
+name: Map idea
+description: A place you'd like to race (or flee) through.
+labels: [map idea]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        What makes a map good here is in [docs/MAPS.md](https://github.com/gamerelay/racecar/blob/main/docs/MAPS.md): a lap you learn, landmarks you steer by, a shortcut worth the risk.
+  - type: textarea
+    id: place
+    attributes:
+      label: The place
+      description: Where it is, what it looks like, the feeling of driving it. Photos and references welcome.
+    validations:
+      required: true
+  - type: textarea
+    id: moments
+    attributes:
+      label: The moments
+      description: The jump, the hairpin, the shortcut, the hazard. What you'd tell a friend about after a race.
+  - type: dropdown
+    id: kind
+    attributes:
+      label: Kind of map
+      options:
+        - A circuit (laps)
+        - An open map (drive anywhere)
+        - A getaway city (the cops chase you)
+        - Not sure

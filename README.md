@@ -1,22 +1,18 @@
 # racecar
 
-A cel-shaded arcade street racer for the browser: Burnout 3's crashes, Mario Kart's party, up to
-8 players online through [GameRelay](https://gamerelay.io), with long circuits, shortcuts, traffic,
-hazards and weather.
+A cel-shaded arcade street racer for the browser: Burnout 3's crashes, Mario Kart's party, and up
+to 8 players online through [GameRelay](https://gamerelay.io). It's also GameRelay's example game:
+everything online in it is built on the public SDK, and it's all here to read.
 
-**Status: milestone 3 (online) in progress; `main` is tagged `alpha-1.19`.** Five maps
-(Downtown, Backroads, Paradise, Avalanche, Riviera) and 8 cars, against up to 7 AI drivers, with traffic, hazards
-(log trucks, a falling sign, volcano bombs, coconuts), rain and passing showers, shortcuts,
-takedowns, near misses and drifting. Online, lobbies are GameRelay rooms: other players' cars
-show in your race, players connect P2P where they can, and the room's host drives the AIs for
-everyone. There's also the level editor, local telemetry and replayable reports. Online play is
-party-grade: the room's host is trusted, and a modified client could cheat (SPEC §10, "Trust").
-The design is in
-[docs/SPEC.md](./docs/SPEC.md); what changed in each release is in [CHANGELOG.md](./CHANGELOG.md),
-where things stand and what's next is [docs/HANDOFF.md](./docs/HANDOFF.md), how online works is
-[docs/ONLINE.md](./docs/ONLINE.md), how maps are made is [docs/MAPS.md](./docs/MAPS.md), how
-cars are made is [docs/CARS.md](./docs/CARS.md), and suggestions for cleaning up the code are in
-[docs/TECH_DEBT.md](./docs/TECH_DEBT.md).
+**[Play it](https://asleepace.com/games/Z442EE)** · [what's new](./CHANGELOG.md) · [the docs](./docs/README.md)
+
+![Cars mid-race through a city at sunset](./marketing/cover-1920x1080.jpg)
+
+Seven maps (Downtown, Backroads, Paradise, Avalanche, Riviera, Sahara and Splash City) and 8 cars,
+against up to 7 AI drivers or other players, with traffic, hazards (log trucks, falling signs,
+volcano bombs, coconuts, an avalanche), rain, shortcuts, takedowns, near misses and drifting. On
+Splash City it's a getaway: the heat rises and more cops join the chase, and online everyone flees the same city and
+the longest run wins.
 
 ## Run it
 
@@ -25,10 +21,10 @@ bun install
 bun run dev        # http://localhost:5178
 ```
 
-Online lobbies need a GameRelay server. In dev, `.env.development` points at a local one: run
-`bun run dev` in the gamerelay.io repo (it serves :8787 with the dev key `gr_pub_dev`), and open
-two tabs (each tab is its own player). Without it, the title says it can't reach the lobby
-server, and your own lobby still works.
+Online lobbies need a GameRelay server. In dev, `.env.development` points at a local one
+(`http://localhost:8787`, dev key `gr_pub_dev`). Open two tabs to play against yourself: each tab
+is its own player. Without a server, the title says it can't reach the lobby server, and your own
+lobby (you and the AIs) still works.
 
 | | Keyboard | Gamepad |
 |---|---|---|
@@ -38,61 +34,113 @@ server, and your own lobby still works.
 | Look back / reset | C / R | B / Y |
 | Horn | H | left stick (press) |
 | Pause (the controls are listed there) | Esc | Start |
-| Sound · music | M · N | |
+| Sound · music · track | M · N · − + | |
 | Felt wrong? (saves the last 30 s) | F8 | Select + Start |
 | Ink outlines on / off | F6 | |
 | Editor (dev) · debug · tuning | \` · F2 · F4 | |
 
-Starting a race writes it into the URL
-(`?mode=race&map=downtown/downtown&car=hatch&paint=0&seats=pnnnnnnn&laps=2&weather=random&time=random&mayhem=normal&traffic=1&seed=…`):
-`seats` is one letter a seat (`p` you, `e`/`n`/`h` an easy, normal or hard AI, `o` open, `x`
-closed), `time` is `day`, `sunset` or `random`, and laps default to 2. Old links with
-`opponents` and `difficulty` still work. Add `&post=0` (no post pass), `&ink=0` (no outlines) or
-`&trace=1` (per-tick trace of your car into telemetry).
+## How online works
 
-## Editing tracks
+Each lobby is a GameRelay room. The race in it uses the room's **entities**: objects with typed
+fields that the SDK syncs to everyone about 30 times a second and shows smoothed, about 100 ms in
+the past. Every car in the race is one of two kinds of entity.
 
-Press \` in the dev build. Drag control points, set width / lanes / height / bank / shoulder /
-surface per point, double-click the road to add a point, Delete to remove, ⌘Z to undo, F to fit,
-**P** to drive from the cursor, ⌘S to save into `content/maps/<map>/<layout>.track.json`. Problems
-(narrow road, a folded corner, a branch skipping a checkpoint…) show on the map as you edit.
-Shortcuts, ramps and zones follow the road when you move points before them.
+**Your car is yours.** After each step of the simulation, your page writes your car's pose into
+its entity. Before each step, every other player's car is put where their entity says, predicted
+forward to now. Your sim never wrecks someone else's car: the victim's own screen decides, and
+tells you whose takedown it was. That's [`src/net/cars.ts`](./src/net/cars.ts), trimmed:
 
-## Telemetry and reports
-
-Dev builds write events to `telemetry/<day>/<session>.jsonl` (gitignored): laps, wrecks with cause
-and place, drifts, air, wall hits, contacts, frame times, errors.
-
-```sh
-bun tools/telemetry.ts          # summary of the latest session (--all, --json)
-bun tools/replay.ts             # re-run the latest F8 report headless (--trace)
-bun tools/validate.ts --ai      # check every layout; the AI must finish it
-bun tools/lap-report.ts --field # an 8-AI race per layout: times, wrecks and where
-bun test                        # core tests: physics, tracks, determinism, no allocation per tick
+```ts
+this.kind = room.define('car', { ...CAR_FIELDS, ...RUN_FIELDS }, { rate: CAR_RATE });
+this.mine = this.kind.spawn(this.fields());          // once, on joining the race
+// before each step: everyone else's car where they are now
+for (const e of this.kind.all()) if (!e.mine) this.sim.setPose(i, predict(e, lead));
 ```
+
+**The AIs and the cops are the host's.** The room has one host, picked by the server, and it moves
+by itself when that player leaves or drops. The host drives every AI driver and every cop, and
+writes them as **host entities**: spawned with `{ owner: 'host' }`, they belong to the role, not
+the player, so when the role moves, the next host carries on writing the same entities. That
+works because the AI keeps almost nothing but its car's pose. The new host reads where each car
+is and drives it on from there. Until the host's entities arrive, every screen drives them itself
+from the same start, so nobody sees a frozen grid. In outline:
+
+```ts
+beforeStep() {
+  if (room.isHost) { /* yours: your sim drives them */ return; }
+  for (const e of theirs) sim.setPose(i, predict(e, lead));      // put them where the host says
+}
+afterStep() {
+  if (!room.isHost) return;
+  for (const [seat, i] of seats) e = bySeat.get(seat) ?? kind.spawn(fields, { owner: 'host' });
+}
+```
+
+That's [`src/net/rivals.ts`](./src/net/rivals.ts) for the AIs and
+[`src/net/cops.ts`](./src/net/cops.ts) for the cops, the same pattern twice. Read them first if
+you're building something on GameRelay.
+
+The rest follows from that split:
+
+- **One clock.** The lights go green at a time on the server's clock, and traffic, weather and
+  hazards are functions of race time, so they're the same everywhere without being sent
+  ([`clock.ts`](./src/net/clock.ts)).
+- **Claims for shared things.** Whoever hits a traffic car claims it (`room.claim`, which exactly
+  one player wins), and everyone wrecks it from the winner's time ([`traffic.ts`](./src/net/traffic.ts)).
+- **Messages for contact.** Bumps and takedown credit are events between two players' pages, and
+  each is checked: a bump only from the owner of the car that made it
+  ([`contact.ts`](./src/net/contact.ts), [`wire.ts`](./src/net/wire.ts)).
+- **The lobby is the room's state**, changed only by actions the host applies with one pure
+  function ([`src/lobby/lobby.ts`](./src/lobby/lobby.ts)).
+
+Players connect peer to peer where they can, and through a relay where they can't. The whole
+picture, lobbies included, is [docs/ONLINE.md](./docs/ONLINE.md). Online play is party-grade:
+the room's host is trusted, and a modified client could cheat.
+
+## Making things
+
+- **A map or a layout:** [docs/MAPS.md](./docs/MAPS.md). Press \` in the dev build for the editor:
+  drag control points, set width, lanes, height and bank per point, **P** to drive from the cursor,
+  ⌘S to save into `content/maps/<map>/<layout>.track.json`. Problems show on the map as you edit.
+- **A car:** [docs/CARS.md](./docs/CARS.md), and the garage at `/cars.html`.
+- **Anything else:** [CONTRIBUTING.md](./CONTRIBUTING.md).
+
+Starting a race writes it into the URL
+(`?mode=race&map=downtown/downtown&car=hatch&paint=0&seats=pnnnnnnn&laps=2&weather=random&time=random&mayhem=normal&traffic=1&seed=…`),
+so any race can be shared or replayed: `seats` is one letter a seat (`p` you, `e`/`n`/`h` an easy,
+normal or hard AI, `o` open, `x` closed). `?start=getaway` goes straight into a getaway. Add
+`&post=0` (no post pass), `&ink=0` (no outlines) or `&trace=1` (a per-tick trace of your car).
 
 ## Layout
 
 - `src/core`: the simulation. Plain TypeScript, no Three.js, no DOM, no network (a test enforces
-  it), so it runs in the browser, tests, tools and, later, bots.
-- `src/render`: draws it through a `Skin` (greybox now); `src/audio` synthesizes the sound;
-  `src/ui` is the HUD and menus; `src/input` the keyboard and pads; `src/editor` edits layouts
-  (dev builds, the backtick key); `src/telemetry` records sessions and F8 reports;
-  `src/viewer` is the garage (`/cars.html`).
-- `src/lobby`: the lobby model (`lobby.ts`, the host rules as one `apply`), your own lobby or a
-  GameRelay room behind one interface (`backend.ts`, `relay.ts`), the P2P party (`party.ts`),
-  pings and who's away (`presence.ts`), checking what other players send (`wire.ts`), and plates.
-- `src/net`: the online race: players' cars (`cars.ts`) and the host's AIs (`rivals.ts`) as
-  GameRelay entities. How it all fits is [docs/ONLINE.md](./docs/ONLINE.md).
+  it), so the same code runs in the browser, the tests and the tools. Fixed 60 Hz steps, seeded.
+- `src/net`: the online race (above). `src/lobby`: lobbies as GameRelay rooms, parties for P2P,
+  pings and presence.
+- `src/render` draws it with Three.js; `src/audio` synthesizes the sound and plays the music;
+  `src/ui` is the HUD and menus; `src/input` keyboard and pads; `src/editor` the track editor;
+  `src/telemetry` sessions and F8 reports; `src/viewer` the garage.
 - `content/`: cars, paints, surfaces and maps, as JSON.
-- `tools/`: validate, the AI lap report, replaying F8 reports, and the map generators
-  (`tools/content.ts` loads content for tools and tests).
-- `test/`: `bun test`.
+- `tools/`: validation, the AI lap report, replaying F8 reports, the map generators.
+- `test/`: `bun run test`.
 
-Checks: `bun test`, `bun run typecheck`, `bun tools/validate.ts --ai`, `bun run build` (CI runs
-all four).
+## Checks and telemetry
+
+```sh
+bun run test                    # the tests (physics, tracks, determinism, online, UI)
+bun run typecheck
+bun tools/validate.ts --ai      # every layout checked, and an AI must finish it
+bun run build
+```
+
+CI runs all four. Dev builds also write events to `telemetry/<day>/<session>.jsonl` (gitignored);
+`bun tools/telemetry.ts` sums up the latest session, and `bun tools/replay.ts` re-runs the latest
+F8 report headless.
+
+Released builds can send anonymous gameplay events (laps, wrecks, frame times; a random id, no
+names) to PostHog, only when built with a key. Players can turn it off in Settings → Privacy.
 
 ## License
 
-The code is MIT. The music in `public/music/` is © Colin, all rights reserved: it plays as part of
-racecar, but isn't free to reuse on its own. See [LICENSE](LICENSE).
+The code is [MIT](./LICENSE). The music in `public/music/` is © Colin, all rights reserved: it
+plays as part of racecar, but isn't free to reuse on its own ([its license](./public/music/LICENSE)).
