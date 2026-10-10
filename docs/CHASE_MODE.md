@@ -67,8 +67,8 @@ cops making mistakes more likely, not from cheap unavoidable hits.
 - **The cop car:** `content/cars/police.json`, the Interceptor with a light bar.
 - **Music:** `pursuit-orchestra`, `relentless-pursuit`, `escape` in `src/audio/soundtrack.ts`;
   `music.ts` has intensity layers to tie to heat. **No siren** yet.
-- **Single player first.** `Sim` steps everything locally. Online, cops would be host-run (H)
-  entities like rivals (`src/net/rivals.ts`); later.
+- **Single player first.** `Sim` steps everything locally. Online, the cops are host-run
+  entities like rivals: see "Online getaways" under "Built so far" (2026-10-09).
 
 ## How a run plays
 
@@ -269,6 +269,38 @@ themselves, so a sloppy line wrecks you. (Smashables in `smash.ts` never wreck; 
 
 ## Built so far
 
+### Online getaways, and Splash City (2026-10-09)
+
+The owner: "can we change the name of Heist to Splash City and Make the default mode chase when you
+select from the normal menu", then, for online lobbies, "competitive survival and we add more
+cops", "each player gets their own cops, but cops will also attack you when nearby", "watch the
+rest then shared results", runners can take each other out ("3"), and the host drives the cops.
+The design and plan: `docs/superpowers/specs/2026-10-09-online-getaway-design.md`,
+`docs/superpowers/plans/2026-10-09-online-getaway.md`.
+
+- **Splash City:** the map's name (`content/maps/heist/map.json`, `tools/gen-heist.ts`); its id is
+  still `heist`, so bests, links and the fingerprint stay. The only map name of two words.
+- **A run for each runner** (`rules/getaway.ts`): `Getaway(sim, runners)`, a `Run` each (its cops,
+  time, busted, end). Each runner's pool is `poolFor(n)`: `min(10, floor((MAX_CARS − n) / n))`, so
+  10 for one or two, 7 for four, 3 for eight; `MAX_CARS` went from 16 to 32. Out per heat is
+  `heat + 1` per runner, as alone. One runner is single player, unchanged.
+- **Cops go for the near one:** a cop goes for another runner within `NEAR_TARGET` (40 m) it can
+  see, and back to its own past 60 m or out of sight. Busting counts any cop near you. A runner out
+  (online) takes their cops out of the city; alone, they pull up as before.
+- **Online:** the room's host drives every cop (`net/cops.ts`, `cop` host entities shaped like
+  `net/rivals.ts`'s, with who each is after). Each runner's own screen decides their end and sends
+  it on their car (`out`, `runT`, and its `race`: a car left from the last race is ignored). A
+  runner not heard from for 3 s is out for now at their last time, and back in if they're heard
+  again (`goneRemote`, `resume`). Cops are `c:<k>` to `net/contact.ts`. Runners start in pairs
+  outside the Bank.
+- **After:** your card for 3 s, then you watch the runners still going (← / →, or the strip's
+  buttons: `ui/watch.ts`), then everyone's runs, the longest first (`race.ts`'s `showTable`). The
+  vote opens once one runner's left (`voteStep(…, chase)`), so the last has up to 60 s more; still
+  going 8 s before it closes, they "got away" (`timeUp`, `LAST_CALL_S` in `net/online.ts`), so
+  their time's in. Online runs don't write your best on the device.
+- **Not checked yet:** two or more players online in the browser, eight at the Bank, and the
+  32-car draw calls (the plan's Task 7). Single player's `?start=getaway` loads as before.
+
 ### The draw call pass (2026-10-09)
 
 The owner, after a check of the budgets: "yes do the draw call pass on heist please". Heist drew
@@ -385,8 +417,8 @@ open areas like the presidio that have more curvy roads to drift".
 The owner: "ok can we include this in the online version, and deploy a new version please", and
 picked "in every lobby". Heist is out of experimental: in the lobby's map list and quick race. A
 race of your own on it (Single player, a lobby to yourself) is the getaway; an online race with
-others is a race round the city's outer loop (the AI laps it in 63 s), since online getaways wait
-on the road graph. Its fingerprint is recorded.
+others was a race round the city's outer loop (the AI laps it in 63 s), until online getaways
+(2026-10-09, below). Its fingerprint is recorded.
 
 `/code-review` on #160 found, and these were fixed:
 - **Respawn:** a car's wreck after the finish didn't respawn on Heist even in a race that isn't a
@@ -708,4 +740,4 @@ Experimental: `?mode=race&map=heist/city&seats=p` (any car: `&car=`). Not in the
   - **Replays:** the F8 snapshot doesn't save the getaway's state, so a getaway's report won't
     replay exactly.
   - **Sirens and lights:** none yet (step 4).
-  - **Online:** a getaway from an online lobby is an ordinary race.
+  - **Online:** a getaway from an online lobby was an ordinary race (online getaways: 2026-10-09).

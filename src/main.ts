@@ -30,6 +30,7 @@ import { installClicks } from './ui/click';
 import { fadeIn, ready, veiled } from './ui/fade';
 import { KeysCard } from './ui/keys';
 import { GETAWAY_MAP, installEmbed, keepEmbed, startsGetaway } from './ui/embed';
+import { cycle, leader } from './ui/watch';
 import { SettingsPanel } from './ui/settings';
 import { ControlsPanel } from './ui/controls';
 import { SettingsStore } from './settings';
@@ -113,14 +114,20 @@ const sim = new Sim(bakeTrack(layout, SURFACES), CLASSES, SURFACES, {
   mayhem: run.mayhem,
   traffic: run.traffic ? 1 : 0,
 });
+/**
+ * A getaway (docs/CHASE_MODE.md): a race on its map is you and the cops; online (the owner,
+ * 2026-10-09), every player's a runner, each with their own cops. The AIs sit it out, and so do
+ * other players when it isn't online (a race of your own from an online lobby).
+ */
+const chaseMap = !!layout.getaway && run.mode === 'race' && !attract && run.seats.includes('p');
+const castSeats = chaseMap ? run.seats.replace(onlineRace ? /[^pr]/g : /[^p]/g, 'x') : run.seats;
 // The seats become the cars, in grid order; behind the menu, eight AIs of every skill.
-const cast = roster(run.seats, CLASSES.map((c) => c.id), PAINTS.length, { ...run, plate }, run.others);
-/** A getaway (docs/CHASE_MODE.md): a race on its map, yours alone (not online, for now), is you and the cops. */
-const getaway = !!layout.getaway && run.mode === 'race' && !attract && !onlineRace && cast.me >= 0;
-const { specs, names, me: you, remote, rivals: aiSeats } = getaway ? { specs: [cast.specs[cast.me]], names: [cast.names[cast.me]], me: 0, remote: new Map<string, number>(), rivals: new Map<number, number>() } : cast;
+const cast = roster(castSeats, CLASSES.map((c) => c.id), PAINTS.length, { ...run, plate }, run.others);
+const getaway = chaseMap && cast.me >= 0;
+const { specs, names, me: you, remote, rivals: aiSeats } = cast;
 for (const s of specs) sim.addCar(s);
-/** Its rules, and its cops: added after your car, their plates the police's. */
-const chase = getaway ? new Getaway(sim, you) : null;
+/** Its rules, and its cops: added after the runners, their plates the police's. */
+const chase = getaway ? new Getaway(sim, specs.map((_, i) => i)) : null;
 const colors = specs.map((x) => PAINTS[(x.paint ?? 0) % PAINTS.length].color);
 chase?.cops.forEach(() => {
   names.push('PD 911');
@@ -222,7 +229,7 @@ const raceUi = new RaceUi(sim, CLASSES, names, colors);
 raceUi.onAgain = () => raceAgain(run);
 // A getaway's best, on this device: the HUD and the results show it; a longer run keeps its time.
 const BEST_KEY = `racecar.getaway.${layoutKey}`;
-if (chase) {
+if (chase && !onlineRace) {
   let best = 0;
   try {
     best = Number(localStorage.getItem(BEST_KEY)) || 0;
@@ -234,7 +241,7 @@ if (chase) {
 /** Whether the run's over and its time's been kept (as it ends: not when its results show, which leaving first skips). */
 let getawayKept = false;
 function keepGetaway(): void {
-  if (!chase?.end || getawayKept) return;
+  if (!chase?.end || onlineRace || getawayKept) return;
   getawayKept = true;
   try {
     if (chase.time > (Number(localStorage.getItem(BEST_KEY)) || 0)) localStorage.setItem(BEST_KEY, String(chase.time));
@@ -254,6 +261,21 @@ if (you >= 0) {
   renderer.focus = hud.focus = raceUi.focus = me;
   renderer.snapCamera();
 }
+raceUi.you = you;
+raceUi.keepsBest = !onlineRace;
+/** An online getaway, you out: the camera on another runner, ← / → (or the strip's buttons) to the next. */
+function watch(car: number): void {
+  if (car < 0 || car === renderer.focus) return;
+  renderer.focus = hud.focus = raceUi.focus = car;
+  renderer.snapCamera();
+}
+raceUi.onWatch = (dir) => chase && watch(cycle(chase, renderer.focus, dir));
+if (chase && chase.runs.length > 1)
+  window.addEventListener('keydown', (e) => {
+    if (!raceUi.watching || (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight')) return;
+    e.preventDefault();
+    raceUi.onWatch(e.key === 'ArrowRight' ? 1 : -1);
+  });
 // Behind the menu there are no results; with the pause menu up they wait.
 raceUi.resultsOn = !attract;
 raceUi.canShow = () => !paused;
@@ -449,6 +471,8 @@ function frame(now: number): void {
         lastSwitch = performance.now();
       }
     }
+    // Watching an online getaway: off a runner who's out, on to one still going.
+    if (chase && raceUi.watching && chase.runOf(renderer.focus)?.end) watch(leader(chase));
     hud.update();
     raceUi.update();
     keepGetaway();

@@ -10,7 +10,8 @@
 //   the attacker's owner (`takedown`), whose screen credits its own car: the boost, the points,
 //   "Takedown!". Without it, a takedown only counted on the victim's screen.
 //
-// A car is named the same on every screen: `p:<player id>` for a player's, `s:<seat>` for an AI.
+// A car is named the same on every screen: `p:<player id>` for a player's, `s:<seat>` for an AI,
+// `c:<k>` for a getaway's cop.
 
 import { takedownCheck } from '../core/collide/cars';
 import { creditTakedown } from '../core/car/physics';
@@ -31,22 +32,24 @@ const MAX_DV = 30;
 
 /** What the cars are called on every screen, and here. */
 export interface CarNames {
-  /** This screen's car index → its name (`p:<id>`, `s:<seat>`). */
+  /** This screen's car index → its name (`p:<id>`, `s:<seat>`, `c:<k>`). */
   name(i: number): string | null;
   /** A name → this screen's car index. */
   index(name: string): number | undefined;
 }
 
-export function carNames(me: number, myId: string, remote: ReadonlyMap<string, number>, aiSeats: ReadonlyMap<number, number>): CarNames {
+export function carNames(me: number, myId: string, remote: ReadonlyMap<string, number>, aiSeats: ReadonlyMap<number, number>, cops: readonly number[] = []): CarNames {
   const byName = new Map<string, number>([[`p:${myId}`, me]]);
   for (const [id, i] of remote) byName.set(`p:${id}`, i);
   for (const [seat, i] of aiSeats) byName.set(`s:${seat}`, i);
+  // A getaway's cops, by their place among its cops (the same on every screen: rules/getaway.ts).
+  cops.forEach((i, k) => byName.set(`c:${k}`, i));
   const byIndex = new Map([...byName].map(([n, i]) => [i, n]));
   return { name: (i) => byIndex.get(i) ?? null, index: (n) => byName.get(n) };
 }
 
-/** Who to tell about a car: its player, or the host for an AI. */
-const ownerOf = (name: string): string => (name.startsWith('s:') ? 'host' : name.slice(2));
+/** Who to tell about a car: its player, or the host for an AI or a cop. */
+const ownerOf = (name: string): string => (name.startsWith('s:') || name.startsWith('c:') ? 'host' : name.slice(2));
 
 
 export class NetContact {

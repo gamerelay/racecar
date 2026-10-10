@@ -4,7 +4,20 @@ Where racecar stands and what's next, for whoever picks it up (a person or a fre
 The design is [SPEC.md](./SPEC.md): decisions in §17, and what building changed in "Changed while
 building". This file is "where are we"; the spec is "what are we making".
 
-**Last updated:** 2026-10-09. **`alpha-1.47`** (PR #167) is tagged and on the hosted build (the
+**Last updated:** 2026-10-09. **On branch `splash-city-online`, not merged:** Heist is **Splash
+City**, and an online lobby race on it is a getaway for every player (the owner: "Make the default
+mode chase when you select from the normal menu", then "competitive survival and we add more cops",
+"each player gets their own cops, but cops will also attack you when nearby", "watch the rest then
+shared results"). Details in [CHASE_MODE.md](./CHASE_MODE.md)'s "Online getaways, and Splash City".
+- **Code:** `rules/getaway.ts` (a run per runner, `poolFor`, `NEAR_TARGET`), `net/cops.ts` (host
+  cops), `net/cars.ts` (`out`/`runT`), `lobby/vote.ts` (`chase`), `ui/watch.ts`, `ui/race.ts`
+  (strip, `showTable`), `main.ts`. `MAX_CARS` is 32.
+- **Checked:** the suite (784), and `?start=getaway` loading on Splash City as before.
+- **Not checked yet:** online with 2+ players on the local relay, 8 runners at the Bank, the
+  32-car draw calls against the table below, and single player's crash card in a visible window.
+- **Next (not in this):** AI runners online, players as cops, an online leaderboard.
+
+Before it, **`alpha-1.47`** (PR #167) is tagged and on the hosted build (the
 owner: "merge and deploy please"): **Heist's draw call pass** ("yes do the draw call pass on heist
 please"), from 650–950 calls a frame to 140–270 (SPEC §15: 250). What and how, in
 [CHASE_MODE.md](./CHASE_MODE.md)'s "The draw call pass":
