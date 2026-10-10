@@ -98,6 +98,7 @@ export class OnlineRace {
       sim,
       cars,
       seat,
+      chase: !!sim.getaway,
       // Every map, in name order.
       maps: [...maps].sort((a, b) => a.name.localeCompare(b.name)).map((m) => `${m.id}/${m.layouts[0]}`),
       now: () => serverNow(),

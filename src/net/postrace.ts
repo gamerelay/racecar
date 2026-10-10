@@ -44,6 +44,8 @@ export interface PostRaceDeps {
   /** Into the next race. */
   go: (lobby: Lobby) => void;
   seed?: () => number;
+  /** A getaway: the vote waits for the last runner (lobby/vote.ts). */
+  chase?: boolean;
 }
 
 /** A car's row from this screen's sim. */
@@ -103,7 +105,7 @@ export class PostRace {
         await this.send({ type: 'result', race: this.d.race, row: resultOf(this.d.sim, i, seat) });
       }
       if (host) {
-        const action = voteStep(this.lobby ?? l, this.d.now(), this.d.seed ?? (() => Math.floor(Math.random() * 2 ** 31)));
+        const action = voteStep(this.lobby ?? l, this.d.now(), this.d.seed ?? (() => Math.floor(Math.random() * 2 ** 31)), this.d.chase);
         if (action) await this.send(action);
       }
     } finally {
