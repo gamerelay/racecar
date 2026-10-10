@@ -6,7 +6,7 @@ import { describe, expect, test } from 'bun:test';
 import { copPace } from '../src/core/ai/cop';
 import { Cause, Ev } from '../src/core/events';
 import { wreckCar } from '../src/core/car/physics';
-import { BUSTED, COP_POOL, Getaway, HEAT_EVERY } from '../src/core/rules/getaway';
+import { BUSTED, COP_POOL, Getaway, HEAT_EVERY, NEAR_TARGET, poolFor } from '../src/core/rules/getaway';
 import { Sim } from '../src/core/sim';
 import { bakeTrack } from '../src/core/track/bake';
 import { Streets } from '../src/core/world/streets';
@@ -31,6 +31,26 @@ function getaway(seed = 1): { sim: Sim; g: Getaway } {
   // On to the green light, and the first tick of the run.
   while (g.heat === 0) sim.step([]);
   return { sim, g };
+}
+
+/** A getaway for `n` runners on the test city (cars 0..n−1, all driven from here), the lights already green. */
+function runners(n: number, seed = 1): { sim: Sim; g: Getaway } {
+  const sim = new Sim(bakeTrack(city, SURFACES), CLASSES, SURFACES, { seed, traffic: 0, mayhem: 'off', weather: 'clear' });
+  for (let k = 0; k < n; k++) sim.addCar({ cls: 'coupe', human: true });
+  const g = new Getaway(sim, Array.from({ length: n }, (_, k) => k));
+  sim.startRace(3, 0.05);
+  while (g.heat === 0) sim.step([]);
+  return { sim, g };
+}
+
+/** Car `i` stood at (x, z) on the ground, stopped. */
+function stand(sim: Sim, i: number, x: number, z: number): void {
+  const c = sim.cars;
+  const ground = sim.track.ground;
+  c.x[i] = c.px[i] = x;
+  c.z[i] = c.pz[i] = z;
+  if (ground) c.y[i] = c.py[i] = ground.height(x, z);
+  c.vx[i] = c.vz[i] = 0;
 }
 
 describe('the getaway', () => {
@@ -385,5 +405,107 @@ describe('the getaway', () => {
     sim.addCar({ cls: 'coupe', human: true });
     expect(sim.getaway).toBeNull();
     expect(city.getaway).toBeDefined();
+  });
+});
+
+describe('the getaway online: a run for each runner (the owner, 2026-10-09)', () => {
+  test('each runner has their own cops, as many as fit in 32 cars, up to the pool', () => {
+    expect([1, 2, 3, 4, 8].map(poolFor)).toEqual([10, 10, 9, 7, 3]);
+    const { sim, g } = runners(3);
+    expect(g.runs.map((r) => r.cops.length)).toEqual([9, 9, 9]);
+    expect(g.cops).toHaveLength(27);
+    expect(sim.cars.count).toBe(30);
+    for (const r of g.runs) {
+      expect(r.cops.filter((i) => sim.cars.active[i])).toHaveLength(2);
+      for (const i of r.cops) expect(sim.cops[i]!.target).toBe(r.car);
+    }
+  });
+
+  test('runners start apart outside the Bank, and standing there wrecks nobody', () => {
+    const { sim, g } = runners(4);
+    const c = sim.cars;
+    for (let a = 0; a < 4; a++) for (let b = a + 1; b < 4; b++) expect(Math.hypot(c.x[a] - c.x[b], c.z[a] - c.z[b])).toBeGreaterThan(4);
+    for (let k = 0; k < 60; k++) sim.step([]);
+    expect(g.runs.map((r) => r.end)).toEqual([null, null, null, null]);
+  });
+
+  test("a cop goes for another runner near it in its sight, and back to its own once they're away", () => {
+    const { sim, g } = runners(2);
+    const c = sim.cars;
+    const cop = g.runs[0].cops.find((i) => c.active[i])!;
+    const home = [c.x[1], c.z[1]] as const;
+    // Runner 1, 12 m from runner 0's cop, somewhere it can see down a street.
+    const st = new Streets(city.getaway!, city.houses ?? []);
+    const spot = [0, 1, 2, 3]
+      .map((q) => [c.x[cop] + Math.sin((q * Math.PI) / 2) * 12, c.z[cop] + Math.cos((q * Math.PI) / 2) * 12] as const)
+      .find(([x, z]) => st.clear(c.x[cop], c.z[cop], x, z))!;
+    expect(12).toBeLessThan(NEAR_TARGET);
+    stand(sim, 1, spot[0], spot[1]);
+    sim.step([]);
+    expect(sim.cops[cop]!.target).toBe(1);
+    // Back at the Bank, far off: its own runner again.
+    stand(sim, 1, home[0], home[1]);
+    sim.step([]);
+    expect(sim.cops[cop]!.target).toBe(0);
+  });
+
+  test("a runner's wreck is their run over, and their cops leave the city; everyone else's go on", () => {
+    const { sim, g } = runners(2);
+    wreckCar(sim, 1, Cause.Wall, 0, 0, -1);
+    sim.step([]);
+    expect(g.runs[1].end).toBe('wrecked');
+    expect(g.runs[1].cops.some((i) => sim.cars.active[i])).toBe(false);
+    expect(g.runs[0].end).toBeNull();
+    expect(g.runs[0].cops.some((i) => sim.cars.active[i])).toBe(true);
+    expect(g.going).toBe(1);
+    expect(g.allOut).toBe(false);
+    // The last one out is first: runner 1 is behind runner 0, who's still going.
+    expect(sim.cars.place[1]).toBe(2);
+  });
+
+  test("any cop on you counts toward busted, whoever's it is", () => {
+    const { sim, g } = runners(2);
+    const c = sim.cars;
+    const cop = g.runs[0].cops.find((i) => c.active[i])!;
+    // Runner 0's cop pulled up beside runner 1, on the side away from runner 0.
+    const dx = c.x[1] - c.x[0];
+    const dz = c.z[1] - c.z[0];
+    const d = Math.hypot(dx, dz) || 1;
+    for (const i of g.cops) sim.cops[i]!.stop = true;
+    stand(sim, cop, c.x[1] + (dx / d) * 4, c.z[1] + (dz / d) * 4);
+    for (let k = 0; k < 60 * (BUSTED + 0.5) && !g.runs[1].end; k++) sim.step([]);
+    expect(g.runs[1].end).toBe('busted');
+  });
+
+  test("another screen's runner isn't out on this screen's say: their own screen's word ends it", () => {
+    const sim = new Sim(bakeTrack(city, SURFACES), CLASSES, SURFACES, { seed: 1, traffic: 0, mayhem: 'off', weather: 'clear' });
+    sim.addCar({ cls: 'coupe', human: true });
+    sim.addCar({ cls: 'coupe', human: true, remote: true });
+    const g = new Getaway(sim, [0, 1]);
+    expect(g.player).toBe(0);
+    sim.startRace(3, 0.05);
+    while (g.heat === 0) sim.step([]);
+    // (A remote car is in once its entity shows: net/cars.ts.)
+    sim.cars.active[1] = 1;
+    wreckCar(sim, 1, Cause.Wall, 0, 0, -1);
+    sim.step([]);
+    expect(g.runs[1].end).toBeNull();
+    g.endRemote(1, 'busted', 42.5);
+    expect(g.runs[1]).toMatchObject({ end: 'busted', time: 42.5 });
+    expect(sim.cars.finishTime[1]).toBe(42.5);
+    // Not twice, and never for this screen's own runner.
+    g.endRemote(1, 'wrecked', 50);
+    g.endRemote(0, 'wrecked', 1);
+    expect(g.runs[1].end).toBe('busted');
+    expect(g.runs[0].end).toBeNull();
+  });
+
+  test('one runner is single player as it was: the whole pool, two out, the same getters', () => {
+    const { sim, g } = getaway();
+    expect(g.runs).toHaveLength(1);
+    expect(g.cops).toHaveLength(COP_POOL);
+    expect(g.player).toBe(0);
+    expect(g.time).toBe(g.runs[0].time);
+    expect(g.cops.filter((i) => sim.cars.active[i])).toHaveLength(2);
   });
 });
