@@ -4,6 +4,7 @@
 // to decide; this is only the shape. Pure: no SDK, no DOM.
 
 import { Cause } from '../core/events';
+import type { GetawayEnd } from '../core/rules/getaway';
 import { clamp, fields, finite, intIn, shortText } from './check';
 
 /** A traffic car's wreck, from the claim's winner (net/traffic.ts). */
@@ -90,4 +91,20 @@ export function readHandover(k: string, v: unknown, splines: number): number | n
     default:
       return clamp(n, -1e4, 1e4);
   }
+}
+
+/** The longest run another screen may say its runner lasted (s): ten hours. */
+const MAX_RUN = 36_000;
+
+/** A getaway runner's end from their car's entity: `out` 1 wrecked, 2 busted, with the time lasted; still going (0) or nonsense, null. */
+export function readRunEnd(out: unknown, runT: unknown): { end: GetawayEnd; time: number } | null {
+  if (out !== 1 && out !== 2) return null;
+  const t = finite(runT);
+  if (t === null || t < 0 || t > MAX_RUN) return null;
+  return { end: out === 1 ? 'wrecked' : 'busted', time: t };
+}
+
+/** A cop's runner, from its entity: one of `runners` (car indexes), or null. */
+export function readTarget(v: unknown, runners: readonly number[]): number | null {
+  return typeof v === 'number' && Number.isInteger(v) && runners.includes(v) ? v : null;
 }

@@ -8,7 +8,7 @@ import { HOLD_S, NetTraffic, readHit, RELEASE_S, TRAFFIC_HIT } from '../src/net/
 import { NetBreakables, NEWS_S, WALL_BREAK } from '../src/net/breakables';
 import { Breakables } from '../src/core/world/breakables';
 import { BUMP, carNames, NetContact, TAKEDOWN } from '../src/net/contact';
-import { MAX_CLOSING, readBump, readHandover, readTakedown } from '../src/net/wire';
+import { MAX_CLOSING, readBump, readHandover, readRunEnd, readTakedown, readTarget } from '../src/net/wire';
 import { Ev } from '../src/core/events';
 import { NetRivals } from '../src/net/rivals';
 import { FALLBACK_MS, joinRace, type RaceJoin } from '../src/net/join';
@@ -16,7 +16,10 @@ import { MAX_STEPS, Stepper, type Tick } from '../src/net/stepper';
 import { wreckCar } from '../src/core/car/physics';
 import { Cause } from '../src/core/events';
 import { raceFromLobby, readSetup, toQuery } from '../src/ui/setup';
-import { CLASSES, citySim, ringSim } from './helpers';
+import { CLASSES, SURFACES, citySim, layout, ringSim } from './helpers';
+import { Getaway } from '../src/core/rules/getaway';
+import { Sim as SimClass } from '../src/core/sim';
+import { bakeTrack } from '../src/core/track/bake';
 
 // Remote cars (milestone 3): each player owns their car and sends it as an entity; everyone else
 // has it as a remote car in their sim, put where the entity says (predicted to now) before each
@@ -1049,5 +1052,59 @@ describe("the race's messages, checked (net/wire.ts)", () => {
     expect(readHandover('wreckT', -1, 3)).toBe(0);
     expect(readHandover('wx', 1e9, 3)).toBe(1e4);
     expect(readHandover('wx', 'x', 3)).toBeNull();
+  });
+});
+
+describe("a getaway runner's end, on their car", () => {
+  test('read as wrecked (1) or busted (2) with the time lasted; anything else is still going, or nonsense', () => {
+    expect(readRunEnd(1, 61.25)).toEqual({ end: 'wrecked', time: 61.25 });
+    expect(readRunEnd(2, 5)).toEqual({ end: 'busted', time: 5 });
+    expect(readRunEnd(0, 30)).toBeNull();
+    expect(readRunEnd(3, 30)).toBeNull();
+    expect(readRunEnd(1.5, 30)).toBeNull();
+    expect(readRunEnd(1, -1)).toBeNull();
+    expect(readRunEnd(1, NaN)).toBeNull();
+    expect(readRunEnd(1, 1e9)).toBeNull();
+    expect(readRunEnd('1', 30)).toBeNull();
+  });
+
+  test("a cop's target is one of the runners, or nothing", () => {
+    expect(readTarget(2, [0, 1, 2])).toBe(2);
+    expect(readTarget(5, [0, 1, 2])).toBeNull();
+    expect(readTarget(1.5, [0, 1, 2])).toBeNull();
+    expect(readTarget('1', [0, 1, 2])).toBeNull();
+  });
+
+  test("your run's end goes out on your car, and theirs ends their run on your screen", () => {
+    const hub = new Hub();
+    const city = layout('heist/city');
+    const make = (meSeat: 0 | 1) => {
+      const sim = new SimClass(bakeTrack(city, SURFACES), CLASSES, SURFACES, { seed: 1, traffic: 0, mayhem: 'off', weather: 'clear' });
+      const ids = ['ada', 'bo'];
+      sim.addCar(meSeat === 0 ? { cls: 'coupe', human: true } : { cls: 'coupe', human: true, remote: true });
+      sim.addCar(meSeat === 1 ? { cls: 'coupe', human: true } : { cls: 'coupe', human: true, remote: true });
+      const g = new Getaway(sim, [0, 1]);
+      sim.startRace(3, 0.05);
+      const net = new NetCars(hub.room(ids[meSeat]), () => hub.now, sim, meSeat, new Map([[ids[1 - meSeat], 1 - meSeat]]));
+      return { sim, g, net, me: meSeat };
+    };
+    const ada = make(0);
+    const bo = make(1);
+    const both = () => {
+      for (const p of [ada, bo]) {
+        p.net.beforeStep();
+        p.sim.step([]);
+        p.net.afterStep();
+      }
+    };
+    while (ada.g.heat === 0 || bo.g.heat === 0) both();
+    for (let k = 0; k < 30; k++) both();
+    wreckCar(ada.sim, 0, Cause.Wall, 0, 0, -1);
+    both();
+    expect(ada.g.runs[0].end).toBe('wrecked');
+    both();
+    expect(bo.g.runs[0].end).toBe('wrecked');
+    expect(bo.g.runs[0].time).toBeCloseTo(ada.g.runs[0].time, 2);
+    expect(bo.g.runs[1].end).toBeNull();
   });
 });

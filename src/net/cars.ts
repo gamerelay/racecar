@@ -14,6 +14,7 @@
 import type { RemotePose, Sim } from '../core/sim';
 import { clamp, finiteOr } from './check';
 import { syncClock } from './clock';
+import { readRunEnd } from './wire';
 
 /** What the SDK's entity kinds look like here (the real ones: `room.define`), so tests can stand in their own. */
 export interface NetEntity {
@@ -83,6 +84,12 @@ export const CAR_FIELDS = {
   boosting: 'flag',
   wreck: 'flag',
   ghost: 'flag',
+} as const;
+
+/** A getaway runner's run on their car (rules/getaway.ts): 0 going, 1 wrecked, 2 busted, and how long they've lasted (s). */
+export const RUN_FIELDS = {
+  out: { type: 'number', precision: 1, smooth: false },
+  runT: { type: 'number', precision: 0.01, smooth: false },
 } as const;
 
 const n = (v: unknown) => finiteOr(v, 0);
@@ -163,6 +170,8 @@ export class NetCars {
   private seen = new Set<string>();
   private lastX: number;
   private lastZ: number;
+  /** Each other runner's time lasted, as last sent: their time if they go. */
+  private runT = new Map<string, number>();
 
   constructor(
     private room: NetRoom,
@@ -176,8 +185,8 @@ export class NetCars {
     /** When the lights go green, on the server's clock (ms); without it, in 3 s. */
     private at?: number,
   ) {
-    this.kind = room.define('car', CAR_FIELDS, { rate: CAR_RATE });
-    this.mine = this.kind.spawn(carFields(sim, me));
+    this.kind = room.define('car', { ...CAR_FIELDS, ...RUN_FIELDS }, { rate: CAR_RATE });
+    this.mine = this.kind.spawn(this.fields());
     this.lastX = sim.cars.x[me];
     this.lastZ = sim.cars.z[me];
   }
@@ -197,22 +206,40 @@ export class NetCars {
       this.sim.cars.active[i] = 1;
       this.sim.setPose(i, predict(e, lead));
       this.sim.controls[i].steer = remoteSteer(e);
+      // A getaway: their screen says when they're out.
+      const g = this.sim.getaway;
+      if (g) {
+        this.runT.set(e.owner.id, finiteOr(e.runT, 0));
+        const end = readRunEnd(e.out, e.runT);
+        if (end) g.endRemote(i, end.end, end.time);
+      }
     }
     // Gone for good (left the room): their car leaves the race. One not seen yet isn't in it yet
     // (`addCar` leaves a remote car out until it shows up).
-    for (const [id, i] of this.remote) if (this.seen.has(id) && !here.has(id)) this.sim.cars.active[i] = 0;
+    for (const [id, i] of this.remote)
+      if (this.seen.has(id) && !here.has(id)) {
+        this.sim.cars.active[i] = 0;
+        // Gone mid-getaway: out, at the time they'd lasted when last heard from.
+        this.sim.getaway?.endRemote(i, 'wrecked', this.runT.get(id) ?? 0);
+      }
   }
 
   /** After each step: your car as it is now, for everyone else. */
   afterStep(): void {
     const c = this.sim.cars;
     const i = this.me;
-    const f = carFields(this.sim, i);
+    const f = this.fields();
     for (const k in f) this.mine[k] = f[k];
     // A reset or a respawn: a jump, not a drive across the map.
     if (Math.hypot(c.x[i] - this.lastX, c.z[i] - this.lastZ) > TELEPORT_M) this.mine.teleport();
     this.lastX = c.x[i];
     this.lastZ = c.z[i];
+  }
+
+  /** Your car's fields, with your getaway run's end and time (0, 0 when it isn't one). */
+  private fields(): Record<string, number | boolean> {
+    const run = this.sim.getaway?.runOf(this.me);
+    return { ...carFields(this.sim, this.me), out: run?.end === 'busted' ? 2 : run?.end ? 1 : 0, runT: run?.time ?? 0 };
   }
 
   dispose(): void {
