@@ -6,6 +6,7 @@
 import type { Sim } from '../core/sim';
 import { NetCars, type NetRoom } from './cars';
 import { NetRivals } from './rivals';
+import { NetCops } from './cops';
 import type { Tick } from './stepper';
 import { NetBreakables } from './breakables';
 import { NetTraffic } from './traffic';
@@ -36,6 +37,8 @@ export interface RaceJoin {
 export interface NetLayers {
   cars: NetCars;
   rivals: NetRivals | null;
+  /** A getaway's cops, driven by the host (null when the race isn't one). */
+  cops: NetCops | null;
   /** Traffic hits, and bumps and takedown credit between screens: null for a race on its own clock. */
   traffic: NetTraffic | null;
   /** Breakable walls broken (claimed like traffic hits): null for a race on its own clock, or a map without any. */
@@ -67,14 +70,15 @@ export async function joinRace(j: RaceJoin): Promise<boolean> {
     const net = new NetCars(room, now, sim, j.me, j.remote, ownClock ? undefined : j.at);
     const race = `${j.seed}:${j.at ?? 0}`;
     const rivals = j.aiSeats.size ? new NetRivals(room, now, sim, j.aiSeats, race) : null;
+    const cops = sim.getaway ? new NetCops(room, now, sim, race) : null;
     joined = true;
     // Traffic hits, bumps and credit say when on the race's clock: a race on its own clock (the
     // fallback started it, or the link had no time) has nothing to compare, so it keeps them to itself.
     const shared = !ownClock && j.at !== undefined;
     const traffic = shared ? new NetTraffic(room, sim, race) : null;
     const walls = shared && sim.world.breakables.n ? new NetBreakables(room, sim, race) : null;
-    const contact = shared ? new NetContact(room, sim, carNames(j.me, room.me, j.remote, j.aiSeats)) : null;
-    j.onNet({ cars: net, rivals, traffic, walls, contact, tick: relay.tick ? (rate, fn) => relay.tick!(rate, fn) : null });
+    const contact = shared ? new NetContact(room, sim, carNames(j.me, room.me, j.remote, j.aiSeats, sim.getaway?.cops)) : null;
+    j.onNet({ cars: net, rivals, cops, traffic, walls, contact, tick: relay.tick ? (rate, fn) => relay.tick!(rate, fn) : null });
     // No time from the link: green 3 s from now (once racing, it's too late to matter).
     if (sim.race.phase === 'countdown' && !j.at) sim.race.goTime = sim.time + 3;
     timers.clear(fallback);

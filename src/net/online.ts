@@ -58,6 +58,7 @@ export class OnlineRace {
   beforeStep(): void {
     this.layers?.cars.beforeStep();
     this.layers?.rivals?.beforeStep();
+    this.layers?.cops?.beforeStep();
   }
 
   /** After each step: your car (and the host's AIs) out, traffic hits claimed, bumps and wrecks told. */
@@ -66,6 +67,7 @@ export class OnlineRace {
     if (!l) return;
     l.cars.afterStep();
     l.rivals?.afterStep();
+    l.cops?.afterStep();
     l.traffic?.afterStep();
     l.walls?.afterStep();
     l.contact?.afterStep();

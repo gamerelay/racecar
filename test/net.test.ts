@@ -2,7 +2,7 @@ import { describe, expect, test } from 'bun:test';
 import { neutralControls } from '../src/core/controls';
 import type { Sim } from '../src/core/sim';
 import { createLobby, apply, encodeSeats, othersIn, roster, type Lobby } from '../src/lobby/lobby';
-import { NetCars, predict, remoteSteer, type NetEntity, type NetKind, type NetRoom } from '../src/net/cars';
+import { NetCars, predict, remoteSteer } from '../src/net/cars';
 import { CLOCK_SNAP, startDelay, syncClock } from '../src/net/clock';
 import { HOLD_S, NetTraffic, readHit, RELEASE_S, TRAFFIC_HIT } from '../src/net/traffic';
 import { NetBreakables, NEWS_S, WALL_BREAK } from '../src/net/breakables';
@@ -17,6 +17,7 @@ import { wreckCar } from '../src/core/car/physics';
 import { Cause } from '../src/core/events';
 import { raceFromLobby, readSetup, toQuery } from '../src/ui/setup';
 import { CLASSES, SURFACES, citySim, layout, ringSim } from './helpers';
+import { Hub } from './hub';
 import { Getaway } from '../src/core/rules/getaway';
 import { Sim as SimClass } from '../src/core/sim';
 import { bakeTrack } from '../src/core/track/bake';
@@ -24,75 +25,6 @@ import { bakeTrack } from '../src/core/track/bake';
 // Remote cars (milestone 3): each player owns their car and sends it as an entity; everyone else
 // has it as a remote car in their sim, put where the entity says (predicted to now) before each
 // step. These run two sims through a stand-in for the SDK's entities.
-
-/** A room's entities, shared by every player's view of it: the SDK, minus the network. */
-class Hub {
-  entities: { kind: string; owner: string; fields: Record<string, unknown>; teleports: number; removed: boolean }[] = [];
-  renderTime = 0;
-  now = 0;
-  /** Who holds the host role: host entities are theirs to write. */
-  host = 'ada';
-  /** Claims, by key: who holds each. */
-  claims = new Map<string, string>();
-  /** Every room's event handlers (sent to all, the sender's only with echo). */
-  handlers: { me: string; type: string; fn: (data: unknown, from: string) => void }[] = [];
-  /** Events sent, in order. */
-  sent: { type: string; from: string; data: unknown }[] = [];
-  room(me: string): NetRoom {
-    const hub = this;
-    return {
-      me,
-      async claim(key) {
-        if (hub.claims.has(key)) return false;
-        hub.claims.set(key, me);
-        return true;
-      },
-      release(key) {
-        if (hub.claims.get(key) === me) hub.claims.delete(key);
-      },
-      emit(type, data, options) {
-        hub.sent.push({ type, from: me, data });
-        const to = options?.to === 'host' ? hub.host : options?.to;
-        for (const h of [...hub.handlers]) if (h.type === type && (h.me !== me || options?.echo !== false) && (to === undefined || h.me === to)) h.fn(structuredClone(data), me);
-      },
-      on(type, fn) {
-        const h = { me, type, fn };
-        hub.handlers.push(h);
-        return () => (hub.handlers = hub.handlers.filter((x) => x !== h));
-      },
-      get isHost() {
-        return hub.host === me;
-      },
-      get hostId() {
-        return hub.host;
-      },
-      get renderTime() {
-        return hub.renderTime;
-      },
-      define(kind: string): NetKind {
-        const mine = (e: Hub['entities'][number]) => e.owner === me || (e.owner === 'host' && hub.host === me);
-        const view = (e: Hub['entities'][number]): NetEntity =>
-          new Proxy(
-            { owner: { id: e.owner === 'host' ? hub.host : e.owner }, mine: mine(e), teleport: () => e.teleports++, remove: () => (e.removed = true) },
-            {
-              get: (t, k) => (k in t ? (t as Record<string | symbol, unknown>)[k] : e.fields[k as string]),
-              set: (_t, k, v) => ((e.fields[k as string] = v), true),
-            },
-          ) as unknown as NetEntity;
-        const live = () => hub.entities.filter((e) => e.kind === kind && !e.removed);
-        return {
-          spawn(initial, options) {
-            const e = { kind, owner: options?.owner === 'host' ? 'host' : me, fields: { ...initial }, teleports: 0, removed: false };
-            hub.entities.push(e);
-            return view(e);
-          },
-          all: () => live().map(view),
-          mine: () => live().filter(mine).map(view),
-        };
-      },
-    };
-  }
-}
 
 /** Two players on a wide ring: ada in seat 0, bo in seat 1, each with the other as a remote car. */
 function twoPlayers() {
