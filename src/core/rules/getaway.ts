@@ -56,8 +56,11 @@ const FAR = 320;
 /** Cops' boost fills this much a second (from heat 3 they use it to close in). */
 const COP_BOOST = 0.06;
 
-/** How a run ended: wrecked (a crash of any kind), or busted (stopped with the cops on you). */
-export type GetawayEnd = 'wrecked' | 'busted';
+/**
+ * How a run ended: wrecked (a crash of any kind), busted (stopped with the cops on you), or away
+ * (online, the last runner as the vote closes: their time's in the results).
+ */
+export type GetawayEnd = 'wrecked' | 'busted' | 'away';
 
 /** One runner's run: their car, their cops, how it's going. */
 export interface Run {
@@ -73,6 +76,8 @@ export interface Run {
   end: GetawayEnd | null;
   /** When their last new cop was called out (sim time). */
   calledAt: number;
+  /** Out only for not being heard from (another screen's runner: net/cars.ts): back in if they are. */
+  gone: boolean;
 }
 
 export class Getaway {
@@ -103,7 +108,7 @@ export class Getaway {
     this.runners = typeof runners === 'number' ? [runners] : [...runners];
     const pool = poolFor(this.runners.length);
     this.runs = this.runners.map((car) => {
-      const run: Run = { car, cops: [], drivers: [], time: 0, busted: 0, end: null, calledAt: -Infinity };
+      const run: Run = { car, cops: [], drivers: [], time: 0, busted: 0, end: null, calledAt: -Infinity, gone: false };
       for (let k = 0; k < pool; k++) {
         const cop = newCop(this.streets, car);
         const i = sim.addCar({ cls: 'police', cop });
@@ -182,8 +187,38 @@ export class Getaway {
   /** Another screen's runner is out, as their car's entity says (net/cars.ts), after `time` s. */
   endRemote(car: number, end: GetawayEnd, time: number): void {
     const run = this.runOf(car);
-    if (!run || run.end || !this.sim.cars.remote[car]) return;
+    if (!run || (run.end && !run.gone) || !this.sim.cars.remote[car]) return;
+    this.resume(car);
     this.over(run, end, time);
+  }
+
+  /** Another screen's runner not heard from a while (net/cars.ts): out for now, at `time`, until they're heard again (resume). */
+  goneRemote(car: number, time: number): void {
+    const run = this.runOf(car);
+    if (!run || run.end || !this.sim.cars.remote[car]) return;
+    this.over(run, 'wrecked', time, false);
+    run.gone = true;
+  }
+
+  /** Another screen's runner heard again after going quiet: their run goes on (and their cops come back out). */
+  resume(car: number): void {
+    const run = this.runOf(car);
+    if (!run?.gone) return;
+    const c = this.sim.cars;
+    run.gone = false;
+    run.end = null;
+    c.finished[car] = 0;
+    c.finishTime[car] = 0;
+    c.place[car] = 0;
+    this.sim.race.finishedCount--;
+  }
+
+  /** This screen's runner, still going as the vote closes (net/online.ts): away, with the time they've lasted. */
+  timeUp(car: number): void {
+    const run = this.runOf(car);
+    const sim = this.sim;
+    if (!run || run.end || sim.cars.remote[car] || sim.race.phase !== 'racing') return;
+    this.over(run, 'away', sim.time - sim.race.goTime);
   }
 
   /** One run's tick: is it over, which runner each of its cops is after, and its cops out and back. */
@@ -372,8 +407,8 @@ export class Getaway {
     c.h[i] = c.ph[i] = h;
   }
 
-  /** A run over: its time kept, its car finished, and its cops stopped (alone) or out of the city (online). */
-  private over(run: Run, end: GetawayEnd, time: number): void {
+  /** A run over: its time kept, its car finished, and its cops stopped (alone) or out of the city (online); said (`tell`) unless it's only gone quiet. */
+  private over(run: Run, end: GetawayEnd, time: number, tell = true): void {
     const sim = this.sim;
     const c = sim.cars;
     const p = run.car;
@@ -387,6 +422,7 @@ export class Getaway {
     if (this.runs.length === 1) for (const d of run.drivers) d.stop = true;
     // (The host's take theirs off: net/cops.ts.)
     else for (const i of run.cops) if (!c.remote[i]) c.active[i] = 0;
-    sim.events.push(sim.tick, Ev.Busted, p, c.x[p], c.y[p], c.z[p], time, end === 'busted' ? 1 : 0);
+    // (b: 0 wrecked, 1 busted, 2 away.)
+    if (tell) sim.events.push(sim.tick, Ev.Busted, p, c.x[p], c.y[p], c.z[p], time, end === 'busted' ? 1 : end === 'away' ? 2 : 0);
   }
 }

@@ -67,8 +67,8 @@ export async function joinRace(j: RaceJoin): Promise<boolean> {
     // The SDK's room: NetRoom is the part of it the net layers use.
     const room = relay.room as NetRoom;
     const now = () => relay.now();
-    const net = new NetCars(room, now, sim, j.me, j.remote, ownClock ? undefined : j.at);
     const race = `${j.seed}:${j.at ?? 0}`;
+    const net = new NetCars(room, now, sim, j.me, j.remote, ownClock ? undefined : j.at, race);
     const rivals = j.aiSeats.size ? new NetRivals(room, now, sim, j.aiSeats, race) : null;
     const cops = sim.getaway ? new NetCops(room, now, sim, race) : null;
     joined = true;

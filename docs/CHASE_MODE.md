@@ -289,12 +289,15 @@ The design and plan: `docs/superpowers/specs/2026-10-09-online-getaway-design.md
   (online) takes their cops out of the city; alone, they pull up as before.
 - **Online:** the room's host drives every cop (`net/cops.ts`, `cop` host entities shaped like
   `net/rivals.ts`'s, with who each is after). Each runner's own screen decides their end and sends
-  it on their car (`out`, `runT`: `net/cars.ts`); a runner whose page goes is out at their last
-  time. Cops are `c:<k>` to `net/contact.ts`. Runners start in pairs outside the Bank.
+  it on their car (`out`, `runT`, and its `race`: a car left from the last race is ignored). A
+  runner not heard from for 3 s is out for now at their last time, and back in if they're heard
+  again (`goneRemote`, `resume`). Cops are `c:<k>` to `net/contact.ts`. Runners start in pairs
+  outside the Bank.
 - **After:** your card for 3 s, then you watch the runners still going (← / →, or the strip's
   buttons: `ui/watch.ts`), then everyone's runs, the longest first (`race.ts`'s `showTable`). The
-  vote opens once one runner's left (`voteStep(…, chase)`), so the last has up to 60 s more. Online
-  runs don't write your best on the device.
+  vote opens once one runner's left (`voteStep(…, chase)`), so the last has up to 60 s more; still
+  going 8 s before it closes, they "got away" (`timeUp`, `LAST_CALL_S` in `net/online.ts`), so
+  their time's in. Online runs don't write your best on the device.
 - **Not checked yet:** two or more players online in the browser, eight at the Bank, and the
   32-car draw calls (the plan's Task 7). Single player's `?start=getaway` loads as before.
 

@@ -14,6 +14,12 @@ import { joinRace, type NetLayers } from './join';
 import { PostRace } from './postrace';
 import type { Tick } from './stepper';
 
+/**
+ * A getaway's last runner, still going this many seconds before the vote closes: away, so their
+ * time's in the results before the next race (the review, 2026-10-09).
+ */
+export const LAST_CALL_S = 8;
+
 export interface OnlineRaceDeps {
   /** The lobbies (results, the vote, the next race). */
   lobbies: Pick<LobbyBackend, 'get' | 'send' | 'subscribe' | 'youIn'>;
@@ -106,10 +112,15 @@ export class OnlineRace {
     });
     // On a page timer until the race page is in, then on the relay's tick: the lobby host's page
     // runs the vote, and a hidden tab's timers slow to once a minute.
-    const timer = setInterval(() => void post.tick(), 250);
+    const step = () => {
+      void post.tick();
+      const v = post.view();
+      if (v && !v.over && v.left <= LAST_CALL_S) sim.getaway?.timeUp(me);
+    };
+    const timer = setInterval(step, 250);
     this.whenTick.push((tick) => {
       clearInterval(timer);
-      tick(4, () => void post.tick());
+      tick(4, step);
     });
     raceUi.official = () => post.official();
     raceUi.vote = () => post.view();

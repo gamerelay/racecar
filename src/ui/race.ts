@@ -254,7 +254,7 @@ export class RaceUi {
     const time = g.time;
     const best = this.getawayBest;
     const record = time > best;
-    this.results.innerHTML = `<div class="card results"><h1 id="rPlace">${g.end === 'busted' ? 'Busted!' : 'Wrecked!'}</h1>
+    this.results.innerHTML = `<div class="card results"><h1 id="rPlace">${g.end === 'busted' ? 'Busted!' : g.end === 'away' ? 'Got away!' : 'Wrecked!'}</h1>
       <p class="getawayTime">You got away for <b>${fmt(time)}</b></p>
       <table><tbody>
         <tr><td>Heat reached</td><td>${g.heat}</td></tr>

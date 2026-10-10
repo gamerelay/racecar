@@ -96,12 +96,12 @@ export function readHandover(k: string, v: unknown, splines: number): number | n
 /** The longest run another screen may say its runner lasted (s): ten hours. */
 const MAX_RUN = 36_000;
 
-/** A getaway runner's end from their car's entity: `out` 1 wrecked, 2 busted, with the time lasted; still going (0) or nonsense, null. */
+/** A getaway runner's end from their car's entity: `out` 1 wrecked, 2 busted, 3 away, with the time lasted; still going (0) or nonsense, null. */
 export function readRunEnd(out: unknown, runT: unknown): { end: GetawayEnd; time: number } | null {
-  if (out !== 1 && out !== 2) return null;
+  if (out !== 1 && out !== 2 && out !== 3) return null;
   const t = finite(runT);
   if (t === null || t < 0 || t > MAX_RUN) return null;
-  return { end: out === 1 ? 'wrecked' : 'busted', time: t };
+  return { end: out === 1 ? 'wrecked' : out === 2 ? 'busted' : 'away', time: t };
 }
 
 /** A cop's runner, from its entity: one of `runners` (car indexes), or null. */

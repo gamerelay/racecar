@@ -550,6 +550,20 @@ describe('the getaway online: a run for each runner (the owner, 2026-10-09)', ()
     }
   });
 
+  test("the last runner, when the vote's about to close: got away, their time kept (review, 2026-10-09)", () => {
+    const { sim, g } = runners(2);
+    for (let k = 0; k < 60; k++) sim.step([]);
+    g.timeUp(0);
+    expect(g.runs[0].end).toBe('away');
+    expect(sim.cars.finished[0]).toBe(1);
+    expect(sim.cars.finishTime[0]).toBeCloseTo(g.runs[0].time, 5);
+    // Not twice, nor for a run that's over.
+    const t = g.runs[0].time;
+    for (let k = 0; k < 30; k++) sim.step([]);
+    g.timeUp(0);
+    expect(g.runs[0].time).toBe(t);
+  });
+
   test('one runner is single player as it was: the whole pool, two out, the same getters', () => {
     const { sim, g } = getaway();
     expect(g.runs).toHaveLength(1);

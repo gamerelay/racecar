@@ -88,8 +88,13 @@ export const CAR_FIELDS = {
   ghost: 'flag',
 } as const;
 
-/** A getaway runner's run on their car (rules/getaway.ts): 0 going, 1 wrecked, 2 busted, and how long they've lasted (s). */
+/**
+ * A car's race (a room's cars outlive a race: a page left from the last one is still in it), and a
+ * getaway runner's run (rules/getaway.ts): 0 going, 1 wrecked, 2 busted, 3 away, and how long
+ * they've lasted (s).
+ */
 export const RUN_FIELDS = {
+  race: 'text',
   out: { type: 'number', precision: 1, smooth: false },
   runT: { type: 'number', precision: 0.01, smooth: false },
 } as const;
@@ -176,8 +181,6 @@ export class NetCars {
   private runT = new Map<string, number>();
   /** When (sim time) each other player's car was last here, racing. */
   private heard = new Map<string, number>();
-  /** Players whose car has said it's going in this race: only then is its word that it's out taken (a car left from the last race says it's out). */
-  private going = new Set<string>();
 
   constructor(
     private room: NetRoom,
@@ -190,6 +193,8 @@ export class NetCars {
     private remote: Map<string, number>,
     /** When the lights go green, on the server's clock (ms); without it, in 3 s. */
     private at?: number,
+    /** This race (its seed and start, as net/join.ts names it): other races' cars aren't in it. */
+    private race?: string,
   ) {
     this.kind = room.define('car', { ...CAR_FIELDS, ...RUN_FIELDS }, { rate: CAR_RATE });
     this.mine = this.kind.spawn(this.fields());
@@ -205,6 +210,8 @@ export class NetCars {
     const here = new Set<string>();
     for (const e of this.kind.all()) {
       if (e.mine) continue;
+      // A car left from another race (its page hasn't gone yet).
+      if (this.race !== undefined && e.race !== this.race) continue;
       const i = this.remote.get(e.owner.id);
       if (i === undefined) continue;
       here.add(e.owner.id);
@@ -216,8 +223,8 @@ export class NetCars {
       const g = this.sim.getaway;
       if (g && this.sim.race.phase === 'racing') {
         this.heard.set(e.owner.id, this.sim.time);
-        if (e.out === 0) this.going.add(e.owner.id);
-        if (!this.going.has(e.owner.id)) continue;
+        // Out for going quiet, and heard again: still going.
+        g.resume(i);
         this.runT.set(e.owner.id, finiteOr(e.runT, 0));
         const end = readRunEnd(e.out, e.runT);
         if (end) g.endRemote(i, end.end, end.time);
@@ -226,11 +233,11 @@ export class NetCars {
     // Gone for good (left the room): their car leaves the race. One not seen yet isn't in it yet
     // (`addCar` leaves a remote car out until it shows up).
     for (const [id, i] of this.remote) if (this.seen.has(id) && !here.has(id)) this.sim.cars.active[i] = 0;
-    // A getaway runner gone a while (or never here since green): out, at the time they'd lasted when last heard from.
+    // A getaway runner gone a while (or never here since green): out for now, at the time they'd lasted when last heard from.
     const g = this.sim.getaway;
     if (g && this.sim.race.phase === 'racing')
       for (const [id, i] of this.remote)
-        if (this.sim.time - Math.max(this.heard.get(id) ?? -Infinity, this.sim.race.goTime) > GONE_S) g.endRemote(i, 'wrecked', this.runT.get(id) ?? 0);
+        if (this.sim.time - Math.max(this.heard.get(id) ?? -Infinity, this.sim.race.goTime) > GONE_S) g.goneRemote(i, this.runT.get(id) ?? 0);
   }
 
   /** After each step: your car as it is now, for everyone else. */
@@ -246,9 +253,10 @@ export class NetCars {
   }
 
   /** Your car's fields, with your getaway run's end and time (0, 0 when it isn't one). */
-  private fields(): Record<string, number | boolean> {
+  private fields(): Record<string, number | boolean | string> {
     const run = this.sim.getaway?.runOf(this.me);
-    return { ...carFields(this.sim, this.me), out: run?.end === 'busted' ? 2 : run?.end ? 1 : 0, runT: run?.time ?? 0 };
+    const out = run?.end === 'away' ? 3 : run?.end === 'busted' ? 2 : run?.end ? 1 : 0;
+    return { ...carFields(this.sim, this.me), race: this.race ?? '', out, runT: run?.time ?? 0 };
   }
 
   dispose(): void {

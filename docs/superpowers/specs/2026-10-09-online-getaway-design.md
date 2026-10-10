@@ -104,6 +104,8 @@ going, 1 wrecked, 2 busted) and their time, so other screens and the host see it
   using the vote's own cap: the last runner has up to `VOTE_MAX_MS` (60 s) more before the next
   race, so the best driver can't hold the lobby for ten minutes. They drive on, and their row's
   time comes in when they stop. (Planning, 2026-10-09: this replaced a separate 20 s grace.)
+  Still going 8 s before the vote closes (`LAST_CALL_S`), they "got away": their run ends there,
+  so their time's in the results and they see them (PR #168's review, 2026-10-09).
 - Your best on this device (`racecar.getaway.<layout>`) is single player's; online runs don't
   write it.
 

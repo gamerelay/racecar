@@ -992,7 +992,8 @@ describe("a getaway runner's end, on their car", () => {
     expect(readRunEnd(1, 61.25)).toEqual({ end: 'wrecked', time: 61.25 });
     expect(readRunEnd(2, 5)).toEqual({ end: 'busted', time: 5 });
     expect(readRunEnd(0, 30)).toBeNull();
-    expect(readRunEnd(3, 30)).toBeNull();
+    expect(readRunEnd(3, 30)).toEqual({ end: 'away', time: 30 });
+    expect(readRunEnd(4, 30)).toBeNull();
     expect(readRunEnd(1.5, 30)).toBeNull();
     expect(readRunEnd(1, -1)).toBeNull();
     expect(readRunEnd(1, NaN)).toBeNull();
@@ -1059,21 +1060,38 @@ function getawayPair() {
 
 describe("a getaway runner's end, from the review (2026-10-09)", () => {
   type Side = ReturnType<typeof getawayPair>['ada'];
-  const netOf = (hub: Hub, p: Side) => new NetCars(p.room, () => hub.now, p.sim, p.me, new Map([[p.other, 1 - p.me]]));
+  const netOf = (hub: Hub, p: Side) => new NetCars(p.room, () => hub.now, p.sim, p.me, new Map([[p.other, 1 - p.me]]), undefined, 'r1');
   const run = (p: Side, net: NetCars) => {
     net.beforeStep();
     p.sim.step([]);
     net.afterStep();
   };
 
-  test("a car left from the last race saying it's out doesn't end this race's run", () => {
+  test("a car left from the last race saying it's out doesn't end this race's run, beside this race's (review, 2026-10-09)", () => {
     const { hub, bo } = getawayPair();
-    // Ada's page from the last race, still in the room: her car says she was busted.
-    hub.entities.push({ kind: 'car', owner: 'ada', fields: { x: bo.sim.cars.x[0], y: bo.sim.cars.y[0], z: bo.sim.cars.z[0], out: 2, runT: 50 }, teleports: 0, removed: false });
+    const at = { x: bo.sim.cars.x[0], y: bo.sim.cars.y[0], z: bo.sim.cars.z[0] };
+    // Ada's car in this race, going, and her page's car from the last race, busted, both in the room.
+    hub.entities.push({ kind: 'car', owner: 'ada', fields: { ...at, race: 'r1', out: 0, runT: 0 }, teleports: 0, removed: false });
+    hub.entities.push({ kind: 'car', owner: 'ada', fields: { ...at, race: 'r0', out: 2, runT: 50 }, teleports: 0, removed: false });
     const net = netOf(hub, bo);
     while (bo.g.heat === 0) run(bo, net);
     for (let k = 0; k < 60; k++) run(bo, net);
     expect(bo.g.runs[0].end).toBeNull();
+  });
+
+  test("a runner out for not being heard is back in when they are, and called out on again", () => {
+    const { hub, bo } = getawayPair();
+    const net = netOf(hub, bo);
+    while (bo.g.heat === 0) run(bo, net);
+    for (let k = 0; k < 60 * 4; k++) run(bo, net);
+    expect(bo.g.runs[0].end).toBe('wrecked');
+    // Ada's page is in at last.
+    hub.entities.push({ kind: 'car', owner: 'ada', fields: { x: bo.sim.cars.x[0], y: bo.sim.cars.y[0], z: bo.sim.cars.z[0], race: 'r1', out: 0, runT: 4 }, teleports: 0, removed: false });
+    run(bo, net);
+    expect(bo.g.runs[0].end).toBeNull();
+    expect(bo.sim.cars.finished[0]).toBe(0);
+    for (let k = 0; k < 10; k++) run(bo, net);
+    expect(bo.g.runs[0].cops.some((i) => bo.sim.cars.active[i])).toBe(true);
   });
 
   test("a runner never seen is out a few seconds after green, at no time lasted", () => {
