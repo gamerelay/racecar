@@ -1040,3 +1040,61 @@ describe("a getaway runner's end, on their car", () => {
     expect(bo.g.runs[1].end).toBeNull();
   });
 });
+
+/** Ada and Bo as getaway runners on Splash City, each a screen with the other remote (not stepped yet). */
+function getawayPair() {
+  const hub = new Hub();
+  const city = layout('heist/city');
+  const make = (meSeat: 0 | 1) => {
+    const sim = new SimClass(bakeTrack(city, SURFACES), CLASSES, SURFACES, { seed: 1, traffic: 0, mayhem: 'off', weather: 'clear' });
+    const ids = ['ada', 'bo'];
+    sim.addCar(meSeat === 0 ? { cls: 'coupe', human: true } : { cls: 'coupe', human: true, remote: true });
+    sim.addCar(meSeat === 1 ? { cls: 'coupe', human: true } : { cls: 'coupe', human: true, remote: true });
+    const g = new Getaway(sim, [0, 1]);
+    sim.startRace(3, 0.05);
+    return { sim, g, room: hub.room(ids[meSeat]), other: ids[1 - meSeat], me: meSeat };
+  };
+  return { hub, ada: make(0), bo: make(1) };
+}
+
+describe("a getaway runner's end, from the review (2026-10-09)", () => {
+  type Side = ReturnType<typeof getawayPair>['ada'];
+  const netOf = (hub: Hub, p: Side) => new NetCars(p.room, () => hub.now, p.sim, p.me, new Map([[p.other, 1 - p.me]]));
+  const run = (p: Side, net: NetCars) => {
+    net.beforeStep();
+    p.sim.step([]);
+    net.afterStep();
+  };
+
+  test("a car left from the last race saying it's out doesn't end this race's run", () => {
+    const { hub, bo } = getawayPair();
+    // Ada's page from the last race, still in the room: her car says she was busted.
+    hub.entities.push({ kind: 'car', owner: 'ada', fields: { x: bo.sim.cars.x[0], y: bo.sim.cars.y[0], z: bo.sim.cars.z[0], out: 2, runT: 50 }, teleports: 0, removed: false });
+    const net = netOf(hub, bo);
+    while (bo.g.heat === 0) run(bo, net);
+    for (let k = 0; k < 60; k++) run(bo, net);
+    expect(bo.g.runs[0].end).toBeNull();
+  });
+
+  test("a runner never seen is out a few seconds after green, at no time lasted", () => {
+    const { hub, bo } = getawayPair();
+    const net = netOf(hub, bo);
+    while (bo.g.heat === 0) run(bo, net);
+    for (let k = 0; k < 60 * 4; k++) run(bo, net);
+    expect(bo.g.runs[0]).toMatchObject({ end: 'wrecked', time: 0 });
+  });
+
+  test("a runner gone for a moment and back is still going", () => {
+    const { hub, ada, bo } = getawayPair();
+    const an = netOf(hub, ada);
+    const bn = netOf(hub, bo);
+    while (ada.g.heat === 0 || bo.g.heat === 0) run(ada, an), run(bo, bn);
+    for (let k = 0; k < 60; k++) run(ada, an), run(bo, bn);
+    const car = hub.entities.find((e) => e.kind === 'car' && e.owner === 'ada')!;
+    car.removed = true;
+    for (let k = 0; k < 60; k++) run(ada, an), run(bo, bn);
+    car.removed = false;
+    for (let k = 0; k < 60; k++) run(ada, an), run(bo, bn);
+    expect(bo.g.runs[0].end).toBeNull();
+  });
+});

@@ -92,6 +92,18 @@ describe('cops online', () => {
     expect(ada.sim.cars.remote[i]).toBe(1);
   });
 
+  test("the host's gone mid-chase: the next host takes the gone runner's cops off (review, 2026-10-09)", () => {
+    const { hub, ada, bo } = chase();
+    for (let k = 0; k < 120; k++) step(ada), step(bo);
+    expect(bo.g.runs[0].cops.some((i) => bo.sim.cars.active[i])).toBe(true);
+    // Ada's page goes: her car with it, and the host role to Bo.
+    for (const e of hub.entities) if (e.kind === 'car' && e.owner === 'ada') e.removed = true;
+    hub.host = 'bo';
+    for (let k = 0; k < 60 * 4; k++) step(bo);
+    expect(bo.g.runs[0].end).toBe('wrecked');
+    expect(bo.g.runs[0].cops.some((i) => bo.sim.cars.active[i])).toBe(false);
+  });
+
   test("a cop's name is its place among the getaway's cops, the host's to tell", () => {
     const names = carNames(0, 'ada', new Map([['bo', 1]]), new Map(), [2, 3, 4]);
     expect(names.name(3)).toBe('c:1');

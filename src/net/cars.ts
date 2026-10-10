@@ -60,6 +60,8 @@ const MAX_LEAD = 0.25;
  */
 const MAX_SPEED = 140;
 const MAX_YAW = 12;
+/** A getaway runner not heard from for this long (s) after green is out (their page went, or never came). */
+export const GONE_S = 3;
 /** A jump this long in one step (m) is a reset or a respawn: everyone snaps instead of sliding. */
 export const TELEPORT_M = 12;
 
@@ -172,6 +174,10 @@ export class NetCars {
   private lastZ: number;
   /** Each other runner's time lasted, as last sent: their time if they go. */
   private runT = new Map<string, number>();
+  /** When (sim time) each other player's car was last here, racing. */
+  private heard = new Map<string, number>();
+  /** Players whose car has said it's going in this race: only then is its word that it's out taken (a car left from the last race says it's out). */
+  private going = new Set<string>();
 
   constructor(
     private room: NetRoom,
@@ -208,7 +214,10 @@ export class NetCars {
       this.sim.controls[i].steer = remoteSteer(e);
       // A getaway: their screen says when they're out.
       const g = this.sim.getaway;
-      if (g) {
+      if (g && this.sim.race.phase === 'racing') {
+        this.heard.set(e.owner.id, this.sim.time);
+        if (e.out === 0) this.going.add(e.owner.id);
+        if (!this.going.has(e.owner.id)) continue;
         this.runT.set(e.owner.id, finiteOr(e.runT, 0));
         const end = readRunEnd(e.out, e.runT);
         if (end) g.endRemote(i, end.end, end.time);
@@ -216,12 +225,12 @@ export class NetCars {
     }
     // Gone for good (left the room): their car leaves the race. One not seen yet isn't in it yet
     // (`addCar` leaves a remote car out until it shows up).
-    for (const [id, i] of this.remote)
-      if (this.seen.has(id) && !here.has(id)) {
-        this.sim.cars.active[i] = 0;
-        // Gone mid-getaway: out, at the time they'd lasted when last heard from.
-        this.sim.getaway?.endRemote(i, 'wrecked', this.runT.get(id) ?? 0);
-      }
+    for (const [id, i] of this.remote) if (this.seen.has(id) && !here.has(id)) this.sim.cars.active[i] = 0;
+    // A getaway runner gone a while (or never here since green): out, at the time they'd lasted when last heard from.
+    const g = this.sim.getaway;
+    if (g && this.sim.race.phase === 'racing')
+      for (const [id, i] of this.remote)
+        if (this.sim.time - Math.max(this.heard.get(id) ?? -Infinity, this.sim.race.goTime) > GONE_S) g.endRemote(i, 'wrecked', this.runT.get(id) ?? 0);
   }
 
   /** After each step: your car as it is now, for everyone else. */

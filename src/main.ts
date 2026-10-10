@@ -262,6 +262,7 @@ if (you >= 0) {
   renderer.snapCamera();
 }
 raceUi.you = you;
+raceUi.keepsBest = !onlineRace;
 /** An online getaway, you out: the camera on another runner, ← / → (or the strip's buttons) to the next. */
 function watch(car: number): void {
   if (car < 0 || car === renderer.focus) return;

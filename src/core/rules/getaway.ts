@@ -172,7 +172,11 @@ export class Getaway {
       sim.events.push(sim.tick, Ev.Heat, p, c.x[p], c.y[p], c.z[p], heat);
     }
     for (const run of this.runs) for (const d of run.drivers) d.heat = this.heat;
-    for (const run of this.runs) if (!run.end) this.stepRun(run, time, dt);
+    for (const run of this.runs) {
+      if (!run.end) this.stepRun(run, time, dt);
+      // Online, an ended run's cops stay out of the city, whoever was host when it ended (net/cops.ts).
+      else if (this.runs.length > 1) for (const i of run.cops) if (!c.remote[i]) c.active[i] = 0;
+    }
   }
 
   /** Another screen's runner is out, as their car's entity says (net/cars.ts), after `time` s. */
@@ -285,7 +289,7 @@ export class Getaway {
       // Two each, at crossings no other runner's cop has taken.
       for (let b = 0, k = 0; k < 2 && b < behind.length; b++) {
         const n = behind[b];
-        if (this.cops.some((j) => c.active[j] && hypot(c.x[j] - st.x(n), c.z[j] - st.z(n)) < 12)) continue;
+        if (this.cops.some((j) => c.active[j] && !run.cops.includes(j) && hypot(c.x[j] - st.x(n), c.z[j] - st.z(n)) < 12)) continue;
         const i = run.cops[k++];
         // The host's (net/cops.ts) are where it puts them.
         if (c.remote[i]) continue;

@@ -27,6 +27,8 @@ export class RaceUi {
   watching = false;
   /** Watch the next runner (1) or the last (−1) (main.ts). */
   onWatch: (dir: 1 | -1) => void = () => {};
+  /** Whether this run counts toward your best on this device (main.ts): online runs don't. */
+  keepsBest = true;
   /** An online getaway's table is up (all out, or the vote's open). */
   private tableUp = false;
   private readonly strip: HTMLDivElement;
@@ -256,7 +258,7 @@ export class RaceUi {
       <p class="getawayTime">You got away for <b>${fmt(time)}</b></p>
       <table><tbody>
         <tr><td>Heat reached</td><td>${g.heat}</td></tr>
-        <tr><td>Best</td><td>${record ? `<b class="fast">${fmt(time)}</b> new best!` : best ? fmt(best) : '–'}</td></tr>
+        ${this.keepsBest ? `<tr><td>Best</td><td>${record ? `<b class="fast">${fmt(time)}</b> new best!` : best ? fmt(best) : '–'}</td></tr>` : ''}
         <tr><td>Cops taken out</td><td>${c.takedowns[this.mine]}</td></tr>
       </tbody></table>
       <div class="row">${this.canAgain ? '<button id="rAgain">Go again</button>' : ''}<button id="rSetup" class="${this.canAgain ? 'ghost' : ''}">${this.setupLabel}</button></div></div>`;

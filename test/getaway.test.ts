@@ -534,6 +534,22 @@ describe('the getaway online: a run for each runner (the owner, 2026-10-09)', ()
     expect(standings(g, off).map((s) => s.car)).toEqual([1, 2, 0]);
   });
 
+  test('alone, the first two start at the two nearest crossings behind you past 91 m, as before (review, 2026-10-09)', () => {
+    const { sim, g } = getaway();
+    const c = sim.cars;
+    const st = new Streets(city.getaway!, city.houses ?? []);
+    const hx = Math.sin(c.h[0]);
+    const hz = Math.cos(c.h[0]);
+    const d = (n: number) => Math.hypot(st.x(n) - c.x[0], st.z(n) - c.z[0]);
+    const behind = Array.from({ length: st.n }, (_, n) => n)
+      .filter((n) => (st.x(n) - c.x[0]) * hx + (st.z(n) - c.z[0]) * hz < 0 && d(n) > 91)
+      .sort((a, b) => d(a) - d(b));
+    for (let k = 0; k < 2; k++) {
+      const i = g.cops[k];
+      expect(Math.hypot(c.x[i] - st.x(behind[k]), c.z[i] - st.z(behind[k]))).toBeLessThan(1);
+    }
+  });
+
   test('one runner is single player as it was: the whole pool, two out, the same getters', () => {
     const { sim, g } = getaway();
     expect(g.runs).toHaveLength(1);
