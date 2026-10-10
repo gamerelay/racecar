@@ -5,12 +5,12 @@
 // page is, say) falls back to the synth music (music.ts), the same as before there were tracks.
 
 /** The tracks, by name: the title's, each map's own, and the nine any race may play. */
-export const TRACKS = ['title', 'pursuit-orchestra', 'downtown', 'tokyo-dubstep', 'backroads', 'backroads-acoustic', 'paradise', 'hawaiian-vibes', 'coastal', 'avalanche', 'winter-pursuit', 'sahara', 'finish-line', 'final-sprint', 'relentless-pursuit', 'half-time-surge', 'propulsion', 'escape', 'forward', 'crashout', 'punch-in'] as const;
+export const TRACKS = ['title', 'pursuit-orchestra', 'downtown', 'tokyo-dubstep', 'backroads', 'backroads-acoustic', 'paradise', 'hawaiian-vibes', 'coastal', 'avalanche', 'winter-pursuit', 'sahara', 'finish-line', 'final-sprint', 'relentless-pursuit', 'half-time-surge', 'propulsion', 'escape', 'forward', 'crashout', 'punch-it'] as const;
 export type TrackName = (typeof TRACKS)[number];
 /** Behind the menus (the attract page): the title's own, and the orchestral one (the owner's, 2026-10-02). */
 export const TITLE_TRACKS: readonly TrackName[] = ['title', 'pursuit-orchestra'];
-/** Tracks for any map's race (`relentless-pursuit` and `half-time-surge`, the owner's, 2026-10-02; `propulsion`, `escape` and `forward`, 2026-10-03; `crashout`, 2026-10-05; `punch-in`, 2026-10-09). */
-export const ANY_MAP: readonly TrackName[] = ['finish-line', 'final-sprint', 'relentless-pursuit', 'half-time-surge', 'propulsion', 'escape', 'forward', 'crashout', 'punch-in'];
+/** Tracks for any map's race (`relentless-pursuit` and `half-time-surge`, the owner's, 2026-10-02; `propulsion`, `escape` and `forward`, 2026-10-03; `crashout`, 2026-10-05; `punch-it`, 2026-10-09). */
+export const ANY_MAP: readonly TrackName[] = ['finish-line', 'final-sprint', 'relentless-pursuit', 'half-time-surge', 'propulsion', 'escape', 'forward', 'crashout', 'punch-it'];
 /**
  * Each map's own tracks: the city has the Tokyo dubstep too, the island the Hawaiian one (2026-10-01)
  * and the coastal one (2026-10-03), the valley an acoustic one (2026-10-02), the mountain its two
@@ -150,7 +150,7 @@ export class Soundtrack {
   }
 }
 
-/** A track's name as a person would say it: `punch-in` → "Punch In". */
+/** A track's name as a person would say it: `punch-it` → "Punch It". */
 export function trackTitle(name: TrackName): string {
   return name.replace(/(^|-)(\w)/g, (_, dash: string, c: string) => (dash ? ' ' : '') + c.toUpperCase());
 }
