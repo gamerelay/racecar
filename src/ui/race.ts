@@ -11,6 +11,7 @@ import { fitBox } from './thumb';
 const FINISH_BAR = 16;
 import type { ResultRow } from '../lobby/lobby';
 import type { VoteView } from '../net/postrace';
+import { standings } from './watch';
 
 export class RaceUi {
   private readonly lights: HTMLDivElement;
@@ -20,6 +21,15 @@ export class RaceUi {
   private cursor = 0;
   /** The results are up (or on their way): the pause menu stays out of it. */
   shown = false;
+  /** Your car (main.ts): the results are yours, whoever the camera's on. −1: the focus's. */
+  you = -1;
+  /** An online getaway: you're out, watching the rest (main.ts moves the camera). */
+  watching = false;
+  /** Watch the next runner (1) or the last (−1) (main.ts). */
+  onWatch: (dir: 1 | -1) => void = () => {};
+  /** An online getaway's table is up (all out, or the vote's open). */
+  private tableUp = false;
+  private readonly strip: HTMLDivElement;
   /** Behind the menu (attract mode) there are no results to show. */
   resultsOn = true;
   /** Whether the results may appear now (not over the pause menu); checked again until they can. */
@@ -58,13 +68,20 @@ export class RaceUi {
       'beforeend',
       `<div class="hud" id="lights"></div>
        <div id="results"></div>
+       <div class="hud" id="watchStrip"></div>
        <canvas class="hud" id="minimap" width="360" height="360"></canvas>`,
     );
     this.lights = document.getElementById('lights') as HTMLDivElement;
     this.results = document.getElementById('results') as HTMLDivElement;
+    this.strip = document.getElementById('watchStrip') as HTMLDivElement;
     this.map = document.getElementById('minimap') as HTMLCanvasElement;
     this.g = this.map.getContext('2d')!;
     this.buildMap();
+  }
+
+  /** Whose results these are: yours, or (attract) the focus's. */
+  private get mine(): number {
+    return this.you >= 0 ? this.you : this.focus;
   }
 
   /** Rebuild the minimap (after an edit). */
@@ -142,16 +159,31 @@ export class RaceUi {
     this.cursor = sim.events.read(this.cursor, this.onEvent);
     // Your car in: the results, from the car's state rather than its Finish event (which a hidden
     // tab's race can step past unseen: EventQueue.skip).
-    if (sim.cars.finished[this.focus] && !this.shown && this.resultsOn) {
+    if (sim.cars.finished[this.mine] && !this.shown && this.resultsOn) {
       this.shown = true;
       const show = () => (this.canShow() ? this.showResults() : setTimeout(show, 250));
       setTimeout(show, 2500);
     }
     // Results stay live (once a second) until the last car is in, and while there's a vote.
-    if (this.open && !sim.getaway && (sim.race.finishedCount < sim.cars.count || this.vote()) && performance.now() > this.refreshAt) {
+    if (this.open && (!sim.getaway || this.tableUp) && (sim.race.finishedCount < sim.cars.count || this.vote()) && performance.now() > this.refreshAt) {
       this.refreshAt = performance.now() + 1000;
       this.rows();
       this.renderVote();
+    }
+    // An online getaway, you out: the others' runs on the strip, then the table once only one's left.
+    const chase = sim.getaway;
+    if (chase && chase.runs.length > 1 && this.watching) {
+      if (!this.tableUp && (chase.allOut || this.vote())) {
+        this.watching = false;
+        this.strip.classList.remove('on');
+        this.showTable();
+      } else if (performance.now() > this.refreshAt) {
+        this.refreshAt = performance.now() + 250;
+        const run = chase.runOf(this.focus);
+        this.strip.innerHTML = `<button id="wBack" aria-label="Watch the last runner">◀</button><span>Watching <span class="plate">${esc(this.names[this.focus] ?? '')}</span> · Heat ${chase.heat} · ${fmt(run?.time ?? 0)}</span><button id="wNext" aria-label="Watch the next runner">▶</button>`;
+        (document.getElementById('wBack') as HTMLButtonElement).onclick = () => this.onWatch(-1);
+        (document.getElementById('wNext') as HTMLButtonElement).onclick = () => this.onWatch(1);
+      }
     }
     // Start lights (hidden a moment after green, whether or not we saw the event).
     if (sim.race.phase !== 'countdown' && this.lights.classList.contains('on') && sim.time - sim.race.goTime > 1) this.lights.className = 'hud';
@@ -196,7 +228,9 @@ export class RaceUi {
   }
 
   showResults(): void {
-    if (this.sim.getaway) return this.showGetaway();
+    const g = this.sim.getaway;
+    if (g && g.runs.length > 1 && (g.allOut || this.vote())) return this.showTable();
+    if (g) return this.showGetaway();
     this.results.innerHTML = `<div class="card results"><h1 id="rPlace">${ordinal(this.sim.cars.place[this.focus])}</h1>
       <table><thead><tr><th></th><th>Driver</th><th>Car</th><th>Time</th><th>${this.sim.track.run ? 'Best run' : 'Best lap'}</th><th>Takedowns</th><th>Wrecks</th><th>Score</th></tr></thead><tbody id="rRows"></tbody></table>
       <div id="rVote"></div>
@@ -223,7 +257,7 @@ export class RaceUi {
       <table><tbody>
         <tr><td>Heat reached</td><td>${g.heat}</td></tr>
         <tr><td>Best</td><td>${record ? `<b class="fast">${fmt(time)}</b> new best!` : best ? fmt(best) : '–'}</td></tr>
-        <tr><td>Cops taken out</td><td>${c.takedowns[this.focus]}</td></tr>
+        <tr><td>Cops taken out</td><td>${c.takedowns[this.mine]}</td></tr>
       </tbody></table>
       <div class="row">${this.canAgain ? '<button id="rAgain">Go again</button>' : ''}<button id="rSetup" class="${this.canAgain ? 'ghost' : ''}">${this.setupLabel}</button></div></div>`;
     this.results.classList.add('on');
@@ -231,6 +265,47 @@ export class RaceUi {
     if (again) again.onclick = () => this.onAgain();
     (document.getElementById('rSetup') as HTMLButtonElement).onclick = () => this.onSetup();
     (again ?? (document.getElementById('rSetup') as HTMLButtonElement)).focus();
+    // Online, others still going: the card for a moment, then watch them.
+    if (g.runs.length > 1 && !g.allOut && !this.vote()) {
+      setTimeout(() => {
+        if (this.tableUp) return;
+        this.results.classList.remove('on');
+        this.watching = true;
+        this.strip.classList.add('on');
+      }, 3000);
+    }
+  }
+
+  /** An online getaway's results (the owner, 2026-10-09): everyone's run, the longest first, and the vote. */
+  private showTable(): void {
+    this.tableUp = true;
+    this.results.innerHTML = `<div class="card results"><h1 id="rPlace">Getaway</h1>
+      <table><thead><tr><th></th><th>Driver</th><th>Car</th><th>Lasted</th><th>Takedowns</th><th>Wrecks</th></tr></thead><tbody id="rRows"></tbody></table>
+      <div id="rVote"></div>
+      <div class="row"><button id="rSetup">${this.setupLabel}</button></div></div>`;
+    this.voteHtml = '';
+    this.rows();
+    this.renderVote();
+    this.results.classList.add('on');
+    (document.getElementById('rSetup') as HTMLButtonElement).onclick = () => this.onSetup();
+    (document.getElementById('rSetup') as HTMLButtonElement).focus();
+  }
+
+  /** An online getaway's rows: still going first (their time running), then the longest run. */
+  private getawayRows(): void {
+    const g = this.sim.getaway!;
+    const c = this.sim.cars;
+    const off = this.official();
+    const list = standings(g, off);
+    const h1 = document.getElementById('rPlace');
+    const at = list.findIndex((s) => s.car === this.mine);
+    if (h1 && at >= 0 && !list[at].going) h1.textContent = ordinal(at + 1);
+    document.getElementById('rRows')!.innerHTML = list
+      .map(
+        (s, k) =>
+          `<tr class="${s.car === this.mine ? 'me' : ''}"><td>${s.going ? '–' : k + 1}</td><td><i class="dot" style="background:${this.colors[s.car]}"></i><span class="plate">${esc(this.names[s.car])}</span></td><td>${this.classes[c.cls[s.car]].name}</td><td>${s.going ? `<span class="muted">${fmt(s.time)} · going</span>` : fmt(s.time)}</td><td>${off.get(s.car)?.takedowns ?? c.takedowns[s.car]}</td><td>${off.get(s.car)?.wrecks ?? c.wrecks[s.car]}</td></tr>`,
+      )
+      .join('');
   }
 
   /**
@@ -238,6 +313,7 @@ export class RaceUi {
    * position with how far back they are, and the race's fastest lap marked.
    */
   private rows(): void {
+    if (this.sim.getaway) return this.getawayRows();
     const c = this.sim.cars;
     // A lap: the race's route round (core/track/graph.ts).
     const L = this.sim.track.graph.route.length;

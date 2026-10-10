@@ -16,6 +16,7 @@ import { cityHeight, inLoop, insideLoop } from '../src/core/track/features/city'
 import { KIND_OASIS, KIND_PAVED } from '../src/core/track/ground';
 import { curve, loopDist, loopDistance } from '../src/core/track/island';
 import { Rng } from '../src/core/rng';
+import { cycle, leader, standings } from '../src/ui/watch';
 import type { CityDef } from '../src/core/content';
 import { CLASSES, SURFACES, layout } from './helpers';
 import { ALL_MAPS } from '../tools/content';
@@ -498,6 +499,39 @@ describe('the getaway online: a run for each runner (the owner, 2026-10-09)', ()
     g.endRemote(0, 'wrecked', 1);
     expect(g.runs[1].end).toBe('busted');
     expect(g.runs[0].end).toBeNull();
+  });
+
+  test('watching: the first runner still going, cycled through those still going, wrapping', () => {
+    const { sim, g } = runners(3);
+    expect(leader(g)).toBe(0);
+    expect(cycle(g, 0, 1)).toBe(1);
+    expect(cycle(g, 0, -1)).toBe(2);
+    wreckCar(sim, 0, Cause.Wall, 0, 0, -1);
+    sim.step([]);
+    // The one out isn't watched any more: on to who's left.
+    expect(leader(g)).toBe(1);
+    expect(cycle(g, 0, 1)).toBe(1);
+    expect(cycle(g, 2, 1)).toBe(1);
+    wreckCar(sim, 1, Cause.Wall, 0, 0, -1);
+    wreckCar(sim, 2, Cause.Wall, 0, 0, -1);
+    sim.step([]);
+    expect(leader(g)).toBe(-1);
+    expect(cycle(g, 2, 1)).toBe(2);
+  });
+
+  test("the getaway's standings: still going first, then the longest run, the lobby's word over this screen's", () => {
+    const { sim, g } = runners(3);
+    for (let k = 0; k < 60; k++) sim.step([]);
+    wreckCar(sim, 2, Cause.Wall, 0, 0, -1);
+    sim.step([]);
+    for (let k = 0; k < 60; k++) sim.step([]);
+    wreckCar(sim, 0, Cause.Wall, 0, 0, -1);
+    sim.step([]);
+    const order = standings(g, new Map()).map((s) => s.car);
+    expect(order).toEqual([1, 0, 2]);
+    // The lobby says runner 2 lasted longer than this screen saw: it ranks on that.
+    const off = new Map([[2, { seat: 2, time: 999, best: null, takedowns: 0, wrecks: 1, score: 0 }]]);
+    expect(standings(g, off).map((s) => s.car)).toEqual([1, 2, 0]);
   });
 
   test('one runner is single player as it was: the whole pool, two out, the same getters', () => {
