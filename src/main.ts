@@ -611,12 +611,23 @@ function openReport(): void {
     const report = telemetry.report(field.value, me);
     telemetry.flush();
     close();
+    // A released build has no dev server to save it: it's a download, to attach to a bug report
+    // (`bun tools/replay.ts <file>` plays it back).
+    if (!import.meta.env.DEV) {
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(new Blob([JSON.stringify(report)], { type: 'application/json' }));
+      a.download = `racecar-report-${new Date().toISOString().replace(/[:.]/g, '-')}.json`;
+      a.click();
+      setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+      toast(`Saved ${a.download}`);
+      return;
+    }
     try {
       const res = await fetch('/__report', { method: 'POST', body: JSON.stringify(report) });
       const { file } = await res.json();
       toast(`Saved ${file}`);
     } catch {
-      toast('Could not save the report (dev server only for now)');
+      toast('Could not save the report');
     }
   };
 }

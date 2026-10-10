@@ -68,7 +68,7 @@ trees"). Details in [CHASE_MODE.md](./CHASE_MODE.md)'s "Built so far".
 
 Before that, **`alpha-1.45`** (PRs #164, #165) is tagged and on the hosted build
 (the owner: "merge both and deploy please"):
-- **Punch In** (#164; the owner's track): `punch-in`, the ninth in soundtrack.ts's `ANY_MAP`. The
+- **Punch In** (#164; the owner's track; since renamed **Punch It**, `punch-it`): `punch-in`, the ninth in soundtrack.ts's `ANY_MAP`. The
   WAV 2.3 dB down from −13.6 to −16.0 LUFS, AAC 128 kb/s, and on the CDN (checked: 200, CORS `*`).
 - **− and + change the track** (#164): the playlist's previous or next, in order and round the
   ends (`Soundtrack.step`), its name in a toast. Off or muted, the new one waits for the music.

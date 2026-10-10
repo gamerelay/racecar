@@ -235,7 +235,7 @@ describe('the soundtrack player', () => {
   });
 
   test("a track's title is its name as said", () => {
-    expect(trackTitle('punch-in')).toBe('Punch In');
+    expect(trackTitle('punch-it')).toBe('Punch It');
     expect(trackTitle('title')).toBe('Title');
     expect(trackTitle('backroads-acoustic')).toBe('Backroads Acoustic');
   });
