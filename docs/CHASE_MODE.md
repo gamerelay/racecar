@@ -298,8 +298,17 @@ The design and plan: `docs/superpowers/specs/2026-10-09-online-getaway-design.md
   vote opens once one runner's left (`voteStep(…, chase)`), so the last has up to 60 s more; still
   going 8 s before it closes, they "got away" (`timeUp`, `LAST_CALL_S` in `net/online.ts`), so
   their time's in. Online runs don't write your best on the device.
-- **Not checked yet:** two or more players online in the browser, eight at the Bank, and the
-  32-car draw calls (the plan's Task 7). Single player's `?start=getaway` loads as before.
+- **Not checked yet:** two or more players online in the browser, and eight at the Bank on the
+  hosted build. Single player's `?start=getaway` loads as before.
+- **The 32-car draw calls (2026-10-10, the plan's Task 7), measured locally:** a dev build in
+  headless Chrome, the AI seats made runners for the test (not in the code), the main pass's
+  calls from each runner's camera every 3 s. One runner: 110–176. Four: 190–344. Eight with 16
+  cops out at the Bank: 210–419, up to 443 just after. So eight is up to about 1.8× the budget
+  (250) for the first ten seconds, while everyone's bunched at the Bank, and about 200–380 after,
+  wrecked cars and all. It's the cars: each is ~30 draws, not merged (the draw call pass above).
+  Not measured: frame rate on a real laptop, or runners spread over the city (the race AIs don't
+  drive it). If eight feels slow, the cars are the place to cut: instancing their parts, or a
+  cheaper car beyond a distance.
 
 ### The draw call pass (2026-10-09)
 
