@@ -51,15 +51,19 @@ split the work as they do now: `apply` decides what's allowed, and relay.ts make
 - relay.ts, on the SDK's host: `room.kick(id, { ban, message })` with `ban` true when the id was
   already in `kicked` before this kick. Messages: `"Removed by the host"` and, banned,
   `"Removed by the host, and can't rejoin this lobby"`.
-- The lobby screen: on each other player's row, the host sees **Kick** (and **Make host**) in a
-  small menu on the row, so neither is a stray click. Not on their own row, not on bots or open seats.
+- The lobby screen: each other player's row gets the host the same seat chooser the other seats
+  have (`chooser`, `sel()` in menu.ts), with the player's name (chosen), **Kick** and **Make host**,
+  through the same change handler. Two steps, so neither is a stray click, and a pad already
+  reaches it. Not on the host's own row; bots and open seats keep their choices.
+  (Second look, 2026-10-10: the chooser rather than a new menu on the row.)
 
 ### Make host
 
 - A new action `{ type: 'host'; index }`: only the lobby's host, only to a seated player who
   isn't them. `lobby.host` becomes that player.
 - relay.ts: after applying it, if this page holds the SDK's role and the new lobby host is
-  connected, `room.transferHost(id)`, so one player holds both. A failure is warned and ignored:
+  connected, `room.transferHost(id)`, so one player holds both. (Second look weighed leaving the
+  SDK's role where it is; kept, the owner wants the game to use the SDK's host controls.) A failure is warned and ignored:
   `apply` checks the lobby's host, so it never matters who holds the SDK's role (ONLINE.md).
 - `lobby/wire.ts` checks the new action like the others (an index in range).
 
@@ -89,8 +93,9 @@ split the work as they do now: `apply` decides what's allowed, and relay.ts make
 - The title gets a small white box, bottom right: **Credits**. It opens the credits page.
 - **A page in the game, not a file:** the hosted build is one HTML file (`bun run build:single`),
   so a second `.html` wouldn't be there. It's a full-screen layer over the title (like Settings,
-  `ui/overlay.ts`), with its own address in the URL hash (`#credits`) so it can be linked, and
-  Esc, Back or the pad's B returns.
+  `ui/overlay.ts`); Esc, Back or the pad's B returns. A link opens it as the game's other links
+  start things, from the query: `?page=credits` (and `privacy`, `terms`) opens the title with the
+  page up. (Second look: the query the game already reads, not a new `#hash` route.)
 - **The background:** CSS only, in the soundtrack art's look: a setting sun with bands, a neon
   grid scrolling toward you, palm silhouettes, and now and then a car's tail-lights crossing.
   `prefers-reduced-motion` stills it.
@@ -108,9 +113,12 @@ split the work as they do now: `apply` decides what's allowed, and relay.ts make
 ## 4. Privacy and Terms
 
 - Two small links under the title's buttons: **Privacy · Terms**. Each opens a page like the
-  credits (the same layer and background, `#privacy`, `#terms`), with the text on a card.
-- The text lives in one module (`ui/legal.ts`), dated, and also as `docs/PRIVACY.md` and
-  `docs/TERMS.md`, the same words, so it can be read and reviewed on GitHub.
+  credits (the same layer and background, `?page=privacy`, `?page=terms`), with the text on a card.
+- The text lives once, in `docs/PRIVACY.md` and `docs/TERMS.md` (dated), readable on GitHub. The
+  game imports them (`?raw`, as menu.ts's flags; Vite inlines them in both builds, and Bun's tests
+  load them too) and draws them with a small renderer for what they use: headings, paragraphs,
+  bullets, bold and links (`ui/legal.ts`), every piece as text, never the file as HTML.
+  (Second look: one copy, not two to keep alike.)
 
 **Privacy**, in plain words:
 - racecar has no analytics, ads or accounts.
@@ -139,7 +147,7 @@ split the work as they do now: `apply` decides what's allowed, and relay.ts make
   `host` calls `transferHost`; Private sets `locked: true` and Public clears it; a join's error code
   reaches the caller.
 - `test/ui.test.ts`: the title has Credits, Privacy and Terms; each opens its
-  page and Back returns; the kick and make-host menu shows only for the host, on other players.
+  page and Back returns; `?page=` opens one; the legal renderer makes text, not HTML, of the docs; the kick and make-host menu shows only for the host, on other players.
 - `test/settings.test.ts` without analytics; `test/posthog.test.ts` goes with the module, and nothing imports `telemetry/posthog`.
 
 ## Not in this
