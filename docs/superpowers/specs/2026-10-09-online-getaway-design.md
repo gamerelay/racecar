@@ -92,7 +92,7 @@ going, 1 wrecked, 2 busted) and their time, so other screens and the host see it
 
 - Your end card ("You got away for 2:41", busted or wrecked) shows for 3 s, then folds to a strip.
 - The camera, HUD and results follow the runner who's lasted longest (`renderer.focus`,
-  `hud.focus`, `raceUi.focus`, as the attract race switches them); ← / → (the pad's shoulders)
+  `hud.focus`, `raceUi.focus`, as the attract race switches them); ← / → (or the strip's buttons, which a pad can reach)
   cycle through the runners still going.
 - The HUD says whose run it is, with their heat and time; the busted bar is only ever your own.
 
@@ -100,9 +100,10 @@ going, 1 wrecked, 2 busted) and their time, so other screens and the host see it
 
 - A getaway's result row: `time` is how long the runner lasted; rows rank by `time`, longest
   first (a race's rank by time is the other way round). Takedowns and wrecks count as in a race.
-- The results and the vote open when every runner's out, or 20 s after only one is left (so the
-  best driver can't hold the lobby for ten minutes); the last runner drives on, and their row's
-  time comes in when they stop.
+- The results and the vote open once only one runner is left (or when the only runner's out),
+  using the vote's own cap: the last runner has up to `VOTE_MAX_MS` (60 s) more before the next
+  race, so the best driver can't hold the lobby for ten minutes. They drive on, and their row's
+  time comes in when they stop. (Planning, 2026-10-09: this replaced a separate 20 s grace.)
 - Your best on this device (`racecar.getaway.<layout>`) is single player's; online runs don't
   write it.
 
