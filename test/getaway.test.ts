@@ -34,9 +34,9 @@ function getaway(seed = 1): { sim: Sim; g: Getaway } {
 }
 
 describe('the getaway', () => {
-  test('in the lobby as Heist (the owner, 2026-10-08: "include this in the online version"), one layout', () => {
+  test('in the lobby as Splash City, once Heist (the owner, 2026-10-08: "include this in the online version"), one layout', () => {
     const map = ALL_MAPS.find((m) => m.id === 'heist')!;
-    expect(map).toMatchObject({ name: 'Heist', layouts: ['city'] });
+    expect(map).toMatchObject({ name: 'Splash City', layouts: ['city'] });
     expect(map.experimental).toBeUndefined();
   });
 
