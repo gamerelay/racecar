@@ -13,8 +13,6 @@ export interface Settings {
   volume: { master: number; music: number; engines: number; effects: number };
   /** Graphics: the preset, and what it sets (a change to one of those makes it `custom`). */
   graphics: { quality: Quality | 'custom'; resolution: number; post: boolean; outline: boolean; fps: boolean };
-  /** Send anonymous playtest analytics (PostHog), where the build has them. */
-  analytics: boolean;
 }
 
 /** What each preset sets. Resolution is a share of the screen's own (at most 2× on high). */
@@ -27,7 +25,6 @@ export const QUALITY: Record<Quality, Pick<Settings['graphics'], 'resolution' | 
 export const DEFAULT_SETTINGS: Settings = {
   volume: { master: 1, music: 1, engines: 1, effects: 1 },
   graphics: { quality: 'high', ...QUALITY.high, fps: false },
-  analytics: true,
 };
 
 export const SETTINGS_KEY = 'racecar.settings';
@@ -37,7 +34,7 @@ const bool = (v: unknown, d: boolean) => (typeof v === 'boolean' ? v : d);
 
 /** Settings from what was stored (anything, or nothing): what's missing or wrong is the default. */
 export function parseSettings(raw: string | null): Settings {
-  let s: Partial<{ [K in keyof Settings]: Partial<Settings[K]> }> & { analytics?: unknown } = {};
+  let s: Partial<{ [K in keyof Settings]: Partial<Settings[K]> }> = {};
   try {
     const v = raw ? JSON.parse(raw) : {};
     if (v && typeof v === 'object') s = v;
@@ -58,7 +55,6 @@ export function parseSettings(raw: string | null): Settings {
         : QUALITY[quality]),
       fps: bool(gr.fps, d.graphics.fps),
     },
-    analytics: bool(s.analytics, d.analytics),
   };
 }
 
@@ -95,12 +91,11 @@ export class SettingsStore {
   }
 
   /** Changes some settings, saves them, and tells everyone listening. */
-  set(change: { volume?: Partial<Settings['volume']>; graphics?: Partial<Settings['graphics']>; analytics?: boolean }): void {
+  set(change: { volume?: Partial<Settings['volume']>; graphics?: Partial<Settings['graphics']> }): void {
     const v = this.value;
     this.value = {
       volume: { ...v.volume, ...change.volume },
       graphics: change.graphics ? withGraphics(v.graphics, change.graphics) : v.graphics,
-      analytics: change.analytics ?? v.analytics,
     };
     try {
       this.storage?.setItem(SETTINGS_KEY, JSON.stringify(this.value));

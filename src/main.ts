@@ -18,7 +18,6 @@ import { bakeTrack } from './core/track/bake';
 import { Input, routedKey } from './input/input';
 import { GameRenderer } from './render/renderer';
 import { GreyboxSkin } from './render/skins/greybox';
-import { posthogBuilt, posthogEnabled, posthogSink, setTelemetryOptOut, telemetryOptedOut } from './telemetry/posthog';
 import { Telemetry } from './telemetry/telemetry';
 import { GameAudio } from './audio/audio';
 import { playlistFor, Soundtrack } from './audio/soundtrack';
@@ -64,10 +63,8 @@ installEmbed();
 /** Frames drawn: the loading screen lifts after the second (the first compiles the shaders). */
 let drawn = 0;
 installChoosers();
-/** The player's settings (sound, graphics, privacy), on this device. */
+/** The player's settings (sound, graphics), on this device. */
 const settings = new SettingsStore(storage());
-// Analytics turned off before there were settings (racecar.telemetry): still off.
-if (telemetryOptedOut() && settings.get().analytics) settings.set({ analytics: false });
 const BUILD = `${import.meta.env.MODE}-${__BUILD_TIME__}`;
 // Only cars and paints that exist: a stale or hand-edited link falls back instead of crashing.
 const LAYOUT_KEYS = Object.keys(LAYOUTS);
@@ -216,14 +213,13 @@ if (attract && track) {
 // The frame rate, top left, when Settings → Show FPS is on.
 document.body.insertAdjacentHTML('beforeend', '<div id="fps" aria-hidden="true"></div>');
 const fpsEl = document.getElementById('fps')!;
-// Settings apply as they change: the volumes, the graphics, analytics.
+// Settings apply as they change: the volumes and the graphics.
 settings.onChange((s) => {
   audio.setVolumes(s.volume);
   renderer.setQuality({ resolution: s.graphics.resolution, post: params.get('post') !== '0' && s.graphics.post, outline: params.get('ink') !== '0' && s.graphics.outline });
   fpsEl.classList.toggle('on', s.graphics.fps);
-  setTelemetryOptOut(!s.analytics);
 });
-const settingsPanel = new SettingsPanel(settings, posthogBuilt);
+const settingsPanel = new SettingsPanel(settings);
 const controlsPanel = new ControlsPanel();
 const raceUi = new RaceUi(sim, CLASSES, names, colors);
 raceUi.onAgain = () => raceAgain(run);
@@ -341,13 +337,6 @@ function swapMap(key: string, weather: RaceSetup['weather'], time: RaceSetup['ti
   raceUi.buildMap();
 }
 const telemetry = new Telemetry(sim, specs, () => layout, BUILD, { enabled: import.meta.env.DEV, trace: params.get('trace') === '1' });
-// Dev builds write local files; playtest builds with a PostHog key send there (unless opted out).
-if (!import.meta.env.DEV || params.get('posthog') === '1') {
-  if (posthogEnabled()) {
-    telemetry.enabled = true;
-    telemetry.sink = posthogSink(telemetry.session, BUILD);
-  }
-}
 telemetry.start(input.lastDevice);
 window.addEventListener('error', (e) => telemetry.error(e.error ?? e.message));
 window.addEventListener('unhandledrejection', (e) => telemetry.error(e.reason));
