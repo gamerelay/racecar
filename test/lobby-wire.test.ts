@@ -142,3 +142,9 @@ test("a lobby's kicked list is read when it's ids, dropped when it's junk, and a
   expect(readLobby({ lobby: { ...base.lobby, kicked: ['bo', 7, '<b>'.repeat(40)] } })?.kicked).toEqual(['bo']);
   expect(readLobby({ lobby: { ...base.lobby, kicked: 'bo' } })).not.toBeNull();
 });
+
+test('Make host is read with a seat index in range, and refused without one', () => {
+  expect(readAction({ type: 'host', index: 3 }, 'ada')).toEqual({ type: 'host', index: 3 });
+  expect(readAction({ type: 'host', index: 8 }, 'ada')).toBeNull();
+  expect(readAction({ type: 'host' }, 'ada')).toBeNull();
+});

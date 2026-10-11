@@ -453,6 +453,12 @@ export class RelayBackend implements LobbyBackend {
       }
     }
     this.commit(room, next);
+    // Make host: the SDK's role goes with the lobby, so one player holds both (if they're connected;
+    // if not, or it fails, the lobby's host is still theirs: `apply` checks the lobby's host).
+    if (action.type === 'host') {
+      const to = next.host;
+      if (to !== room.me && room.players.some((p) => p.id === to && p.connected !== false)) void room.transferHost?.(to).catch(warned('handing over the host role failed', undefined));
+    }
     return next;
   }
 

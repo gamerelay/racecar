@@ -329,3 +329,17 @@ test('a kick remembers who: the lobby keeps their id (once), for the ban on a se
   // Only the host kicks, never themselves.
   expect(apply(l, 'bo', { type: 'kick', index: 0 })).toBeNull();
 });
+
+test('the host hands the lobby to a seated player: not to themselves, a bot or an open seat, and nobody else can', () => {
+  let l = createLobby('L1', { id: 'ada', name: 'ADA', car: 'coupe', paint: 0 });
+  l = apply(l, 'bo', { type: 'join', player: { id: 'bo', name: 'BO', car: 'coupe', paint: 0 } })!;
+  l = apply(l, 'ada', { type: 'seat', index: 2, to: 'ai-hard' })!;
+  expect(apply(l, 'bo', { type: 'host', index: 1 })).toBeNull();
+  expect(apply(l, 'ada', { type: 'host', index: 0 })).toBeNull();
+  expect(apply(l, 'ada', { type: 'host', index: 2 })).toBeNull();
+  expect(apply(l, 'ada', { type: 'host', index: 3 })).toBeNull();
+  const next = apply(l, 'ada', { type: 'host', index: 1 })!;
+  expect(next.host).toBe('bo');
+  // The new host is ready (a host always is), and the old one isn't held to it.
+  expect(next.seats[1]).toMatchObject({ ready: true });
+});

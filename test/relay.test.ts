@@ -478,6 +478,25 @@ describe('online lobbies', () => {
     expect(await bo.backend.get(lobby.id)).toBeNull();
   });
 
+  test("Make host hands over the lobby and the SDK's role with it; to a player whose connection is down, just the lobby", async () => {
+    const hub = new Hub();
+    const [ada, bo, cy] = players(hub, 'ada', 'bo', 'cy');
+    const lobby = await ada.backend.create(player('ADA'), {});
+    for (const p of [bo, cy]) {
+      await p.backend.get(lobby.id);
+      await p.backend.send(lobby.id, { type: 'join', player: player(p.relay.playerId.toUpperCase()) });
+    }
+    const after = await ada.backend.send(lobby.id, { type: 'host', index: 1 });
+    expect(after?.host).toBe('bo');
+    expect(bo.relay.room!.isHost).toBe(true);
+    // Bo's turn: Cy's connection is down, so the SDK's role stays with Bo.
+    const room = hub.rooms.get(lobby.id)!;
+    room.members.find((m) => m.id === 'cy')!.connected = false;
+    const later = await bo.backend.send(lobby.id, { type: 'host', index: 2 });
+    expect(later?.host).toBe('cy');
+    expect(bo.relay.room!.isHost).toBe(true);
+  });
+
   test('Private locks the room at the server: nobody new gets in, its own players come back, and Public opens it', async () => {
     const hub = new Hub();
     const [ada, bo, cy] = players(hub, 'ada', 'bo', 'cy');

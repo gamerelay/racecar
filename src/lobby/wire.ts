@@ -128,6 +128,8 @@ export function readAction(data: unknown, from: string): LobbyAction | null {
     }
     case 'kick':
       return int(data.index, 0, SEATS - 1) ? { type: 'kick', index: data.index } : null;
+    case 'host':
+      return int(data.index, 0, SEATS - 1) ? { type: 'host', index: data.index } : null;
     case 'start': {
       if (data.seed !== undefined && !int(data.seed, 0, 2 ** 31 - 1)) return null;
       if (data.at !== undefined && !(typeof data.at === 'number' && Number.isFinite(data.at) && data.at > 0)) return null;
