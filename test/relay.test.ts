@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'bun:test';
 import { Lobbies, LocalBackend, LOCAL_ID } from '../src/lobby/backend';
 import { AWAY_MS, netRoute, PING_MS, Presence } from '../src/lobby/presence';
-import { RelayBackend, type RelayLike, type RoomLike } from '../src/lobby/relay';
+import { RelayBackend, serverLocked, type RelayLike, type RoomLike } from '../src/lobby/relay';
 import { readAction, readListing, readLobby, readPing } from '../src/lobby/wire';
 import { createLobby } from '../src/lobby/lobby';
 import { raceFromLobby } from '../src/ui/setup';
@@ -288,14 +288,16 @@ function players(hub: Hub, ...ids: string[]) {
 describe('back after the connection was gone a while', () => {
   // The server holds a dropped player's seat 30 s; past that a lone host's room is empty but still
   // there (its idle time), with the lobby in its state. Coming back, the SDK can't resume it.
-  for (const visibility of ['invite', 'public'] as const)
-    test(`alone in a${visibility === 'invite' ? 'n invite-only' : ' public'} lobby: back in it, in your seat, still its host`, async () => {
+  for (const visibility of ['invite', 'public', 'locked'] as const)
+    test(`alone in a ${visibility} lobby: back in it, in your seat, still its host`, async () => {
       const hub = new Hub();
       const [ada] = players(hub, 'ada');
       const lobby = await ada.backend.create(player('Ada'), { visibility, online: true });
       await ada.backend.shareLink(lobby.id);
       const seen: (string | null)[] = [];
       ada.backend.subscribe(lobby.id, (l) => seen.push(l ? l.host : null));
+      // Long enough for the listing to settle (a Private one isn't locked with nobody else to keep out).
+      await new Promise((r) => setTimeout(r, 1100));
       hub.rooms.get(lobby.id)!.timeOut(ada.relay);
       for (let n = 0; n < 5; n++) await settle();
       const back = await ada.backend.get(lobby.id);
@@ -306,6 +308,22 @@ describe('back after the connection was gone a while', () => {
       // The screen never saw it gone (that's the title screen).
       expect(seen).not.toContain(null);
     });
+
+  test("a guest gone too long from someone else's Private lobby is kept out, and told why", async () => {
+    const hub = new Hub();
+    const [ada, bo] = players(hub, 'ada', 'bo');
+    // Invite only first: Bo comes in by its link (the way into a room that isn't Public), then it's made Private.
+    const lobby = await ada.backend.create(player('Ada'), { visibility: 'invite', online: true });
+    expect(await bo.backend.joinLink(linkOf(lobby.id))).toBe(lobby.id);
+    await bo.backend.send(lobby.id, { type: 'join', player: player('BO') });
+    await new Promise((r) => setTimeout(r, 1100));
+    await ada.backend.send(lobby.id, { type: 'options', visibility: 'locked' });
+    await new Promise((r) => setTimeout(r, 1100));
+    expect(hub.rooms.get(lobby.id)!.locked).toBe(true);
+    hub.rooms.get(lobby.id)!.timeOut(bo.relay);
+    for (let n = 0; n < 5; n++) await settle();
+    expect(bo.backend.why(lobby.id)).toEqual({ kind: 'locked' });
+  });
 
   test('back as a new player (the SDK lost its token): you are who the SDK says, and sitting down makes the lobby yours', async () => {
     const hub = new Hub();
@@ -320,6 +338,20 @@ describe('back after the connection was gone a while', () => {
     const sat = await ada.backend.send(lobby.id, { type: 'join', player: { ...player('Ada'), id: 'ada-2' } });
     expect(sat?.host).toBe('ada-2');
     expect(sat?.seats.filter((s) => s.kind === 'player').map((s) => s.kind === 'player' && s.id)).toEqual(['ada-2']);
+  });
+});
+
+describe("Private's lock at the server", () => {
+  const lone = createLobby('L1', { id: 'ada', name: 'ADA', car: 'coupe', paint: 0 }, { visibility: 'locked' });
+  test('locked while the lobby has a host and someone else is in the room', () => {
+    expect(serverLocked(lone, ['ada', 'bo'])).toBe(true);
+    expect(serverLocked({ ...lone, visibility: 'invite' }, ['ada', 'bo'])).toBe(false);
+  });
+  test("open with nobody else in it, so its host can come back after a long disconnect (the room outlives them, the SDK can't resume)", () => {
+    expect(serverLocked(lone, ['ada'])).toBe(false);
+  });
+  test("open once the lobby has no host, as canJoin is: whoever sits down gets it", () => {
+    expect(serverLocked({ ...lone, host: '' }, ['bo', 'cy'])).toBe(false);
   });
 });
 

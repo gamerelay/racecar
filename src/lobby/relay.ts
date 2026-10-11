@@ -85,6 +85,16 @@ export const TAG = 'race';
 export const KICK_MESSAGE = 'Removed by the host';
 export const BAN_MESSAGE = "Removed by the host, and can't rejoin this lobby";
 
+/**
+ * Whether a lobby's room is locked at the server (`setAccess({ locked })`): Private, while it has a
+ * host (as `canJoin`: a hostless one goes to whoever sits down) and someone else is in the room.
+ * Alone, it's open: past the server's grace the SDK can't resume a room, so a host coming back to
+ * their own empty lobby joins it as anyone would, and a lock would keep them out.
+ */
+export function serverLocked(lobby: Lobby, players: readonly string[]): boolean {
+  return lobby.visibility === 'locked' && !!lobby.host && players.some((id) => id !== lobby.host);
+}
+
 /** Why you're out of a lobby, or couldn't get in: for the menu to say. */
 export type Refusal = { kind: 'kicked'; message: string } | { kind: 'banned' | 'locked' | 'full' };
 
@@ -304,7 +314,7 @@ export class RelayBackend implements LobbyBackend {
       if (this.wanted !== code || this.room) return;
       const relay = await this.relayNow();
       const link = this.links.get(code);
-      const room = await (link && relay.joinLink ? relay.joinLink(link) : relay.joinRoom(code)).catch(warned('getting back into a lobby failed', null));
+      const room = await (link && relay.joinLink ? relay.joinLink(link) : relay.joinRoom(code)).catch(this.refused(code, 'getting back into a lobby failed'));
       if (room && this.wanted === code) {
         this.attach(room);
         this.notify(this.lobbyOf(room));
@@ -418,7 +428,11 @@ export class RelayBackend implements LobbyBackend {
       // its role when kicked): out, and banned from the room this time.
       room.on('player_joined', (p: { id: string } | string) => {
         const id = typeof p === 'string' ? p : p?.id;
-        if (room.isHost && id && this.lobbyOf(room)?.banned?.includes(id)) void room.kick(id, { ban: true, message: BAN_MESSAGE }).catch(warned('a ban failed', undefined));
+        const lobby = room.isHost ? this.lobbyOf(room) : null;
+        if (!lobby || !id) return;
+        if (lobby.banned?.includes(id)) void room.kick(id, { ban: true, message: BAN_MESSAGE }).catch(warned('a ban failed', undefined));
+        // Someone else in the room: a Private one locks now (serverLocked).
+        else this.relist(room, lobby);
       }),
       room.on('closed', (reason?: string, message?: string) => {
         if (this.room !== room) return;
@@ -522,7 +536,9 @@ export class RelayBackend implements LobbyBackend {
     // Who can join goes in the listing too: if unlisting the room didn't land, the list still leaves it out.
     const { id: _, name, ...meta } = summarize(lobby);
     const { visibility } = meta;
-    const key = JSON.stringify([name, meta]);
+    // Private is the server's lock too, so a modified page can't walk in (players in it can still come back).
+    const locked = serverLocked(lobby, room.players.map((p) => p.id));
+    const key = JSON.stringify([name, meta, locked]);
     if (key === this.listed) return;
     const send = () => {
       this.listingTimer = null;
@@ -532,8 +548,6 @@ export class RelayBackend implements LobbyBackend {
       // Against the room itself, not what we last sent: a host before us may not have got to it.
       // One that fails is tried again with the next change.
       const listed = visibility === 'public';
-      // Private is the server's lock too, so a modified page can't walk in (players in it can still come back).
-      const locked = visibility === 'locked';
       // Unlisted is link-only too (on an SDK that has it: `linkOnly` is undefined on older ones).
       const linkWrong = room.linkOnly !== undefined && room.linkOnly !== !listed;
       const lockWrong = room.locked !== undefined && room.locked !== locked;
