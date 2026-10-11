@@ -478,6 +478,24 @@ describe('online lobbies', () => {
     expect(await bo.backend.get(lobby.id)).toBeNull();
   });
 
+  test('why you are out: kicked (with the host\'s words), banned, or a private room, said once', async () => {
+    const hub = new Hub();
+    const [ada, bo, cy] = players(hub, 'ada', 'bo', 'cy');
+    const lobby = await ada.backend.create(player('ADA'), {});
+    await bo.backend.get(lobby.id);
+    await bo.backend.send(lobby.id, { type: 'join', player: player('BO') });
+    await ada.backend.send(lobby.id, { type: 'kick', index: 1 });
+    await settle();
+    expect(bo.backend.why(lobby.id)).toEqual({ kind: 'kicked', message: 'Removed by the host' });
+    expect(bo.backend.why(lobby.id)).toBeNull();
+    hub.rooms.get(lobby.id)!.banned.add('bo');
+    expect(await bo.backend.get(lobby.id)).toBeNull();
+    expect(bo.backend.why(lobby.id)).toEqual({ kind: 'banned' });
+    hub.rooms.get(lobby.id)!.locked = true;
+    expect(await cy.backend.get(lobby.id)).toBeNull();
+    expect(cy.backend.why(lobby.id)).toEqual({ kind: 'locked' });
+  });
+
   test("Make host hands over the lobby and the SDK's role with it; to a player whose connection is down, just the lobby", async () => {
     const hub = new Hub();
     const [ada, bo, cy] = players(hub, 'ada', 'bo', 'cy');

@@ -2,7 +2,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { LAYOUT_ALIASES, PAINT_ALIASES, paletteFor, resolveLayout } from '../src/core/content';
 import { CONTENT, EXPERIMENTAL_KEYS, LAYOUT_KEYS, MAPS, PAINTS } from '../tools/content';
-import { lobbyKeys } from '../src/ui/menu';
+import { lobbyKeys, refusalText } from '../src/ui/menu';
 import { describe, expect, test } from 'bun:test';
 import { delta, fmt, ordinal, pingClass } from '../src/ui/format';
 import { esc } from '../src/ui/html';
@@ -222,3 +222,12 @@ describe("the lobby's maps", () => {
   });
 });
 
+
+describe('told why you are out', () => {
+  test('each refusal has its words; a kick says what the host sent', () => {
+    expect(refusalText({ kind: 'kicked', message: 'Removed by the host' })).toBe('Removed by the host');
+    expect(refusalText({ kind: 'banned' })).toBe("You can't rejoin this lobby");
+    expect(refusalText({ kind: 'locked' })).toBe('This lobby is private');
+    expect(refusalText({ kind: 'full' })).toBe('This lobby is full');
+  });
+});

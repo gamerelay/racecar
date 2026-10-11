@@ -84,6 +84,17 @@ export const TAG = 'race';
 /** What a kicked player is told: the first time, and the second (banned from the room). */
 export const KICK_MESSAGE = 'Removed by the host';
 export const BAN_MESSAGE = "Removed by the host, and can't rejoin this lobby";
+
+/** Why you're out of a lobby, or couldn't get in: for the menu to say. */
+export type Refusal = { kind: 'kicked'; message: string } | { kind: 'banned' | 'locked' | 'full' };
+
+/** A failed join's reason, from the SDK's error code (others say nothing new: the title as before). */
+function refusalOf(err: unknown): Refusal | null {
+  const code = (err as { code?: unknown } | null)?.code;
+  if (code === 'banned' || code === 'locked') return { kind: code };
+  if (code === 'room_full') return { kind: 'full' };
+  return null;
+}
 /** A short link's id: its `?join=` (a game without a slug), else its last path segment (`gamerelay.io/<game>/<link>`). */
 export function linkId(url: string): string {
   try {
@@ -99,6 +110,8 @@ const LISTING_MS = 1000;
 
 export class RelayBackend implements LobbyBackend {
   private relay: Promise<RelayLike> | null = null;
+  /** Why each lobby last refused you or put you out, until the menu asks (`why`). */
+  private refusals = new Map<string, Refusal>();
   private room: RoomLike | null = null;
   private off: (() => void)[] = [];
   private presence: Presence | null = null;
@@ -232,6 +245,21 @@ export class RelayBackend implements LobbyBackend {
     return null;
   }
 
+  why(id: string): Refusal | null {
+    const r = this.refusals.get(id) ?? null;
+    this.refusals.delete(id);
+    return r;
+  }
+
+  /** A join's failure: warned as before, and why kept for the menu. */
+  private refused(id: string, what: string) {
+    return (err: unknown): null => {
+      const r = refusalOf(err);
+      if (r) this.refusals.set(id, r);
+      return warned(what, null)(err);
+    };
+  }
+
   async get(id: string): Promise<Lobby | null> {
     this.wanted = id;
     const room = await this.inTurn(() => this.enter(id));
@@ -299,7 +327,7 @@ export class RelayBackend implements LobbyBackend {
       return relay.room;
     }
     await this.leaveRoom();
-    const room = await relay.joinRoom(id).catch(warned('joining a lobby failed', null));
+    const room = await relay.joinRoom(id).catch(this.refused(id, 'joining a lobby failed'));
     if (!room) return null;
     this.attach(room);
     // Given up on while it joined (Esc, or too slow for the screen): out again, before anything
@@ -386,8 +414,9 @@ export class RelayBackend implements LobbyBackend {
       // to checks for anyone who left while nobody held it (and lists the room).
       room.on('player_left', () => room.isHost && this.tidy(room)),
       room.on('host_changed', () => room.isHost && this.tidy(room)),
-      room.on('closed', (reason?: string) => {
+      room.on('closed', (reason?: string, message?: string) => {
         if (this.room !== room) return;
+        if (reason === 'kicked') this.refusals.set(room.code, { kind: 'kicked', message: message || KICK_MESSAGE });
         this.detach();
         if (reason === 'lost' && this.wanted === room.code) return void this.rejoin(room.code);
         // Kicked, or the room closed: out of its party too.

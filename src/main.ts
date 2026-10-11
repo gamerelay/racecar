@@ -289,6 +289,7 @@ if (attract) {
   screens = new Menu(lobbies, { maps: MAPS, layouts: LAYOUTS, classes: CLASSES, paints: PAINTS }, readChoices(params, layoutKey, known), plate, storage());
   screens.onPreview = preview;
   screens.onSettings = () => settingsPanel.open(document.getElementById('mSettings'));
+  screens.onNotice = toast;
   screens.online = !!online;
   screens.offline = () => lobbies.offline;
   // A short link sends players here with `?join=<link>` (net: GameRelay's short links); an

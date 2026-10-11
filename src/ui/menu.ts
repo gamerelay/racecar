@@ -16,6 +16,7 @@ import type { CarClass, MapDef, PaintDef, TrackLayout } from '../core/content';
 import FLAGS from './icons/flags.svg?raw';
 import type { KeyValue, LobbyBackend, NetRoute } from '../lobby/backend';
 import { LOCAL_ID } from '../lobby/backend';
+import type { Refusal } from '../lobby/relay';
 import { aiPlate, cleanPlate, plateProblem, PLATE_MAX, savePlate, typedPlate } from '../lobby/plate';
 import { DEFAULT_OPTIONS, FILL_DIFFICULTY, SEATS, canJoin, nextVisibility, legacySeats, seatIndex, summarize, type Lobby, type LobbyAction, type LobbyOptions, type LobbySummary, type SeatChoice } from '../lobby/lobby';
 import { pingClass } from './format';
@@ -82,6 +83,12 @@ export function lobbyKeys(maps: readonly MapDef[], keys: readonly string[]): str
   return keys.filter((k) => name(k) !== '').sort((a, b) => name(a).localeCompare(name(b)) || a.localeCompare(b));
 }
 
+/** What the menu says when a lobby refuses you or puts you out. */
+export function refusalText(r: Refusal): string {
+  if (r.kind === 'kicked') return r.message;
+  return r.kind === 'banned' ? "You can't rejoin this lobby" : r.kind === 'locked' ? 'This lobby is private' : 'This lobby is full';
+}
+
 export class Menu {
   private root: HTMLElement;
   private screen: Screen = { kind: 'title' };
@@ -113,6 +120,8 @@ export class Menu {
   private leaving = false;
   /** The title's Settings button (main.ts opens the panel). */
   onSettings?: () => void;
+  /** A short note for the player (main.ts toasts it): why a lobby put you out, or let you in. */
+  onNotice?: (text: string) => void;
 
   constructor(
     private backend: LobbyBackend,
@@ -153,6 +162,7 @@ export class Menu {
     let lobby = lobbyId ? await this.backend.get(lobbyId) : null;
     // Gone, or too slow to wait for: the title, and out of it if the join lands later.
     if (lobbyId && !lobby) void this.backend.abandon?.(lobbyId);
+    if (lobbyId && !lobby) this.tellWhy(lobbyId);
     // Back from an online lobby's race: its host reopens it (the others come back when they finish).
     if (lobby && lobby.phase === 'racing' && lobby.host === this.backend.youIn(lobby.id)) lobby = (await this.backend.send(lobby.id, { type: 'end' })) ?? lobby;
     return this.show(lobby ? { kind: 'lobby', id: lobby.id } : { kind: 'title' });
@@ -236,11 +246,15 @@ export class Menu {
       // Gone, or too slow to wait for: to the title, and out of it if the join lands later.
       if (!lobby) {
         void this.backend.abandon?.(screen.id);
+        this.tellWhy(screen.id);
         return this.show({ kind: 'title' });
       }
       let phase = lobby.phase;
       this.unsubscribe = this.backend.subscribe(screen.id, (l) => {
-        if (!l) return void this.show({ kind: 'title' });
+        if (!l) {
+          this.tellWhy(screen.id);
+          return void this.show({ kind: 'title' });
+        }
         const seated = seatIndex(l, this.backend.youIn(l.id)) >= 0;
         // The host started: everyone seated goes to the race (the same one: its seed is the lobby's).
         if (phase === 'lobby' && l.phase === 'racing' && seated) this.go(l);
@@ -486,6 +500,12 @@ export class Menu {
    * the one it was given (`‹old›'s lobby`). Also mends lobbies saved before plates (a seat named
    * "You"), when the menu opens.
    */
+  /** Says why lobby `id` refused you or put you out, if it said. */
+  private tellWhy(id: string): void {
+    const r = this.backend.why?.(id);
+    if (r) this.onNotice?.(refusalText(r));
+  }
+
   private async syncName(old?: string, id = LOCAL_ID): Promise<void> {
     const own = await this.backend.get(id);
     const seat = own?.seats[seatIndex(own, this.backend.youIn(id))];
