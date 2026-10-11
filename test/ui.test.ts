@@ -2,7 +2,8 @@ import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { LAYOUT_ALIASES, PAINT_ALIASES, paletteFor, resolveLayout } from '../src/core/content';
 import { CONTENT, EXPERIMENTAL_KEYS, LAYOUT_KEYS, MAPS, PAINTS } from '../tools/content';
-import { lobbyKeys, refusalText } from '../src/ui/menu';
+import { lobbyKeys, playerSeatChoices, refusalText } from '../src/ui/menu';
+import { apply, createLobby } from '../src/lobby/lobby';
 import { describe, expect, test } from 'bun:test';
 import { delta, fmt, ordinal, pingClass } from '../src/ui/format';
 import { esc } from '../src/ui/html';
@@ -229,5 +230,18 @@ describe('told why you are out', () => {
     expect(refusalText({ kind: 'banned' })).toBe("You can't rejoin this lobby");
     expect(refusalText({ kind: 'locked' })).toBe('This lobby is private');
     expect(refusalText({ kind: 'full' })).toBe('This lobby is full');
+  });
+});
+
+describe("the host's tools on a player's seat", () => {
+  const base = createLobby('L1', { id: 'ada', name: 'ADA', car: 'coupe', paint: 0 });
+  const l = apply(base, 'bo', { type: 'join', player: { id: 'bo', name: 'BO', car: 'coupe', paint: 0 } })!;
+  test("the host sees Kick and Make host on another player's seat, and nothing on their own or a bot's", () => {
+    expect(playerSeatChoices(l, 'ada', 1)).toEqual([['seat', 'Seated'], ['kick', 'Kick'], ['host', 'Make host']]);
+    expect(playerSeatChoices(l, 'ada', 0)).toBeNull();
+    expect(playerSeatChoices(l, 'ada', 2)).toBeNull();
+  });
+  test('nobody else does', () => {
+    expect(playerSeatChoices(l, 'bo', 0)).toBeNull();
   });
 });

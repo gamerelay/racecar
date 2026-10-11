@@ -89,6 +89,16 @@ export function refusalText(r: Refusal): string {
   return r.kind === 'banned' ? "You can't rejoin this lobby" : r.kind === 'locked' ? 'This lobby is private' : 'This lobby is full';
 }
 
+/**
+ * The host's choices on another player's seat (the seat chooser the other seats have): Kick or
+ * Make host, two steps so neither is a stray click. Null where there are none.
+ */
+export function playerSeatChoices(lobby: Lobby, you: string, index: number): [string, string][] | null {
+  const s = lobby.seats[index];
+  if (you !== lobby.host || !s || s.kind !== 'player' || s.id === you) return null;
+  return [['seat', 'Seated'], ['kick', 'Kick'], ['host', 'Make host']];
+}
+
 export class Menu {
   private root: HTMLElement;
   private screen: Screen = { kind: 'title' };
@@ -638,6 +648,8 @@ export class Menu {
           // Yours is a button: your plate, edited without leaving the lobby.
           const plate = me ? `<button id="lPlate" class="seatPlate" title="Edit your plate">${plateChip(s.name)}</button>` : plateChip(s.name);
           who = `${plate}${s.id === lobby.host ? ' <small class="tag">host</small>' : ''}`;
+          const tools = online ? playerSeatChoices(lobby, you, k) : null;
+          if (tools) who += ` ${this.sel(`pseat-${k}`, tools, 'seat')}`;
           // Your own car is picked beside the turntable.
           car = `${dot(s.paint)}${esc(className(s.car))}`;
           status = s.racing && s.id !== you ? '<span class="racing">Racing</span>' : s.id === lobby.host ? '' : s.ready ? '<span class="ready">Ready</span>' : 'Not ready';
@@ -701,6 +713,11 @@ export class Menu {
       if (el) el.onchange = () => fn(el.value);
     };
     for (let k = 0; k < SEATS; k++) change(`seat-${k}`, (v) => this.send(lobby, { type: 'seat', index: k, to: v as SeatChoice }));
+    for (let k = 0; k < SEATS; k++)
+      change(`pseat-${k}`, (v) => {
+        if (v === 'kick') this.send(lobby, { type: 'kick', index: k });
+        else if (v === 'host') this.send(lobby, { type: 'host', index: k });
+      });
     this.on('lPrev', () => this.pick('left'));
     this.on('lNext', () => this.pick('right'));
     for (let k = 0; k < paints.length; k++) this.on(`lPaint-${k}`, () => this.send(lobby, { type: 'car', car: yours.car, paint: k }));
