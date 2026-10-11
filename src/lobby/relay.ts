@@ -402,6 +402,8 @@ export class RelayBackend implements LobbyBackend {
     if (this.room === room) return;
     this.detach();
     this.room = room;
+    // In: why it last kept you out is old news (said later, it would be about something else).
+    this.refusals.delete(room.code);
     this.listed = '';
     this.presence = new Presence(room, async () => {
       const relay = await this.relayNow();
@@ -484,13 +486,14 @@ export class RelayBackend implements LobbyBackend {
     if (!next) return null;
     if (action.type === 'kick') {
       const s = lobby.seats[action.index];
-      // Out of the room too: banned from it on a second kick.
+      // Out of the room too, and banned from it on a second kick (`apply` keeps who, in the lobby).
+      const ban = s.kind === 'player' && !!next.banned?.includes(s.id);
+      const message = ban ? BAN_MESSAGE : KICK_MESSAGE;
       if (s.kind === 'player' && s.id === room.me) {
         // You're the one kicked, and you hold the SDK's role (it moves on reloads), which can't
-        // kick itself: hand on the lobby, then go. A second time, the lobby bans you, and whoever
-        // holds the role then bans you from the room when you come back (`player_joined`).
-        const again = lobby.kicked?.includes(s.id) ?? false;
-        this.refusals.set(room.code, { kind: 'kicked', message: again ? BAN_MESSAGE : KICK_MESSAGE });
+        // kick itself: hand on the lobby, then go. Banned, whoever holds the role next bans you
+        // from the room when you come back (`player_joined`).
+        this.refusals.set(room.code, { kind: 'kicked', message });
         this.commit(room, next);
         if (this.wanted === room.code) this.wanted = null;
         void this.inTurn(async () => {
@@ -498,11 +501,7 @@ export class RelayBackend implements LobbyBackend {
         });
         return next;
       }
-      // Kicked before (the lobby remembers): this time they're banned from the room.
-      if (s.kind === 'player') {
-        const again = lobby.kicked?.includes(s.id) ?? false;
-        void room.kick(s.id, { ban: again, message: again ? BAN_MESSAGE : KICK_MESSAGE }).catch(warned('a kick failed', undefined));
-      }
+      if (s.kind === 'player') void room.kick(s.id, { ban, message }).catch(warned('a kick failed', undefined));
     }
     this.commit(room, next);
     // Make host: the SDK's role goes with the lobby, so one player holds both (if they're connected;

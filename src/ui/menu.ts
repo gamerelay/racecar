@@ -90,15 +90,15 @@ export function refusalText(r: Refusal): string {
   return r.kind === 'banned' ? "You can't rejoin this lobby" : r.kind === 'locked' ? 'This lobby is private' : 'This lobby is full';
 }
 
-/**
- * The host's choices on another player's seat (the seat chooser the other seats have): Kick or
- * Make host, two steps so neither is a stray click. Null where there are none.
- */
 /** What the second step's button says once Kick or Make host is picked (null: nothing picked). */
 export function seatToolConfirm(choice: string, name: string): string | null {
   return choice === 'kick' ? `Kick ${name}` : choice === 'host' ? `Make ${name} host` : null;
 }
 
+/**
+ * The host's choices on another player's seat (the seat chooser the other seats have): Kick or
+ * Make host, two steps so neither is a stray click (`seatToolConfirm`). Null where there are none.
+ */
 export function playerSeatChoices(lobby: Lobby, you: string, index: number): [string, string][] | null {
   const s = lobby.seats[index];
   if (you !== lobby.host || !s || s.kind !== 'player' || s.id === you) return null;
@@ -523,17 +523,17 @@ export class Menu {
     field.select();
   }
 
-  /**
-   * Your lobby goes by your plate: your seat's name, and the lobby's own name while it's still
-   * the one it was given (`‹old›'s lobby`). Also mends lobbies saved before plates (a seat named
-   * "You"), when the menu opens.
-   */
   /** Says why lobby `id` refused you or put you out, if it said. */
   private tellWhy(id: string): void {
     const r = this.backend.why?.(id);
     if (r) this.onNotice?.(refusalText(r));
   }
 
+  /**
+   * Your lobby goes by your plate: your seat's name, and the lobby's own name while it's still
+   * the one it was given (`‹old›'s lobby`). Also mends lobbies saved before plates (a seat named
+   * "You"), when the menu opens.
+   */
   private async syncName(old?: string, id = LOCAL_ID): Promise<void> {
     const own = await this.backend.get(id);
     const seat = own?.seats[seatIndex(own, this.backend.youIn(id))];

@@ -560,6 +560,18 @@ describe('online lobbies', () => {
     expect(cy.backend.why(lobby.id)).toEqual({ kind: 'locked' });
   });
 
+  test("a refusal nobody asked about is forgotten once you're in: it can't be said later, about something else", async () => {
+    const hub = new Hub();
+    const [ada, cy] = players(hub, 'ada', 'cy');
+    const lobby = await ada.backend.create(player('ADA'), {});
+    const room = hub.rooms.get(lobby.id)!;
+    room.locked = true;
+    expect(await cy.backend.get(lobby.id)).toBeNull();
+    room.locked = false;
+    expect(await cy.backend.get(lobby.id)).not.toBeNull();
+    expect(cy.backend.why(lobby.id)).toBeNull();
+  });
+
   test("Make host hands over the lobby and the SDK's role with it; to a player whose connection is down, just the lobby", async () => {
     const hub = new Hub();
     const [ada, bo, cy] = players(hub, 'ada', 'bo', 'cy');
