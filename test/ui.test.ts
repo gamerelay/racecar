@@ -2,7 +2,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { LAYOUT_ALIASES, PAINT_ALIASES, paletteFor, resolveLayout } from '../src/core/content';
 import { CONTENT, EXPERIMENTAL_KEYS, LAYOUT_KEYS, MAPS, PAINTS } from '../tools/content';
-import { lobbyKeys, playerSeatChoices, refusalText } from '../src/ui/menu';
+import { lobbyKeys, playerSeatChoices, refusalText, seatToolConfirm } from '../src/ui/menu';
 import { apply, createLobby } from '../src/lobby/lobby';
 import { renderDoc } from '../src/ui/legal';
 import { pageHtml, readPage } from '../src/ui/pages';
@@ -282,5 +282,13 @@ describe('the Credits, Privacy and Terms pages', () => {
     expect(pageHtml('privacy')).toContain('<h1>Privacy</h1>');
     expect(pageHtml('terms')).toContain('Photosensitivity');
     for (const p of ['credits', 'privacy', 'terms'] as const) expect(pageHtml(p)).toContain('id="pgBack"');
+  });
+});
+
+describe("the host's tools take two steps", () => {
+  test('Kick or Make host in the chooser only arms it: a second button, named for the player, sends it', () => {
+    expect(seatToolConfirm('seat', 'BO')).toBeNull();
+    expect(seatToolConfirm('kick', 'BO')).toBe('Kick BO');
+    expect(seatToolConfirm('host', 'BO')).toBe('Make BO host');
   });
 });

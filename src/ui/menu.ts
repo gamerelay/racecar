@@ -94,6 +94,11 @@ export function refusalText(r: Refusal): string {
  * The host's choices on another player's seat (the seat chooser the other seats have): Kick or
  * Make host, two steps so neither is a stray click. Null where there are none.
  */
+/** What the second step's button says once Kick or Make host is picked (null: nothing picked). */
+export function seatToolConfirm(choice: string, name: string): string | null {
+  return choice === 'kick' ? `Kick ${name}` : choice === 'host' ? `Make ${name} host` : null;
+}
+
 export function playerSeatChoices(lobby: Lobby, you: string, index: number): [string, string][] | null {
   const s = lobby.seats[index];
   if (you !== lobby.host || !s || s.kind !== 'player' || s.id === you) return null;
@@ -662,7 +667,7 @@ export class Menu {
           const plate = me ? `<button id="lPlate" class="seatPlate" title="Edit your plate">${plateChip(s.name)}</button>` : plateChip(s.name);
           who = `${plate}${s.id === lobby.host ? ' <small class="tag">host</small>' : ''}`;
           const tools = online ? playerSeatChoices(lobby, you, k) : null;
-          if (tools) who += ` ${this.sel(`pseat-${k}`, tools, 'seat')}`;
+          if (tools) who += ` ${this.sel(`pseat-${k}`, tools, 'seat')}<button id="pgo-${k}" class="ghost seatGo" hidden></button>`;
           // Your own car is picked beside the turntable.
           car = `${dot(s.paint)}${esc(className(s.car))}`;
           status = s.racing && s.id !== you ? '<span class="racing">Racing</span>' : s.id === lobby.host ? '' : s.ready ? '<span class="ready">Ready</span>' : 'Not ready';
@@ -727,9 +732,18 @@ export class Menu {
     };
     for (let k = 0; k < SEATS; k++) change(`seat-${k}`, (v) => this.send(lobby, { type: 'seat', index: k, to: v as SeatChoice }));
     for (let k = 0; k < SEATS; k++)
+      // Picking Kick or Make host only arms it: the button beside it, named for the player, sends it.
       change(`pseat-${k}`, (v) => {
-        if (v === 'kick') this.send(lobby, { type: 'kick', index: k });
-        else if (v === 'host') this.send(lobby, { type: 'host', index: k });
+        const go = document.getElementById(`pgo-${k}`) as HTMLButtonElement | null;
+        const s = lobby.seats[k];
+        const label = s?.kind === 'player' ? seatToolConfirm(v, s.name) : null;
+        if (!go) return;
+        go.hidden = !label;
+        go.textContent = label ?? '';
+        go.onclick = () => {
+          if (v === 'kick') this.send(lobby, { type: 'kick', index: k });
+          else if (v === 'host') this.send(lobby, { type: 'host', index: k });
+        };
       });
     this.on('lPrev', () => this.pick('left'));
     this.on('lNext', () => this.pick('right'));

@@ -343,3 +343,16 @@ test('the host hands the lobby to a seated player: not to themselves, a bot or a
   // The new host is ready (a host always is), and the old one isn't held to it.
   expect(next.seats[1]).toMatchObject({ ready: true });
 });
+
+test('a second kick bans them from the lobby: they can\'t sit down again', () => {
+  let l = createLobby('L1', { id: 'ada', name: 'ADA', car: 'coupe', paint: 0 });
+  const bo = { id: 'bo', name: 'BO', car: 'coupe', paint: 0 };
+  l = apply(l, 'bo', { type: 'join', player: bo })!;
+  l = apply(l, 'ada', { type: 'kick', index: 1 })!;
+  expect(l.banned).toBeUndefined();
+  l = apply(l, 'bo', { type: 'join', player: bo })!;
+  l = apply(l, 'ada', { type: 'kick', index: 1 })!;
+  expect(l.banned).toEqual(['bo']);
+  expect(canJoin(l, 'bo')).toBe(false);
+  expect(apply(l, 'bo', { type: 'join', player: bo })).toBeNull();
+});

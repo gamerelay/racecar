@@ -21,7 +21,7 @@ import { warned } from './warn';
 import { readAction, readListing, readLobby } from './wire';
 
 /** The room events racecar listens to: the SDK's names, so a misspelt one doesn't compile (it would never fire). */
-export type RoomEvent = 'state' | 'message' | 'player_left' | 'player_disconnected' | 'player_reconnected' | 'host_changed' | 'closed';
+export type RoomEvent = 'state' | 'message' | 'player_joined' | 'player_left' | 'player_disconnected' | 'player_reconnected' | 'host_changed' | 'closed';
 
 /** What the backend uses of `@gamerelay/sdk`, so tests can stand in a hub of their own. */
 export interface RelayLike {
@@ -414,6 +414,12 @@ export class RelayBackend implements LobbyBackend {
       // to checks for anyone who left while nobody held it (and lists the room).
       room.on('player_left', () => room.isHost && this.tidy(room)),
       room.on('host_changed', () => room.isHost && this.tidy(room)),
+      // Someone the lobby has banned is back in its room (a ban the SDK couldn't make: they held
+      // its role when kicked): out, and banned from the room this time.
+      room.on('player_joined', (p: { id: string } | string) => {
+        const id = typeof p === 'string' ? p : p?.id;
+        if (room.isHost && id && this.lobbyOf(room)?.banned?.includes(id)) void room.kick(id, { ban: true, message: BAN_MESSAGE }).catch(warned('a ban failed', undefined));
+      }),
       room.on('closed', (reason?: string, message?: string) => {
         if (this.room !== room) return;
         if (reason === 'kicked') this.refusals.set(room.code, { kind: 'kicked', message: message || KICK_MESSAGE });
@@ -467,7 +473,10 @@ export class RelayBackend implements LobbyBackend {
       // Out of the room too: banned from it on a second kick.
       if (s.kind === 'player' && s.id === room.me) {
         // You're the one kicked, and you hold the SDK's role (it moves on reloads), which can't
-        // kick itself: hand on the lobby, then go.
+        // kick itself: hand on the lobby, then go. A second time, the lobby bans you, and whoever
+        // holds the role then bans you from the room when you come back (`player_joined`).
+        const again = lobby.kicked?.includes(s.id) ?? false;
+        this.refusals.set(room.code, { kind: 'kicked', message: again ? BAN_MESSAGE : KICK_MESSAGE });
         this.commit(room, next);
         if (this.wanted === room.code) this.wanted = null;
         void this.inTurn(async () => {

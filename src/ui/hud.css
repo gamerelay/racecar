@@ -260,6 +260,9 @@ svg.thumb .end { fill: var(--sun); stroke: var(--ink); stroke-width: 1; }
 .seats .car { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
 .seats .car .muted { margin: 0; font-size: 12px; }
 .card .seats button.chooser { padding: 5px 8px; font-size: 13px; }
+/* Kick or Make host, armed in the seat chooser: the second step. */
+.card .seats button.seatGo { margin-left: 6px; padding: 5px 8px; font-size: 13px; }
+.card .seats button.seatGo[hidden] { display: none; }
 .seats .tag { font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; line-height: 1; color: var(--outline); background: var(--sun); padding: 3px 5px; margin-left: 6px; vertical-align: middle; }
 .seats .ready { color: #7cff6b; }
 /* Still in the lobby's race (online): back when their lobby screen opens. */

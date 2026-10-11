@@ -148,3 +148,9 @@ test('Make host is read with a seat index in range, and refused without one', ()
   expect(readAction({ type: 'host', index: 8 }, 'ada')).toBeNull();
   expect(readAction({ type: 'host' }, 'ada')).toBeNull();
 });
+
+test("a lobby's banned list is read like its kicked one", () => {
+  const base = { lobby: createLobby('L1', { id: 'ada', name: 'ADA', car: 'coupe', paint: 0 }) };
+  expect(readLobby(base)?.banned).toBeUndefined();
+  expect(readLobby({ lobby: { ...base.lobby, banned: ['bo', 7] } })?.banned).toEqual(['bo']);
+});

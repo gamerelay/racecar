@@ -189,7 +189,9 @@ export function readLobby(state: Record<string, unknown>): Lobby | null {
   const results = Array.isArray(l.results) ? l.results.slice(0, SEATS).map(readResult).filter((r): r is ResultRow => !!r) : undefined;
   const vote = l.vote === undefined ? null : readVote(l.vote);
   // Who's been kicked: ids only (a bad entry is dropped, not the lobby).
-  const kicked = Array.isArray(l.kicked) ? l.kicked.filter((k): k is string => str(k, 64)).slice(0, 64) : undefined;
+  const ids = (v: unknown) => (Array.isArray(v) ? v.filter((k): k is string => str(k, 64)).slice(0, 64) : undefined);
+  const kicked = ids(l.kicked);
+  const banned = ids(l.banned);
   return {
     id: l.id,
     name: l.name,
@@ -204,6 +206,7 @@ export function readLobby(state: Record<string, unknown>): Lobby | null {
     ...(results?.length ? { results } : {}),
     ...(vote ? { vote } : {}),
     ...(kicked?.length ? { kicked } : {}),
+    ...(banned?.length ? { banned } : {}),
   };
 }
 

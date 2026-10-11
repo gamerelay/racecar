@@ -182,6 +182,8 @@ class FakeClient implements RoomLike {
     this.room.emit('host_changed', c.id, was.id);
   }
   async leave(): Promise<void> {
+    // (The SDK forgets the room it left.)
+    if (this.relay?.room === this) this.relay.room = null;
     this.room.remove(this);
   }
 }
@@ -261,8 +263,10 @@ class FakeRelay implements RelayLike {
     const c = new FakeClient(room, this.playerId);
     c.relay = this;
     room.members.push(c);
-    room.emit('player_joined', c.id);
-    return (this.room = c);
+    this.room = c;
+    // As the SDK says it: the player, not just their id (a host may kick them on it: a ban).
+    room.emit('player_joined', { id: c.id });
+    return c;
   }
   async listRooms() {
     return [...this.hub.rooms.values()].filter((r) => r.public).map((r) => ({ code: r.code, players: r.members.length, name: r.listing.name ?? null, meta: r.listing.meta ?? null, locked: false }));
@@ -476,6 +480,34 @@ describe('online lobbies', () => {
     await ada.backend.send(lobby.id, { type: 'kick', index: 2 });
     expect(room.kicks.at(-1)).toEqual({ id: 'bo', ban: true, message: "Removed by the host, and can't rejoin this lobby" });
     expect(await bo.backend.get(lobby.id)).toBeNull();
+  });
+
+  test("kicked twice while holding the SDK's role (it can't kick itself): still told, and banned when they come back", async () => {
+    const hub = new Hub();
+    const [ada, bo] = players(hub, 'ada', 'bo');
+    const lobby = await ada.backend.create(player('ADA'), {});
+    const room = hub.rooms.get(lobby.id)!;
+    /** Bo's page holds the SDK's role (a reload moved it). */
+    const boHolds = () => {
+      room.members = [room.members.find((m) => m.id === 'bo')!, ...room.members.filter((m) => m.id !== 'bo')];
+      room.emit('host_changed', 'bo', 'ada');
+    };
+    for (const [n, message] of [[1, 'Removed by the host'], [2, "Removed by the host, and can't rejoin this lobby"]] as const) {
+      await bo.backend.get(lobby.id);
+      await bo.backend.send(lobby.id, { type: 'join', player: player('BO') });
+      boHolds();
+      await ada.backend.send(lobby.id, { type: 'kick', index: 1 });
+      await settle();
+      expect(bo.backend.why(lobby.id)).toEqual({ kind: 'kicked', message });
+      expect(room.members.map((m) => m.id)).toEqual(['ada']);
+      if (n === 1) expect((room.state.lobby as { banned?: string[] }).banned).toBeUndefined();
+    }
+    // Back in the room: the SDK host bans them from it, and the lobby won't seat them.
+    await bo.backend.get(lobby.id);
+    await settle();
+    expect(room.kicks.at(-1)).toEqual({ id: 'bo', ban: true, message: "Removed by the host, and can't rejoin this lobby" });
+    expect(room.banned.has('bo')).toBe(true);
+    expect(room.members.map((m) => m.id)).toEqual(['ada']);
   });
 
   test('why you are out: kicked (with the host\'s words), banned, or a private room, said once', async () => {

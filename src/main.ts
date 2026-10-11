@@ -482,7 +482,7 @@ requestAnimationFrame(frame);
 
 /** The menu on screen, if any, topmost first: the F8 form, Settings or Controls, the pause menu, results, or the title and lobbies. */
 function openMenu(): HTMLElement | null {
-  for (const sel of ['#reportForm', '#settings.on', '#controls.on', '#keys.on', '#pause.on', '#results.on', '#menu']) {
+  for (const sel of ['#reportForm', '#settings.on', '#controls.on', '#keys.on', '#pages.on', '#pause.on', '#results.on', '#menu']) {
     const el = document.querySelector<HTMLElement>(sel);
     if (el) return el;
   }
