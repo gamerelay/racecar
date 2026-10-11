@@ -134,3 +134,11 @@ describe('lobby wire: results', () => {
     expect(results('first')).not.toHaveProperty('results');
   });
 });
+
+test("a lobby's kicked list is read when it's ids, dropped when it's junk, and absent in an older lobby", () => {
+  const base = { lobby: createLobby('L1', { id: 'ada', name: 'ADA', car: 'coupe', paint: 0 }) };
+  expect(readLobby(base)?.kicked).toBeUndefined();
+  expect(readLobby({ lobby: { ...base.lobby, kicked: ['bo', 'cy'] } })?.kicked).toEqual(['bo', 'cy']);
+  expect(readLobby({ lobby: { ...base.lobby, kicked: ['bo', 7, '<b>'.repeat(40)] } })?.kicked).toEqual(['bo']);
+  expect(readLobby({ lobby: { ...base.lobby, kicked: 'bo' } })).not.toBeNull();
+});

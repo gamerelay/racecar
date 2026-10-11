@@ -186,6 +186,8 @@ export function readLobby(state: Record<string, unknown>): Lobby | null {
   // The results and vote (online, after a race): bad ones are dropped, not the whole lobby.
   const results = Array.isArray(l.results) ? l.results.slice(0, SEATS).map(readResult).filter((r): r is ResultRow => !!r) : undefined;
   const vote = l.vote === undefined ? null : readVote(l.vote);
+  // Who's been kicked: ids only (a bad entry is dropped, not the lobby).
+  const kicked = Array.isArray(l.kicked) ? l.kicked.filter((k): k is string => str(k, 64)).slice(0, 64) : undefined;
   return {
     id: l.id,
     name: l.name,
@@ -199,6 +201,7 @@ export function readLobby(state: Record<string, unknown>): Lobby | null {
     ...(l.party === undefined ? {} : { party: l.party as string }),
     ...(results?.length ? { results } : {}),
     ...(vote ? { vote } : {}),
+    ...(kicked?.length ? { kicked } : {}),
   };
 }
 

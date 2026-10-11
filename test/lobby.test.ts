@@ -317,3 +317,15 @@ describe('map thumbnails', () => {
     expect(Math.hypot(t.finish![0] - fx, t.finish![1] - fz)).toBeLessThan(0.5);
   });
 });
+
+test('a kick remembers who: the lobby keeps their id (once), for the ban on a second', () => {
+  let l = createLobby('L1', { id: 'ada', name: 'ADA', car: 'coupe', paint: 0 });
+  l = apply(l, 'bo', { type: 'join', player: { id: 'bo', name: 'BO', car: 'coupe', paint: 0 } })!;
+  l = apply(l, 'ada', { type: 'kick', index: 1 })!;
+  expect(l.kicked).toEqual(['bo']);
+  l = apply(l, 'bo', { type: 'join', player: { id: 'bo', name: 'BO', car: 'coupe', paint: 0 } })!;
+  l = apply(l, 'ada', { type: 'kick', index: 1 })!;
+  expect(l.kicked).toEqual(['bo']);
+  // Only the host kicks, never themselves.
+  expect(apply(l, 'bo', { type: 'kick', index: 0 })).toBeNull();
+});

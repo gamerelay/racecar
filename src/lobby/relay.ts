@@ -81,6 +81,9 @@ export const START_LEAD_MS = 6000;
 
 /** The room tag racecar's lobbies list under. */
 export const TAG = 'race';
+/** What a kicked player is told: the first time, and the second (banned from the room). */
+export const KICK_MESSAGE = 'Removed by the host';
+export const BAN_MESSAGE = "Removed by the host, and can't rejoin this lobby";
 /** A short link's id: its `?join=` (a game without a slug), else its last path segment (`gamerelay.io/<game>/<link>`). */
 export function linkId(url: string): string {
   try {
@@ -432,7 +435,7 @@ export class RelayBackend implements LobbyBackend {
     if (!next) return null;
     if (action.type === 'kick') {
       const s = lobby.seats[action.index];
-      // Out of the room too (not banned: a kick is for this lobby, and they may come back).
+      // Out of the room too: banned from it on a second kick.
       if (s.kind === 'player' && s.id === room.me) {
         // You're the one kicked, and you hold the SDK's role (it moves on reloads), which can't
         // kick itself: hand on the lobby, then go.
@@ -443,7 +446,11 @@ export class RelayBackend implements LobbyBackend {
         });
         return next;
       }
-      if (s.kind === 'player') void room.kick(s.id, { ban: false }).catch(warned('a kick failed', undefined));
+      // Kicked before (the lobby remembers): this time they're banned from the room.
+      if (s.kind === 'player') {
+        const again = lobby.kicked?.includes(s.id) ?? false;
+        void room.kick(s.id, { ban: again, message: again ? BAN_MESSAGE : KICK_MESSAGE }).catch(warned('a kick failed', undefined));
+      }
     }
     this.commit(room, next);
     return next;

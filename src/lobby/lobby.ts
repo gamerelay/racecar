@@ -66,6 +66,12 @@ export interface Lobby {
   results?: ResultRow[];
   /** The vote on the next race's map, open from the first player's finish (online). */
   vote?: Vote;
+  /**
+   * Who the host has kicked from this lobby (player ids), for as long as the lobby lives: the
+   * first kick lets them back (friends kick each other for fun), a second bans them from its room
+   * (the owner, 2026-10-10). In the lobby, not on a page, so it outlives a change of host.
+   */
+  kicked?: string[];
 }
 
 /** A car's race: its time and best lap (s; null if it didn't finish or set one), takedowns, wrecks and score. */
@@ -274,6 +280,7 @@ export function apply(lobby: Lobby, actor: string, action: LobbyAction): Lobby |
       const s = lobby.seats[action.index];
       if (!isHost || !s || s.kind !== 'player' || s.id === actor) return null;
       next.seats[action.index] = { kind: 'open' };
+      if (!lobby.kicked?.includes(s.id)) next.kicked = [...(lobby.kicked ?? []), s.id];
       return next;
     }
     case 'start': {

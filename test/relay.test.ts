@@ -85,6 +85,8 @@ class FakeRoom {
 /** One player's view of one room. */
 class FakeClient implements RoomLike {
   connected = true;
+  /** The SDK it came from, which forgets the room when it's kicked. */
+  relay: FakeRelay | null = null;
   private handlers = new Map<string, Set<Handler>>();
   private answers = new Map<string, (data: unknown, from: string) => unknown>();
   constructor(
@@ -166,6 +168,8 @@ class FakeClient implements RoomLike {
     const ban = options.ban ?? true;
     this.room.kicks.push({ id: playerId, ban, message: options.message });
     if (ban) this.room.banned.add(playerId);
+    // (The SDK forgets the room before it says so.)
+    if (c.relay?.room === c) c.relay.room = null;
     c.fire('closed', 'kicked', options.message);
     this.room.remove(c);
   }
@@ -255,6 +259,7 @@ class FakeRelay implements RelayLike {
   }
   private enter(room: FakeRoom): FakeClient {
     const c = new FakeClient(room, this.playerId);
+    c.relay = this;
     room.members.push(c);
     room.emit('player_joined', c.id);
     return (this.room = c);
@@ -451,6 +456,26 @@ describe('online lobbies', () => {
     await new Promise((r) => setTimeout(r, 1100));
     expect(hub.rooms.get(lobby.id)!.public).toBe(false);
     expect(await bo.backend.list()).toEqual([]);
+  });
+
+  test('the first kick lets them back; the second bans them from the room, even after the SDK host changed', async () => {
+    const hub = new Hub();
+    const [ada, bo, cy] = players(hub, 'ada', 'bo', 'cy');
+    const lobby = await ada.backend.create(player('ADA'), {});
+    await cy.backend.get(lobby.id);
+    await cy.backend.send(lobby.id, { type: 'join', player: player('CY') });
+    await bo.backend.get(lobby.id);
+    await bo.backend.send(lobby.id, { type: 'join', player: player('BO') });
+    await ada.backend.send(lobby.id, { type: 'kick', index: 2 });
+    const room = hub.rooms.get(lobby.id)!;
+    expect(room.kicks.at(-1)).toEqual({ id: 'bo', ban: false, message: 'Removed by the host' });
+    // Back in, and kicked again, with Cy holding the SDK's role now (Ada reloaded).
+    expect(await bo.backend.get(lobby.id)).not.toBeNull();
+    await bo.backend.send(lobby.id, { type: 'join', player: player('BO') });
+    room.members = [room.members.find((m) => m.id === 'cy')!, ...room.members.filter((m) => m.id !== 'cy')];
+    await ada.backend.send(lobby.id, { type: 'kick', index: 2 });
+    expect(room.kicks.at(-1)).toEqual({ id: 'bo', ban: true, message: "Removed by the host, and can't rejoin this lobby" });
+    expect(await bo.backend.get(lobby.id)).toBeNull();
   });
 
   test('Private locks the room at the server: nobody new gets in, its own players come back, and Public opens it', async () => {
