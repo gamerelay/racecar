@@ -67,6 +67,19 @@ export function withGraphics(g: Settings['graphics'], change: Partial<Settings['
 }
 
 /** Where settings are kept: localStorage-like, or nothing (blocked storage). */
+/**
+ * Clears what an older build kept for its analytics (a random id, the opt-out), so the browser holds
+ * only what the privacy page says: settings, plate and best times. Blocked storage: nothing to do.
+ */
+export function forgetAnalytics(storage: { removeItem(key: string): void } | null): void {
+  for (const key of ['racecar.id', 'racecar.telemetry'])
+    try {
+      storage?.removeItem(key);
+    } catch {
+      return;
+    }
+}
+
 export interface SettingsStorage {
   getItem(key: string): string | null;
   setItem(key: string, value: string): void;

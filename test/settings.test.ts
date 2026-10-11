@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import { DEFAULT_SETTINGS, parseSettings, QUALITY, SETTINGS_KEY, SettingsStore, withGraphics, type SettingsStorage } from '../src/settings';
+import { DEFAULT_SETTINGS, forgetAnalytics, parseSettings, QUALITY, SETTINGS_KEY, SettingsStore, withGraphics, type SettingsStorage } from '../src/settings';
 import { chooser, cycleIndex } from '../src/ui/chooser';
 
 // The player's settings (settings.ts, docs/MENU.md): what's stored, read back whatever it is, and
@@ -188,5 +188,18 @@ describe('chooser', () => {
   test('disabled only when asked', () => {
     expect(chooser('map', MAPS, 'downtown', true)).toMatch(/<button[^>]* disabled>/);
     expect(chooser('map', MAPS, 'downtown')).not.toContain('disabled');
+  });
+});
+
+test("an older build's analytics id and opt-out are cleared from the browser, and the rest is kept", () => {
+  const kept = new Map([['racecar.id', 'r-123'], ['racecar.telemetry', 'off'], [SETTINGS_KEY, '{}']]);
+  forgetAnalytics({ removeItem: (k) => void kept.delete(k) });
+  expect([...kept.keys()]).toEqual([SETTINGS_KEY]);
+  // Blocked or missing storage: nothing to do, and no throw.
+  forgetAnalytics(null);
+  forgetAnalytics({
+    removeItem: () => {
+      throw new Error('blocked');
+    },
   });
 });

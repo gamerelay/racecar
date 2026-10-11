@@ -33,7 +33,7 @@ import { cycle, leader } from './ui/watch';
 import { SettingsPanel } from './ui/settings';
 import { PagesPanel, readPage } from './ui/pages';
 import { ControlsPanel } from './ui/controls';
-import { SettingsStore } from './settings';
+import { forgetAnalytics, SettingsStore } from './settings';
 import { backToSetup, quickRaceSetup, raceAgain, randomCar, readChoices, readSetup, restart, toQuery, type RaceSetup } from './ui/setup';
 import { Menu, type Preview } from './ui/menu';
 import { GameRelay } from '@gamerelay/sdk';
@@ -66,6 +66,7 @@ let drawn = 0;
 installChoosers();
 /** The player's settings (sound, graphics), on this device. */
 const settings = new SettingsStore(storage());
+forgetAnalytics(storage());
 const BUILD = `${import.meta.env.MODE}-${__BUILD_TIME__}`;
 // Only cars and paints that exist: a stale or hand-edited link falls back instead of crashing.
 const LAYOUT_KEYS = Object.keys(LAYOUTS);
