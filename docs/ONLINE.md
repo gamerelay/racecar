@@ -82,14 +82,30 @@ share:
   applies everyone's actions, tidies seats whose players have left, and keeps the listing up to
   date. It does that whenever the role arrives (`host_changed`), not only when someone leaves.
 - **The lobby's host** (`lobby.host`) is the player who sets the seats and options and starts. It
-  only changes when they leave (the next seated player gets it), or when everyone has left (the
-  next one to sit down gets it).
+  changes when they hand it on (Make host, below), when they leave (the next seated player gets
+  it), or when everyone has left (the next one to sit down gets it).
 
 `apply` checks the lobby's host, so it never matters who holds the SDK's role.
 
 In the race, the SDK's host also drives the AIs (`rival` host entities), so every screen has the
 same bots. The AI keeps no memory but its car's pose, so when the role moves the next host drives
 them on from where they are. Until the host's rivals show up, each screen drives them itself.
+
+## Host controls
+
+The lobby's host has two more choices in another player's seat chooser: **Kick** and **Make
+host**. `apply` decides; relay.ts, on the SDK's host, makes the SDK calls.
+
+- **Kick** opens the seat and puts them out of the room (`room.kick(id, { ban, message })`). The
+  lobby keeps who's been kicked (`lobby.kicked`, in the room's state, so it outlives a change of
+  host): the first kick lets them back (friends kick each other for fun), a second bans them from
+  the room for as long as it lives (`ban: true`).
+- **Make host** (`{ type: 'host', index }`) hands `lobby.host` to a seated player, and the SDK's
+  role with it (`room.transferHost`), so one player holds both. If their connection is down, or
+  the handover fails, they still have the lobby: `apply` checks the lobby's host.
+- **Told why:** a kicked player hears the host's message (`closed` with `kicked`), and a join the
+  server refuses says why by its error code (`banned`, `locked`, `room_full`). The backend keeps
+  it (`why`) and the title shows it as a toast (`refusalText` in menu.ts).
 
 ## Players
 
@@ -108,7 +124,7 @@ them on from where they are. Until the host's rivals show up, each screen drives
 |---|---|---|---|
 | Public | yes | anyone | `public` |
 | Invite only | no | anyone with the link | `invite` (an older build's `private`) |
-| Private | no | nobody new; those in keep their seats | `locked` |
+| Private | no | nobody new (the room is locked at the server too: `setAccess({ locked })`); those in keep their seats and can reconnect | `locked` |
 
 Your own lobby (Private on Create lobby) is local: you and bots, in this browser, never listed.
 Only Public rooms are listed, by two checks: the room is unlisted (`setAccess`, tried again if it

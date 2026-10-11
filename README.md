@@ -137,8 +137,8 @@ CI runs all four. Dev builds also write events to `telemetry/<day>/<session>.jso
 `bun tools/telemetry.ts` sums up the latest session, and `bun tools/replay.ts` re-runs the latest
 F8 report headless.
 
-Released builds can send anonymous gameplay events (laps, wrecks, frame times; a random id, no
-names) to PostHog, only when built with a key. Players can turn it off in Settings → Privacy.
+racecar has no analytics. Online play goes through GameRelay, which sees what it needs to connect
+players ([privacy](./docs/PRIVACY.md), [terms](./docs/TERMS.md)).
 
 ## License
 

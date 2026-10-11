@@ -17,6 +17,7 @@ Status lines and "next" lists in them can be out of date; the [CHANGELOG](../CHA
 | [MAPS.md](./MAPS.md) | How maps are made and what makes a good one. Read it before starting a map. |
 | [CARS.md](./CARS.md) | How the cars are designed and built, and what reads well at speed. |
 | [CALDERA.md](./CALDERA.md) | The engine under racecar: the deterministic sim, ground and roads, the renderer and tools. |
+| [PRIVACY.md](./PRIVACY.md), [TERMS.md](./TERMS.md) | What the game does with your information, and the terms. The game shows these same files. |
 
 ## Working notes
 

@@ -17,6 +17,14 @@ shared results"). Details in [CHASE_MODE.md](./CHASE_MODE.md)'s "Online getaways
   32-car draw calls against the table below, and single player's crash card in a visible window.
 - **Next (not in this):** AI runners online, players as cops, an online leaderboard.
 
+**Then, on branch `public-polish` (on `public-ready`, on `splash-city-online`), not merged:** ready
+for the public ([the spec](./superpowers/specs/2026-10-10-public-polish-design.md)). No analytics
+(PostHog is gone); host controls (Kick, banned on a second kick; Make host with `transferHost`;
+Private locks the room at the server; told why you're out); Credits, Privacy and Terms pages from
+the title (`ui/pages.ts`, the text in `PRIVACY.md` and `TERMS.md`). The SDK is at alpha.7.
+- **Checked:** the suite, and the pages and title in headless Chrome at 1440×900 and 390×844.
+- **Not checked yet:** kick, ban and Make host with two real browsers on the local relay.
+
 Before it, **`alpha-1.47`** (PR #167) is tagged and on the hosted build (the
 owner: "merge and deploy please"): **Heist's draw call pass** ("yes do the draw call pass on heist
 please"), from 650–950 calls a frame to 140–270 (SPEC §15: 250). What and how, in
