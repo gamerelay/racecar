@@ -31,6 +31,7 @@ import { KeysCard } from './ui/keys';
 import { GETAWAY_MAP, installEmbed, keepEmbed, startsGetaway } from './ui/embed';
 import { cycle, leader } from './ui/watch';
 import { SettingsPanel } from './ui/settings';
+import { PagesPanel, readPage } from './ui/pages';
 import { ControlsPanel } from './ui/controls';
 import { SettingsStore } from './settings';
 import { backToSetup, quickRaceSetup, raceAgain, randomCar, readChoices, readSetup, restart, toQuery, type RaceSetup } from './ui/setup';
@@ -221,6 +222,7 @@ settings.onChange((s) => {
 });
 const settingsPanel = new SettingsPanel(settings);
 const controlsPanel = new ControlsPanel();
+const pagesPanel = new PagesPanel();
 const raceUi = new RaceUi(sim, CLASSES, names, colors);
 raceUi.onAgain = () => raceAgain(run);
 // A getaway's best, on this device: the HUD and the results show it; a longer run keeps its time.
@@ -290,6 +292,10 @@ if (attract) {
   screens.onPreview = preview;
   screens.onSettings = () => settingsPanel.open(document.getElementById('mSettings'));
   screens.onNotice = toast;
+  screens.onPage = (page, from) => pagesPanel.open(page, from);
+  // A link to a page (`?page=credits`): the title, with it up.
+  const page = readPage(params.get('page'));
+  if (page) pagesPanel.open(page);
   screens.online = !!online;
   screens.offline = () => lobbies.offline;
   // A short link sends players here with `?join=<link>` (net: GameRelay's short links); an
@@ -512,6 +518,7 @@ input.on((a) => {
   // Settings and Controls are over the menus: back (Esc, B) closes them, to the menu they were opened from.
   if ((a === 'back' || a === 'pause') && settingsPanel.isOpen) return settingsPanel.close();
   if ((a === 'back' || a === 'pause') && controlsPanel.isOpen) return controlsPanel.close();
+  if ((a === 'back' || a === 'pause') && pagesPanel.isOpen) return pagesPanel.close();
   if (a === 'back') return void (paused ? setPaused(false) : screens?.back());
   // Behind the menu there's nothing to pause: Esc and Start go back a screen.
   if (a === 'pause' && attract) screens?.back();
@@ -537,6 +544,7 @@ function setPaused(on: boolean): void {
   paused = on;
   if (!on && settingsPanel.isOpen) settingsPanel.close();
   if (!on && controlsPanel.isOpen) controlsPanel.close();
+  if (!on && pagesPanel.isOpen) pagesPanel.close();
   let el = document.getElementById('pause');
   if (!el) {
     document.body.insertAdjacentHTML(

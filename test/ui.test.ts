@@ -5,6 +5,7 @@ import { CONTENT, EXPERIMENTAL_KEYS, LAYOUT_KEYS, MAPS, PAINTS } from '../tools/
 import { lobbyKeys, playerSeatChoices, refusalText } from '../src/ui/menu';
 import { apply, createLobby } from '../src/lobby/lobby';
 import { renderDoc } from '../src/ui/legal';
+import { pageHtml, readPage } from '../src/ui/pages';
 import { describe, expect, test } from 'bun:test';
 import { delta, fmt, ordinal, pingClass } from '../src/ui/format';
 import { esc } from '../src/ui/html';
@@ -266,5 +267,20 @@ describe('the privacy and terms pages (ui/legal.ts)', () => {
       expect(html).toMatch(/2026-10-10/);
       expect(html).not.toContain('<script');
     }
+  });
+});
+
+describe('the Credits, Privacy and Terms pages', () => {
+  test('?page= opens one of the three, and nothing else', () => {
+    expect(['credits', 'privacy', 'terms', 'CREDITS', '', null, 'constructor'].map(readPage)).toEqual(['credits', 'privacy', 'terms', null, null, null, null]);
+  });
+  test('the credits name who made it and what it runs on, with the source', () => {
+    const html = pageHtml('credits');
+    for (const s of ['Colin Teahan', 'Claude', 'GameRelay', 'Resonance', 'https://github.com/gamerelay/racecar', 'https://gamerelay.io', 'Three.js']) expect(html).toContain(s);
+  });
+  test('privacy and terms are the docs, with a way back', () => {
+    expect(pageHtml('privacy')).toContain('<h1>Privacy</h1>');
+    expect(pageHtml('terms')).toContain('Photosensitivity');
+    for (const p of ['credits', 'privacy', 'terms'] as const) expect(pageHtml(p)).toContain('id="pgBack"');
   });
 });

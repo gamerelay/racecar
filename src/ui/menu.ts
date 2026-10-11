@@ -17,6 +17,7 @@ import FLAGS from './icons/flags.svg?raw';
 import type { KeyValue, LobbyBackend, NetRoute } from '../lobby/backend';
 import { LOCAL_ID } from '../lobby/backend';
 import type { Refusal } from '../lobby/relay';
+import type { Page } from './pages';
 import { aiPlate, cleanPlate, plateProblem, PLATE_MAX, savePlate, typedPlate } from '../lobby/plate';
 import { DEFAULT_OPTIONS, FILL_DIFFICULTY, SEATS, canJoin, nextVisibility, legacySeats, seatIndex, summarize, type Lobby, type LobbyAction, type LobbyOptions, type LobbySummary, type SeatChoice } from '../lobby/lobby';
 import { pingClass } from './format';
@@ -132,6 +133,8 @@ export class Menu {
   onSettings?: () => void;
   /** A short note for the player (main.ts toasts it): why a lobby put you out, or let you in. */
   onNotice?: (text: string) => void;
+  /** The title's Credits, Privacy and Terms (main.ts opens the page). */
+  onPage?: (page: Page, from: HTMLElement | null) => void;
 
   constructor(
     private backend: LobbyBackend,
@@ -385,6 +388,7 @@ export class Menu {
         <div class="bigs"><button id="mSolo" class="big">Single player</button><button id="mCreate" class="big">Create lobby</button></div>
         <div class="row"><button id="mQuick" class="ghost">Quick race</button><button id="mFree" class="ghost">Free drive</button><button id="mSettings" class="ghost">Settings</button></div>
         <p class="muted">Every race is a lobby, and bots fill the open seats. Quick race is you and seven bots on a random map. Drift (Shift / RB) to take corners tighter; air, near misses and the oncoming lane fill boost.</p>
+        <div class="titleFoot"><a href="?page=privacy" id="mPrivacy">Privacy</a> · <a href="?page=terms" id="mTerms">Terms</a><button id="mCredits" class="creditsBox">Credits</button></div>
       </div>`,
       lobbies.length ? `lobby-${lobbies[0].id}` : 'mCreate',
     );
@@ -395,6 +399,15 @@ export class Menu {
     this.on('mQuick', () => this.quickRace());
     this.on('mFree', () => void this.freeDrive());
     this.on('mSettings', () => this.onSettings?.());
+    // The links open in place; their hrefs are for a new tab.
+    for (const [id, page] of [['mCredits', 'credits'], ['mPrivacy', 'privacy'], ['mTerms', 'terms']] as const) {
+      const el = document.getElementById(id);
+      if (el)
+        el.onclick = (e) => {
+          e.preventDefault();
+          this.onPage?.(page, el);
+        };
+    }
   }
 
   /** The row under the lobbies: why there are no online ones, or how to get some. */
