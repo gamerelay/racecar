@@ -124,7 +124,7 @@ host**. `apply` decides; relay.ts, on the SDK's host, makes the SDK calls.
 |---|---|---|---|
 | Public | yes | anyone | `public` |
 | Invite only | no | anyone with the link | `invite` (an older build's `private`) |
-| Private | no | nobody new (the room is locked at the server too: `setAccess({ locked })`); those in keep their seats and can reconnect | `locked` |
+| Private | no | nobody new; those in keep their seats and can reconnect. The room is locked at the server too (`setAccess({ locked })`) while the lobby has a host and someone else is in it (`serverLocked`): alone, its host must be able to come back after a long disconnect, which the SDK treats as a new join | `locked` |
 
 Your own lobby (Private on Create lobby) is local: you and bots, in this browser, never listed.
 Only Public rooms are listed, by two checks: the room is unlisted (`setAccess`, tried again if it
