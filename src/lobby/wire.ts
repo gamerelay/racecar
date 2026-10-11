@@ -127,9 +127,12 @@ export function readAction(data: unknown, from: string): LobbyAction | null {
       return { type: 'join', player: { id: from, name, car: p.car, paint: p.paint } };
     }
     case 'kick':
-      return int(data.index, 0, SEATS - 1) ? { type: 'kick', index: data.index } : null;
-    case 'host':
-      return int(data.index, 0, SEATS - 1) ? { type: 'host', index: data.index } : null;
+    case 'host': {
+      if (!int(data.index, 0, SEATS - 1)) return null;
+      // Who they mean, if they say (an older build doesn't).
+      if (data.id === undefined) return { type: data.type, index: data.index };
+      return str(data.id, 64) ? { type: data.type, index: data.index, id: data.id } : null;
+    }
     case 'start': {
       if (data.seed !== undefined && !int(data.seed, 0, 2 ** 31 - 1)) return null;
       if (data.at !== undefined && !(typeof data.at === 'number' && Number.isFinite(data.at) && data.at > 0)) return null;

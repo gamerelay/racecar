@@ -151,8 +151,9 @@ export type LobbyAction =
   | { type: 'racing'; racing: boolean }
   | { type: 'join'; player: Player }
   | { type: 'leave' }
-  | { type: 'kick'; index: number }
-  | { type: 'host'; index: number }
+  // `id`: the player the host's screen showed in that seat (refused if it's changed hands since).
+  | { type: 'kick'; index: number; id?: string }
+  | { type: 'host'; index: number; id?: string }
   | { type: 'start'; seed?: number; at?: number }
   | { type: 'end' }
   /** A car's result in race `race`: your own seat's, or (the host) an AI's. */
@@ -281,7 +282,7 @@ export function apply(lobby: Lobby, actor: string, action: LobbyAction): Lobby |
     }
     case 'kick': {
       const s = lobby.seats[action.index];
-      if (!isHost || !s || s.kind !== 'player' || s.id === actor) return null;
+      if (!isHost || !s || s.kind !== 'player' || s.id === actor || (action.id !== undefined && s.id !== action.id)) return null;
       next.seats[action.index] = { kind: 'open' };
       if (!lobby.kicked?.includes(s.id)) next.kicked = [...(lobby.kicked ?? []), s.id];
       else if (!lobby.banned?.includes(s.id)) next.banned = [...(lobby.banned ?? []), s.id];
@@ -290,7 +291,7 @@ export function apply(lobby: Lobby, actor: string, action: LobbyAction): Lobby |
     case 'host': {
       // The host hands the lobby to another seated player (the SDK's role goes too: relay.ts).
       const s = lobby.seats[action.index];
-      if (!isHost || !s || s.kind !== 'player' || s.id === actor) return null;
+      if (!isHost || !s || s.kind !== 'player' || s.id === actor || (action.id !== undefined && s.id !== action.id)) return null;
       next.host = s.id;
       // A host is always ready.
       next.seats[action.index] = { ...s, ready: true };

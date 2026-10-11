@@ -356,3 +356,13 @@ test('a second kick bans them from the lobby: they can\'t sit down again', () =>
   expect(canJoin(l, 'bo')).toBe(false);
   expect(apply(l, 'bo', { type: 'join', player: bo })).toBeNull();
 });
+
+test("Kick and Make host name the player: if the seat changed hands since, they're refused", () => {
+  let l = createLobby('L1', { id: 'ada', name: 'ADA', car: 'coupe', paint: 0 });
+  l = apply(l, 'bo', { type: 'join', player: { id: 'bo', name: 'BO', car: 'coupe', paint: 0 } })!;
+  // Seat 1 is Bo's now, not Cy's (who the host's screen showed).
+  expect(apply(l, 'ada', { type: 'kick', index: 1, id: 'cy' })).toBeNull();
+  expect(apply(l, 'ada', { type: 'host', index: 1, id: 'cy' })).toBeNull();
+  expect(apply(l, 'ada', { type: 'kick', index: 1, id: 'bo' })?.seats[1]).toEqual({ kind: 'open' });
+  expect(apply(l, 'ada', { type: 'host', index: 1, id: 'bo' })?.host).toBe('bo');
+});

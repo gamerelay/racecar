@@ -154,3 +154,10 @@ test("a lobby's banned list is read like its kicked one", () => {
   expect(readLobby(base)?.banned).toBeUndefined();
   expect(readLobby({ lobby: { ...base.lobby, banned: ['bo', 7] } })?.banned).toEqual(['bo']);
 });
+
+test('Kick and Make host carry the player they mean, checked like any id', () => {
+  expect(readAction({ type: 'kick', index: 1, id: 'bo' }, 'ada')).toEqual({ type: 'kick', index: 1, id: 'bo' });
+  expect(readAction({ type: 'host', index: 1, id: 'bo' }, 'ada')).toEqual({ type: 'host', index: 1, id: 'bo' });
+  expect(readAction({ type: 'kick', index: 1, id: 7 }, 'ada')).toBeNull();
+  expect(readAction({ type: 'host', index: 1, id: 'x'.repeat(65) }, 'ada')).toBeNull();
+});

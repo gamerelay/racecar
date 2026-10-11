@@ -740,9 +740,11 @@ export class Menu {
         if (!go) return;
         go.hidden = !label;
         go.textContent = label ?? '';
+        // With who it's for, so it's refused if the seat changed hands meanwhile.
+        const id = s?.kind === 'player' ? s.id : undefined;
         go.onclick = () => {
-          if (v === 'kick') this.send(lobby, { type: 'kick', index: k });
-          else if (v === 'host') this.send(lobby, { type: 'host', index: k });
+          if (v === 'kick') this.send(lobby, { type: 'kick', index: k, id });
+          else if (v === 'host') this.send(lobby, { type: 'host', index: k, id });
         };
       });
     this.on('lPrev', () => this.pick('left'));
