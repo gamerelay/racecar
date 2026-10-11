@@ -53,6 +53,8 @@ export interface RoomLike {
   readonly isPublic: boolean;
   /** Joined by its short link only, not its code (an SDK with short links; older ones leave it undefined). */
   readonly linkOnly?: boolean;
+  /** Nobody new may join (`setAccess({ locked })`); its players can still come back. On an SDK that has it. */
+  readonly locked?: boolean;
   /** `connected`: false while their connection is gone (the server holds their seat through its grace). */
   readonly players: readonly { id: string; connected?: boolean }[];
   readonly state: Record<string, unknown>;
@@ -61,10 +63,12 @@ export interface RoomLike {
   onRequest(type: string, handler: (data: unknown, from: string) => unknown): () => void;
   on(event: RoomEvent, handler: (...args: never[]) => void): () => void;
   setListing(listing: { name?: string | null; meta?: never }): Promise<void>;
-  setAccess(access: { public?: boolean; linkOnly?: boolean }): Promise<void>;
+  setAccess(access: { public?: boolean; linkOnly?: boolean; locked?: boolean }): Promise<void>;
   /** The room's short link (`https://gamerelay.io/<game>/<link>`), on an SDK with short links. */
   shareLink?(): Promise<string>;
-  kick(playerId: string, options?: { ban?: boolean }): Promise<void>;
+  kick(playerId: string, options?: { ban?: boolean; message?: string }): Promise<void>;
+  /** Hand the SDK's host role to a connected player (everyone hears `host_changed`). */
+  transferHost?(playerId: string): Promise<void>;
   leave(): Promise<void>;
   /** A message to everyone else in the room (their `message` event). */
   send?(data: never): void;
@@ -477,9 +481,12 @@ export class RelayBackend implements LobbyBackend {
       // Against the room itself, not what we last sent: a host before us may not have got to it.
       // One that fails is tried again with the next change.
       const listed = visibility === 'public';
+      // Private is the server's lock too, so a modified page can't walk in (players in it can still come back).
+      const locked = visibility === 'locked';
       // Unlisted is link-only too (on an SDK that has it: `linkOnly` is undefined on older ones).
       const linkWrong = room.linkOnly !== undefined && room.linkOnly !== !listed;
-      if (room.isPublic !== listed || linkWrong) void room.setAccess({ public: listed, linkOnly: !listed }).catch(() => (this.listed = ''));
+      const lockWrong = room.locked !== undefined && room.locked !== locked;
+      if (room.isPublic !== listed || linkWrong || lockWrong) void room.setAccess({ public: listed, linkOnly: !listed, locked }).catch(() => (this.listed = ''));
     };
     if (this.listingTimer) return;
     const wait = this.listingAt + LISTING_MS - Date.now();
