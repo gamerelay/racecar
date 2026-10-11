@@ -4,6 +4,7 @@ import { LAYOUT_ALIASES, PAINT_ALIASES, paletteFor, resolveLayout } from '../src
 import { CONTENT, EXPERIMENTAL_KEYS, LAYOUT_KEYS, MAPS, PAINTS } from '../tools/content';
 import { lobbyKeys, playerSeatChoices, refusalText } from '../src/ui/menu';
 import { apply, createLobby } from '../src/lobby/lobby';
+import { renderDoc } from '../src/ui/legal';
 import { describe, expect, test } from 'bun:test';
 import { delta, fmt, ordinal, pingClass } from '../src/ui/format';
 import { esc } from '../src/ui/html';
@@ -243,5 +244,27 @@ describe("the host's tools on a player's seat", () => {
   });
   test('nobody else does', () => {
     expect(playerSeatChoices(l, 'bo', 0)).toBeNull();
+  });
+});
+
+describe('the privacy and terms pages (ui/legal.ts)', () => {
+  test('headings, paragraphs, bullets, bold and links, and nothing else as markup', () => {
+    const html = renderDoc('# Title\n\nSome **bold** words.\n\n- one\n- two [site](https://gamerelay.io)\n\nMail [us](mailto:support@gamerelay.io).');
+    expect(html).toBe(
+      '<h1>Title</h1><p>Some <b>bold</b> words.</p><ul><li>one</li><li>two <a href="https://gamerelay.io" target="_blank" rel="noopener">site</a></li></ul><p>Mail <a href="mailto:support@gamerelay.io" target="_blank" rel="noopener">us</a>.</p>',
+    );
+  });
+  test("markup in the text is text, and a link that isn't https or mailto is just its words", () => {
+    expect(renderDoc('<img src=x onerror=alert(1)> [x](javascript:void)')).toBe('<p>&#60;img src=x onerror=alert(1)&#62; x</p>');
+  });
+  test('the real pages render, dated and with the contact', async () => {
+    const { default: privacy } = await import('../docs/PRIVACY.md?raw');
+    const { default: terms } = await import('../docs/TERMS.md?raw');
+    for (const md of [privacy, terms]) {
+      const html = renderDoc(md);
+      expect(html).toContain('support@gamerelay.io');
+      expect(html).toMatch(/2026-10-10/);
+      expect(html).not.toContain('<script');
+    }
   });
 });
