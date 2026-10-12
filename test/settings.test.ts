@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import { DEFAULT_SETTINGS, parseSettings, QUALITY, SETTINGS_KEY, SettingsStore, withGraphics, type SettingsStorage } from '../src/settings';
+import { DEFAULT_SETTINGS, forgetAnalytics, parseSettings, QUALITY, SETTINGS_KEY, SettingsStore, withGraphics, type SettingsStorage } from '../src/settings';
 import { chooser, cycleIndex } from '../src/ui/chooser';
 
 // The player's settings (settings.ts, docs/MENU.md): what's stored, read back whatever it is, and
@@ -31,7 +31,8 @@ describe('settings', () => {
     const s = parseSettings(JSON.stringify({ volume: { master: 0.4, music: 7, engines: 'loud' }, graphics: { quality: 'ultra', fps: true }, analytics: 'no' }));
     expect(s.volume).toEqual({ master: 0.4, music: 1, engines: 1, effects: 1 });
     expect(s.graphics).toEqual({ quality: 'high', ...QUALITY.high, fps: true });
-    expect(s.analytics).toBe(true);
+    // An old build's analytics setting is ignored (there are no analytics).
+    expect('analytics' in s).toBe(false);
   });
 
   test("a preset's values come from the preset; custom keeps its own (resolution 50% to 100%)", () => {
@@ -60,8 +61,8 @@ describe('settings', () => {
     expect(new SettingsStore(store).get().volume).toEqual({ ...DEFAULT_SETTINGS.volume, music: 0.25 });
     // Blocked storage: the change still lasts the page.
     const b = new SettingsStore(blocked);
-    b.set({ analytics: false });
-    expect(b.get().analytics).toBe(false);
+    b.set({ graphics: { fps: true } });
+    expect(b.get().graphics.fps).toBe(true);
   });
 
   test('volumes out of range are clamped to 0 to 1; ones that are no number at all (1e999 is Infinity) are the default', () => {
@@ -187,5 +188,18 @@ describe('chooser', () => {
   test('disabled only when asked', () => {
     expect(chooser('map', MAPS, 'downtown', true)).toMatch(/<button[^>]* disabled>/);
     expect(chooser('map', MAPS, 'downtown')).not.toContain('disabled');
+  });
+});
+
+test("an older build's analytics id and opt-out are cleared from the browser, and the rest is kept", () => {
+  const kept = new Map([['racecar.id', 'r-123'], ['racecar.telemetry', 'off'], [SETTINGS_KEY, '{}']]);
+  forgetAnalytics({ removeItem: (k) => void kept.delete(k) });
+  expect([...kept.keys()]).toEqual([SETTINGS_KEY]);
+  // Blocked or missing storage: nothing to do, and no throw.
+  forgetAnalytics(null);
+  forgetAnalytics({
+    removeItem: () => {
+      throw new Error('blocked');
+    },
   });
 });

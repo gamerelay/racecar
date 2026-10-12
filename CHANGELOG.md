@@ -6,6 +6,13 @@ and where things stand is [docs/HANDOFF.md](./docs/HANDOFF.md).
 
 ## Unreleased
 
+- **Host tools:** the lobby's host can kick a player (a second kick keeps them out of that lobby) or make someone else host, from the player's seat. Private lobbies are locked at the server. Kicked, or can't get in? The game says why.
+- **Credits, Privacy and Terms:** a Credits page (who made racecar, and what it runs on) and the privacy policy and terms, from the title.
+- **No analytics:** the game sends nothing about how you play.
+- **Punch In is now Punch It,** its real name, in the track toast and the playlist.
+- **F8 works on the released game:** "Felt wrong?" saves the report as a file you can attach to a bug report (it used to save only on the dev server).
+- **For anyone reading the code:** a new README on how online play works (players' cars, and the host's AIs and cops as host entities), a guide to the docs, CONTRIBUTING, and bug and map idea forms. The code's license is plain MIT now, with the music's terms beside the music.
+
 ## alpha-1.47: Heist, lighter
 
 - **Heist draws far less:** the city now takes about 140–270 draw calls a frame, down from 650–950 (the budget is 250), so it should run smoother on laptops. Nothing looks different. The bridges, the piers, the neon and street signs, the parked police and the traffic are each drawn in a few batches instead of piece by piece.

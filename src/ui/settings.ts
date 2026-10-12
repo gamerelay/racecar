@@ -1,4 +1,4 @@
-// The Settings panel (docs/MENU.md): sound, graphics and privacy, over whatever's on screen: the
+// The Settings panel (docs/MENU.md): sound and graphics, over whatever's on screen: the
 // title (its Settings button) or a race (the in-race menu's). The same panel everywhere. Changes
 // apply as they're made and are kept on this device (settings.ts); Done, Esc or the pad's B close
 // it, back to the button that opened it.
@@ -13,11 +13,7 @@ const RESOLUTIONS: [string, string][] = [0.5, 0.6, 0.7, 0.8, 0.9, 1].map((r) => 
 const VOLUMES: [keyof Settings['volume'], string][] = [['master', 'Master'], ['music', 'Music'], ['engines', 'Engines'], ['effects', 'Effects']];
 
 export class SettingsPanel extends Overlay {
-  constructor(
-    private readonly store: SettingsStore,
-    /** Whether this build sends analytics at all (it has a PostHog key). */
-    private readonly analyticsBuilt: boolean,
-  ) {
+  constructor(private readonly store: SettingsStore) {
     super('settings');
     // A graphics preset changes the settings under it: those redraw. Volumes don't (a redraw would
     // drop the slider being dragged).
@@ -44,9 +40,6 @@ export class SettingsPanel extends Overlay {
       ([k, name]) => `<label class="slider"><span>${name}</span><input type="range" id="vol-${k}" min="0" max="100" step="5" value="${Math.round(s.volume[k] * 100)}"><b id="vol-${k}-v">${Math.round(s.volume[k] * 100)}</b></label>`,
     ).join('');
     const qualities: [string, string][] = g.quality === 'custom' ? [...QUALITIES, ['custom', 'Custom']] : QUALITIES;
-    const analytics = this.analyticsBuilt
-      ? `<label>Analytics ${chooser('sAnalytics', ON_OFF, s.analytics ? '1' : '0')}</label><p class="muted">Anonymous playtest data (laps, crashes, frame rates; no names) that helps tune the game. Off sends nothing more.</p>`
-      : '<p class="muted">This build sends no analytics.</p>';
     this.el.innerHTML = `<div class="card settings">
       <h1>Settings</h1>
       <h2>Sound</h2>
@@ -61,8 +54,6 @@ export class SettingsPanel extends Overlay {
         <label>Show FPS ${chooser('gFps', ON_OFF, g.fps ? '1' : '0')}</label>
       </div>
       <p class="muted">Lower quality runs smoother on slower devices. Turning post effects back on smooths edges from the next race.</p>
-      <h2>Privacy</h2>
-      ${analytics}
       <div class="row"><button id="sDone">Done</button></div>
     </div>`;
     for (const [k] of VOLUMES) {
@@ -81,7 +72,6 @@ export class SettingsPanel extends Overlay {
     on('gPost', (v) => this.store.set({ graphics: { post: v === '1' } }));
     on('gOutline', (v) => this.store.set({ graphics: { outline: v === '1' } }));
     on('gFps', (v) => this.store.set({ graphics: { fps: v === '1' } }));
-    on('sAnalytics', (v) => this.store.set({ analytics: v === '1' }));
     document.getElementById('sDone')!.onclick = () => this.close();
     // Redrawn (a preset changed): focus stays where it was.
     if (was && this.isOpen) document.getElementById(was)?.focus({ preventScroll: true });

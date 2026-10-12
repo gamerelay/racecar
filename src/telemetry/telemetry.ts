@@ -1,8 +1,8 @@
 // Telemetry (SPEC §14, "Telemetry pipe"). Reads the sim's event queue after each frame (never in
-// the tick), turns it into small typed records, and batches them to a sink: the dev server's
-// /__telemetry (local JSONL files Claude can read) in dev builds; PostHog in playtest builds
-// (milestone 2). Also keeps what's needed for an F8 report: snapshots every 5 s and every tick's
-// inputs, so the last 30 s can be replayed headless (tools/replay.ts).
+// the tick), turns it into small typed records, and batches them to the dev server's /__telemetry
+// (local JSONL files Claude can read), in dev builds only. Also keeps what's needed for an F8
+// report: snapshots every 5 s and every tick's inputs, so the last 30 s can be replayed headless
+// (tools/replay.ts).
 
 import { TUNING } from '../core/car/tuning';
 import type { TrackLayout } from '../core/content';
@@ -220,17 +220,10 @@ export class Telemetry {
     if (!this.enabled || this.queue.length === 0) return;
     const lines = this.queue;
     this.queue = [];
-    if (this.sink) {
-      this.sink(lines, beacon);
-      return;
-    }
     const body = JSON.stringify({ session: this.session, lines });
     if (beacon && navigator.sendBeacon) navigator.sendBeacon('/__telemetry', body);
     else fetch('/__telemetry', { method: 'POST', body, keepalive: true }).catch(() => {});
   }
-
-  /** Where records go instead of the dev server (PostHog in playtest builds). */
-  sink: ((lines: Record[], beacon: boolean) => void) | null = null;
 
   /** The last ~30 s, replayable: the oldest snapshot inside the window and every input since. */
   report(note: string, focus: number): Report {

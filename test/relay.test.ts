@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'bun:test';
 import { Lobbies, LocalBackend, LOCAL_ID } from '../src/lobby/backend';
 import { AWAY_MS, netRoute, PING_MS, Presence } from '../src/lobby/presence';
-import { RelayBackend, type RelayLike, type RoomLike } from '../src/lobby/relay';
+import { RelayBackend, serverLocked, type RelayLike, type RoomLike } from '../src/lobby/relay';
 import { readAction, readListing, readLobby, readPing } from '../src/lobby/wire';
 import { createLobby } from '../src/lobby/lobby';
 import { raceFromLobby } from '../src/ui/setup';
@@ -41,6 +41,12 @@ class FakeRoom {
   public = true;
   /** A short link's room: its code doesn't get newcomers in. */
   linkOnly = false;
+  /** Nobody new may join (`setAccess({ locked })`); its own players can come back. */
+  locked = false;
+  /** Who's banned from it (a kick with `ban`), until it closes. */
+  banned = new Set<string>();
+  /** Every kick, as the host sent it. */
+  kicks: { id: string; ban: boolean; message?: string }[] = [];
   constructor(
     readonly hub: Hub,
     readonly code: string,
@@ -79,6 +85,8 @@ class FakeRoom {
 /** One player's view of one room. */
 class FakeClient implements RoomLike {
   connected = true;
+  /** The SDK it came from, which forgets the room when it's kicked. */
+  relay: FakeRelay | null = null;
   private handlers = new Map<string, Set<Handler>>();
   private answers = new Map<string, (data: unknown, from: string) => unknown>();
   constructor(
@@ -99,6 +107,9 @@ class FakeClient implements RoomLike {
   }
   get linkOnly() {
     return this.room.linkOnly;
+  }
+  get locked() {
+    return this.room.locked;
   }
   /** The room's short link, as the SDK's (`gamerelay.io/<game>/<link>`): the link is its code backwards and padded. */
   async shareLink(): Promise<string> {
@@ -134,13 +145,14 @@ class FakeClient implements RoomLike {
   async setListing(listing: { name?: string | null; meta?: never }): Promise<void> {
     this.room.listing = structuredClone(listing);
   }
-  async setAccess(access: { public?: boolean; linkOnly?: boolean }): Promise<void> {
+  async setAccess(access: { public?: boolean; linkOnly?: boolean; locked?: boolean }): Promise<void> {
     if (this.room.hub.failAccess > 0) {
       this.room.hub.failAccess--;
       throw new Error('rate_limited');
     }
     if (access.public !== undefined) this.room.public = access.public;
     if (access.linkOnly !== undefined) this.room.linkOnly = access.linkOnly;
+    if (access.locked !== undefined) this.room.locked = access.locked;
   }
   send(data: never): void {
     for (const m of this.room.members) if (m !== this) m.fire('message', structuredClone(data), this.me);
@@ -148,14 +160,30 @@ class FakeClient implements RoomLike {
   lanRoute(playerId: string): 'direct' | 'relay' | null {
     return this.room.hub.routes.get(`${this.me}>${playerId}`) ?? null;
   }
-  async kick(playerId: string): Promise<void> {
+  async kick(playerId: string, options: { ban?: boolean; message?: string } = {}): Promise<void> {
     if (playerId === this.me) throw new Error("the host can't kick itself");
     const c = this.room.members.find((m) => m.id === playerId);
     if (!c) return;
-    c.fire('closed', 'kicked');
+    // The SDK bans by default.
+    const ban = options.ban ?? true;
+    this.room.kicks.push({ id: playerId, ban, message: options.message });
+    if (ban) this.room.banned.add(playerId);
+    // (The SDK forgets the room before it says so.)
+    if (c.relay?.room === c) c.relay.room = null;
+    c.fire('closed', 'kicked', options.message);
     this.room.remove(c);
   }
+  async transferHost(playerId: string): Promise<void> {
+    if (!this.isHost) throw new Error('not_host');
+    const c = this.room.members.find((m) => m.id === playerId && m.connected);
+    if (!c) throw new Error('player_not_found');
+    const was = this.room.host!;
+    this.room.members = [c, ...this.room.members.filter((m) => m !== c)];
+    this.room.emit('host_changed', c.id, was.id);
+  }
   async leave(): Promise<void> {
+    // (The SDK forgets the room it left.)
+    if (this.relay?.room === this) this.relay.room = null;
     this.room.remove(this);
   }
 }
@@ -218,18 +246,27 @@ class FakeRelay implements RelayLike {
     }
     // A link-only room: its code finds nothing for a newcomer, as for a wrong one.
     if (room.linkOnly) throw new Error('not_found');
+    if (room.banned.has(this.playerId)) throw Object.assign(new Error('banned'), { code: 'banned' });
+    if (room.locked) throw Object.assign(new Error('locked'), { code: 'locked' });
     return this.enter(room);
   }
   async joinLink(link: string): Promise<RoomLike> {
     const room = [...this.hub.rooms.values()].find((r) => linkOf(r.code) === link);
     if (!room) throw new Error('not_found');
-    return room.members.find((m) => m.id === this.playerId) ?? this.enter(room);
+    const back = room.members.find((m) => m.id === this.playerId);
+    if (back) return back;
+    if (room.banned.has(this.playerId)) throw Object.assign(new Error('banned'), { code: 'banned' });
+    if (room.locked) throw Object.assign(new Error('locked'), { code: 'locked' });
+    return this.enter(room);
   }
   private enter(room: FakeRoom): FakeClient {
     const c = new FakeClient(room, this.playerId);
+    c.relay = this;
     room.members.push(c);
-    room.emit('player_joined', c.id);
-    return (this.room = c);
+    this.room = c;
+    // As the SDK says it: the player, not just their id (a host may kick them on it: a ban).
+    room.emit('player_joined', { id: c.id });
+    return c;
   }
   async listRooms() {
     return [...this.hub.rooms.values()].filter((r) => r.public).map((r) => ({ code: r.code, players: r.members.length, name: r.listing.name ?? null, meta: r.listing.meta ?? null, locked: false }));
@@ -251,14 +288,16 @@ function players(hub: Hub, ...ids: string[]) {
 describe('back after the connection was gone a while', () => {
   // The server holds a dropped player's seat 30 s; past that a lone host's room is empty but still
   // there (its idle time), with the lobby in its state. Coming back, the SDK can't resume it.
-  for (const visibility of ['invite', 'public'] as const)
-    test(`alone in a${visibility === 'invite' ? 'n invite-only' : ' public'} lobby: back in it, in your seat, still its host`, async () => {
+  for (const visibility of ['invite', 'public', 'locked'] as const)
+    test(`alone in a ${visibility} lobby: back in it, in your seat, still its host`, async () => {
       const hub = new Hub();
       const [ada] = players(hub, 'ada');
       const lobby = await ada.backend.create(player('Ada'), { visibility, online: true });
       await ada.backend.shareLink(lobby.id);
       const seen: (string | null)[] = [];
       ada.backend.subscribe(lobby.id, (l) => seen.push(l ? l.host : null));
+      // Long enough for the listing to settle (a Private one isn't locked with nobody else to keep out).
+      await new Promise((r) => setTimeout(r, 1100));
       hub.rooms.get(lobby.id)!.timeOut(ada.relay);
       for (let n = 0; n < 5; n++) await settle();
       const back = await ada.backend.get(lobby.id);
@@ -269,6 +308,22 @@ describe('back after the connection was gone a while', () => {
       // The screen never saw it gone (that's the title screen).
       expect(seen).not.toContain(null);
     });
+
+  test("a guest gone too long from someone else's Private lobby is kept out, and told why", async () => {
+    const hub = new Hub();
+    const [ada, bo] = players(hub, 'ada', 'bo');
+    // Invite only first: Bo comes in by its link (the way into a room that isn't Public), then it's made Private.
+    const lobby = await ada.backend.create(player('Ada'), { visibility: 'invite', online: true });
+    expect(await bo.backend.joinLink(linkOf(lobby.id))).toBe(lobby.id);
+    await bo.backend.send(lobby.id, { type: 'join', player: player('BO') });
+    await new Promise((r) => setTimeout(r, 1100));
+    await ada.backend.send(lobby.id, { type: 'options', visibility: 'locked' });
+    await new Promise((r) => setTimeout(r, 1100));
+    expect(hub.rooms.get(lobby.id)!.locked).toBe(true);
+    hub.rooms.get(lobby.id)!.timeOut(bo.relay);
+    for (let n = 0; n < 5; n++) await settle();
+    expect(bo.backend.why(lobby.id)).toEqual({ kind: 'locked' });
+  });
 
   test('back as a new player (the SDK lost its token): you are who the SDK says, and sitting down makes the lobby yours', async () => {
     const hub = new Hub();
@@ -283,6 +338,20 @@ describe('back after the connection was gone a while', () => {
     const sat = await ada.backend.send(lobby.id, { type: 'join', player: { ...player('Ada'), id: 'ada-2' } });
     expect(sat?.host).toBe('ada-2');
     expect(sat?.seats.filter((s) => s.kind === 'player').map((s) => s.kind === 'player' && s.id)).toEqual(['ada-2']);
+  });
+});
+
+describe("Private's lock at the server", () => {
+  const lone = createLobby('L1', { id: 'ada', name: 'ADA', car: 'coupe', paint: 0 }, { visibility: 'locked' });
+  test('locked while the lobby has a host and someone else is in the room', () => {
+    expect(serverLocked(lone, ['ada', 'bo'])).toBe(true);
+    expect(serverLocked({ ...lone, visibility: 'invite' }, ['ada', 'bo'])).toBe(false);
+  });
+  test("open with nobody else in it, so its host can come back after a long disconnect (the room outlives them, the SDK can't resume)", () => {
+    expect(serverLocked(lone, ['ada'])).toBe(false);
+  });
+  test("open once the lobby has no host, as canJoin is: whoever sits down gets it", () => {
+    expect(serverLocked({ ...lone, host: '' }, ['bo', 'cy'])).toBe(false);
   });
 });
 
@@ -423,6 +492,124 @@ describe('online lobbies', () => {
     await new Promise((r) => setTimeout(r, 1100));
     expect(hub.rooms.get(lobby.id)!.public).toBe(false);
     expect(await bo.backend.list()).toEqual([]);
+  });
+
+  test('the first kick lets them back; the second bans them from the room, even after the SDK host changed', async () => {
+    const hub = new Hub();
+    const [ada, bo, cy] = players(hub, 'ada', 'bo', 'cy');
+    const lobby = await ada.backend.create(player('ADA'), {});
+    await cy.backend.get(lobby.id);
+    await cy.backend.send(lobby.id, { type: 'join', player: player('CY') });
+    await bo.backend.get(lobby.id);
+    await bo.backend.send(lobby.id, { type: 'join', player: player('BO') });
+    await ada.backend.send(lobby.id, { type: 'kick', index: 2 });
+    const room = hub.rooms.get(lobby.id)!;
+    expect(room.kicks.at(-1)).toEqual({ id: 'bo', ban: false, message: 'Removed by the host' });
+    // Back in, and kicked again, with Cy holding the SDK's role now (Ada reloaded).
+    expect(await bo.backend.get(lobby.id)).not.toBeNull();
+    await bo.backend.send(lobby.id, { type: 'join', player: player('BO') });
+    room.members = [room.members.find((m) => m.id === 'cy')!, ...room.members.filter((m) => m.id !== 'cy')];
+    await ada.backend.send(lobby.id, { type: 'kick', index: 2 });
+    expect(room.kicks.at(-1)).toEqual({ id: 'bo', ban: true, message: "Removed by the host, and can't rejoin this lobby" });
+    expect(await bo.backend.get(lobby.id)).toBeNull();
+  });
+
+  test("kicked twice while holding the SDK's role (it can't kick itself): still told, and banned when they come back", async () => {
+    const hub = new Hub();
+    const [ada, bo] = players(hub, 'ada', 'bo');
+    const lobby = await ada.backend.create(player('ADA'), {});
+    const room = hub.rooms.get(lobby.id)!;
+    /** Bo's page holds the SDK's role (a reload moved it). */
+    const boHolds = () => {
+      room.members = [room.members.find((m) => m.id === 'bo')!, ...room.members.filter((m) => m.id !== 'bo')];
+      room.emit('host_changed', 'bo', 'ada');
+    };
+    for (const [n, message] of [[1, 'Removed by the host'], [2, "Removed by the host, and can't rejoin this lobby"]] as const) {
+      await bo.backend.get(lobby.id);
+      await bo.backend.send(lobby.id, { type: 'join', player: player('BO') });
+      boHolds();
+      await ada.backend.send(lobby.id, { type: 'kick', index: 1 });
+      await settle();
+      expect(bo.backend.why(lobby.id)).toEqual({ kind: 'kicked', message });
+      expect(room.members.map((m) => m.id)).toEqual(['ada']);
+      if (n === 1) expect((room.state.lobby as { banned?: string[] }).banned).toBeUndefined();
+    }
+    // Back in the room: the SDK host bans them from it, and the lobby won't seat them.
+    await bo.backend.get(lobby.id);
+    await settle();
+    expect(room.kicks.at(-1)).toEqual({ id: 'bo', ban: true, message: "Removed by the host, and can't rejoin this lobby" });
+    expect(room.banned.has('bo')).toBe(true);
+    expect(room.members.map((m) => m.id)).toEqual(['ada']);
+  });
+
+  test('why you are out: kicked (with the host\'s words), banned, or a private room, said once', async () => {
+    const hub = new Hub();
+    const [ada, bo, cy] = players(hub, 'ada', 'bo', 'cy');
+    const lobby = await ada.backend.create(player('ADA'), {});
+    await bo.backend.get(lobby.id);
+    await bo.backend.send(lobby.id, { type: 'join', player: player('BO') });
+    await ada.backend.send(lobby.id, { type: 'kick', index: 1 });
+    await settle();
+    expect(bo.backend.why(lobby.id)).toEqual({ kind: 'kicked', message: 'Removed by the host' });
+    expect(bo.backend.why(lobby.id)).toBeNull();
+    hub.rooms.get(lobby.id)!.banned.add('bo');
+    expect(await bo.backend.get(lobby.id)).toBeNull();
+    expect(bo.backend.why(lobby.id)).toEqual({ kind: 'banned' });
+    hub.rooms.get(lobby.id)!.locked = true;
+    expect(await cy.backend.get(lobby.id)).toBeNull();
+    expect(cy.backend.why(lobby.id)).toEqual({ kind: 'locked' });
+  });
+
+  test("a refusal nobody asked about is forgotten once you're in: it can't be said later, about something else", async () => {
+    const hub = new Hub();
+    const [ada, cy] = players(hub, 'ada', 'cy');
+    const lobby = await ada.backend.create(player('ADA'), {});
+    const room = hub.rooms.get(lobby.id)!;
+    room.locked = true;
+    expect(await cy.backend.get(lobby.id)).toBeNull();
+    room.locked = false;
+    expect(await cy.backend.get(lobby.id)).not.toBeNull();
+    expect(cy.backend.why(lobby.id)).toBeNull();
+  });
+
+  test("Make host hands over the lobby and the SDK's role with it; to a player whose connection is down, just the lobby", async () => {
+    const hub = new Hub();
+    const [ada, bo, cy] = players(hub, 'ada', 'bo', 'cy');
+    const lobby = await ada.backend.create(player('ADA'), {});
+    for (const p of [bo, cy]) {
+      await p.backend.get(lobby.id);
+      await p.backend.send(lobby.id, { type: 'join', player: player(p.relay.playerId.toUpperCase()) });
+    }
+    const after = await ada.backend.send(lobby.id, { type: 'host', index: 1 });
+    expect(after?.host).toBe('bo');
+    expect(bo.relay.room!.isHost).toBe(true);
+    // Bo's turn: Cy's connection is down, so the SDK's role stays with Bo.
+    const room = hub.rooms.get(lobby.id)!;
+    room.members.find((m) => m.id === 'cy')!.connected = false;
+    const later = await bo.backend.send(lobby.id, { type: 'host', index: 2 });
+    expect(later?.host).toBe('cy');
+    expect(bo.relay.room!.isHost).toBe(true);
+  });
+
+  test('Private locks the room at the server: nobody new gets in, its own players come back, and Public opens it', async () => {
+    const hub = new Hub();
+    const [ada, bo, cy] = players(hub, 'ada', 'bo', 'cy');
+    const lobby = await ada.backend.create(player('ADA'), {});
+    await bo.backend.get(lobby.id);
+    await bo.backend.send(lobby.id, { type: 'join', player: player('BO') });
+    await ada.backend.send(lobby.id, { type: 'options', visibility: 'locked' });
+    await new Promise((r) => setTimeout(r, 1100));
+    const room = hub.rooms.get(lobby.id)!;
+    expect(room.locked).toBe(true);
+    // A stranger is refused by the server, not only by the lobby's rules.
+    expect(await cy.backend.get(lobby.id)).toBeNull();
+    // Bo's race page coming back (a reload) still gets in.
+    room.members.find((m) => m.id === 'bo')!.connected = false;
+    expect(await bo.relay.joinRoom(lobby.id)).toBeTruthy();
+    await new Promise((r) => setTimeout(r, 1100));
+    await ada.backend.send(lobby.id, { type: 'options', visibility: 'public' });
+    await new Promise((r) => setTimeout(r, 1100));
+    expect(room.locked).toBe(false);
   });
 
   test('a lobby an older build made "private" (by link) is invite only: a friend with the link still sits down', async () => {
