@@ -2,6 +2,7 @@
 // and the relay one (GameRelay rooms: relay.ts) are interchangeable, and `Lobbies` puts both
 // behind one: your own lobby is local (`LOCAL_ID`), every other is a room, by its code.
 
+import type { Refusal } from './relay';
 import { apply, createLobby, DEFAULT_OPTIONS, summarize, type Lobby, type LobbyAction, type LobbyOptions, type LobbySummary, type Player } from './lobby';
 
 export interface LobbyBackend {
@@ -21,6 +22,8 @@ export interface LobbyBackend {
   subscribe(id: string, fn: (lobby: Lobby | null) => void, opts?: { pings?: boolean }): () => void;
   /** Online, with others in the room: how your broadcasts reach them (see `NetRoute`). */
   route?(id: string): NetRoute | null;
+  /** Online: why lobby `id` last refused you or put you out (kicked, banned, private, full), once. */
+  why?(id: string): Refusal | null;
   /** Online: player `player`'s ping to the server (ms), or null while it isn't known. */
   ping?(id: string, player: string): number | null;
   /** Online: whether player `player`'s connection has been gone a while (their seat's held for them). */
@@ -162,6 +165,10 @@ export class Lobbies implements LobbyBackend {
 
   route(id: string): NetRoute | null {
     return this.of(id)?.route?.(id) ?? null;
+  }
+
+  why(id: string): Refusal | null {
+    return this.of(id)?.why?.(id) ?? null;
   }
 
   ping(id: string, player: string): number | null {

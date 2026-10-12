@@ -127,7 +127,12 @@ export function readAction(data: unknown, from: string): LobbyAction | null {
       return { type: 'join', player: { id: from, name, car: p.car, paint: p.paint } };
     }
     case 'kick':
-      return int(data.index, 0, SEATS - 1) ? { type: 'kick', index: data.index } : null;
+    case 'host': {
+      if (!int(data.index, 0, SEATS - 1)) return null;
+      // Who they mean, if they say (an older build doesn't).
+      if (data.id === undefined) return { type: data.type, index: data.index };
+      return str(data.id, 64) ? { type: data.type, index: data.index, id: data.id } : null;
+    }
     case 'start': {
       if (data.seed !== undefined && !int(data.seed, 0, 2 ** 31 - 1)) return null;
       if (data.at !== undefined && !(typeof data.at === 'number' && Number.isFinite(data.at) && data.at > 0)) return null;
@@ -186,6 +191,10 @@ export function readLobby(state: Record<string, unknown>): Lobby | null {
   // The results and vote (online, after a race): bad ones are dropped, not the whole lobby.
   const results = Array.isArray(l.results) ? l.results.slice(0, SEATS).map(readResult).filter((r): r is ResultRow => !!r) : undefined;
   const vote = l.vote === undefined ? null : readVote(l.vote);
+  // Who's been kicked: ids only (a bad entry is dropped, not the lobby).
+  const ids = (v: unknown) => (Array.isArray(v) ? v.filter((k): k is string => str(k, 64)).slice(0, 64) : undefined);
+  const kicked = ids(l.kicked);
+  const banned = ids(l.banned);
   return {
     id: l.id,
     name: l.name,
@@ -199,6 +208,8 @@ export function readLobby(state: Record<string, unknown>): Lobby | null {
     ...(l.party === undefined ? {} : { party: l.party as string }),
     ...(results?.length ? { results } : {}),
     ...(vote ? { vote } : {}),
+    ...(kicked?.length ? { kicked } : {}),
+    ...(banned?.length ? { banned } : {}),
   };
 }
 

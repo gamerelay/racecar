@@ -260,6 +260,9 @@ svg.thumb .end { fill: var(--sun); stroke: var(--ink); stroke-width: 1; }
 .seats .car { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
 .seats .car .muted { margin: 0; font-size: 12px; }
 .card .seats button.chooser { padding: 5px 8px; font-size: 13px; }
+/* Kick or Make host, armed in the seat chooser: the second step. */
+.card .seats button.seatGo { margin-left: 6px; padding: 5px 8px; font-size: 13px; }
+.card .seats button.seatGo[hidden] { display: none; }
 .seats .tag { font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; line-height: 1; color: var(--outline); background: var(--sun); padding: 3px 5px; margin-left: 6px; vertical-align: middle; }
 .seats .ready { color: #7cff6b; }
 /* Still in the lobby's race (online): back when their lobby screen opens. */
@@ -415,6 +418,30 @@ svg.thumb .end { fill: var(--sun); stroke: var(--ink); stroke-width: 1; }
 /* The overlays over everything (ui/overlay.ts): Settings, Controls, and the first race's keys card. */
 #settings, #controls, #keys { position: fixed; inset: 0; z-index: 14; display: none; place-items: center; background: rgba(13, 6, 32, 0.7); overflow: auto; padding: 16px; }
 #settings.on, #controls.on, #keys.on { display: grid; }
+/* Credits, Privacy and Terms (ui/pages.ts): the soundtrack art's sunset behind a card. */
+#pages { position: fixed; inset: 0; z-index: 14; display: none; place-items: center; overflow: auto; padding: 16px; background: linear-gradient(#1a0838, #3b0f5c 45%, var(--pink) 62%, var(--bg) 62.2%); }
+#pages.on { display: grid; }
+#pages > .card { position: relative; max-width: 620px; animation: popIn 0.16s ease-out both; }
+.pgScene { position: fixed; inset: 0; overflow: hidden; pointer-events: none; }
+.pgSun { position: absolute; left: 50%; top: 22%; width: 38vmin; height: 38vmin; margin-left: -19vmin; border-radius: 50%; background: linear-gradient(var(--sun), #ff7a3d 60%, var(--pink));
+  /* The bands across its lower half. */
+  -webkit-mask-image: linear-gradient(#000 55%, transparent 55% 59%, #000 59% 68%, transparent 68% 72%, #000 72% 81%, transparent 81% 86%, #000 86%); mask-image: linear-gradient(#000 55%, transparent 55% 59%, #000 59% 68%, transparent 68% 72%, #000 72% 81%, transparent 81% 86%, #000 86%); }
+.pgGrid { position: absolute; left: -50%; right: -50%; top: 62%; bottom: -10%; transform: perspective(40vh) rotateX(62deg); transform-origin: top;
+  background: repeating-linear-gradient(90deg, rgba(53, 240, 255, 0.55) 0 2px, transparent 2px 7vw), repeating-linear-gradient(rgba(53, 240, 255, 0.55) 0 2px, transparent 2px 7vh); animation: pgRun 1.2s linear infinite; }
+@keyframes pgRun { to { background-position: 0 0, 0 7vh; } }
+.pgPalm { position: absolute; bottom: 37.8%; height: 34vh; fill: var(--bg); }
+.pgPalm svg { display: block; height: 100%; }
+.pgPalm.l { left: 4%; }
+.pgPalm.r { right: 3%; height: 40vh; transform: scaleX(-1); }
+.pgCar { position: absolute; top: 66%; left: -10%; width: 7vh; height: 1.2vh; border-radius: 0.6vh; background: linear-gradient(90deg, var(--pink) 0 22%, transparent 22% 78%, var(--pink) 78%); box-shadow: 0 0 2vh var(--pink); animation: pgCar 9s linear infinite 2s; }
+@keyframes pgCar { 0% { transform: translateX(0); } 40%, 100% { transform: translateX(130vw); } }
+.card.page dl { display: grid; grid-template-columns: max-content 1fr; gap: 8px 16px; margin: 12px 0; }
+.card.page a { color: var(--cyan); }
+.wordmark.small { font-size: 56px; }
+.titleFoot { display: flex; align-items: center; gap: 8px; margin-top: 8px; font-size: 13px; color: var(--muted); }
+.titleFoot a { color: inherit; }
+.titleFoot .creditsBox { margin-left: auto; background: var(--ink); color: var(--outline); border: 0; padding: 4px 10px; font-size: 12px; }
+@media (prefers-reduced-motion: reduce) { .pgGrid, .pgCar { animation: none; } .pgCar { display: none; } }
 .card.settings h2 { margin-top: 18px; }
 .card.settings .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px 14px; }
 .card.settings label { display: grid; gap: 4px; font-weight: 700; font-size: 13px; color: var(--muted); }

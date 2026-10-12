@@ -317,3 +317,52 @@ describe('map thumbnails', () => {
     expect(Math.hypot(t.finish![0] - fx, t.finish![1] - fz)).toBeLessThan(0.5);
   });
 });
+
+test('a kick remembers who: the lobby keeps their id (once), for the ban on a second', () => {
+  let l = createLobby('L1', { id: 'ada', name: 'ADA', car: 'coupe', paint: 0 });
+  l = apply(l, 'bo', { type: 'join', player: { id: 'bo', name: 'BO', car: 'coupe', paint: 0 } })!;
+  l = apply(l, 'ada', { type: 'kick', index: 1 })!;
+  expect(l.kicked).toEqual(['bo']);
+  l = apply(l, 'bo', { type: 'join', player: { id: 'bo', name: 'BO', car: 'coupe', paint: 0 } })!;
+  l = apply(l, 'ada', { type: 'kick', index: 1 })!;
+  expect(l.kicked).toEqual(['bo']);
+  // Only the host kicks, never themselves.
+  expect(apply(l, 'bo', { type: 'kick', index: 0 })).toBeNull();
+});
+
+test('the host hands the lobby to a seated player: not to themselves, a bot or an open seat, and nobody else can', () => {
+  let l = createLobby('L1', { id: 'ada', name: 'ADA', car: 'coupe', paint: 0 });
+  l = apply(l, 'bo', { type: 'join', player: { id: 'bo', name: 'BO', car: 'coupe', paint: 0 } })!;
+  l = apply(l, 'ada', { type: 'seat', index: 2, to: 'ai-hard' })!;
+  expect(apply(l, 'bo', { type: 'host', index: 1 })).toBeNull();
+  expect(apply(l, 'ada', { type: 'host', index: 0 })).toBeNull();
+  expect(apply(l, 'ada', { type: 'host', index: 2 })).toBeNull();
+  expect(apply(l, 'ada', { type: 'host', index: 3 })).toBeNull();
+  const next = apply(l, 'ada', { type: 'host', index: 1 })!;
+  expect(next.host).toBe('bo');
+  // The new host is ready (a host always is), and the old one isn't held to it.
+  expect(next.seats[1]).toMatchObject({ ready: true });
+});
+
+test('a second kick bans them from the lobby: they can\'t sit down again', () => {
+  let l = createLobby('L1', { id: 'ada', name: 'ADA', car: 'coupe', paint: 0 });
+  const bo = { id: 'bo', name: 'BO', car: 'coupe', paint: 0 };
+  l = apply(l, 'bo', { type: 'join', player: bo })!;
+  l = apply(l, 'ada', { type: 'kick', index: 1 })!;
+  expect(l.banned).toBeUndefined();
+  l = apply(l, 'bo', { type: 'join', player: bo })!;
+  l = apply(l, 'ada', { type: 'kick', index: 1 })!;
+  expect(l.banned).toEqual(['bo']);
+  expect(canJoin(l, 'bo')).toBe(false);
+  expect(apply(l, 'bo', { type: 'join', player: bo })).toBeNull();
+});
+
+test("Kick and Make host name the player: if the seat changed hands since, they're refused", () => {
+  let l = createLobby('L1', { id: 'ada', name: 'ADA', car: 'coupe', paint: 0 });
+  l = apply(l, 'bo', { type: 'join', player: { id: 'bo', name: 'BO', car: 'coupe', paint: 0 } })!;
+  // Seat 1 is Bo's now, not Cy's (who the host's screen showed).
+  expect(apply(l, 'ada', { type: 'kick', index: 1, id: 'cy' })).toBeNull();
+  expect(apply(l, 'ada', { type: 'host', index: 1, id: 'cy' })).toBeNull();
+  expect(apply(l, 'ada', { type: 'kick', index: 1, id: 'bo' })?.seats[1]).toEqual({ kind: 'open' });
+  expect(apply(l, 'ada', { type: 'host', index: 1, id: 'bo' })?.host).toBe('bo');
+});

@@ -66,6 +66,14 @@ export interface Lobby {
   results?: ResultRow[];
   /** The vote on the next race's map, open from the first player's finish (online). */
   vote?: Vote;
+  /**
+   * Who the host has kicked from this lobby (player ids), for as long as the lobby lives: the
+   * first kick lets them back (friends kick each other for fun), a second bans them from its room
+   * (the owner, 2026-10-10). In the lobby, not on a page, so it outlives a change of host.
+   */
+  kicked?: string[];
+  /** Who's been kicked twice: they can't sit down in this lobby again, and its room bans them. */
+  banned?: string[];
 }
 
 /** A car's race: its time and best lap (s; null if it didn't finish or set one), takedowns, wrecks and score. */
@@ -143,7 +151,9 @@ export type LobbyAction =
   | { type: 'racing'; racing: boolean }
   | { type: 'join'; player: Player }
   | { type: 'leave' }
-  | { type: 'kick'; index: number }
+  // `id`: the player the host's screen showed in that seat (refused if it's changed hands since).
+  | { type: 'kick'; index: number; id?: string }
+  | { type: 'host'; index: number; id?: string }
   | { type: 'start'; seed?: number; at?: number }
   | { type: 'end' }
   /** A car's result in race `race`: your own seat's, or (the host) an AI's. */
@@ -189,7 +199,7 @@ export function seatIndex(lobby: Lobby, id: string): number {
 
 /** Whether player `id` may sit down now: between races, not seated, a seat open, and not locked (unless nobody's left to keep it so). */
 export function canJoin(lobby: Lobby, id: string): boolean {
-  return lobby.phase === 'lobby' && seatIndex(lobby, id) < 0 && !(lobby.visibility === 'locked' && lobby.host) && lobby.seats.some((s) => s.kind === 'open');
+  return lobby.phase === 'lobby' && seatIndex(lobby, id) < 0 && !lobby.banned?.includes(id) && !(lobby.visibility === 'locked' && lobby.host) && lobby.seats.some((s) => s.kind === 'open');
 }
 
 /** Who can join, in the order the host's button goes through them. */
@@ -272,8 +282,19 @@ export function apply(lobby: Lobby, actor: string, action: LobbyAction): Lobby |
     }
     case 'kick': {
       const s = lobby.seats[action.index];
-      if (!isHost || !s || s.kind !== 'player' || s.id === actor) return null;
+      if (!isHost || !s || s.kind !== 'player' || s.id === actor || (action.id !== undefined && s.id !== action.id)) return null;
       next.seats[action.index] = { kind: 'open' };
+      if (!lobby.kicked?.includes(s.id)) next.kicked = [...(lobby.kicked ?? []), s.id];
+      else if (!lobby.banned?.includes(s.id)) next.banned = [...(lobby.banned ?? []), s.id];
+      return next;
+    }
+    case 'host': {
+      // The host hands the lobby to another seated player (the SDK's role goes too: relay.ts).
+      const s = lobby.seats[action.index];
+      if (!isHost || !s || s.kind !== 'player' || s.id === actor || (action.id !== undefined && s.id !== action.id)) return null;
+      next.host = s.id;
+      // A host is always ready.
+      next.seats[action.index] = { ...s, ready: true };
       return next;
     }
     case 'start': {
