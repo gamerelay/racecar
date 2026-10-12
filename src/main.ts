@@ -18,7 +18,6 @@ import { bakeTrack } from './core/track/bake';
 import { Input, routedKey } from './input/input';
 import { GameRenderer } from './render/renderer';
 import { GreyboxSkin } from './render/skins/greybox';
-import { posthogBuilt, posthogEnabled, posthogSink, setTelemetryOptOut, telemetryOptedOut } from './telemetry/posthog';
 import { Telemetry } from './telemetry/telemetry';
 import { GameAudio } from './audio/audio';
 import { playlistFor, Soundtrack } from './audio/soundtrack';
@@ -30,9 +29,11 @@ import { installClicks } from './ui/click';
 import { fadeIn, ready, veiled } from './ui/fade';
 import { KeysCard } from './ui/keys';
 import { GETAWAY_MAP, installEmbed, keepEmbed, startsGetaway } from './ui/embed';
+import { cycle, leader } from './ui/watch';
 import { SettingsPanel } from './ui/settings';
+import { PagesPanel, readPage } from './ui/pages';
 import { ControlsPanel } from './ui/controls';
-import { SettingsStore } from './settings';
+import { forgetAnalytics, SettingsStore } from './settings';
 import { backToSetup, quickRaceSetup, raceAgain, randomCar, readChoices, readSetup, restart, toQuery, type RaceSetup } from './ui/setup';
 import { Menu, type Preview } from './ui/menu';
 import { GameRelay } from '@gamerelay/sdk';
@@ -63,10 +64,9 @@ installEmbed();
 /** Frames drawn: the loading screen lifts after the second (the first compiles the shaders). */
 let drawn = 0;
 installChoosers();
-/** The player's settings (sound, graphics, privacy), on this device. */
+/** The player's settings (sound, graphics), on this device. */
 const settings = new SettingsStore(storage());
-// Analytics turned off before there were settings (racecar.telemetry): still off.
-if (telemetryOptedOut() && settings.get().analytics) settings.set({ analytics: false });
+forgetAnalytics(storage());
 const BUILD = `${import.meta.env.MODE}-${__BUILD_TIME__}`;
 // Only cars and paints that exist: a stale or hand-edited link falls back instead of crashing.
 const LAYOUT_KEYS = Object.keys(LAYOUTS);
@@ -113,14 +113,20 @@ const sim = new Sim(bakeTrack(layout, SURFACES), CLASSES, SURFACES, {
   mayhem: run.mayhem,
   traffic: run.traffic ? 1 : 0,
 });
+/**
+ * A getaway (docs/CHASE_MODE.md): a race on its map is you and the cops; online (the owner,
+ * 2026-10-09), every player's a runner, each with their own cops. The AIs sit it out, and so do
+ * other players when it isn't online (a race of your own from an online lobby).
+ */
+const chaseMap = !!layout.getaway && run.mode === 'race' && !attract && run.seats.includes('p');
+const castSeats = chaseMap ? run.seats.replace(onlineRace ? /[^pr]/g : /[^p]/g, 'x') : run.seats;
 // The seats become the cars, in grid order; behind the menu, eight AIs of every skill.
-const cast = roster(run.seats, CLASSES.map((c) => c.id), PAINTS.length, { ...run, plate }, run.others);
-/** A getaway (docs/CHASE_MODE.md): a race on its map, yours alone (not online, for now), is you and the cops. */
-const getaway = !!layout.getaway && run.mode === 'race' && !attract && !onlineRace && cast.me >= 0;
-const { specs, names, me: you, remote, rivals: aiSeats } = getaway ? { specs: [cast.specs[cast.me]], names: [cast.names[cast.me]], me: 0, remote: new Map<string, number>(), rivals: new Map<number, number>() } : cast;
+const cast = roster(castSeats, CLASSES.map((c) => c.id), PAINTS.length, { ...run, plate }, run.others);
+const getaway = chaseMap && cast.me >= 0;
+const { specs, names, me: you, remote, rivals: aiSeats } = cast;
 for (const s of specs) sim.addCar(s);
-/** Its rules, and its cops: added after your car, their plates the police's. */
-const chase = getaway ? new Getaway(sim, you) : null;
+/** Its rules, and its cops: added after the runners, their plates the police's. */
+const chase = getaway ? new Getaway(sim, specs.map((_, i) => i)) : null;
 const colors = specs.map((x) => PAINTS[(x.paint ?? 0) % PAINTS.length].color);
 chase?.cops.forEach(() => {
   names.push('PD 911');
@@ -209,20 +215,20 @@ if (attract && track) {
 // The frame rate, top left, when Settings → Show FPS is on.
 document.body.insertAdjacentHTML('beforeend', '<div id="fps" aria-hidden="true"></div>');
 const fpsEl = document.getElementById('fps')!;
-// Settings apply as they change: the volumes, the graphics, analytics.
+// Settings apply as they change: the volumes and the graphics.
 settings.onChange((s) => {
   audio.setVolumes(s.volume);
   renderer.setQuality({ resolution: s.graphics.resolution, post: params.get('post') !== '0' && s.graphics.post, outline: params.get('ink') !== '0' && s.graphics.outline });
   fpsEl.classList.toggle('on', s.graphics.fps);
-  setTelemetryOptOut(!s.analytics);
 });
-const settingsPanel = new SettingsPanel(settings, posthogBuilt);
+const settingsPanel = new SettingsPanel(settings);
 const controlsPanel = new ControlsPanel();
+const pagesPanel = new PagesPanel();
 const raceUi = new RaceUi(sim, CLASSES, names, colors);
 raceUi.onAgain = () => raceAgain(run);
 // A getaway's best, on this device: the HUD and the results show it; a longer run keeps its time.
 const BEST_KEY = `racecar.getaway.${layoutKey}`;
-if (chase) {
+if (chase && !onlineRace) {
   let best = 0;
   try {
     best = Number(localStorage.getItem(BEST_KEY)) || 0;
@@ -234,7 +240,7 @@ if (chase) {
 /** Whether the run's over and its time's been kept (as it ends: not when its results show, which leaving first skips). */
 let getawayKept = false;
 function keepGetaway(): void {
-  if (!chase?.end || getawayKept) return;
+  if (!chase?.end || onlineRace || getawayKept) return;
   getawayKept = true;
   try {
     if (chase.time > (Number(localStorage.getItem(BEST_KEY)) || 0)) localStorage.setItem(BEST_KEY, String(chase.time));
@@ -254,6 +260,21 @@ if (you >= 0) {
   renderer.focus = hud.focus = raceUi.focus = me;
   renderer.snapCamera();
 }
+raceUi.you = you;
+raceUi.keepsBest = !onlineRace;
+/** An online getaway, you out: the camera on another runner, ← / → (or the strip's buttons) to the next. */
+function watch(car: number): void {
+  if (car < 0 || car === renderer.focus) return;
+  renderer.focus = hud.focus = raceUi.focus = car;
+  renderer.snapCamera();
+}
+raceUi.onWatch = (dir) => chase && watch(cycle(chase, renderer.focus, dir));
+if (chase && chase.runs.length > 1)
+  window.addEventListener('keydown', (e) => {
+    if (!raceUi.watching || (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight')) return;
+    e.preventDefault();
+    raceUi.onWatch(e.key === 'ArrowRight' ? 1 : -1);
+  });
 // Behind the menu there are no results; with the pause menu up they wait.
 raceUi.resultsOn = !attract;
 raceUi.canShow = () => !paused;
@@ -271,6 +292,11 @@ if (attract) {
   screens = new Menu(lobbies, { maps: MAPS, layouts: LAYOUTS, classes: CLASSES, paints: PAINTS }, readChoices(params, layoutKey, known), plate, storage());
   screens.onPreview = preview;
   screens.onSettings = () => settingsPanel.open(document.getElementById('mSettings'));
+  screens.onNotice = toast;
+  screens.onPage = (page, from) => pagesPanel.open(page, from);
+  // A link to a page (`?page=credits`): the title, with it up.
+  const page = readPage(params.get('page'));
+  if (page) pagesPanel.open(page);
   screens.online = !!online;
   screens.offline = () => lobbies.offline;
   // A short link sends players here with `?join=<link>` (net: GameRelay's short links); an
@@ -319,13 +345,6 @@ function swapMap(key: string, weather: RaceSetup['weather'], time: RaceSetup['ti
   raceUi.buildMap();
 }
 const telemetry = new Telemetry(sim, specs, () => layout, BUILD, { enabled: import.meta.env.DEV, trace: params.get('trace') === '1' });
-// Dev builds write local files; playtest builds with a PostHog key send there (unless opted out).
-if (!import.meta.env.DEV || params.get('posthog') === '1') {
-  if (posthogEnabled()) {
-    telemetry.enabled = true;
-    telemetry.sink = posthogSink(telemetry.session, BUILD);
-  }
-}
 telemetry.start(input.lastDevice);
 window.addEventListener('error', (e) => telemetry.error(e.error ?? e.message));
 window.addEventListener('unhandledrejection', (e) => telemetry.error(e.reason));
@@ -449,6 +468,8 @@ function frame(now: number): void {
         lastSwitch = performance.now();
       }
     }
+    // Watching an online getaway: off a runner who's out, on to one still going.
+    if (chase && raceUi.watching && chase.runOf(renderer.focus)?.end) watch(leader(chase));
     hud.update();
     raceUi.update();
     keepGetaway();
@@ -462,7 +483,7 @@ requestAnimationFrame(frame);
 
 /** The menu on screen, if any, topmost first: the F8 form, Settings or Controls, the pause menu, results, or the title and lobbies. */
 function openMenu(): HTMLElement | null {
-  for (const sel of ['#reportForm', '#settings.on', '#controls.on', '#keys.on', '#pause.on', '#results.on', '#menu']) {
+  for (const sel of ['#reportForm', '#settings.on', '#controls.on', '#keys.on', '#pages.on', '#pause.on', '#results.on', '#menu']) {
     const el = document.querySelector<HTMLElement>(sel);
     if (el) return el;
   }
@@ -498,6 +519,7 @@ input.on((a) => {
   // Settings and Controls are over the menus: back (Esc, B) closes them, to the menu they were opened from.
   if ((a === 'back' || a === 'pause') && settingsPanel.isOpen) return settingsPanel.close();
   if ((a === 'back' || a === 'pause') && controlsPanel.isOpen) return controlsPanel.close();
+  if ((a === 'back' || a === 'pause') && pagesPanel.isOpen) return pagesPanel.close();
   if (a === 'back') return void (paused ? setPaused(false) : screens?.back());
   // Behind the menu there's nothing to pause: Esc and Start go back a screen.
   if (a === 'pause' && attract) screens?.back();
@@ -523,6 +545,7 @@ function setPaused(on: boolean): void {
   paused = on;
   if (!on && settingsPanel.isOpen) settingsPanel.close();
   if (!on && controlsPanel.isOpen) controlsPanel.close();
+  if (!on && pagesPanel.isOpen) pagesPanel.close();
   let el = document.getElementById('pause');
   if (!el) {
     document.body.insertAdjacentHTML(
@@ -587,12 +610,23 @@ function openReport(): void {
     const report = telemetry.report(field.value, me);
     telemetry.flush();
     close();
+    // A released build has no dev server to save it: it's a download, to attach to a bug report
+    // (`bun tools/replay.ts <file>` plays it back).
+    if (!import.meta.env.DEV) {
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(new Blob([JSON.stringify(report)], { type: 'application/json' }));
+      a.download = `racecar-report-${new Date().toISOString().replace(/[:.]/g, '-')}.json`;
+      a.click();
+      setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+      toast(`Saved ${a.download}`);
+      return;
+    }
     try {
       const res = await fetch('/__report', { method: 'POST', body: JSON.stringify(report) });
       const { file } = await res.json();
       toast(`Saved ${file}`);
     } catch {
-      toast('Could not save the report (dev server only for now)');
+      toast('Could not save the report');
     }
   };
 }

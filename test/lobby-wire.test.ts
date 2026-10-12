@@ -134,3 +134,30 @@ describe('lobby wire: results', () => {
     expect(results('first')).not.toHaveProperty('results');
   });
 });
+
+test("a lobby's kicked list is read when it's ids, dropped when it's junk, and absent in an older lobby", () => {
+  const base = { lobby: createLobby('L1', { id: 'ada', name: 'ADA', car: 'coupe', paint: 0 }) };
+  expect(readLobby(base)?.kicked).toBeUndefined();
+  expect(readLobby({ lobby: { ...base.lobby, kicked: ['bo', 'cy'] } })?.kicked).toEqual(['bo', 'cy']);
+  expect(readLobby({ lobby: { ...base.lobby, kicked: ['bo', 7, '<b>'.repeat(40)] } })?.kicked).toEqual(['bo']);
+  expect(readLobby({ lobby: { ...base.lobby, kicked: 'bo' } })).not.toBeNull();
+});
+
+test('Make host is read with a seat index in range, and refused without one', () => {
+  expect(readAction({ type: 'host', index: 3 }, 'ada')).toEqual({ type: 'host', index: 3 });
+  expect(readAction({ type: 'host', index: 8 }, 'ada')).toBeNull();
+  expect(readAction({ type: 'host' }, 'ada')).toBeNull();
+});
+
+test("a lobby's banned list is read like its kicked one", () => {
+  const base = { lobby: createLobby('L1', { id: 'ada', name: 'ADA', car: 'coupe', paint: 0 }) };
+  expect(readLobby(base)?.banned).toBeUndefined();
+  expect(readLobby({ lobby: { ...base.lobby, banned: ['bo', 7] } })?.banned).toEqual(['bo']);
+});
+
+test('Kick and Make host carry the player they mean, checked like any id', () => {
+  expect(readAction({ type: 'kick', index: 1, id: 'bo' }, 'ada')).toEqual({ type: 'kick', index: 1, id: 'bo' });
+  expect(readAction({ type: 'host', index: 1, id: 'bo' }, 'ada')).toEqual({ type: 'host', index: 1, id: 'bo' });
+  expect(readAction({ type: 'kick', index: 1, id: 7 }, 'ada')).toBeNull();
+  expect(readAction({ type: 'host', index: 1, id: 'x'.repeat(65) }, 'ada')).toBeNull();
+});

@@ -255,3 +255,24 @@ describe("the race page's post-race", () => {
     expect(p.went).toHaveLength(0);
   });
 });
+
+describe("a getaway's vote (the owner, 2026-10-09)", () => {
+  const out = (l: Lobby, actor: string, seat: number, time: number) => ok(l, actor, { type: 'result', race: raceKey(l), row: row(seat, time) });
+
+  test('it opens once one runner is left, not at the first out', () => {
+    // Three runners racing (ada, bo, cy); one out.
+    let l = out(racing(), 'ada', 0, 40);
+    expect(voteStep(l, 1000, () => 1, true)).toBeNull();
+    // Two out: the last one's still going, and the rest vote.
+    l = out(l, 'bo', 1, 55);
+    expect(voteStep(l, 1000, () => 1, true)).toEqual({ type: 'voteEnds', ends: 1000 + VOTE_MAX_MS });
+    // And a race's opens at the first, as ever.
+    expect(voteStep(out(racing(), 'ada', 0, 40), 1000, () => 1)).toEqual({ type: 'voteEnds', ends: 1000 + VOTE_MAX_MS });
+  });
+
+  test("a lobby of one's opens when they're out", () => {
+    const alone = ok(createLobby('K7QM', ada), 'ada', { type: 'start', seed: 7, at: 1000 });
+    expect(voteStep(alone, 0, () => 1, true)).toBeNull();
+    expect(voteStep(out(alone, 'ada', 0, 12), 0, () => 1, true)).toEqual({ type: 'voteEnds', ends: VOTE_MAX_MS });
+  });
+});

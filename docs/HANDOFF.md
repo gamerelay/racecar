@@ -4,7 +4,28 @@ Where racecar stands and what's next, for whoever picks it up (a person or a fre
 The design is [SPEC.md](./SPEC.md): decisions in §17, and what building changed in "Changed while
 building". This file is "where are we"; the spec is "what are we making".
 
-**Last updated:** 2026-10-09. **`alpha-1.47`** (PR #167) is tagged and on the hosted build (the
+**Last updated:** 2026-10-09. **On branch `splash-city-online`, not merged:** Heist is **Splash
+City**, and an online lobby race on it is a getaway for every player (the owner: "Make the default
+mode chase when you select from the normal menu", then "competitive survival and we add more cops",
+"each player gets their own cops, but cops will also attack you when nearby", "watch the rest then
+shared results"). Details in [CHASE_MODE.md](./CHASE_MODE.md)'s "Online getaways, and Splash City".
+- **Code:** `rules/getaway.ts` (a run per runner, `poolFor`, `NEAR_TARGET`), `net/cops.ts` (host
+  cops), `net/cars.ts` (`out`/`runT`), `lobby/vote.ts` (`chase`), `ui/watch.ts`, `ui/race.ts`
+  (strip, `showTable`), `main.ts`. `MAX_CARS` is 32.
+- **Checked:** the suite (784), and `?start=getaway` loading on Splash City as before.
+- **Not checked yet:** online with 2+ players on the local relay, 8 runners at the Bank, the
+  32-car draw calls against the table below, and single player's crash card in a visible window.
+- **Next (not in this):** AI runners online, players as cops, an online leaderboard.
+
+**Then, on branch `public-polish` (on `public-ready`, on `splash-city-online`), not merged:** ready
+for the public ([the spec](./superpowers/specs/2026-10-10-public-polish-design.md)). No analytics
+(PostHog is gone); host controls (Kick, banned on a second kick; Make host with `transferHost`;
+Private locks the room at the server; told why you're out); Credits, Privacy and Terms pages from
+the title (`ui/pages.ts`, the text in `PRIVACY.md` and `TERMS.md`). The SDK is at alpha.7.
+- **Checked:** the suite, and the pages and title in headless Chrome at 1440×900 and 390×844.
+- **Not checked yet:** kick, ban and Make host with two real browsers on the local relay.
+
+Before it, **`alpha-1.47`** (PR #167) is tagged and on the hosted build (the
 owner: "merge and deploy please"): **Heist's draw call pass** ("yes do the draw call pass on heist
 please"), from 650–950 calls a frame to 140–270 (SPEC §15: 250). What and how, in
 [CHASE_MODE.md](./CHASE_MODE.md)'s "The draw call pass":
@@ -55,7 +76,7 @@ trees"). Details in [CHASE_MODE.md](./CHASE_MODE.md)'s "Built so far".
 
 Before that, **`alpha-1.45`** (PRs #164, #165) is tagged and on the hosted build
 (the owner: "merge both and deploy please"):
-- **Punch In** (#164; the owner's track): `punch-in`, the ninth in soundtrack.ts's `ANY_MAP`. The
+- **Punch In** (#164; the owner's track; since renamed **Punch It**, `punch-it`): `punch-in`, the ninth in soundtrack.ts's `ANY_MAP`. The
   WAV 2.3 dB down from −13.6 to −16.0 LUFS, AAC 128 kb/s, and on the CDN (checked: 200, CORS `*`).
 - **− and + change the track** (#164): the playlist's previous or next, in order and round the
   ends (`Soundtrack.step`), its name in a toast. Off or muted, the new one waits for the music.

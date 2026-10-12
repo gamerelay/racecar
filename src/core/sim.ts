@@ -34,7 +34,7 @@ import type { Getaway } from './rules/getaway';
 import { planWeather, weatherAt, type Fall, type WeatherOption, type WeatherPlan, type WeatherState } from './world/weather';
 
 export const TICK_RATE = 60;
-export const MAX_CARS = 16;
+export const MAX_CARS = 32;
 
 export interface SimOptions {
   seed: number;
@@ -519,8 +519,8 @@ export class Sim implements SimState {
   private controlsFor(i: number, input: readonly (Controls | undefined)[]): Controls {
     const cop = this.cops[i];
     if (cop) return driveCop(this, i, cop, this.controls[i]);
-    // A getaway that's over: the car pulls up, whatever you press.
-    if (this.getaway?.end && i === this.getaway.player) {
+    // A getaway run that's over: the car pulls up, whatever you press.
+    if (this.getaway?.runOf(i)?.end) {
       const c = this.controls[i];
       c.steer = c.throttle = 0;
       c.brake = hypot(this.cars.vx[i], this.cars.vz[i]) > 0.5 ? 1 : 0;

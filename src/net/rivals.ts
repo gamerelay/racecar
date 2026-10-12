@@ -19,18 +19,13 @@ const num = { type: 'number', precision: 0.01, smooth: false } as const;
  * What the next host needs to drive a rival on from where it is, besides its pose: its wreck (how
  * long, why, and the tumble's spin), its boost and its last good spot on the road (a respawn goes
  * there). Every screen copies these into its sim as they come, so it has them when the role
- * arrives. (The AI's stuck recovery starts over: it's a second or two of state at most.)
+ * arrives. (The AI's stuck recovery starts over: it's a second or two of state at most.) A cop's
+ * the same (net/cops.ts).
  */
-const HANDOVER = ['wreckT', 'wreckCause', 'wx', 'wy', 'wz', 'boost', 'lastSpline', 'lastS', 'lastLat'] as const;
+export const HANDOVER = ['wreckT', 'wreckCause', 'wx', 'wy', 'wz', 'boost', 'lastSpline', 'lastS', 'lastLat'] as const;
 
-/**
- * A rival's entity: its car, the lobby seat it's in (the same on every screen), the race it's in
- * (a room's host entities outlive a race: the last race's are someone else's), and the handover.
- */
-export const RIVAL_FIELDS = {
-  ...CAR_FIELDS,
-  seat: int,
-  race: 'text',
+/** The handover's entity fields. */
+export const HANDOVER_FIELDS = {
   wreckT: num,
   wreckCause: int,
   wx: num,
@@ -40,6 +35,17 @@ export const RIVAL_FIELDS = {
   lastSpline: int,
   lastS: num,
   lastLat: num,
+} as const;
+
+/**
+ * A rival's entity: its car, the lobby seat it's in (the same on every screen), the race it's in
+ * (a room's host entities outlive a race: the last race's are someone else's), and the handover.
+ */
+export const RIVAL_FIELDS = {
+  ...CAR_FIELDS,
+  seat: int,
+  race: 'text',
+  ...HANDOVER_FIELDS,
 } as const;
 
 export class NetRivals {

@@ -16,6 +16,8 @@ import type { CarClass, MapDef, PaintDef, TrackLayout } from '../core/content';
 import FLAGS from './icons/flags.svg?raw';
 import type { KeyValue, LobbyBackend, NetRoute } from '../lobby/backend';
 import { LOCAL_ID } from '../lobby/backend';
+import type { Refusal } from '../lobby/relay';
+import type { Page } from './pages';
 import { aiPlate, cleanPlate, plateProblem, PLATE_MAX, savePlate, typedPlate } from '../lobby/plate';
 import { DEFAULT_OPTIONS, FILL_DIFFICULTY, SEATS, canJoin, nextVisibility, legacySeats, seatIndex, summarize, type Lobby, type LobbyAction, type LobbyOptions, type LobbySummary, type SeatChoice } from '../lobby/lobby';
 import { pingClass } from './format';
@@ -82,6 +84,35 @@ export function lobbyKeys(maps: readonly MapDef[], keys: readonly string[]): str
   return keys.filter((k) => name(k) !== '').sort((a, b) => name(a).localeCompare(name(b)) || a.localeCompare(b));
 }
 
+/** What the menu says when a lobby refuses you or puts you out. */
+export function refusalText(r: Refusal): string {
+  if (r.kind === 'kicked') return r.message;
+  return r.kind === 'banned' ? "You can't rejoin this lobby" : r.kind === 'locked' ? 'This lobby is private' : 'This lobby is full';
+}
+
+/** What the second step's button says once Kick or Make host is picked (null: nothing picked). */
+export function seatToolConfirm(choice: string, name: string): string | null {
+  return choice === 'kick' ? `Kick ${name}` : choice === 'host' ? `Make ${name} host` : null;
+}
+
+/** A Kick or Make host picked and not yet sent: which lobby, seat and player. */
+export type Armed = { lobby: string; k: number; choice: string; id: string };
+
+/** Seat `k`'s chooser after a redraw: still armed if it's the same lobby, seat and player. */
+export function armedChoice(armed: Armed | null, lobby: string, k: number, id: string): string {
+  return armed && armed.lobby === lobby && armed.k === k && armed.id === id ? armed.choice : 'seat';
+}
+
+/**
+ * The host's choices on another player's seat (the seat chooser the other seats have): Kick or
+ * Make host, two steps so neither is a stray click (`seatToolConfirm`). Null where there are none.
+ */
+export function playerSeatChoices(lobby: Lobby, you: string, index: number): [string, string][] | null {
+  const s = lobby.seats[index];
+  if (you !== lobby.host || !s || s.kind !== 'player' || s.id === you) return null;
+  return [['seat', 'Seated'], ['kick', 'Kick'], ['host', 'Make host']];
+}
+
 export class Menu {
   private root: HTMLElement;
   private screen: Screen = { kind: 'title' };
@@ -89,6 +120,8 @@ export class Menu {
   private lobby: Lobby | null = null;
   /** Your last pick, until the lobby comes back with it: quick presses each build on the one before. */
   private picked: { car: string; paint: number } | null = null;
+  /** A Kick or Make host picked, kept through the lobby redrawing until it's sent or put back. */
+  private armed: Armed | null = null;
   private unsubscribe: (() => void) | null = null;
   /** Your car and paint for a new lobby (the last race's, when you come back from one). */
   private yours: { car: string; paint: number };
@@ -113,6 +146,10 @@ export class Menu {
   private leaving = false;
   /** The title's Settings button (main.ts opens the panel). */
   onSettings?: () => void;
+  /** A short note for the player (main.ts toasts it): why a lobby put you out, or let you in. */
+  onNotice?: (text: string) => void;
+  /** The title's Credits, Privacy and Terms (main.ts opens the page). */
+  onPage?: (page: Page, from: HTMLElement | null) => void;
 
   constructor(
     private backend: LobbyBackend,
@@ -153,6 +190,7 @@ export class Menu {
     let lobby = lobbyId ? await this.backend.get(lobbyId) : null;
     // Gone, or too slow to wait for: the title, and out of it if the join lands later.
     if (lobbyId && !lobby) void this.backend.abandon?.(lobbyId);
+    if (lobbyId && !lobby) this.tellWhy(lobbyId);
     // Back from an online lobby's race: its host reopens it (the others come back when they finish).
     if (lobby && lobby.phase === 'racing' && lobby.host === this.backend.youIn(lobby.id)) lobby = (await this.backend.send(lobby.id, { type: 'end' })) ?? lobby;
     return this.show(lobby ? { kind: 'lobby', id: lobby.id } : { kind: 'title' });
@@ -236,11 +274,15 @@ export class Menu {
       // Gone, or too slow to wait for: to the title, and out of it if the join lands later.
       if (!lobby) {
         void this.backend.abandon?.(screen.id);
+        this.tellWhy(screen.id);
         return this.show({ kind: 'title' });
       }
       let phase = lobby.phase;
       this.unsubscribe = this.backend.subscribe(screen.id, (l) => {
-        if (!l) return void this.show({ kind: 'title' });
+        if (!l) {
+          this.tellWhy(screen.id);
+          return void this.show({ kind: 'title' });
+        }
         const seated = seatIndex(l, this.backend.youIn(l.id)) >= 0;
         // The host started: everyone seated goes to the race (the same one: its seed is the lobby's).
         if (phase === 'lobby' && l.phase === 'racing' && seated) this.go(l);
@@ -361,6 +403,7 @@ export class Menu {
         <div class="bigs"><button id="mSolo" class="big">Single player</button><button id="mCreate" class="big">Create lobby</button></div>
         <div class="row"><button id="mQuick" class="ghost">Quick race</button><button id="mFree" class="ghost">Free drive</button><button id="mSettings" class="ghost">Settings</button></div>
         <p class="muted">Every race is a lobby, and bots fill the open seats. Quick race is you and seven bots on a random map. Drift (Shift / RB) to take corners tighter; air, near misses and the oncoming lane fill boost.</p>
+        <div class="titleFoot"><a href="?page=privacy" id="mPrivacy">Privacy</a> · <a href="?page=terms" id="mTerms">Terms</a><button id="mCredits" class="creditsBox">Credits</button></div>
       </div>`,
       lobbies.length ? `lobby-${lobbies[0].id}` : 'mCreate',
     );
@@ -371,6 +414,15 @@ export class Menu {
     this.on('mQuick', () => this.quickRace());
     this.on('mFree', () => void this.freeDrive());
     this.on('mSettings', () => this.onSettings?.());
+    // The links open in place; their hrefs are for a new tab.
+    for (const [id, page] of [['mCredits', 'credits'], ['mPrivacy', 'privacy'], ['mTerms', 'terms']] as const) {
+      const el = document.getElementById(id);
+      if (el)
+        el.onclick = (e) => {
+          e.preventDefault();
+          this.onPage?.(page, el);
+        };
+    }
   }
 
   /** The row under the lobbies: why there are no online ones, or how to get some. */
@@ -479,6 +531,12 @@ export class Menu {
     this.on('pSave', () => void save());
     this.on('pBack', () => this.back());
     field.select();
+  }
+
+  /** Says why lobby `id` refused you or put you out, if it said. */
+  private tellWhy(id: string): void {
+    const r = this.backend.why?.(id);
+    if (r) this.onNotice?.(refusalText(r));
   }
 
   /**
@@ -618,6 +676,8 @@ export class Menu {
           // Yours is a button: your plate, edited without leaving the lobby.
           const plate = me ? `<button id="lPlate" class="seatPlate" title="Edit your plate">${plateChip(s.name)}</button>` : plateChip(s.name);
           who = `${plate}${s.id === lobby.host ? ' <small class="tag">host</small>' : ''}`;
+          const tools = online ? playerSeatChoices(lobby, you, k) : null;
+          if (tools) who += ` ${this.sel(`pseat-${k}`, tools, armedChoice(this.armed, lobby.id, k, s.id))}<button id="pgo-${k}" class="ghost seatGo" hidden></button>`;
           // Your own car is picked beside the turntable.
           car = `${dot(s.paint)}${esc(className(s.car))}`;
           status = s.racing && s.id !== you ? '<span class="racing">Racing</span>' : s.id === lobby.host ? '' : s.ready ? '<span class="ready">Ready</span>' : 'Not ready';
@@ -681,6 +741,30 @@ export class Menu {
       if (el) el.onchange = () => fn(el.value);
     };
     for (let k = 0; k < SEATS; k++) change(`seat-${k}`, (v) => this.send(lobby, { type: 'seat', index: k, to: v as SeatChoice }));
+    // Picking Kick or Make host only arms it: the button beside it, named for the player, sends it.
+    // Armed, it stays so through redraws (a guest readying up redraws the lobby) until sent or put back.
+    const arm = (k: number, v: string) => {
+      const go = document.getElementById(`pgo-${k}`) as HTMLButtonElement | null;
+      const s = lobby.seats[k];
+      if (!go || s?.kind !== 'player') return;
+      const label = seatToolConfirm(v, s.name);
+      go.hidden = !label;
+      go.textContent = label ?? '';
+      if (label) this.armed = { lobby: lobby.id, k, choice: v, id: s.id };
+      else if (this.armed?.k === k) this.armed = null;
+      go.onclick = () => {
+        this.armed = null;
+        // With who it's for, so it's refused if the seat changed hands meanwhile.
+        if (v === 'kick') this.send(lobby, { type: 'kick', index: k, id: s.id });
+        else if (v === 'host') this.send(lobby, { type: 'host', index: k, id: s.id });
+      };
+    };
+    for (let k = 0; k < SEATS; k++) change(`pseat-${k}`, (v) => arm(k, v));
+    if (this.armed?.lobby === lobby.id) {
+      const el = document.getElementById(`pseat-${this.armed.k}`) as HTMLButtonElement | null;
+      if (el && el.value !== 'seat') arm(this.armed.k, el.value);
+      else this.armed = null;
+    }
     this.on('lPrev', () => this.pick('left'));
     this.on('lNext', () => this.pick('right'));
     for (let k = 0; k < paints.length; k++) this.on(`lPaint-${k}`, () => this.send(lobby, { type: 'car', car: yours.car, paint: k }));

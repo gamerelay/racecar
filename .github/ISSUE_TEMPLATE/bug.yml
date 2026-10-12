@@ -1,0 +1,39 @@
+name: Bug
+description: Something broke, or felt wrong.
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks! The most useful thing you can attach is an **F8 report**: press **F8** (or Select + Start on a pad) right after it happens, and the game saves the last 30 seconds as a file we can replay exactly.
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: And what you expected instead.
+    validations:
+      required: true
+  - type: input
+    id: where
+    attributes:
+      label: Where
+      description: The map, and roughly where on it. If you can, paste the page's address (it has the map, cars and seed in it).
+  - type: dropdown
+    id: mode
+    attributes:
+      label: Playing
+      options:
+        - Single player
+        - Online lobby
+        - Getaway (Splash City)
+        - The editor or tools
+  - type: textarea
+    id: report
+    attributes:
+      label: F8 report
+      description: Drag the `racecar-report-….json` file in here.
+  - type: input
+    id: browser
+    attributes:
+      label: Browser and device
+      placeholder: Chrome 140, MacBook Air M2 / Safari, iPhone 15

@@ -5,6 +5,7 @@
 //   - The first player over the line opens the vote, for VOTE_MAX_MS at most.
 //   - Everyone still racing in: it closes VOTE_MS from then (if that's sooner).
 //   - Everyone in and voted: it closes VOTED_MS from then, long enough to see the winner.
+//   - A getaway (the owner, 2026-10-09): it opens once one runner's left, not at the first out.
 //   - Closed: the next race, on the winner (`tally`: the host breaks a tie), for everyone still in.
 
 import { racers, seatIndex, tally, type Lobby, type LobbyAction } from './lobby';
@@ -16,15 +17,15 @@ export const VOTE_MAX_MS = 60_000;
 /** Everyone's voted: the winner's on screen this long before the next race (ms). */
 export const VOTED_MS = 3_000;
 
-/** What the host sends now, if anything, for the lobby's vote at server time `now` (ms). */
-export function voteStep(lobby: Lobby, now: number, seed: () => number): LobbyAction | null {
+/** What the host sends now, if anything, for the lobby's vote at server time `now` (ms). A getaway's (`chase`) waits for its last runner. */
+export function voteStep(lobby: Lobby, now: number, seed: () => number, chase = false): LobbyAction | null {
   if (lobby.phase !== 'racing' || lobby.seed === undefined) return null;
   const rs = racers(lobby);
   if (!rs.length) return null;
   const done = new Set((lobby.results ?? []).filter((r) => r.time !== null).map((r) => r.seat));
   const finished = rs.filter((p) => done.has(seatIndex(lobby, p.id))).length;
   const vote = lobby.vote;
-  if (!vote) return finished ? { type: 'voteEnds', ends: now + VOTE_MAX_MS } : null;
+  if (!vote) return finished >= (chase ? Math.max(1, rs.length - 1) : 1) ? { type: 'voteEnds', ends: now + VOTE_MAX_MS } : null;
   if (now >= vote.ends) return { type: 'next', map: tally(lobby), seed: seed() };
   if (finished < rs.length) return null;
   const voted = rs.every((p) => vote.votes[p.id]);

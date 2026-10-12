@@ -2,13 +2,13 @@ import { describe, expect, test } from 'bun:test';
 import { neutralControls } from '../src/core/controls';
 import type { Sim } from '../src/core/sim';
 import { createLobby, apply, encodeSeats, othersIn, roster, type Lobby } from '../src/lobby/lobby';
-import { NetCars, predict, remoteSteer, type NetEntity, type NetKind, type NetRoom } from '../src/net/cars';
+import { NetCars, predict, remoteSteer } from '../src/net/cars';
 import { CLOCK_SNAP, startDelay, syncClock } from '../src/net/clock';
 import { HOLD_S, NetTraffic, readHit, RELEASE_S, TRAFFIC_HIT } from '../src/net/traffic';
 import { NetBreakables, NEWS_S, WALL_BREAK } from '../src/net/breakables';
 import { Breakables } from '../src/core/world/breakables';
 import { BUMP, carNames, NetContact, TAKEDOWN } from '../src/net/contact';
-import { MAX_CLOSING, readBump, readHandover, readTakedown } from '../src/net/wire';
+import { MAX_CLOSING, readBump, readHandover, readRunEnd, readTakedown, readTarget } from '../src/net/wire';
 import { Ev } from '../src/core/events';
 import { NetRivals } from '../src/net/rivals';
 import { FALLBACK_MS, joinRace, type RaceJoin } from '../src/net/join';
@@ -16,80 +16,15 @@ import { MAX_STEPS, Stepper, type Tick } from '../src/net/stepper';
 import { wreckCar } from '../src/core/car/physics';
 import { Cause } from '../src/core/events';
 import { raceFromLobby, readSetup, toQuery } from '../src/ui/setup';
-import { CLASSES, citySim, ringSim } from './helpers';
+import { CLASSES, SURFACES, citySim, layout, ringSim } from './helpers';
+import { Hub } from './hub';
+import { Getaway } from '../src/core/rules/getaway';
+import { Sim as SimClass } from '../src/core/sim';
+import { bakeTrack } from '../src/core/track/bake';
 
 // Remote cars (milestone 3): each player owns their car and sends it as an entity; everyone else
 // has it as a remote car in their sim, put where the entity says (predicted to now) before each
 // step. These run two sims through a stand-in for the SDK's entities.
-
-/** A room's entities, shared by every player's view of it: the SDK, minus the network. */
-class Hub {
-  entities: { kind: string; owner: string; fields: Record<string, unknown>; teleports: number; removed: boolean }[] = [];
-  renderTime = 0;
-  now = 0;
-  /** Who holds the host role: host entities are theirs to write. */
-  host = 'ada';
-  /** Claims, by key: who holds each. */
-  claims = new Map<string, string>();
-  /** Every room's event handlers (sent to all, the sender's only with echo). */
-  handlers: { me: string; type: string; fn: (data: unknown, from: string) => void }[] = [];
-  /** Events sent, in order. */
-  sent: { type: string; from: string; data: unknown }[] = [];
-  room(me: string): NetRoom {
-    const hub = this;
-    return {
-      me,
-      async claim(key) {
-        if (hub.claims.has(key)) return false;
-        hub.claims.set(key, me);
-        return true;
-      },
-      release(key) {
-        if (hub.claims.get(key) === me) hub.claims.delete(key);
-      },
-      emit(type, data, options) {
-        hub.sent.push({ type, from: me, data });
-        const to = options?.to === 'host' ? hub.host : options?.to;
-        for (const h of [...hub.handlers]) if (h.type === type && (h.me !== me || options?.echo !== false) && (to === undefined || h.me === to)) h.fn(structuredClone(data), me);
-      },
-      on(type, fn) {
-        const h = { me, type, fn };
-        hub.handlers.push(h);
-        return () => (hub.handlers = hub.handlers.filter((x) => x !== h));
-      },
-      get isHost() {
-        return hub.host === me;
-      },
-      get hostId() {
-        return hub.host;
-      },
-      get renderTime() {
-        return hub.renderTime;
-      },
-      define(kind: string): NetKind {
-        const mine = (e: Hub['entities'][number]) => e.owner === me || (e.owner === 'host' && hub.host === me);
-        const view = (e: Hub['entities'][number]): NetEntity =>
-          new Proxy(
-            { owner: { id: e.owner === 'host' ? hub.host : e.owner }, mine: mine(e), teleport: () => e.teleports++, remove: () => (e.removed = true) },
-            {
-              get: (t, k) => (k in t ? (t as Record<string | symbol, unknown>)[k] : e.fields[k as string]),
-              set: (_t, k, v) => ((e.fields[k as string] = v), true),
-            },
-          ) as unknown as NetEntity;
-        const live = () => hub.entities.filter((e) => e.kind === kind && !e.removed);
-        return {
-          spawn(initial, options) {
-            const e = { kind, owner: options?.owner === 'host' ? 'host' : me, fields: { ...initial }, teleports: 0, removed: false };
-            hub.entities.push(e);
-            return view(e);
-          },
-          all: () => live().map(view),
-          mine: () => live().filter(mine).map(view),
-        };
-      },
-    };
-  }
-}
 
 /** Two players on a wide ring: ada in seat 0, bo in seat 1, each with the other as a remote car. */
 function twoPlayers() {
@@ -1049,5 +984,135 @@ describe("the race's messages, checked (net/wire.ts)", () => {
     expect(readHandover('wreckT', -1, 3)).toBe(0);
     expect(readHandover('wx', 1e9, 3)).toBe(1e4);
     expect(readHandover('wx', 'x', 3)).toBeNull();
+  });
+});
+
+describe("a getaway runner's end, on their car", () => {
+  test('read as wrecked (1) or busted (2) with the time lasted; anything else is still going, or nonsense', () => {
+    expect(readRunEnd(1, 61.25)).toEqual({ end: 'wrecked', time: 61.25 });
+    expect(readRunEnd(2, 5)).toEqual({ end: 'busted', time: 5 });
+    expect(readRunEnd(0, 30)).toBeNull();
+    expect(readRunEnd(3, 30)).toEqual({ end: 'away', time: 30 });
+    expect(readRunEnd(4, 30)).toBeNull();
+    expect(readRunEnd(1.5, 30)).toBeNull();
+    expect(readRunEnd(1, -1)).toBeNull();
+    expect(readRunEnd(1, NaN)).toBeNull();
+    expect(readRunEnd(1, 1e9)).toBeNull();
+    expect(readRunEnd('1', 30)).toBeNull();
+  });
+
+  test("a cop's target is one of the runners, or nothing", () => {
+    expect(readTarget(2, [0, 1, 2])).toBe(2);
+    expect(readTarget(5, [0, 1, 2])).toBeNull();
+    expect(readTarget(1.5, [0, 1, 2])).toBeNull();
+    expect(readTarget('1', [0, 1, 2])).toBeNull();
+  });
+
+  test("your run's end goes out on your car, and theirs ends their run on your screen", () => {
+    const hub = new Hub();
+    const city = layout('heist/city');
+    const make = (meSeat: 0 | 1) => {
+      const sim = new SimClass(bakeTrack(city, SURFACES), CLASSES, SURFACES, { seed: 1, traffic: 0, mayhem: 'off', weather: 'clear' });
+      const ids = ['ada', 'bo'];
+      sim.addCar(meSeat === 0 ? { cls: 'coupe', human: true } : { cls: 'coupe', human: true, remote: true });
+      sim.addCar(meSeat === 1 ? { cls: 'coupe', human: true } : { cls: 'coupe', human: true, remote: true });
+      const g = new Getaway(sim, [0, 1]);
+      sim.startRace(3, 0.05);
+      const net = new NetCars(hub.room(ids[meSeat]), () => hub.now, sim, meSeat, new Map([[ids[1 - meSeat], 1 - meSeat]]));
+      return { sim, g, net, me: meSeat };
+    };
+    const ada = make(0);
+    const bo = make(1);
+    const both = () => {
+      for (const p of [ada, bo]) {
+        p.net.beforeStep();
+        p.sim.step([]);
+        p.net.afterStep();
+      }
+    };
+    while (ada.g.heat === 0 || bo.g.heat === 0) both();
+    for (let k = 0; k < 30; k++) both();
+    wreckCar(ada.sim, 0, Cause.Wall, 0, 0, -1);
+    both();
+    expect(ada.g.runs[0].end).toBe('wrecked');
+    both();
+    expect(bo.g.runs[0].end).toBe('wrecked');
+    expect(bo.g.runs[0].time).toBeCloseTo(ada.g.runs[0].time, 2);
+    expect(bo.g.runs[1].end).toBeNull();
+  });
+});
+
+/** Ada and Bo as getaway runners on Splash City, each a screen with the other remote (not stepped yet). */
+function getawayPair() {
+  const hub = new Hub();
+  const city = layout('heist/city');
+  const make = (meSeat: 0 | 1) => {
+    const sim = new SimClass(bakeTrack(city, SURFACES), CLASSES, SURFACES, { seed: 1, traffic: 0, mayhem: 'off', weather: 'clear' });
+    const ids = ['ada', 'bo'];
+    sim.addCar(meSeat === 0 ? { cls: 'coupe', human: true } : { cls: 'coupe', human: true, remote: true });
+    sim.addCar(meSeat === 1 ? { cls: 'coupe', human: true } : { cls: 'coupe', human: true, remote: true });
+    const g = new Getaway(sim, [0, 1]);
+    sim.startRace(3, 0.05);
+    return { sim, g, room: hub.room(ids[meSeat]), other: ids[1 - meSeat], me: meSeat };
+  };
+  return { hub, ada: make(0), bo: make(1) };
+}
+
+describe("a getaway runner's end, from the review (2026-10-09)", () => {
+  type Side = ReturnType<typeof getawayPair>['ada'];
+  const netOf = (hub: Hub, p: Side) => new NetCars(p.room, () => hub.now, p.sim, p.me, new Map([[p.other, 1 - p.me]]), undefined, 'r1');
+  const run = (p: Side, net: NetCars) => {
+    net.beforeStep();
+    p.sim.step([]);
+    net.afterStep();
+  };
+
+  test("a car left from the last race saying it's out doesn't end this race's run, beside this race's (review, 2026-10-09)", () => {
+    const { hub, bo } = getawayPair();
+    const at = { x: bo.sim.cars.x[0], y: bo.sim.cars.y[0], z: bo.sim.cars.z[0] };
+    // Ada's car in this race, going, and her page's car from the last race, busted, both in the room.
+    hub.entities.push({ kind: 'car', owner: 'ada', fields: { ...at, race: 'r1', out: 0, runT: 0 }, teleports: 0, removed: false });
+    hub.entities.push({ kind: 'car', owner: 'ada', fields: { ...at, race: 'r0', out: 2, runT: 50 }, teleports: 0, removed: false });
+    const net = netOf(hub, bo);
+    while (bo.g.heat === 0) run(bo, net);
+    for (let k = 0; k < 60; k++) run(bo, net);
+    expect(bo.g.runs[0].end).toBeNull();
+  });
+
+  test("a runner out for not being heard is back in when they are, and called out on again", () => {
+    const { hub, bo } = getawayPair();
+    const net = netOf(hub, bo);
+    while (bo.g.heat === 0) run(bo, net);
+    for (let k = 0; k < 60 * 4; k++) run(bo, net);
+    expect(bo.g.runs[0].end).toBe('wrecked');
+    // Ada's page is in at last.
+    hub.entities.push({ kind: 'car', owner: 'ada', fields: { x: bo.sim.cars.x[0], y: bo.sim.cars.y[0], z: bo.sim.cars.z[0], race: 'r1', out: 0, runT: 4 }, teleports: 0, removed: false });
+    run(bo, net);
+    expect(bo.g.runs[0].end).toBeNull();
+    expect(bo.sim.cars.finished[0]).toBe(0);
+    for (let k = 0; k < 10; k++) run(bo, net);
+    expect(bo.g.runs[0].cops.some((i) => bo.sim.cars.active[i])).toBe(true);
+  });
+
+  test("a runner never seen is out a few seconds after green, at no time lasted", () => {
+    const { hub, bo } = getawayPair();
+    const net = netOf(hub, bo);
+    while (bo.g.heat === 0) run(bo, net);
+    for (let k = 0; k < 60 * 4; k++) run(bo, net);
+    expect(bo.g.runs[0]).toMatchObject({ end: 'wrecked', time: 0 });
+  });
+
+  test("a runner gone for a moment and back is still going", () => {
+    const { hub, ada, bo } = getawayPair();
+    const an = netOf(hub, ada);
+    const bn = netOf(hub, bo);
+    while (ada.g.heat === 0 || bo.g.heat === 0) run(ada, an), run(bo, bn);
+    for (let k = 0; k < 60; k++) run(ada, an), run(bo, bn);
+    const car = hub.entities.find((e) => e.kind === 'car' && e.owner === 'ada')!;
+    car.removed = true;
+    for (let k = 0; k < 60; k++) run(ada, an), run(bo, bn);
+    car.removed = false;
+    for (let k = 0; k < 60; k++) run(ada, an), run(bo, bn);
+    expect(bo.g.runs[0].end).toBeNull();
   });
 });

@@ -2,7 +2,10 @@ import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { LAYOUT_ALIASES, PAINT_ALIASES, paletteFor, resolveLayout } from '../src/core/content';
 import { CONTENT, EXPERIMENTAL_KEYS, LAYOUT_KEYS, MAPS, PAINTS } from '../tools/content';
-import { lobbyKeys } from '../src/ui/menu';
+import { armedChoice, lobbyKeys, playerSeatChoices, refusalText, seatToolConfirm } from '../src/ui/menu';
+import { apply, createLobby } from '../src/lobby/lobby';
+import { renderDoc } from '../src/ui/legal';
+import { pageHtml, readPage } from '../src/ui/pages';
 import { describe, expect, test } from 'bun:test';
 import { delta, fmt, ordinal, pingClass } from '../src/ui/format';
 import { esc } from '../src/ui/html';
@@ -128,10 +131,10 @@ describe('renamed maps and paints', () => {
     for (const to of Object.values(LAYOUT_ALIASES)) expect(LAYOUT_KEYS).toContain(to);
   });
 
-  test('map and paint names are one word, and paint ids have no hyphens', () => {
+  test('map names are one word (but Splash City), paint names one word, and paint ids have no hyphens', () => {
     for (const key of LAYOUT_KEYS) expect(existsSync(join(CONTENT, 'maps', key.split('/')[0], 'map.json'))).toBe(true);
     const maps = LAYOUT_KEYS.map((k) => JSON.parse(readFileSync(join(CONTENT, 'maps', k.split('/')[0], 'map.json'), 'utf8')));
-    expect(maps.map((m) => m.name).sort()).toEqual(['Avalanche', 'Backroads', 'Downtown', 'Heist', 'Paradise', 'Riviera', 'Sahara']);
+    expect(maps.map((m) => m.name).sort()).toEqual(['Avalanche', 'Backroads', 'Downtown', 'Paradise', 'Riviera', 'Sahara', 'Splash City']);
     for (const p of PAINTS) {
       expect(p.name).toMatch(/^[A-Z][a-z]+$/);
       expect(p.id).toMatch(/^[a-z]+$/);
@@ -218,7 +221,87 @@ describe("the lobby's maps", () => {
   test('the game\'s maps only, by name (an experimental one opens from a link: not in the list, nor quick race)', () => {
     const keys = lobbyKeys(MAPS, [...EXPERIMENTAL_KEYS, ...LAYOUT_KEYS]);
     expect(EXPERIMENTAL_KEYS).toContain('paradise/island');
-    expect(keys).toEqual(['avalanche/slope', 'backroads/valley', 'downtown/downtown', 'heist/city', 'paradise-open/open', 'coastal/riviera', 'sahara/dunes']);
+    expect(keys).toEqual(['avalanche/slope', 'backroads/valley', 'downtown/downtown', 'paradise-open/open', 'coastal/riviera', 'sahara/dunes', 'heist/city']);
   });
 });
 
+
+describe('told why you are out', () => {
+  test('each refusal has its words; a kick says what the host sent', () => {
+    expect(refusalText({ kind: 'kicked', message: 'Removed by the host' })).toBe('Removed by the host');
+    expect(refusalText({ kind: 'banned' })).toBe("You can't rejoin this lobby");
+    expect(refusalText({ kind: 'locked' })).toBe('This lobby is private');
+    expect(refusalText({ kind: 'full' })).toBe('This lobby is full');
+  });
+});
+
+describe("the host's tools on a player's seat", () => {
+  const base = createLobby('L1', { id: 'ada', name: 'ADA', car: 'coupe', paint: 0 });
+  const l = apply(base, 'bo', { type: 'join', player: { id: 'bo', name: 'BO', car: 'coupe', paint: 0 } })!;
+  test("the host sees Kick and Make host on another player's seat, and nothing on their own or a bot's", () => {
+    expect(playerSeatChoices(l, 'ada', 1)).toEqual([['seat', 'Seated'], ['kick', 'Kick'], ['host', 'Make host']]);
+    expect(playerSeatChoices(l, 'ada', 0)).toBeNull();
+    expect(playerSeatChoices(l, 'ada', 2)).toBeNull();
+  });
+  test('nobody else does', () => {
+    expect(playerSeatChoices(l, 'bo', 0)).toBeNull();
+  });
+});
+
+describe('the privacy and terms pages (ui/legal.ts)', () => {
+  test('headings, paragraphs, bullets, bold and links, and nothing else as markup', () => {
+    const html = renderDoc('# Title\n\nSome **bold** words.\n\n- one\n- two [site](https://gamerelay.io)\n\nMail [us](mailto:support@gamerelay.io).');
+    expect(html).toBe(
+      '<h1>Title</h1><p>Some <b>bold</b> words.</p><ul><li>one</li><li>two <a href="https://gamerelay.io" target="_blank" rel="noopener">site</a></li></ul><p>Mail <a href="mailto:support@gamerelay.io" target="_blank" rel="noopener">us</a>.</p>',
+    );
+  });
+  test("markup in the text is text, and a link that isn't https or mailto is just its words", () => {
+    expect(renderDoc('<img src=x onerror=alert(1)> [x](javascript:void)')).toBe('<p>&#60;img src=x onerror=alert(1)&#62; x</p>');
+  });
+  test('the real pages render, dated and with the contact', async () => {
+    const { default: privacy } = await import('../docs/PRIVACY.md?raw');
+    const { default: terms } = await import('../docs/TERMS.md?raw');
+    for (const md of [privacy, terms]) {
+      const html = renderDoc(md);
+      expect(html).toContain('support@gamerelay.io');
+      expect(html).toMatch(/2026-10-10/);
+      expect(html).not.toContain('<script');
+    }
+  });
+});
+
+describe('the Credits, Privacy and Terms pages', () => {
+  test('?page= opens one of the three, and nothing else', () => {
+    expect(['credits', 'privacy', 'terms', 'CREDITS', '', null, 'constructor'].map(readPage)).toEqual(['credits', 'privacy', 'terms', null, null, null, null]);
+  });
+  test('the credits name who made it and what it runs on, with the source', () => {
+    const html = pageHtml('credits');
+    for (const s of ['Colin Teahan', 'Claude', 'GameRelay', 'Resonance', 'https://github.com/gamerelay/racecar', 'https://gamerelay.io', 'Three.js']) expect(html).toContain(s);
+  });
+  test('privacy and terms are the docs, with a way back', () => {
+    expect(pageHtml('privacy')).toContain('<h1>Privacy</h1>');
+    expect(pageHtml('terms')).toContain('Photosensitivity');
+    for (const p of ['credits', 'privacy', 'terms'] as const) expect(pageHtml(p)).toContain('id="pgBack"');
+  });
+});
+
+describe("the host's tools take two steps", () => {
+  test('Kick or Make host in the chooser only arms it: a second button, named for the player, sends it', () => {
+    expect(seatToolConfirm('seat', 'BO')).toBeNull();
+    expect(seatToolConfirm('kick', 'BO')).toBe('Kick BO');
+    expect(seatToolConfirm('host', 'BO')).toBe('Make BO host');
+  });
+});
+
+describe('an armed Kick or Make host lasts through the lobby redrawing', () => {
+  const armed = { lobby: 'L1', k: 2, choice: 'kick', id: 'bo' };
+  test('the same seat, with the same player in it, is still armed', () => {
+    expect(armedChoice(armed, 'L1', 2, 'bo')).toBe('kick');
+  });
+  test("another seat, another lobby, someone else in the seat, or nothing armed: not", () => {
+    expect(armedChoice(armed, 'L1', 3, 'bo')).toBe('seat');
+    expect(armedChoice(armed, 'L2', 2, 'bo')).toBe('seat');
+    expect(armedChoice(armed, 'L1', 2, 'cy')).toBe('seat');
+    expect(armedChoice(null, 'L1', 2, 'bo')).toBe('seat');
+  });
+});
