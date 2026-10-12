@@ -95,6 +95,14 @@ export function seatToolConfirm(choice: string, name: string): string | null {
   return choice === 'kick' ? `Kick ${name}` : choice === 'host' ? `Make ${name} host` : null;
 }
 
+/** A Kick or Make host picked and not yet sent: which lobby, seat and player. */
+export type Armed = { lobby: string; k: number; choice: string; id: string };
+
+/** Seat `k`'s chooser after a redraw: still armed if it's the same lobby, seat and player. */
+export function armedChoice(armed: Armed | null, lobby: string, k: number, id: string): string {
+  return armed && armed.lobby === lobby && armed.k === k && armed.id === id ? armed.choice : 'seat';
+}
+
 /**
  * The host's choices on another player's seat (the seat chooser the other seats have): Kick or
  * Make host, two steps so neither is a stray click (`seatToolConfirm`). Null where there are none.
@@ -112,6 +120,8 @@ export class Menu {
   private lobby: Lobby | null = null;
   /** Your last pick, until the lobby comes back with it: quick presses each build on the one before. */
   private picked: { car: string; paint: number } | null = null;
+  /** A Kick or Make host picked, kept through the lobby redrawing until it's sent or put back. */
+  private armed: Armed | null = null;
   private unsubscribe: (() => void) | null = null;
   /** Your car and paint for a new lobby (the last race's, when you come back from one). */
   private yours: { car: string; paint: number };
@@ -667,7 +677,7 @@ export class Menu {
           const plate = me ? `<button id="lPlate" class="seatPlate" title="Edit your plate">${plateChip(s.name)}</button>` : plateChip(s.name);
           who = `${plate}${s.id === lobby.host ? ' <small class="tag">host</small>' : ''}`;
           const tools = online ? playerSeatChoices(lobby, you, k) : null;
-          if (tools) who += ` ${this.sel(`pseat-${k}`, tools, 'seat')}<button id="pgo-${k}" class="ghost seatGo" hidden></button>`;
+          if (tools) who += ` ${this.sel(`pseat-${k}`, tools, armedChoice(this.armed, lobby.id, k, s.id))}<button id="pgo-${k}" class="ghost seatGo" hidden></button>`;
           // Your own car is picked beside the turntable.
           car = `${dot(s.paint)}${esc(className(s.car))}`;
           status = s.racing && s.id !== you ? '<span class="racing">Racing</span>' : s.id === lobby.host ? '' : s.ready ? '<span class="ready">Ready</span>' : 'Not ready';
@@ -731,22 +741,30 @@ export class Menu {
       if (el) el.onchange = () => fn(el.value);
     };
     for (let k = 0; k < SEATS; k++) change(`seat-${k}`, (v) => this.send(lobby, { type: 'seat', index: k, to: v as SeatChoice }));
-    for (let k = 0; k < SEATS; k++)
-      // Picking Kick or Make host only arms it: the button beside it, named for the player, sends it.
-      change(`pseat-${k}`, (v) => {
-        const go = document.getElementById(`pgo-${k}`) as HTMLButtonElement | null;
-        const s = lobby.seats[k];
-        const label = s?.kind === 'player' ? seatToolConfirm(v, s.name) : null;
-        if (!go) return;
-        go.hidden = !label;
-        go.textContent = label ?? '';
+    // Picking Kick or Make host only arms it: the button beside it, named for the player, sends it.
+    // Armed, it stays so through redraws (a guest readying up redraws the lobby) until sent or put back.
+    const arm = (k: number, v: string) => {
+      const go = document.getElementById(`pgo-${k}`) as HTMLButtonElement | null;
+      const s = lobby.seats[k];
+      if (!go || s?.kind !== 'player') return;
+      const label = seatToolConfirm(v, s.name);
+      go.hidden = !label;
+      go.textContent = label ?? '';
+      if (label) this.armed = { lobby: lobby.id, k, choice: v, id: s.id };
+      else if (this.armed?.k === k) this.armed = null;
+      go.onclick = () => {
+        this.armed = null;
         // With who it's for, so it's refused if the seat changed hands meanwhile.
-        const id = s?.kind === 'player' ? s.id : undefined;
-        go.onclick = () => {
-          if (v === 'kick') this.send(lobby, { type: 'kick', index: k, id });
-          else if (v === 'host') this.send(lobby, { type: 'host', index: k, id });
-        };
-      });
+        if (v === 'kick') this.send(lobby, { type: 'kick', index: k, id: s.id });
+        else if (v === 'host') this.send(lobby, { type: 'host', index: k, id: s.id });
+      };
+    };
+    for (let k = 0; k < SEATS; k++) change(`pseat-${k}`, (v) => arm(k, v));
+    if (this.armed?.lobby === lobby.id) {
+      const el = document.getElementById(`pseat-${this.armed.k}`) as HTMLButtonElement | null;
+      if (el && el.value !== 'seat') arm(this.armed.k, el.value);
+      else this.armed = null;
+    }
     this.on('lPrev', () => this.pick('left'));
     this.on('lNext', () => this.pick('right'));
     for (let k = 0; k < paints.length; k++) this.on(`lPaint-${k}`, () => this.send(lobby, { type: 'car', car: yours.car, paint: k }));

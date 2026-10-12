@@ -2,7 +2,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { LAYOUT_ALIASES, PAINT_ALIASES, paletteFor, resolveLayout } from '../src/core/content';
 import { CONTENT, EXPERIMENTAL_KEYS, LAYOUT_KEYS, MAPS, PAINTS } from '../tools/content';
-import { lobbyKeys, playerSeatChoices, refusalText, seatToolConfirm } from '../src/ui/menu';
+import { armedChoice, lobbyKeys, playerSeatChoices, refusalText, seatToolConfirm } from '../src/ui/menu';
 import { apply, createLobby } from '../src/lobby/lobby';
 import { renderDoc } from '../src/ui/legal';
 import { pageHtml, readPage } from '../src/ui/pages';
@@ -290,5 +290,18 @@ describe("the host's tools take two steps", () => {
     expect(seatToolConfirm('seat', 'BO')).toBeNull();
     expect(seatToolConfirm('kick', 'BO')).toBe('Kick BO');
     expect(seatToolConfirm('host', 'BO')).toBe('Make BO host');
+  });
+});
+
+describe('an armed Kick or Make host lasts through the lobby redrawing', () => {
+  const armed = { lobby: 'L1', k: 2, choice: 'kick', id: 'bo' };
+  test('the same seat, with the same player in it, is still armed', () => {
+    expect(armedChoice(armed, 'L1', 2, 'bo')).toBe('kick');
+  });
+  test("another seat, another lobby, someone else in the seat, or nothing armed: not", () => {
+    expect(armedChoice(armed, 'L1', 3, 'bo')).toBe('seat');
+    expect(armedChoice(armed, 'L2', 2, 'bo')).toBe('seat');
+    expect(armedChoice(armed, 'L1', 2, 'cy')).toBe('seat');
+    expect(armedChoice(null, 'L1', 2, 'bo')).toBe('seat');
   });
 });
