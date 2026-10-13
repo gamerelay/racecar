@@ -231,6 +231,7 @@ describe('told why you are out', () => {
     expect(refusalText({ kind: 'kicked', message: 'Removed by the host' })).toBe('Removed by the host');
     expect(refusalText({ kind: 'banned' })).toBe("You can't rejoin this lobby");
     expect(refusalText({ kind: 'missing' })).toBe("Can't find that lobby: it's private, or it closed");
+    expect(refusalText({ kind: 'closed' })).toBe('That lobby has closed');
     expect(refusalText({ kind: 'slow' })).toBe("The lobby didn't answer in time: try again");
     expect(refusalText({ kind: 'locked' })).toBe('This lobby is private');
     expect(refusalText({ kind: 'full' })).toBe('This lobby is full');

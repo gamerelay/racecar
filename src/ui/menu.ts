@@ -88,6 +88,7 @@ export function lobbyKeys(maps: readonly MapDef[], keys: readonly string[]): str
 export function refusalText(r: Refusal): string {
   if (r.kind === 'kicked') return r.message;
   if (r.kind === 'missing') return "Can't find that lobby: it's private, or it closed";
+  if (r.kind === 'closed') return 'That lobby has closed';
   if (r.kind === 'slow') return "The lobby didn't answer in time: try again";
   return r.kind === 'banned' ? "You can't rejoin this lobby" : r.kind === 'locked' ? 'This lobby is private' : 'This lobby is full';
 }

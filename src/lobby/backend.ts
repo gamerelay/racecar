@@ -134,15 +134,17 @@ export class LocalBackend implements LobbyBackend {
 /** Online calls the screens wait on give up after this long (ms): a server that never answers isn't one. */
 const ONLINE_WAIT_MS = 5000;
 /**
- * Getting into a lobby waits longer (ms): on a page just loaded (an invite link, a reload) the
- * join comes after connecting to the server, and a slow device took 14 s for both.
+ * Getting into a lobby from a page that hasn't heard from the server yet waits longer (ms): an
+ * invite link or a reload connects first, and a slow device took 14 s for both.
  */
 const JOIN_WAIT_MS = 20_000;
 
 const TIMEOUT = new Error('timeout');
 
 function inTime<T>(p: Promise<T>, ms: number): Promise<T> {
-  return Promise.race([p, new Promise<never>((_, reject) => setTimeout(() => reject(TIMEOUT), ms))]);
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const late = new Promise<never>((_, reject) => (timer = setTimeout(() => reject(TIMEOUT), ms)));
+  return Promise.race([p, late]).finally(() => clearTimeout(timer));
 }
 
 /**
@@ -158,7 +160,7 @@ export class Lobbies implements LobbyBackend {
     readonly online: LobbyBackend | null,
     /** How long the screens wait on an online call (ms). */
     private wait = ONLINE_WAIT_MS,
-    /** How long they wait to get into a lobby (ms). */
+    /** How long they wait to get into a lobby before the server has answered anything (ms). */
     private joinWait = JOIN_WAIT_MS,
   ) {
     if (!online) this.offline = 'Online lobbies need a GameRelay key (VITE_GAMERELAY_KEY).';
@@ -178,18 +180,31 @@ export class Lobbies implements LobbyBackend {
 
   /** Lobbies (or links) given up on as too slow: said once, like a refusal. */
   private slow = new Set<string>();
+  /** The latest attempt at each lobby (or link): an older one's timeout says nothing. */
+  private attempts = new Map<string, object>();
+  /** The server has answered this page: a connection is up, so a join is only a join. */
+  private warm = false;
 
   why(id: string): Refusal | null {
     if (this.slow.delete(id)) return { kind: 'slow' };
     return this.of(id)?.why?.(id) ?? null;
   }
 
-  /** A join too slow to wait for: null, and kept to say why. */
-  private gaveUp(id: string) {
-    return (err: unknown): null => {
-      if (err === TIMEOUT) this.slow.add(id);
+  /** An online join, waited on for as long as the screens do; too slow, it's null and kept to say why. */
+  private async timed<T>(id: string, join: Promise<T>): Promise<T | null> {
+    const attempt = {};
+    this.attempts.set(id, attempt);
+    this.slow.delete(id);
+    try {
+      const got = await inTime(join, this.warm ? this.wait : this.joinWait);
+      this.warm = true;
+      return got;
+    } catch (err) {
+      if (err === TIMEOUT && this.attempts.get(id) === attempt) this.slow.add(id);
       return null;
-    };
+    } finally {
+      if (this.attempts.get(id) === attempt) this.attempts.delete(id);
+    }
   }
 
   ping(id: string, player: string): number | null {
@@ -205,6 +220,7 @@ export class Lobbies implements LobbyBackend {
     if (!this.online) return [];
     try {
       const rows = await inTime(this.online.list(), this.wait);
+      this.warm = true;
       this.offline = '';
       return rows;
     } catch {
@@ -224,11 +240,12 @@ export class Lobbies implements LobbyBackend {
     const backend = this.of(id);
     if (!backend) return null;
     if (backend === this.local) return backend.get(id);
-    this.slow.delete(id);
-    return (await inTime(backend.get(id), this.joinWait).catch(this.gaveUp(id))) ?? null;
+    return (await this.timed(id, backend.get(id))) ?? null;
   }
 
   async abandon(id: string): Promise<void> {
+    // Given up on (Esc while joining): whatever it would have said, nobody asked.
+    this.slow.delete(id);
     await this.of(id)?.abandon?.(id);
   }
 
@@ -241,8 +258,7 @@ export class Lobbies implements LobbyBackend {
     const online = this.online;
     if (!online?.joinLink) return null;
     const join = online.joinLink(link);
-    this.slow.delete(link);
-    const id = (await inTime(join, this.joinWait).catch(this.gaveUp(link))) ?? null;
+    const id = (await this.timed(link, join)) ?? null;
     // The menu can't abandon a lobby it never learned the code of: that's done here once it's known.
     if (!id) void join.then((late) => void (late && online.abandon?.(late))).catch(() => {});
     return id;

@@ -96,17 +96,18 @@ export function serverLocked(lobby: Lobby, players: readonly string[]): boolean 
 }
 
 /** Why you're out of a lobby, or couldn't get in: for the menu to say. */
-// `missing`: the code found no room. The server answers a Private (link-only) lobby as it would a
-// wrong code, so a guesser can't tell it's there, and so can't we.
-// `slow`: the menu gave up waiting (the join may still land, and is left then).
-export type Refusal = { kind: 'kicked'; message: string } | { kind: 'banned' | 'locked' | 'full' | 'missing' | 'slow' };
+// `missing`: a code found no room. The server answers a Private (link-only) lobby as it would a
+// wrong code, so a guesser can't tell it's there, and so can't we. `closed`: a link (or a seat you
+// had) found none, so the room is gone. `slow`: the menu gave up waiting (the join may still land,
+// and is left then).
+export type Refusal = { kind: 'kicked'; message: string } | { kind: 'banned' | 'locked' | 'full' | 'missing' | 'closed' | 'slow' };
 
 /** A failed join's reason, from the SDK's error code (others say nothing new: the title as before). */
-function refusalOf(err: unknown): Refusal | null {
+function refusalOf(err: unknown, notFound: 'missing' | 'closed'): Refusal | null {
   const code = (err as { code?: unknown } | null)?.code;
   if (code === 'banned' || code === 'locked') return { kind: code };
   if (code === 'room_full') return { kind: 'full' };
-  if (code === 'room_not_found') return { kind: 'missing' };
+  if (code === 'room_not_found') return { kind: notFound };
   return null;
 }
 /** A short link's id: its `?join=` (a game without a slug), else its last path segment (`gamerelay.io/<game>/<link>`). */
@@ -265,11 +266,14 @@ export class RelayBackend implements LobbyBackend {
     return r;
   }
 
-  /** A join's failure: warned as before, and why kept for the menu. */
-  private refused(id: string, what: string) {
+  /**
+   * A join's failure: warned as before, and why kept for the menu, unless the menu gave up on it
+   * first (`still`): said later, it would be about something else.
+   */
+  private refused(id: string, what: string, notFound: 'missing' | 'closed', still = () => this.wanted === id) {
     return (err: unknown): null => {
-      const r = refusalOf(err);
-      if (r) this.refusals.set(id, r);
+      const r = refusalOf(err, notFound);
+      if (r && still()) this.refusals.set(id, r);
       return warned(what, null)(err);
     };
   }
@@ -289,7 +293,8 @@ export class RelayBackend implements LobbyBackend {
     if (!relay.joinLink) return null;
     const room = await this.inTurn(async () => {
       await this.leaveRoom();
-      const r = await relay.joinLink!(link).catch(this.refused(link, 'joining by a link failed'));
+      this.refusals.delete(link);
+      const r = await relay.joinLink!(link).catch(this.refused(link, 'joining by a link failed', 'closed', () => true));
       if (r) {
         this.wanted = r.code;
         this.attach(r);
@@ -318,7 +323,7 @@ export class RelayBackend implements LobbyBackend {
       if (this.wanted !== code || this.room) return;
       const relay = await this.relayNow();
       const link = this.links.get(code);
-      const room = await (link && relay.joinLink ? relay.joinLink(link) : relay.joinRoom(code)).catch(this.refused(code, 'getting back into a lobby failed'));
+      const room = await (link && relay.joinLink ? relay.joinLink(link) : relay.joinRoom(code)).catch(this.refused(code, 'getting back into a lobby failed', 'closed'));
       if (room && this.wanted === code) {
         this.attach(room);
         this.notify(this.lobbyOf(room));
@@ -341,7 +346,8 @@ export class RelayBackend implements LobbyBackend {
       return relay.room;
     }
     await this.leaveRoom();
-    const room = await relay.joinRoom(id).catch(this.refused(id, 'joining a lobby failed'));
+    this.refusals.delete(id);
+    const room = await relay.joinRoom(id).catch(this.refused(id, 'joining a lobby failed', 'missing'));
     if (!room) return null;
     this.attach(room);
     // Given up on while it joined (Esc, or too slow for the screen): out again, before anything
@@ -429,7 +435,11 @@ export class RelayBackend implements LobbyBackend {
       // The SDK host's work: someone gone for good gives up their seat, and whoever the role moves
       // to checks for anyone who left while nobody held it (and lists the room).
       room.on('player_left', () => room.isHost && this.tidy(room)),
-      room.on('host_changed', () => room.isHost && this.tidy(room)),
+      // What this page listed last may not be what's listed now (another host listed in between).
+      room.on('host_changed', () => {
+        this.listed = '';
+        if (room.isHost) this.tidy(room);
+      }),
       // Someone the lobby has banned is back in its room (a ban the SDK couldn't make: they held
       // its role when kicked): out, and banned from the room this time.
       room.on('player_joined', (p: { id: string } | string) => {
@@ -550,28 +560,35 @@ export class RelayBackend implements LobbyBackend {
       if (!room.isHost) return;
       this.listingAt = Date.now();
       this.listed = key;
-      // One that fails is sent again the next time the room is listed, even with nothing new.
-      void room.setListing({ name, meta: meta as never }).catch((err: unknown) => {
+      // One that fails is tried again in a second (by the timer below), or with the next change.
+      const failed = (what: string) => (err: unknown) => {
         if (this.listed === key) this.listed = '';
-        warned('updating the listing failed', undefined)(err);
-      });
+        this.retryListing(room);
+        warned(what, undefined)(err);
+      };
+      void room.setListing({ name, meta: meta as never }).catch(failed('updating the listing failed'));
       // Against the room itself, not what we last sent: a host before us may not have got to it.
       // One that fails is tried again with the next change.
       const listed = visibility === 'public';
       // Unlisted is link-only too (on an SDK that has it: `linkOnly` is undefined on older ones).
       const linkWrong = room.linkOnly !== undefined && room.linkOnly !== !listed;
       const lockWrong = room.locked !== undefined && room.locked !== locked;
-      if (room.isPublic !== listed || linkWrong || lockWrong) void room.setAccess({ public: listed, linkOnly: !listed, locked }).catch(() => (this.listed = ''));
+      if (room.isPublic !== listed || linkWrong || lockWrong) void room.setAccess({ public: listed, linkOnly: !listed, locked }).catch(failed('updating who can join failed'));
     };
     if (this.listingTimer) return;
     const wait = this.listingAt + LISTING_MS - Date.now();
     if (wait <= 0) send();
     // The last change in the second wins: it reads the lobby again when the timer fires.
-    else
-      this.listingTimer = setTimeout(() => {
-        this.listingTimer = null;
-        const now = this.lobbyOf(room);
-        if (now && this.room === room && room.isHost) this.relist(room, now);
-      }, wait);
+    else this.retryListing(room, wait);
+  }
+
+  /** Lists `room` again in `wait` ms (unless that's set already): read afresh, while it's ours to list. */
+  private retryListing(room: RoomLike, wait = LISTING_MS): void {
+    if (this.listingTimer) return;
+    this.listingTimer = setTimeout(() => {
+      this.listingTimer = null;
+      const now = this.lobbyOf(room);
+      if (now && this.room === room && room.isHost) this.relist(room, now);
+    }, wait);
   }
 }

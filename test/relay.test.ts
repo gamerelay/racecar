@@ -727,11 +727,48 @@ describe('online lobbies', () => {
     expect(both.why('K7QM')).toEqual({ kind: 'slow' });
   });
 
+  test("only the latest try at a lobby says it was too slow: an older one timing out after says nothing", async () => {
+    const online = { get: (id: string) => (id === 'K7QM' ? new Promise(() => {}) : null), why: () => null } as unknown as ConstructorParameters<typeof Lobbies>[1];
+    const both = new Lobbies(new LocalBackend(null), online, 10, 40);
+    void both.get('K7QM');
+    await new Promise((r) => setTimeout(r, 20));
+    // Esc, then the lobby again: the first try times out while the second waits.
+    await both.abandon('K7QM').catch(() => {});
+    const second = both.get('K7QM');
+    await new Promise((r) => setTimeout(r, 30));
+    expect(both.why('K7QM')).toBeNull();
+    expect(await second).toBeNull();
+    expect(both.why('K7QM')).toEqual({ kind: 'slow' });
+  });
+
+  test("once the server has answered the page, a join waits only as long as anything else", async () => {
+    const online = { list: async () => [], get: () => new Promise(() => {}), why: () => null } as unknown as ConstructorParameters<typeof Lobbies>[1];
+    const both = new Lobbies(new LocalBackend(null), online, 20, 5000);
+    await both.list();
+    const t = Date.now();
+    expect(await both.get('K7QM')).toBeNull();
+    expect(Date.now() - t).toBeLessThan(1000);
+  });
+
+  test("a join the menu gave up on, refused after, leaves nothing to say later", async () => {
+    const hub = new Hub();
+    const [ada, bo] = players(hub, 'ada', 'bo');
+    const lobby = await ada.backend.create(player('ADA'), {});
+    hub.rooms.get(lobby.id)!.banned.add('bo');
+    hub.roomMs = 30;
+    const side = new Lobbies(new LocalBackend(null), bo.backend, 5, 5);
+    expect(await side.get(lobby.id)).toBeNull();
+    await side.abandon(lobby.id);
+    await new Promise((r) => setTimeout(r, 60));
+    expect(side.why(lobby.id)).toBeNull();
+  });
+
   test("a short link that's refused or gone says why, as a code does", async () => {
     const hub = new Hub();
     const [bo] = players(hub, 'bo');
     expect(await bo.backend.joinLink('nothing-here')).toBeNull();
-    expect(bo.backend.why('nothing-here')).toEqual({ kind: 'missing' });
+    // A link finds a Private lobby, so one that finds nothing is gone.
+    expect(bo.backend.why('nothing-here')).toEqual({ kind: 'closed' });
   });
 
   test("the lobby in a room's state is checked all through: whoever holds the host role writes it", () => {
@@ -914,9 +951,9 @@ describe("the lobby screen's connection and pings", () => {
     expect(room.public).toBe(false);
   });
 
-  test("a listing that fails is sent again the next time the lobby is listed, even with nothing new in it", async () => {
+  test("a listing that fails is tried again a second later, with nothing else happening", async () => {
     const hub = new Hub();
-    const [ada, bo] = players(hub, 'ada', 'bo');
+    const [ada] = players(hub, 'ada');
     const lobby = await ada.backend.create(player('ADA'), {});
     const room = hub.rooms.get(lobby.id)!;
     await new Promise((r) => setTimeout(r, 1100));
@@ -924,11 +961,29 @@ describe("the lobby screen's connection and pings", () => {
     await ada.backend.send(lobby.id, { type: 'options', options: { laps: 5 } });
     await settle();
     expect((room.listing.meta as { laps?: number }).laps).not.toBe(5);
-    // Someone coming into the room lists it again (the summary hasn't changed: they have no seat).
     await new Promise((r) => setTimeout(r, 1100));
-    await bo.backend.get(lobby.id);
     await settle();
     expect((room.listing.meta as { laps?: number }).laps).toBe(5);
+  });
+
+  test("whoever the host role comes back to lists the room again, though their lobby looks as it did", async () => {
+    const hub = new Hub();
+    const [ada, bo] = players(hub, 'ada', 'bo');
+    const lobby = await ada.backend.create(player('ADA'), {});
+    await bo.backend.get(lobby.id);
+    await settle();
+    const room = hub.rooms.get(lobby.id)!;
+    const listedByAda = structuredClone(room.listing);
+    const member = (id: string) => room.members.find((m) => m.id === id)!;
+    await member('ada').transferHost('bo');
+    await settle();
+    // Bo's page listed something else meanwhile (its own last change).
+    room.listing = { name: 'something else', meta: null };
+    await member('bo').transferHost('ada');
+    // (At most once a second: Ada listed when Bo came in.)
+    await new Promise((r) => setTimeout(r, 1100));
+    await settle();
+    expect(room.listing).toEqual(listedByAda);
   });
 });
 
