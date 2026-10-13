@@ -4,26 +4,36 @@ Where racecar stands and what's next, for whoever picks it up (a person or a fre
 The design is [SPEC.md](./SPEC.md): decisions in §17, and what building changed in "Changed while
 building". This file is "where are we"; the spec is "what are we making".
 
-**Last updated:** 2026-10-09. **On branch `splash-city-online`, not merged:** Heist is **Splash
-City**, and an online lobby race on it is a getaway for every player (the owner: "Make the default
-mode chase when you select from the normal menu", then "competitive survival and we add more cops",
-"each player gets their own cops, but cops will also attack you when nearby", "watch the rest then
-shared results"). Details in [CHASE_MODE.md](./CHASE_MODE.md)'s "Online getaways, and Splash City".
-- **Code:** `rules/getaway.ts` (a run per runner, `poolFor`, `NEAR_TARGET`), `net/cops.ts` (host
-  cops), `net/cars.ts` (`out`/`runT`), `lobby/vote.ts` (`chase`), `ui/watch.ts`, `ui/race.ts`
-  (strip, `showTable`), `main.ts`. `MAX_CARS` is 32.
-- **Checked:** the suite (784), and `?start=getaway` loading on Splash City as before.
-- **Not checked yet:** online with 2+ players on the local relay, 8 runners at the Bank, the
-  32-car draw calls against the table below, and single player's crash card in a visible window.
-- **Next (not in this):** AI runners online, players as cops, an online leaderboard.
+**Last updated:** 2026-10-13. **`v1.0` is tagged and on the hosted build** (2026-10-12, PRs
+#168–#170, merged in that stack: `splash-city-online`, then `public-ready`, then `public-polish`).
+The SDK is at `0.1.0-alpha.7`. CHANGELOG's top section is still headed "Unreleased" though `v1.0`
+was cut from it. In it:
 
-**Then, on branch `public-polish` (on `public-ready`, on `splash-city-online`), not merged:** ready
-for the public ([the spec](./superpowers/specs/2026-10-10-public-polish-design.md)). No analytics
-(PostHog is gone); host controls (Kick, banned on a second kick; Make host with `transferHost`;
-Private locks the room at the server; told why you're out); Credits, Privacy and Terms pages from
-the title (`ui/pages.ts`, the text in `PRIVACY.md` and `TERMS.md`). The SDK is at alpha.7.
-- **Checked:** the suite, and the pages and title in headless Chrome at 1440×900 and 390×844.
-- **Not checked yet:** kick, ban and Make host with two real browsers on the local relay.
+- **Online getaways on Splash City** (#168): Heist is **Splash City**, and an online lobby race on
+  it is a getaway for every player (the owner: "Make the default mode chase when you select from
+  the normal menu", then "competitive survival and we add more cops", "each player gets their own
+  cops, but cops will also attack you when nearby", "watch the rest then shared results").
+  Details in [CHASE_MODE.md](./CHASE_MODE.md)'s "Online getaways, and Splash City".
+  - **Code:** `rules/getaway.ts` (a run per runner, `poolFor`, `NEAR_TARGET`), `net/cops.ts` (host
+    cops), `net/cars.ts` (`out`/`runT`), `lobby/vote.ts` (`chase`), `ui/watch.ts`, `ui/race.ts`
+    (strip, `showTable`), `main.ts`. `MAX_CARS` is 32.
+  - **Not checked yet:** a getaway online with 2+ players on the local relay, 8 runners at the Bank, the 32-car draw calls against the table below, and
+    single player's crash card in a visible window.
+  - **Next (not in this):** AI runners online, players as cops, an online leaderboard.
+- **Ready for the public** (#169, #170; [the spec](./superpowers/specs/2026-10-10-public-polish-design.md)):
+  no analytics (PostHog is gone, and an older build's id and opt-out are cleared from the
+  browser); host controls (Kick, banned on a second kick; Make host with `transferHost`; Private
+  locks the room at the server; told why you're out); Credits, Privacy and Terms pages from the
+  title (`ui/pages.ts`, the text in `PRIVACY.md` and `TERMS.md`).
+  - **Not checked yet:** kick, ban and Make host with two real browsers on the local relay.
+- **Checked on `main` (2026-10-13):** `bun run test` (818), typecheck, `tools/validate.ts --ai`,
+  every map `identical` in `tools/fingerprint.ts`, and CI.
+- **SDK alpha.10 is a safe bump** (checked 2026-10-13, not done): with `@gamerelay/sdk@0.1.0-alpha.10`
+  the suite (818) and typecheck pass, `bun run build` emits the SDK's P2P code as its own chunk, and
+  `build:single` inlines it (no `import()` left; Vite's preload helper warns about `import.meta`
+  in the IIFE, but with no deps it never reaches that code). alpha.8–10 bring the SDK review's
+  fixes (reconnects, host handover, P2P past 8 players) and a smaller bundle. On this machine,
+  `bun add` needs `--min-release-age=0` for a week after a release (`~/.npmrc`).
 
 Before it, **`alpha-1.47`** (PR #167) is tagged and on the hosted build (the
 owner: "merge and deploy please"): **Heist's draw call pass** ("yes do the draw call pass on heist
@@ -870,7 +880,7 @@ old keys still resolve). The third map is **Paradise** (`content/maps/paradise`,
    lobbies, also run the gamerelay.io repo's server (`bun run dev` there, :8787), then use two tabs.
 2. Read this file, then [ONLINE.md](./ONLINE.md) (how lobbies, hosts, parties and players work),
    SPEC §17 and the milestone 3 notes under "Changed while building".
-3. The platform side is ready: SDK `0.1.0-alpha.5` has everything racecar uses (host controls,
+3. The platform side is ready: SDK `0.1.0-alpha.7` (bundled) has everything racecar uses (host controls,
    listings, parties, `lanRoute`), and the `racecar` instance has parties and Direct connections
    on (see "GameRelay side" below).
 4. Before changing anything: `bun run test && bun run typecheck && bun tools/validate.ts --ai`
