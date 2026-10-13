@@ -257,6 +257,7 @@ class FakeRelay implements RelayLike {
     return this.enter(room);
   }
   async joinLink(link: string): Promise<RoomLike> {
+    if (this.hub.roomMs) await new Promise((r) => setTimeout(r, this.hub.roomMs));
     const room = [...this.hub.rooms.values()].find((r) => linkOf(r.code) === link);
     if (!room) throw Object.assign(new Error('room_not_found'), { code: 'room_not_found' });
     const back = room.members.find((m) => m.id === this.playerId);
@@ -705,7 +706,8 @@ describe('online lobbies', () => {
     expect(both.why('ZwsG3pRrM1s')).toBeNull();
     land('K7QM');
     await settle();
-    expect(abandoned).toEqual(['K7QM']);
+    // The link at once (a refusal landing later isn't kept), the lobby once it's known.
+    expect(abandoned).toEqual(['ZwsG3pRrM1s', 'K7QM']);
   });
 
   test("a join waits longer than the list (a cold page connects first), and one too slow even so is said", async () => {
@@ -786,6 +788,30 @@ describe('online lobbies', () => {
     const both = new Lobbies(new LocalBackend(null), online, 10, 10);
     expect(await both.get('K7QM')).toBeNull();
     expect(both.why('K7QM')).toEqual({ kind: 'banned' });
+  });
+
+  test("a too-slow try is forgotten once you're in the lobby: a later close isn't said to be too slow", async () => {
+    const online = { get: () => new Promise(() => {}), subscribe: () => () => {}, why: () => null } as unknown as ConstructorParameters<typeof Lobbies>[1];
+    const both = new Lobbies(new LocalBackend(null), online, 10, 10);
+    // The race page's own get timing out, nobody asking why; then the lobby screen subscribes.
+    expect(await both.get('K7QM')).toBeNull();
+    both.subscribe('K7QM', () => {});
+    expect(both.why('K7QM')).toBeNull();
+  });
+
+  test("a short link given up on as too slow, refused after, leaves nothing to say later", async () => {
+    const hub = new Hub();
+    const [ada, bo] = players(hub, 'ada', 'bo');
+    const lobby = await ada.backend.create(player('ADA'), {});
+    hub.rooms.get(lobby.id)!.banned.add('bo');
+    hub.roomMs = 30;
+    const side = new Lobbies(new LocalBackend(null), bo.backend, 5, 5);
+    const link = linkOf(lobby.id);
+    expect(await side.joinLink(link)).toBeNull();
+    expect(side.why(link)).toEqual({ kind: 'slow' });
+    await new Promise((r) => setTimeout(r, 60));
+    expect(side.why(link)).toBeNull();
+    expect(bo.backend.why(link)).toBeNull();
   });
 
   test("a short link that's refused or gone says why, as a code does", async () => {
@@ -991,7 +1017,7 @@ describe("the lobby screen's connection and pings", () => {
     expect((room.listing.meta as { laps?: number }).laps).toBe(5);
   });
 
-  test("a listing that keeps failing is tried less and less often, and a room you left isn't tried at all", async () => {
+  test("a listing that keeps failing is tried once more, then waits for the next change; a room you left isn't tried", async () => {
     const hub = new Hub();
     const [ada] = players(hub, 'ada');
     const lobby = await ada.backend.create(player('ADA'), {});
@@ -1001,14 +1027,34 @@ describe("the lobby screen's connection and pings", () => {
     console.warn = () => {};
     try {
       await ada.backend.send(lobby.id, { type: 'options', options: { laps: 5 } });
-      // Tries at 0, 1 s and 3 s, not one a second.
+      // At once and a second later, then no more until something changes.
       await new Promise((r) => setTimeout(r, 3500));
-      expect(100 - hub.failListing).toBe(3);
+      expect(100 - hub.failListing).toBe(2);
+      await ada.backend.send(lobby.id, { type: 'options', options: { laps: 6 } });
+      await new Promise((r) => setTimeout(r, 2500));
+      expect(100 - hub.failListing).toBe(4);
       // Out of the room: nothing more, and nothing left armed.
       await ada.backend.send(lobby.id, { type: 'leave' });
       const left = hub.failListing;
       await new Promise((r) => setTimeout(r, 4100));
       expect(hub.failListing).toBe(left);
+    } finally {
+      console.warn = warn;
+    }
+  });
+
+  test("who-can-join failing while the listing goes through is tried once more too, not every second", async () => {
+    const hub = new Hub();
+    const [ada] = players(hub, 'ada');
+    const lobby = await ada.backend.create(player('ADA'), {});
+    await new Promise((r) => setTimeout(r, 1100));
+    hub.failAccess = 100;
+    const warn = console.warn;
+    console.warn = () => {};
+    try {
+      await ada.backend.send(lobby.id, { type: 'options', visibility: 'invite' });
+      await new Promise((r) => setTimeout(r, 3500));
+      expect(100 - hub.failAccess).toBe(2);
     } finally {
       console.warn = warn;
     }

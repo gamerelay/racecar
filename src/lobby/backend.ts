@@ -180,32 +180,33 @@ export class Lobbies implements LobbyBackend {
     return this.of(id)?.route?.(id) ?? null;
   }
 
-  /** Lobbies (or links) given up on as too slow: said once, like a refusal. */
-  private slow = new Set<string>();
   /**
-   * The latest attempt at each lobby (or link): an older one timing out after a newer one began
-   * says nothing (Esc, then the same lobby again).
+   * The latest try at each lobby (or link), and whether it was too slow: only the latest says so
+   * (Esc, then the same lobby again: the first one timing out says nothing). Said once, like a
+   * refusal; forgotten once you're in the lobby (subscribed), so it's never said about later.
    */
-  private attempts = new Map<string, object>();
+  private tries = new Map<string, { slow: boolean }>();
 
   /** Why: the lobby's own refusal if it gave one (it may have landed after the wait), else too slow. Both are said once. */
   why(id: string): Refusal | null {
-    const slow = this.slow.delete(id);
+    const slow = this.tries.get(id)?.slow ?? false;
+    if (slow) this.tries.delete(id);
     return this.of(id)?.why?.(id) ?? (slow ? { kind: 'slow' } : null);
   }
 
   /** An online join, waited on for as long as the screens do; too slow, it's null and kept to say why. */
   private async timed<T>(id: string, join: Promise<T>): Promise<T | null> {
-    const attempt = {};
-    this.attempts.set(id, attempt);
-    this.slow.delete(id);
+    const attempt = { slow: false };
+    this.tries.set(id, attempt);
     try {
-      return await inTime(join, this.online?.ready?.() ? this.wait : this.joinWait);
+      const got = await inTime(join, this.online?.ready?.() ? this.wait : this.joinWait);
+      if (this.tries.get(id) === attempt) this.tries.delete(id);
+      return got;
     } catch (err) {
-      if (err === TIMEOUT && this.attempts.get(id) === attempt) this.slow.add(id);
+      if (this.tries.get(id) !== attempt) return null;
+      if (err === TIMEOUT) attempt.slow = true;
+      else this.tries.delete(id);
       return null;
-    } finally {
-      if (this.attempts.get(id) === attempt) this.attempts.delete(id);
     }
   }
 
@@ -258,8 +259,12 @@ export class Lobbies implements LobbyBackend {
     if (!online?.joinLink) return null;
     const join = online.joinLink(link);
     const id = (await this.timed(link, join)) ?? null;
-    // The menu can't abandon a lobby it never learned the code of: that's done here once it's known.
-    if (!id) void join.then((late) => void (late && online.abandon?.(late))).catch(() => {});
+    // The menu can't abandon a lobby it never learned the code of: that's done here, the link now
+    // (a refusal landing later isn't kept) and the code once it's known.
+    if (!id) {
+      void online.abandon?.(link);
+      void join.then((late) => void (late && online.abandon?.(late))).catch(() => {});
+    }
     return id;
   }
 
@@ -268,6 +273,8 @@ export class Lobbies implements LobbyBackend {
   }
 
   subscribe(id: string, fn: (lobby: Lobby | null) => void, opts?: { pings?: boolean }): () => void {
+    // In it, so no try at it was too slow, whatever timed out before (the race page's own gets).
+    this.tries.delete(id);
     return this.of(id)?.subscribe(id, fn, opts) ?? (() => {});
   }
 }

@@ -124,8 +124,6 @@ export function linkId(url: string): string {
 
 /** setListing allows 10 changes in a row, then one a second: the listing follows at most this often (ms). */
 const LISTING_MS = 1000;
-/** The longest a failed listing waits to be tried again (ms). */
-const LISTING_MAX_MS = 30_000;
 
 export class RelayBackend implements LobbyBackend {
   private relay: Promise<RelayLike> | null = null;
@@ -145,8 +143,6 @@ export class RelayBackend implements LobbyBackend {
   private listed = '';
   private listingTimer: ReturnType<typeof setTimeout> | null = null;
   private listingAt = 0;
-  /** Listing writes that failed in a row: each retry waits twice as long, up to LISTING_MAX_MS. */
-  private listingFails = 0;
   /**
    * Joins, creates and leaves run one at a time, in order: the SDK has one room at a time, and its
    * leave doesn't say which room. Overlapping, a late join's leave could take you out of the next.
@@ -278,12 +274,12 @@ export class RelayBackend implements LobbyBackend {
 
   /**
    * A join's failure: warned as before, and why kept for the menu, unless the menu gave up on it
-   * first (`still`): said later, it would be about something else.
+   * first (it no longer `wanted` it): said later, it would be about something else.
    */
-  private refused(id: string, what: string, notFound: 'missing' | 'closed', still = () => this.wanted === id) {
+  private refused(id: string, what: string, notFound: 'missing' | 'closed') {
     return (err: unknown): null => {
       const r = refusalOf(err, notFound);
-      if (r && still()) this.refusals.set(id, r);
+      if (r && this.wanted === id) this.refusals.set(id, r);
       return warned(what, null)(err);
     };
   }
@@ -299,12 +295,14 @@ export class RelayBackend implements LobbyBackend {
    * link's room is gone or this SDK has no short links.
    */
   async joinLink(link: string): Promise<string | null> {
+    // Wanted by its link until it lands (its code isn't known yet): abandoning the link gives it up.
+    this.wanted = link;
     const relay = await this.relayNow();
     if (!relay.joinLink) return null;
     const room = await this.inTurn(async () => {
       await this.leaveRoom();
       this.refusals.delete(link);
-      const r = await relay.joinLink!(link).catch(this.refused(link, 'joining by a link failed', 'closed', () => true));
+      const r = await relay.joinLink!(link).catch(this.refused(link, 'joining by a link failed', 'closed'));
       if (r) {
         this.wanted = r.code;
         this.attach(r);
@@ -489,7 +487,6 @@ export class RelayBackend implements LobbyBackend {
     this.room = null;
     if (this.listingTimer) clearTimeout(this.listingTimer);
     this.listingTimer = null;
-    this.listingFails = 0;
   }
 
   private async leaveRoom(): Promise<void> {
@@ -556,7 +553,7 @@ export class RelayBackend implements LobbyBackend {
   }
 
   /** What the room lists show: the lobby's summary, when it changes, at most once a second. */
-  private relist(room: RoomLike, lobby: Lobby): void {
+  private relist(room: RoomLike, lobby: Lobby, retry = false): void {
     // Who can join goes in the listing too: if unlisting the room didn't land, the list still leaves it out.
     const { id: _, name, ...meta } = summarize(lobby);
     const { visibility } = meta;
@@ -571,16 +568,15 @@ export class RelayBackend implements LobbyBackend {
       if (!room.isHost) return;
       this.listingAt = Date.now();
       this.listed = key;
-      // A write that fails is tried again (all of send, read afresh) after a wait that doubles with
-      // each failure in a row, or sooner with the next change; not for a room this page has left.
+      // A write that fails is tried once more a second later (all of send, read afresh), then with
+      // the next change; not for a room this page has left.
       const failed = (what: string) => (err: unknown) => {
         warned(what, undefined)(err);
         if (this.room !== room) return;
         if (this.listed === key) this.listed = '';
-        this.listingFails++;
-        this.retryListing(room, Math.min(LISTING_MS * 2 ** (this.listingFails - 1), LISTING_MAX_MS));
+        if (!retry) this.later(room, LISTING_MS, true);
       };
-      void room.setListing({ name, meta: meta as never }).then(() => (this.listingFails = 0), failed('updating the listing failed'));
+      void room.setListing({ name, meta: meta as never }).catch(failed('updating the listing failed'));
       // Against the room itself, not what we last sent: a host before us may not have got to it.
       const listed = visibility === 'public';
       // Unlisted is link-only too (on an SDK that has it: `linkOnly` is undefined on older ones).
@@ -592,16 +588,16 @@ export class RelayBackend implements LobbyBackend {
     const wait = this.listingAt + LISTING_MS - Date.now();
     if (wait <= 0) send();
     // The last change in the second wins: it reads the lobby again when the timer fires.
-    else this.retryListing(room, wait);
+    else this.later(room, wait, retry);
   }
 
   /** Lists `room` again in `wait` ms (unless that's set already): read afresh, while it's ours to list. */
-  private retryListing(room: RoomLike, wait = LISTING_MS): void {
+  private later(room: RoomLike, wait: number, retry: boolean): void {
     if (this.listingTimer) return;
     this.listingTimer = setTimeout(() => {
       this.listingTimer = null;
       const now = this.lobbyOf(room);
-      if (now && this.room === room && room.isHost) this.relist(room, now);
+      if (now && this.room === room && room.isHost) this.relist(room, now, retry);
     }, wait);
   }
 }
