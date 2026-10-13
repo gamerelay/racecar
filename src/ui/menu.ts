@@ -87,6 +87,9 @@ export function lobbyKeys(maps: readonly MapDef[], keys: readonly string[]): str
 /** What the menu says when a lobby refuses you or puts you out. */
 export function refusalText(r: Refusal): string {
   if (r.kind === 'kicked') return r.message;
+  if (r.kind === 'missing') return "Can't find that lobby: it's private, or it closed";
+  if (r.kind === 'closed') return 'That lobby has closed';
+  if (r.kind === 'slow') return "The lobby didn't answer in time: try again";
   return r.kind === 'banned' ? "You can't rejoin this lobby" : r.kind === 'locked' ? 'This lobby is private' : 'This lobby is full';
 }
 
@@ -178,6 +181,7 @@ export class Menu {
   /** Opened from a short link (`?join=<link>`): into its lobby, or the title if it's gone. */
   async openLink(link: string): Promise<void> {
     const id = await this.backend.joinLink?.(link);
+    if (!id) this.tellWhy(link);
     return this.open(id ?? null);
   }
 
