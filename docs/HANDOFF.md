@@ -1169,8 +1169,8 @@ the cone's far flanks.
     the track for an hour. The proxy always sends it.
   - **CORS on the Space** (GET and HEAD from any origin) stays: it lets a build read the Space's
     origin directly too, if the CDN is ever down.
-- **What's there now:** `alpha-1.44` (PR #160: Heist, the getaway), updated 2026-10-08, with
-  every track on the CDN. Keep it the one row: update Z442EE in place rather than adding a game.
+- **What's there now:** `v1.0` (PRs #168–#170: online getaways, public-ready, host controls and
+  no analytics), updated 2026-10-12, with every track on the CDN. Keep it the one row: update Z442EE in place rather than adding a game.
 
 ## Next, in order
 
