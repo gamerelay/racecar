@@ -21,6 +21,8 @@ class Hub {
   /** setAccess calls to fail before one gets through. */
   failAccess = 0;
   failListing = 0;
+  /** setListing refusals as the SDK gives them when the host role has just moved away (`not_host`). */
+  notHostListing = 0;
   /** Parties, by code: who's in each. */
   parties = new Map<string, Set<string>>();
   /** How long a party join takes (ms). */
@@ -148,7 +150,11 @@ class FakeClient implements RoomLike {
       this.room.hub.failListing--;
       throw new Error('rate_limited');
     }
-    if (!this.isHost) throw new Error('room.setListing: only the host can do this');
+    if (this.room.hub.notHostListing > 0) {
+      this.room.hub.notHostListing--;
+      throw Object.assign(new Error('room.setListing: only the host can do this'), { code: 'not_host' });
+    }
+    if (!this.isHost) throw Object.assign(new Error('room.setListing: only the host can do this'), { code: 'not_host' });
     this.room.listing = structuredClone(listing);
   }
   async setAccess(access: { public?: boolean; linkOnly?: boolean; locked?: boolean }): Promise<void> {
@@ -1055,6 +1061,25 @@ describe("the lobby screen's connection and pings", () => {
       await ada.backend.send(lobby.id, { type: 'options', visibility: 'invite' });
       await new Promise((r) => setTimeout(r, 3500));
       expect(100 - hub.failAccess).toBe(2);
+    } finally {
+      console.warn = warn;
+    }
+  });
+
+  test("a listing refused because the host role just moved is left to the new host: no warning, no retry", async () => {
+    const hub = new Hub();
+    const [ada] = players(hub, 'ada');
+    const lobby = await ada.backend.create(player('ADA'), {});
+    await new Promise((r) => setTimeout(r, 1100));
+    hub.notHostListing = 5;
+    const warnings: unknown[] = [];
+    const warn = console.warn;
+    console.warn = (...a: unknown[]) => void warnings.push(a);
+    try {
+      await ada.backend.send(lobby.id, { type: 'options', options: { laps: 5 } });
+      await new Promise((r) => setTimeout(r, 1500));
+      expect(5 - hub.notHostListing).toBe(1);
+      expect(warnings).toEqual([]);
     } finally {
       console.warn = warn;
     }

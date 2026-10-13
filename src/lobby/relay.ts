@@ -571,6 +571,9 @@ export class RelayBackend implements LobbyBackend {
       // A write that fails is tried once more a second later (all of send, read afresh), then with
       // the next change; not for a room this page has left.
       const failed = (what: string) => (err: unknown) => {
+        // The host role moved as it went (a race starting): the new host lists the room, and this
+        // page again if the role comes back (host_changed). Nothing to say, or to retry.
+        if ((err as { code?: unknown } | null)?.code === 'not_host') return;
         warned(what, undefined)(err);
         if (this.room !== room) return;
         if (this.listed === key) this.listed = '';
