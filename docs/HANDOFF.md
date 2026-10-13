@@ -6,8 +6,9 @@ building". This file is "where are we"; the spec is "what are we making".
 
 **Last updated:** 2026-10-13. **`v1.0` is tagged and on the hosted build** (2026-10-12, PRs
 #168–#170, merged in that stack: `splash-city-online`, then `public-ready`, then `public-polish`).
-The SDK is at `0.1.0-alpha.7`. CHANGELOG's top section is still headed "Unreleased" though `v1.0`
-was cut from it. In it:
+Since then, on `main` and not tagged: **PR #172** (2026-10-13), SDK `0.1.0-alpha.10` and the three
+online fixes the two-browser check below found (CHANGELOG's "Unreleased"; its v1.0 section is
+headed `v1.0` now). In `v1.0`:
 
 - **Online getaways on Splash City** (#168): Heist is **Splash City**, and an online lobby race on
   it is a getaway for every player (the owner: "Make the default mode chase when you select from
@@ -31,24 +32,20 @@ was cut from it. In it:
     again), Make host (lobby and SDK host move), and Private (locked, gone from the list, a code
     refused). The same on SDK alpha.10 for create to race, where P2P also comes up on the race
     page (on alpha.7 it does in the lobby, but the race runs over the server). No page or server
-    errors. Found:
-    - **The listing can go stale:** `relist` (`src/lobby/relay.ts`, `send`) sets `this.listed`
-      before `setListing`, whose failure only warns; it isn't cleared, as `setAccess`'s is. It fails
-      on every race start while the host role settles (`only the host can do this`), so the list
-      can show the lobby's old phase until something else changes.
-    - **A code into a Private lobby gets no message:** the server answers it as an unknown code
-      (link-only), and racecar shows no toast for that.
-    - **A cold `?lobby=` load can give up:** headless, the page took about 14 s to join and the
-      menu's `ONLINE_WAIT_MS` (5 s, `src/lobby/backend.ts`) left it on the title with no toast. Likely
-      the slow software renderer, but a slow device would do the same.
+    errors. What it found is fixed in #172 (three `/code-review` rounds, then the same check
+    again, all passing): the list's row caught up late after a race started (`relist`: only the
+    host sends, a failed write is tried once more, `not_host` is left to the new host); a code
+    into a Private lobby, or a link to a closed one, now says so; and getting into a lobby waits
+    20 s while no connection is up (5 s once one is), saying "didn't answer in time" if it gives up.
 - **Checked on `main` (2026-10-13):** `bun run test` (818), typecheck, `tools/validate.ts --ai`,
   every map `identical` in `tools/fingerprint.ts`, and CI.
-- **SDK alpha.10 is a safe bump** (checked 2026-10-13, not done): with `@gamerelay/sdk@0.1.0-alpha.10`
-  the suite (818) and typecheck pass, `bun run build` emits the SDK's P2P code as its own chunk, and
+- **SDK alpha.10** (#172): `bun run build` emits the SDK's P2P code as its own chunk, and
   `build:single` inlines it (no `import()` left; Vite's preload helper warns about `import.meta`
-  in the IIFE, but with no deps it never reaches that code). alpha.8–10 bring the SDK review's
-  fixes (reconnects, host handover, P2P past 8 players) and a smaller bundle. On this machine,
-  `bun add` needs `--min-release-age=0` for a week after a release (`~/.npmrc`).
+  in the IIFE, but with no deps it never reaches that code). P2P now comes up on the race page
+  too (on alpha.7 only in the lobby). On this machine, `bun add` of a new SDK needs
+  `--min-release-age=0` for a week after its release (`~/.npmrc`).
+- **Not yet on the hosted build:** Z442EE is still `v1.0`. Tag (`v1.1`?) and update it when the
+  owner asks.
 
 Before it, **`alpha-1.47`** (PR #167) is tagged and on the hosted build (the
 owner: "merge and deploy please"): **Heist's draw call pass** ("yes do the draw call pass on heist
@@ -895,7 +892,7 @@ old keys still resolve). The third map is **Paradise** (`content/maps/paradise`,
    lobbies, also run the gamerelay.io repo's server (`bun run dev` there, :8787), then use two tabs.
 2. Read this file, then [ONLINE.md](./ONLINE.md) (how lobbies, hosts, parties and players work),
    SPEC §17 and the milestone 3 notes under "Changed while building".
-3. The platform side is ready: SDK `0.1.0-alpha.7` (bundled) has everything racecar uses (host controls,
+3. The platform side is ready: SDK `0.1.0-alpha.10` (bundled) has everything racecar uses (host controls,
    listings, parties, `lanRoute`), and the `racecar` instance has parties and Direct connections
    on (see "GameRelay side" below).
 4. Before changing anything: `bun run test && bun run typecheck && bun tools/validate.ts --ai`
