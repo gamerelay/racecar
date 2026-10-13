@@ -17,7 +17,7 @@ was cut from it. In it:
   - **Code:** `rules/getaway.ts` (a run per runner, `poolFor`, `NEAR_TARGET`), `net/cops.ts` (host
     cops), `net/cars.ts` (`out`/`runT`), `lobby/vote.ts` (`chase`), `ui/watch.ts`, `ui/race.ts`
     (strip, `showTable`), `main.ts`. `MAX_CARS` is 32.
-  - **Not checked yet:** a getaway online with 2+ players on the local relay, 8 runners at the Bank, the 32-car draw calls against the table below, and
+  - **Not checked yet:** a getaway online with 2+ players (a plain race online is, below) on the local relay, 8 runners at the Bank, the 32-car draw calls against the table below, and
     single player's crash card in a visible window.
   - **Next (not in this):** AI runners online, players as cops, an online leaderboard.
 - **Ready for the public** (#169, #170; [the spec](./superpowers/specs/2026-10-10-public-polish-design.md)):
@@ -25,7 +25,22 @@ was cut from it. In it:
   browser); host controls (Kick, banned on a second kick; Make host with `transferHost`; Private
   locks the room at the server; told why you're out); Credits, Privacy and Terms pages from the
   title (`ui/pages.ts`, the text in `PRIVACY.md` and `TERMS.md`).
-  - **Not checked yet:** kick, ban and Make host with two real browsers on the local relay.
+  - **Checked 2026-10-13** with two headless Chromes (separate profiles) on a local server at
+    gamerelay master: create, list and join; ready, start, and each sees the other's car; Kick (a
+    second press, "Removed by the host", back in from the list), the second kick's ban (refused
+    again), Make host (lobby and SDK host move), and Private (locked, gone from the list, a code
+    refused). The same on SDK alpha.10 for create to race, where P2P also comes up on the race
+    page (on alpha.7 it does in the lobby, but the race runs over the server). No page or server
+    errors. Found:
+    - **The listing can go stale:** `relist` (`src/lobby/relay.ts`, `send`) sets `this.listed`
+      before `setListing`, whose failure only warns; it isn't cleared, as `setAccess`'s is. It fails
+      on every race start while the host role settles (`only the host can do this`), so the list
+      can show the lobby's old phase until something else changes.
+    - **A code into a Private lobby gets no message:** the server answers it as an unknown code
+      (link-only), and racecar shows no toast for that.
+    - **A cold `?lobby=` load can give up:** headless, the page took about 14 s to join and the
+      menu's `ONLINE_WAIT_MS` (5 s, `src/lobby/backend.ts`) left it on the title with no toast. Likely
+      the slow software renderer, but a slow device would do the same.
 - **Checked on `main` (2026-10-13):** `bun run test` (818), typecheck, `tools/validate.ts --ai`,
   every map `identical` in `tools/fingerprint.ts`, and CI.
 - **SDK alpha.10 is a safe bump** (checked 2026-10-13, not done): with `@gamerelay/sdk@0.1.0-alpha.10`
