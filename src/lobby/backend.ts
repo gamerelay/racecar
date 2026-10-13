@@ -30,6 +30,8 @@ export interface LobbyBackend {
   away?(id: string, player: string): boolean;
   /** Online: the screens no longer want lobby `id` (a join given up on): out of it, now or when the join lands. */
   abandon?(id: string): Promise<void>;
+  /** Online: whether the connection to the server is up now (a join then needn't connect first). */
+  ready?(): boolean;
   /** Online: lobby `id`'s short link (`gamerelay.io/<game>/<link>`), or null. */
   shareLink?(id: string): Promise<string | null>;
   /** Online: into the lobby a short link is for (`?join=<link>`): its id, or null. */
@@ -134,8 +136,8 @@ export class LocalBackend implements LobbyBackend {
 /** Online calls the screens wait on give up after this long (ms): a server that never answers isn't one. */
 const ONLINE_WAIT_MS = 5000;
 /**
- * Getting into a lobby from a page that hasn't heard from the server yet waits longer (ms): an
- * invite link or a reload connects first, and a slow device took 14 s for both.
+ * Getting into a lobby with no connection up yet waits longer (ms): an invite link, a reload or a
+ * dropped connection connects first, and a slow device took 14 s for both.
  */
 const JOIN_WAIT_MS = 20_000;
 
@@ -160,7 +162,7 @@ export class Lobbies implements LobbyBackend {
     readonly online: LobbyBackend | null,
     /** How long the screens wait on an online call (ms). */
     private wait = ONLINE_WAIT_MS,
-    /** How long they wait to get into a lobby before the server has answered anything (ms). */
+    /** How long they wait to get into a lobby while there's no connection up (ms). */
     private joinWait = JOIN_WAIT_MS,
   ) {
     if (!online) this.offline = 'Online lobbies need a GameRelay key (VITE_GAMERELAY_KEY).';
@@ -180,14 +182,16 @@ export class Lobbies implements LobbyBackend {
 
   /** Lobbies (or links) given up on as too slow: said once, like a refusal. */
   private slow = new Set<string>();
-  /** The latest attempt at each lobby (or link): an older one's timeout says nothing. */
+  /**
+   * The latest attempt at each lobby (or link): an older one timing out after a newer one began
+   * says nothing (Esc, then the same lobby again).
+   */
   private attempts = new Map<string, object>();
-  /** The server has answered this page: a connection is up, so a join is only a join. */
-  private warm = false;
 
+  /** Why: the lobby's own refusal if it gave one (it may have landed after the wait), else too slow. Both are said once. */
   why(id: string): Refusal | null {
-    if (this.slow.delete(id)) return { kind: 'slow' };
-    return this.of(id)?.why?.(id) ?? null;
+    const slow = this.slow.delete(id);
+    return this.of(id)?.why?.(id) ?? (slow ? { kind: 'slow' } : null);
   }
 
   /** An online join, waited on for as long as the screens do; too slow, it's null and kept to say why. */
@@ -196,9 +200,7 @@ export class Lobbies implements LobbyBackend {
     this.attempts.set(id, attempt);
     this.slow.delete(id);
     try {
-      const got = await inTime(join, this.warm ? this.wait : this.joinWait);
-      this.warm = true;
-      return got;
+      return await inTime(join, this.online?.ready?.() ? this.wait : this.joinWait);
     } catch (err) {
       if (err === TIMEOUT && this.attempts.get(id) === attempt) this.slow.add(id);
       return null;
@@ -220,7 +222,6 @@ export class Lobbies implements LobbyBackend {
     if (!this.online) return [];
     try {
       const rows = await inTime(this.online.list(), this.wait);
-      this.warm = true;
       this.offline = '';
       return rows;
     } catch {
@@ -244,8 +245,6 @@ export class Lobbies implements LobbyBackend {
   }
 
   async abandon(id: string): Promise<void> {
-    // Given up on (Esc while joining): whatever it would have said, nobody asked.
-    this.slow.delete(id);
     await this.of(id)?.abandon?.(id);
   }
 

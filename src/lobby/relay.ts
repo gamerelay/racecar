@@ -26,6 +26,8 @@ export type RoomEvent = 'state' | 'message' | 'player_joined' | 'player_left' | 
 /** What the backend uses of `@gamerelay/sdk`, so tests can stand in a hub of their own. */
 export interface RelayLike {
   readonly playerId: string;
+  /** Whether the connection is up (false while the SDK reconnects). */
+  readonly connected?: boolean;
   /** The server's clock (ms). */
   now(): number;
   readonly room: RoomLike | null;
@@ -122,6 +124,8 @@ export function linkId(url: string): string {
 
 /** setListing allows 10 changes in a row, then one a second: the listing follows at most this often (ms). */
 const LISTING_MS = 1000;
+/** The longest a failed listing waits to be tried again (ms). */
+const LISTING_MAX_MS = 30_000;
 
 export class RelayBackend implements LobbyBackend {
   private relay: Promise<RelayLike> | null = null;
@@ -141,6 +145,8 @@ export class RelayBackend implements LobbyBackend {
   private listed = '';
   private listingTimer: ReturnType<typeof setTimeout> | null = null;
   private listingAt = 0;
+  /** Listing writes that failed in a row: each retry waits twice as long, up to LISTING_MAX_MS. */
+  private listingFails = 0;
   /**
    * Joins, creates and leaves run one at a time, in order: the SDK has one room at a time, and its
    * leave doesn't say which room. Overlapping, a late join's leave could take you out of the next.
@@ -174,6 +180,10 @@ export class RelayBackend implements LobbyBackend {
 
   youIn(): string {
     return this.you;
+  }
+
+  ready(): boolean {
+    return !!this.connected && this.connected.connected !== false;
   }
 
   /** The room's presence, if `id` is the lobby you're in. */
@@ -479,6 +489,7 @@ export class RelayBackend implements LobbyBackend {
     this.room = null;
     if (this.listingTimer) clearTimeout(this.listingTimer);
     this.listingTimer = null;
+    this.listingFails = 0;
   }
 
   private async leaveRoom(): Promise<void> {
@@ -560,15 +571,17 @@ export class RelayBackend implements LobbyBackend {
       if (!room.isHost) return;
       this.listingAt = Date.now();
       this.listed = key;
-      // One that fails is tried again in a second (by the timer below), or with the next change.
+      // A write that fails is tried again (all of send, read afresh) after a wait that doubles with
+      // each failure in a row, or sooner with the next change; not for a room this page has left.
       const failed = (what: string) => (err: unknown) => {
-        if (this.listed === key) this.listed = '';
-        this.retryListing(room);
         warned(what, undefined)(err);
+        if (this.room !== room) return;
+        if (this.listed === key) this.listed = '';
+        this.listingFails++;
+        this.retryListing(room, Math.min(LISTING_MS * 2 ** (this.listingFails - 1), LISTING_MAX_MS));
       };
-      void room.setListing({ name, meta: meta as never }).catch(failed('updating the listing failed'));
+      void room.setListing({ name, meta: meta as never }).then(() => (this.listingFails = 0), failed('updating the listing failed'));
       // Against the room itself, not what we last sent: a host before us may not have got to it.
-      // One that fails is tried again with the next change.
       const listed = visibility === 'public';
       // Unlisted is link-only too (on an SDK that has it: `linkOnly` is undefined on older ones).
       const linkWrong = room.linkOnly !== undefined && room.linkOnly !== !listed;

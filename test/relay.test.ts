@@ -741,13 +741,29 @@ describe('online lobbies', () => {
     expect(both.why('K7QM')).toEqual({ kind: 'slow' });
   });
 
-  test("once the server has answered the page, a join waits only as long as anything else", async () => {
-    const online = { list: async () => [], get: () => new Promise(() => {}), why: () => null } as unknown as ConstructorParameters<typeof Lobbies>[1];
-    const both = new Lobbies(new LocalBackend(null), online, 20, 5000);
-    await both.list();
-    const t = Date.now();
+  test("a join waits long only while there's no connection up: a fresh page, or one that dropped", async () => {
+    let up = false;
+    const online = { ready: () => up, get: () => new Promise(() => {}), why: () => null } as unknown as ConstructorParameters<typeof Lobbies>[1];
+    const both = new Lobbies(new LocalBackend(null), online, 20, 300);
+    const took = async () => {
+      const t = Date.now();
+      expect(await both.get('K7QM')).toBeNull();
+      return Date.now() - t;
+    };
+    expect(await took()).toBeGreaterThanOrEqual(250);
+    up = true;
+    expect(await took()).toBeLessThan(200);
+    up = false;
+    expect(await took()).toBeGreaterThanOrEqual(250);
+  });
+
+  test("the menu's order: a join too slow is abandoned, then asked why, and says it was too slow", async () => {
+    const online = { get: () => new Promise(() => {}), abandon: async () => {}, why: () => null } as unknown as ConstructorParameters<typeof Lobbies>[1];
+    const both = new Lobbies(new LocalBackend(null), online, 10, 10);
     expect(await both.get('K7QM')).toBeNull();
-    expect(Date.now() - t).toBeLessThan(1000);
+    void both.abandon('K7QM');
+    expect(both.why('K7QM')).toEqual({ kind: 'slow' });
+    expect(both.why('K7QM')).toBeNull();
   });
 
   test("a join the menu gave up on, refused after, leaves nothing to say later", async () => {
@@ -760,7 +776,16 @@ describe('online lobbies', () => {
     expect(await side.get(lobby.id)).toBeNull();
     await side.abandon(lobby.id);
     await new Promise((r) => setTimeout(r, 60));
+    // Too slow, as it was when given up on; the ban landing after isn't kept to be said later.
+    expect(side.why(lobby.id)).toEqual({ kind: 'slow' });
     expect(side.why(lobby.id)).toBeNull();
+  });
+
+  test("a refusal that lands before the menu asks is said instead of too slow", async () => {
+    const online = { get: () => new Promise(() => {}), why: () => ({ kind: 'banned' }) } as unknown as ConstructorParameters<typeof Lobbies>[1];
+    const both = new Lobbies(new LocalBackend(null), online, 10, 10);
+    expect(await both.get('K7QM')).toBeNull();
+    expect(both.why('K7QM')).toEqual({ kind: 'banned' });
   });
 
   test("a short link that's refused or gone says why, as a code does", async () => {
@@ -964,6 +989,29 @@ describe("the lobby screen's connection and pings", () => {
     await new Promise((r) => setTimeout(r, 1100));
     await settle();
     expect((room.listing.meta as { laps?: number }).laps).toBe(5);
+  });
+
+  test("a listing that keeps failing is tried less and less often, and a room you left isn't tried at all", async () => {
+    const hub = new Hub();
+    const [ada] = players(hub, 'ada');
+    const lobby = await ada.backend.create(player('ADA'), {});
+    await new Promise((r) => setTimeout(r, 1100));
+    hub.failListing = 100;
+    const warn = console.warn;
+    console.warn = () => {};
+    try {
+      await ada.backend.send(lobby.id, { type: 'options', options: { laps: 5 } });
+      // Tries at 0, 1 s and 3 s, not one a second.
+      await new Promise((r) => setTimeout(r, 3500));
+      expect(100 - hub.failListing).toBe(3);
+      // Out of the room: nothing more, and nothing left armed.
+      await ada.backend.send(lobby.id, { type: 'leave' });
+      const left = hub.failListing;
+      await new Promise((r) => setTimeout(r, 4100));
+      expect(hub.failListing).toBe(left);
+    } finally {
+      console.warn = warn;
+    }
   });
 
   test("whoever the host role comes back to lists the room again, though their lobby looks as it did", async () => {
