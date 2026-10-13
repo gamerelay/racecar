@@ -3,7 +3,7 @@ import { Lobbies, LocalBackend, LOCAL_ID } from '../src/lobby/backend';
 import { AWAY_MS, netRoute, PING_MS, Presence } from '../src/lobby/presence';
 import { RelayBackend, serverLocked, type RelayLike, type RoomLike } from '../src/lobby/relay';
 import { readAction, readListing, readLobby, readPing } from '../src/lobby/wire';
-import { createLobby } from '../src/lobby/lobby';
+import { createLobby, type Lobby } from '../src/lobby/lobby';
 import { raceFromLobby } from '../src/ui/setup';
 
 // Online lobbies (milestone 3): a lobby is a GameRelay room, written only by the SDK's host, which
@@ -20,6 +20,7 @@ class Hub {
   routes = new Map<string, 'direct' | 'relay'>();
   /** setAccess calls to fail before one gets through. */
   failAccess = 0;
+  failListing = 0;
   /** Parties, by code: who's in each. */
   parties = new Map<string, Set<string>>();
   /** How long a party join takes (ms). */
@@ -143,6 +144,11 @@ class FakeClient implements RoomLike {
     return () => this.handlers.get(event)!.delete(handler);
   }
   async setListing(listing: { name?: string | null; meta?: never }): Promise<void> {
+    if (this.room.hub.failListing > 0) {
+      this.room.hub.failListing--;
+      throw new Error('rate_limited');
+    }
+    if (!this.isHost) throw new Error('room.setListing: only the host can do this');
     this.room.listing = structuredClone(listing);
   }
   async setAccess(access: { public?: boolean; linkOnly?: boolean; locked?: boolean }): Promise<void> {
@@ -237,7 +243,7 @@ class FakeRelay implements RelayLike {
   async joinRoom(code: string): Promise<RoomLike> {
     if (this.hub.roomMs) await new Promise((r) => setTimeout(r, this.hub.roomMs));
     const room = this.hub.rooms.get(code);
-    if (!room) throw new Error('not_found');
+    if (!room) throw Object.assign(new Error('room_not_found'), { code: 'room_not_found' });
     const back = room.members.find((m) => m.id === this.playerId);
     if (back) {
       // A reload: the same player, back in their seat.
@@ -245,14 +251,14 @@ class FakeRelay implements RelayLike {
       return (this.room = back);
     }
     // A link-only room: its code finds nothing for a newcomer, as for a wrong one.
-    if (room.linkOnly) throw new Error('not_found');
+    if (room.linkOnly) throw Object.assign(new Error('room_not_found'), { code: 'room_not_found' });
     if (room.banned.has(this.playerId)) throw Object.assign(new Error('banned'), { code: 'banned' });
     if (room.locked) throw Object.assign(new Error('locked'), { code: 'locked' });
     return this.enter(room);
   }
   async joinLink(link: string): Promise<RoomLike> {
     const room = [...this.hub.rooms.values()].find((r) => linkOf(r.code) === link);
-    if (!room) throw new Error('not_found');
+    if (!room) throw Object.assign(new Error('room_not_found'), { code: 'room_not_found' });
     const back = room.members.find((m) => m.id === this.playerId);
     if (back) return back;
     if (room.banned.has(this.playerId)) throw Object.assign(new Error('banned'), { code: 'banned' });
@@ -560,6 +566,20 @@ describe('online lobbies', () => {
     expect(cy.backend.why(lobby.id)).toEqual({ kind: 'locked' });
   });
 
+  test("a code that finds nothing (a Private lobby is link-only, or it closed) is said too", async () => {
+    const hub = new Hub();
+    const [ada, bo, cy] = players(hub, 'ada', 'bo', 'cy');
+    const lobby = await ada.backend.create(player('ADA'), {});
+    await bo.backend.get(lobby.id);
+    await ada.backend.send(lobby.id, { type: 'options', visibility: 'locked' });
+    await new Promise((r) => setTimeout(r, 1100));
+    await settle();
+    expect(await cy.backend.get(lobby.id)).toBeNull();
+    expect(cy.backend.why(lobby.id)).toEqual({ kind: 'missing' });
+    expect(await cy.backend.get('ZZZZZZ')).toBeNull();
+    expect(cy.backend.why('ZZZZZZ')).toEqual({ kind: 'missing' });
+  });
+
   test("a refusal nobody asked about is forgotten once you're in: it can't be said later, about something else", async () => {
     const hub = new Hub();
     const [ada, cy] = players(hub, 'ada', 'cy');
@@ -678,11 +698,40 @@ describe('online lobbies', () => {
       joinLink: () => new Promise<string>((r) => (land = r)),
       abandon: async (id: string) => void abandoned.push(id),
     } as unknown as ConstructorParameters<typeof Lobbies>[1];
-    const both = new Lobbies(new LocalBackend(null), online, 20);
+    const both = new Lobbies(new LocalBackend(null), online, 20, 20);
     expect(await both.joinLink('ZwsG3pRrM1s')).toBeNull();
+    // Said, not just dropped on the title.
+    expect(both.why('ZwsG3pRrM1s')).toEqual({ kind: 'slow' });
+    expect(both.why('ZwsG3pRrM1s')).toBeNull();
     land('K7QM');
     await settle();
     expect(abandoned).toEqual(['K7QM']);
+  });
+
+  test("a join waits longer than the list (a cold page connects first), and one too slow even so is said", async () => {
+    let land!: (lobby: Lobby | null) => void;
+    const online = {
+      list: () => new Promise(() => {}),
+      get: () => new Promise<Lobby | null>((r) => (land = r)),
+      why: () => null,
+    } as unknown as ConstructorParameters<typeof Lobbies>[1];
+    const both = new Lobbies(new LocalBackend(null), online, 20, 60);
+    expect(await both.list()).toEqual([]);
+    const lobby = createLobby('K7QM', { id: 'ada', name: 'ADA', car: 'coupe', paint: 1 });
+    const got = both.get('K7QM');
+    await new Promise((r) => setTimeout(r, 30));
+    land(lobby);
+    expect(await got).toEqual(lobby);
+    expect(both.why('K7QM')).toBeNull();
+    expect(await both.get('K7QM')).toBeNull();
+    expect(both.why('K7QM')).toEqual({ kind: 'slow' });
+  });
+
+  test("a short link that's refused or gone says why, as a code does", async () => {
+    const hub = new Hub();
+    const [bo] = players(hub, 'bo');
+    expect(await bo.backend.joinLink('nothing-here')).toBeNull();
+    expect(bo.backend.why('nothing-here')).toEqual({ kind: 'missing' });
   });
 
   test("the lobby in a room's state is checked all through: whoever holds the host role writes it", () => {
@@ -864,6 +913,23 @@ describe("the lobby screen's connection and pings", () => {
     await settle();
     expect(room.public).toBe(false);
   });
+
+  test("a listing that fails is sent again the next time the lobby is listed, even with nothing new in it", async () => {
+    const hub = new Hub();
+    const [ada, bo] = players(hub, 'ada', 'bo');
+    const lobby = await ada.backend.create(player('ADA'), {});
+    const room = hub.rooms.get(lobby.id)!;
+    await new Promise((r) => setTimeout(r, 1100));
+    hub.failListing = 1;
+    await ada.backend.send(lobby.id, { type: 'options', options: { laps: 5 } });
+    await settle();
+    expect((room.listing.meta as { laps?: number }).laps).not.toBe(5);
+    // Someone coming into the room lists it again (the summary hasn't changed: they have no seat).
+    await new Promise((r) => setTimeout(r, 1100));
+    await bo.backend.get(lobby.id);
+    await settle();
+    expect((room.listing.meta as { laps?: number }).laps).toBe(5);
+  });
 });
 
 describe('P2P: a lobby is a party too', () => {
@@ -1025,8 +1091,8 @@ describe('the SDK host role moving, and who is away', () => {
     const lobby = await ada.backend.create(player('ADA'), {});
     hub.roomMs = 30;
     // The screens wait 10 ms: both gets come back empty while the joins go on.
-    const boSide = new Lobbies(new LocalBackend(null), bo.backend, 10);
-    const cySide = new Lobbies(new LocalBackend(null), cy.backend, 10);
+    const boSide = new Lobbies(new LocalBackend(null), bo.backend, 10, 10);
+    const cySide = new Lobbies(new LocalBackend(null), cy.backend, 10, 10);
     expect(await boSide.get(lobby.id)).toBeNull();
     expect(await cySide.get(lobby.id)).toBeNull();
     // Bo's menu gives up; Cy's is a race page, which keeps waiting.
@@ -1057,7 +1123,7 @@ describe('the SDK host role moving, and who is away', () => {
     const [ada, cy, bo] = players(hub, 'ada', 'cy', 'bo');
     const x = await ada.backend.create(player('ADA'), {});
     hub.roomMs = 20;
-    const side = new Lobbies(new LocalBackend(null), bo.backend, 5);
+    const side = new Lobbies(new LocalBackend(null), bo.backend, 5, 5);
     expect(await side.get(x.id)).toBeNull();
     void side.abandon(x.id);
     // To the title, then Bo makes a lobby of his own while X's join is still landing.

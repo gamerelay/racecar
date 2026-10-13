@@ -96,13 +96,17 @@ export function serverLocked(lobby: Lobby, players: readonly string[]): boolean 
 }
 
 /** Why you're out of a lobby, or couldn't get in: for the menu to say. */
-export type Refusal = { kind: 'kicked'; message: string } | { kind: 'banned' | 'locked' | 'full' };
+// `missing`: the code found no room. The server answers a Private (link-only) lobby as it would a
+// wrong code, so a guesser can't tell it's there, and so can't we.
+// `slow`: the menu gave up waiting (the join may still land, and is left then).
+export type Refusal = { kind: 'kicked'; message: string } | { kind: 'banned' | 'locked' | 'full' | 'missing' | 'slow' };
 
 /** A failed join's reason, from the SDK's error code (others say nothing new: the title as before). */
 function refusalOf(err: unknown): Refusal | null {
   const code = (err as { code?: unknown } | null)?.code;
   if (code === 'banned' || code === 'locked') return { kind: code };
   if (code === 'room_full') return { kind: 'full' };
+  if (code === 'room_not_found') return { kind: 'missing' };
   return null;
 }
 /** A short link's id: its `?join=` (a game without a slug), else its last path segment (`gamerelay.io/<game>/<link>`). */
@@ -285,7 +289,7 @@ export class RelayBackend implements LobbyBackend {
     if (!relay.joinLink) return null;
     const room = await this.inTurn(async () => {
       await this.leaveRoom();
-      const r = await relay.joinLink!(link).catch(warned('joining by a link failed', null));
+      const r = await relay.joinLink!(link).catch(this.refused(link, 'joining by a link failed'));
       if (r) {
         this.wanted = r.code;
         this.attach(r);
@@ -541,9 +545,16 @@ export class RelayBackend implements LobbyBackend {
     if (key === this.listed) return;
     const send = () => {
       this.listingTimer = null;
+      // The SDK's host role can move between the lobby changing and this (a race starting): the new
+      // host lists the room when it's told (host_changed, tidy).
+      if (!room.isHost) return;
       this.listingAt = Date.now();
       this.listed = key;
-      void room.setListing({ name, meta: meta as never }).catch(warned('updating the listing failed', undefined));
+      // One that fails is sent again the next time the room is listed, even with nothing new.
+      void room.setListing({ name, meta: meta as never }).catch((err: unknown) => {
+        if (this.listed === key) this.listed = '';
+        warned('updating the listing failed', undefined)(err);
+      });
       // Against the room itself, not what we last sent: a host before us may not have got to it.
       // One that fails is tried again with the next change.
       const listed = visibility === 'public';
