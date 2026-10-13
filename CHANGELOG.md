@@ -6,6 +6,13 @@ and where things stand is [docs/HANDOFF.md](./docs/HANDOFF.md).
 
 ## Unreleased
 
+- **Getting into a lobby is more patient:** a lobby or invite link opened before the game has connected (as the page loads, or after the connection dropped), on a slow connection or device, gets 20 seconds to come through (it was 5), and if it still doesn't, the game says so instead of dropping you on the title.
+- **A lobby you can't find says so:** a code that finds nothing (the lobby is private, or it closed), or an invite link to a lobby that has closed, tells you, rather than leaving you on the title without a word.
+- **The lobby list keeps up:** a lobby's row could keep showing it in the lobby after its race had started. It follows the lobby again.
+- **GameRelay's SDK 0.1.0-alpha.10:** peer-to-peer connections now come up in races too, not just the lobby, and the SDK's peer code loads only when a lobby needs it.
+
+## v1.0
+
 - **Host tools:** the lobby's host can kick a player (a second kick keeps them out of that lobby) or make someone else host, from the player's seat. Private lobbies are locked at the server. Kicked, or can't get in? The game says why.
 - **Credits, Privacy and Terms:** a Credits page (who made racecar, and what it runs on) and the privacy policy and terms, from the title.
 - **No analytics:** the game sends nothing about how you play.
