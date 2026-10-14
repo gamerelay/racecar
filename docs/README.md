@@ -25,6 +25,7 @@ Status lines and "next" lists in them can be out of date; the [CHANGELOG](../CHA
 |---|---|
 | [SPEC.md](./SPEC.md) | The design: what we're making, the decisions behind it, and "Changed while building". |
 | [HANDOFF.md](./HANDOFF.md) | Where things stand and what's next, for whoever picks it up (a person or a fresh Claude session). |
+| [HISTORY.md](./HISTORY.md) | What was built and when, moved out of HANDOFF: release notes, Caldera's steps, the old status and next lists. |
 | [TECH_DEBT.md](./TECH_DEBT.md) | Refactors and clean-ups we've noticed. None of it decided. |
 | [PLAN.md](./PLAN.md) | An earlier batch of work (lobbies, names, polish), done. |
 | [MENU.md](./MENU.md) | The plan for the menu and settings. |

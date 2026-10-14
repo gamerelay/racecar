@@ -1,7 +1,7 @@
 # Plan: lobbies, names, polish, and Paradise
 
 > **Done (2026-10-01):** all six phases are merged (PRs #14–#30, `alpha-1.8` to `alpha-1.12`).
-> What's next is milestone 3, in [HANDOFF.md](./HANDOFF.md)'s "Next, in order". This file stays
+> What's next is in [HANDOFF.md](./HANDOFF.md)'s "Next, in order". This file stays
 > as the record of the batch, and "Other ideas" below is still a pool to draw from.
 
 The next batch of work, from the playtest notes of 2026-09-30. Each phase is one PR with CI, and

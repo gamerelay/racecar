@@ -321,7 +321,7 @@ layout.terrain = {
   volcano: VOLCANO,
 };
 
-// Its rivals time their ways by the racing line alone, as before driven costs (docs/HANDOFF.md):
+// Its rivals time their ways by the racing line alone, as before driven costs (docs/HISTORY.md):
 // some of its shortcuts are slower than the road, and they take them anyway, now and then.
 layout.aiCosts = 'line';
 

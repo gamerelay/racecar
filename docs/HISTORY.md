@@ -1,0 +1,1041 @@
+# History
+
+What was built and when, moved out of [HANDOFF.md](./HANDOFF.md) on 2026-10-14 word for word,
+with the numbers and statuses of the time (they may be out of date). Newest first. Every release is
+also in [CHANGELOG.md](../CHANGELOG.md).
+
+## Releases `alpha-1.28` to `alpha-1.47` (2026-10-03 to 2026-10-11)
+
+Before it, **`alpha-1.47`** (PR #167) is tagged and on the hosted build (the
+owner: "merge and deploy please"): **Heist's draw call pass** ("yes do the draw call pass on heist
+please"), from 650–950 calls a frame to 140–270 (SPEC §15: 250). What and how, in
+[CHASE_MODE.md](./CHASE_MODE.md)'s "The draw call pass":
+- **`flatten.ts`:** a model's plain toon parts merged into vertex-coloured meshes; every landmark,
+  all but what its update moves (marked `moves`, landmarks.ts) and parts with render state of their own.
+- **`atlas` (scenery.ts):** Heist's neon words, street names and pier numbers on shared, paged
+  textures (edges drawn out against mip bleed); `atlasMeshes` merges per page.
+- **Instanced:** the piers' piles, the warehouses' tanks, the roadblocks' police (`parked`, lamp
+  glows as points). **Traffic** (every map): parts merged per material, ink ids as ink-only meshes.
+- **Not done:** the racers' own cars (~30 draws each: their paint shader, their wheels), building
+  chunks (30–50), Riviera (~530 at one spot).
+- **The hosted build:** `Z442EE` updated in place; the previous html (`alpha-1.46`) saved in the
+  session's scratchpad only.
+
+Before it, **`alpha-1.46`** (PR #166) is tagged and on the hosted build (the
+owner: "merge and deploy please"): **the Presidio, rolling and wooded** (Heist; "the ground should
+have some soft hills and mogul like bumps, ... grass effects, ... a real wooded area with crashable
+trees"). Details in [CHASE_MODE.md](./CHASE_MODE.md)'s "Built so far".
+- **Ground:** a new feature kind, `rolling` (features/rolling.ts): soft hills up to 9 m and mogul
+  bumps in patches over the park, easing in over 60 m from its edge. The drive takes the hills'
+  heights (`rollingSwell`), not the bumps'. `GroundDef.reach` widens the ground's grid over the woods.
+- **The woods:** past a new hedge, the park runs west to x −1040: ~900 cypresses and ~800
+  eucalyptus (new smashable `gum-tree`, `slow` 0.8), the drive (now 1.58 km) winding through.
+- **Smashables near a car only** (from review): open-ground ones by a 16 m grid
+  (`Smashables.near`), in index order, so every fingerprint is identical.
+- **Tufts** on a city's park lawns, off any branch and its verge (coast maps' branches too).
+- **The hosted build:** `Z442EE` updated in place; the previous html (`alpha-1.45`) saved in the
+  session's scratchpad only.
+
+Before that, **`alpha-1.45`** (PRs #164, #165) is tagged and on the hosted build
+(the owner: "merge both and deploy please"):
+- **Punch In** (#164; the owner's track; since renamed **Punch It**, `punch-it`): `punch-in`, the ninth in soundtrack.ts's `ANY_MAP`. The
+  WAV 2.3 dB down from −13.6 to −16.0 LUFS, AAC 128 kb/s, and on the CDN (checked: 200, CORS `*`).
+- **− and + change the track** (#164): the playlist's previous or next, in order and round the
+  ends (`Soundtrack.step`), its name in a toast. Off or muted, the new one waits for the music.
+- **The keys card** (#165; "when people first join a game ... show a modal with the basic keys ...
+  just WASD/SHIFT/SPACE"): `ui/keys.ts`, an SVG keyboard over your first race on a device, each key
+  pointed at its job. Offline the race waits behind it; online it doesn't. A menu while it's up
+  (`openMenu`): Esc, WASD, the arrows and the pad's A/B/Start close it and go no further; any other
+  key or a click closes it too, but not browser shortcuts or the game's own keys (M, N, −/+, F8).
+  `racecar.seenKeys` keeps it away; not on touch-only screens or with storage blocked. Checked in
+  headless Chrome over CDP with a faked pad. `localStorage.removeItem('racecar.seenKeys')` to see it again.
+- **The hosted build:** `Z442EE` updated in place. The previous html (`alpha-1.44`) was saved
+  before the update, in the session's scratchpad only.
+
+And before, **`alpha-1.44`** (PR #160) is tagged and on the hosted build (the
+owner: "ok can we include this in the online version, and deploy a new version please", then "in
+every lobby"): **Heist, the getaway.** A new mode on a new map: you start outside a bank in an
+SF-ish city and run from the cops until you crash or get boxed in; the score is how long you
+lasted, and the heat rises every minute with no way to lose it. The plan, the owner's decisions and
+a dated "Built so far" for every round: [CHASE_MODE.md](./CHASE_MODE.md).
+- **In the lobby** (no longer experimental): Heist is in every lobby's map list and quick race. A
+  race of your own on it (Single player, a lobby to yourself) is the getaway (main.ts: `getaway`
+  needs a race with you in it, not online). An online race with others is a plain race round the
+  city's outer loop, the AI's floor 63 s. Its fingerprint is recorded.
+- **The mode** (step 1): `core/rules/getaway.ts` (heat, calling out cops from a pool of 10, busted
+  and wrecked ends, no respawn), `core/ai/cop.ts` (pursuit, line of sight, A* round the city's
+  streets, `world/streets.ts`), the HUD's heat and busted meter, a results card with your best (in
+  localStorage, kept as the run ends). Look back on **Q** as well as C, everywhere.
+- **The city** (`tools/gen-heist.ts` → `content/maps/heist/city.track.json`; run
+  `bun tools/gen-heist.ts` after changing it, then `bun tools/fingerprint.ts heist/city --update`
+  if it's meant to move):
+  - **Layout:** districts on grids of their own (Financial District, Chinatown, the Hills, SoMa,
+    the Mission), Market and Columbus cutting across, a loop of main road round it with the
+    Freeway up on a deck. Its streets have San Francisco's names (`District.names`).
+  - **Ground** (`features/city.ts`): hills with nearly level crossings, each a rounded crest;
+    Coit Tower's hilltop levelled too.
+  - **Buildings:** a look per district (render `greybox/heist.ts`), the Bank, neon signs.
+  - **Streets:** painted with sidewalks; the leftover lots paved as plazas; lamps, trees and shrubs
+    you knock flat (smashables, never a wreck); street signs; Lombard's planter slalom (painted,
+    but not one of the cops' streets); Dolores and Pioneer Parks.
+  - **The bay:** a sea wall, piers, the Ferry Building, and Alcatraz and both bridges as landmarks.
+  - **Round the city:** Transamerica and Coit Tower (on a terrace), and the bridges' approaches
+    drawn down to police roadblocks behind the wall.
+  - **Broadway and Chinatown:** Broadway's clubs and strip joints (marquees, neon, the Condor's
+    blinking showgirl), the Dragon Gate on Grant Avenue, lanterns across Chinatown's streets
+    (south of Broadway), and pagoda roofs.
+  - **The Presidio:** open off Van Ness's west side. Lawns, cypress groves (smashables) and Presidio
+    Drive, a 1.3 km branch of sweepers for drifting, hedged in.
+  - **Traffic:** about 30 cars cruising 9 loops of streets and stopping at crossings (traffic path
+    lanes, `TrafficLaneDef.path`/`stops`, still closed form).
+- **Engine changes other maps share** (every other map's fingerprint identical):
+  - The coast distance (`island.ts`'s `loopDistance`) asks only each cell's candidate segments,
+    exactly the same results and a test for it.
+  - New smashable kinds and landmark kinds are appended.
+  - The validator knows the city feature and path lanes, and its house-on-a-road test ignores a
+    projection that stopped short beside a winding road (offRoad's own reading past a road's end).
+  - `CityDef.parks` work outside the city's outline too (the Presidio's lawns).
+  - The no-respawn after a finish is the race's (`sim.getaway`, now on `SimState`), not the map's.
+- **The review's fixes** (`/code-review` on #160, before the merge): cops never called out past
+  FAR (they'd been re-placed every tick), bringing one back doesn't hold up new ones, they pull up
+  to 5.5 m on a stopped car at any heat, a cop placed in the city keeps its place on the main road,
+  no replanning every tick, no near misses from city traffic, the best kept as a run ends.
+- **Green on `main`:** `bun run test` (757), typecheck, `bun tools/validate.ts --ai`, fingerprints.
+- **Watch:** with nobody at the controls, the game's autopilot drives your car, and in a getaway it
+  crashes and ends the run in a few seconds (seen in an idle Chrome tab). Where Columbus crosses the
+  grid askew its crossings are wide open asphalt (real carriageway; reshaping them belongs with
+  the road graph).
+- **Not built, waiting on the road graph (CHASE_MODE steps 2–3):** streets as real roads (a
+  drivable bridge ramp, a tunnel under a hill, ramps partway along the Freeway, a cable car that
+  moves and is met, traffic that reacts to you), spike strips and roadblocks in play, sirens, and
+  online getaways.
+- **The hosted build:** `Z442EE` updated in place (sanitized, no injection). The previous html
+  (`alpha-1.43`) was saved before the update, in the session's scratchpad only.
+
+Before it, **`alpha-1.43`** (PRs #158, #159) is tagged and on the hosted build
+(the owner: "merge both and deploy please"):
+- **Sahara's own track** (#158; the owner: "add this Arabian themed track as a Sahara only
+  exclusive"): `sahara` in soundtrack.ts's `MAP_TRACKS`, played on Sahara only, beside the eight for
+  any map (so about one Sahara race in nine). The WAV was already −15.8 LUFS; encoded as the others
+  (`afconvert -f m4af -d aac -b 128000`), and on the CDN (`tools/publish-assets.ts`, checked: 200
+  with CORS). If the owner wants it every Sahara race, its playlist would be `sahara` alone.
+- **Single player** (#159; "a single player button on the title screen which just opens a lobby in
+  private mode ... as prominent as create lobby"): beside Create lobby, the same size (stacked under
+  560px), straight into a Private (local) lobby with Create's starting options (menu.ts
+  `singlePlayer`). The row of white buttons under them 4px further down.
+
+Before it, **`alpha-1.42`** (PR #157) is tagged and on the hosted build:
+**back into your lobby after a long disconnect** (the owner: alone in a private lobby, away from the
+tab a while, back to a lobby with no host; then "yes let's merge and deploy please"):
+- **Cause:** gone past the server's 30 s grace (a frozen hidden tab, a laptop asleep), the SDK
+  can't resume the room and closes it locally (`closed('lost')`), though an empty room waits out its
+  two idle minutes with the lobby in its state. relay.ts took that for the lobby gone (the title),
+  and a link-only (invite) room's code finds nothing for someone without a seat.
+- **Fix (relay.ts):** on `lost`, while the screens still want it, `rejoin`: by its short link
+  (kept on `attach` for a link-only room), else its code. `you` reads the SDK's `playerId` live.
+- **Repro:** the local server (gamerelay.io's `bun --filter '@gamerelay/server' dev`, :8787), the
+  dev build, and in the page a WebSocket wrapper that closes the relay's socket and fails reconnects
+  for 45 s. Past about 2.5 min the room itself has closed: the title is right then.
+
+Before it, **`alpha-1.41`** (PR #156) is tagged and on the hosted build:
+**Sahara's skies: a sandstorm and a sunset; dust devils that throw you; splashes in water** (the
+owner: "could we next add a sandstorm and a sunset, also I think the dust devils need to throw /
+spin you a little more ... also when splashing in water it would be cool to have some subtle
+effects too"; then "merge it and deploy a new version"). SAHARA.md's "Step 5, the skies":
+- **Sandstorm:** weather `sand` (weather.ts: `WeatherPlan.sand`, a shower's timeline, about one race
+  in three on Random; grip -6%, never wet). `sim.fall` (`rain | snow | sand`) is what the skin's
+  `update` takes now, in place of a snow flag. greybox/index.ts closes the fog to ochre and turns
+  the sky to the dust; greybox/world.ts streaks sand on the wind with dust clouds; audio.ts's
+  `gale` voice howls. The lobby's Weather says Sandstorm on Sahara.
+- **Sunset:** palette `sahara-sunset` (palettes.ts), map.json's `sunset`.
+- **Dust devils:** `DEVIL_PUSH` 26 (was 16), `DEVIL_SPIN`, `DEVIL_LIFT` (a hop near the eye); a
+  swirl of sand up each funnel (world.ts), sand round a car caught in one and a shake (renderer.ts
+  `devilFx`), a roar as one closes (audio.ts `gale`).
+- **Splashes:** renderer.ts `waterFx` (river, ford, puddle): a splash and ripple going in or landing,
+  rings and a wake wading, a bow wave; render/ripples.ts draws the rings; a splash in audio.ts.
+  Not yet seen on screen (the poster stage draws no car particles): look at the ford in a race.
+- **Watch:** fields wreck a little more (11 in 12 races, was 8): the three new on the devils'
+  stretches (802 m, resets at 992 and 3638 m). If that's too many, `DEVIL_SPIN` down a notch.
+
+Before it, **`alpha-1.40`** (PR #155) is tagged and on the hosted build:
+**Sahara's life: a camel caravan and dust devils** (the owner: "let's do the camel caravan and dust
+devils next"; then "merge it and deploy a new version"). SAHARA.md's "Step 5, life":
+- **The caravan:** traffic kind `camel` (`animal`: hit, it scatters and the car keeps 80% of its
+  speed; never a wreck, no debris; a sand burst in renderer.ts, a soft thump in audio.ts) and two
+  new lane options, `TrafficLaneDef.kinds` and `.string` (`[count, gap]`). A lane with neither
+  draws exactly as before (every other map's fingerprint identical). Strings of five walk toward
+  you down the opening straight's left edge (30–120 m).
+- **Dust devils:** hazard `dust-devil` (hazards.ts; `Piece.Devil`, `Solid.Gust`: collide/world.ts
+  shoves a car round it and out, never a wreck), on the Dune Sea and the Mesa top; drawn in
+  greybox/world.ts as a dark funnel. The poster stage (`tools/shot.ts`) runs with mayhem off and
+  never updates hazards: to see one in a shot, patch it locally.
+- **Watch:** fields wreck a little more (8 in 12 races, car on car, as other maps do), mostly two
+  slower cars side by side into the left onto the Dune Sea (358–368 m); a caravan each way the
+  whole road was a dozen in eight, so it's one. The 2124 m wreck (plateau corner by a diamond)
+  predates it: one for the berms.
+Before it, **`alpha-1.39`** (PR #154) is tagged and on the hosted build:
+**Sahara's Giza, finished, and the Pyramid Run opened** (the owner: "Next on Sahara, per the plan:
+capstones, a ruined colonnade and market stalls at Giza ..."; then "let's merge these please, deploy
+a new version"). SAHARA.md's "Step 3, the rest":
+- **The market:** two new smashables (`market-stall`, `clay-pots`), either side of the Sphinx avenue.
+- **Capstones:** each pyramid's top gilded (snow.ts's `desert()`), which now draws all seven
+  pyramids (it took four).
+- **The Pyramid Run's invisible walls, gone** (the owner: "there is an invisible wall on this
+  pyramid jump"): a branch is walled unless `layout.walls.gaps` opens it, and the run never was;
+  rails stood 8 m either side of it across both faces. Gapped now; a test holds every road on
+  Sahara open. *Any new branch on open ground wants its gap.*
+- **No colonnade:** solid columns down the avenue's middle, tried and taken out ("looks a little
+  crowded").
+- **Numbers:** floor 78.85 s; fields on seeds 1–8 with no wrecks; Sahara's fingerprint re-recorded,
+  every other map's identical; full suite 725 pass.
+
+Before it, **`alpha-1.38`** (PR #153) is tagged and on the hosted build:
+**Sahara**, a new desert map in the lobby (the owner: "a new desert themed map called Sahara using
+the Caldera engine ... very good for drifting, have lots of jumps and berms, sand dunes, possibly a
+river, maybe pyramids"; then "this map is good enough to merge, deploy and tag").
+[SAHARA.md](./SAHARA.md) is its plan and its "Built so far":
+- **The lap:** 4.04 km of open ground, a serpentine (`tools/gen-sahara.ts`): the Caravan Road, the
+  Dune Sea (an S-chain, a crest every leg), bermed hairpins, the Oasis Bends, the plateau up to
+  Giza, the Wadi's flicks, switchbacks up the Mesa and the Mesa Drop onto the run home.
+- **The Pyramid Run:** a shortcut over the Great Pyramid (a new ground feature, `PyramidDef`,
+  `features/pyramid.ts`; its faces `KIND_STONE`, driven as `sandstone`). The AI takes it.
+- **The oasis river** (`RiverDef`, `features/river.ts`): crossed at a ford (the Caravan Road dips
+  under it, a `ford` zone) and on a bridge (a deck piece over its gorge, on the Wadi's crest);
+  wading in it is the `river` surface, never a wreck; green banks (`KIND_OASIS`).
+- **Diamonds:** small pyramids on the outsides of corners, turned 45°: run wide, jump off a face.
+- **Giza dressed:** the Sphinx and obelisks (landmarks `sphinx`, `obelisk`, solid as houses), 292
+  palms along the river (planted, `PinesDef.plant`).
+- **The look:** scenery `desert` (snow.ts's `desert()`: drifts, wind ripples, the pyramids'
+  courses; the roads laid over the sand), the `sahara` palette, a spray off the water.
+- **Numbers:** floor 78.85 s; 8-car fields on seeds 1–8 with no wrecks. Its fingerprints
+  recorded; every other map's identical. No music of its own yet (it plays the eight for any map).
+
+Before it, **`alpha-1.37`** (PR #152) is tagged and on the hosted build:
+**Paradise goes open.** Paradise Open is live as *Paradise* (the owner: "make this the displayed
+Paradise map in the game"; its id stays `paradise-open`: links, fingerprints); the old island lap,
+`paradise/island`, is experimental as *Paradise Classic* (from a link). With it, its detail pass
+(the owner: "detail the map similar to what we did with Riviera", Hawaii), all in PARADISE.md's
+"Built so far", from "Harbor Town (2026-10-06)" on:
+- **Harbor Town**, Lahaina's Front Street round the line: two back streets up the hill and two
+  beach car parks (level paved pads, `PadDef`), wooden shops, plantation cottages, a banyan, the
+  surf shack, tiki torches, palms along the streets (none on corners or round the grid). Traffic
+  out of one car park and into the other, and up and down the back streets.
+- **The bulge:** the west coast's jog is one round, banked D (the lap 110 m longer; every main
+  distance past it moves on through `S()`), a second lava stream down the west face into a pool.
+- **The beach run:** a packed-sand shortcut along the water across the bulge: whoops, two jumps,
+  micro turns and moguls (`BEACH_RUN`). A shortcut by the AI's costs for most classes (the
+  muscle car keeps to the road). Its merge back onto the front road eases in over 70 m.
+- **Flying, not slowing:** the market hall's sand floor gone, a kicker out of its far door; the
+  Lava Tube's jump's kicker a boost pad with blue and white chevrons chasing up it.
+- **The mud and the volcano dressed** (drawn only, `wilds.ts`): ruts, mud puddles, ferns,
+  lianas and a rope bridge in the jungle; glowing cracks, steam vents and cinders on the cone.
+- **The AI checks its mirror at a merge** (racer.ts's `mirror`, `MERGE`; a new car field,
+  `aiMerge`): a car coming off a branch, near the rejoin, holds its side of the road while a car is
+  alongside or coming up faster on a line it would cross. Field wrecks over seeds 1–72: Paradise's
+  rejoin 6 -> 2, Backroads 80 -> 66; over 1–24 Riviera 7 -> 8, Downtown 28 -> 25, Avalanche the
+  same. Every fingerprint re-recorded (they hash every car field; each drive's marks unchanged).
+- **Numbers:** floor 67.37 s; field wrecks over seeds 1–72: 48 (65 on main before #152), most of
+  them the lava bombs by the rim road at 3150–3200 m.
+
+Before it, **`alpha-1.36`** (PRs #150, #151) is tagged and on the hosted build:
+**no hop at the Rock Tunnel's mouths** (#150: half into a piece, a wheel off its end stands on its
+own ground near the floor, not on the floor at the car's middle; every class flew 15 m off each
+mouth, the owner's "bounce approaching the tunnel"; Paradise Open's pieces moved a little too) and
+**the spur one hill** (#151, COASTAL's step 8k: one round hill, `SPUR`, the tunnel 1664–1766 m,
+no gallery on Riviera; `PieceDef.gallery` kept, tested on a fixture). Riviera and Paradise Open
+re-recorded; floor 106.22 s (105.95: the AI's line runs onto the grass shoulder at the tunnel's
+first mouth on #150's lap, which the hop flew over; worth a look now the mouths have moved), field
+37 wrecks over seeds 1–72 (main 33 before #150). **Next** (the owner's list): café terraces on the
+quay, gulls, and a poster of Riviera for the lobby; still open from 8i, the quays cut into the
+ground and the drawbridge's leaves in the old asphalt colour.
+
+Before it, **`alpha-1.35`** (PR #149): **the Rock Tunnel's TLC and its gallery** (COASTAL's step
+8j): the spur's three domes one ridge (`Hill.to`, `h2`, `r2`), the tunnel a gallery
+(`PieceDef.gallery`), no tile skirt in a tunnel, the limestone's beds by height, scrub and outcrops
+on the cliffs (`cliffs.ts`), bunting across the town's streets (`bunting.ts`). Floor 105.95 s.
+
+Before it, **`alpha-1.34`** (PR #148): **Riviera's look** (COASTAL's step 8i, all drawn only):
+its own palettes (`riviera`, `riviera-sunset`; `Palette.sea`, `Palette.surfaces`), umbrella pines,
+holm oaks and cypresses (`PinesDef.look`), palms and lamps along the promenade, the marina
+(landmarks `pontoon`, `quay`), the beach club (house look `club`) and its jetty, striped
+umbrellas, the lighthouse's beam only at dusk. Floor 106.03 s, field 28 car wrecks over seeds 1–72.
+
+Before it, **`alpha-1.33`** (PRs #141–#147): **driven costs** (#142: the AI times its ways as its
+class drives them; Paradise and Backroads keep the old reckoning, `aiCosts: 'line'`), Riviera's
+**cove and the Sand** (#143), **the AI at forks** (#145) and Riviera's **back streets** (#146: rue
+Haute, the town on up behind the casino; COASTAL's step 8h).
+
+Before it, **`alpha-1.32`** (PRs #106–#140):
+**Riviera** (it was the experimental map *Coastal*, live since #138; see "Next: Coastal" below),
+Caldera's step 6, **the road graph** (#119–#125; see "The road graph" below), the engine's review
+fixes (#107), the `crashout` track, the wreck camera kept out of the ground (#135) and the lobby
+offering only the game's maps (#138). Before it, the tag was **`alpha-1.31`** (PRs #78–#105): Paradise Open (#81), the engine's plan, [CALDERA.md](./CALDERA.md) (#82), and its steps 0
+to 3c (#83–#98, #102): the fingerprints and tools, the sim's own math, pieces, portals, feature
+modules, overrides, the lava stream, off-road surfaces, indoors, breakable walls and buildings
+(the market hall); the berm out of the Lava Tube (#100), Paradise Open tidied (#103, #104), and
+six new tracks (#99, #101, #105), all on the CDN. See "Next: Caldera" below. Before it, `alpha-1.30` (PR #77: the snow under the wheels and the avalanche's rumble about 4.5 dB down, the owner's ask). Before it, **`alpha-1.29`** (PRs #71–#74): **Avalanche**, the first open map, one 6.1 km run down a mountain (#74), and the Leap's kicker rounded and launchable from its sides (#71, #72), and PLAN's "Open, freeform maps" direction (#73).
+Before it, `alpha-1.28` (PRs #67–#70: a press flash and a click on the menus' buttons; the title's
+music from the start; Logger's Leap smoothed and bermed), `alpha-1.27` (PRs #63–#65), `alpha-1.26`
+(PR #62: two new tracks), `alpha-1.25` (PR #61: boost, Overdrive, the slipstream) and `alpha-1.24`
+(PRs #49–#60).
+The hosted build: "Hosted test build" below.
+
+## Caldera, the road graph and Riviera (2026-10-03 to 2026-10-06)
+
+**Next: Caldera, the engine (2026-10-03).** The owner's call: engine first, before the rest of
+Paradise Open. [CALDERA.md](./CALDERA.md) is the plan, reviewed and agreed: one engine for every
+racecar map (pieces as one surface layer, routes as a graph, overrides as an escape hatch,
+desktop only, refactor freely and keep the feel). Read its "Principles", "The core idea: pieces",
+"Build order" and "How to work on it" before touching the engine.
+
+**Step 0 is built and merged** (PR #83, 2026-10-03).
+- **Golden fingerprints:** `bun tools/fingerprint.ts` checks every layout's roads, its open ground
+  (by the answers to its questions, not how it's stored) and fixed drives (40 s from the grid, 15 s
+  down each branch) to the last bit; `--update` records them. In the tests too
+  (`test/golden.test.ts`). One recording, `test/golden/fingerprints.json`, for every platform.
+- **The tools:** `bun tools/drive.ts` (place a car, run it headless, trace it), `bun tools/probe.ts`
+  (what's at a point), `bun tools/shot.ts` (a PNG of a spot; needs `bun run dev`), and
+  `window.__rc.dev` (`place`, `step`, `probe`, `state`, `shot`), all over `src/dev/`. CALDERA's
+  "Developer tools" has the flags.
+- **The allocation test** on Paradise Open and Avalanche. A 30 s per-test timeout (`bun run
+  test`; CI uses it), since CI runs about 3x slower.
+
+**Step 0b, the sim's own math, is built and merged** (PR #84, 2026-10-03). Step 0 found
+floats differ in their last bits by OS and by CPU (Docker: Linux arm64 vs macOS arm64, emulated vs
+CI's x64), so there was a recording per platform. Now `core/math.ts` has the sim's own `sin`, `cos`,
+`tan`, `atan`, `atan2`, `exp`, `log`, `pow` and `hypot` (fdlibm's algorithms in `+ - * /` and
+`sqrt`; `sq()` instead of `** 2`), and `test/math.test.ts` checks `src/core` and `src/dev` use nothing
+else, the functions stay within an ulp of Math's (tan 3, pow a few more), and their bits stay put. One fingerprint file is
+identical on macOS, Linux arm64 and x64 (Bun, in Docker) and in V8 (Node), so F8 replays are exact
+across browsers and CI can't drift. The feel is unchanged: after 60 s of an 8-car field the cars
+are picometres from where they were; lap floors and the field's results (5 seeds per map) match to
+the tenth. `--from-ci` and the per-platform files are gone.
+
+**Step 1a, the move onto pieces, is built** (PR #85, merged 2026-10-03), the
+fingerprints identical on every layout. Layouts say `pieces` (`PieceDef`: a stretch of a road
+with a floor or none, a ceiling, and how the ground falls away under it) instead of `GroundDef`'s
+`decks`, `branchDecks` and `branchGaps`; `ground.ts` is a `ground/` folder; what's under a point is
+one query, `ground.cast(x, y, z, out)`, which physics, the camera and the tools ask. CALDERA's
+build order has what's in it and what isn't yet.
+
+**Step 1b, portals, is built** (PR #86, merged 2026-10-03). The tube's
+mouths, and where it comes out into the shaft, have the ground drawn cut to the tube's own outline
+(`outlineAt` in core, which the tube's walls are built on too; `render/skins/greybox/portal.ts`
+clips the terrain), and the shroud is gone. Past each open end the cut goes on to the arch's outer
+face (1.5 m), so ground standing in the opening is cut too; only the finest level of detail is cut.
+Drawing only, so the fingerprints stayed identical (CALDERA had planned to re-record them).
+
+**Step 1c, branches own their heights, is built** (PR #87, merged
+2026-10-03). `BranchDef.heights: 'own'`: the bake keeps a branch's heights as authored,
+holding it to the main road's ground only where it's on the main road or its verge (no JOIN_FADE
+fade; its bank still fades). The Lava Tube says it, and `gen-paradise-open.ts` writes the profile
+it wants instead of inverting the pull (`LAND` is now its own choice: within 10 m of the rim road's
+verge, the tube runs at the rim road's ground). The tube is within 8 cm of before; drives through
+it, the lap floor (68.07) and the field (27 wrecks in 40 seeds, against 26) are the same.
+Paradise Open's fingerprints re-recorded, the rest identical.
+
+**Step 1d, one surface function, is built** (PR #88, merged 2026-10-03). `ground.kind` per grid point (`core/track/ground/surface.ts`: road, a branch's
+road, sand, wet sand, verge) is what `snow.ts` colours and what `surfaceAt` drives off the asphalt
+(it takes the car's x and z now: the point rebuilt from a far projection drifted). The coast's sand
+drives as `sand`, the water's edge as `shore`, the beaches as drawn. Paradise Open 68.07 → 68.10 s,
+the field 30 wrecks in 40 seeds (28 before, the same mix); a car on a piece (the Freeway's
+shoulder) drives its verge, not the sand under it (`surfaceAt` takes y); only Paradise Open's fingerprints moved. That's step 1
+done.
+
+**Step 2a, feature modules' interface, is built** (PR #89, merged 2026-10-03). `core/track/features/`: a `Feature` (kind, and optional `shape`,
+`surface`, `hazard`, `coast` hooks) that the ground runs in order. The volcano and
+the coast moved onto it (`volcano.ts`, `coast.ts`), and `ground.hazard(x, y, z)` replaced
+`inLava`. A clean-up: every fingerprint identical.
+
+**Step 2b, the by-road features as modules, is built** (PR #90, merged
+2026-10-03). Mogul fields, canyons and beaches are `GroundDef.features`
+entries (`kind: 'moguls' | 'canyon' | 'beach'`), modules in `core/track/features/` with new hooks
+(`rise`, `sunk`, `bare`, `side`). `ground.sunk(s, lat)` and `ground.bare(s, lat)` replaced
+`canyonAt` (the avalanche's shelter, the trees); the AI reads a canyon's `def`. They stay placed
+along the main road (CALDERA's note): a clean-up, every fingerprint identical.
+
+**The jungle's mud, a little uneven** (the owner's ask; PRs #91 and #92, merged 2026-10-03): an
+`uneven` feature (`features/uneven.ts`) on the red-earth road (2,092–2,746 m, found by the
+generator from the road's surface): lumps up to 0.35 m, 7 m across, at half height on the banked
+turns (at 0.7 the drift test fails: the bank's hold is lost). The island's road is drawn in 6
+strips across there, following them. Floor 68.10 and the field unchanged. If the owner says it
+still feels flat: `MUD` in `gen-paradise-open.ts` (height, size), and `ON_BANK` in `uneven.ts`.
+
+**Step 2c, overrides, is built** (PR #93, merged 2026-10-03; CALDERA's "Overrides: the escape
+hatch"). A layout's `overrides: [{ id, reason, region }]` (a box `[x0, z0, x1, z1]`, or a stretch of
+a road: `road`, `s`, `lateral`; `s[0]` past `s[1]` runs through a loop's start line) name a map's
+code in `core/maps/<map>/overrides.ts` (listed in `core/maps/index.ts`; core, because core imports
+nothing outside it). `core/track/overrides.ts` binds them at bake (`track.overrides`) and their
+hooks have the last word inside the region: `cast` (the floor: `ground.cast`, `top`, `topSlope`),
+`surface` (`surfaceAt`), `hazard` (`ground.hazard`), `respawn` (a spot, then the engine's rules: the
+avalanche, gaps), `step` (per tick, per car inside). `tune`, `walls` and `camera` wait for a first
+use. `probe` says "override active: <id>", the debug drawing outlines them; `validate` wants code, a
+reason and a region for each, lists them, and warns past five. The candidates stayed put: `pastGap`
+is the engine's for any gap piece, and `LAND` is build-time authoring. No map has one: a clean-up,
+every fingerprint identical. Tests: `test/overrides.test.ts`.
+
+**Step 2d, the lava stream, is built** (PR #94, merged 2026-10-03; CALDERA's "A feature, end to
+end"). `features/lava-stream.ts`: a channel along a path in world space (the first feature placed
+there), its floor `width` m across and `depth` m down, banks eased over LAVA_BANK m of rock
+(`KIND_LAVA_ROCK`, driven as `lava-rock`), lava LAVA_FILL m deep that wrecks you (`Cause.Hazard`),
+no trees on it, coming out of the ground over its first 25 m. The skin draws it from a table by kind
+(`render/skins/greybox/features.ts`; the cone's lava shader, shared). Paradise Open's runs from the
+volcano's south-west flank to the sea by the bay (`LAVA` in the generator), the one way down that
+crosses no road; the validator refuses one that crosses a road (bridges come with pieces). Driven:
+below about 100 km/h you're in it, from about 130 you clear it. Lap floor 68.1 and the field (30 wrecks in
+40 seeds) unchanged. Tests: `test/lava-stream.test.ts`. `tools/drive.ts` gained `--heading` and puts
+`--at` exactly there. Found on the way, left for the owner (TECH_DEBT): the Lava Tube's verge is
+`beach`.
+
+**#94's fresh review finished after the owner merged it**; its findings are in #95 (merged): the
+lava felt where it's drawn (level from the path's floor, not the grid's rounded edge), `drive --at`
+on the ground far from roads, the validator's reach. The one it left for later (a point far from
+every road projecting "onto" one) was fixed in #96. #93's review found nothing serious; its five small fixes are in.
+
+**Off-road surfaces** (a tech-debt pass, the owner's choice before step 3; PR #96, merged
+2026-10-03; the owner drove it: "this feels good"): `surfaceAt` ignores a projection that stopped
+short of the point (round a bend, far off the road: `STRAY` in `query.ts`), using the ground's kind
+or the nearest main-road sample's verge instead, and the Lava Tube's verge is `ash`. No sampled
+point 3 m+ off the roads drives as asphalt now on Avalanche or Paradise Open (416 and 304 before).
+Drives, floors, field unchanged. The rest of TECH_DEBT is code shape, left for when steps 3 and 6
+touch it.
+
+**Step 3a, indoors** (Caldera's step 3, in parts): in the Lava Tube the light, the fog and the
+sound are a cave's. `PieceDef.indoor` names an enclosed piece's look (the skin's `INDOOR` in
+`palettes.ts`: `tunnel` unless it says, `lava` for the tube); the renderer eases `indoor` in and out
+from the camera's cast, the skin moves the fog and sky light to the look's and dims the sun, and the
+engines and effects ring in a room's echo (`roomImpulse`). The chase camera is capped a metre under a
+ceiling over the car (`cameraCeiling`). Drawing and sound only: fingerprints identical. Camera hints
+wait for a spot that needs one.
+
+**Step 3b, breakable walls** (#98, merged; the owner's review fixed in it): `TrackLayout.breakables`, walls in world space cut into
+panels that each break on their own (`core/world/breakables.ts`, `collide/breakables.ts`): a wall
+to a car slower than `breaks`, burst by a faster one (no boost, unlike smashables). Online a break is
+a trigger, claimed like a traffic hit (`net/breakables.ts`). The first boards up the Lava Tube's
+first mouth (`BOARDS` in the generator). Paradise Open 68.10 → 68.00 s, the field 28 wrecks in 40
+seeds; fingerprints re-recorded for it only. A car through a panel breaks a hole its width at once
+(every panel its footprint covers, at its angle), and a car deep in a panel goes through it only if
+it was in it last tick too. The boards are inked like cars, in darker wood.
+
+**The berm out of the Lava Tube** (#100, merged; the owner's idea): the left-hander where the tube
+rejoins the rim road is banked into itself (`EXIT_BERM`), and the tube's road climbs to its high
+outside edge (`EXIT_KICK`), so coming out you fly across the turn and going round it's a berm.
+Paradise Open 68.00 → 67.67 s; the field 39 wrecks in 40 seeds (28): more traffic hits just past the
+line. The owner may want it toned down after driving it (no air boost from it, or a lower lip).
+PARADISE.md has the numbers.
+
+**New tracks** (the owner's, 2026-10-03): `avalanche` and `winter-pursuit` are Avalanche's own,
+`propulsion` and `escape` go anywhere (#99, merged), and `forward` too (#101, merged); `coastal` is the island's (Paradise and Paradise Open,
+which now has the island's three; #105, merged, on the CDN). Each
+WAV levelled to −15.8/−15.9 LUFS (ffmpeg's `ebur128`) and encoded with `afconvert -f m4af -d aac -b
+128000`. All five are published to https://cdn.gamerelay.io/racecar/music/ (`tools/publish-assets.ts`,
+checked: 200 with CORS); production plays them from the next deploy.
+
+**Deployed:** `alpha-1.33` (2026-10-06, PRs #141–#147) is on the hosted build: driven costs, the
+cove and the Sand, the AI at forks and Riviera's back streets. Before it `alpha-1.32` (2026-10-05,
+PRs #106–#140): Riviera, the road graph, the engine's review fixes and `crashout`. Before that `alpha-1.31` (2026-10-03, PRs #78–#105):
+Paradise Open, Caldera's steps, the boards, the berm, the market hall and the tracks. Deploy and tag only when the
+owner asks.
+
+**Step 3c, the market hall** (#102, merged): buildings, `PieceDef.building`, enclosed pieces
+built on the ground. Their walls are solid props on no road (`core/track/buildings.ts`), met as a
+road's wall is from either side. A car in one stands on the ground, and the cast finds the room
+(`Cast.room`). The first is Paradise Open's market hall on a street through Harbor Town
+(`MARKET` in the generator), with shopfront glass (`look: 'glass'`) across its doors. Paradise Open
+67.67 → 67.27 s (the AI takes the street; its floor's sand, the owner's call, slows it); the field 37 wrecks in 40 seeds (39); fingerprints
+re-recorded for it only. CALDERA's 3c has what changed while building.
+
+**Paradise Open tidied** (#103, merged; the owner's notes after a drive): lines on the island's
+paved road (the rim road was hard to see), the green line at the Freeway's end, the dark cliff
+beside it (`under.reach` 90 → 40), and slippery mud (`red-earth` grip 0.58, drag 0.1). Floors:
+Paradise 71.52 → 70.3 s, Paradise Open 67.27 → 66.35 s. PARADISE.md has the why.
+
+**The road graph (Caldera step 6, 2026-10-05).** The owner's call: step 6 before step 5 (the chase),
+proven on Coastal. CALDERA's "Build order" has each slice in full. Every map's fingerprints are
+identical through all five: each slice is the old behaviour on today's maps, with new reach.
+- **6a, the graph as data** (#119): `Track.graph` (`core/track/graph.ts`): nodes (junctions, the
+  line, a run's start and finish, open ends), streets (each road cut at its nodes, none wrapping),
+  the route (its way, each node's distance along it, every street between two of its nodes: the
+  Basin Road is, a side street isn't; its gates, the checkpoints and the finish). `tools/plan.ts`
+  draws it. The validator refuses a branch across the line.
+- **6b, where a car is** (#120): `locate` walks `RoadGraph.links` (at each node, every other road
+  there): any road to any other at a node.
+- **6c, progress** (#121): laps, checkpoints, positions, the finish, the grid and the results'
+  gaps count `RoadGraph.along` and `Gate.at`, the old main-road numbers to the bit (except within a
+  metre where two junctions merge, documented). Hazards, traffic, the avalanche and the AI's
+  marks still use main-road distances (they're on the main road).
+- **6d, the AI picks its way by cost** (#122): the quickest way it knows (`wayCosts`: street
+  times by the racing line, the quickest on to the finish from each node; `liftWait`: a
+  drawbridge's wait, to a hundredth, plus `STOP_COST`, 3.26 s since driven costs (below), so the
+  Basin Road is taken for a wait over about 2 s, as before). A detour every driver knows, a shortcut on its roll; a shortcut slower than
+  what it skips is no one's.
+- **6e, branches off branches** (#123): `BranchDef.leaves`/`rejoins` (an earlier branch, or the
+  main road). The bake, the graph, `locate` and the AI's choice work from any road. Tested with a
+  lane off Backroads' barn shortcut (`test/fixtures-lane.ts`). No map uses one yet.
+
+**On the road graph since 6e** (all merged):
+1. **#123's review's fixes** (#125): the editor's `reanchor` maps each branch end along its own
+   road, in rounds over `bakeRoads` (a drag step re-anchors Coastal in about 9 ms, was a full
+   bake); `Link.scale` only from a branch onto the road it leaves and rejoins; the AI's choice
+   window shut at 60 m past on an open road too.
+2. **The Stairs on Coastal** (#126; COASTAL's "Step 7a"), the first real use of 6e: two flights
+   through a crossroads (two branch ends half a metre apart: one node) and an arm off the first
+   flight (a lane off a branch). With it `BranchDef.limit`, the fastest the AI takes a road (a cap
+   on its racing line, so its costs too), and the AI follows a lane's street from where it starts
+   (`st.s0`).
+
+**Driven costs** (after `alpha-1.32`): `wayCosts` times each street as the car's class drives
+it (top speed, pulling away, braking onto a branch and pulling back up after it), within a few
+percent of a hard AI's drive on tarmac (the racing line alone was a fifth short), so a new cut's
+costs can be trusted (off-road ones read a little slow). No race changes today. `STOP_COST` 3.26 (was 4.28), swept. Paradise and Backroads keep the racing line
+(`aiCosts: 'line'`): driven, four of their shortcuts are slower than the road, and the owner wants
+their rivals to keep taking them. Every fingerprint identical; Riviera's field results unchanged.
+CALDERA's 6d has the numbers.
+
+**Next: Coastal, now *Riviera* (2026-10-04; as of 2026-10-06, through the back streets, released in `alpha-1.33`).** The owner's call: Caldera's next features are
+built on a new experimental map instead of Paradise Open, whose fingerprints, floors and tests made
+iterating slow. Coastal's own fingerprints are re-recorded as it changes; every other map's must
+stay identical (the check that the shared engine didn't move). The plan, what's built (step by
+step, with the numbers and the why) and the owner's answers are [COASTAL.md](./COASTAL.md): a
+harbour town on a headland, the Riviera in feel (Villefranche-sur-Mer, the owner's photo), blue
+skies and a rare shower, the `coastal` track. **Live since 2026-10-05 as *Riviera*** (in the lobby;
+its id is still `coastal`, so `?mode=free&map=coastal/riviera` still opens it; the lobby's tests,
+the validator and the lap report now include it); `tools/gen-coastal.ts` writes it. The owner will
+keep tweaking it: re-record its fingerprints as before.
+
+**What's built** (merged, #106–#129):
+- **The lap** (#108, reworked in #110 after the owner drove it): 5.0 km. The Quay and the Harbour
+  Bridge, the Old Town's climb, the Mountain Road's five S-bends up to 130 m, the Descent's five
+  long switchback rows down the mountainside over the sea, the Corniche, the Lighthouse Point
+  hairpin, the waterfront (the Beach and the Promenade along the sea wall) and home.
+  `GroundDef.hills` (domes off the roads) and `rare` weather.
+- **The drawbridge** (#109, #111; CALDERA's step 4, the first moving piece): `PieceDef.lift`, two
+  leaves lifting once or twice a race at seeded times, their angle a pure function of the race
+  clock; a ramp to jump early in a lift, a wall when up. The **Basin Road** round the harbour (the
+  first `alternate` branch), which the AI takes when the bridge would stop it; bells from the
+  warning; a yacht that sails out under the raised leaves (`LiftDef.boat`).
+- **Traffic from side streets** (#112): `TrafficLaneDef.streets` (branches of kind `street`, loops
+  off the main road the AI never takes): cars come down one, drive the main road and turn off up
+  the next, fading in and out out of sight. Coastal's ran both ways round the line on the home
+  straight; since the sea wall (#117) only the town side's, against the lap.
+- **The Rock Tunnel** (#113): the main road takes a ceiling. Over a main-road enclosed piece the
+  land keeps its rock (`ShapePoint.rock`, ground/land.ts); the tube's walls, arches and portals
+  drawn for it, limestone and orange lamps (`indoor: 'tunnel'`). 200 m through the spur.
+- **Rock rails** (#114): the road's walls kept on the outside of every corner tighter than 110 m up
+  the mountain and down the switchbacks, drawn as a limestone parapet (`render/skins/greybox/rails.ts`);
+  the straights between stay open to fly off.
+- **The Riviera town** (#115): `TrackLayout.houses` (solid world-space blocks, drawn as stucco houses
+  with shutters and terracotta roofs; trees keep off them, the validator keeps roads clear). 295
+  of them terraced up the hill from a four-lane boulevard (the home straight, 20 m) and along the
+  Old Town (467 since #117: see the sea wall).
+- **The sea wall** (#117; COASTAL's step 6b, the owner with the Villefranche photo: water on
+  the right, not a beach, with a retaining wall): a `seawall` ground feature
+  (`core/track/features/seawall.ts`). The ground keeps its height to a quay's edge 3.75 m past the
+  verge (a grid cell's diagonal: dropping at the verge sagged the shoulder up to 5 m), then drops
+  to 10 m under the sea and eases back to the sea bed. Drawn as the parapet, a paved ledge and a
+  stone face into the water, the face a metre past the drop so the drop's sloped cell stays behind
+  it (`rails.ts`). On Coastal from the lighthouse hairpin through the line to the bridge, the coast
+  along it, pavements (`sidewalk` verges) both sides. The sea-side streets (`lido`, `quai-sud`) went
+  with the beach, so one traffic lane; that freed about 170 house spots the streets' ends had kept
+  empty (the houses' road check measures across a street from past its end).
+- **The Old Town's switchbacks and the Stairs** (#126, COASTAL's step 7a): three rows across the
+  slope joined by two tight hairpins (it was a 150–270 km/h zig-zag no cut could beat; the owner's
+  pick), and the Stairs straight up through them: stepped stone flights 7 m wide, walled in by
+  houses, through a crossroads on the middle row, with an arm off the first flight. AI limit 24
+  m/s. Both flights save 3.05 s clean, the first 2.3 s; flat out wrecks at the crossroads.
+- **Steep ground as limestone** (#127): open ground's steep slopes were drawn as the volcano's black
+  crag on any coast (the owner saw black banks by the Basin Road); a coast with no volcano now
+  draws pale limestone.
+- **Lighthouse Point's loop and the Rocks** (#128, step 7b): the road loops round the cape's tip
+  (two 16 m corners, the coast pushed out, the sea wall from the tip's exit); the Rocks cut its
+  neck, 195 m against 379, on a new `rock` surface with rough own heights, three ridges and solid
+  boulders close along both sides. AI limit 36 m/s: every class saves 2.3–3.5 s clean; flat out
+  five of eight wreck.
+- **Landmarks** (#129, step 8a, the owner's asks): **the grand casino** (Monte Carlo's) on the
+  boulevard just past the line, a solid house with `look: 'casino'` (cream hall, copper dome and
+  spires, a columned portico with a gilded clock) and a garden and fountain, rue-du-port looping
+  round its square (streets take their own depth and lead-in); **the lighthouse** (a new landmark)
+  on a knoll in the cape's loop, scaled 1.5 with a sweeping beam, seen from the Descent's west
+  hairpins; **the fort** (a new landmark: walls, bastions, keep, flag) on the mountain's 190 m top.
+  Trees keep off a landmark's ground (`pines.ts`).
+- **Tools:** `tools/plan.ts` (a layout from above; `--at x,z --size m` to zoom), `shot --t` (the
+  world at a race time) and `shot --traffic`, fingerprint parts `lifts` and `streets` (only for
+  layouts with them).
+- **The clean-up (#131, #133):** the Rock Tunnel threw cars driving into it at an angle onto the hill
+  over it (front wheels read the rock over the mouth); now a wheel over a main-road tunnel's floor
+  reads the floor (`wheelOff` in `physics.ts`), under a ceiling the walls go up to it, and Coastal's
+  ground has rock faces at 45° (`face: 1`). The ground meets a tunnel's floor at its mouths (`runIn`)
+  and stands 0.3 m over its road inside it (`MOUTH_CLEAR`, so the drawing cuts it: at the road's
+  height it was kept, clipped into a slab across the tunnel). The casino rebuilt with no two faces in
+  one plane and its portico inside its block; the fort seated on the slope; the fountain ringless;
+  rue-du-port straighter with wider corners.
+- **The Descent's hillside (#132, thinned in #134):** 90 solid rocks and 150 bushes (`bush`, the
+  first smashable on open ground: `SmashDef.at`, met by where it is) between the rows, all off the
+  AI's roads (the owner: "a little too littered" at 190 and 352); a coast's rocks are warm stone,
+  not limestone-topped (they read as snow). Half the straight cuts down meet a bush or a rock. The
+  banks read as limestone beds, the grass has patches of dry scrub, and about 11,000 grass tufts in
+  patches (`tufts.ts`, scenery only).
+- **The Hôtel des Pins (#137, #140; the owner: "looks great"):** at the back of rue-des-pins, the
+  loop off the boulevard just before the line, a white Belle Époque hotel (house look `hotel`) with
+  its terrace out over the street on four columns (`HouseDef.porch`; the columns are solid
+  `house-column` props from `porchColumns`, their line set from the street as baked, each face over
+  a metre past its verge). You drive in, under it and out. Houses stand on the lowest ground under
+  their walls' middles as well as their corners.
+- **The wreck camera (#135, every map):** out in the open it's lifted over the highest ground
+  between it and the car (`wreckView`); it orbited through banks. Never pull it in toward the car:
+  that version sat in the car in cuttings and jumped as the orbit passed a bank.
+- **Live as *Riviera* (#138, released in `alpha-1.32`):** `experimental` off, named *Riviera*; the
+  id stays `coastal` (links, fingerprints, its music). The lobby's map list and quick race now offer
+  only the game's maps, by name (`lobbyKeys` in `ui/menu.ts`): Paradise Open had been in both.
+- **The cove and the Sand (2026-10-06, the owner's pick: "West cove"; COASTAL's "Step 7c"):** a
+  beach cove under the Corniche just before Lighthouse Point. The road comes down to it and loops
+  inland round the beach club (a low block for now) in a chicane; the Sand runs straight along the
+  beach by the water past it, umbrellas on its sea side. It saves every class 1.8 to 2.9 s clean,
+  and the driven costs agree (2.2 s). Its heights start where the bake hands a branch over from
+  the road's banked surface to its own (found by baking it once), at the road's height and slope,
+  and bend to 9% over 25 m: nobody leaves the ground on it (a ledge there had thrown every class
+  40 m). The town's houses draw from a stream per stretch now (the waterfront re-rolled the Old
+  Town's). The Rocks' driven costs read about a second slow now (rough rock; COASTAL's 7c).
+- **Numbers:** the lap is 5.60 km (5.51 before the cove), the floor 106.67 s (solo hard coupe;
+  106.22 before the cove). Field races over 16 seeds: 14 car wrecks (main
+  9), one at the Sand's rejoin, the rest at the Stairs' junctions and in the tunnel; seed 4 clean,
+  7 and 8 one each in the Old Town. (Since #145, floor 106.03 s, the Old Town's pile-ups at the
+  Stairs' fork all but gone: below.)
+
+**Next, in about this order** (COASTAL's steps):
+1. **The AI at junctions** (the owner: split from the Sand; done in #145). What the field showed
+   (a wreck tracer: each car-on-car wreck, both cars, and the second before it): nearly every car
+   wreck is one car into another on the **same** road, not cars on two roads missing each other
+   (3 at the Sand's rejoin in 72 races, none at the Rocks'). Most seeds race the same first lap, so
+   a count over seeds counts a few crashes many times (Backroads' "4 to 12" was this: on `main`
+   it's 4 over seeds 1–24 and 32 over 25–72). Compare over seeds 1–72, 3 laps.
+   - **Fixed:** a car that had chosen a cut slowed to the cut's start speed the moment it chose
+     it, 65 m short (the Stairs: 164 down to about 50 km/h, the pack behind at 140, into its
+     back). Now it keeps the road's pace and brakes for the cut's start as the line brakes for a
+     corner (`COST_BRAKE`); a test in coastal.test.ts fails without it. Car-on-car wrecks over
+     seeds 1–72, `main` → now: Riviera 47 → 28 (the Old Town's lap-1 pile-ups at the Stairs'
+     fork all but gone), Backroads 36 → 36, Paradise 36 → 32, Paradise Open 12 → 15; Downtown and
+     Avalanche the same (2, 4 over 1–24). Floors: Riviera 106.67 → 106.03 s, Backroads 62.82 →
+     62.87, Downtown 57.90 → 57.88, the rest unchanged.
+   - **Known, left as it is:** short of the fork, `avoid()` still lays its lines across the
+     cut's width while the other cars' laterals are across the road's (`sp` is the branch). Every
+     change to it made the field worse (Riviera 55–69): across the road's width, a car bound for
+     the Stairs passed the pack wide and cut back across it into the fork; narrowing its lines
+     toward the fork, 59. Cars still can't see across a junction (`avoid()` marks only its own
+     road's cars); nothing in the field needs it yet. Seeing across a rejoin with the merging car
+     giving way, and allowing for a car ahead drifting across the road, made more wrecks too: the
+     more cautious a car, the more it brakes in front of the pack.
+   - **Known:** the Stairs' second flight's costs read 0.6 s slow: on it (74.5 of 89 m) a car runs
+     about 96 km/h against the 86 it's costed at, and its overlapping ends are costed at that limit
+     but driven on the rows, faster (about 0.3 s from each cause; the early braking had hidden it).
+2. **Riviera's back streets** (#146, merged, in `alpha-1.33`; the owner: "a second row of buildings and a back street behind
+   the village", and behind the casino "looks a little barren"; COASTAL's step 8h): rue Haute, a
+   side street up the hill behind the waterfront and back, never a shortcut; traffic along it both
+   ways (`TrafficLaneDef.road` and `span`: a lane along one street); a row of houses each side of
+   it and the town on up behind the casino (426 houses, 346 before; the whole town re-laid, and
+   from now a change to what fits stays local); `offRoad` (query.ts) measures houses and boulders
+   from a branch's end when well past it. Rue Haute has two cars each way (the layout's density).
+3. **The look:** yachts moored in the harbour (and along the sea wall), the riviera palette (it
+   borrows Paradise's `tropic` now), the beach club in the cove (its pool, terrace and jetty: a
+   low block stands there now); the Old Town's side streets with its houses; lamp posts and palms
+   along the waterfront's pavement and the back streets.
+5. ~~Before more cuts: give `wayCosts` acceleration~~ (done: driven costs, above).
+
+## Avalanche and Paradise Open (2026-10-02 to 2026-10-03)
+
+**Avalanche** (merged in #74, out of experimental on the owner's word): open ground you drive on
+everywhere, slope gravity on snow, moguls, canyons, kickers, rocks, 18 slalom gates, about 650
+solid pines, a ski jump, snowfall and tracks, the camera following the slope, and an avalanche at
+chaos. The AI lets the slope carry it and rides the canyons. In the lobby, the vote and quick race,
+racing to its own two tracks (`avalanche`, `winter-pursuit`, 2026-10-03) and the seven any-map ones. Everything about it is [AVALANCHE.md](./AVALANCHE.md). The
+owner drove it ("it feels good"); phones aren't a target for it. The `/code-review` found two
+low-severity bugs, fixed before the merge.
+
+**The owner's direction (2026-10-02): open maps, starting with Paradise.** The owner really liked
+the Avalanche experiment ("this is really really awesome", "this map is amazing") and wants
+**Paradise switched to the open model too, even if that means redesigning some or part of the
+level.** Why Paradise first (Backroads was considered: its trestle and river and its flat infield
+make it harder):
+- **The sea is a natural edge.** It's an island: drive the beach and the shallows, and the sea is a
+  respawn. No invisible walls, per AVALANCHE.md's philosophy ("if it's drawn, you can drive it").
+- **Its land is already a formula** (the island's outline plus the volcano cone, `layout.terrain`),
+  so the drivable ground can be built from what's drawn now. The island would look much the same,
+  only solid.
+- **Mostly open already:** most of its walls have gaps, and there are no roads over roads.
+- **The volcano becomes the centerpiece:** up its flanks, off the crater rim, maybe lava as a
+  wreck. With slope gravity on its rock and earth, a cut over its shoulder is a gamble, not a free
+  shortcut across the loop.
+
+Hard parts:
+- **The Lava Tube is a real tunnel** through the cone's shoulder. The ground is one height per
+  point, so it needs to step aside under a road (or be redesigned away: the owner's fine with
+  redesigning).
+- **Solid palms and rocks,** the pines way: one list, drawn and hit.
+- **Cutting across the island** has to cost time, not skip half a lap.
+- **Retuning:** its lap floor (71.52 s), the AI with more room, and grip in a shower off the road.
+
+**Most maps go open (the owner, 2026-10-02):** "we are going to want to switch most maps to this
+form and rely more on clever level design to prevent unfair races." The piece to solve first is
+**a road over the ground**: a bridge or deck the car follows when it's on it, with the open ground
+under it otherwise (Paradise's bridge, the Valley's Trestle on Backroads). "Once we figure out a
+solution to that I think things will be good."
+
+**The plan is [PARADISE.md](./PARADISE.md)** (2026-10-02, from the owner's sketch): a web of
+routes between the old places, each stretch a road, a slower cut and sometimes a risky line (a
+jump over the crater's lava, the Reef Run inside the bridge, a lava channel), a half-moon bridge
+to drift, the mud like a messy mogul field, lava that changes lap to lap, more Hawaii, a little
+zany, and no lighthouse. The owner's answers are in it: about today's length, experimental first
+then replacing today's Paradise, some traffic, fresh shortcuts, the beach as open sand, one lava
+spurt a race, and the crater jump in place of the Lava Tube.
+
+**Paradise Open, where it stands (2026-10-03):** **merged** (#81, `faed2bc`, released in
+`alpha-1.31`). It began as four stacked PRs (#78–#81); #78–#80 are closed and folded into
+#81. Its parts, in the order they were built:
+- **The plan** (was #78): PARADISE.md and this file.
+- **Step 0** (was #79): a road over the ground (decks), the sea, the Freeway as a
+  deck with rails, the camera on decks, banked turns that hold a drift (`TUNING.bankHold`). The
+  owner drove it: "feels a lot better", "plays nice".
+- **The island** (was #80): the coast, the volcano with its lava lake, about
+  2,400 solid palms and jungle trees, island colours, off-road slopes that pull
+  (`TUNING.offroadSlope`).
+- **The tube** (#81): the Lava Tube through the volcano, over the lava
+  in its crater's shaft on a rock bridge; branches on open ground (tunnels and bridges, "a car is on
+  the highest surface at or below it"). Since (2026-10-03, on the same branch):
+  - **The jump** (the owner's answer to "too overpowered"): the bridge broken by a 40 m gap over
+    the lava, a kicker up to it. Every car needs ~150 km/h off the lip, flat out they all have
+    175+. A miss is a lava wreck, and you're back past the gap.
+  - **The camera** through the tube, and **the tube's exit** (no more launch onto the rim road).
+  - **Rock faces** (`ground.face`): the volcano's steep faces by the mouths are walls.
+  - **A detail pass on the island:** a beach from Harbor Town to the Freeway, the roads laid crisp
+    over the ground with no markings, the ash fading off its roads, the volcano in mixed tones.
+  The owner: "this is looking a lot better", "functionally these work really well".
+
+Every PR had `/code-review` and its findings fixed, the 2026-10-03 work too (five bugs fixed;
+the code's shape went to TECH_DEBT.md, "Open ground and Paradise Open"). PARADISE.md's "Built so far" and "What we learned" have the detail, the numbers
+and the known rough edges.
+
+To try it: on `main`, `bun run dev`, and open
+`?mode=free&map=paradise-open/open`. Add `&spawn=2600` to start just before the tube (dev only:
+any distance along the main road). The map is generated: edit `tools/gen-paradise-open.ts` and run
+it. Its tests are `test/deck.test.ts`.
+
+Next (PARADISE.md's "Next" has the list; after the engine's first steps, the owner's call):
+- **Fixed since the owner saw them:** the camera's hiccup at the tube's start, and the big rock box
+  over the way in.
+- **The eruption:** the race's one lava event; in the tube, a wreck.
+- **Balance:** the hard AI makes the jump every lap, so the floor is 68.05 s (70.03 s without the
+  tube; 68.07 s after review). For a player it's a gamble now; whether the AI should miss sometimes is the owner's call.
+- **The rest of PARADISE.md's steps:** the routes from the sketch (step 2: today's island lap is
+  still the only road), the half-moon bridge, real mud (the jungle road's lumps are in, #91; mud
+that slows or slides isn't), the lava spurt, then Harbor Town and the
+  dressing with colliders (step 8).
+
+**Map names:** City is now **Downtown** and Countryside is **Backroads** (content in
+`content/maps/downtown` and `content/maps/backroads`; keys `downtown/downtown`, `backroads/valley`;
+old keys still resolve). The third map is **Paradise** (`content/maps/paradise`, key
+`paradise/island`).
+
+## Where things stood and what was built (2026-10-02)
+
+### Where things stand
+
+- **Repo:** `gamerelay/racecar`, public since 2026-10-05 (code MIT, music reserved), cloned at `~/dev/racecar`. The default
+  branch is `main`.
+- **Milestones 1 and 2 are merged** (PRs #1 and #2, `alpha-1.0`), and so are all six of
+  [PLAN.md](./PLAN.md)'s phases (PRs #14–#30, `alpha-1.8` to `alpha-1.12`).
+- **Milestone 3 (online) is under way:** online lobbies, remote cars, P2P and the host's AIs are
+  in (PRs #32–#42, `alpha-1.14` to `alpha-1.19`), and so are a hidden host tab that keeps
+  racing, shared traffic, bumps and takedown credit (PRs #46 and #47, `alpha-1.22`), and one
+  results table with a vote on the next race (PR #48, `alpha-1.23`). What's left is the milestone 3 list under "Next,
+  in order".
+- **Released 2026-10-02** (`alpha-1.24` to `alpha-1.27`, PRs #49–#65; CHANGELOG has each):
+  - **Short invite links** (#50): `https://play.gamerelay.io/racecar/<link>`, previewed in chat
+    apps; an Invite only lobby is link-only (SDK `0.1.0-alpha.5`).
+  - **Menus and settings** (#51, #52, #54, [MENU.md](./MENU.md) steps 1–2): the mix (engines down,
+    music up), one settings store and panel (sound sliders, a graphics preset, an analytics
+    opt-out), a real in-race menu with a Controls screen, choosers instead of `<select>`s, and
+    screen transitions.
+  - **A codebase review** (#49, #55, #56): the online race code tidied, the clock tower's flicker
+    and other z-fighting fixed, fixes across the menus, audio and online, 61 more tests, and
+    clicks in the lobby no longer replaying its fade-in.
+  - **A loading screen** (#57): the crossed flags pulse on the dark screen between pages (in
+    `index.html`, so it's up from the first paint; `src/ui/fade.ts`), at least 0.7 s, and an
+    offline race waits behind it.
+  - **Paradise v2** (#58), below, and **no fence jutting into the road** at Backroads' Barn (#59).
+  - **Six new tracks** (#53, #60, #62): Tokyo dubstep (Downtown), Hawaiian (Paradise), an acoustic
+    one (Backroads), Relentless Pursuit and Half Time Surge (any map), and Pursuit Orchestra behind
+    the menus (`TITLE_TRACKS`, taking turns with the title's own). Twelve in all, 35 MB on the CDN.
+  - **Boost, Overdrive and the slipstream** (#61, SPEC "Changed while building"): boost easier to
+    earn (`boostEarn` 1.2), a quarter longer (`boostDrain` 0.8) and stronger (`boostAccel` 18.5,
+    `boostTop` 1.35); Overdrive, the top speed climbing 6% over 5 s flat out and clean on a
+    straight (`cruise*`); the slipstream behind a car on a straight (+5% top, less drag) and its
+    slingshot for pulling out to pass (+10% for 1.5 s, `slip*`, `sling*`). The AI uses all of it,
+    and holds its boost while it gets round something.
+  - **Docs** (#63, #64): PLAN's "Next up" from the playtest, a pickup truck and Avalanche (a
+    planned Alps map); a tech-debt pass over the whole codebase (TECH_DEBT.md, 33 items).
+  - **Fixes** (#65): the minimap was the track's mirror image (now `fitBox`, shared with the
+    thumbnail), Overdrive re-popped, a slingshot survived a wreck.
+- **Paradise v2** (PR #58, in alpha-1.24): playtest feedback was "the vibe is right, but the map is a
+  little boring and hard to race". In thirteen commits:
+  - **More swing:** deeper S-bends, sweepers 3 m wider (`driftWidth: 3`), the jungle's hairpins
+    opened from 18–22 m to 37 m and more, and a bulge up the slope between them.
+  - **Forgiving verges:** walls only where there's a drop, and the ground past the road is its
+    own surface (`TrackPoint.verge`: `beach`, `undergrowth`, `ash`), which slows you without
+    spinning you and throws up its own dust (`DUST` in `renderer.ts`).
+  - **Secret shortcuts** (`BranchDef.secret`): the Beach Cut and Smugglers' Trail (a jump across
+    the jungle's bulge, over a log). No sign, not on the minimap or thumbnail, and the AI takes
+    them at 0.35× its usual rate.
+  - **Lava:** rivers down the cone (scenery), and at chaos a soft lava rain
+    (`HazardDef.mayhem`, `params.soft`).
+  - **The jungle's road:** patchy laterite with worn ruts and mossy verges, and trees 10 m back.
+  - **No walls at the shortcuts** (after a drive): the Sandbar, the Beach Cut and Smugglers'
+    Trail have none (they jutted into the main road where a cut runs beside it), the Lava Tube
+    keeps them only inside the rock, and Downtown's Alley drops its Boulevard-side wall past the
+    last shop (with no wall, a car would drive through a shop: buildings don't collide).
+  - **The grid in your own lane:** where the start has two-way traffic (every map), the grid
+    lines up in the race's half, staggered (`gridOncoming` in `sim.ts`), so nobody starts facing
+    oncoming cars. Field wrecks over 16 seeds: 18/20/10 (Paradise/Downtown/Backroads) against
+    13/16/15, none at the start: noise.
+  - The reasons and measurements are in SPEC "Changed while building" ("Paradise v2"), and the
+    lessons (cuts only pay across a bulge; lay a hairpin as two nodes) in MAPS.md. Each piece is
+    its own commit; after merging, the whole PR reverts with `git revert -m 1`.
+- **What exists, by area** (details in "What's built" below and in SPEC "Changed while
+  building"):
+  - **Maps:** Downtown, Backroads and Paradise, each with landmarks and smashables, traffic,
+    hazards and weather. Paradise has passing showers and a sunset (the lobby's Time option).
+  - **Cars:** eight classes, each within ±5% of the mean lap, with paints and license plates
+    (your name is a plate). How they're built is [CARS.md](./CARS.md).
+  - **Front door:** the title screen with the lobby list, Create lobby, the lobby (seats,
+    options, the car turning on a table) and the plate editor. Quick race skips lobbies.
+  - **Online:** a lobby is a GameRelay room (and a party, for P2P); other players' cars and the
+    host's AIs are entities. [ONLINE.md](./ONLINE.md) has the whole picture.
+  - **Art and hosting:** marketing shots and link previews (`poster.html`, `bun tools/poster.ts`,
+    `public/og.png`), and the hosted test build (below).
+- **Played by a human:** the owner has driven it and steered the look and tuning (the notes under
+  "Changed while building" quote them). Drift, boost and crash feel still want more hands on a
+  controller.
+
+#### What's built
+
+- **Core sim** (`src/core`): pure TypeScript with no Three.js, DOM or network (a test enforces it).
+  It runs at a fixed 60 Hz, keeps cars in a struct-of-arrays pool and allocates nothing per tick.
+  An 8-car race with traffic, hazards and rain costs 0.025 ms a tick, and a full race replays
+  exactly.
+  - **Cars:** eight classes (`content/cars`, in `CLASS_ORDER`), the police Interceptor the latest.
+    Grip-alignment handling, and a hold-to-drift that is only a cornering tool. There's no
+    mini-turbo; a drift banks boost that a clean release pays into the meter (a spin-out loses
+    it). `TUNING.miniTurbo: false` keeps the mini-turbo code for later. Each car carries its slide
+    differently (`driftCarry`).
+    Boost, air, wrecks with aftertouch, slow-mo, and collisions between cars. Boost is earned
+    from drifts and drift chains, air time (paid on a clean landing), near misses, oncoming and
+    traffic checks, all scaled by race position (×0.9 leading to ×1.35 last, `earnBoost`).
+  - **Track:** baked Catmull-Rom splines with branches for shortcuts. Laps may cross over
+    themselves: whole-track searches, pillars and the validator all take height into account.
+    With `trestles: true` (the Valley), a bridge high over another road stands on solid legs
+    there (`supports` in `bake.ts`, drawn by `forest.ts` on the same grid).
+  - **World:** traffic that is a pure function of time and only exists in per-lane sections,
+    seeded weather (with Paradise's passing showers), hazards (the log truck on Downtown and
+    Backroads, the falling sign on Downtown only, volcano bombs and coconuts on Paradise), and
+    smashables (`core/world/smash.ts`).
+  - **Racing AI** (`core/ai/racer.ts`): a racing line that threads solid props, path tracking,
+    time-to-contact avoidance (judged where the car will be, not just where it's aiming),
+    shortcut choice, boost and catch-up. It doesn't drift.
+  - **Races:** countdown, perfect start or stall, laps, finish order.
+- **Rendering** (`src/render`, and the greybox skin in `src/render/skins/greybox`):
+  - **Cel look:** a three-step toon ramp, and ink outlines drawn in the post pass from depth
+    (`post.ts`). A second outline pass, for cars only, inks windows, panels and creases (`ink.ts`).
+  - **Screen effects:** speed blur, color split, boost speed lines, slow-mo grade, vignette, grain.
+  - **Wet reflections** in the post pass: a streaky sheen on every flat surface, and sharp mirrors
+    in puddles. Puddles clear the render target's alpha, which is the post pass's mirror mask.
+  - **Cars** (`car/build.ts`, `designs.ts`, `paint.ts`, `wreck.ts`): profile-extruded bodies with
+    per-class rear detail and paint finishes. Wrecks crumple the body, throw parts and spray
+    shards; respawn repairs the car. The contact shadow fades when a car flips or flies
+    (`car/shadow.ts`).
+  - **Traffic** (`car/traffic.ts`): sedan, compact, van, box truck and bus in the same style. Each
+    kind is one instanced draw; a vertex mask picks which parts take the paint and which glow.
+  - **Downtown** (`cityscape.ts`, `city.ts`, `track.ts`):
+    - A street grid out to the fog, with buildings by district, rooftop clutter, neon blade signs,
+      billboards, awnings, parked and background cars, trees, lamps, steam, blinking lights and
+      searchlights.
+    - Raised roads are decks on pillars with a steel railing, sunken roads are trenches, and deep
+      ones are a lit tunnel with portals.
+    - The Alley has shopfronts and strung lights.
+    - All of it is built from the track, not authored, and it's the same every race.
+  - **Backroads** (`terrain.ts`, `forest.ts`, `track.ts`):
+    - Real land: a heightfield that meets every road, with hills and mountains beyond and the river
+      carved in, drawn as water that mirrors in any weather.
+    - Roads over the river or over another road come out as bridges: a covered bridge for a short
+      crossing, timber trestle bents for a long, high one.
+    - Pine forest with clearings and autumn broadleaves; the village (houses with windows and
+      smoking chimneys, a church, a sawmill, pastures), the barn over the Barn shortcut.
+    - Chevrons round every tight corner, telegraph poles and wires, a fire lookout, a campsite with
+      a fire and fireflies, birds, and mist on the river.
+    - Dirt roads have ruts and timber guardrails, and cars throw dust on dirt and clods off grass.
+  - **Paradise** (`island.ts`, `terrain.ts`, `track.ts`): the island's land, sea and volcano
+    (`terrain.island`/`sea`/`volcano`), beaches and waves, palms and jungle, the Freeway on
+    pillars over the bay, and a colour grade in the post pass. With PR #58: lava rivers down the
+    cone (`lavaFlows`), the jungle road's laterite and ruts (`earth` in `track.ts`), verges in
+    their own surface's colour, and a fallen log under Smugglers' Trail's hump.
+  - **Landmarks and smashables** (`landmarks.ts`, `smash.ts`): built from layout data, a few
+    instanced draws each.
+- **UI** (`src/ui`): the title screen with the lobby list, Create lobby, the lobby with a car
+  select (your car on a turntable, `src/render/showroom.ts`, with stat bars) and the plate
+  editor (`menu.ts`), all over a live AI race on the lobby's map. Then the HUD, countdown lights,
+  results table and minimap. A race's whole setup lives in the URL (`setup.ts`).
+  - **Settings and menus** ([MENU.md](./MENU.md)): the settings store (`src/settings.ts`) and
+    panel (`settings.ts`), the in-race menu and Controls screen (`controls.ts`), both on one
+    `Overlay` base (`overlay.ts`: inert behind, focus back on close), choosers (`chooser.ts`),
+    and the loading screen between pages (`fade.ts`, with its markup and logo in `index.html`).
+- **Lobbies** (`src/lobby`): the lobby model and its host rules (`lobby.ts`, one `apply`), your
+  own lobby in localStorage or a GameRelay room (`backend.ts`, `relay.ts`), the P2P party
+  (`party.ts`), pings and Away (`presence.ts`), checking what other players send (`wire.ts`), and
+  plates (`plate.ts`). How it works: [ONLINE.md](./ONLINE.md).
+- **Online race** (`src/net`): each player's car is an entity, a remote car in everyone else's
+  sim (`cars.ts`), and the SDK's host drives the AIs for everyone as `rival` entities
+  (`rivals.ts`). See [ONLINE.md](./ONLINE.md).
+- **Tools:**
+  - The level editor (backquote key).
+  - A live tuning panel (F4).
+  - F8 "felt wrong?" reports, replayed headless with `bun tools/replay.ts`.
+  - Local telemetry as JSONL files.
+  - A PostHog sink, off until `VITE_POSTHOG_KEY` is set.
+  - The garage at `/cars.html`: every car and traffic kind on a road with the game's post effects.
+    T shows traffic, W crashes a car.
+
+#### Numbers to know
+
+| | Downtown | Backroads (Valley) | Paradise (Island) |
+|---|---|---|---|
+| Lap length | 3.26 km | 2.92 km | 3.80 km (3.44 before PR #58) |
+| AI lap floor (hard, empty track) | 57.9 s (58.6 before PR #61's boost) | 62.9 s (63.4) | 71.5 s (71.9; 66.8 before PR #58) |
+| Wrecks per 8-AI race (`lap-report --field`, 16 seeds) | 1.3; 2.0 at chaos (`--chaos`) | 0.6; 0.6 at chaos (0.8 before PR #70) | 1.5, the tests' limit (1.1 before PR #61); 1.7 at chaos |
+| Draw calls | ~90–415 | ~65–330 | ~35–150 for the world; ~350 in the chase view with the field on screen (mostly cars) |
+| Scenery build (per editor edit) | ~200 ms | ~150 ms | ~600 ms (land and scenery, measured in bun) |
+
+The game holds 120 fps (the display's cap) on the dev Mac, rain included. The frame rate hasn't
+been measured since the detailed cars went in, so watch it. Downtown has 150 draw calls on the grid in
+the rain with all 8 new cars, and up to ~415 with detailed traffic around (60 fps in a background
+tab, which is Chrome's cap there).
+
+#### The Downtown lap (v2), in order
+
+- **Boulevard:** four lanes, traffic, and the finish line. The Skyway crosses overhead on pillars
+  in the median; the median pillars are a takedown spot.
+- **Climb:** an avenue ramp up to the Skyway.
+- **Skyway:** 12 m up. A long banked right-hand sweeper, then a two-way straight with traffic that
+  crosses over the Boulevard. Railings let you see down.
+- **Market:** street level. Tight two-lane streets, a stone hump bridge to fly off, and the Alley
+  shortcut through the middle.
+- **Underpass:** a sunken road into a covered tunnel (neon strips, orange lamps, portals), then up
+  over a crest just before the line.
+
+The Downtown layout is generated by `tools/gen-city.ts`. Rerunning it overwrites hand edits made in the
+editor.
+
+#### The Backroads lap (Valley v3), in order
+
+- **The Village:** the start, on the asphalt river road with traffic, then a flowing S through the
+  village square. The **Barn** shortcut goes straight on through the barn.
+- **The Covered Bridge:** a long right onto the bridge over the river, then two sweepers.
+- **The Switchbacks:** dirt, three hairpins up the ridge's flank, each leg with a flick in it,
+  with guardrails.
+- **The Ridge:** dirt along the top at about 52 m, sweeping over two crests with kickers.
+  **Logger's Leap** jumps off the edge to cut the corner onto the Descent.
+- **The Descent:** asphalt S-bends down, then a curve onto **the Trestle**, straight and high over
+  the river and the start road, with traffic. Its legs stand on the home stretch below: three
+  rows to thread, and solid.
+- **Pine Hollow:** dirt hairpins down to the flats. The **Creek Bed** cuts across the stream
+  (always wet). A kink puts you onto the home straight.
+
+`tools/gen-countryside.ts` generates it; the river's course is `terrain` in the layout.
+
+#### The Paradise lap (Island v2, PR #58), in order
+
+Clockwise round a tropical island, the volcano in the middle and the sea all round. Lava runs down
+the cone's far flanks.
+
+- **Harbor Town:** the start on the harbour front, two-way traffic, pastel houses both sides,
+  the tiki bar on the sand and the pier with fishing boats. A deep S out of town, and the
+  **Beach Cut** (secret) runs straight on along the sand inside it.
+- **Coconut Coast:** the wide beach road (18.5 m, more in the sweepers) up the west shore, then an
+  S over the headland and back to the water. The **Sandbar** runs straight on along the
+  waterline on loose sand, with a dune to jump and wet sand (`shore`) at the water's edge.
+  Coconuts drop off the palms before it.
+- **The Freeway:** up a ramp to a deck 10–14 m over the bay, one long banked sweep round the
+  north shore on concrete pillars. It's one-way, both lanes with the race, and the traffic
+  keeps to the straights either side of its bend.
+- **Jungle Switchbacks:** off the deck into the jungle on red earth: an open hairpin, a bulge up
+  the slope and back, and a second hairpin, under a rope bridge, past a waterfall.
+  **Smugglers' Trail** (secret) jumps straight across the bulge over a fallen log. At chaos,
+  lava rain falls over the bulge's top.
+- **Volcano Rim:** the climb round the cone's flank on lava rock, swinging in and out, over the
+  shoulder's crest, with ash past its edges. The **Lava Tube** cuts through inside it, roofed with
+  rock and lit by lava. Volcano bombs (two at a time) land on the rim road's last stretch, which
+  the tube skips.
+- **Lighthouse Point:** a jump off the rim (lava rain on the way down, at chaos), the lighthouse on
+  its point, round it in two corners, the cliff road, and the S back into town.
+
+`tools/gen-paradise.ts` generates it on `tools/lib/lap.ts`; the coastline, sea and volcano are
+`terrain` in the layout, and the dressing is `island.ts`.
+
+## The old "Next, in order" (to 2026-10-03)
+
+- **Getaway** (released in `alpha-1.44`, PR #160; see the top and [CHASE_MODE.md](./CHASE_MODE.md)):
+  Heist is in every lobby. Its own next steps are CHASE_MODE's 2–11 (the road graph first, then
+  online getaways).
+0. **Caldera, the engine** (now): [CALDERA.md](./CALDERA.md)'s build order, from step 0 (the
+   safety net and the first tools). See "Next: Caldera" at the top.
+1. **Milestone 3 (online).** How it all works, end to end, and what Xbox Live does for each
+   part: [ONLINE.md](./ONLINE.md). Done so far:
+   - **Online lobbies** (PR #32, `alpha-1.14`): a lobby is a room (`src/lobby/relay.ts`), the
+     SDK's host applies everyone's actions with `apply`, Start takes everyone into the same race,
+     and the race page keeps the seat.
+   - **Remote cars** (PR #33, `alpha-1.15`): each player's car is an entity at 30 Hz
+     (`src/net/cars.ts`), a remote car in everyone else's sim, predicted to now. Green is on the
+     server's clock.
+   - **The lobby, cleaned up** (PR #36, `alpha-1.17`): Public, Invite only or Private (the host
+     cycles it from the header), only Public listed, your own lobby local and closed when you
+     leave, Quick race without a lobby, a ping per player and the connection type, your plate
+     editable from your seat, a random car when you sit down. As it was signed off:
+     `screenshots/lobby-desktop.png`.
+   - **P2P** (PRs #37 and #38, `alpha-1.18`): each online lobby is also a party (`Lobby.party`,
+     `src/lobby/party.ts`), and the client connects with `lan: { direct: 'party' }`. It shows
+     players each other's IP, without asking.
+   - **The online review** (PR #39, `alpha-1.18`): the SDK host role moving re-tidies the lobby
+     (`host_changed`), room changes run one at a time, a join the menu gives up on leaves, Away
+     for a dropped player, and relay.ts split into wire, party, presence and relay.
+   - **The AIs online** (PR #42, `alpha-1.19`): the SDK's host drives the AIs and sends them as
+     `rival` host entities (`src/net/rivals.ts`), so every screen has the same bots; the next host
+     drives them on.
+   - **The cleanup pass** (PR #43, `alpha-1.20`): everything other players send is checked all
+     through (names are plates and escaped, the lobby in state, map keys, rivals only from the
+     host role, remote poses capped), the race page's join is `net/join.ts` with tests, and the
+     docs caught up with milestone 3.
+   - **The soundtrack** (PRs #44 and #45, `alpha-1.20`/`alpha-1.21`): the owner's tracks, a
+     playlist per race with no repeats, played from https://cdn.gamerelay.io (gamerelay.io's
+     caching proxy for the games' asset store: "Hosted test build" below).
+   - **The race on `relay.tick`** (PR #46, `alpha-1.22`): an online race steps on the SDK's tick, a worker
+     timer that keeps going in hidden tabs (`src/net/stepper.ts`), so a hidden host tab no longer
+     freezes the AIs; drawing stays on `requestAnimationFrame`.
+   - **Traffic, bumps and credit** (PR #47, `alpha-1.22`): the race's clock is the server's (traffic was
+     15–20 m apart between screens), traffic hits are claimed (`src/net/traffic.ts`), and bumps
+     and takedown credit cross screens (`src/net/contact.ts`).
+   - **Results and the vote** (PR #48, `alpha-1.23`): one results table from each car's own screen, a vote
+     on the next map on the results screen (`src/lobby/vote.ts`, `src/net/postrace.ts`), and
+     straight into the next race.
+
+   Next, in order:
+   - **Names over cars** within ~60 m, from player data (PLAN phase 3), and **a net overlay**
+     (pings, routes, entity ages, claims and bumps) to debug online races in playtests.
+   - **Before the repo goes public:** a P2P opt-in (it shows IPs today), a filter on Public lobby
+     names (strangers see them), and seat reservations for invite links if GameRelay adds them.
+     Also: the git history's author email becomes public with it. Rewriting the history is the
+     only fix, and that's the owner's call.
+   - The repo goes public. Then milestone 3b: the neon skin on Downtown (SPEC's City), which is
+     the launch. Touch controls first: phones will be much of the link's traffic.
+4. **Paradise v2 (alpha-1.24):** (the owner now wants Paradise opened up like Avalanche, above;
+   this is for the current layout meanwhile) drive it. Do the Beach Cut and Smugglers' Trail feel
+   like a fair gamble? The hard AI is about even on both (−0.4 s and level). Does the dust feel
+   right running wide onto the beach and the jungle's edge? It isn't checked by eye: the poster
+   scout's cars stand still, so tune `DUST` in `renderer.ts` from a drive. And is the lava rain at
+   chaos enough, or too much?
