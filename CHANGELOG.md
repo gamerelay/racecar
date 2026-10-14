@@ -4,7 +4,7 @@ What changed in each release of racecar, newest first. Releases are git tags on 
 reasons behind each change are in [docs/SPEC.md](./docs/SPEC.md) under "Changed while building",
 and where things stand is [docs/HANDOFF.md](./docs/HANDOFF.md).
 
-## Unreleased
+## v1.0.1: Online fixes
 
 - **Getting into a lobby is more patient:** a lobby or invite link opened before the game has connected (as the page loads, or after the connection dropped), on a slow connection or device, gets 20 seconds to come through (it was 5), and if it still doesn't, the game says so instead of dropping you on the title.
 - **A lobby you can't find says so:** a code that finds nothing (the lobby is private, or it closed), or an invite link to a lobby that has closed, tells you, rather than leaving you on the title without a word.
