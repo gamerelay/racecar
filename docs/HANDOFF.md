@@ -4,11 +4,12 @@ Where racecar stands and what's next, for whoever picks it up (a person or a fre
 The design is [SPEC.md](./SPEC.md): decisions in §17, and what building changed in "Changed while
 building". This file is "where are we"; the spec is "what are we making".
 
-**Last updated:** 2026-10-13. **`v1.0` is tagged and on the hosted build** (2026-10-12, PRs
-#168–#170, merged in that stack: `splash-city-online`, then `public-ready`, then `public-polish`).
-Since then, on `main` and not tagged: **PR #172** (2026-10-13), SDK `0.1.0-alpha.10` and the three
-online fixes the two-browser check below found (CHANGELOG's "Unreleased"; its v1.0 section is
-headed `v1.0` now). In `v1.0`:
+**Last updated:** 2026-10-14. **`v1.0.1` is tagged and on the hosted build** (2026-10-14): **PR
+#172**, SDK `0.1.0-alpha.10` and the three online fixes the two-browser check below found, on top
+of `v1.0` (2026-10-12, PRs #168–#170, merged in that stack: `splash-city-online`, then
+`public-ready`, then `public-polish`). Checked before the deploy: typecheck and `bun run test`
+(833); after it, the live page loads with no console errors, serves SDK alpha.10 and lists
+lobbies. In `v1.0`:
 
 - **Online getaways on Splash City** (#168): Heist is **Splash City**, and an online lobby race on
   it is a getaway for every player (the owner: "Make the default mode chase when you select from
@@ -44,8 +45,6 @@ headed `v1.0` now). In `v1.0`:
   in the IIFE, but with no deps it never reaches that code). P2P now comes up on the race page
   too (on alpha.7 only in the lobby). On this machine, `bun add` of a new SDK needs
   `--min-release-age=0` for a week after its release (`~/.npmrc`).
-- **Not yet on the hosted build:** Z442EE is still `v1.0`. Tag (`v1.1`?) and update it when the
-  owner asks.
 
 From `alpha-1.47` (2026-10-11), still open:
 
@@ -151,21 +150,20 @@ From `alpha-1.47` (2026-10-11), still open:
     the track for an hour. The proxy always sends it.
   - **CORS on the Space** (GET and HEAD from any origin) stays: it lets a build read the Space's
     origin directly too, if the CDN is ever down.
-- **What's there now:** `v1.0` (PRs #168–#170: online getaways, public-ready, host controls and
-  no analytics), updated 2026-10-12, with every track on the CDN. Keep it the one row: update Z442EE in place rather than adding a game.
+- **What's there now:** `v1.0.1` (#172: SDK alpha.10 and the online fixes, on `v1.0`'s online
+  getaways, public-ready, host controls and no analytics), updated 2026-10-14 with
+  `./deploy-hosted.sh`, with every track on the CDN. Keep it the one row: update Z442EE in place rather than adding a game.
 
 ## Next, in order
 
-1. **Release `main`:** #172 (SDK alpha.10 and the online fixes) is untagged; tag it and update
-   Z442EE when the owner asks (top of this file).
-2. **v1.0's open checks and next steps:** its "Not checked yet" and "Next (not in this)" (top of
+1. **v1.0's open checks and next steps:** its "Not checked yet" and "Next (not in this)" (top of
    this file), and the lag check from `alpha-1.47` (above).
-3. **Online, still open:** names over cars within ~60 m and a net overlay (pings, routes, entity
+2. **Online, still open:** names over cars within ~60 m and a net overlay (pings, routes, entity
    ages, claims and bumps) for playtests: neither is built. A filter on Public lobby names
    (`cleanName` in `lobby.ts` only trims and cuts; strangers see them); P2P shows players each
    other's IP, which the Privacy page now says, with no opt-in; seat reservations for invite links
    if GameRelay adds them. Touch controls: phones can't drive yet.
-4. **Per map:**
+3. **Per map:**
    - **Next on Sahara:** reeds; the berms tuned by driving them (358–368 m and 2124 m wrecks).
    - **Next on Paradise** (the owner's order): the finish; maybe more palms on the front road; the
      lava bombs at 3150–3200 m are most of the field's wrecks now.
@@ -178,7 +176,7 @@ From `alpha-1.47` (2026-10-11), still open:
        chime hasn't been heard by ear yet.
      - **Ridge shortcuts:** the AI never takes them; watch whether players' ones need trees or rock.
      - **The AI's corner speeds don't know the bank** (it hasn't mattered on a piste this wide).
-5. **Older asks from the playtests (2026-10-02), still open:**
+4. **Older asks from the playtests (2026-10-02), still open:**
    - **Drive the new feel (alpha-1.25):** boost, Overdrive and the slipstream are tuned against the
       AI only. Does boost now feel worth chasing? Does Overdrive's 6% read on a straight, and the
       "Slingshot!" when you pull out from behind a rival? The numbers are all in the F4 panel.
