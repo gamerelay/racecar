@@ -37,11 +37,15 @@ Newest first. Bugs found by reading code go in HANDOFF's follow-ups; clean-ups i
   swinging from −7° to +5°). The Brute, the fastest car, crosses them quickest. Not a regression:
   the same since before alpha-1.36, and not the tunnel hop (its test passes; the car never left the
   ground in either report).
-- **Fix:** the camera's height and its aim follow the car at one rate (`follow` and `FOLLOW_RATE` in
-  `src/render/camera.ts`), so the view holds its angle and the car moves on the screen instead.
-  Over the owner's two reports: 0.15 → 0.02° and 0.20 → 0.04°.
-- **Guard:** `test/render.test.ts`, "the view doesn't nod with the road" (a road like the one past
-  the tunnel at the Brute's top speed: the old aim tips the view over 0.5°, the eased one not at all).
+- **Fix:** the camera's height and its aim follow the car at one rate (`followCar` and
+  `FOLLOW_RATE` in `src/render/camera.ts`), so the view holds its angle and the car moves on the
+  screen instead. Over the owner's two reports: 0.15 → 0.02° and 0.20 → 0.04°. The aim trails no
+  more than `AIM_TRAIL` (1.5 m): eased with no limit, off a long drop it lost the car off the bottom
+  of the screen.
+- **Guard:** `test/render.test.ts`, "the view doesn't nod with the road" (through `followCar`, as the
+  renderer runs it, on a road like the one past the tunnel at the Brute's top speed: the aim on the
+  car tips the view over 0.5°, eased under 0.05°), and "off a long drop the aim trails no more than
+  AIM_TRAIL".
 
 ## The car hopped at the Rock Tunnel's mouths (2026-10-07, PR #150)
 

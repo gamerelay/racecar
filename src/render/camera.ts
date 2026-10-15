@@ -5,7 +5,7 @@
 // The coupe (0.65 m half height, 2.15 m half length) is the base.
 
 import type { Vec3 } from '../core/content';
-import { damp } from '../core/math';
+import { clamp, damp } from '../core/math';
 import type { BakedProp } from '../core/track/bake';
 import { DECK_CATCH, newCast, type Cast, type Ground, type Piece } from '../core/track/ground';
 
@@ -37,9 +37,30 @@ export function chaseOffset(size: Vec3, speed = 0, boost = 0, out: ChaseOffset =
  */
 export const FOLLOW_RATE = 5;
 
-/** `cur` eased toward `target` over `dt` s at FOLLOW_RATE: the chase camera's height, and its aim's. */
+/**
+ * How far (m) the chase camera's aim may trail the height it wants. Eased, the aim trails by the
+ * car's climb or fall speed over FOLLOW_RATE: on the road under this (the owner's Riviera reports
+ * nod the same with it), but off a long drop the car slid off the bottom of the screen. Capped, a
+ * 1.5 s fall frames the car within 5° of the aim on the car.
+ */
+export const AIM_TRAIL = 1.5;
+
+/** The chase camera's height (`cam`) and the height it looks at (`aim`). */
+export interface ChaseHeights {
+  cam: number;
+  aim: number;
+}
+
+/** `cur` eased toward `target` over `dt` s at FOLLOW_RATE. */
 export function follow(cur: number, target: number, dt: number): number {
   return cur + (target - cur) * damp(FOLLOW_RATE, dt);
+}
+
+/** The chase camera's height and its aim, one frame on toward `camY` and `aimY`: together, the aim no further behind than AIM_TRAIL. */
+export function followCar(h: ChaseHeights, camY: number, aimY: number, dt: number): ChaseHeights {
+  h.cam = follow(h.cam, camY, dt);
+  h.aim = clamp(follow(h.aim, aimY, dt), aimY - AIM_TRAIL, aimY + AIM_TRAIL);
+  return h;
 }
 
 /** Looking back: in front of the nose (the coupe's 5 m from center), high enough to see over the roof. */
