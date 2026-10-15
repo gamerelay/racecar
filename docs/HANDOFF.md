@@ -154,20 +154,20 @@ From `alpha-1.47` (2026-10-11), still open:
     the track for an hour. The proxy always sends it.
   - **CORS on the Space** (GET and HEAD from any origin) stays: it lets a build read the Space's
     origin directly too, if the CDN is ever down.
-- **What's there now:** `main` at `35122ca` (`v1.0.1` plus #174: an agent's test bot (GameRelay's
-  `add_bot`) takes an AI car in an online race this screen hosts, on SDK `0.1.0-alpha.11`
-  (`src/net/bots.ts`, the sample brain `bots/follow-the-road.js`); #175: Esc from Create gives up the
-  lobby being made, and a lobby picked after it gets you in; #176: the chase camera's aim eases
-  with its height, so the view doesn't nod with the road; #177: with drift held, a steer key starts
-  the drift on the next tick; #178: a steer key starts at `KEY_ONSET` (0.3), so steering takes
-  sooner on the keyboard; #179: the title's foot shows the build's version (`git describe` at build
-  time); untagged, in CHANGELOG's "Unreleased"), updated 2026-10-15 with `./deploy-hosted.sh`
-  (`v1.0.1-26-g35122ca`), with every track on the CDN. Checked after: the live page serves that
-  version and alpha.11, shows the version on the title, lists lobbies, and logs no errors through
-  a reload. Bots only play where the host is a bot host (the game on localhost, or `botHost`), so
-  the hosted build never runs one. #174 was tried end to end before the merge: the dev build on
-  production GameRelay, our own invite-only lobby, `add_bot`/`update_bot`/`remove_bot` through the
-  account MCP (its description has the run).
+- **What's there now:** `main` at `b879e9b`: `v1.0.1` plus #174–#179 (test bots on SDK alpha.11,
+  Esc from Create, the camera's aim, drift onset, keyboard steering, the build's version on the
+  title) and **#180**: Time trial with an online lap board per layout (`lap:<map>.<layout>`, lower
+  first), and names others see (plates, online lobby names) checked with GameRelay's moderation
+  through SDK **0.1.0-alpha.12** (`relay.moderate()`, or `GameRelay.moderate()` before connecting;
+  `nameCheck` in `lobby/relay.ts`). Untagged, in CHANGELOG's "Unreleased". Updated 2026-10-15 with
+  `./deploy-hosted.sh` (`v1.0.1-33-gb879e9b`). Checked after: the live page serves alpha.12 and the
+  version, the title has Time trial, and the stored plate's check reached `/v1/moderate` (200).
+  On the GameRelay side (2026-10-15): the racecar instance's "Name moderation" is on, and each lap
+  board's minimum score is its layout's AI lap floor from `bun tools/validate.ts --ai`
+  (downtown 57.88, backroads 62.87, paradise-open 67.37, paradise 70.3, sahara 78.77, avalanche
+  93.07, coastal 106.22 s). Retuning a layout means setting its board's minimum again
+  (`set_leaderboard_rules`). Bots only play where the host is a bot host (the game on localhost,
+  or `botHost`), so the hosted build never runs one.
   `v1.0.1` is #172 (SDK alpha.10 and the online fixes, on `v1.0`'s online getaways,
   public-ready, host controls and no analytics). Keep it the one row: update Z442EE in place rather than adding a game.
 
