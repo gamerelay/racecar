@@ -101,6 +101,12 @@ export class Sim implements SimState {
   shoulderSurface: number;
   readonly drivers: (FollowDriver | null)[] = [];
   readonly racers: (RacerDriver | null)[] = [];
+  /**
+   * Controls set from outside for a car (a bot's brain, net/bots.ts): ahead of the AI, behind cops
+   * and getaways. Not part of replays or fingerprints: only an online host sets one, and its AI cars
+   * are host entities everyone else follows.
+   */
+  readonly controlOverrides: (Controls | null)[] = [];
   readonly cops: (CopDriver | null)[] = [];
   /** A getaway's rules (rules/getaway.ts), when this race is one: it sets itself here. */
   getaway: Getaway | null = null;
@@ -516,6 +522,11 @@ export class Sim implements SimState {
     this.tick++;
   }
 
+  /** Drive car `i` with `c` from outside (a bot), or hand it back with null. */
+  setOverride(i: number, c: Controls | null): void {
+    this.controlOverrides[i] = c;
+  }
+
   private controlsFor(i: number, input: readonly (Controls | undefined)[]): Controls {
     const cop = this.cops[i];
     if (cop) return driveCop(this, i, cop, this.controls[i]);
@@ -527,6 +538,8 @@ export class Sim implements SimState {
       c.boost = c.drift = c.reset = c.lookBack = c.horn = false;
       return c;
     }
+    const o = this.controlOverrides[i];
+    if (o) return Object.assign(this.controls[i], o);
     const f = this.drivers[i];
     if (f) return driveFollow(this, i, f, this.controls[i]);
     const r = this.racers[i];
