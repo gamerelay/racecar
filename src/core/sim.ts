@@ -35,6 +35,8 @@ import { planWeather, weatherAt, type Fall, type WeatherOption, type WeatherPlan
 
 export const TICK_RATE = 60;
 export const MAX_CARS = 32;
+/** A bot's controls hold this many ticks (a quarter second; its brain answers about 30 times a second). */
+export const OVERRIDE_HOLD = Math.round(TICK_RATE / 4);
 
 export interface SimOptions {
   seed: number;
@@ -103,10 +105,13 @@ export class Sim implements SimState {
   readonly racers: (RacerDriver | null)[] = [];
   /**
    * Controls set from outside for a car (a bot's brain, net/bots.ts): ahead of the AI, behind cops
-   * and getaways. Not part of replays or fingerprints: only an online host sets one, and its AI cars
-   * are host entities everyone else follows.
+   * and getaways. Each set holds OVERRIDE_HOLD ticks; with nothing newer, the car coasts (it's still
+   * the bot's, not the AI's). Not recorded: telemetry and F8 reports have step()'s inputs only, so a
+   * race a bot drove in doesn't replay (bots play on their host: the game on localhost, or botHost).
    */
-  readonly controlOverrides: (Controls | null)[] = [];
+  readonly controlOverrides: (Controls | null)[] = Array.from({ length: MAX_CARS }, () => null);
+  /** The tick each car's override holds until (setOverride). */
+  private readonly overrideUntil = new Float64Array(MAX_CARS);
   readonly cops: (CopDriver | null)[] = [];
   /** A getaway's rules (rules/getaway.ts), when this race is one: it sets itself here. */
   getaway: Getaway | null = null;
@@ -522,9 +527,14 @@ export class Sim implements SimState {
     this.tick++;
   }
 
-  /** Drive car `i` with `c` from outside (a bot), or hand it back with null. */
-  setOverride(i: number, c: Controls | null): void {
+  /**
+   * Drive car `i` with `c` from outside (a bot) for the next `hold` ticks, or hand it back with null.
+   * Past them with nothing newer, it coasts: a brain that stopped answering (it returned nothing,
+   * threw, or its tab's timer slowed) doesn't hold its last steer for the rest of the race.
+   */
+  setOverride(i: number, c: Controls | null, hold = OVERRIDE_HOLD): void {
     this.controlOverrides[i] = c;
+    this.overrideUntil[i] = this.tick + hold;
   }
 
   private controlsFor(i: number, input: readonly (Controls | undefined)[]): Controls {
@@ -539,7 +549,13 @@ export class Sim implements SimState {
       return c;
     }
     const o = this.controlOverrides[i];
-    if (o) return Object.assign(this.controls[i], o);
+    if (o) {
+      const c = this.controls[i];
+      if (this.tick < this.overrideUntil[i]) return Object.assign(c, o);
+      c.steer = c.throttle = c.brake = 0;
+      c.boost = c.drift = c.reset = c.lookBack = c.horn = false;
+      return c;
+    }
     const f = this.drivers[i];
     if (f) return driveFollow(this, i, f, this.controls[i]);
     const r = this.racers[i];

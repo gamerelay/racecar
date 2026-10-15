@@ -9,5 +9,6 @@
     steer: Math.max(-1, Math.min(1, turn * 2.5 - g.lateral / Math.max(4, g.halfWidth) * 0.3)),
     throttle: g.phase === 'countdown' ? 0 : tight && g.speed > 25 ? 0.4 : 1,
     brake: tight && g.speed > 35 ? 0.5 : 0,
+    reset: !g.wrecked && g.stuck > 2.5, // as the AI does: back on the road
   };
 }
