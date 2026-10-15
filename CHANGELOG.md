@@ -6,9 +6,11 @@ and where things stand is [docs/HANDOFF.md](./docs/HANDOFF.md).
 
 ## Unreleased
 
+- **Test bots for AI assistants:** an assistant using GameRelay's `add_bot` can put a test car into an online race you host from the game on your own machine. It takes one of the AI cars and drives it with a small program the assistant writes, and the AI takes the car back when the bot leaves. Players never see a difference: it's an AI car to them. Built on GameRelay's SDK 0.1.0-alpha.11.
+- **Steering takes sooner on the keyboard:** a steer key now turns the car from the first frame, then eases on to full lock in about a tenth of a second. It used to build up from nothing over a fifth of a second, which felt like a slight delay before the car turned.
+- **The build's version on the title:** small, next to Credits, so a report can say which build it came from.
 - **Time trial, with an online leaderboard:** a new Time trial on the title puts you alone on your lobby's map (clear weather, no traffic or mayhem). Every new best lap goes on that layout's online board, and the results show the top ten with you on it.
-- **Names others see are checked online:** a new plate and an online lobby's name go through GameRelay's name check, which knows lookalike letters and leetspeak and the terms the game blocks. A plate saved before that, which the check now refuses, is swapped for a fresh RC plate (the game tells you). Online lobby names are now up to 24 characters.
-
+- **Names others see are checked online:** a new plate and an online lobby's name go through GameRelay's name moderation (SDK 0.1.0-alpha.12's `relay.moderate()`), which knows lookalike letters and leetspeak and the terms the game blocks. A plate saved before that, which the check now refuses, is swapped for a fresh RC plate (the game tells you). Online lobby names are now up to 24 characters.
 - **Drifts start sooner on the keyboard:** hold drift and press a steer key, and the drift starts at once. It used to wait about an eighth of a second while the steering eased in.
 - **A steadier camera:** the view no longer nods with every rise and dip in the road. It was most noticeable on Riviera past the Rock Tunnel, and in the Brute. The camera now eases where it looks along with its height, so the car moves on the screen instead.
 - **Esc while a lobby is being made, then another lobby:** if you backed out of Create (or of a slow invite link) and picked a lobby from the list before the first one came through, the game dropped you on the title instead of taking you in. It takes you in now, and a lobby you backed out of making closes as soon as it's made.

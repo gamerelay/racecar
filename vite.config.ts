@@ -4,6 +4,7 @@
 //   POST /__editor/save  {path, layout}    → writes a layout under content/maps (the editor)
 //   POST /__poster/save  {name, data}      → writes a PNG or JPEG (a data URL) into marketing/ (poster.html)
 
+import { execSync } from 'node:child_process';
 import { appendFileSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve, sep } from 'node:path';
 import type { IncomingMessage } from 'node:http';
@@ -81,9 +82,18 @@ function loadingLogo(): Plugin {
   };
 }
 
+/** The build's version, from git (`v1.0.1`, or `v1.0.1-18-g298ba93` past the tag): the title's foot shows it. */
+function buildVersion(): string {
+  try {
+    return execSync('git describe --tags --always --dirty', { cwd: root, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim();
+  } catch {
+    return 'dev';
+  }
+}
+
 export default defineConfig({
   plugins: [devEndpoints(), loadingLogo()],
-  define: { __BUILD_TIME__: JSON.stringify(Date.now().toString(36)) },
+  define: { __BUILD_TIME__: JSON.stringify(Date.now().toString(36)), __BUILD_VERSION__: JSON.stringify(buildVersion()) },
   server: { port: 5178, watch: { ignored: ['**/telemetry/**', '**/marketing/**'] } },
   build: {
     target: 'es2022',

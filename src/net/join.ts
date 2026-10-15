@@ -6,6 +6,7 @@
 import type { Sim } from '../core/sim';
 import { NetCars, type NetRoom } from './cars';
 import { NetRivals } from './rivals';
+import { racecarBots } from './bots';
 import { NetCops } from './cops';
 import type { Tick } from './stepper';
 import { NetBreakables } from './breakables';
@@ -70,6 +71,9 @@ export async function joinRace(j: RaceJoin): Promise<boolean> {
     const race = `${j.seed}:${j.at ?? 0}`;
     const net = new NetCars(room, now, sim, j.me, j.remote, ownClock ? undefined : j.at, race);
     const rivals = j.aiSeats.size ? new NetRivals(room, now, sim, j.aiSeats, race) : null;
+    // An agent's test cars (add_bot): they take AI cars here while this screen hosts. They stop with
+    // the page: a race's net layers last until it navigates away (the next race is a new page).
+    if (j.aiSeats.size) room.bots?.(racecarBots(sim, j.aiSeats));
     const cops = sim.getaway ? new NetCops(room, now, sim, race) : null;
     joined = true;
     // Traffic hits, bumps and credit say when on the race's clock: a race on its own clock (the

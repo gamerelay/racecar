@@ -4,8 +4,9 @@ Where racecar stands and what's next, for whoever picks it up (a person or a fre
 The design is [SPEC.md](./SPEC.md): decisions in §17, and what building changed in "Changed while
 building". This file is "where are we"; the spec is "what are we making".
 
-**Last updated:** 2026-10-14. **The hosted build is `main` at `a7d79a3`:** `v1.0.1` plus **PR
-#175** (Esc from Create; "Hosted test build" below). **`v1.0.1` is tagged** (2026-10-14): **PR
+**Last updated:** 2026-10-15. **The hosted build is `main` at `35122ca`:** `v1.0.1` plus **PRs
+#174–#179** (GameRelay's test bots and SDK `0.1.0-alpha.11`, Esc from Create, the camera, drift and
+steering on the keyboard, the version on the title; "Hosted test build" below). **`v1.0.1` is tagged** (2026-10-14): **PR
 #172**, SDK `0.1.0-alpha.10` and the three online fixes the two-browser check below found, on top
 of `v1.0` (2026-10-12, PRs #168–#170, merged in that stack: `splash-city-online`, then
 `public-ready`, then `public-polish`). Checked before the deploy: typecheck and `bun run test`
@@ -153,11 +154,20 @@ From `alpha-1.47` (2026-10-11), still open:
     the track for an hour. The proxy always sends it.
   - **CORS on the Space** (GET and HEAD from any origin) stays: it lets a build read the Space's
     origin directly too, if the CDN is ever down.
-- **What's there now:** `main` at `6430f89` (`v1.0.1` plus #175: Esc from Create gives up the
+- **What's there now:** `main` at `35122ca` (`v1.0.1` plus #174: an agent's test bot (GameRelay's
+  `add_bot`) takes an AI car in an online race this screen hosts, on SDK `0.1.0-alpha.11`
+  (`src/net/bots.ts`, the sample brain `bots/follow-the-road.js`); #175: Esc from Create gives up the
   lobby being made, and a lobby picked after it gets you in; #176: the chase camera's aim eases
   with its height, so the view doesn't nod with the road; #177: with drift held, a steer key starts
-  the drift on the next tick; untagged, in CHANGELOG's "Unreleased"), updated 2026-10-14 with
-  `./deploy-hosted.sh`, with every track on the CDN.
+  the drift on the next tick; #178: a steer key starts at `KEY_ONSET` (0.3), so steering takes
+  sooner on the keyboard; #179: the title's foot shows the build's version (`git describe` at build
+  time); untagged, in CHANGELOG's "Unreleased"), updated 2026-10-15 with `./deploy-hosted.sh`
+  (`v1.0.1-26-g35122ca`), with every track on the CDN. Checked after: the live page serves that
+  version and alpha.11, shows the version on the title, lists lobbies, and logs no errors through
+  a reload. Bots only play where the host is a bot host (the game on localhost, or `botHost`), so
+  the hosted build never runs one. #174 was tried end to end before the merge: the dev build on
+  production GameRelay, our own invite-only lobby, `add_bot`/`update_bot`/`remove_bot` through the
+  account MCP (its description has the run).
   `v1.0.1` is #172 (SDK alpha.10 and the online fixes, on `v1.0`'s online getaways,
   public-ready, host controls and no analytics). Keep it the one row: update Z442EE in place rather than adding a game.
 

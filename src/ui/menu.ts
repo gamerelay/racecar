@@ -75,6 +75,8 @@ const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
 const CHEVRON = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 3l10 9-10 9"/></svg>';
 
 /** A name as a little license plate (the results use the same chip). */
+/** The build's version (vite.config.ts), on the title's foot; `dev` where Vite didn't build it (the tests). */
+const BUILD_VERSION = typeof __BUILD_VERSION__ === 'string' ? __BUILD_VERSION__ : 'dev';
 export const plateChip = (name: string) => `<span class="plate">${esc(name)}</span>`;
 
 /**
@@ -414,7 +416,7 @@ export class Menu {
         <div class="bigs"><button id="mSolo" class="big">Single player</button><button id="mCreate" class="big">Create lobby</button></div>
         <div class="row"><button id="mQuick" class="ghost">Quick race</button><button id="mTrial" class="ghost">Time trial</button><button id="mFree" class="ghost">Free drive</button><button id="mSettings" class="ghost">Settings</button></div>
         <p class="muted">Every race is a lobby, and bots fill the open seats. Quick race is you and seven bots on a random map; Time trial puts your best lap on the online board. Drift (Shift / RB) to take corners tighter; air, near misses and the oncoming lane fill boost.</p>
-        <div class="titleFoot"><a href="?page=privacy" id="mPrivacy">Privacy</a> · <a href="?page=terms" id="mTerms">Terms</a><button id="mCredits" class="creditsBox">Credits</button></div>
+        <div class="titleFoot"><a href="?page=privacy" id="mPrivacy">Privacy</a> · <a href="?page=terms" id="mTerms">Terms</a><span class="buildVersion" title="This build's version">${esc(BUILD_VERSION)}</span><button id="mCredits" class="creditsBox">Credits</button></div>
       </div>`,
       lobbies.length ? `lobby-${lobbies[0].id}` : 'mCreate',
     );

@@ -11,6 +11,7 @@
 // put back where its owner says on the next step, and their own sim bumps it there. Nor does your
 // sim wreck it: the victim decides.
 
+import type { BotAdapter } from '@gamerelay/sdk';
 import type { RemotePose, Sim } from '../core/sim';
 import { clamp, finiteOr } from './check';
 import { syncClock } from './clock';
@@ -48,6 +49,8 @@ export interface NetRoom {
   /** To everyone, `'host'` or one player; your own handler too unless `echo: false`. */
   emit(type: string, data?: unknown, options?: { to?: string; echo?: boolean }): void;
   on(type: string, handler: (data: unknown, from: string) => void): () => void;
+  /** An agent's bots, played here while this tab is their host (net/bots.ts). Not on the tests' rooms. */
+  bots?(adapter: BotAdapter): () => void;
 }
 
 /** Cars go out this often a second (SPEC §10: 30 Hz). */
