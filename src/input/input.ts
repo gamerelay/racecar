@@ -1,7 +1,7 @@
 // Keyboard and gamepads → one Controls object (SPEC §13). Gamepads use the standard mapping:
 // left stick steers, RT/LT throttle and brake, A boost, RB (or X) drift, B look back, Y reset,
-// Start pause, Select+Start "something felt wrong". Keyboard steering eases in and out so it
-// isn't all-or-nothing.
+// Start pause, Select+Start "something felt wrong". Keyboard steering starts at KEY_ONSET and eases
+// in and out from there, so it isn't all-or-nothing.
 
 import type { Controls } from '../core/controls';
 import { approach, clamp } from '../core/math';
@@ -60,6 +60,14 @@ export function routedKey(code: string): boolean {
 }
 
 export type InputDevice = 'keyboard' | 'gamepad' | 'touch';
+
+/**
+ * A steer key from straight starts the steer here, then eases on to full lock (7/s: about 100 ms).
+ * Eased from 0 at 4.5/s, the Brute at 140 km/h took 10 ticks to turn 3°, a pad's full lock 5 (the
+ * owner, 2026-10-14: "a slight initial delay"). Under cruiseSteer, so a one-frame tap keeps the
+ * straight-line build climbing (a longer one fades it from its second frame, as any steer past it does).
+ */
+export const KEY_ONSET = 0.3;
 
 export class Input {
   private keySteer = 0;
@@ -128,8 +136,12 @@ export class Input {
   /** Reads every device into `out` for this frame. `dt` in seconds (for keyboard easing). */
   poll(out: Controls, dt: number): Controls {
     const want = (held.right ? 1 : 0) - (held.left ? 1 : 0);
-    const rate = want === 0 ? 7 : Math.sign(want) !== Math.sign(this.keySteer) ? 9 : 4.5;
+    const rate = want * this.keySteer < 0 ? 9 : 7;
     this.keySteer = approach(this.keySteer, want, rate * dt);
+    // From straight, a steer key starts at KEY_ONSET; turning the other way, it eases to the middle
+    // at 9/s, then steps out to KEY_ONSET on the other side.
+    const along = this.keySteer * want;
+    if (want !== 0 && along >= 0) this.keySteer = want * Math.max(KEY_ONSET, along);
     let steer = this.keySteer;
     let throttle = held.up ? 1 : 0;
     let brake = held.down ? 1 : 0;
@@ -163,7 +175,8 @@ export class Input {
     // Drift held (a key or the pad's) and a steer key down, ready to drift: straight past the
     // drift's threshold, so it starts on the next tick. Eased up to it from straight, the drift
     // came 7–9 ticks after the key (the owner, 2026-10-14: the drift "slower to react", pressing
-    // drift then steering). Mid-drift, counter-steering eases as before.
+    // drift then steering). Mid-drift, counter-steering eases as any steer key does (KEY_ONSET).
+    // (Not ready, a steer key from straight now takes 3 ticks to the threshold.)
     if (this.readyToDrift && drift && want !== 0 && this.keySteer * want < TUNING.driftMinSteer) {
       this.keySteer = want * Math.min(1, TUNING.driftMinSteer + 0.05);
       if (Math.abs(this.keySteer) > Math.abs(steer)) steer = this.keySteer;
