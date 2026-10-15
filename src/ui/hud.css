@@ -440,7 +440,8 @@ svg.thumb .end { fill: var(--sun); stroke: var(--ink); stroke-width: 1; }
 .wordmark.small { font-size: 56px; }
 .titleFoot { display: flex; align-items: center; gap: 8px; margin-top: 8px; font-size: 13px; color: var(--muted); }
 .titleFoot a { color: inherit; }
-.titleFoot .creditsBox { margin-left: auto; background: var(--ink); color: var(--outline); border: 0; padding: 4px 10px; font-size: 12px; }
+.titleFoot .buildVersion { margin-left: auto; font-size: 11px; opacity: 0.7; font-variant-numeric: tabular-nums; }
+.titleFoot .creditsBox { background: var(--ink); color: var(--outline); border: 0; padding: 4px 10px; font-size: 12px; }
 @media (prefers-reduced-motion: reduce) { .pgGrid, .pgCar { animation: none; } .pgCar { display: none; } }
 .card.settings h2 { margin-top: 18px; }
 .card.settings .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px 14px; }

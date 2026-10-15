@@ -6,6 +6,8 @@ and where things stand is [docs/HANDOFF.md](./docs/HANDOFF.md).
 
 ## Unreleased
 
+- **Steering takes sooner on the keyboard:** a steer key now turns the car from the first frame, then eases on to full lock in about a tenth of a second. It used to build up from nothing over a fifth of a second, which felt like a slight delay before the car turned.
+- **The build's version on the title:** small, next to Credits, so a report can say which build it came from.
 - **Drifts start sooner on the keyboard:** hold drift and press a steer key, and the drift starts at once. It used to wait about an eighth of a second while the steering eased in.
 - **A steadier camera:** the view no longer nods with every rise and dip in the road. It was most noticeable on Riviera past the Rock Tunnel, and in the Brute. The camera now eases where it looks along with its height, so the car moves on the screen instead.
 - **Esc while a lobby is being made, then another lobby:** if you backed out of Create (or of a slow invite link) and picked a lobby from the list before the first one came through, the game dropped you on the title instead of taking you in. It takes you in now, and a lobby you backed out of making closes as soon as it's made.
