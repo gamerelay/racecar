@@ -26,7 +26,7 @@ Newest first. Bugs found by reading code go in HANDOFF's follow-ups; clean-ups i
    `follow`, `slopeRise`, the guards; the aim from `look`) and measure the view's angle, not only the
    car's height.
 
-## The view nodded with the road (2026-10-14)
+## The view nodded with the road (2026-10-14, PR #176)
 
 - **Looked like:** on Riviera, a bob or chop while driving, "more visible with the Brute", worst
   past the Rock Tunnel and when drifting or on the Stairs. Taken at first for the tunnel hop below
