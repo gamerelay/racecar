@@ -24,6 +24,13 @@ and the page; its bugs went to HANDOFF's "Smaller follow-ups").
 The net layer grew one module per problem during milestone 3 (cars, rivals, stepper, traffic,
 contact, join). It works and each part is tested, but some patterns repeat.
 
+- **What the menu wants, by request, not by value.** `RelayBackend.wanted` holds a create's own
+  symbol, a link or a code, and `abandon(id)` gives up whatever equals `id`. Two asks with the same
+  value are one: a link too slow to wait for, then the same lobby from the list, ends on the title,
+  as `Lobbies.joinLink`'s late `abandon(code)` gives up the list's pick too. A token per request
+  (get, joinLink, create), with `abandon` going by token, would cover every entry point at once.
+  `rejoin`'s discard could then use `leave(room)` too. *Small.* (From PR #175's reviews.)
+
 - **One name for a car across screens.** contact.ts names cars `p:<player id>` / `s:<seat>`
   (`carNames`); rivals.ts goes by seat, cars.ts by owner id, and join.ts holds the maps. One
   `CarNames` made in join.ts and handed to every layer would remove the parallel lookups, and

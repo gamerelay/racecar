@@ -249,11 +249,13 @@ export class RelayBackend implements LobbyBackend {
     // would pull its old lobby's players in.
     await this.party.leave();
     const visibility = init.visibility ?? 'public';
+    // Given up on while it left the last one: still nothing made.
+    if (this.wanted !== mark) throw new Error(GIVEN_UP);
     // Invite only: nobody gets in by guessing the 4-letter code, only by the lobby's link.
     const room = await relay.createRoom({ maxPlayers: SEATS, tag: TAG, public: visibility === 'public', linkOnly: visibility !== 'public' });
     const party = this.wanted === mark ? await this.party.create() : undefined;
-    // Another lobby asked for while it was made (Esc, then one from the list): out of it (and its
-    // party) at once, unlisted and never written, so nobody finds it in the list on the way out.
+    // Given up on while it was made (Esc, maybe then another lobby): out of it (and its party) at
+    // once, unlisted and never written, so nobody finds it in the list on the way out.
     if (this.wanted !== mark) {
       await this.leave(room);
       throw new Error(GIVEN_UP);
@@ -381,13 +383,13 @@ export class RelayBackend implements LobbyBackend {
     this.refusals.delete(id);
     const room = await relay.joinRoom(id).catch(this.refused(id, 'joining a lobby failed', 'missing'));
     if (!room) return null;
-    this.attach(room);
-    // Given up on while it joined (Esc, or too slow for the screen): out again, before anything
-    // after it runs, so this leave can only be this room's.
+    // Given up on while it joined (Esc, or too slow for the screen): out again, never attached,
+    // before anything after it runs, so this leave can only be this room's.
     if (this.wanted !== id) {
-      await this.leaveRoom();
+      await this.leave(room);
       return null;
     }
+    this.attach(room);
     return room;
   }
 
@@ -511,6 +513,11 @@ export class RelayBackend implements LobbyBackend {
     this.room = null;
     if (this.listingTimer) clearTimeout(this.listingTimer);
     this.listingTimer = null;
+  }
+
+  /** Esc from Create: the create in flight, if any, is given up (see `createNow`). */
+  abandonCreate(): void {
+    if (typeof this.wanted === 'symbol') this.wanted = null;
   }
 
   private async leaveRoom(): Promise<void> {

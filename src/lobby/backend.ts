@@ -30,6 +30,8 @@ export interface LobbyBackend {
   away?(id: string, player: string): boolean;
   /** Online: the screens no longer want lobby `id` (a join given up on): out of it, now or when the join lands. */
   abandon?(id: string): Promise<void>;
+  /** Online: the screens no longer want the lobby being made (Esc from Create): it's left unwritten and unlisted when it lands, and the create rejects. */
+  abandonCreate?(): void;
   /** Online: whether the connection to the server is up now (a join then needn't connect first). */
   ready?(): boolean;
   /** Online: lobby `id`'s short link (`gamerelay.io/<game>/<link>`), or null. */
@@ -247,6 +249,10 @@ export class Lobbies implements LobbyBackend {
 
   async abandon(id: string): Promise<void> {
     await this.of(id)?.abandon?.(id);
+  }
+
+  abandonCreate(): void {
+    this.online?.abandonCreate?.();
   }
 
   async shareLink(id: string): Promise<string | null> {

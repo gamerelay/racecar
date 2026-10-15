@@ -291,17 +291,23 @@ const player = (name: string) => ({ id: '', name, car: 'coupe', paint: 0 });
 const linkOf = (code: string) => code.split('').reverse().join('').padEnd(11, 'x');
 const settle = () => new Promise((r) => setTimeout(r, 0));
 
-/** Holds the next call to `obj[method]` until the returned `land` is called (a server slow to answer); later calls go straight through. */
-function hold<T extends object, K extends keyof T>(obj: T, method: K): () => void {
+/**
+ * Holds the next call to `obj[method]` (a server slow to answer) until `land` is called; later calls
+ * go straight through. `reached` resolves once that call has been made.
+ */
+function hold<T extends object, K extends keyof T>(obj: T, method: K): { land: () => void; reached: Promise<void> } {
   let land!: () => void;
+  let reach!: () => void;
   const landed = new Promise<void>((r) => (land = r));
+  const reached = new Promise<void>((r) => (reach = r));
   const real = obj[method] as (...a: unknown[]) => Promise<unknown>;
   (obj as Record<K, unknown>)[method] = async (...a: unknown[]) => {
     (obj as Record<K, unknown>)[method] = real;
+    reach();
     await landed;
     return real.apply(obj, a);
   };
-  return land;
+  return { land, reached };
 }
 
 function players(hub: Hub, ...ids: string[]) {
@@ -802,18 +808,21 @@ describe('online lobbies', () => {
     expect(side.why(lobby.id)).toBeNull();
   });
 
-  test("a create given up on (Esc to the title) is left once it lands, and closes", async () => {
+  test("a create given up on (Esc to the title) is left as soon as it's made, never written or listed", async () => {
     const hub = new Hub();
     const [bo] = players(hub, 'bo');
-    const land = hold(bo.relay, 'createRoom');
-    const creating = bo.backend.create(player('BO'), {});
-    await settle();
+    const { land, reached } = hold(bo.relay, 'createParty');
+    const creating = bo.backend.create(player('BO'), {}).catch(() => null);
+    await reached;
+    // The room's made, its party on the way: Esc, as the Create screen's back() sends it.
+    const room = hub.rooms.get(hub.made.at(-1)!.code)!;
+    bo.backend.abandonCreate();
     land();
-    const made = await creating;
-    // The menu, back on the title, leaves it as cGo does.
-    await bo.backend.abandon(made.id);
+    expect(await creating).toBeNull();
+    expect(room.state).toEqual({});
+    expect(room.listing).toEqual({});
+    expect(hub.rooms.has(room.code)).toBe(false);
     expect(bo.relay.room).toBeNull();
-    expect(hub.rooms.has(made.id)).toBe(false);
   });
 
   // Esc, then their lobby from the list, while Bo's is still being made: its room, or its party.
@@ -822,9 +831,9 @@ describe('online lobbies', () => {
       const hub = new Hub();
       const [ada, bo] = players(hub, 'ada', 'bo');
       const theirs = await ada.backend.create(player('ADA'), {});
-      const land = hold(bo.relay, slow);
+      const { land, reached } = hold(bo.relay, slow);
       const creating = bo.backend.create(player('BO'), {}).catch(() => null);
-      await new Promise((r) => setTimeout(r, 5));
+      await reached;
       const joining = bo.backend.get(theirs.id);
       land();
       // Given up, so not made (the menu's catch makes it null); out of it already, never written.
@@ -856,7 +865,7 @@ describe('online lobbies', () => {
     const [ada, cy, bo] = players(hub, 'ada', 'cy', 'bo');
     const linked = await ada.backend.create(player('ADA'), { visibility: 'invite' });
     const listed = await cy.backend.create(player('CY'), {});
-    const land = hold(bo.relay, 'joinLink');
+    const { land } = hold(bo.relay, 'joinLink');
     // The menu's way in: Lobbies gives up on the link (and its lobby, once it lands) by itself.
     const side = new Lobbies(new LocalBackend(null), bo.backend, 20, 20);
     expect(await side.joinLink(linkOf(linked.id))).toBeNull();
