@@ -10,7 +10,7 @@ import type { Sim } from '../core/sim';
 import { newHit, project, sampleAt } from '../core/track/query';
 import type { BakedProp, Track } from '../core/track/bake';
 import { Particles } from './fx';
-import { cameraCeiling, cameraFloor, chaseOffset, clearView, GROUND_CLEAR, indoorAt, inRock, lookBackOffset, slopeRise, slopeView, wreckView, type ChaseOffset } from './camera';
+import { cameraCeiling, cameraFloor, chaseOffset, clearView, followCar, GROUND_CLEAR, indoorAt, inRock, lookBackOffset, slopeRise, slopeView, wreckView, type ChaseHeights, type ChaseOffset } from './camera';
 import { InkPass } from './ink';
 import { PostPass } from './post';
 import { Showroom } from './showroom';
@@ -165,6 +165,8 @@ export class GameRenderer {
   /** Smoothed distance behind the car (the camera follows in the car's frame, so speed doesn't stretch it). */
   private camDist = 4.7;
   private look = new Vector3();
+  /** The chase camera's height and the height it looks at, eased together (camera.ts followCar). */
+  private chase: ChaseHeights = { cam: 0, aim: 0 };
   private orbit = 0;
   private lastWreck = false;
   opts: RenderOptions;
@@ -318,6 +320,7 @@ export class GameRenderer {
     const o = chaseOffset(this.sim.classes[c.cls[i]].size, 0, 0, this.offset);
     this.camDist = o.dist;
     this.camPos.set(c.x[i] - Math.sin(c.h[i]) * o.dist, c.y[i] + o.height, c.z[i] - Math.cos(c.h[i]) * o.dist);
+    this.chase.aim = c.y[i] + o.lookUp;
     this.camera.position.copy(this.camPos);
   }
 
@@ -455,6 +458,7 @@ export class GameRenderer {
       // (Out through a tunnel's rock, it still sees the car: updateIndoor lights it as the car's.)
       wreckView(this.sim.track.ground, this.buildingWalls, car.x, car.y, car.z, this.orbit, cam.position);
       this.look.copy(car);
+      this.chase.aim = car.y;
       this.camPos.copy(cam.position);
       this.camHeading = c.h[i];
     } else {
@@ -469,6 +473,7 @@ export class GameRenderer {
         const o = lookBackOffset(size, this.offset);
         cam.position.set(car.x + fx * o.dist, car.y + o.height, car.z + fz * o.dist);
         this.look.set(car.x - fx * o.ahead, car.y + o.lookUp, car.z - fz * o.ahead);
+        this.chase.aim = this.look.y;
       } else {
         const o = chaseOffset(size, speed, this.boostVis, this.offset);
         // Smooth the distance, not the world position: chasing a world point lags by about speed/rate
@@ -489,14 +494,16 @@ export class GameRenderer {
           height += v.lift;
           lookUp += v.look;
         }
-        this.camPos.y += (car.y + height - this.camPos.y) * damp(5, dt);
+        // From where last frame's guards left the camera.
+        this.chase.cam = this.camPos.y;
+        this.camPos.y = followCar(this.chase, car.y + height, car.y + lookUp, dt).cam;
         if (ground) {
           this.camPos.y = Math.min(this.camPos.y, cameraCeiling(ground, this.camPos.x, car.y, this.camPos.z));
           clearView(ground, car.x, car.y, car.z, this.camPos, this.buildingWalls);
           this.camPos.y = Math.max(this.camPos.y, cameraFloor(ground, this.camPos.x, this.camPos.y, this.camPos.z) + GROUND_CLEAR);
         }
         cam.position.copy(this.camPos);
-        this.look.set(car.x + fx * o.ahead, car.y + lookUp, car.z + fz * o.ahead);
+        this.look.set(car.x + fx * o.ahead, this.chase.aim, car.z + fz * o.ahead);
       }
     }
     this.lastWreck = c.wreck[i] === 1;

@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'bun:test';
 import { flatten } from '../src/render/skins/greybox/flatten';
 import { toon } from '../src/render/skins/greybox/toon';
-import { chaseOffset, lookBackOffset } from '../src/render/camera';
+import { AIM_TRAIL, chaseOffset, followCar, lookBackOffset } from '../src/render/camera';
 import { chunks } from '../src/render/shader';
 import { Skids } from '../src/render/skids';
 import { carPaint } from '../src/render/skins/greybox/car/paint';
@@ -39,6 +39,43 @@ describe('chase camera', () => {
     expect(bus.dist).toBeGreaterThan(coupe.dist);
     expect(bus.height).toBeGreaterThan(coupe.height);
     expect(bus.ahead).toBeGreaterThan(coupe.ahead);
+  });
+  // The chase camera's height and aim through followCar, as the renderer runs them each frame.
+  const brute = CLASSES.find((c) => c.id === 'muscle')!;
+  /** The view's pitch (deg) each frame at 120 fps over 60 Hz ticks (interpolated), the car at `carY(t)`; `onCar` puts the aim on the car (as before #176). */
+  const pitches = (speed: number, carY: (t: number) => number, frames: number, onCar = false) => {
+    const o = chaseOffset(brute.size, speed);
+    const h = { cam: carY(0) + o.height, aim: carY(0) + o.lookUp };
+    const out: { pitch: number; trail: number; below: number }[] = [];
+    for (let f = 1; f <= frames; f++) {
+      const t = (Math.floor(f / 2) + (f % 2) * 0.5) / 60;
+      const y = carY(t);
+      followCar(h, y + o.height, y + o.lookUp, 1 / 120);
+      const aim = onCar ? y + o.lookUp : h.aim;
+      const pitch = Math.atan2(aim - h.cam, o.dist + o.ahead);
+      // How far below the view's centre the car is.
+      out.push({ pitch: (pitch * 180) / Math.PI, trail: y + o.lookUp - aim, below: ((pitch - Math.atan2(y - h.cam, o.dist)) * 180) / Math.PI });
+    }
+    return out;
+  };
+  test("the view doesn't nod with the road: the camera's height and its aim follow the car together", () => {
+    // The Brute flat out (69 m/s) past Riviera's Rock Tunnel: flat, then up 11% within 30 m, with a
+    // couple of centimetres of ripple.
+    const road = (t: number) => 0.11 * 15 * Math.log1p(Math.exp((69 * t - 20) / 15)) + 0.02 * Math.sin((69 * t) / 1.7);
+    const nod = (onCar: boolean) => {
+      const p = pitches(69, road, 120, onCar).map((x) => x.pitch);
+      return Math.max(...p) - Math.min(...p);
+    };
+    // The aim on the car: the view tips with the road. Eased with the camera: near still.
+    expect(nod(true)).toBeGreaterThan(0.5);
+    expect(nod(false)).toBeLessThan(0.05);
+  });
+  test('off a long drop the aim trails no more than AIM_TRAIL, and the car stays in view', () => {
+    const fall = pitches(40, (t) => -4.9 * t * t, 180);
+    for (const x of fall) expect(x.trail).toBeLessThanOrEqual(AIM_TRAIL + 1e-9);
+    // Eased with no limit it trails the fall's speed / 5 (5.9 m at 1.5 s), the car ~37° under the
+    // view's centre and off the screen; capped, within half the 60° field of view and a few degrees.
+    expect(Math.max(...fall.map((x) => x.below))).toBeLessThan(34);
   });
 });
 
