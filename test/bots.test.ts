@@ -35,6 +35,48 @@ describe('observeCar', () => {
   });
 });
 
+describe('racecarBots', () => {
+  test('join returns false when every AI car is taken (the SDK logs it), and true otherwise', () => {
+    const sim = ringSim();
+    const i = sim.addCar({ cls: 'coupe', racer: { difficulty: 1 } });
+    const adapter = racecarBots(sim, new Map([[0, i]]));
+    expect(adapter.join!({ id: 'a', name: 'A' })).toBe(true);
+    expect(adapter.join!({ id: 'b', name: 'B' })).toBe(false);
+    expect(adapter.observe({ id: 'b', name: 'B' })).toBeNull();
+    adapter.leave!({ id: 'a', name: 'A' });
+    expect(adapter.join!({ id: 'b', name: 'B' })).toBe(true); // the car is free again
+  });
+
+  test('drive takes the car over from the AI, and leave hands it back', () => {
+    const sim = ringSim();
+    const twin = ringSim(); // the same car, AI only
+    const i = sim.addCar({ cls: 'coupe', racer: { difficulty: 1 } });
+    twin.addCar({ cls: 'coupe', racer: { difficulty: 1 } });
+    const adapter = racecarBots(sim, new Map([[0, i]]));
+    const bot = { id: 'b', name: 'Test car' };
+    adapter.join!(bot);
+    for (let t = 0; t < 60; t++) {
+      adapter.drive(bot, { steer: 1, throttle: 1 });
+      sim.step([]);
+      twin.step([]);
+    }
+    expect(sim.controls[i]).toMatchObject({ steer: 1, throttle: 1 });
+    expect(Math.hypot(sim.cars.x[i] - twin.cars.x[i], sim.cars.z[i] - twin.cars.z[i])).toBeGreaterThan(2);
+    adapter.leave!(bot);
+    expect(sim.controlOverrides[i]).toBeNull();
+    // The AI drives it again: after a second of full right it steers back left, toward the road.
+    const steers: number[] = [];
+    for (let t = 0; t < 30; t++) {
+      sim.step([]);
+      steers.push(sim.controls[i].steer);
+    }
+    expect(steers.includes(1)).toBe(false);
+    expect(steers.some((x) => x < 0)).toBe(true);
+    adapter.drive(bot, { steer: 1, throttle: 1 }); // a left bot's late action changes nothing
+    expect(sim.controlOverrides[i]).toBeNull();
+  });
+});
+
 describe('the sample brain', () => {
   test('drives the ring for 20 s without stopping', () => {
     const sim = ringSim();

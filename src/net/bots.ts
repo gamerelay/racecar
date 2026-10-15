@@ -79,9 +79,10 @@ export function racecarBots(sim: Sim, aiSeats: ReadonlyMap<number, number>): Bot
     join(bot) {
       const taken = new Set(cars.values());
       const free = [...aiSeats.values()].find((i) => !taken.has(i));
-      if (free === undefined) return; // more bots than AI cars: this one sits out
+      if (free === undefined) return false; // more bots than AI cars: it sits out, and the SDK logs "no room for this bot in the game"
       cars.set(bot.id, free);
       controls.set(bot.id, neutralControls());
+      return true;
     },
     leave(bot) {
       const i = carOf(bot);
