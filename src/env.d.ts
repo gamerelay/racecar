@@ -1,5 +1,7 @@
 /// <reference types="vite/client" />
 declare const __BUILD_TIME__: string;
+/** `git describe` at build time (vite.config.ts). */
+declare const __BUILD_VERSION__: string;
 interface ImportMetaEnv {
   /** A GameRelay public key: online lobbies. */
   readonly VITE_GAMERELAY_KEY?: string;
