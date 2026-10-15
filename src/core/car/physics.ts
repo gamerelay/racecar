@@ -462,6 +462,16 @@ function followGround(sim: SimState, i: number, dt: number): void {
   }
 }
 
+/**
+ * Whether car `i` would start a drift now, given the drift held and enough steer: not drifting,
+ * off its cooldown, over driftMinSpeed. (Its entry in stepCar asks the same, with the steer: the
+ * keyboard's input reads this to steer straight past driftMinSteer, input.ts readyToDrift.)
+ */
+export function canStartDrift(sim: SimState, i: number): boolean {
+  const cars = sim.cars;
+  return cars.drift[i] === 0 && cars.driftCooldown[i] <= 0 && hypot(cars.vx[i], cars.vz[i]) > T.driftMinSpeed;
+}
+
 export function endDrift(sim: SimState, i: number, stage: number): void {
   const cars = sim.cars;
   if (cars.drift[i] !== 1) return;

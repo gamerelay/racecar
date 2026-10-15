@@ -5,6 +5,7 @@
 
 import type { Controls } from '../core/controls';
 import { approach, clamp } from '../core/math';
+import { TUNING } from '../core/car/tuning';
 
 export type SystemAction = 'pause' | 'report' | 'editor' | 'debug' | 'tuning' | 'ink' | 'mute' | 'music' | 'track-prev' | 'track-next' | MenuAction;
 /**
@@ -71,6 +72,11 @@ export class Input {
   suspended = false;
   /** A menu is up: arrows and the d-pad move focus, A presses, B backs out. */
   menuOpen = false;
+  /**
+   * Your car could start a drift now (not drifting, fast enough, off its cooldown: main.ts sets it
+   * each frame). Then, with drift held, a steer key goes straight to the drift's threshold.
+   */
+  readyToDrift = false;
   /** When the stick last moved menu focus (it repeats while held). */
   private stickNavAt = 0;
 
@@ -124,6 +130,11 @@ export class Input {
     const want = (held.right ? 1 : 0) - (held.left ? 1 : 0);
     const rate = want === 0 ? 7 : Math.sign(want) !== Math.sign(this.keySteer) ? 9 : 4.5;
     this.keySteer = approach(this.keySteer, want, rate * dt);
+    // Drift held and a steer key down, ready to drift: straight past the drift's threshold, so it
+    // starts on the next tick. Eased up to it from straight, the drift came 7–9 ticks after the
+    // key (the owner, 2026-10-14: the drift "slower to react", pressing drift then steering).
+    // Mid-drift, counter-steering eases as before.
+    if (this.readyToDrift && held.drift && want !== 0 && this.keySteer * want < TUNING.driftMinSteer) this.keySteer = want * Math.min(1, TUNING.driftMinSteer + 0.05);
     let steer = this.keySteer;
     let throttle = held.up ? 1 : 0;
     let brake = held.down ? 1 : 0;

@@ -8,6 +8,7 @@
 // seed, lobby), or ?lobby=<id> for a lobby, plus &post=0 &ink=0 &trace=1.
 
 import './ui/hud.css';
+import { canStartDrift } from './core/car/physics';
 import { TUNING } from './core/car/tuning';
 import type { TrackLayout } from './core/content';
 import { neutralControls, type Controls } from './core/controls';
@@ -440,7 +441,10 @@ function frame(now: number): void {
   const stepping = (!paused || onlineRace) && !editorOpen && (onlineRace || (!veiled() && !keysCard?.isOpen));
   if (stepping) {
     if (paused) Object.assign(controls, neutralControls());
-    else input.poll(controls, dt);
+    else {
+      input.readyToDrift = human >= 0 && canStartDrift(sim, human);
+      input.poll(controls, dt);
+    }
     renderer.lookBack = human >= 0 && controls.lookBack;
   }
   // The frame loop's steps (on the relay's tick once an online race is in: net/stepper.ts).

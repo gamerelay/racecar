@@ -1,6 +1,10 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import { Input, type SystemAction } from '../src/input/input';
 import { neutralControls } from '../src/core/controls';
+import { canStartDrift } from '../src/core/car/physics';
+import { TUNING } from '../src/core/car/tuning';
+import { Ev } from '../src/core/events';
+import { ringSim } from './helpers';
 import { fakeBrowser } from './fake-audio';
 
 // The keyboard (input/input.ts): steering eases in and out, and the keys that aren't driving
@@ -119,5 +123,55 @@ describe('keyboard input', () => {
     // Escape still backs out (pauses) in a menu.
     key('keydown', 'Escape');
     expect(fired.at(-1)).toBe('pause');
+  });
+});
+
+describe('drift on the keyboard', () => {
+  test('ready to drift, with drift held, a steer key goes straight past the drift threshold', () => {
+    input.readyToDrift = true;
+    key('keydown', 'ShiftLeft');
+    key('keydown', 'KeyD');
+    expect(input.poll(out, 1 / 120).steer).toBeGreaterThan(TUNING.driftMinSteer);
+  });
+
+  test("mid-drift (not ready), or with drift not held, steering eases in as before", () => {
+    input.readyToDrift = false;
+    key('keydown', 'ShiftLeft');
+    key('keydown', 'KeyD');
+    expect(input.poll(out, 1 / 60).steer).toBeLessThan(0.2);
+    browser.window.fire('blur');
+    input.poll(out, 1);
+    input.readyToDrift = true;
+    key('keydown', 'KeyD');
+    expect(input.poll(out, 1 / 60).steer).toBeLessThan(0.2);
+  });
+
+  test('drift held, then a steer key: the drift starts on the next tick (eased, it came 7–9 ticks after the key)', () => {
+    /** Ticks from the steer key to the drift's start, the Brute at 140 km/h on a wide ring. */
+    const after = (ready: boolean) => {
+      browser.window.fire('blur');
+      const sim = ringSim(1, 600, 60);
+      const i = sim.addCar({ cls: 'muscle', human: true });
+      sim.placeCar(i, 0, 100, 0, 39);
+      const c = neutralControls();
+      key('keydown', 'KeyW');
+      key('keydown', 'ShiftLeft');
+      const tick = () => {
+        input.readyToDrift = ready && canStartDrift(sim, i);
+        input.poll(c, 1 / 60);
+        const from = sim.events.head;
+        sim.step([c]);
+        let started = false;
+        sim.events.read(from, (e) => void (started ||= e.car === i && e.type === Ev.DriftStart));
+        return started;
+      };
+      // Drift held with no steer: no drift.
+      for (let t = 0; t < 10; t++) expect(tick()).toBe(false);
+      key('keydown', 'KeyA');
+      for (let t = 0; t < 30; t++) if (tick()) return t;
+      return Infinity;
+    };
+    expect(after(true)).toBe(0);
+    expect(after(false)).toBeGreaterThanOrEqual(6);
   });
 });
