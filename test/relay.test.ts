@@ -291,6 +291,17 @@ const player = (name: string) => ({ id: '', name, car: 'coupe', paint: 0 });
 const linkOf = (code: string) => code.split('').reverse().join('').padEnd(11, 'x');
 const settle = () => new Promise((r) => setTimeout(r, 0));
 
+/** Holds `obj[method]` until the returned `land` is called: a server slow to answer. */
+function hold<T extends object, K extends keyof T>(obj: T, method: K): () => void {
+  let land!: () => void;
+  const real = (obj[method] as (...a: unknown[]) => Promise<unknown>).bind(obj);
+  (obj as Record<K, unknown>)[method] = async (...a: unknown[]) => {
+    await new Promise<void>((r) => (land = r));
+    return real(...a);
+  };
+  return () => land();
+}
+
 function players(hub: Hub, ...ids: string[]) {
   return ids.map((id) => {
     const relay = new FakeRelay(hub, id);
@@ -792,12 +803,7 @@ describe('online lobbies', () => {
   test("a create given up on (Esc to the title) is left once it lands, and closes", async () => {
     const hub = new Hub();
     const [bo] = players(hub, 'bo');
-    let land!: () => void;
-    const make = bo.relay.createRoom.bind(bo.relay);
-    bo.relay.createRoom = async (o) => {
-      await new Promise<void>((r) => (land = r));
-      return make(o);
-    };
+    const land = hold(bo.relay, 'createRoom');
     const creating = bo.backend.create(player('BO'), {});
     await settle();
     land();
@@ -808,51 +814,40 @@ describe('online lobbies', () => {
     expect(hub.rooms.has(made.id)).toBe(false);
   });
 
-  test("a create given up on (Esc, then a lobby from the list) doesn't take the join's place when it lands", async () => {
+  test("a create given up on (Esc, then a lobby from the list) doesn't take the join's place, and is left before it's listed", async () => {
     const hub = new Hub();
     const [ada, bo] = players(hub, 'ada', 'bo');
     const theirs = await ada.backend.create(player('ADA'), {});
-    let land!: () => void;
-    const make = bo.relay.createRoom.bind(bo.relay);
-    bo.relay.createRoom = async (o) => {
-      await new Promise<void>((r) => (land = r));
-      return make(o);
-    };
+    const land = hold(bo.relay, 'createRoom');
     const creating = bo.backend.create(player('BO'), {});
     await settle();
     // Esc to the title, and their lobby from the list, while Bo's is still being made.
     const joining = bo.backend.get(theirs.id);
     land();
     const made = await creating;
-    // The menu leaves the one it no longer wants, as cGo does.
-    void bo.backend.abandon(made.id);
-    expect((await joining)?.id).toBe(theirs.id);
-    await bo.backend.abandon(made.id);
-    expect(bo.relay.room?.code).toBe(theirs.id);
+    // Out of it already, never written: nobody could have found it in the list.
     expect(hub.rooms.has(made.id)).toBe(false);
+    await bo.backend.abandon(made.id);
+    expect((await joining)?.id).toBe(theirs.id);
+    expect(bo.relay.room?.code).toBe(theirs.id);
   });
 
-  test("a link given up on doesn't take the place of a lobby asked for after it, when it lands", async () => {
+  test("a link too slow to wait for doesn't take the place of a lobby asked for after it, when it lands", async () => {
     const hub = new Hub();
     const [ada, cy, bo] = players(hub, 'ada', 'cy', 'bo');
     const linked = await ada.backend.create(player('ADA'), { visibility: 'invite' });
     const listed = await cy.backend.create(player('CY'), {});
-    let land!: () => void;
-    const join = bo.relay.joinLink.bind(bo.relay);
-    bo.relay.joinLink = async (link) => {
-      await new Promise<void>((r) => (land = r));
-      return join(link);
-    };
-    const linking = bo.backend.joinLink(linkOf(linked.id));
-    await settle();
-    // Too slow: given up on, then a lobby from the list while the link is still on its way.
-    void bo.backend.abandon(linkOf(linked.id));
-    const joining = bo.backend.get(listed.id);
+    const land = hold(bo.relay, 'joinLink');
+    // The menu's way in: Lobbies gives up on the link (and its lobby, once it lands) by itself.
+    const side = new Lobbies(new LocalBackend(null), bo.backend, 20, 20);
+    expect(await side.joinLink(linkOf(linked.id))).toBeNull();
+    const joining = side.get(listed.id);
     land();
-    expect(await linking).toBe(linked.id);
-    void bo.backend.abandon(linked.id);
     expect((await joining)?.id).toBe(listed.id);
+    await settle();
     expect(bo.relay.room?.code).toBe(listed.id);
+    // Ada's lobby is hers: Bo's only out of it.
+    expect(hub.rooms.get(linked.id)?.members.map((m) => m.id)).toEqual(['ada']);
   });
 
   test("a refusal that lands before the menu asks is said instead of too slow", async () => {

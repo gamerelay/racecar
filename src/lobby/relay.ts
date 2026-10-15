@@ -149,12 +149,12 @@ export class RelayBackend implements LobbyBackend {
    */
   private queue: Promise<unknown> = Promise.resolve();
   /**
-   * The lobby the screens want you in. A create's is a mark of its own until its room is made, then
-   * the room's code; a link's is the link until it lands. Either takes the code only if it's still
-   * what's wanted: another lobby asked for meanwhile (Esc, then one from the list) keeps its place.
+   * The lobby the screens want you in. A create's is a mark of its own (a symbol, so no code or link
+   * from a URL can be it) until its room is made, then the room's code; a link's is the link until
+   * it lands. Either takes the code only if it's still what's wanted: another lobby asked for
+   * meanwhile (Esc, then one from the list) keeps its place.
    */
-  private wanted: string | null = null;
-  private creates = 0;
+  private wanted: string | symbol | null = null;
 
   /** `connect` opens the connection, once, when the backend is first used (the SDK's `GameRelay.connect`). */
   constructor(private connect: () => Promise<RelayLike>) {}
@@ -232,12 +232,12 @@ export class RelayBackend implements LobbyBackend {
   }
 
   async create(host: Player, init: Parameters<LobbyBackend['create']>[1]): Promise<Lobby> {
-    const mark = `create:${++this.creates}`;
+    const mark = Symbol('create');
     this.wanted = mark;
     return this.inTurn(() => this.createNow(host, init, mark));
   }
 
-  private async createNow(host: Player, init: Parameters<LobbyBackend['create']>[1], mark: string): Promise<Lobby> {
+  private async createNow(host: Player, init: Parameters<LobbyBackend['create']>[1], mark: symbol): Promise<Lobby> {
     const relay = await this.relayNow();
     await this.leaveRoom();
     // Out of any party first (a fresh page's SDK doesn't know it's in one): a leader's new room
@@ -246,9 +246,16 @@ export class RelayBackend implements LobbyBackend {
     const visibility = init.visibility ?? 'public';
     // Invite only: nobody gets in by guessing the 4-letter code, only by the lobby's link.
     const room = await relay.createRoom({ maxPlayers: SEATS, tag: TAG, public: visibility === 'public', linkOnly: visibility !== 'public' });
+    // Another lobby asked for while it was made (Esc, then one from the list): out of it at once,
+    // unlisted and never written, so nobody finds it in the list on the way out.
+    if (this.wanted !== mark) {
+      if (room.isPublic) await room.setAccess({ public: false }).catch(() => {});
+      await room.leave().catch(warned('leaving a lobby failed', undefined));
+      return createLobby(room.code, { ...host, id: room.me }, { ...init, visibility });
+    }
     const party = await this.party.create();
     const lobby: Lobby = { ...createLobby(room.code, { ...host, id: room.me }, { ...init, visibility }), ...(party ? { party } : {}) };
-    if (this.wanted === mark) this.wanted = room.code;
+    this.wanted = room.code;
     this.attach(room);
     this.commit(room, lobby);
     return lobby;
