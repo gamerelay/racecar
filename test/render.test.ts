@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'bun:test';
 import { flatten } from '../src/render/skins/greybox/flatten';
 import { toon } from '../src/render/skins/greybox/toon';
-import { chaseOffset, lookBackOffset } from '../src/render/camera';
+import { chaseOffset, follow, lookBackOffset } from '../src/render/camera';
 import { chunks } from '../src/render/shader';
 import { Skids } from '../src/render/skids';
 import { carPaint } from '../src/render/skins/greybox/car/paint';
@@ -39,6 +39,29 @@ describe('chase camera', () => {
     expect(bus.dist).toBeGreaterThan(coupe.dist);
     expect(bus.height).toBeGreaterThan(coupe.height);
     expect(bus.ahead).toBeGreaterThan(coupe.ahead);
+  });
+  test("the view doesn't nod with the road: the camera's height and its aim follow the car together", () => {
+    // The Brute flat out (69 m/s) past Riviera's Rock Tunnel: flat, then up 11% within 30 m, with a
+    // couple of centimetres of ripple, drawn at 120 fps over 60 Hz ticks (interpolated).
+    const brute = CLASSES.find((c) => c.id === 'muscle')!;
+    const o = chaseOffset(brute.size, 69);
+    const span = o.dist + o.ahead;
+    const road = (x: number) => 0.11 * 15 * Math.log1p(Math.exp((x - 20) / 15)) + 0.02 * Math.sin(x / 1.7);
+    const nod = (eased: boolean) => {
+      let cam = road(0) + o.height;
+      let aim = road(0) + o.lookUp;
+      const angles: number[] = [];
+      for (let f = 0; f < 120; f++) {
+        const carY = road(Math.floor(f / 2) * (69 / 60) + (f % 2) * 0.5 * (69 / 60));
+        cam = follow(cam, carY + o.height, 1 / 120);
+        aim = eased ? follow(aim, carY + o.lookUp, 1 / 120) : carY + o.lookUp;
+        angles.push((Math.atan2(aim - cam, span) * 180) / Math.PI);
+      }
+      return Math.max(...angles) - Math.min(...angles);
+    };
+    // As it was (the aim on the car): the view tips with the road. Eased with the camera: still.
+    expect(nod(false)).toBeGreaterThan(0.5);
+    expect(nod(true)).toBeLessThan(1e-6);
   });
 });
 

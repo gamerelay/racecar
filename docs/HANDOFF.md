@@ -98,7 +98,8 @@ From `alpha-1.47` (2026-10-11), still open:
 - **Online:** [ONLINE.md](./ONLINE.md) (lobbies, hosts, parties, getaways, host controls). No
   analytics since `v1.0`.
 - **The docs:** the design is [SPEC.md](./SPEC.md); maps [MAPS.md](./MAPS.md) and each map's own
-  (PARADISE, COASTAL, AVALANCHE, SAHARA, CHASE_MODE); [TECH_DEBT.md](./TECH_DEBT.md);
+  (PARADISE, COASTAL, AVALANCHE, SAHARA, CHASE_MODE); [TECH_DEBT.md](./TECH_DEBT.md); issues
+  noticed while driving, their causes and guards, in [ISSUES.md](./ISSUES.md);
   every release in [CHANGELOG.md](../CHANGELOG.md). What was built and when, with the numbers of
   the time, is [HISTORY.md](./HISTORY.md) (moved out of this file on 2026-10-14).
 

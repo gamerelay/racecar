@@ -5,6 +5,7 @@
 // The coupe (0.65 m half height, 2.15 m half length) is the base.
 
 import type { Vec3 } from '../core/content';
+import { damp } from '../core/math';
 import type { BakedProp } from '../core/track/bake';
 import { DECK_CATCH, newCast, type Cast, type Ground, type Piece } from '../core/track/ground';
 
@@ -25,6 +26,20 @@ export function chaseOffset(size: Vec3, speed = 0, boost = 0, out: ChaseOffset =
   out.ahead = 11 + long * 2;
   out.lookUp = 1 + long * 0.2;
   return out;
+}
+
+/**
+ * How fast (1/s) the chase camera's height and the height it looks at follow the car's: both at
+ * this one rate, so the view's angle keeps still as the road rises and dips under the car, and the
+ * car moves on the screen instead. (The owner, 2026-10-14: a bob on Riviera, worse in the Brute;
+ * the camera's height eased but its aim sat on the car, so every rise and dip tipped the view,
+ * 0.15° RMS over a lap and 0.5° past the Rock Tunnel. Eased together, 0.02–0.04°.)
+ */
+export const FOLLOW_RATE = 5;
+
+/** `cur` eased toward `target` over `dt` s at FOLLOW_RATE: the chase camera's height, and its aim's. */
+export function follow(cur: number, target: number, dt: number): number {
+  return cur + (target - cur) * damp(FOLLOW_RATE, dt);
 }
 
 /** Looking back: in front of the nose (the coupe's 5 m from center), high enough to see over the roof. */

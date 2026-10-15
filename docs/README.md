@@ -27,6 +27,7 @@ Status lines and "next" lists in them can be out of date; the [CHANGELOG](../CHA
 | [HANDOFF.md](./HANDOFF.md) | Where things stand and what's next, for whoever picks it up (a person or a fresh Claude session). |
 | [HISTORY.md](./HISTORY.md) | What was built and when, moved out of HANDOFF: release notes, Caldera's steps, the old status and next lists. |
 | [TECH_DEBT.md](./TECH_DEBT.md) | Refactors and clean-ups we've noticed. None of it decided. |
+| [ISSUES.md](./ISSUES.md) | Issues noticed while driving (a bounce, a shake): what each looked like, what it was, the fix and its guard test, and how to look into the next one. |
 | [PLAN.md](./PLAN.md) | An earlier batch of work (lobbies, names, polish), done. |
 | [MENU.md](./MENU.md) | The plan for the menu and settings. |
 | [AVALANCHE.md](./AVALANCHE.md), [PARADISE.md](./PARADISE.md), [COASTAL.md](./COASTAL.md), [SAHARA.md](./SAHARA.md) | How each open map was planned (Coastal became Riviera). |
