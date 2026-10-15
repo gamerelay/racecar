@@ -1,5 +1,5 @@
 // Names other players see (your plate, a lobby's name), checked with GameRelay's name moderation
-// (`POST /v1/names/check`) before they're used. The plate's own blocklist (lobby/plate.ts) still
+// (`POST /v1/moderate`) before they're used. The plate's own blocklist (lobby/plate.ts) still
 // runs first and offline; this adds GameRelay's lists, its lookalike and leetspeak handling, and
 // the terms the game's owner blocks in the dashboard.
 
@@ -11,6 +11,7 @@ const REASONS: Record<string, string> = {
   blocked: "That name isn't allowed",
   empty: 'Type a name',
   too_long: 'Too long',
+  unsafe: "That name isn't allowed",
 };
 
 /** Checks a name: null when it's fine, or what to tell the player. */
@@ -24,16 +25,16 @@ export type NameCheck = (name: string) => Promise<string | null>;
 export function nameChecker(publicKey: string, base = 'https://gamerelay.io', fetcher: typeof fetch = fetch): NameCheck {
   return async (name) => {
     try {
-      const res = await fetcher(`${base.replace(/\/$/, '')}/v1/names/check`, {
+      const res = await fetcher(`${base.replace(/\/$/, '')}/v1/moderate`, {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ publicKey, name }),
+        body: JSON.stringify({ publicKey, text: name }),
         // A server that hangs mustn't hold the Save or Create button: the name goes through.
         signal: AbortSignal.timeout(4000),
       });
       if (!res.ok) return null;
-      const body = (await res.json()) as { ok?: boolean; reason?: string };
-      return body.ok === false ? (REASONS[body.reason ?? ''] ?? "That name isn't allowed") : null;
+      const body = (await res.json()) as { ok?: boolean; error?: { reason?: string } };
+      return body.ok === false ? (REASONS[body.error?.reason ?? ''] ?? "That name isn't allowed") : null;
     } catch {
       return null;
     }

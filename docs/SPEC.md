@@ -2243,7 +2243,7 @@ Online leaderboard (2026-10-15):
   The lap floor is the board's minimum score in GameRelay's leaderboard rules, set on the server,
   not checked in the game.
 - **Names are GameRelay's to moderate** (its name moderation, a paid-plan feature): the plate
-  editor and an online lobby's name ask `POST /v1/names/check` first (`net/names.ts`, failing
+  editor and an online lobby's name ask `POST /v1/moderate` first (`net/names.ts`, failing
   open), and with the game's "Name moderation" setting on, a name that slips through shows as
   `player-1234` on the board. Online lobby names went from 32 characters to 24, GameRelay's limit.
 

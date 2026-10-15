@@ -124,12 +124,12 @@ describe('name checks', () => {
     let sent: unknown = null;
     const fetcher = (async (url: string, init: RequestInit) => {
       sent = { url, body: JSON.parse(String(init.body)) };
-      return new Response(JSON.stringify({ ok: false, reason: 'offensive' }));
+      return new Response(JSON.stringify({ ok: false, error: { code: 'moderated', reason: 'offensive', message: 'Invalid name: offensive language' } }));
     }) as unknown as typeof fetch;
     expect(await nameChecker('gr_pub_x', 'http://localhost:8787/', fetcher)('B4D')).toBe("That name isn't allowed");
-    expect(sent).toEqual({ url: 'http://localhost:8787/v1/names/check', body: { publicKey: 'gr_pub_x', name: 'B4D' } });
-    expect(await nameChecker('k', undefined, answering(200, { ok: false, reason: 'reserved' }))('ADMIN')).toBe('That name is kept for the game');
-    expect(await nameChecker('k', undefined, answering(200, { ok: true, name: 'RC 1' }))('RC 1')).toBeNull();
+    expect(sent).toEqual({ url: 'http://localhost:8787/v1/moderate', body: { publicKey: 'gr_pub_x', text: 'B4D' } });
+    expect(await nameChecker('k', undefined, answering(200, { ok: false, error: { code: 'moderated', reason: 'reserved', message: '' } }))('ADMIN')).toBe('That name is kept for the game');
+    expect(await nameChecker('k', undefined, answering(200, { ok: true, value: 'RC 1' }))('RC 1')).toBeNull();
   });
 
   test('fails open: a plan without it, an error or no network lets the name through', async () => {
