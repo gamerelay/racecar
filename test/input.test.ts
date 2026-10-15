@@ -134,6 +134,22 @@ describe('drift on the keyboard', () => {
     expect(input.poll(out, 1 / 120).steer).toBeGreaterThan(TUNING.driftMinSteer);
   });
 
+  test("drift held on the pad's RB, a steer key goes straight past the threshold too", () => {
+    const nav = navigator as unknown as { getGamepads?: () => unknown[] };
+    const was = nav.getGamepads;
+    const buttons = Array.from({ length: 17 }, (_, k) => ({ pressed: k === 5, value: k === 5 ? 1 : 0 }));
+    nav.getGamepads = () => [{ connected: true, mapping: 'standard', axes: [0, 0, 0, 0], buttons }];
+    try {
+      input.readyToDrift = true;
+      key('keydown', 'KeyD');
+      const c = input.poll(out, 1 / 120);
+      expect(c.drift).toBe(true);
+      expect(c.steer).toBeGreaterThan(TUNING.driftMinSteer);
+    } finally {
+      nav.getGamepads = was;
+    }
+  });
+
   test("mid-drift (not ready), or with drift not held, steering eases in as before", () => {
     input.readyToDrift = false;
     key('keydown', 'ShiftLeft');
@@ -149,11 +165,14 @@ describe('drift on the keyboard', () => {
   test('drift held, then a steer key: the drift starts on the next tick (eased, it came 7–9 ticks after the key)', () => {
     /** Ticks from the steer key to the drift's start, the Brute at 140 km/h on a wide ring. */
     const after = (ready: boolean) => {
+      // Let go of everything and ease back to straight (the Input is the test's, run twice).
       browser.window.fire('blur');
+      input.poll(neutralControls(), 1);
       const sim = ringSim(1, 600, 60);
       const i = sim.addCar({ cls: 'muscle', human: true });
       sim.placeCar(i, 0, 100, 0, 39);
       const c = neutralControls();
+      expect(input.poll(c, 1 / 60).steer).toBe(0);
       key('keydown', 'KeyW');
       key('keydown', 'ShiftLeft');
       const tick = () => {
@@ -173,5 +192,17 @@ describe('drift on the keyboard', () => {
     };
     expect(after(true)).toBe(0);
     expect(after(false)).toBeGreaterThanOrEqual(6);
+  });
+
+  test("in the air or spinning out, a car isn't ready to drift (stepCar's entry is on the ground and out of a spin)", () => {
+    const sim = ringSim(1, 600, 60);
+    const i = sim.addCar({ cls: 'muscle', human: true });
+    sim.placeCar(i, 0, 100, 0, 39);
+    expect(canStartDrift(sim, i)).toBe(true);
+    sim.cars.grounded[i] = 0;
+    expect(canStartDrift(sim, i)).toBe(false);
+    sim.cars.grounded[i] = 1;
+    sim.cars.spinT[i] = 0.5;
+    expect(canStartDrift(sim, i)).toBe(false);
   });
 });

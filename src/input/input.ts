@@ -130,11 +130,6 @@ export class Input {
     const want = (held.right ? 1 : 0) - (held.left ? 1 : 0);
     const rate = want === 0 ? 7 : Math.sign(want) !== Math.sign(this.keySteer) ? 9 : 4.5;
     this.keySteer = approach(this.keySteer, want, rate * dt);
-    // Drift held and a steer key down, ready to drift: straight past the drift's threshold, so it
-    // starts on the next tick. Eased up to it from straight, the drift came 7–9 ticks after the
-    // key (the owner, 2026-10-14: the drift "slower to react", pressing drift then steering).
-    // Mid-drift, counter-steering eases as before.
-    if (this.readyToDrift && held.drift && want !== 0 && this.keySteer * want < TUNING.driftMinSteer) this.keySteer = want * Math.min(1, TUNING.driftMinSteer + 0.05);
     let steer = this.keySteer;
     let throttle = held.up ? 1 : 0;
     let brake = held.down ? 1 : 0;
@@ -164,6 +159,14 @@ export class Input {
       reset ||= b(3);
       horn ||= b(10);
       this.buttons(pad);
+    }
+    // Drift held (a key or the pad's) and a steer key down, ready to drift: straight past the
+    // drift's threshold, so it starts on the next tick. Eased up to it from straight, the drift
+    // came 7–9 ticks after the key (the owner, 2026-10-14: the drift "slower to react", pressing
+    // drift then steering). Mid-drift, counter-steering eases as before.
+    if (this.readyToDrift && drift && want !== 0 && this.keySteer * want < TUNING.driftMinSteer) {
+      this.keySteer = want * Math.min(1, TUNING.driftMinSteer + 0.05);
+      if (Math.abs(this.keySteer) > Math.abs(steer)) steer = this.keySteer;
     }
 
     out.steer = clamp(steer, -1, 1);

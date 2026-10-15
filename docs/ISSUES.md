@@ -35,12 +35,14 @@ Newest first. Bugs found by reading code go in HANDOFF's follow-ups; clean-ups i
   then a steer key, the drift came 7–9 ticks after the steer key in both of the owner's reports
   (with the steer already held, 0–3). Not new: the easing is the first build's, and nothing in
   input or the drift changed since alpha-1.44. A pad's stick has no easing, so it never waited.
-- **Fix:** with drift held, a steer key goes straight past the threshold while the car could start
-  a drift (`readyToDrift` in `src/input/input.ts`, set from `canStartDrift` in `physics.ts`): the
-  drift starts on the next tick. Mid-drift counter-steering, and steering without drift held, ease
-  as before.
+- **Fix:** with drift held (a key or the pad's), a steer key goes straight past the threshold while
+  the car could start a drift (`readyToDrift` in `src/input/input.ts`, set from `canStartDrift` in
+  `physics.ts`: on the ground, out of a spin-out, not drifting, off the cooldown, fast enough): the
+  drift starts on the next tick. Mid-drift counter-steering, steering in the air or a spin-out, and
+  steering without drift held, ease as before.
 - **Guard:** `test/input.test.ts`, "drift held, then a steer key: the drift starts on the next tick"
-  (the real Input and Sim: 0 ticks; with it off, the old wait).
+  (the real Input and Sim: 0 ticks; with it off, the old wait), and "in the air or spinning out, a
+  car isn't ready to drift".
 
 ## The view nodded with the road (2026-10-14, PR #176)
 
