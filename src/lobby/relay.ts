@@ -125,6 +125,9 @@ export function linkId(url: string): string {
 /** setListing allows 10 changes in a row, then one a second: the listing follows at most this often (ms). */
 const LISTING_MS = 1000;
 
+/** A create given up on (another lobby asked for before it was made): what it rejects with. */
+const GIVEN_UP = 'given up for another lobby';
+
 export class RelayBackend implements LobbyBackend {
   private relay: Promise<RelayLike> | null = null;
   /** Why each lobby last refused you or put you out, until the menu asks (`why`). */
@@ -238,6 +241,8 @@ export class RelayBackend implements LobbyBackend {
   }
 
   private async createNow(host: Player, init: Parameters<LobbyBackend['create']>[1], mark: symbol): Promise<Lobby> {
+    // Given up on before its turn came (Esc, then another lobby): nothing made.
+    if (this.wanted !== mark) throw new Error(GIVEN_UP);
     const relay = await this.relayNow();
     await this.leaveRoom();
     // Out of any party first (a fresh page's SDK doesn't know it's in one): a leader's new room
@@ -246,14 +251,13 @@ export class RelayBackend implements LobbyBackend {
     const visibility = init.visibility ?? 'public';
     // Invite only: nobody gets in by guessing the 4-letter code, only by the lobby's link.
     const room = await relay.createRoom({ maxPlayers: SEATS, tag: TAG, public: visibility === 'public', linkOnly: visibility !== 'public' });
-    // Another lobby asked for while it was made (Esc, then one from the list): out of it at once,
-    // unlisted and never written, so nobody finds it in the list on the way out.
+    const party = this.wanted === mark ? await this.party.create() : undefined;
+    // Another lobby asked for while it was made (Esc, then one from the list): out of it (and its
+    // party) at once, unlisted and never written, so nobody finds it in the list on the way out.
     if (this.wanted !== mark) {
-      if (room.isPublic) await room.setAccess({ public: false }).catch(() => {});
-      await room.leave().catch(warned('leaving a lobby failed', undefined));
-      return createLobby(room.code, { ...host, id: room.me }, { ...init, visibility });
+      await this.leave(room);
+      throw new Error(GIVEN_UP);
     }
-    const party = await this.party.create();
     const lobby: Lobby = { ...createLobby(room.code, { ...host, id: room.me }, { ...init, visibility }), ...(party ? { party } : {}) };
     this.wanted = room.code;
     this.attach(room);
@@ -313,11 +317,18 @@ export class RelayBackend implements LobbyBackend {
     const relay = await this.relayNow();
     if (!relay.joinLink) return null;
     const room = await this.inTurn(async () => {
+      // Given up on before its turn came.
+      if (this.wanted !== link) return null;
       await this.leaveRoom();
       this.refusals.delete(link);
       const r = await relay.joinLink!(link).catch(this.refused(link, 'joining by a link failed', 'closed'));
+      // Given up on while it joined (too slow, then another lobby): out again, as enter() does.
+      if (r && this.wanted !== link) {
+        await this.leave(r);
+        return null;
+      }
       if (r) {
-        if (this.wanted === link) this.wanted = r.code;
+        this.wanted = r.code;
         this.attach(r);
       }
       return r;
@@ -506,11 +517,16 @@ export class RelayBackend implements LobbyBackend {
     const room = this.room;
     if (!room) return;
     this.detach();
+    await this.leave(room);
+    this.notify(null);
+  }
+
+  /** Out of `room` (and any party), attached or not. */
+  private async leave(room: RoomLike): Promise<void> {
     await this.party.leave();
     // The last one out unlists it, so nothing (quick match included) sends anyone into an empty room.
     if (room.isHost && room.isPublic && room.players.every((p) => p.id === room.me)) await room.setAccess({ public: false }).catch(() => {});
     await room.leave().catch(warned('leaving a lobby failed', undefined));
-    this.notify(null);
   }
 
   /** On the SDK's host: `actor` does `action`. The lobby after it, or null if it was refused. */
