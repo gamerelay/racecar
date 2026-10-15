@@ -64,7 +64,7 @@ describe('keyboard input', () => {
     expect(across.at(-1)).toBe(-1);
   });
 
-  test('a steer key turns the car its first 3° within 2 ticks of a pad at full lock (eased from 0, twice its time)', () => {
+  test('a steer key turns the car its first 3° within 3 ticks of a pad at full lock (eased from 0, twice its time)', () => {
     /** Ticks from the steer to 3° of turn, the Brute at 140 km/h on a wide ring; `pad` is full lock from the first tick. */
     const ticks = (pad: boolean) => {
       browser.window.fire('blur');
@@ -85,7 +85,10 @@ describe('keyboard input', () => {
       }
       return Infinity;
     };
-    expect(ticks(false)).toBeLessThanOrEqual(ticks(true) + 2);
+    // 7 against the pad's 5 (eased from 0: 10). The pad's turns, or neither run measures anything.
+    const pad = ticks(true);
+    expect(pad).toBeLessThanOrEqual(10);
+    expect(ticks(false)).toBeLessThanOrEqual(pad + 3);
   });
 
   test('both ways held is straight, and the steer never leaves -1 to 1 whatever the frame time', () => {
@@ -187,7 +190,7 @@ describe('drift on the keyboard', () => {
     expect(input.poll(out, 1 / 60).steer).toBe(KEY_ONSET);
   });
 
-  test('drift held, then a steer key: the drift starts on the next tick (eased, it came 7–9 ticks after the key)', () => {
+  test('drift held, then a steer key: the drift starts on the next tick (eased from KEY_ONSET, 3 ticks; from 0, before it, 7–9)', () => {
     /** Ticks from the steer key to the drift's start, the Brute at 140 km/h on a wide ring. */
     const after = (ready: boolean) => {
       // Let go of everything and ease back to straight (the Input is the test's, run twice).

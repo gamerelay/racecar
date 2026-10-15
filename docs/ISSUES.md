@@ -36,11 +36,13 @@ Newest first. Bugs found by reading code go in HANDOFF's follow-ups; clean-ups i
   camera (heading `damp(6)`, about 170 ms behind) turned 3° in 16 against 11. The car's own response
   was quick (yaw on target in 2 ticks), and so was the frame loop (controls read before the step).
   Not new: the easing is the first build's. A pad's stick has no easing.
-- **Fix:** a steer key from straight (or through it, turning the other way) starts at `KEY_ONSET`
-  (0.3, under `cruiseSteer`, so a tap keeps the straight-line build) and eases on at 7/s: full
-  lock in about 100 ms (`src/input/input.ts`). The Brute at 140 km/h: 3° in 7 ticks, the camera 13.
-  Letting go (7/s) and the other way through the middle (9/s) ease as before.
-- **Guard:** `test/input.test.ts`, "a steer key turns the car its first 3° within 2 ticks of a pad at
+- **Fix:** a steer key from straight starts at `KEY_ONSET` (0.3) and eases on at 7/s: full lock in
+  about 100 ms (`src/input/input.ts`). The Brute at 140 km/h: 3° in 7 ticks, the camera 13. Letting
+  go eases as before (7/s). Turning the other way eases to the middle as before (9/s), then steps out
+  to 0.3 on the other side, as a press from straight does. 0.3 is under `cruiseSteer` (0.35), so a
+  one-frame tap keeps the straight-line build climbing; a 50 ms tap is over it for 2 ticks (before,
+  none) and leaves the build about 0.02 of its 1 lower (about 0.1 s of its 5 s climb).
+- **Guard:** `test/input.test.ts`, "a steer key turns the car its first 3° within 3 ticks of a pad at
   full lock" (the real Input and Sim: 7 ticks against the pad's 5; eased from 0, 10).
 
 ## A drift was slow to start on the keyboard (2026-10-14)
@@ -56,7 +58,8 @@ Newest first. Bugs found by reading code go in HANDOFF's follow-ups; clean-ups i
   the car could start a drift (`readyToDrift` in `src/input/input.ts`, set from `canStartDrift` in
   `physics.ts`: on the ground, out of a spin-out, not drifting, off the cooldown, fast enough): the
   drift starts on the next tick. Mid-drift counter-steering, steering in the air or a spin-out, and
-  steering without drift held, ease as before.
+  steering without drift held, ease as before. (Since the keyboard's `KEY_ONSET`, above: they start
+  at 0.3, and not ready to drift, the steer reaches the threshold in 3 ticks, not 7–9.)
 - **Guard:** `test/input.test.ts`, "drift held, then a steer key: the drift starts on the next tick"
   (the real Input and Sim: 0 ticks; with it off, the old wait), and "in the air or spinning out, a
   car isn't ready to drift".

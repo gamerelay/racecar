@@ -64,7 +64,8 @@ export type InputDevice = 'keyboard' | 'gamepad' | 'touch';
 /**
  * A steer key from straight starts the steer here, then eases on to full lock (7/s: about 100 ms).
  * Eased from 0 at 4.5/s, the Brute at 140 km/h took 10 ticks to turn 3°, a pad's full lock 5 (the
- * owner, 2026-10-14: "a slight initial delay"). Under cruiseSteer, so a tap keeps the straight-line build.
+ * owner, 2026-10-14: "a slight initial delay"). Under cruiseSteer, so a one-frame tap keeps the
+ * straight-line build climbing (a longer one fades it from its second frame, as any steer past it does).
  */
 export const KEY_ONSET = 0.3;
 
@@ -137,8 +138,10 @@ export class Input {
     const want = (held.right ? 1 : 0) - (held.left ? 1 : 0);
     const rate = want * this.keySteer < 0 ? 9 : 7;
     this.keySteer = approach(this.keySteer, want, rate * dt);
-    // From straight (or through it, turning the other way), a steer key starts at KEY_ONSET.
-    if (want !== 0 && this.keySteer * want >= 0 && this.keySteer * want < KEY_ONSET) this.keySteer = want * KEY_ONSET;
+    // From straight, a steer key starts at KEY_ONSET; turning the other way, it eases to the middle
+    // at 9/s, then steps out to KEY_ONSET on the other side.
+    const along = this.keySteer * want;
+    if (want !== 0 && along >= 0) this.keySteer = want * Math.max(KEY_ONSET, along);
     let steer = this.keySteer;
     let throttle = held.up ? 1 : 0;
     let brake = held.down ? 1 : 0;
@@ -172,7 +175,8 @@ export class Input {
     // Drift held (a key or the pad's) and a steer key down, ready to drift: straight past the
     // drift's threshold, so it starts on the next tick. Eased up to it from straight, the drift
     // came 7–9 ticks after the key (the owner, 2026-10-14: the drift "slower to react", pressing
-    // drift then steering). Mid-drift, counter-steering eases as before.
+    // drift then steering). Mid-drift, counter-steering eases as any steer key does (KEY_ONSET).
+    // (Not ready, a steer key from straight now takes 3 ticks to the threshold.)
     if (this.readyToDrift && drift && want !== 0 && this.keySteer * want < TUNING.driftMinSteer) {
       this.keySteer = want * Math.min(1, TUNING.driftMinSteer + 0.05);
       if (Math.abs(this.keySteer) > Math.abs(steer)) steer = this.keySteer;
