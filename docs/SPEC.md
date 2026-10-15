@@ -2239,7 +2239,7 @@ Online leaderboard (2026-10-15):
   time is always a clean lap. It runs on your lobby's map, like Free drive; getaway streets have
   no laps, so a trial skips them.
 - **One board a layout, `lap:<map>.<layout>`, lower first, to the millisecond**
-  (`net/leaderboard.ts`). Each new best lap goes up as it's set, so leaving early still counts.
+  (`net/leaderboard.ts`). Each lap is offered as it's done and goes up if it beats your best there, so leaving early still counts, and a lap the server refuses (under the floor) doesn't stop the next one.
   The lap floor is the board's minimum score in GameRelay's leaderboard rules, set on the server,
   not checked in the game.
 - **Names are GameRelay's to moderate** (its name moderation, a paid-plan feature): the plate

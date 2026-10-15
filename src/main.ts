@@ -270,6 +270,8 @@ const trial = run.mode === 'trial' && !layout.getaway && you >= 0;
 const boardName = trial && online ? lapBoard(layoutKey) : null;
 const board = boardName ? new LapBoard(boardName, async () => (await online!.connection()).leaderboard ?? null) : null;
 raceUi.trial = trial;
+/** Laps the board has been offered (each one as it's done, not the session's best: one refused mustn't hide the rest). */
+let lapsSeen = 0;
 if (board) {
   raceUi.board = () => board.view;
   board.onChange = () => raceUi.renderBoard();
@@ -307,7 +309,10 @@ if (attract) {
   screens.onSettings = () => settingsPanel.open(document.getElementById('mSettings'));
   screens.onNotice = toast;
   screens.onPage = (page, from) => pagesPanel.open(page, from);
-  if (relayKey) screens.checkName = nameChecker(relayKey, import.meta.env.VITE_GAMERELAY_URL);
+  if (relayKey) {
+    screens.checkName = nameChecker(relayKey, import.meta.env.VITE_GAMERELAY_URL);
+    void screens.checkStoredPlate();
+  }
   // A link to a page (`?page=credits`): the title, with it up.
   const page = readPage(params.get('page'));
   if (page) pagesPanel.open(page);
@@ -490,7 +495,12 @@ function frame(now: number): void {
     hud.update();
     raceUi.update();
     keepGetaway();
-    board?.lap(sim.cars.bestLap[me]);
+    if (board && sim.cars.lap[me] !== lapsSeen) {
+      // More than one lap since the last frame (frames stalled): the best of them is offered too.
+      if (sim.cars.lap[me] > lapsSeen + 1) board.lap(sim.cars.bestLap[me]);
+      lapsSeen = sim.cars.lap[me];
+      if (lapsSeen > 0) board.lap(sim.cars.lastLap[me]);
+    }
     rumble();
     if (fpsEl.classList.contains('on') && sim.tick % 15 === 0) fpsEl.textContent = `${renderer.fps.toFixed(0)} fps`;
     if (hud.debugOn) hud.debugText = `fps ${renderer.fps.toFixed(0)}  draws ${renderer.drawCalls}\ntick ${sim.tick}  scale ${sim.timeScale.toFixed(2)}\ns ${sim.cars.s[me].toFixed(1)} lat ${sim.cars.lateral[me].toFixed(2)} spline ${sim.cars.spline[me]}\nslip ${sim.cars.slip[me].toFixed(2)} charge ${sim.cars.driftCharge[me].toFixed(2)}\nsurface ${SURFACES[sim.cars.surface[me]]?.id}  input ${input.lastDevice}\nlayout ${sim.track.layout.id} ${sim.track.version}  ${(sim.track.main.length / 1000).toFixed(2)} km`;

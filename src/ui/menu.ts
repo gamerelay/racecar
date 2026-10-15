@@ -18,7 +18,7 @@ import type { KeyValue, LobbyBackend, NetRoute } from '../lobby/backend';
 import { LOCAL_ID } from '../lobby/backend';
 import type { Refusal } from '../lobby/relay';
 import type { Page } from './pages';
-import { aiPlate, cleanPlate, plateProblem, PLATE_MAX, savePlate, typedPlate } from '../lobby/plate';
+import { aiPlate, cleanPlate, plateProblem, PLATE_MAX, randomPlate, savePlate, typedPlate } from '../lobby/plate';
 import { DEFAULT_OPTIONS, FILL_DIFFICULTY, SEATS, canJoin, nextVisibility, legacySeats, seatIndex, summarize, type Lobby, type LobbyAction, type LobbyOptions, type LobbySummary, type SeatChoice } from '../lobby/lobby';
 import { pingClass } from './format';
 import { MAX_LAPS, quickRaceSetup, raceFromLobby, randomCar, toQuery, trialSetup, type RaceSetup } from './setup';
@@ -557,6 +557,21 @@ export class Menu {
   private tellWhy(id: string): void {
     const r = this.backend.why?.(id);
     if (r) this.onNotice?.(refusalText(r));
+  }
+
+  /**
+   * A plate saved before GameRelay checked names (or before the game blocked a term) gets the same
+   * check once the menu's up; one it refuses is swapped for a fresh RC plate, and you're told.
+   */
+  async checkStoredPlate(): Promise<void> {
+    const old = this.plate;
+    const problem = await this.checkName?.(old);
+    if (!problem || this.plate !== old) return;
+    this.plate = randomPlate();
+    savePlate(this.store, this.plate);
+    await this.syncName(old);
+    this.onNotice?.(`Plate ${old} isn't allowed online: you're ${this.plate} for now (edit plate on the title).`);
+    if (this.screen.kind === 'title') void this.show({ kind: 'title' });
   }
 
   /**

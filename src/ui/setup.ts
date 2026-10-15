@@ -146,6 +146,8 @@ export function menuQuery(s: RaceSetup): string {
   if (s.lobby) return new URLSearchParams({ lobby: s.lobby }).toString();
   const q = new URLSearchParams(toQuery(s));
   q.delete('mode');
+  // A trial's conditions are the board's, not choices: the next race starts from the defaults.
+  if (s.mode === 'trial') for (const k of ['seats', 'weather', 'mayhem', 'traffic', 'laps']) q.delete(k);
   return q.toString();
 }
 

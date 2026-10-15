@@ -48,11 +48,14 @@ export interface BoardView {
 }
 
 /**
- * One layout's board on a Time Trial page: each new best lap goes up as it happens (so leaving
- * early still counts), one submit at a time, and the board is read back after each.
+ * One layout's board on a Time Trial page: each lap is offered as it's done (so leaving early
+ * still counts), and goes up if it beats your best on the board; one submit at a time, and the
+ * board is read back after each. A lap the server refuses (under the floor) or that fails to
+ * send leaves your best as it was, so the next good lap still goes up.
  */
 export class LapBoard {
-  private submitted = Infinity;
+  /** Your best the board has taken (from a submit's answer, so it covers earlier sessions too). */
+  private best = Infinity;
   private chain: Promise<unknown> = Promise.resolve();
   view: BoardView = { state: 'loading', page: null, mine: null, rejected: false };
   /** The view changed (main.ts redraws the results' board). */
@@ -68,15 +71,15 @@ export class LapBoard {
     return this.run(async (lb) => this.refresh(lb));
   }
 
-  /** Your best lap so far this run (0 = none yet): a new best goes up. */
-  lap(best: number): void {
-    if (!(best > 0)) return;
-    const score = lapScore(best);
-    if (score >= this.submitted) return;
-    this.submitted = score;
+  /** A lap just done (seconds): it goes up if it beats your best on the board. */
+  lap(seconds: number): void {
+    if (!(seconds > 0)) return;
+    const score = lapScore(seconds);
     void this.run(async (lb) => {
+      if (score >= this.best) return;
       try {
         const r = await lb.submit(this.board, score, { order: 'asc' });
+        this.best = r.best;
         this.set({ mine: r, rejected: false });
       } catch (err) {
         if ((err as { code?: string }).code !== 'rejected') throw err;

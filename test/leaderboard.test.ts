@@ -44,18 +44,18 @@ describe('lap boards', () => {
     expect(lapTime(9.5)).toBe('0:09.500');
   });
 
-  test('only new bests go up, one at a time, and the board is read back', async () => {
+  test('each lap goes up only if it beats your best, one at a time, and the board is read back', async () => {
     const fake = new FakeBoard();
     fake.scores.set('p_rival', 61);
     const board = new LapBoard('lap:x.y', async () => fake);
     const views: string[] = [];
     board.onChange = (v) => views.push(v.state);
     await board.load();
-    board.lap(0); // no lap yet
+    board.lap(0); // no lap
     board.lap(65.4321);
-    board.lap(65.4321); // the same best again: nothing
+    board.lap(65.4321); // the same time again: nothing
     board.lap(63);
-    board.lap(64); // slower than what went up
+    board.lap(64); // slower than your best
     await settle();
     await board.load();
     expect(fake.submits).toEqual([65.432, 63]);
@@ -72,13 +72,30 @@ describe('lap boards', () => {
     await board.load();
     expect(board.view).toMatchObject({ rejected: true, state: 'ready', mine: null });
 
+    // A refused lap doesn't hide the next good one, faster or slower.
+    board.lap(55);
+    await board.load();
+    expect(fake.submits).toEqual([12, 55]);
+    expect(board.view).toMatchObject({ rejected: false, mine: { best: 55, improved: true } });
+
+    // A lap that failed to send: the next one still goes up.
+    let down = true;
+    const flaky = new FakeBoard();
+    const retry = new LapBoard('lap:x.y', async () => (down ? Promise.reject(new Error('offline')) : flaky));
+    retry.lap(60);
+    await retry.load();
+    down = false;
+    retry.lap(61);
+    await retry.load();
+    expect(flaky.submits).toEqual([61]);
+
     const none = new LapBoard('lap:x.y', async () => null);
     none.lap(60);
     await none.load();
     expect(none.view.state).toBe('offline');
-    const down = new LapBoard('lap:x.y', () => Promise.reject(new Error('no network')));
-    await down.load();
-    expect(down.view.state).toBe('offline');
+    const gone = new LapBoard('lap:x.y', () => Promise.reject(new Error('no network')));
+    await gone.load();
+    expect(gone.view.state).toBe('offline');
   });
 });
 
@@ -91,7 +108,11 @@ describe('Time Trial setup', () => {
   test('round trips, and goes back to the menu without its mode', () => {
     const s = trialSetup('backroads/valley', { car: 'rally', paint: 2 }, 'sunset');
     expect(readSetup(new URLSearchParams(toQuery(s)), 'downtown/downtown')).toEqual({ ...s, lobby: undefined, others: undefined, at: undefined });
-    expect(new URLSearchParams(menuQuery(s)).get('mode')).toBeNull();
+    const back = new URLSearchParams(menuQuery(s));
+    // Back on the menu, the trial's conditions aren't your next race's defaults.
+    for (const k of ['mode', 'seats', 'weather', 'mayhem', 'traffic', 'laps']) expect([k, back.get(k)]).toEqual([k, null]);
+    expect(back.get('map')).toBe('backroads/valley');
+    expect(back.get('car')).toBe('rally');
   });
 });
 

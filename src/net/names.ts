@@ -28,6 +28,8 @@ export function nameChecker(publicKey: string, base = 'https://gamerelay.io', fe
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ publicKey, name }),
+        // A server that hangs mustn't hold the Save or Create button: the name goes through.
+        signal: AbortSignal.timeout(4000),
       });
       if (!res.ok) return null;
       const body = (await res.json()) as { ok?: boolean; reason?: string };

@@ -7,7 +7,7 @@ and where things stand is [docs/HANDOFF.md](./docs/HANDOFF.md).
 ## Unreleased
 
 - **Time trial, with an online leaderboard:** a new Time trial on the title puts you alone on your lobby's map (clear weather, no traffic or mayhem). Every new best lap goes on that layout's online board, and the results show the top ten with you on it.
-- **Names others see are checked online:** a new plate and an online lobby's name go through GameRelay's name check, which knows lookalike letters and leetspeak and the terms the game blocks. Online lobby names are now up to 24 characters.
+- **Names others see are checked online:** a new plate and an online lobby's name go through GameRelay's name check, which knows lookalike letters and leetspeak and the terms the game blocks. A plate saved before that, which the check now refuses, is swapped for a fresh RC plate (the game tells you). Online lobby names are now up to 24 characters.
 
 - **Drifts start sooner on the keyboard:** hold drift and press a steer key, and the drift starts at once. It used to wait about an eighth of a second while the steering eased in.
 - **A steadier camera:** the view no longer nods with every rise and dip in the road. It was most noticeable on Riviera past the Rock Tunnel, and in the Brute. The camera now eases where it looks along with its height, so the car moves on the screen instead.
