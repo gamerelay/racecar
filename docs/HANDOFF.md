@@ -208,8 +208,6 @@ Bugs and gameplay gaps. Refactors, duplication, performance and tooling go in
   - Remote poses are capped now (speed, turn, steering; rivals' handover range-checked), but not
     their position: a modified client can still put its car anywhere, on top of yours too. A
     position near the track (and near where it last was) is the next check.
-  - An online Create lobby can't be cancelled: Esc to the title, and if the create lands after,
-    the menu opens the new lobby.
   - Lobby names aren't filtered like plates (`cleanName` in `lobby.ts` only trims and cuts to 32
     characters), and Public ones are listed to strangers.
 - **Content and visual:**

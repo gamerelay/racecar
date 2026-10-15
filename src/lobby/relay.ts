@@ -148,8 +148,13 @@ export class RelayBackend implements LobbyBackend {
    * leave doesn't say which room. Overlapping, a late join's leave could take you out of the next.
    */
   private queue: Promise<unknown> = Promise.resolve();
-  /** The lobby the screens want you in (a create's is its new room's, once there is one). */
+  /**
+   * The lobby the screens want you in. A create's is a mark of its own until its room is made, then
+   * the room's code; a link's is the link until it lands. Either takes the code only if it's still
+   * what's wanted: another lobby asked for meanwhile (Esc, then one from the list) keeps its place.
+   */
   private wanted: string | null = null;
+  private creates = 0;
 
   /** `connect` opens the connection, once, when the backend is first used (the SDK's `GameRelay.connect`). */
   constructor(private connect: () => Promise<RelayLike>) {}
@@ -227,11 +232,12 @@ export class RelayBackend implements LobbyBackend {
   }
 
   async create(host: Player, init: Parameters<LobbyBackend['create']>[1]): Promise<Lobby> {
-    this.wanted = null;
-    return this.inTurn(() => this.createNow(host, init));
+    const mark = `create:${++this.creates}`;
+    this.wanted = mark;
+    return this.inTurn(() => this.createNow(host, init, mark));
   }
 
-  private async createNow(host: Player, init: Parameters<LobbyBackend['create']>[1]): Promise<Lobby> {
+  private async createNow(host: Player, init: Parameters<LobbyBackend['create']>[1], mark: string): Promise<Lobby> {
     const relay = await this.relayNow();
     await this.leaveRoom();
     // Out of any party first (a fresh page's SDK doesn't know it's in one): a leader's new room
@@ -242,7 +248,7 @@ export class RelayBackend implements LobbyBackend {
     const room = await relay.createRoom({ maxPlayers: SEATS, tag: TAG, public: visibility === 'public', linkOnly: visibility !== 'public' });
     const party = await this.party.create();
     const lobby: Lobby = { ...createLobby(room.code, { ...host, id: room.me }, { ...init, visibility }), ...(party ? { party } : {}) };
-    this.wanted = room.code;
+    if (this.wanted === mark) this.wanted = room.code;
     this.attach(room);
     this.commit(room, lobby);
     return lobby;
@@ -304,7 +310,7 @@ export class RelayBackend implements LobbyBackend {
       this.refusals.delete(link);
       const r = await relay.joinLink!(link).catch(this.refused(link, 'joining by a link failed', 'closed'));
       if (r) {
-        this.wanted = r.code;
+        if (this.wanted === link) this.wanted = r.code;
         this.attach(r);
       }
       return r;

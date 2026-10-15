@@ -789,6 +789,72 @@ describe('online lobbies', () => {
     expect(side.why(lobby.id)).toBeNull();
   });
 
+  test("a create given up on (Esc to the title) is left once it lands, and closes", async () => {
+    const hub = new Hub();
+    const [bo] = players(hub, 'bo');
+    let land!: () => void;
+    const make = bo.relay.createRoom.bind(bo.relay);
+    bo.relay.createRoom = async (o) => {
+      await new Promise<void>((r) => (land = r));
+      return make(o);
+    };
+    const creating = bo.backend.create(player('BO'), {});
+    await settle();
+    land();
+    const made = await creating;
+    // The menu, back on the title, leaves it as cGo does.
+    await bo.backend.abandon(made.id);
+    expect(bo.relay.room).toBeNull();
+    expect(hub.rooms.has(made.id)).toBe(false);
+  });
+
+  test("a create given up on (Esc, then a lobby from the list) doesn't take the join's place when it lands", async () => {
+    const hub = new Hub();
+    const [ada, bo] = players(hub, 'ada', 'bo');
+    const theirs = await ada.backend.create(player('ADA'), {});
+    let land!: () => void;
+    const make = bo.relay.createRoom.bind(bo.relay);
+    bo.relay.createRoom = async (o) => {
+      await new Promise<void>((r) => (land = r));
+      return make(o);
+    };
+    const creating = bo.backend.create(player('BO'), {});
+    await settle();
+    // Esc to the title, and their lobby from the list, while Bo's is still being made.
+    const joining = bo.backend.get(theirs.id);
+    land();
+    const made = await creating;
+    // The menu leaves the one it no longer wants, as cGo does.
+    void bo.backend.abandon(made.id);
+    expect((await joining)?.id).toBe(theirs.id);
+    await bo.backend.abandon(made.id);
+    expect(bo.relay.room?.code).toBe(theirs.id);
+    expect(hub.rooms.has(made.id)).toBe(false);
+  });
+
+  test("a link given up on doesn't take the place of a lobby asked for after it, when it lands", async () => {
+    const hub = new Hub();
+    const [ada, cy, bo] = players(hub, 'ada', 'cy', 'bo');
+    const linked = await ada.backend.create(player('ADA'), { visibility: 'invite' });
+    const listed = await cy.backend.create(player('CY'), {});
+    let land!: () => void;
+    const join = bo.relay.joinLink.bind(bo.relay);
+    bo.relay.joinLink = async (link) => {
+      await new Promise<void>((r) => (land = r));
+      return join(link);
+    };
+    const linking = bo.backend.joinLink(linkOf(linked.id));
+    await settle();
+    // Too slow: given up on, then a lobby from the list while the link is still on its way.
+    void bo.backend.abandon(linkOf(linked.id));
+    const joining = bo.backend.get(listed.id);
+    land();
+    expect(await linking).toBe(linked.id);
+    void bo.backend.abandon(linked.id);
+    expect((await joining)?.id).toBe(listed.id);
+    expect(bo.relay.room?.code).toBe(listed.id);
+  });
+
   test("a refusal that lands before the menu asks is said instead of too slow", async () => {
     const online = { get: () => new Promise(() => {}), why: () => ({ kind: 'banned' }) } as unknown as ConstructorParameters<typeof Lobbies>[1];
     const both = new Lobbies(new LocalBackend(null), online, 10, 10);
