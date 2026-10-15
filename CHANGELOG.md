@@ -4,7 +4,7 @@ What changed in each release of racecar, newest first. Releases are git tags on 
 reasons behind each change are in [docs/SPEC.md](./docs/SPEC.md) under "Changed while building",
 and where things stand is [docs/HANDOFF.md](./docs/HANDOFF.md).
 
-## Unreleased
+## v1.1: Time trial
 
 - **Test bots for AI assistants:** an assistant using GameRelay's `add_bot` can put a test car into an online race you host from the game on your own machine. It takes one of the AI cars and drives it with a small program the assistant writes, and the AI takes the car back when the bot leaves. Players never see a difference: it's an AI car to them. Built on GameRelay's SDK 0.1.0-alpha.11.
 - **Steering takes sooner on the keyboard:** a steer key now turns the car from the first frame, then eases on to full lock in about a tenth of a second. It used to build up from nothing over a fifth of a second, which felt like a slight delay before the car turned.
