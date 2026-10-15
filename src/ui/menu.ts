@@ -205,6 +205,8 @@ export class Menu {
     const screen = this.screen;
     if (screen.kind === 'plate' && screen.from) return void this.show({ kind: 'lobby', id: screen.from });
     if (screen.kind === 'lobby') void this.backend.send(screen.id, { type: 'leave' });
+    // A lobby still being made is given up now, so it's never written or listed.
+    if (screen.kind === 'create') this.backend.abandonCreate?.();
     if (screen.kind !== 'title') void this.show({ kind: 'title' });
   }
 

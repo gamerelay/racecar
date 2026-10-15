@@ -125,6 +125,9 @@ export function linkId(url: string): string {
 /** setListing allows 10 changes in a row, then one a second: the listing follows at most this often (ms). */
 const LISTING_MS = 1000;
 
+/** A create given up on (another lobby asked for before it was made): what it rejects with. */
+const GIVEN_UP = 'given up for another lobby';
+
 export class RelayBackend implements LobbyBackend {
   private relay: Promise<RelayLike> | null = null;
   /** Why each lobby last refused you or put you out, until the menu asks (`why`). */
@@ -148,8 +151,13 @@ export class RelayBackend implements LobbyBackend {
    * leave doesn't say which room. Overlapping, a late join's leave could take you out of the next.
    */
   private queue: Promise<unknown> = Promise.resolve();
-  /** The lobby the screens want you in (a create's is its new room's, once there is one). */
-  private wanted: string | null = null;
+  /**
+   * The lobby the screens want you in. A create's is a mark of its own (a symbol, so no code or link
+   * from a URL can be it) until its room is made, then the room's code; a link's is the link until
+   * it lands. Either takes the code only if it's still what's wanted: another lobby asked for
+   * meanwhile (Esc, then one from the list) keeps its place.
+   */
+  private wanted: string | symbol | null = null;
 
   /** `connect` opens the connection, once, when the backend is first used (the SDK's `GameRelay.connect`). */
   constructor(private connect: () => Promise<RelayLike>) {}
@@ -227,20 +235,31 @@ export class RelayBackend implements LobbyBackend {
   }
 
   async create(host: Player, init: Parameters<LobbyBackend['create']>[1]): Promise<Lobby> {
-    this.wanted = null;
-    return this.inTurn(() => this.createNow(host, init));
+    const mark = Symbol('create');
+    this.wanted = mark;
+    return this.inTurn(() => this.createNow(host, init, mark));
   }
 
-  private async createNow(host: Player, init: Parameters<LobbyBackend['create']>[1]): Promise<Lobby> {
+  private async createNow(host: Player, init: Parameters<LobbyBackend['create']>[1], mark: symbol): Promise<Lobby> {
+    // Given up on before its turn came (Esc, then another lobby): nothing made.
+    if (this.wanted !== mark) throw new Error(GIVEN_UP);
     const relay = await this.relayNow();
     await this.leaveRoom();
     // Out of any party first (a fresh page's SDK doesn't know it's in one): a leader's new room
     // would pull its old lobby's players in.
     await this.party.leave();
     const visibility = init.visibility ?? 'public';
+    // Given up on while it left the last one: still nothing made.
+    if (this.wanted !== mark) throw new Error(GIVEN_UP);
     // Invite only: nobody gets in by guessing the 4-letter code, only by the lobby's link.
     const room = await relay.createRoom({ maxPlayers: SEATS, tag: TAG, public: visibility === 'public', linkOnly: visibility !== 'public' });
-    const party = await this.party.create();
+    const party = this.wanted === mark ? await this.party.create() : undefined;
+    // Given up on while it was made (Esc, maybe then another lobby): out of it (and its party) at
+    // once, unlisted and never written, so nobody finds it in the list on the way out.
+    if (this.wanted !== mark) {
+      await this.leave(room);
+      throw new Error(GIVEN_UP);
+    }
     const lobby: Lobby = { ...createLobby(room.code, { ...host, id: room.me }, { ...init, visibility }), ...(party ? { party } : {}) };
     this.wanted = room.code;
     this.attach(room);
@@ -300,9 +319,16 @@ export class RelayBackend implements LobbyBackend {
     const relay = await this.relayNow();
     if (!relay.joinLink) return null;
     const room = await this.inTurn(async () => {
+      // Given up on before its turn came.
+      if (this.wanted !== link) return null;
       await this.leaveRoom();
       this.refusals.delete(link);
       const r = await relay.joinLink!(link).catch(this.refused(link, 'joining by a link failed', 'closed'));
+      // Given up on while it joined (too slow, then another lobby): out again, as enter() does.
+      if (r && this.wanted !== link) {
+        await this.leave(r);
+        return null;
+      }
       if (r) {
         this.wanted = r.code;
         this.attach(r);
@@ -357,13 +383,13 @@ export class RelayBackend implements LobbyBackend {
     this.refusals.delete(id);
     const room = await relay.joinRoom(id).catch(this.refused(id, 'joining a lobby failed', 'missing'));
     if (!room) return null;
-    this.attach(room);
-    // Given up on while it joined (Esc, or too slow for the screen): out again, before anything
-    // after it runs, so this leave can only be this room's.
+    // Given up on while it joined (Esc, or too slow for the screen): out again, never attached,
+    // before anything after it runs, so this leave can only be this room's.
     if (this.wanted !== id) {
-      await this.leaveRoom();
+      await this.leave(room);
       return null;
     }
+    this.attach(room);
     return room;
   }
 
@@ -489,15 +515,25 @@ export class RelayBackend implements LobbyBackend {
     this.listingTimer = null;
   }
 
+  /** Esc from Create: the create in flight, if any, is given up (see `createNow`). */
+  abandonCreate(): void {
+    if (typeof this.wanted === 'symbol') this.wanted = null;
+  }
+
   private async leaveRoom(): Promise<void> {
     const room = this.room;
     if (!room) return;
     this.detach();
+    await this.leave(room);
+    this.notify(null);
+  }
+
+  /** Out of `room` (and any party), attached or not. */
+  private async leave(room: RoomLike): Promise<void> {
     await this.party.leave();
     // The last one out unlists it, so nothing (quick match included) sends anyone into an empty room.
     if (room.isHost && room.isPublic && room.players.every((p) => p.id === room.me)) await room.setAccess({ public: false }).catch(() => {});
     await room.leave().catch(warned('leaving a lobby failed', undefined));
-    this.notify(null);
   }
 
   /** On the SDK's host: `actor` does `action`. The lobby after it, or null if it was refused. */
