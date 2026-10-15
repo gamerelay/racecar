@@ -7,6 +7,13 @@ export function fmt(t: number): string {
   return `${m}:${((d % 600) / 10).toFixed(1).padStart(4, '0')}`;
 }
 
+/** A lap time to the millisecond, as the online boards rank it: 1:02.345. */
+export function lapTime(t: number): string {
+  const ms = Math.round(Math.max(0, t) * 1000);
+  const m = Math.floor(ms / 60000);
+  return `${m}:${((ms % 60000) / 1000).toFixed(3).padStart(6, '0')}`;
+}
+
 /** 1st, 2nd, 3rd, 4th … 11th, 12th, 13th … 21st; 0 is "Finished" (no place yet). */
 export function ordinal(n: number): string {
   if (!n) return 'Finished';

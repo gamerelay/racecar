@@ -9,7 +9,8 @@ import { goTo } from './fade';
 import { DEFAULT_OPTIONS, FILL_DIFFICULTY, encodeSeats, legacySeats, othersIn, parseSeats, seatIndex, type Difficulty, type Lobby, type Other } from '../lobby/lobby';
 
 export interface RaceSetup {
-  mode: 'race' | 'free';
+  /** `trial`: Time Trial (SPEC §10), you alone in clear weather, no traffic or mayhem: your laps go on the online board. */
+  mode: 'race' | 'free' | 'trial';
   map: string;
   car: string;
   paint: number;
@@ -63,7 +64,7 @@ export const MAX_LAPS = 5;
  */
 export function readSetup(q: URLSearchParams, defaultMap: string, known?: Known): RaceSetup | null {
   const mode = q.get('mode');
-  if (mode !== 'race' && mode !== 'free') return null;
+  if (mode !== 'race' && mode !== 'free' && mode !== 'trial') return null;
   /** A whole number in [lo, hi], or `d` if it's missing or not a number. */
   const int = (k: string, d: number, lo: number, hi: number) => {
     const v = Number(q.get(k));
@@ -92,7 +93,17 @@ export function readSetup(q: URLSearchParams, defaultMap: string, known?: Known)
     ...(lobby ? { lobby } : {}),
     ...(others ? { others } : {}),
     ...(q.has('at') && Number.isFinite(at) && at > 0 ? { at } : {}),
+    // A Time Trial's conditions are the board's, whatever the link says.
+    ...(mode === 'trial' ? TRIAL : {}),
   };
+}
+
+/** What makes a Time Trial (SPEC §10): you alone, clear weather, no traffic, no mayhem, no lobby. */
+const TRIAL = { seats: 'p', weather: 'clear', mayhem: 'off', traffic: false, lobby: undefined, others: undefined, at: undefined } as const;
+
+/** A Time Trial on `map` in your car: three laps to set a time. */
+export function trialSetup(map: string, yours: { car: string; paint: number }, time: TimeOption = 'day'): RaceSetup {
+  return { mode: 'trial', map, ...yours, laps: 3, time, seed: Math.floor(Math.random() * 1e9), ...TRIAL };
 }
 
 /** Your last choices from the URL (after a race's "Main menu"), for the menu's defaults. */

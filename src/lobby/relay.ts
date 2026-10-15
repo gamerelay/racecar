@@ -18,6 +18,7 @@ import { apply, createLobby, SEATS, summarize, type Lobby, type LobbyAction, typ
 import { LobbyParty } from './party';
 import { Presence } from './presence';
 import { warned } from './warn';
+import type { LeaderboardLike } from '../net/leaderboard';
 import { readAction, readListing, readLobby } from './wire';
 
 /** The room events racecar listens to: the SDK's names, so a misspelt one doesn't compile (it would never fire). */
@@ -45,6 +46,8 @@ export interface RelayLike {
   createParty?(): Promise<{ code: string }>;
   joinParty?(code: string): Promise<unknown>;
   leaveParty?(): Promise<void>;
+  /** The game's leaderboards (Time Trial's lap boards: net/leaderboard.ts). */
+  readonly leaderboard?: LeaderboardLike;
 }
 
 export interface RoomLike {
