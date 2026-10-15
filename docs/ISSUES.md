@@ -26,6 +26,24 @@ Newest first. Bugs found by reading code go in HANDOFF's follow-ups; clean-ups i
    `follow`, `slopeRise`, the guards; the aim from `look`) and measure the view's angle, not only the
    car's height.
 
+## A drift was slow to start on the keyboard (2026-10-14)
+
+- **Looked like:** the drift "slightly slower to react than normal", from the key to the car;
+  noticed around Splash City's draw call pass (alpha-1.47), and more in the Brute.
+- **Was:** a drift starts once the steer is past `driftMinSteer` (0.6), and keyboard steering eases
+  in: 9/s for its first frame from straight, then 4.5/s, so 0.6 takes about 133 ms. Pressing drift
+  then a steer key, the drift came 7–9 ticks after the steer key in both of the owner's reports
+  (with the steer already held, 0–3). Not new: the easing is the first build's, and nothing in
+  input or the drift changed since alpha-1.44. A pad's stick has no easing, so it never waited.
+- **Fix:** with drift held (a key or the pad's), a steer key goes straight past the threshold while
+  the car could start a drift (`readyToDrift` in `src/input/input.ts`, set from `canStartDrift` in
+  `physics.ts`: on the ground, out of a spin-out, not drifting, off the cooldown, fast enough): the
+  drift starts on the next tick. Mid-drift counter-steering, steering in the air or a spin-out, and
+  steering without drift held, ease as before.
+- **Guard:** `test/input.test.ts`, "drift held, then a steer key: the drift starts on the next tick"
+  (the real Input and Sim: 0 ticks; with it off, the old wait), and "in the air or spinning out, a
+  car isn't ready to drift".
+
 ## The view nodded with the road (2026-10-14, PR #176)
 
 - **Looked like:** on Riviera, a bob or chop while driving, "more visible with the Brute", worst
