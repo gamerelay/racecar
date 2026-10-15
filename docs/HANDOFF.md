@@ -23,7 +23,8 @@ lobbies. In `v1.0`:
     (strip, `showTable`), `main.ts`. `MAX_CARS` is 32.
   - **Not checked yet:** a getaway online with 2+ players (a plain race online is, below) on the local relay, 8 runners at the Bank, the 32-car draw calls against the table below, and
     single player's crash card in a visible window.
-  - **Next (not in this):** AI runners online, players as cops, an online leaderboard.
+  - **Next (not in this):** AI runners online, players as cops. (The online leaderboard is Time
+    trial's lap boards: SPEC "Online leaderboard (2026-10-15)".)
 - **Ready for the public** (#169, #170; [the spec](./superpowers/specs/2026-10-10-public-polish-design.md)):
   no analytics (PostHog is gone, and an older build's id and opt-out are cleared from the
   browser); host controls (Kick, banned on a second kick; Make host with `transferHost`; Private

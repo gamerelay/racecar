@@ -16,15 +16,18 @@ import type { CarClass, MapDef, PaintDef, TrackLayout } from '../core/content';
 import FLAGS from './icons/flags.svg?raw';
 import type { KeyValue, LobbyBackend, NetRoute } from '../lobby/backend';
 import { LOCAL_ID } from '../lobby/backend';
-import type { Refusal } from '../lobby/relay';
+import type { NameCheck, NameRules, Refusal } from '../lobby/relay';
 import type { Page } from './pages';
-import { aiPlate, cleanPlate, plateProblem, PLATE_MAX, savePlate, typedPlate } from '../lobby/plate';
+import { aiPlate, cleanPlate, plateProblem, PLATE_MAX, randomPlate, savePlate, typedPlate } from '../lobby/plate';
 import { DEFAULT_OPTIONS, FILL_DIFFICULTY, SEATS, canJoin, nextVisibility, legacySeats, seatIndex, summarize, type Lobby, type LobbyAction, type LobbyOptions, type LobbySummary, type SeatChoice } from '../lobby/lobby';
 import { pingClass } from './format';
-import { MAX_LAPS, quickRaceSetup, raceFromLobby, randomCar, toQuery, type RaceSetup } from './setup';
+import { MAX_LAPS, quickRaceSetup, raceFromLobby, randomCar, toQuery, trialSetup, type RaceSetup } from './setup';
 import { onOverlay, overlayUp } from './overlay';
 import { carStats } from './stats';
 import { thumb, thumbSvg } from './thumb';
+
+/** What GameRelay checks a plate against: tighter than a name's rules, as plates are (lobby/plate.ts). */
+const PLATE_RULES: NameRules = { maxLength: PLATE_MAX, charset: 'alnum' };
 
 export interface MenuContent {
   maps: MapDef[];
@@ -155,6 +158,8 @@ export class Menu {
   onNotice?: (text: string) => void;
   /** The title's Credits, Privacy and Terms (main.ts opens the page). */
   onPage?: (page: Page, from: HTMLElement | null) => void;
+  /** GameRelay's name check (lobby/relay.ts `nameCheck`) for a plate or an online lobby's name: null when it's fine. */
+  checkName?: NameCheck;
 
   constructor(
     private backend: LobbyBackend,
@@ -409,8 +414,8 @@ export class Menu {
           ${this.titleNote(lobbies)}
         </div>
         <div class="bigs"><button id="mSolo" class="big">Single player</button><button id="mCreate" class="big">Create lobby</button></div>
-        <div class="row"><button id="mQuick" class="ghost">Quick race</button><button id="mFree" class="ghost">Free drive</button><button id="mSettings" class="ghost">Settings</button></div>
-        <p class="muted">Every race is a lobby, and bots fill the open seats. Quick race is you and seven bots on a random map. Drift (Shift / RB) to take corners tighter; air, near misses and the oncoming lane fill boost.</p>
+        <div class="row"><button id="mQuick" class="ghost">Quick race</button><button id="mTrial" class="ghost">Time trial</button><button id="mFree" class="ghost">Free drive</button><button id="mSettings" class="ghost">Settings</button></div>
+        <p class="muted">Every race is a lobby, and bots fill the open seats. Quick race is you and seven bots on a random map; Time trial puts your best lap on the online board. Drift (Shift / RB) to take corners tighter; air, near misses and the oncoming lane fill boost.</p>
         <div class="titleFoot"><a href="?page=privacy" id="mPrivacy">Privacy</a> · <a href="?page=terms" id="mTerms">Terms</a><span class="buildVersion" title="This build's version">${esc(BUILD_VERSION)}</span><button id="mCredits" class="creditsBox">Credits</button></div>
       </div>`,
       lobbies.length ? `lobby-${lobbies[0].id}` : 'mCreate',
@@ -420,6 +425,7 @@ export class Menu {
     this.on('mSolo', () => void this.singlePlayer());
     this.on('mPlate', () => void this.show({ kind: 'plate' }));
     this.on('mQuick', () => this.quickRace());
+    this.on('mTrial', () => void this.timeTrial());
     this.on('mFree', () => void this.freeDrive());
     this.on('mSettings', () => this.onSettings?.());
     // The links open in place; their hrefs are for a new tab.
@@ -462,6 +468,16 @@ export class Menu {
 
   private quickRace(): void {
     goTo(toQuery(quickRaceSetup(this.lobbyKeys(), this.yours)));
+  }
+
+  /** Time Trial (SPEC §10) on your lobby's map (or the last race's): you alone, laps for the online board. */
+  private async timeTrial(): Promise<void> {
+    const lobby = await this.backend.get(LOCAL_ID);
+    const o = { ...this.defaults, ...(lobby?.options ?? {}) };
+    // A getaway's streets have no laps: its board would be empty, so the first lap map instead.
+    const laps = (key: string | undefined) => !!key && !!this.content.layouts[key] && !this.content.layouts[key].getaway;
+    const map = laps(o.map) ? o.map! : (Object.keys(this.content.layouts).find(laps) ?? Object.keys(this.content.layouts)[0]);
+    goTo(toQuery(trialSetup(map, this.yourCar(lobby), o.time ?? 'day')));
   }
 
   private async freeDrive(): Promise<void> {
@@ -522,7 +538,8 @@ export class Menu {
     };
     const save = async () => {
       const plate = cleanPlate(field.value);
-      const problem = savePlate(this.store, plate);
+      // The plate's own rules first (offline too), then GameRelay's, when it's a new plate.
+      const problem = plateProblem(plate) ?? (plate !== this.plate ? await this.checkName?.(plate, PLATE_RULES) : null) ?? savePlate(this.store, plate);
       if (problem) return void (err.textContent = problem);
       const old = this.plate;
       this.plate = plate;
@@ -545,6 +562,21 @@ export class Menu {
   private tellWhy(id: string): void {
     const r = this.backend.why?.(id);
     if (r) this.onNotice?.(refusalText(r));
+  }
+
+  /**
+   * A plate saved before GameRelay checked names (or before the game blocked a term) gets the same
+   * check once the menu's up; one it refuses is swapped for a fresh RC plate, and you're told.
+   */
+  async checkStoredPlate(): Promise<void> {
+    const old = this.plate;
+    const problem = await this.checkName?.(old, PLATE_RULES);
+    if (!problem || this.plate !== old) return;
+    this.plate = randomPlate();
+    savePlate(this.store, this.plate);
+    await this.syncName(old);
+    this.onNotice?.(`Plate ${old} isn't allowed online: you're ${this.plate} for now (edit plate on the title).`);
+    if (this.screen.kind === 'title') void this.show({ kind: 'title' });
   }
 
   /**
@@ -624,7 +656,7 @@ export class Menu {
       `<div class="card setup create">
         <h1>Create lobby</h1>
         <div class="grid">
-          <label class="wide">Name <input id="cName" maxlength="32" autocomplete="off" data-1p-ignore data-lpignore="true" value="${esc(this.plate)}'s lobby"></label>
+          <label class="wide">Name <input id="cName" maxlength="24" autocomplete="off" data-1p-ignore data-lpignore="true" value="${esc(this.plate)}'s lobby"></label>
           ${this.optionFields(o, false)}
           <label>Who can join ${this.sel('cVis', this.online ? [['public', 'Public'], ['invite', 'Invite only'], ['local', 'Private']] : [['local', 'Private']], this.online ? 'public' : 'local')}</label>
         </div>
@@ -650,6 +682,12 @@ export class Menu {
       const go = document.getElementById('cGo') as HTMLButtonElement;
       const here = this.screen;
       go.disabled = true;
+      // Strangers see an online lobby's name in their list: GameRelay checks it first.
+      const problem = online && name.trim() ? await this.checkName?.(name.trim()) : null;
+      if (problem) {
+        go.disabled = false;
+        return void ((document.querySelector('.create .muted') as HTMLElement).textContent = `${problem}: pick another name.`);
+      }
       const lobby = await this.backend.create(this.newcomer(online ? '' : LOCAL_ID), { name, visibility, online, options: this.readOptions() }).catch(() => null);
       go.disabled = false;
       // Back (or Esc) while it was being made: you've left, and so does the lobby.

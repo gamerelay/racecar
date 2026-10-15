@@ -4,13 +4,14 @@ import { esc } from './html';
 import type { CarClass } from '../core/content';
 import { Ev, type GameEvent } from '../core/events';
 import type { Sim } from '../core/sim';
-import { fmt, ordinal } from './format';
+import { fmt, lapTime, ordinal } from './format';
 import { fitBox } from './thumb';
 
 /** One run's finish on the minimap: a bar this many pixels either side of the road. */
 const FINISH_BAR = 16;
 import type { ResultRow } from '../lobby/lobby';
 import type { VoteView } from '../net/postrace';
+import { BOARD_ROWS, type BoardView } from '../net/leaderboard';
 import { standings } from './watch';
 
 export class RaceUi {
@@ -59,6 +60,10 @@ export class RaceUi {
   private voteHtml = '';
   /** A getaway's best before this run (main.ts), and what to do with this run's time once it's over. */
   getawayBest = 0;
+  /** A Time Trial (main.ts): the results lead with your best lap and the layout's online board. */
+  trial = false;
+  /** The online board, on a Time Trial with a connection to have one (main.ts). */
+  board: () => BoardView | null = () => null;
 
   constructor(
     private readonly sim: Sim,
@@ -167,7 +172,8 @@ export class RaceUi {
       setTimeout(show, 2500);
     }
     // Results stay live (once a second) until the last car is in, and while there's a vote.
-    if (this.open && (!sim.getaway || this.tableUp) && (sim.race.finishedCount < sim.cars.count || this.vote()) && performance.now() > this.refreshAt) {
+    // (A Time Trial's results have no race table: its board redraws itself.)
+    if (this.open && !this.trial && (!sim.getaway || this.tableUp) && (sim.race.finishedCount < sim.cars.count || this.vote()) && performance.now() > this.refreshAt) {
       this.refreshAt = performance.now() + 1000;
       this.rows();
       this.renderVote();
@@ -233,6 +239,7 @@ export class RaceUi {
     const g = this.sim.getaway;
     if (g && g.runs.length > 1 && (g.allOut || this.vote())) return this.showTable();
     if (g) return this.showGetaway();
+    if (this.trial) return this.showTrial();
     this.results.innerHTML = `<div class="card results"><h1 id="rPlace">${ordinal(this.sim.cars.place[this.focus])}</h1>
       <table><thead><tr><th></th><th>Driver</th><th>Car</th><th>Time</th><th>${this.sim.track.run ? 'Best run' : 'Best lap'}</th><th>Takedowns</th><th>Wrecks</th><th>Score</th></tr></thead><tbody id="rRows"></tbody></table>
       <div id="rVote"></div>
@@ -245,6 +252,48 @@ export class RaceUi {
     if (again) again.onclick = () => this.onAgain();
     (document.getElementById('rSetup') as HTMLButtonElement).onclick = () => this.onSetup();
     (again ?? (document.getElementById('rSetup') as HTMLButtonElement)).focus();
+  }
+
+  /** A Time Trial's end (SPEC §10): your best lap, then the layout's board with you on it. */
+  private showTrial(): void {
+    const best = this.sim.cars.bestLap[this.mine];
+    this.results.innerHTML = `<div class="card results"><h1 id="rPlace">Time Trial</h1>
+      <p class="getawayTime">${this.sim.track.run ? 'Best run' : 'Best lap'} <b>${best ? lapTime(best) : '–'}</b></p>
+      <div id="rBoard"></div>
+      <div class="row"><button id="rAgain">Go again</button><button id="rSetup" class="ghost">${this.setupLabel}</button></div></div>`;
+    this.renderBoard();
+    this.results.classList.add('on');
+    const again = document.getElementById('rAgain') as HTMLButtonElement;
+    again.onclick = () => this.onAgain();
+    (document.getElementById('rSetup') as HTMLButtonElement).onclick = () => this.onSetup();
+    again.focus();
+  }
+
+  /** The board on the results (again whenever it changes: main.ts calls this). */
+  renderBoard(): void {
+    const el = document.getElementById('rBoard');
+    const view = this.board();
+    if (!el) return;
+    if (!view || view.state === 'offline') {
+      el.innerHTML = `<p class="muted">The online board needs a connection: this time stays on this screen.</p>`;
+      return;
+    }
+    if (!view.page) {
+      el.innerHTML = `<p class="muted">Loading the board…</p>`;
+      return;
+    }
+    const { entries, me } = view.page;
+    const row = (e: { rank: number; playerId: string; name: string; score: number }) =>
+      `<tr class="${e.playerId === me?.playerId ? 'me' : ''}"><td>${e.rank}</td><td><span class="plate">${esc(e.name)}</span></td><td>${lapTime(e.score)}</td></tr>`;
+    const outside = me && !entries.some((e) => e.playerId === me.playerId) ? row(me) : '';
+    const note = view.rejected
+      ? `<p class="muted">That time didn't count on the board.</p>`
+      : view.mine?.improved
+        ? `<p><b class="fast">New best!</b> ${ordinal(view.mine.rank)} on the board.</p>`
+        : '';
+    el.innerHTML = `${note}<table><thead><tr><th>#</th><th>Driver</th><th>Lap</th></tr></thead><tbody>
+      ${entries.slice(0, BOARD_ROWS).map(row).join('')}${outside}
+      ${entries.length ? '' : '<tr><td colspan="3" class="muted">No times yet: be the first.</td></tr>'}</tbody></table>`;
   }
 
   /** A getaway's end (docs/CHASE_MODE.md): how it ended, how long you lasted, the heat you reached, your best. */

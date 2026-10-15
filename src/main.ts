@@ -39,8 +39,9 @@ import { backToSetup, quickRaceSetup, raceAgain, randomCar, readChoices, readSet
 import { Menu, type Preview } from './ui/menu';
 import { GameRelay } from '@gamerelay/sdk';
 import { Lobbies, LocalBackend, LOCAL_ID } from './lobby/backend';
-import { RelayBackend, type RelayLike } from './lobby/relay';
+import { RelayBackend, nameCheck, type RelayLike } from './lobby/relay';
 import { Stepper } from './net/stepper';
+import { LapBoard, lapBoard } from './net/leaderboard';
 import { OnlineRace } from './net/online';
 import { roster } from './lobby/lobby';
 import { loadPlate } from './lobby/plate';
@@ -136,7 +137,7 @@ chase?.cops.forEach(() => {
 /** The car the HUD, telemetry and the debug readout follow: yours, or the attract race's first. */
 const me = Math.max(0, you);
 // Online, the countdown holds until the connection says when green is (`run.at`, the server's clock).
-if (run.mode === 'race') sim.startRace(run.laps, attract ? 1 : onlineRace ? 30 : 4);
+if (run.mode === 'race' || run.mode === 'trial') sim.startRace(run.laps, attract ? 1 : onlineRace ? 30 : 4);
 // Dev: ?spawn=<m> starts your car that far along the main road (to test one spot, e.g. the Lava Tube).
 const spawn = Number(params.get('spawn') ?? NaN);
 if (import.meta.env.DEV && Number.isFinite(spawn) && you >= 0 && !onlineRace) sim.placeCar(me, 0, spawn, 0, 0);
@@ -263,6 +264,18 @@ if (you >= 0) {
 }
 raceUi.you = you;
 raceUi.keepsBest = !onlineRace;
+/** A Time Trial (SPEC §10): each new best lap goes on the layout's online board (net/leaderboard.ts). */
+const trial = run.mode === 'trial' && !layout.getaway && you >= 0;
+const boardName = trial && online ? lapBoard(layoutKey) : null;
+const board = boardName ? new LapBoard(boardName, async () => (await online!.connection()).leaderboard ?? null) : null;
+raceUi.trial = trial;
+/** Laps the board has been offered (each one as it's done, not the session's best: one refused mustn't hide the rest). */
+let lapsSeen = 0;
+if (board) {
+  raceUi.board = () => board.view;
+  board.onChange = () => raceUi.renderBoard();
+  void board.load();
+}
 /** An online getaway, you out: the camera on another runner, ← / → (or the strip's buttons) to the next. */
 function watch(car: number): void {
   if (car < 0 || car === renderer.focus) return;
@@ -295,6 +308,14 @@ if (attract) {
   screens.onSettings = () => settingsPanel.open(document.getElementById('mSettings'));
   screens.onNotice = toast;
   screens.onPage = (page, from) => pagesPanel.open(page, from);
+  if (relayKey) {
+    const url = import.meta.env.VITE_GAMERELAY_URL;
+    screens.checkName = nameCheck(
+      () => online?.live() ?? null,
+      (text, rules) => GameRelay.moderate(text, { publicKey: relayKey, ...rules, ...(url ? { url } : {}) }),
+    );
+    void screens.checkStoredPlate();
+  }
   // A link to a page (`?page=credits`): the title, with it up.
   const page = readPage(params.get('page'));
   if (page) pagesPanel.open(page);
@@ -477,6 +498,12 @@ function frame(now: number): void {
     hud.update();
     raceUi.update();
     keepGetaway();
+    if (board && sim.cars.lap[me] !== lapsSeen) {
+      // More than one lap since the last frame (frames stalled): the best of them is offered too.
+      if (sim.cars.lap[me] > lapsSeen + 1) board.lap(sim.cars.bestLap[me]);
+      lapsSeen = sim.cars.lap[me];
+      if (lapsSeen > 0) board.lap(sim.cars.lastLap[me]);
+    }
     rumble();
     if (fpsEl.classList.contains('on') && sim.tick % 15 === 0) fpsEl.textContent = `${renderer.fps.toFixed(0)} fps`;
     if (hud.debugOn) hud.debugText = `fps ${renderer.fps.toFixed(0)}  draws ${renderer.drawCalls}\ntick ${sim.tick}  scale ${sim.timeScale.toFixed(2)}\ns ${sim.cars.s[me].toFixed(1)} lat ${sim.cars.lateral[me].toFixed(2)} spline ${sim.cars.spline[me]}\nslip ${sim.cars.slip[me].toFixed(2)} charge ${sim.cars.driftCharge[me].toFixed(2)}\nsurface ${SURFACES[sim.cars.surface[me]]?.id}  input ${input.lastDevice}\nlayout ${sim.track.layout.id} ${sim.track.version}  ${(sim.track.main.length / 1000).toFixed(2)} km`;

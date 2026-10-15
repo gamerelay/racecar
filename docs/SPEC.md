@@ -2231,3 +2231,21 @@ Caldera, the engine (2026-10-03; the plan is docs/CALDERA.md):
   imports nothing outside core. No map has one yet: `pastGap` is the engine's for any gap, and
   the generator's `LAND` is build-time authoring. Nothing drives differently.
 - **Smashables break per screen**, not "the same online": each screen collides only its own cars.
+
+Online leaderboard (2026-10-15):
+
+- **Time Trial is its own mode** (`mode=trial`), not a race option: a trial link always means you
+  alone, clear weather, no traffic or mayhem, whatever else it says (`ui/setup.ts`), so a board
+  time is always a clean lap. It runs on your lobby's map, like Free drive; getaway streets have
+  no laps, so a trial skips them.
+- **One board a layout, `lap:<map>.<layout>`, lower first, to the millisecond**
+  (`net/leaderboard.ts`). Each lap is offered as it's done and goes up if it beats your best there, so leaving early still counts, and a lap the server refuses (under the floor) doesn't stop the next one.
+  The lap floor is the board's minimum score in GameRelay's leaderboard rules, set on the server,
+  not checked in the game.
+- **Names are GameRelay's to moderate** (its name moderation, a paid-plan feature): the plate
+  editor and an online lobby's name are checked first with the SDK's `relay.moderate()` over
+  the open connection, or `GameRelay.moderate()` over HTTP before there is one (a plate with
+  `{ maxLength: 7, charset: 'alnum' }`; `nameCheck` in `lobby/relay.ts`, failing open after 4 s),
+  and with the game's "Name moderation" setting on, a name that slips through shows as
+  `player-1234` on the board. Online lobby names went from 32 characters to 24, GameRelay's limit.
+
