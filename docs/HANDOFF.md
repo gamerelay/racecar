@@ -152,9 +152,11 @@ From `alpha-1.47` (2026-10-11), still open:
     the track for an hour. The proxy always sends it.
   - **CORS on the Space** (GET and HEAD from any origin) stays: it lets a build read the Space's
     origin directly too, if the CDN is ever down.
-- **What's there now:** `main` at `a7d79a3` (`v1.0.1` plus #175: Esc from Create gives up the
-  lobby being made, and a lobby picked after it gets you in; untagged, in CHANGELOG's
-  "Unreleased"), updated 2026-10-14 with `./deploy-hosted.sh`, with every track on the CDN.
+- **What's there now:** `main` at `6430f89` (`v1.0.1` plus #175: Esc from Create gives up the
+  lobby being made, and a lobby picked after it gets you in; #176: the chase camera's aim eases
+  with its height, so the view doesn't nod with the road; #177: with drift held, a steer key starts
+  the drift on the next tick; untagged, in CHANGELOG's "Unreleased"), updated 2026-10-14 with
+  `./deploy-hosted.sh`, with every track on the CDN.
   `v1.0.1` is #172 (SDK alpha.10 and the online fixes, on `v1.0`'s online getaways,
   public-ready, host controls and no analytics). Keep it the one row: update Z442EE in place rather than adding a game.
 
