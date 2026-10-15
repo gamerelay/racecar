@@ -48,6 +48,39 @@ export interface RelayLike {
   leaveParty?(): Promise<void>;
   /** The game's leaderboards (Time Trial's lap boards: net/leaderboard.ts). */
   readonly leaderboard?: LeaderboardLike;
+  /** GameRelay's name moderation over this connection (SDK alpha.12): see `nameCheck`. */
+  moderate?: Moderate;
+}
+
+/** What GameRelay's moderation answers, as racecar reads it (the SDK's `ModerationResult`). */
+export type Moderation = { ok: true; value: string } | { ok: false; error: { message: string } };
+/** `relay.moderate` or `GameRelay.moderate`: a text, and rules that only tighten (a plate's). */
+export type Moderate = (text: string, rules?: NameRules) => Promise<Moderation>;
+export interface NameRules {
+  maxLength?: number;
+  charset?: 'alnum';
+}
+/** Checks a name others will see: null when it's fine, or what to tell the player. */
+export type NameCheck = (name: string, rules?: NameRules) => Promise<string | null>;
+
+/** How long a check may hold a Save or Create button before the name goes through. */
+const CHECK_TIMEOUT_MS = 4000;
+
+/**
+ * The menu's name check (a plate, an online lobby's name): GameRelay's moderation over the open
+ * connection when there is one (`relay.moderate`), else over HTTP (`GameRelay.moderate`, as the
+ * title comes before connecting). It fails open: no network, a slow answer or a plan without it
+ * lets the name through, since the server still swaps a failing name wherever others see it when
+ * the game moderates names.
+ */
+export function nameCheck(live: () => RelayLike | null, offline: Moderate): NameCheck {
+  return async (name, rules) => {
+    const relay = live();
+    const check = relay?.moderate ? relay.moderate(name, rules) : offline(name, rules);
+    const slow = new Promise<null>((resolve) => setTimeout(resolve, CHECK_TIMEOUT_MS, null));
+    const result = await Promise.race([check.catch(() => null), slow]);
+    return result && !result.ok ? result.error.message : null;
+  };
 }
 
 export interface RoomLike {
@@ -191,6 +224,11 @@ export class RelayBackend implements LobbyBackend {
 
   ready(): boolean {
     return !!this.connected && this.connected.connected !== false;
+  }
+
+  /** The connection while it's up, or null (connecting nothing: for checks that can go another way). */
+  live(): RelayLike | null {
+    return this.ready() ? this.connected : null;
   }
 
   /** The room's presence, if `id` is the lobby you're in. */

@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test';
 import { LapBoard, lapBoard, lapScore, type BoardPage, type LeaderboardLike } from '../src/net/leaderboard';
-import { nameChecker } from '../src/net/names';
+import { nameCheck, type Moderate, type RelayLike } from '../src/lobby/relay';
 import { lapTime } from '../src/ui/format';
 import { menuQuery, readSetup, toQuery, trialSetup } from '../src/ui/setup';
 import { LAYOUT_KEYS } from '../tools/content';
@@ -117,24 +117,26 @@ describe('Time Trial setup', () => {
 });
 
 describe('name checks', () => {
-  const answering = (status: number, body: unknown) =>
-    (async () => new Response(JSON.stringify(body), { status })) as unknown as typeof fetch;
+  const refused = (message: string): Moderate => async () => ({ ok: false, error: { message } });
+  const passed: Moderate = async (text) => ({ ok: true, value: text });
 
-  test("GameRelay's verdict, as a player reads it", async () => {
-    let sent: unknown = null;
-    const fetcher = (async (url: string, init: RequestInit) => {
-      sent = { url, body: JSON.parse(String(init.body)) };
-      return new Response(JSON.stringify({ ok: false, error: { code: 'moderated', reason: 'offensive', message: 'Invalid name: offensive language' } }));
-    }) as unknown as typeof fetch;
-    expect(await nameChecker('gr_pub_x', 'http://localhost:8787/', fetcher)('B4D')).toBe("That name isn't allowed");
-    expect(sent).toEqual({ url: 'http://localhost:8787/v1/moderate', body: { publicKey: 'gr_pub_x', text: 'B4D' } });
-    expect(await nameChecker('k', undefined, answering(200, { ok: false, error: { code: 'moderated', reason: 'reserved', message: '' } }))('ADMIN')).toBe('That name is kept for the game');
-    expect(await nameChecker('k', undefined, answering(200, { ok: true, value: 'RC 1' }))('RC 1')).toBeNull();
+  test("over the open connection when there is one, else over HTTP; the SDK's message as the player reads it", async () => {
+    const calls: unknown[] = [];
+    const http: Moderate = async (text, rules) => (calls.push(['http', text, rules]), { ok: false, error: { message: 'Invalid name: offensive language' } });
+    let relay: RelayLike | null = null;
+    const check = nameCheck(() => relay, http);
+    expect(await check('B4D', { maxLength: 7, charset: 'alnum' })).toBe('Invalid name: offensive language');
+    relay = { moderate: async (text: string) => (calls.push(['socket', text]), { ok: true, value: text }) } as unknown as RelayLike;
+    expect(await check('RC 1')).toBeNull();
+    expect(calls).toEqual([['http', 'B4D', { maxLength: 7, charset: 'alnum' }], ['socket', 'RC 1']]);
+    expect(await nameCheck(() => null, refused('Invalid name: kept for the game'))('ADMIN')).toBe('Invalid name: kept for the game');
+    expect(await nameCheck(() => null, passed)('RC 1')).toBeNull();
   });
 
   test('fails open: a plan without it, an error or no network lets the name through', async () => {
-    expect(await nameChecker('k', undefined, answering(403, { error: 'plan_required' }))('X')).toBeNull();
-    expect(await nameChecker('k', undefined, answering(500, {}))('X')).toBeNull();
-    expect(await nameChecker('k', undefined, (() => Promise.reject(new Error('offline'))) as unknown as typeof fetch)('X')).toBeNull();
+    const failing: Moderate = () => Promise.reject(Object.assign(new Error('plan'), { code: 'plan_required' }));
+    expect(await nameCheck(() => null, failing)('X')).toBeNull();
+    // An SDK from before relay.moderate: HTTP, as before connecting.
+    expect(await nameCheck(() => ({}) as RelayLike, refused('no'))('X')).toBe('no');
   });
 });

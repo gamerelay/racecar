@@ -39,10 +39,9 @@ import { backToSetup, quickRaceSetup, raceAgain, randomCar, readChoices, readSet
 import { Menu, type Preview } from './ui/menu';
 import { GameRelay } from '@gamerelay/sdk';
 import { Lobbies, LocalBackend, LOCAL_ID } from './lobby/backend';
-import { RelayBackend, type RelayLike } from './lobby/relay';
+import { RelayBackend, nameCheck, type RelayLike } from './lobby/relay';
 import { Stepper } from './net/stepper';
 import { LapBoard, lapBoard } from './net/leaderboard';
-import { nameChecker } from './net/names';
 import { OnlineRace } from './net/online';
 import { roster } from './lobby/lobby';
 import { loadPlate } from './lobby/plate';
@@ -310,7 +309,11 @@ if (attract) {
   screens.onNotice = toast;
   screens.onPage = (page, from) => pagesPanel.open(page, from);
   if (relayKey) {
-    screens.checkName = nameChecker(relayKey, import.meta.env.VITE_GAMERELAY_URL);
+    const url = import.meta.env.VITE_GAMERELAY_URL;
+    screens.checkName = nameCheck(
+      () => online?.live() ?? null,
+      (text, rules) => GameRelay.moderate(text, { publicKey: relayKey, ...rules, ...(url ? { url } : {}) }),
+    );
     void screens.checkStoredPlate();
   }
   // A link to a page (`?page=credits`): the title, with it up.

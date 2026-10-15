@@ -16,7 +16,7 @@ import type { CarClass, MapDef, PaintDef, TrackLayout } from '../core/content';
 import FLAGS from './icons/flags.svg?raw';
 import type { KeyValue, LobbyBackend, NetRoute } from '../lobby/backend';
 import { LOCAL_ID } from '../lobby/backend';
-import type { Refusal } from '../lobby/relay';
+import type { NameCheck, NameRules, Refusal } from '../lobby/relay';
 import type { Page } from './pages';
 import { aiPlate, cleanPlate, plateProblem, PLATE_MAX, randomPlate, savePlate, typedPlate } from '../lobby/plate';
 import { DEFAULT_OPTIONS, FILL_DIFFICULTY, SEATS, canJoin, nextVisibility, legacySeats, seatIndex, summarize, type Lobby, type LobbyAction, type LobbyOptions, type LobbySummary, type SeatChoice } from '../lobby/lobby';
@@ -25,6 +25,9 @@ import { MAX_LAPS, quickRaceSetup, raceFromLobby, randomCar, toQuery, trialSetup
 import { onOverlay, overlayUp } from './overlay';
 import { carStats } from './stats';
 import { thumb, thumbSvg } from './thumb';
+
+/** What GameRelay checks a plate against: tighter than a name's rules, as plates are (lobby/plate.ts). */
+const PLATE_RULES: NameRules = { maxLength: PLATE_MAX, charset: 'alnum' };
 
 export interface MenuContent {
   maps: MapDef[];
@@ -153,8 +156,8 @@ export class Menu {
   onNotice?: (text: string) => void;
   /** The title's Credits, Privacy and Terms (main.ts opens the page). */
   onPage?: (page: Page, from: HTMLElement | null) => void;
-  /** GameRelay's name check (net/names.ts) for a plate or an online lobby's name: null when it's fine. */
-  checkName?: (name: string) => Promise<string | null>;
+  /** GameRelay's name check (lobby/relay.ts `nameCheck`) for a plate or an online lobby's name: null when it's fine. */
+  checkName?: NameCheck;
 
   constructor(
     private backend: LobbyBackend,
@@ -534,7 +537,7 @@ export class Menu {
     const save = async () => {
       const plate = cleanPlate(field.value);
       // The plate's own rules first (offline too), then GameRelay's, when it's a new plate.
-      const problem = plateProblem(plate) ?? (plate !== this.plate ? await this.checkName?.(plate) : null) ?? savePlate(this.store, plate);
+      const problem = plateProblem(plate) ?? (plate !== this.plate ? await this.checkName?.(plate, PLATE_RULES) : null) ?? savePlate(this.store, plate);
       if (problem) return void (err.textContent = problem);
       const old = this.plate;
       this.plate = plate;
@@ -565,7 +568,7 @@ export class Menu {
    */
   async checkStoredPlate(): Promise<void> {
     const old = this.plate;
-    const problem = await this.checkName?.(old);
+    const problem = await this.checkName?.(old, PLATE_RULES);
     if (!problem || this.plate !== old) return;
     this.plate = randomPlate();
     savePlate(this.store, this.plate);
