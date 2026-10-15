@@ -1,8 +1,9 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
-import { Input, type SystemAction } from '../src/input/input';
+import { Input, KEY_ONSET, type SystemAction } from '../src/input/input';
 import { neutralControls } from '../src/core/controls';
 import { canStartDrift } from '../src/core/car/physics';
 import { TUNING } from '../src/core/car/tuning';
+import { wrapAngle } from '../src/core/math';
 import { Ev } from '../src/core/events';
 import { ringSim } from './helpers';
 import { fakeBrowser } from './fake-audio';
@@ -31,11 +32,11 @@ const out = neutralControls();
 const frames = (n: number) => Array.from({ length: n }, () => input.poll(out, 1 / 60).steer);
 
 describe('keyboard input', () => {
-  test("steering eases in: not all at once, full within a quarter second, and right is positive", () => {
+  test("steering starts at KEY_ONSET and eases in: not all at once, full within a quarter second, and right is positive", () => {
     key('keydown', 'KeyD');
     const s = frames(15);
-    expect(s[0]).toBeGreaterThan(0);
-    expect(s[0]).toBeLessThan(0.2);
+    expect(s[0]).toBe(KEY_ONSET);
+    expect(s[1]).toBeLessThan(0.5);
     for (let k = 1; k < s.length; k++) expect(s[k]).toBeGreaterThanOrEqual(s[k - 1]);
     expect(s.at(-1)).toBe(1);
     key('keyup', 'KeyD');
@@ -61,6 +62,30 @@ describe('keyboard input', () => {
     const crossed = across.findIndex((v) => v <= 0);
     expect(crossed).toBeLessThan(released);
     expect(across.at(-1)).toBe(-1);
+  });
+
+  test('a steer key turns the car its first 3° within 2 ticks of a pad at full lock (eased from 0, twice its time)', () => {
+    /** Ticks from the steer to 3° of turn, the Brute at 140 km/h on a wide ring; `pad` is full lock from the first tick. */
+    const ticks = (pad: boolean) => {
+      browser.window.fire('blur');
+      input.poll(neutralControls(), 1);
+      const sim = ringSim(1, 2000, 60);
+      const i = sim.addCar({ cls: 'muscle', human: true });
+      sim.placeCar(i, 0, 100, 0, 39);
+      const c = neutralControls();
+      key('keydown', 'KeyW');
+      for (let t = 0; t < 30; t++) sim.step([input.poll(c, 1 / 60)]);
+      const h0 = sim.cars.h[i];
+      key('keydown', 'KeyD');
+      for (let t = 1; t <= 30; t++) {
+        input.poll(c, 1 / 60);
+        if (pad) c.steer = 1;
+        sim.step([c]);
+        if (Math.abs(wrapAngle(sim.cars.h[i] - h0)) >= (3 * Math.PI) / 180) return t;
+      }
+      return Infinity;
+    };
+    expect(ticks(false)).toBeLessThanOrEqual(ticks(true) + 2);
   });
 
   test('both ways held is straight, and the steer never leaves -1 to 1 whatever the frame time', () => {
@@ -154,12 +179,12 @@ describe('drift on the keyboard', () => {
     input.readyToDrift = false;
     key('keydown', 'ShiftLeft');
     key('keydown', 'KeyD');
-    expect(input.poll(out, 1 / 60).steer).toBeLessThan(0.2);
+    expect(input.poll(out, 1 / 60).steer).toBe(KEY_ONSET);
     browser.window.fire('blur');
     input.poll(out, 1);
     input.readyToDrift = true;
     key('keydown', 'KeyD');
-    expect(input.poll(out, 1 / 60).steer).toBeLessThan(0.2);
+    expect(input.poll(out, 1 / 60).steer).toBe(KEY_ONSET);
   });
 
   test('drift held, then a steer key: the drift starts on the next tick (eased, it came 7–9 ticks after the key)', () => {
@@ -191,7 +216,8 @@ describe('drift on the keyboard', () => {
       return Infinity;
     };
     expect(after(true)).toBe(0);
-    expect(after(false)).toBeGreaterThanOrEqual(6);
+    // Eased from KEY_ONSET, 3 (from 0, before it, 7–9).
+    expect(after(false)).toBeGreaterThanOrEqual(2);
   });
 
   test("in the air or spinning out, a car isn't ready to drift (stepCar's entry is on the ground and out of a spin)", () => {

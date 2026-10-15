@@ -26,6 +26,23 @@ Newest first. Bugs found by reading code go in HANDOFF's follow-ups; clean-ups i
    `follow`, `slopeRise`, the guards; the aim from `look`) and measure the view's angle, not only the
    car's height.
 
+## Steering on the keyboard had a slight delay before it took (2026-10-14)
+
+- **Looked like:** "a slight initial delay" from a steer key to the car turning; noticed around
+  Splash City (alpha-1.47), the same feel as the slow drift start below.
+- **Was:** the keyboard's easing (the drift fix below skipped it only with drift held). From
+  straight, the steer went on at 4.5/s (9/s for the first frame), so full lock took about 210 ms. The
+  Brute at 140 km/h turned its first 3° in 10 ticks against a pad's 5 at full lock, and the chase
+  camera (heading `damp(6)`, about 170 ms behind) turned 3° in 16 against 11. The car's own response
+  was quick (yaw on target in 2 ticks), and so was the frame loop (controls read before the step).
+  Not new: the easing is the first build's. A pad's stick has no easing.
+- **Fix:** a steer key from straight (or through it, turning the other way) starts at `KEY_ONSET`
+  (0.3, under `cruiseSteer`, so a tap keeps the straight-line build) and eases on at 7/s: full
+  lock in about 100 ms (`src/input/input.ts`). The Brute at 140 km/h: 3° in 7 ticks, the camera 13.
+  Letting go (7/s) and the other way through the middle (9/s) ease as before.
+- **Guard:** `test/input.test.ts`, "a steer key turns the car its first 3° within 2 ticks of a pad at
+  full lock" (the real Input and Sim: 7 ticks against the pad's 5; eased from 0, 10).
+
 ## A drift was slow to start on the keyboard (2026-10-14)
 
 - **Looked like:** the drift "slightly slower to react than normal", from the key to the car;

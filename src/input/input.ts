@@ -1,7 +1,7 @@
 // Keyboard and gamepads → one Controls object (SPEC §13). Gamepads use the standard mapping:
 // left stick steers, RT/LT throttle and brake, A boost, RB (or X) drift, B look back, Y reset,
-// Start pause, Select+Start "something felt wrong". Keyboard steering eases in and out so it
-// isn't all-or-nothing.
+// Start pause, Select+Start "something felt wrong". Keyboard steering starts at KEY_ONSET and eases
+// in and out from there, so it isn't all-or-nothing.
 
 import type { Controls } from '../core/controls';
 import { approach, clamp } from '../core/math';
@@ -60,6 +60,13 @@ export function routedKey(code: string): boolean {
 }
 
 export type InputDevice = 'keyboard' | 'gamepad' | 'touch';
+
+/**
+ * A steer key from straight starts the steer here, then eases on to full lock (7/s: about 100 ms).
+ * Eased from 0 at 4.5/s, the Brute at 140 km/h took 10 ticks to turn 3°, a pad's full lock 5 (the
+ * owner, 2026-10-14: "a slight initial delay"). Under cruiseSteer, so a tap keeps the straight-line build.
+ */
+export const KEY_ONSET = 0.3;
 
 export class Input {
   private keySteer = 0;
@@ -128,8 +135,10 @@ export class Input {
   /** Reads every device into `out` for this frame. `dt` in seconds (for keyboard easing). */
   poll(out: Controls, dt: number): Controls {
     const want = (held.right ? 1 : 0) - (held.left ? 1 : 0);
-    const rate = want === 0 ? 7 : Math.sign(want) !== Math.sign(this.keySteer) ? 9 : 4.5;
+    const rate = want * this.keySteer < 0 ? 9 : 7;
     this.keySteer = approach(this.keySteer, want, rate * dt);
+    // From straight (or through it, turning the other way), a steer key starts at KEY_ONSET.
+    if (want !== 0 && this.keySteer * want >= 0 && this.keySteer * want < KEY_ONSET) this.keySteer = want * KEY_ONSET;
     let steer = this.keySteer;
     let throttle = held.up ? 1 : 0;
     let brake = held.down ? 1 : 0;
