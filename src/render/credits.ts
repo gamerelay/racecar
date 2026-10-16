@@ -484,7 +484,9 @@ export class CreditsBackdrop implements LiveBackdrop {
 
     const cls = CLASSES.find((c) => c.id === 'coupe') ?? CLASSES[0];
     // Silver: the metallic finish, lit by the scene (the chrome finish mirrors a fixed sky, and reads purple here).
-    this.car = this.skin.car(cls, { id: 'silver', name: 'Silver', color: '#cfd4de', finish: 'metallic', underglow: '#ff2e88' });
+    // Its plate is the director's (the stock plate: no map's region style).
+    const plate = { text: 'COLIN', region: 'RACECAR', map: 'credits' };
+    this.car = this.skin.car(cls, { id: 'silver', name: 'Silver', color: '#cfd4de', finish: 'metallic', underglow: '#ff2e88' }, plate);
     this.car.root.rotation.order = 'YXZ';
     this.carHalf = [cls.size[0], cls.size[1]];
     this.carSize = [cls.size[0], cls.size[1], cls.size[2]];
