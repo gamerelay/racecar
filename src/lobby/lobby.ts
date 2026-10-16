@@ -38,6 +38,8 @@ export interface LobbyOptions {
   time: TimeOption;
   mayhem: 'off' | 'normal' | 'chaos';
   traffic: boolean;
+  /** Bots take the open seats when the race starts; off, those seats start empty. */
+  fill: boolean;
 }
 
 export interface Lobby {
@@ -136,6 +138,10 @@ export interface LobbySummary {
   players: number;
   /** Players and AIs: the cars on the grid if it started now, not counting the open seats' bots. */
   filled: number;
+  /** The host's plate, and the race's rules (an older host's listing has none of these). */
+  host?: string;
+  mayhem?: LobbyOptions['mayhem'];
+  traffic?: boolean;
 }
 
 export type SeatChoice = 'open' | 'closed' | 'ai-easy' | 'ai-normal' | 'ai-hard';
@@ -165,7 +171,7 @@ export type LobbyAction =
   /** The host, when the vote's closed: the next race, on its winning map, for everyone still in this one. */
   | { type: 'next'; map: string; seed: number; at?: number };
 
-export const DEFAULT_OPTIONS: LobbyOptions = { map: 'downtown/downtown', laps: 2, weather: 'random', time: 'random', mayhem: 'normal', traffic: true };
+export const DEFAULT_OPTIONS: LobbyOptions = { map: 'downtown/downtown', laps: 2, weather: 'random', time: 'random', mayhem: 'normal', traffic: true, fill: true };
 const MAX_NAME = 32;
 
 /** A new lobby: the host in the first seat, the rest open. */
@@ -458,6 +464,7 @@ export function roster(seats: string, classes: readonly string[], paints: number
 export function summarize(lobby: Lobby): LobbySummary {
   const pips = encodeSeats(lobby, '').replace(/x/g, (_, k: number) => (lobby.seats[k].kind === 'player' ? 'p' : 'x'));
   const players = lobby.seats.filter((s) => s.kind === 'player').length;
+  const hostSeat = lobby.seats.find((s): s is Extract<Seat, { kind: 'player' }> => s.kind === 'player' && s.id === lobby.host);
   return {
     id: lobby.id,
     name: lobby.name,
@@ -468,5 +475,8 @@ export function summarize(lobby: Lobby): LobbySummary {
     pips,
     players,
     filled: players + lobby.seats.filter((s) => s.kind === 'ai').length,
+    ...(hostSeat ? { host: hostSeat.name } : {}),
+    mayhem: lobby.options.mayhem,
+    traffic: lobby.options.traffic,
   };
 }

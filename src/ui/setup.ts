@@ -168,7 +168,8 @@ export function raceFromLobby(lobby: Lobby, you: string, seed: number, online = 
     map: o.map,
     car: seat?.kind === 'player' ? seat.car : 'coupe',
     paint: seat?.kind === 'player' ? seat.paint : 0,
-    seats: encodeSeats(lobby, you, online),
+    // Fill off: the open seats start empty, as closed ones do.
+    seats: o.fill === false ? encodeSeats(lobby, you, online).replace(/o/g, 'x') : encodeSeats(lobby, you, online),
     laps: o.laps,
     weather: o.weather,
     time: o.time,

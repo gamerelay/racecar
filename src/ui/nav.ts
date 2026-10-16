@@ -4,6 +4,8 @@
 // tested without a DOM.
 
 import { isChooser, stepChooser } from './chooser';
+import { uiSound } from './click';
+import { isSegmented, stepSegmented } from './kit';
 
 export type Dir = 'up' | 'down' | 'left' | 'right';
 
@@ -61,6 +63,7 @@ export function navigate(root: HTMLElement, dir: Dir): void {
   const el = list[at];
   const side = dir === 'left' ? -1 : dir === 'right' ? 1 : 0;
   if (side && isChooser(el)) return stepChooser(el, side);
+  if (side && isSegmented(el)) return stepSegmented(el, side);
   if (side && el instanceof HTMLInputElement && el.type === 'range') {
     if (side > 0) el.stepUp();
     else el.stepDown();
@@ -81,7 +84,10 @@ export function navigate(root: HTMLElement, dir: Dir): void {
     at,
     dir,
   );
-  if (next >= 0) list[next].focus();
+  if (next >= 0) {
+    list[next].focus();
+    uiSound('tick');
+  }
 }
 
 /** Presses the focused control in `root`, if focus is in it. */

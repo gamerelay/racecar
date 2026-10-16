@@ -13,6 +13,8 @@
 }
 * { box-sizing: border-box; }
 html, body { height: 100%; margin: 0; overflow: hidden; background: var(--bg); color: var(--ink); font-family: var(--ui); user-select: none; -webkit-user-select: none; touch-action: none; }
+/* The kit scales the root font size to the window (kit.css), for its rem. Everything else keeps the browser's 16px. */
+body { font-size: 16px; }
 #stage { position: fixed; inset: 0; }
 #stage canvas { display: block; width: 100%; height: 100%; }
 
@@ -103,7 +105,7 @@ body.getaway #posBadge { display: none; }
 
 .toast { position: fixed; left: 50%; top: 18px; transform: translateX(-50%); z-index: 20; background: var(--panel); border: 2px solid var(--ink); box-shadow: 4px 4px 0 var(--outline); padding: 8px 14px; font-weight: 700; }
 /* The title's "press any key for music" (main.ts), while the browser holds the sound back. */
-#soundHint { position: fixed; right: 18px; bottom: 18px; z-index: 12; padding: 6px 12px; font: 700 13px var(--ui); color: var(--ink); background: var(--panel); border: 2px solid var(--ink); box-shadow: 3px 3px 0 var(--outline); pointer-events: none; animation: hintIn 0.4s ease-out, hintPulse 2.4s ease-in-out 0.4s infinite; transition: opacity 0.4s; }
+#soundHint { position: fixed; left: 50%; translate: -50% 0; bottom: 18px; z-index: 12; padding: 6px 12px; font: 700 13px var(--ui); color: var(--ink); background: var(--panel); border: 2px solid var(--ink); box-shadow: 3px 3px 0 var(--outline); pointer-events: none; animation: hintIn 0.4s ease-out, hintPulse 2.4s ease-in-out 0.4s infinite; transition: opacity 0.4s; }
 #soundHint.out { opacity: 0; }
 @keyframes hintIn { from { opacity: 0; transform: translateY(8px); } }
 @keyframes hintPulse { 50% { border-color: var(--cyan); } }
@@ -141,15 +143,6 @@ body.getaway #posBadge { display: none; }
 
 #minimap { right: calc(env(safe-area-inset-right, 0px) + 16px); top: calc(env(safe-area-inset-top, 0px) + 14px); width: 180px; height: 180px; background: rgba(18, 8, 38, 0.45); border: 2px solid var(--ink); box-shadow: 4px 4px 0 var(--outline); }
 
-#results, #menu { position: fixed; inset: 0; z-index: 12; display: none; place-items: center; background: rgba(13, 6, 32, 0.55); overflow: auto; padding: 16px; }
-#results.on, #menu { display: grid; }
-.card.results table { width: 100%; border-collapse: collapse; font-size: 14px; margin: 0 0 16px; }
-.card.results th { text-align: left; color: var(--muted); font-weight: 700; padding: 4px 8px; border-bottom: 2px solid var(--muted); }
-.card.results td { padding: 5px 8px; border-bottom: 1px solid rgba(216, 198, 242, 0.2); font-variant-numeric: tabular-nums; }
-/* A getaway's end (docs/CHASE_MODE.md): how long you lasted, big. */
-.card.results .getawayTime { font-size: 20px; margin: 0 0 14px; }
-.card.results .getawayTime b { font-family: var(--display); font-size: 32px; color: #ffd23f; }
-.card.results tr.me td { color: var(--sun); font-weight: 700; }
 .card .dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 8px; border: 1px solid var(--outline); }
 .card .dot.open { background: var(--muted); opacity: 0.6; }
 .card.setup { max-width: 640px; }
@@ -173,8 +166,6 @@ body.countdown #pops { top: 46%; }
 .card input:focus, .card textarea:focus { border-color: var(--cyan); box-shadow: 0 0 0 3px var(--cyan); }
 
 /* Small screens: nothing overlaps (portrait phones, short landscape windows, mid-size laptops). */
-/* Narrow screens scroll the table sideways inside the card rather than overflowing it. */
-.card.results { max-width: min(820px, 100%); overflow-x: auto; }
 @media (max-width: 560px) {
   #race { gap: 6px; flex-wrap: wrap; max-width: calc(100vw - 150px); }
   .stat { min-width: 0; padding: 4px 8px 3px; }
@@ -183,7 +174,6 @@ body.countdown #pops { top: 46%; }
   #race .stat:nth-child(3), #race .stat:nth-child(4) { display: none; }
   #meterWrap { width: calc(100vw - 190px); left: 16px; transform: none; }
   #speedo { --g: 120px; }
-  #results th:nth-child(3), #results td:nth-child(3), #results th:nth-child(7), #results td:nth-child(7) { display: none; }
 }
 @media (max-height: 460px) {
   #minimap { width: 110px; height: 110px; }
@@ -191,199 +181,22 @@ body.countdown #pops { top: 46%; }
   #speedo { --g: 110px; }
   #debug { top: calc(env(safe-area-inset-top, 0px) + 170px); }
 }
-.card.results .fast { color: var(--sun); font-weight: 400; }
-/* The vote on the next map, under the results (online). */
-.card.results .voteHead { margin: 0 0 8px; display: flex; gap: 10px; align-items: baseline; }
-.card.results .voteRow button.vote b { margin-left: 6px; color: var(--sun); }
-.card.results .voteRow button.vote.on { box-shadow: 0 0 0 2px var(--outline), 0 0 0 4px var(--sun); }
-.card.results .muted { color: var(--muted); }
 
 /* ---- the front door: title, lobby list, create lobby, the lobby (ui/menu.ts) ---- */
-.card.title { max-width: 760px; }
-/* The flags sit after the word, about its cap height, upright against its slant. */
-.wordmark .flags { display: inline-block; width: 0.92em; height: 0.92em; margin-left: 0.06em; vertical-align: -0.08em; transform: skewX(8deg); filter: drop-shadow(0.05em 0.05em 0 var(--pink)); }
-.wordmark .flags svg { display: block; width: 100%; height: 100%; }
-.wordmark { white-space: nowrap; font-family: var(--display); font-size: clamp(44px, 11vw, 104px); line-height: 0.9; letter-spacing: 0.02em; color: var(--sun); -webkit-text-stroke: 4px var(--outline); paint-order: stroke fill; text-shadow: 6px 6px 0 var(--pink), 12px 12px 0 var(--outline); transform: skewX(-8deg); margin: 0 0 18px; }
 .card h2 { font-family: var(--display); font-weight: 400; font-size: 20px; letter-spacing: 0.04em; color: var(--cyan); margin: 0 0 8px; }
-.lobbies { display: grid; gap: 8px; margin: 0 0 18px; }
-/* A lobby row is one big button, so the pad lands on it and A opens it. */
-.card button.lrow, .lrow { display: grid; grid-template-columns: 44px 1fr auto auto; grid-template-rows: auto auto; column-gap: 14px; align-items: center; width: 100%; margin: 0; padding: 8px 12px; text-align: left; font: 700 15px var(--ui); color: var(--ink); background: rgba(10, 4, 20, 0.85); border: 2px solid var(--ink); box-shadow: 3px 3px 0 var(--outline); }
-.card button.lrow:hover, .card button.lrow:focus-visible { border-color: var(--cyan); box-shadow: 0 0 0 3px var(--cyan); transform: none; outline: none; }
-.lrow .thumb { grid-row: 1 / 3; }
-.lrow .lname { font-size: 17px; }
-.lrow .lname small { font-size: 11px; color: var(--muted); border: 1px solid var(--muted); padding: 0 4px; margin-left: 6px; vertical-align: 2px; }
-.lrow .lmeta { grid-column: 2; font-size: 13px; font-weight: 400; color: var(--muted); }
-.lrow .pips { grid-column: 3; grid-row: 1 / 3; display: flex; gap: 3px; }
-.lrow .lcount { grid-column: 4; grid-row: 1 / 3; font-variant-numeric: tabular-nums; min-width: 34px; text-align: right; }
-.lrow.soon { opacity: 0.6; border-style: dashed; box-shadow: none; }
-.pip { width: 10px; height: 10px; border-radius: 50%; border: 2px solid var(--ink); }
-.pip.player { background: var(--sun); border-color: var(--sun); }
-.pip.ai { background: var(--cyan); border-color: var(--cyan); }
-.pip.open { background: transparent; }
-.pip.closed { border-color: rgba(216, 198, 242, 0.25); background: transparent; }
 svg.thumb { display: block; }
 svg.thumb path { fill: none; stroke-linejoin: round; stroke-linecap: round; }
 svg.thumb .lap { stroke: var(--ink); stroke-width: 2.5; }
 svg.thumb .cut { stroke: var(--sun); stroke-width: 1.5; stroke-dasharray: 3 2; }
 svg.thumb .end { fill: var(--sun); stroke: var(--ink); stroke-width: 1; }
-.card button.big { display: block; width: 100%; font-size: clamp(22px, 4vw, 30px); padding: 14px 20px; margin: 0 0 14px; box-shadow: 7px 7px 0 var(--pink); }
-/* The title's two big ones, side by side (stacked on a phone); the row under them 4px further down. */
-.card.title .bigs { display: grid; grid-template-columns: 1fr 1fr; gap: 0 18px; }
-.card.title .bigs button.big { margin-bottom: 18px; padding-inline: 12px; white-space: nowrap; font-size: clamp(18px, 3.2vw, 30px); }
-@media (max-width: 560px) { .card.title .bigs { grid-template-columns: 1fr; } }
 .card button.danger { color: #ff8fb8; border-color: #ff8fb8; }
 .card button.danger:hover { color: var(--pink); border-color: var(--pink); }
 .card.setup .grid label.wide { grid-column: 1 / -1; }
 
-.card.lobby { max-width: 980px; }
-.card.lobby h1 { font-size: clamp(32px, 6vw, 48px); margin-bottom: 12px; overflow-wrap: anywhere; }
-.card .sub { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 0; color: var(--muted); font-size: 13px; margin: 0 0 22px; }
-/* Items with room between them, split by a dim dot. */
-.card .sub span + span::before { content: '·'; margin: 0 14px; opacity: 0.5; }
-/* An online lobby's who-can-join (the host's to cycle) and invite link. */
-.card .sub .invite { margin: 0 10px 0 0; padding: 2px 10px; font-size: 0.85em; vertical-align: middle; }
-/* Everyone else's is the same button, there to read. */
-.card .sub button.invite:disabled { cursor: default; transform: none; border-color: var(--ink); color: var(--ink); box-shadow: 5px 5px 0 var(--outline); }
-.seats { width: 100%; border-collapse: collapse; font-size: 14px; }
-.seats th { text-align: left; color: var(--muted); font-weight: 700; padding: 6px 10px 8px; border-bottom: 2px solid var(--muted); }
-.seats td { padding: 0 10px; border-bottom: 1px solid rgba(216, 198, 242, 0.2); height: 56px; vertical-align: middle; }
-.seats tbody tr:last-child td { border-bottom: 0; }
-/* Every row the same: seat controls one width, all controls one height. */
-.seats td:nth-child(2) { width: 170px; white-space: nowrap; }
-.seats td:nth-child(2) .chooser { width: 150px; }
-.seats td:nth-child(2) .plate { min-width: 96px; text-align: center; }
-.card .seats .chooser { height: 36px; box-sizing: border-box; }
-.seats .plate { padding: 0 8px; height: 26px; line-height: 22px; box-sizing: border-box; }
-.seats td:first-child { color: var(--muted); width: 18px; padding-right: 4px; font-variant-numeric: tabular-nums; }
-.seats tr.me td { color: var(--sun); }
-.seats tr.closed td { color: rgba(216, 198, 242, 0.45); }
-.seats .car { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
-.seats .car .muted { margin: 0; font-size: 12px; }
-.card .seats button.chooser { padding: 5px 8px; font-size: 13px; }
-/* Kick or Make host, armed in the seat chooser: the second step. */
-.card .seats button.seatGo { margin-left: 6px; padding: 5px 8px; font-size: 13px; }
-.card .seats button.seatGo[hidden] { display: none; }
-.seats .tag { font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; line-height: 1; color: var(--outline); background: var(--sun); padding: 3px 5px; margin-left: 6px; vertical-align: middle; }
-.seats .ready { color: #7cff6b; }
-/* Still in the lobby's race (online): back when their lobby screen opens. */
-.seats .racing { color: var(--cyan); }
-.seats .ping { color: var(--muted); white-space: nowrap; font-variant-numeric: tabular-nums; }
-/* Wide enough for "999 ms", so a changing ping doesn't move the other columns. */
-.seats th:last-child, .seats td.ping { width: 64px; text-align: right; }
-.seats .ping .good { color: var(--cyan); }
-.seats .ping .fair { color: var(--sun); }
-.seats .ping .poor { color: #ff9a3c; }
-.seats .ping .bad { color: #ff5c6c; }
-.seats .ping .away { color: var(--muted); font-style: italic; }
-/* Your plate in your seat: a button that opens the plate editor. */
-.card button.seatPlate { margin: 0; padding: 0; background: none; border: 0; box-shadow: none; cursor: pointer; }
-.card button.seatPlate:hover, .card button.seatPlate:focus-visible { transform: translate(-1px, -1px); box-shadow: none; }
-.card button.seatPlate:hover .plate, .card button.seatPlate:focus-visible .plate { outline: 2px solid var(--cyan); outline-offset: 2px; }
-/* Your own lobby is just you: no pings to show. */
-.seats.local th:last-child, .seats.local td:last-child { display: none; }
-@media (max-width: 760px) {
-  .seats th:last-child, .seats td:last-child { display: none; }
-}
-@media (max-width: 560px) {
-  .card button.lrow { grid-template-columns: 44px 1fr auto; }
-  .lrow .pips { display: none; }
-  .lrow .lcount { grid-column: 3; }
-  .card.lobby { padding: 16px; }
-  .seats td:nth-child(4), .seats th:nth-child(4) { display: none; }
-  .seats td { padding: 0 6px; }
-  .seats td:nth-child(2) { width: auto; }
-  .seats td:nth-child(2) .chooser { width: 116px; }
-  .card .sub span + span::before { margin: 0 8px; }
-}
 
 /* ---- license plates (PLAN phase 3): your name, and every driver's, as a little plate ---- */
 .plate { display: inline-block; font: 700 13px var(--ui); letter-spacing: 0.08em; line-height: 1; white-space: pre; color: #1b1f5e; background: linear-gradient(#ffffff, #eceefb 50%, #c9cce2); border: 2px solid #1b1f5e; border-radius: 3px; padding: 3px 6px 2px; box-shadow: 2px 2px 0 var(--outline); vertical-align: middle; }
-.seats tr.me .plate { border-color: var(--sun); box-shadow: 2px 2px 0 var(--outline), 0 0 0 2px var(--sun); }
-.card.results .plate { font-size: 12px; padding: 2px 5px 1px; }
-.titleTop { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; margin: 0 0 8px; }
-.titleTop h2 { margin: 0; }
-.card button.plateBtn { display: inline-flex; align-items: center; gap: 8px; padding: 6px 10px; margin: 0; font-size: 12px; box-shadow: 3px 3px 0 var(--outline); }
-.card button.plateBtn .plate { font-size: 17px; }
-.card button.plateBtn small { font: 700 10px var(--ui); letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); }
-.card.plateEdit { max-width: 520px; }
-.platePreview { display: grid; place-items: center; padding: 18px 0 14px; }
-.platePreview .plate { font-size: clamp(34px, 9vw, 48px); padding: 8px 18px 6px; border-width: 4px; border-radius: 6px; box-shadow: 5px 5px 0 var(--outline); min-width: 5ch; text-align: center; }
-.card.plateEdit input { font-size: 22px; letter-spacing: 0.12em; text-transform: uppercase; text-align: center; }
-.card .err { color: #ff8fb8; font-size: 13px; min-height: 1.4em; margin: 8px 0 10px; }
 
-/* ---- the car select (PLAN phase 4): the seats dock left, your car turns on a table in the middle
-   (render/showroom.ts frames it into .stage) with arrows either side and its panel under it, and
-   the race's options float top right. It all fits the window: nothing scrolls. ---- */
-#menu.dock { --side: clamp(420px, 31vw, 540px); --under: 196px; --opts: 360px; display: block; padding: 0; overflow: hidden; background: linear-gradient(90deg, rgba(13, 6, 32, 0.72), rgba(13, 6, 32, 0.35) 36%, rgba(13, 6, 32, 0.08) 64%); }
-#menu.dock .card.lobby { position: absolute; left: 0; top: 0; bottom: 0; width: var(--side); max-width: none; margin: 0; display: flex; flex-direction: column; overflow-y: auto; scrollbar-width: none; border-width: 0 3px 0 0; box-shadow: 8px 0 0 var(--outline); padding: clamp(16px, 2.6vh, 26px) 24px clamp(14px, 2vh, 20px); }
-#menu.dock .card.lobby::-webkit-scrollbar { display: none; }
-#menu.dock .card.lobby h1 { font-size: clamp(28px, 4.4vh, 46px); margin-bottom: 8px; }
-#menu.dock .card.lobby .sub { margin-bottom: clamp(10px, 2vh, 20px); }
-/* The rows share what height there is, down to a pad-sized minimum. */
-#menu.dock .seats td { height: clamp(40px, 6.2vh, 58px); }
-/* Start (or Ready) over Leave, each the panel's width. */
-#menu.dock .card.lobby > .row { margin: auto 0 0; padding-top: clamp(12px, 2vh, 20px); display: grid; gap: 14px; }
-#menu.dock .card.lobby > .row button { width: 100%; margin: 0; padding: 10px 16px; white-space: nowrap; }
-#menu.dock .seats td:nth-child(2) { width: 150px; }
-#menu.dock .seats td:nth-child(2) .chooser { width: 132px; }
-
-/* The race's options: the host's to set, a summary for everyone else. */
-#menu.dock .mapCard { position: absolute; top: 24px; right: 24px; width: var(--opts); max-width: none; margin: 0; padding: 14px 16px 16px; display: grid; grid-template-columns: auto 1fr; gap: 12px 14px; align-items: center; background: rgba(18, 8, 38, 0.86); box-shadow: 6px 6px 0 var(--outline); }
-.mapCard .mapHead { display: grid; gap: 2px; }
-.mapCard b { font-family: var(--display); font-weight: 400; font-size: 20px; line-height: 1.05; }
-.mapCard small { color: var(--muted); font-size: 13px; }
-.mapCard .opts { grid-column: 1 / -1; display: grid; grid-template-columns: 1fr 1fr; gap: 10px 12px; }
-.mapCard label { display: grid; gap: 4px; font-weight: 700; font-size: 12px; color: var(--muted); }
-.card.mapCard button.chooser { width: 100%; padding-top: 5px; padding-bottom: 5px; font-size: 14px; }
-#menu.dock .mapCard.mini { width: auto; max-width: 320px; padding: 10px 14px; gap: 6px 12px; }
-.mapCard .optLine { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 5px; margin: 0; }
-.mapCard .optLine span { font-size: 12px; font-weight: 700; color: var(--ink); background: rgba(10, 4, 20, 0.7); border: 1px solid rgba(216, 198, 242, 0.45); padding: 2px 7px; white-space: nowrap; }
-
-/* The turntable's box, and the arrows either side of the table (sized as frameStage sizes it). */
-/* The whole width right of the seats, so the car turns in its middle, and low, clear of the options. */
-#menu.dock .stage { position: absolute; left: var(--side); right: 0; top: clamp(120px, 28vh, 340px); bottom: var(--under); pointer-events: none; container-type: size; }
-.card button.carArrow, .carArrow { position: absolute; top: 58%; width: 52px; height: 68px; margin: 0; padding: 0; display: grid; place-items: center; transform: translateY(-50%); pointer-events: auto; color: var(--ink); background: rgba(18, 8, 38, 0.72); border: 3px solid var(--ink); box-shadow: 5px 5px 0 var(--outline); cursor: pointer; }
-.carArrow:hover, .carArrow:focus-visible { color: var(--cyan); border-color: var(--cyan); outline: none; }
-.carArrow:active { transform: translate(3px, calc(-50% + 3px)); box-shadow: 2px 2px 0 var(--outline); }
-.carArrow svg { width: 26px; height: 26px; fill: none; stroke: currentColor; stroke-width: 4; stroke-linecap: square; }
-#lPrev svg { transform: scaleX(-1); }
-#lPrev { left: max(12px, calc(50% - min(50cqh, 36cqw) - 84px)); }
-#lNext { right: max(12px, calc(50% - min(50cqh, 36cqw) - 84px)); }
-
-/* Under the car: the middle of what's right of the seats. */
-.card.carPanel { --pw: min(720px, calc(100vw - var(--side) - 48px)); position: absolute; bottom: 24px; left: calc(var(--side) + (100vw - var(--side)) / 2); transform: translateX(-50%); width: var(--pw); max-width: none; margin: 0; padding: 14px 20px 16px; display: grid; gap: 8px; background: rgba(18, 8, 38, 0.84); box-shadow: 6px 6px 0 var(--outline); }
-.carPanel .carHead { display: flex; align-items: baseline; gap: 12px; }
-.carPanel .carName { font-family: var(--display); font-weight: 400; font-size: 30px; line-height: 1; color: var(--sun); -webkit-text-stroke: 2px var(--outline); paint-order: stroke fill; text-shadow: 3px 3px 0 var(--pink); }
-.carPanel .carCount { font-size: 12px; font-weight: 700; color: var(--muted); font-variant-numeric: tabular-nums; }
-.carPanel .blurb { margin: 0; font-size: 14px; line-height: 1.4; color: var(--ink); }
-.carPanel .bars { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; }
-.carPanel .bar small { display: block; font-size: 11px; font-weight: 700; color: var(--muted); }
-.carPanel .bar i { display: block; height: 8px; margin-top: 4px; background: linear-gradient(90deg, var(--cyan) calc(var(--t) * 100%), rgba(216, 198, 242, 0.18) 0); transform: skewX(-20deg); }
-.carPanel .paints { display: flex; align-items: center; gap: 12px; margin-top: 4px; }
-.carPanel .paintName { font-weight: 700; font-size: 13px; min-width: 76px; }
-.carPanel .swatches { display: flex; gap: 6px; flex-wrap: wrap; }
-.card button.swatch { width: 22px; height: 22px; margin: 0; padding: 0; border: 2px solid var(--outline); border-radius: 50%; background: linear-gradient(135deg, var(--c) 55%, var(--c2) 55%); box-shadow: 2px 2px 0 var(--outline); }
-.card button.swatch:hover { transform: none; box-shadow: 0 0 0 2px var(--cyan); }
-.card button.swatch.on { box-shadow: 0 0 0 2px var(--outline), 0 0 0 4px var(--sun); }
-.carPanel .keysHint { margin-left: auto; font-size: 11px; font-weight: 700; color: var(--muted); white-space: nowrap; }
-.carPanel kbd { font: 700 10px var(--ui); border: 1px solid var(--muted); padding: 0 4px; border-radius: 3px; color: var(--ink); margin-right: 2px; }
-/* A phone, or a window too small for the three panels: the car on top, its panel under it, then
-   the options and the seats, all one column that scrolls (without a bar). */
-@media (max-width: 1000px), (max-height: 560px) {
-  #menu.dock { display: flex; flex-direction: column; align-items: stretch; overflow-y: auto; scrollbar-width: none; padding: 0 16px 16px; background: linear-gradient(180deg, transparent 0, rgba(13, 6, 32, 0.4) 34vh, rgba(13, 6, 32, 0.75) 60vh); }
-  #menu.dock::-webkit-scrollbar { display: none; }
-  #menu.dock .stage { position: relative; left: auto; right: auto; bottom: auto; width: 100%; order: -3; flex: none; height: 36vh; min-height: 200px; }
-  .card.carPanel { position: static; order: -2; transform: none; width: 100%; margin: 0 0 16px; }
-  .carPanel .bars { gap: 8px; }
-  .carPanel .bar small { font-size: 10px; }
-  .carPanel .keysHint { display: none; }
-  .carPanel .paintName { min-width: 0; }
-  .carPanel .paints { gap: 10px; }
-  .carPanel .swatches { gap: 5px; }
-  #menu.dock .mapCard, #menu.dock .mapCard.mini { position: static; order: -1; width: 100%; max-width: none; margin: 0 0 16px; }
-  #menu.dock .card.lobby { position: static; width: 100%; flex: none; overflow: visible; border-width: 3px; box-shadow: 8px 8px 0 var(--outline); }
-  #menu.dock .card.lobby > .row { flex-wrap: wrap; }
-}
 
 /* ---- choosers (ui/chooser.ts): ‹ value ›, in place of dropdowns ---- */
 .card button.chooser { display: flex; align-items: center; gap: 6px; font: 700 15px var(--ui); color: var(--ink); background: rgba(10, 4, 20, 0.85); border: 2px solid var(--ink); border-radius: 0; box-shadow: 3px 3px 0 var(--outline); padding: 7px 8px; margin: 0; text-align: center; min-width: 0; }
@@ -415,13 +228,12 @@ svg.thumb .end { fill: var(--sun); stroke: var(--ink); stroke-width: 1; }
 }
 
 /* ---- Settings (ui/settings.ts), over everything ---- */
-/* The overlays over everything (ui/overlay.ts): Settings, Controls, and the first race's keys card. */
-#settings, #controls, #keys { position: fixed; inset: 0; z-index: 14; display: none; place-items: center; background: rgba(13, 6, 32, 0.7); overflow: auto; padding: 16px; }
-#settings.on, #controls.on, #keys.on { display: grid; }
+/* The overlays over everything (ui/overlay.ts): Settings (its look is menu.css's). */
+#settings { position: fixed; inset: 0; z-index: 14; display: none; place-items: center; background: rgba(13, 6, 32, 0.7); overflow: auto; padding: 16px; }
+#settings.on { display: grid; }
 /* Credits, Privacy and Terms (ui/pages.ts): the soundtrack art's sunset behind a card. */
 #pages { position: fixed; inset: 0; z-index: 14; display: none; place-items: center; overflow: auto; padding: 16px; background: linear-gradient(#1a0838, #3b0f5c 45%, var(--pink) 62%, var(--bg) 62.2%); }
 #pages.on { display: grid; }
-#pages > .card { position: relative; max-width: 620px; animation: popIn 0.16s ease-out both; }
 .pgScene { position: fixed; inset: 0; overflow: hidden; pointer-events: none; }
 .pgSun { position: absolute; left: 50%; top: 22%; width: 38vmin; height: 38vmin; margin-left: -19vmin; border-radius: 50%; background: linear-gradient(var(--sun), #ff7a3d 60%, var(--pink));
   /* The bands across its lower half. */
@@ -435,13 +247,6 @@ svg.thumb .end { fill: var(--sun); stroke: var(--ink); stroke-width: 1; }
 .pgPalm.r { right: 3%; height: 40vh; transform: scaleX(-1); }
 .pgCar { position: absolute; top: 66%; left: -10%; width: 7vh; height: 1.2vh; border-radius: 0.6vh; background: linear-gradient(90deg, var(--pink) 0 22%, transparent 22% 78%, var(--pink) 78%); box-shadow: 0 0 2vh var(--pink); animation: pgCar 9s linear infinite 2s; }
 @keyframes pgCar { 0% { transform: translateX(0); } 40%, 100% { transform: translateX(130vw); } }
-.card.page dl { display: grid; grid-template-columns: max-content 1fr; gap: 8px 16px; margin: 12px 0; }
-.card.page a { color: var(--cyan); }
-.wordmark.small { font-size: 56px; }
-.titleFoot { display: flex; align-items: center; gap: 8px; margin-top: 8px; font-size: 13px; color: var(--muted); }
-.titleFoot a { color: inherit; }
-.titleFoot .buildVersion { margin-left: auto; font-size: 11px; opacity: 0.7; font-variant-numeric: tabular-nums; }
-.titleFoot .creditsBox { background: var(--ink); color: var(--outline); border: 0; padding: 4px 10px; font-size: 12px; }
 @media (prefers-reduced-motion: reduce) { .pgGrid, .pgCar { animation: none; } .pgCar { display: none; } }
 .card.settings h2 { margin-top: 18px; }
 .card.settings .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px 14px; }
@@ -465,42 +270,31 @@ svg.thumb .end { fill: var(--sun); stroke: var(--ink); stroke-width: 1; }
 .card .row.stack { display: grid; gap: 14px; margin: 20px 0 0; }
 .card .row.stack button { width: 100%; margin: 0; padding: 10px 16px; white-space: nowrap; }
 .card.pauseCard dl { margin-bottom: 0; }
-/* The keys card (ui/keys.ts): the first race's keyboard, each key pointed at its job. */
-.keysCard .keysArt { display: block; width: 100%; height: auto; margin: 4px 0 12px; }
-.keysArt .kCap { fill: var(--bg); stroke: var(--ink); stroke-width: 3; }
-.keysArt .kDrop { fill: var(--pink); }
-.keysArt .kLetter { font: 400 26px var(--display); fill: var(--sun); text-anchor: middle; }
-.keysArt .kLetter.small { font-size: 17px; }
-.keysArt .kLead { fill: none; stroke: var(--cyan); stroke-width: 2; stroke-dasharray: 5 4; }
-.keysArt .kDot { fill: var(--cyan); }
-.keysArt .kJob { font: 700 21px var(--ui); fill: var(--ink); }
-.keysCard .kAny { font-size: 13px; text-align: center; margin: 10px 0 0; }
 #fps { position: fixed; z-index: 3; left: calc(env(safe-area-inset-left, 0px) + 10px); bottom: calc(env(safe-area-inset-bottom, 0px) + 8px); font: 700 12px ui-monospace, monospace; color: var(--muted); text-shadow: 1px 1px 0 var(--outline); display: none; pointer-events: none; }
 #fps.on { display: block; }
 
 /* ---- transitions (docs/MENU.md): screens fade, overlays pop, pages come up out of the dark ---- */
-#menu { transition: opacity 0.12s ease-in; }
-#menu.leaving { opacity: 0; }
-#menu.leaving > * { transition: transform 0.12s ease-in; transform: translateX(-14px); }
-#menu.leaving[data-dir='back'] > * { transform: translateX(14px); }
-#menu.entering > * { animation: screenIn 0.18s ease-out both; }
-#menu.entering[data-dir='back'] > * { animation-name: screenInBack; }
-@keyframes screenIn { from { opacity: 0; transform: translateX(18px); } }
-@keyframes screenInBack { from { opacity: 0; transform: translateX(-18px); } }
-#pause.on > .card, #settings.on > .card, #controls.on > .card, #keys.on > .card, #results.on > .card { animation: popIn 0.16s ease-out both; }
-@keyframes popIn { from { opacity: 0; transform: scale(0.96); } }
 /* The loading screen's look is in index.html (it's up before this stylesheet). Up until the page is
    ready, then .in lifts it; .out brings it back before the next page. */
-#pageFade.in { opacity: 0; animation: pageIn 0.35s ease-out both; }
-#pageFade.in .logo { animation-play-state: paused; }
-#pageFade.out { opacity: 1; animation: none; }
-@keyframes pageIn { from { opacity: 1; } to { opacity: 0; } }
+/* Lifting: the dark goes first, the pink and the sun after it, off to the left. Coming back: the
+   sun first from the right, then the pink, the dark last. */
+#pageFade.in > i { animation: wipeOff 0.52s cubic-bezier(0.7, 0, 0.2, 1) both; }
+#pageFade.in .b2 { animation-delay: 0.06s; }
+#pageFade.in .b1 { animation-delay: 0.12s; }
+#pageFade.in .logo { animation: logoOff 0.22s ease-in both; }
+#pageFade.out > i { animation: wipeOn 0.34s cubic-bezier(0.6, 0, 0.3, 1) both; }
+#pageFade.out .b2 { animation-delay: 0.05s; }
+#pageFade.out .b3 { animation-delay: 0.1s; }
+#pageFade.out .logo { animation: logoOn 0.3s ease-out 0.38s both, logoPulse 0.9s ease-in-out 0.68s infinite alternate; }
+@keyframes wipeOff { to { transform: translateX(-130vw) skewX(-12deg); } }
+@keyframes wipeOn { from { transform: translateX(130vw) skewX(-12deg); } }
+@keyframes logoOff { to { opacity: 0; scale: 0.7; } }
+@keyframes logoOn { from { opacity: 0; scale: 0.7; } }
 @media (prefers-reduced-motion: reduce) {
-  #menu.leaving > *, #menu.leaving[data-dir='back'] > * { transform: none; }
-  #menu.entering > *, #menu.entering[data-dir='back'] > * { animation: fadeOnly 0.1s ease-out both; }
   #pause.on > .card, #settings.on > .card, #controls.on > .card, #keys.on > .card, #results.on > .card { animation: fadeOnly 0.1s ease-out both; }
-  #pageFade { transition-duration: 0.06s; }
-  #pageFade.in { animation-duration: 0.12s; }
+  #pageFade.in > i, #pageFade.out > i { animation: fadeOnly 0.12s ease-out both; animation-delay: 0s; }
+  #pageFade.in > i { animation-direction: reverse; }
+  #pageFade.out .logo { animation: none; }
   .chooser.nudge-r .cv, .chooser.nudge-l .cv { animation: none; }
 }
 @keyframes fadeOnly { from { opacity: 0; } }

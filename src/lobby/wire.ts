@@ -7,7 +7,7 @@ import { cleanPlate, plateProblem } from './plate';
 import { DEFAULT_OPTIONS, SEATS, VISIBILITIES, type Difficulty, type Lobby, type LobbyAction, type LobbyOptions, type LobbySummary, type ResultRow, type Seat, type SeatChoice, type Vote } from './lobby';
 
 const SEAT_CHOICES: readonly SeatChoice[] = ['open', 'closed', 'ai-easy', 'ai-normal', 'ai-hard'];
-const OPTION_KEYS: readonly (keyof LobbyOptions)[] = ['map', 'laps', 'weather', 'time', 'mayhem', 'traffic'];
+const OPTION_KEYS: readonly (keyof LobbyOptions)[] = ['map', 'laps', 'weather', 'time', 'mayhem', 'traffic', 'fill'];
 const OPTION_VALUES: Partial<Record<keyof LobbyOptions, readonly unknown[]>> = {
   weather: ['clear', 'rain', 'random'],
   time: ['day', 'sunset', 'random'],
@@ -56,7 +56,7 @@ function readOptions(v: unknown): Partial<LobbyOptions> | null {
   for (const k of OPTION_KEYS) {
     const x = v[k];
     if (x === undefined) continue;
-    const ok = k === 'map' ? mapKey(x) : k === 'laps' ? int(x, 1, 9) : k === 'traffic' ? typeof x === 'boolean' : OPTION_VALUES[k]!.includes(x);
+    const ok = k === 'map' ? mapKey(x) : k === 'laps' ? int(x, 1, 9) : k === 'traffic' || k === 'fill' ? typeof x === 'boolean' : OPTION_VALUES[k]!.includes(x);
     if (!ok) return null;
     (o as Record<string, unknown>)[k] = x;
   }
@@ -166,7 +166,21 @@ export function readListing(r: { code: string; name: string | null; meta: unknow
   if (!int(m.players, 0, SEATS) || !int(m.filled, 0, SEATS)) return null;
   // Invite only or private, by its host's own word (an older host's listing doesn't say: public).
   if (m.visibility !== undefined && m.visibility !== 'public') return null;
-  return { id: r.code, name: (r.name ?? '').slice(0, 48) || 'Lobby', map: m.map, laps: m.laps, phase: m.phase, visibility: 'public', pips: m.pips, players: m.players, filled: m.filled };
+  const host = str(m.host, 16) ? cleanPlate(m.host) : '';
+  return {
+    id: r.code,
+    name: (r.name ?? '').slice(0, 48) || 'Lobby',
+    map: m.map,
+    laps: m.laps,
+    phase: m.phase,
+    visibility: 'public',
+    pips: m.pips,
+    players: m.players,
+    filled: m.filled,
+    ...(host ? { host } : {}),
+    ...(OPTION_VALUES.mayhem!.includes(m.mayhem) ? { mayhem: m.mayhem as LobbyOptions['mayhem'] } : {}),
+    ...(typeof m.traffic === 'boolean' ? { traffic: m.traffic } : {}),
+  };
 }
 
 /**

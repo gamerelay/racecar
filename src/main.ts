@@ -8,6 +8,8 @@
 // seed, lobby), or ?lobby=<id> for a lobby, plus &post=0 &ink=0 &trace=1.
 
 import './ui/hud.css';
+import './ui/kit.css';
+import './ui/menu.css';
 import { canStartDrift } from './core/car/physics';
 import { TUNING } from './core/car/tuning';
 import type { TrackLayout } from './core/content';
@@ -16,7 +18,7 @@ import { Ev } from './core/events';
 import { Sim, TICK_RATE } from './core/sim';
 import { Getaway } from './core/rules/getaway';
 import { bakeTrack } from './core/track/bake';
-import { Input, routedKey } from './input/input';
+import { Input, isMenuAction, routedKey } from './input/input';
 import { GameRenderer } from './render/renderer';
 import { GreyboxSkin } from './render/skins/greybox';
 import { Telemetry } from './telemetry/telemetry';
@@ -25,6 +27,8 @@ import { playlistFor, Soundtrack } from './audio/soundtrack';
 import { Hud } from './ui/hud';
 import { RaceUi } from './ui/race';
 import { accept, navigate } from './ui/nav';
+import { hint, hints, installKit, menuItem, showDevice } from './ui/kit';
+import { ordinal } from './ui/format';
 import { installChoosers } from './ui/chooser';
 import { installClicks } from './ui/click';
 import { fadeIn, ready, veiled } from './ui/fade';
@@ -33,7 +37,6 @@ import { GETAWAY_MAP, installEmbed, keepEmbed, startsGetaway } from './ui/embed'
 import { cycle, leader } from './ui/watch';
 import { SettingsPanel } from './ui/settings';
 import { PagesPanel, readPage } from './ui/pages';
-import { ControlsPanel } from './ui/controls';
 import { forgetAnalytics, SettingsStore } from './settings';
 import { backToSetup, quickRaceSetup, raceAgain, randomCar, readChoices, readSetup, restart, toQuery, type RaceSetup } from './ui/setup';
 import { Menu, type Preview } from './ui/menu';
@@ -194,6 +197,9 @@ const track = playlist
 const audio = new GameAudio(sim, track, attract);
 // The menus' buttons, choosers and sliders click (ui/click.ts).
 installClicks((kind) => audio.uiSound(kind));
+installKit();
+// The menus' key hints follow what you used last: keycaps, or the pad's buttons.
+input.onDevice(showDevice);
 // The title's music waits for a first key or click where the browser won't start it by itself:
 // a hint says so, if it hasn't started a moment in (where it's allowed, it never shows).
 if (attract && track) {
@@ -224,7 +230,6 @@ settings.onChange((s) => {
   fpsEl.classList.toggle('on', s.graphics.fps);
 });
 const settingsPanel = new SettingsPanel(settings);
-const controlsPanel = new ControlsPanel();
 const pagesPanel = new PagesPanel();
 const raceUi = new RaceUi(sim, CLASSES, names, colors);
 raceUi.onAgain = () => raceAgain(run);
@@ -514,7 +519,7 @@ requestAnimationFrame(frame);
 
 /** The menu on screen, if any, topmost first: the F8 form, Settings or Controls, the pause menu, results, or the title and lobbies. */
 function openMenu(): HTMLElement | null {
-  for (const sel of ['#reportForm', '#settings.on', '#controls.on', '#keys.on', '#pages.on', '#pause.on', '#results.on', '#menu']) {
+  for (const sel of ['#reportForm', '#settings.on', '#keys.on', '#pages.on', '#pause.on', '#results.on', '#menu']) {
     const el = document.querySelector<HTMLElement>(sel);
     if (el) return el;
   }
@@ -535,11 +540,20 @@ document.addEventListener('visibilitychange', () => document.hidden && awayPause
 
 // ---- system keys ----
 input.on((a) => {
-  // The keys card: the menu's keys, A, B and Start put it away (and do nothing else).
-  if (keysCard?.isOpen && !closeReport && (a.startsWith('nav-') || a.startsWith('pick-') || a === 'accept' || a === 'back' || a === 'pause')) return keysCard.close();
+  // The keys card: any of the menu's keys (Q, E and R too), A, B, Y and Start put it away (and do nothing else).
+  if (keysCard?.isOpen && !closeReport && (isMenuAction(a) || a === 'pause')) return keysCard.close();
   const menu = openMenu();
+  // Q and E (the pad's bumpers, over Settings) switch the panel's tabs.
+  if (a === 'tab-prev' || a === 'tab-next' || ((a === 'pick-left' || a === 'pick-right') && settingsPanel.isOpen)) {
+    if (settingsPanel.isOpen) settingsPanel.tab(a === 'tab-prev' || a === 'pick-left' ? -1 : 1);
+    return;
+  }
+  // R (the pad's Y): the screen's own extra, Refresh in the lobby list.
+  if (a === 'alt') return void (menu?.id === 'menu' && screens?.alt());
   if (a.startsWith('nav-') || a.startsWith('pick-')) {
     const dir = a.slice(a.indexOf('-') + 1) as 'up' | 'down' | 'left' | 'right';
+    // A page (Credits, Privacy, Terms) has one button: up and down scroll it.
+    if (pagesPanel.isOpen && (dir === 'up' || dir === 'down')) return pagesPanel.scroll(dir === 'up' ? -1 : 1);
     // A pick is the lobby's car and paint when you have a seat there; otherwise it moves focus.
     if (menu && !(a.startsWith('pick-') && menu.id === 'menu' && screens?.pick(dir))) navigate(menu, dir);
     return;
@@ -549,7 +563,6 @@ input.on((a) => {
   if (closeReport) return void (a === 'back' && closeReport());
   // Settings and Controls are over the menus: back (Esc, B) closes them, to the menu they were opened from.
   if ((a === 'back' || a === 'pause') && settingsPanel.isOpen) return settingsPanel.close();
-  if ((a === 'back' || a === 'pause') && controlsPanel.isOpen) return controlsPanel.close();
   if ((a === 'back' || a === 'pause') && pagesPanel.isOpen) return pagesPanel.close();
   if (a === 'back') return void (paused ? setPaused(false) : screens?.back());
   // Behind the menu there's nothing to pause: Esc and Start go back a screen.
@@ -570,32 +583,64 @@ input.on((a) => {
   }
 });
 
+/** When the pause menu's pieces have all come in. */
+let pauseEntered: ReturnType<typeof setTimeout> | undefined;
+
 function setPaused(on: boolean): void {
   // Nothing to pause behind the menu, and the results screen has its own buttons.
   if (attract || (on && raceUi.shown)) return;
   paused = on;
   if (!on && settingsPanel.isOpen) settingsPanel.close();
-  if (!on && controlsPanel.isOpen) controlsPanel.close();
   if (!on && pagesPanel.isOpen) pagesPanel.close();
   let el = document.getElementById('pause');
   if (!el) {
+    // The menu on the left with where you are in the race over it, the tips on the right (with
+    // the keys they need, for the device you're on), the keys for the menu along the foot.
+    const tips: [string, string, string, string][] = [
+      ['sun', 'Drift', hint('drift', ''), 'Steer in to tighten, out to widen. The quickest way round a corner.'],
+      ['sun', 'Boost', hint('boost', ''), 'Fills from air, near misses, the oncoming lane, checks and takedowns.'],
+      ['hot', 'Takedowns', '', 'Ram a rival hard, boost into them, or shove them into a wall, a pillar or traffic.'],
+      ['hot', 'Traffic', '', 'Boost into the back of a small car to check it aside. Never hit anything head on.'],
+      ['ice', 'Top speed', '', 'Stay flat out and clean to hit Overdrive. Draft a rival, then pull out to slingshot.'],
+      ['ice', 'Perfect start', '', 'Hit the throttle just before GO. Too early and you stall.'],
+    ];
     document.body.insertAdjacentHTML(
       'beforeend',
-      // The title, what's going on, how to play, then the buttons stacked at the bottom (as the
-      // lobby's are). Which key does what is on the Controls screen.
-      `<div id="pause"><div class="card pauseCard"><h1>${onlineRace ? 'Menu' : 'Paused'}</h1>${onlineRace ? '<p class="muted">The race goes on without you: your car coasts until you resume.</p>' : ''}
-        <h2>How to play</h2>
-        <dl><dt>Drift</dt><dd>steer in to tighten, out to widen: a quicker way round a corner</dd><dt>Boost</dt><dd>fills from air, near misses, the oncoming lane in traffic, checking traffic and takedowns</dd><dt>Takedowns</dt><dd>ram a rival hard, boost into them, or shove them into a wall, a pillar or traffic</dd><dt>Traffic</dt><dd>boost into the back of a small car to check it out of the way; don't hit anything head on</dd><dt>Top speed</dt><dd>hold it flat out and clean on a straight and it keeps climbing (Overdrive); tuck in behind a rival for their slipstream, then pull out to pass for a slingshot</dd><dt>Start</dt><dd>hit the throttle just before GO for a perfect start; too early and you stall</dd></dl>
-        <div class="row stack"><button id="pResume">Resume</button>${onlineRace ? '' : '<button id="pRestart" class="ghost">Restart</button>'}<button id="pSettings" class="ghost">Settings</button><button id="pControls" class="ghost">Controls</button><button id="pSetup" class="ghost danger">${run.lobby ? 'Back to lobby' : 'Quit'}</button></div></div></div>`,
+      `<div id="pause" class="k"><div class="scr pause">
+        <div class="pz-head" data-in="l"><h1 class="pz-title">${onlineRace ? 'Menu' : 'Paused'}</h1><div class="pz-chips" id="pChips"></div></div>
+        <nav class="k-menu pz-menu" aria-label="Race menu">
+          ${menuItem('pResume', 'Resume', onlineRace ? 'Back to your car: the race goes on while this is up.' : 'Back to the race, just as you left it.')}
+          ${onlineRace ? '' : menuItem('pRestart', 'Restart', 'The same race again from the grid: same weather, same traffic.')}
+          ${menuItem('pSettings', 'Settings', 'Sound and graphics.')}
+          ${menuItem('pControls', 'Controls', 'What every key and button does.')}
+          ${menuItem('pSetup', run.lobby ? 'Back to lobby' : 'Quit to menu', '', true)}
+        </nav>
+        <section class="k-panel pz-tips" data-in="r"><h2 class="k-h2 ice">How to play</h2><div class="pz-grid">${tips
+          .map(([c, name, keys, text]) => `<div class="pz-tip ${c}"><div class="pz-tipHead"><b>${name}</b>${keys}</div><p>${text}</p></div>`)
+          .join('')}</div></section>
+        <footer class="t-foot" data-in="b">${hints(['select', 'Select'], ['confirm', 'Confirm'], ['resume', 'Resume'])}</footer>
+      </div></div>`,
     );
     el = document.getElementById('pause')!;
     document.getElementById('pResume')!.onclick = () => setPaused(false);
     document.getElementById('pSettings')!.onclick = () => settingsPanel.open(document.getElementById('pSettings'));
-    document.getElementById('pControls')!.onclick = () => controlsPanel.open(document.getElementById('pControls'));
+    document.getElementById('pControls')!.onclick = () => settingsPanel.open(document.getElementById('pControls'), 'controls');
     // A race everyone's in can't be restarted for one of them.
     const again = document.getElementById('pRestart');
     if (again) again.onclick = () => restart(run);
     document.getElementById('pSetup')!.onclick = () => backToSetup(run);
+  }
+  if (on) {
+    // Where you are, as the HUD has it now.
+    const read = (id: string) => document.getElementById(id)?.textContent ?? '';
+    const pos = read('pos').split('/');
+    const chips = [`${read('lapLabel') || 'Lap'} ${read('lap')}`, ...(pos.length === 2 && run.mode !== 'free' && !document.body.classList.contains('getaway') ? [`${ordinal(Number(pos[0]))} of ${pos[1]}`] : []), read('time'), `${read('score')} pts`];
+    document.getElementById('pChips')!.innerHTML = chips.map((c) => `<span class="k-num">${c}</span>`).join('');
+    el.classList.remove('entering');
+    void el.offsetWidth;
+    el.classList.add('entering');
+    clearTimeout(pauseEntered);
+    pauseEntered = setTimeout(() => el?.classList.remove('entering'), 900);
   }
   el.classList.toggle('on', on);
   if (on) (document.getElementById('pResume') as HTMLButtonElement).focus();
@@ -722,6 +767,7 @@ if (import.meta.env.DEV) {
   (window as unknown as { __rc: unknown }).__rc = {
     sim,
     renderer,
+    raceUi,
     telemetry,
     audio,
     input,

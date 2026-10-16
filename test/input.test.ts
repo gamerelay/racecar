@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
-import { Input, KEY_ONSET, type SystemAction } from '../src/input/input';
+import { Input, isMenuAction, KEY_ONSET, type SystemAction } from '../src/input/input';
 import { neutralControls } from '../src/core/controls';
 import { canStartDrift } from '../src/core/car/physics';
 import { TUNING } from '../src/core/car/tuning';
@@ -151,6 +151,16 @@ describe('keyboard input', () => {
     // Escape still backs out (pauses) in a menu.
     key('keydown', 'Escape');
     expect(fired.at(-1)).toBe('pause');
+  });
+
+  test("in a menu, every menu key fires a menu action (the keys card closes on any), Q, E and R included", () => {
+    input.menuOpen = true;
+    for (const code of ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'KeyW', 'KeyA', 'KeyS', 'KeyD', 'KeyQ', 'KeyE', 'KeyR']) key('keydown', code);
+    expect(fired).toHaveLength(11);
+    for (const a of fired) expect(isMenuAction(a)).toBe(true);
+    expect(fired.slice(-3)).toEqual(['tab-prev', 'tab-next', 'alt']);
+    // The game's own keys aren't: the keys card leaves them to their handlers.
+    expect(['mute', 'report', 'pause'].some(isMenuAction)).toBe(false);
   });
 });
 
