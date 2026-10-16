@@ -18,7 +18,11 @@ read the bindings. Details: [MENU.md](./MENU.md), "Remapping (steps 3 and 5, 202
   `ui/kit.ts`, `keysSvg`/`keysNote`/`padRows` in `ui/keys.ts`. The menus' keys and buttons are
   still fixed in `input.ts`, so no binding can lock a menu. A new menu action, `clear` (X, Delete,
   Backspace), clears a binding.
-- **Checked:** typecheck, `bun run test` (921, with `test/controls.test.ts`: the defaults are the
+- **Review:** one `/code-review` round, all nine findings fixed in `10ab373` (an axis binding is
+  heard once let go, from where it rests; an axis trigger is at rest until it moves on the page; a
+  key set is swallowed till its keyup; the browser's shortcuts work while listening; one
+  `GAME_KEYS` list; stored bindings load the player's first; fewer redraws).
+- **Checked:** typecheck, `bun run test` (936 after the review fixes, with `test/controls.test.ts`: the defaults are the
   old controls key by key and button by button, a binding saves and loads, the menus' buttons can't
   be taken and still work whatever's bound, the hints follow, a random run of swaps never binds one
   key twice, and the controls stay finite whatever the settings and pad), every map `identical` in
