@@ -4,6 +4,10 @@ What changed in each release of racecar, newest first. Releases are git tags on 
 reasons behind each change are in [docs/SPEC.md](./docs/SPEC.md) under "Changed while building",
 and where things stand is [docs/HANDOFF.md](./docs/HANDOFF.md).
 
+## v1.2.1: Camels walk
+
+- **Sahara's camels walk:** their legs used to stay still, so a caravan slid along the Caravan Road like props. Now they pace the way camels do, both legs on one side moving together, with knees that fold as each leg comes forward. Their feet stay put on the sand while they're down, their bodies bob a little with each step, their heads nod and their tails swish. The camels in a caravan are out of step with each other. It's only how they look: where they walk, and what happens when you hit one, is the same as before.
+
 ## v1.2: UI polish
 
 New menus, from the title to the results: one look throughout, built to play with a controller as well as the keyboard and mouse, with transitions between screens.
