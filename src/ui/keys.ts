@@ -6,7 +6,7 @@
 
 import { DEFAULT_KEYS, DEFAULT_PAD, keyLabel, padLabel, type KeyBinds, type PadAction, type PadBinds } from '../input/bindings';
 import { esc } from './html';
-import { button, pad } from './kit';
+import { button, driveLabels, pad } from './kit';
 import { Overlay } from './overlay';
 
 const SEEN = 'racecar.seenKeys';
@@ -20,12 +20,11 @@ const lead = (x: number, y: number, bend: number, job: string) => {
   return `<polyline class="kLead" points="${points}"/><circle class="kDot" cx="${x}" cy="${y}" r="3.5"/><text class="kJob" x="402" y="${bend + 6}">${job}</text>`;
 };
 
-/** An action's key for the card: its primary, or else its alternate ('—' with neither). */
-const first = (k: [string, string]) => keyLabel(k[0] || k[1]) || '—';
-
 /** The keyboard, drawn as WASD is: the accelerate key over the steer and brake keys, drift's down the left, boost's under them. */
 export function keysSvg(keys: KeyBinds = DEFAULT_KEYS): string {
-  const [t, l, b, r, d, bo] = [keys.throttle, keys.left, keys.brake, keys.right, keys.drift, keys.boost].map(first);
+  // Each action's first key ('—' with none).
+  const { kb } = driveLabels(keys, DEFAULT_PAD);
+  const [t, l, b, r, d, bo] = (['throttle', 'left', 'brake', 'right', 'drift', 'boost'] as const).map((a) => kb[a][0] ?? '—');
   const up = (x: string) => x.toUpperCase();
   return `<svg class="kc-art" viewBox="0 0 560 300" role="img" aria-label="${esc(`${t} accelerates, ${l} and ${r} steer, ${b} brakes and reverses, ${d} drifts, ${bo} boosts`)}">
   ${cap(140, 6, 56, up(t))}
@@ -52,7 +51,8 @@ export function keysNote(keys: KeyBinds = DEFAULT_KEYS): string {
 const or = '<span class="s-or">or</span>';
 /** The same on a pad: each button and its job. */
 export function padRows(binds: PadBinds = DEFAULT_PAD): [string, string][] {
-  const btns = (a: PadAction) => binds[a].filter((p) => p).map((p) => pad(padLabel(p))).join(or) || '<span class="k-muted">none</span>';
+  const labels = driveLabels(DEFAULT_KEYS, binds).pad;
+  const btns = (a: PadAction) => labels[a].map(pad).join(or) || '<span class="k-muted">none</span>';
   return [
     [btns('throttle'), 'Accelerate'],
     [pad('Left stick'), 'Steer'],

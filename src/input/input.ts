@@ -10,7 +10,7 @@
 import type { Controls } from '../core/controls';
 import { approach, clamp } from '../core/math';
 import { TUNING } from '../core/car/tuning';
-import { DEFAULT_KEYS, DEFAULT_PAD, PAD_ACTIONS, PAD_B, padDown, padValue, reservedKey, reservedPad, type DriveAction, type KeyBinds, type PadBind, type PadBinds } from './bindings';
+import { DEFAULT_KEYS, DEFAULT_PAD, GAME_KEYS, PAD_ACTIONS, PAD_B, padDown, padValue, reservedKey, reservedPad, type DriveAction, type KeyBinds, type PadBind, type PadBinds } from './bindings';
 
 export type SystemAction = 'pause' | 'report' | 'editor' | 'debug' | 'tuning' | 'ink' | 'mute' | 'music' | 'track-prev' | 'track-next' | MenuAction;
 /**
@@ -71,24 +71,14 @@ const holding = (a: DriveAction) => {
 /** A pad button held this long while listening is bound, not a cancel (B cancels with a press). */
 export const HOLD_TO_BIND_MS = 600;
 
-/** What a press was while listening for a binding (Input.listen). */
+/**
+ * What a press was while listening for a binding (Input.listen). `reserved` is the key's code, a pad
+ * button ("b9") or axis ("a0"), or "mod": a key held with Cmd, Ctrl or Alt.
+ */
 export type Heard = { key: string } | { pad: PadBind } | { cancel: true } | { reserved: string };
 
-const SYSTEM: Record<string, SystemAction> = {
-  Escape: 'pause',
-  F8: 'report',
-  Backquote: 'editor',
-  F2: 'debug',
-  F4: 'tuning',
-  F6: 'ink',
-  KeyM: 'mute',
-  KeyN: 'music',
-  // - and + (= unshifted, and the keypad's): the previous or next track.
-  Minus: 'track-prev',
-  NumpadSubtract: 'track-prev',
-  Equal: 'track-next',
-  NumpadAdd: 'track-next',
-};
+/** The game's own keys (bindings.ts: the same list says they can't be bound). */
+const SYSTEM: Record<string, SystemAction> = GAME_KEYS;
 
 /** A key the game's own handler routes (a system key, or a menu's), so others leave it to it. */
 export function routedKey(code: string): boolean {
@@ -123,7 +113,11 @@ export class Input {
   /** The stick's curve: steer is the stick to this power. */
   steerCurve = 1.4;
   /** Listening for a binding (the Controls tab): the next key or pad press goes to `fn`, and nothing else. */
-  private listening: { kind: 'key' | 'pad'; fn: (h: Heard) => void; base: number[]; bAt: number; stickSaid: boolean } | null = null;
+  private listening: { kind: 'key' | 'pad'; fn: (h: Heard) => void; base: number[]; bAt: number; stickSaid: boolean; axis: { a: number; dir: 1 | -1 } | null } | null = null;
+  /** The key just heard as a binding: its repeats and its keyup are swallowed (Enter held would press the cell again). */
+  private heardKey = '';
+  /** The pad's axes that have moved on this page (an untouched trigger reads 0 in some browsers, -1 once touched). */
+  private axisLive: boolean[] = [];
   private readonly listeners: ((a: SystemAction) => void)[] = [];
   private prevButtons: boolean[] = [];
   private device: InputDevice = keptDevice();
@@ -148,6 +142,7 @@ export class Input {
     this.setBindings(DEFAULT_KEYS, DEFAULT_PAD);
     window.addEventListener('keydown', (e) => {
       if (this.listening) return this.hearKey(e);
+      if (e.code === this.heardKey) return e.preventDefault();
       // Browser and OS shortcuts (Cmd+R, Ctrl+Tab…) are theirs, not a reset or a steer.
       // Esc still backs out of a menu from its text fields (the lobby list's search, a name).
       const typing = isTyping(e, this.menuOpen) && !(this.menuOpen && e.code === 'Escape');
@@ -172,9 +167,17 @@ export class Input {
         e.preventDefault();
       }
     });
-    const release = () => held.clear();
+    const release = () => {
+      held.clear();
+      this.heardKey = '';
+    };
     window.addEventListener('keyup', (e) => {
       held.delete(e.code);
+      if (e.code === this.heardKey) {
+        // Not Space's click on the cell as it comes up.
+        e.preventDefault();
+        this.heardKey = '';
+      }
       // macOS sends no keyup for keys let go while Cmd was down: drop everything with it.
       if (e.key === 'Meta') release();
     });
@@ -199,7 +202,7 @@ export class Input {
   listen(kind: 'key' | 'pad', fn: (h: Heard) => void): void {
     this.settleButtons();
     const pad = this.pad();
-    this.listening = { kind, fn, base: pad ? [...pad.axes] : [], bAt: -1, stickSaid: false };
+    this.listening = { kind, fn, base: pad ? [...pad.axes] : [], bAt: -1, stickSaid: false, axis: null };
   }
 
   /** Stops listening (the panel closed under it). */
@@ -219,13 +222,18 @@ export class Input {
   }
 
   private hearKey(e: KeyboardEvent): void {
-    e.preventDefault();
-    if (e.repeat) return;
     this.lastDevice = 'keyboard';
-    if (e.code === 'Escape') return this.heard({ cancel: true });
-    if (this.listening?.kind !== 'key') return;
-    // A key with Cmd, Ctrl or Alt down is a shortcut (the browser's), and those keys never drive.
-    if (reservedKey(e.code) || e.metaKey || e.ctrlKey || e.altKey) return this.heard({ reserved: e.code });
+    if (e.code === 'Escape') {
+      e.preventDefault();
+      return this.heard({ cancel: true });
+    }
+    // The browser's keys and shortcuts still do their thing (F5, Cmd+R, F12): they're only refused.
+    if (e.repeat || this.listening?.kind !== 'key') return;
+    if (reservedKey(e.code)) return this.heard({ reserved: e.code });
+    // A key with Cmd, Ctrl or Alt down is a shortcut, and never drives.
+    if (e.metaKey || e.ctrlKey || e.altKey) return this.heard({ reserved: 'mod' });
+    e.preventDefault();
+    this.heardKey = e.code;
     this.heard({ key: e.code });
   }
 
@@ -254,12 +262,23 @@ export class Input {
       return this.heard({ reserved: Math.abs(pad.axes[0] ?? 0) >= Math.abs(pad.axes[1] ?? 0) ? 'a0' : 'a1' });
     }
     if (stick < 0.3) l.stickSaid = false;
+    // An axis pushed past halfway is heard once it's let go, from where it comes to rest: a trigger
+    // goes back to an end (-1), a stick to the middle. (Where it read when listening started isn't
+    // enough: some browsers report an untouched trigger as 0.)
+    if (l.axis) {
+      const v = pad.axes[l.axis.a] ?? 0;
+      // At rest in the middle, or at the end it was pushed away from (not the one it's still held at).
+      const end = -l.axis.dir;
+      const rest = Math.abs(v) < 0.25 ? 0 : Math.abs(v - end) < 0.25 ? end : null;
+      if (rest !== null) this.heard({ pad: { ...l.axis, rest } });
+      return;
+    }
     for (let k = 2; k < pad.axes.length; k++) {
-      const rest = l.base[k] ?? 0;
-      const d = (pad.axes[k] ?? 0) - rest;
-      if (Math.abs(d) < 0.5) continue;
-      // Resting near an end, it's a trigger (it goes one way, from -1); otherwise from the middle.
-      return this.heard({ pad: { a: k, dir: d > 0 ? 1 : -1, rest: rest < -0.5 ? -1 : rest > 0.5 ? 1 : 0 } });
+      const d = (pad.axes[k] ?? 0) - (l.base[k] ?? 0);
+      if (Math.abs(d) >= 0.5) {
+        l.axis = { a: k, dir: d > 0 ? 1 : -1 };
+        return;
+      }
     }
   }
 
@@ -315,8 +334,9 @@ export class Input {
     if (pad && this.listening) this.buttons(pad);
     else if (pad) {
       const binds = this.padBinds;
-      const value = (a: (typeof PAD_ACTIONS)[number]) => Math.max(padValue(pad, binds[a][0]), padValue(pad, binds[a][1]));
-      const down = (a: (typeof PAD_ACTIONS)[number]) => padDown(pad, binds[a][0]) || padDown(pad, binds[a][1]);
+      const live = (p: PadBind | null) => !p || 'b' in p || !!this.axisLive[p.a];
+      const value = (a: (typeof PAD_ACTIONS)[number]) => Math.max(...binds[a].map((p) => padValue(pad, p, live(p))));
+      const down = (a: (typeof PAD_ACTIONS)[number]) => binds[a].some((p) => padDown(pad, p, live(p)));
       const ax = pad.axes[0] ?? 0;
       const stick = Math.abs(ax) < this.deadZone ? 0 : (ax - Math.sign(ax) * this.deadZone) / (1 - this.deadZone);
       const padSteer = Math.sign(stick) * Math.abs(stick) ** this.steerCurve;
@@ -416,9 +436,11 @@ export class Input {
 
   private pad(): Gamepad | null {
     const pads = navigator.getGamepads?.() ?? [];
-    for (const p of pads) if (p && p.connected && p.mapping === 'standard') return p;
-    for (const p of pads) if (p && p.connected) return p;
-    return null;
+    let found: Gamepad | null = null;
+    for (const p of pads) if (p && p.connected && p.mapping === 'standard') found ??= p;
+    for (const p of pads) if (p && p.connected) found ??= p;
+    if (found) for (let k = 0; k < found.axes.length; k++) if (found.axes[k] !== 0) this.axisLive[k] = true;
+    return found;
   }
 
   /** Rumble on the active gamepad: strong/weak 0–1, for `ms`. */

@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
-import { assignKey, assignPad, DEFAULT_KEYS, DEFAULT_PAD, DRIVE_ACTIONS, keyLabel, PAD_ACTIONS, padLabel, padValue, parseKeys, parsePad, reservedKey, reservedPad, type KeyBinds, type PadBinds } from '../src/input/bindings';
+import { assignKey, assignPad, browserKey, DEFAULT_KEYS, GAME_KEYS, DEFAULT_PAD, DRIVE_ACTIONS, keyLabel, PAD_ACTIONS, padLabel, padValue, parseKeys, parsePad, reservedKey, reservedPad, type KeyBinds, type PadBinds } from '../src/input/bindings';
 import { HOLD_TO_BIND_MS, Input, type Heard, type SystemAction } from '../src/input/input';
 import { neutralControls } from '../src/core/controls';
 import { DEFAULT_SETTINGS, parseSettings, SETTINGS_KEY, SettingsStore, steerCurve } from '../src/settings';
@@ -128,6 +128,22 @@ describe('a binding saves and loads', () => {
     expect([next.deadzone, next.rumble, next.sensitivity]).toEqual([0.2, false, 0.9]);
     // The rest are kept: the volumes, the graphics.
     expect(new SettingsStore(storage).get().volume).toEqual(DEFAULT_SETTINGS.volume);
+  });
+
+  test("an action missing from what's stored gets its default, but not a key the player gave another", () => {
+    const keys = parseKeys({ ...DEFAULT_KEYS, reset: undefined, boost: ['KeyR', 'Space'] });
+    expect(keys.boost).toEqual(['KeyR', 'Space']);
+    expect(keys.reset).toEqual(['', '']);
+    const pad = parsePad({ ...DEFAULT_PAD, drift: undefined, boost: [{ b: 5 }, null] });
+    expect(pad.boost).toEqual([{ b: 5 }, null]);
+    expect(pad.drift).toEqual([null, { b: 2 }]);
+    // Still in the actions' order.
+    expect(Object.keys(keys)).toEqual([...DRIVE_ACTIONS]);
+  });
+
+  test("the game's own keys can't be bound: the list input.ts routes is the list that's refused", () => {
+    for (const c of Object.keys(GAME_KEYS)) expect([c, reservedKey(c)]).toEqual([c, true]);
+    expect([browserKey('F5'), browserKey('F8'), browserKey('ControlLeft'), browserKey('KeyM')]).toEqual([true, false, true, false]);
   });
 
   test('a setting from before remapping (no controls) is the defaults', () => {
@@ -289,7 +305,7 @@ describe("the menus' keys and buttons can't be taken", () => {
     key('keydown', 'KeyM');
     key('keydown', 'KeyK', { ctrlKey: true });
     key('keydown', 'Escape');
-    expect(heard).toEqual([{ reserved: 'KeyM' }, { reserved: 'KeyK' }, { cancel: true }]);
+    expect(heard).toEqual([{ reserved: 'KeyM' }, { reserved: 'mod' }, { cancel: true }]);
     // No mute, no back: those were the listening's.
     expect(fired).toEqual([]);
   });
@@ -312,13 +328,55 @@ describe("the menus' keys and buttons can't be taken", () => {
     expect(fired).toEqual([]);
   });
 
-  test('a trigger some pads report as an axis is heard from where it rests', () => {
+  test('an axis is heard once let go, resting where it comes back to: a trigger at -1 (even one that read 0 untouched), a stick in the middle', () => {
     const heard: Heard[] = [];
-    axes = [0, 0, 0, 0, 0, -1];
+    // Untouched, as some browsers report a trigger till it's moved: 0.
+    axes = [0, 0, 0, 0, 0, 0];
     input.listen('pad', (h) => heard.push(h));
     axes = [0, 0, 0, 0, 0, 0.8];
     frames(20);
+    expect(heard).toEqual([]);
+    axes = [0, 0, 0, 0, 0, -1];
+    frames(20);
     expect(heard).toEqual([{ pad: { a: 5, dir: 1, rest: -1 } }]);
+    input.listen('pad', (h) => heard.push(h));
+    axes = [0, 0, 0, -0.9, 0, -1];
+    frames(20);
+    axes = [0, 0, 0, 0.05, 0, -1];
+    frames(20);
+    expect(heard.at(-1)).toEqual({ pad: { a: 3, dir: -1, rest: 0 } });
+  });
+
+  test("a trigger bound as an axis is at rest till it's first moved on the page (it reads 0, not halfway)", () => {
+    input.setBindings(DEFAULT_KEYS, assignPad(DEFAULT_PAD, 'throttle', 0, { a: 5, dir: 1, rest: -1 }).binds);
+    axes = [0, 0, 0, 0, 0, 0];
+    expect(poll().throttle).toBe(0);
+    axes = [0, 0, 0, 0, 0, -1];
+    expect(poll().throttle).toBe(0);
+    axes = [0, 0, 0, 0, 0, 0];
+    expect(poll().throttle).toBe(0.5);
+  });
+
+  test("while listening, the browser's keys and shortcuts keep their default (F5, Ctrl+R), refused; a key set is swallowed till it's let go (Enter held doesn't press the cell again)", () => {
+    const heard: Heard[] = [];
+    input.menuOpen = true;
+    input.listen('key', (h) => heard.push(h));
+    const prevented: string[] = [];
+    const press = (type: 'keydown' | 'keyup', code: string, more: Record<string, unknown> = {}) => key(type, code, { preventDefault: () => prevented.push(`${type} ${code}`), ...more });
+    press('keydown', 'F5');
+    press('keydown', 'KeyR', { ctrlKey: true });
+    press('keydown', 'Tab');
+    expect(heard).toEqual([{ reserved: 'F5' }, { reserved: 'mod' }, { reserved: 'Tab' }]);
+    expect(prevented).toEqual([]);
+    press('keydown', 'Enter');
+    press('keydown', 'Enter', { repeat: true });
+    press('keydown', 'Enter', { repeat: true });
+    press('keyup', 'Enter');
+    expect(heard.at(-1)).toEqual({ key: 'Enter' });
+    expect(prevented).toEqual(['keydown Enter', 'keydown Enter', 'keydown Enter', 'keyup Enter']);
+    // Let go, Enter is the menu's again (the page's: it presses the focused button).
+    press('keydown', 'Enter');
+    expect(prevented.length).toBe(4);
   });
 
   test("whatever the bindings, the menu's buttons still move, press, back out and pause", () => {

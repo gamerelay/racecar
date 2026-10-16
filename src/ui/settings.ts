@@ -10,7 +10,7 @@ import { chooser } from './chooser';
 import { esc } from './html';
 import { button, caps, hints, key, pad, row, segmented, slider, toggle, toggled } from './kit';
 import { Overlay } from './overlay';
-import { ACTION_NAMES, assignKey, assignPad, DEFAULT_KEYS, DEFAULT_PAD, DRIVE_ACTIONS, keyLabel, PAD_ACTIONS, padLabel, type DriveAction, type Moved, type PadAction, type PadBind } from '../input/bindings';
+import { ACTION_NAMES, assignKey, assignPad, browserKey, DEFAULT_KEYS, DEFAULT_PAD, DRIVE_ACTIONS, keyLabel, PAD_ACTIONS, padLabel, type DriveAction, type Moved, type PadAction, type PadBind } from '../input/bindings';
 import type { Heard } from '../input/input';
 import { DEFAULT_SETTINGS, MAX_DEADZONE, type Quality, type Settings, type SettingsStore } from '../settings';
 
@@ -39,7 +39,17 @@ const cellId = (c: Cell) => `cb-${c.dev}-${c.action}-${c.slot}`;
 const heardName = (r: string) => (/^b\d+$/.test(r) ? padLabel({ b: Number(r.slice(1)) }) : /^a[01]$/.test(r) ? 'The left stick' : keyLabel(r));
 /** Why a key or button can't be taken. */
 const whyNot = (r: string) =>
-  r === 'b9' ? 'Start is the menu' : r === 'b8' ? 'Select is for "felt wrong"' : /^a[01]$/.test(r) ? 'The left stick steers' : /^b\d+$/.test(r) ? `${heardName(r)} is the system's` : r === 'Escape' ? 'Esc is the menu' : `${keyLabel(r)} is the game's`;
+  r === 'b9'
+    ? 'Start is the menu'
+    : r === 'b8'
+      ? 'Select is for "felt wrong"'
+      : /^a[01]$/.test(r)
+        ? 'The left stick steers'
+        : /^b\d+$/.test(r)
+          ? `${heardName(r)} is the system's`
+          : r === 'mod'
+            ? "Keys with Cmd, Ctrl or Alt are the browser's"
+            : `${keyLabel(r)} is the ${browserKey(r) ? "browser's" : "game's"}`;
 
 export class SettingsPanel extends Overlay {
   private current: SettingsTab = 'settings';
@@ -267,10 +277,19 @@ export class SettingsPanel extends Overlay {
       }
       this.setting = null;
       if ('key' in h && h.key === 'Space') {
+        // Input swallows its keyup, which should stop the click; this is the belt to that. Over at
+        // its keyup (after the click), or when the window loses it (the keyup never comes), or soon.
         this.spaceDown = true;
-        // Its click comes after its keyup: let it by first.
-        const up = (e: KeyboardEvent) => e.code === 'Space' && (window.removeEventListener('keyup', up), setTimeout(() => (this.spaceDown = false)));
+        const over = () => {
+          window.removeEventListener('keyup', up);
+          window.removeEventListener('blur', over);
+          clearTimeout(late);
+          this.spaceDown = false;
+        };
+        const up = (e: KeyboardEvent) => e.code === 'Space' && setTimeout(over);
+        const late = setTimeout(over, 1500);
         window.addEventListener('keyup', up);
+        window.addEventListener('blur', over);
       }
       if ('key' in h) this.bind(c, h.key);
       else if ('pad' in h) this.bind(c, h.pad);

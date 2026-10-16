@@ -225,17 +225,23 @@ if (attract && track) {
 document.body.insertAdjacentHTML('beforeend', '<div id="fps" aria-hidden="true"></div>');
 const fpsEl = document.getElementById('fps')!;
 // Settings apply as they change: the volumes and the graphics.
+/** The bindings Input and the hints have (settings.set keeps them the same objects till they change). */
+let bound: { keys: unknown; pad: unknown } = { keys: null, pad: null };
 settings.onChange((s) => {
   audio.setVolumes(s.volume);
   renderer.setQuality({ resolution: s.graphics.resolution, post: params.get('post') !== '0' && s.graphics.post, outline: params.get('ink') !== '0' && s.graphics.outline });
   fpsEl.classList.toggle('on', s.graphics.fps);
-  // The controls: the bindings, the pad's options, and every hint that names a driving key.
+  // The controls: the pad's options, and (when they've changed: a slider drags through here) the
+  // bindings and every hint that names a driving key.
   const c = s.controls;
-  input.setBindings(c.keys, c.pad);
   input.deadZone = c.deadzone;
   input.rumbleOn = c.rumble;
   input.steerCurve = steerCurve(c.sensitivity);
-  setDriveBinds(c.keys, c.pad);
+  if (c.keys !== bound.keys || c.pad !== bound.pad) {
+    input.setBindings(c.keys, c.pad);
+    setDriveBinds(c.keys, c.pad);
+    bound = c;
+  }
 });
 const settingsPanel = new SettingsPanel(settings, input);
 const pagesPanel = new PagesPanel(() => CreditsBackdrop.create());

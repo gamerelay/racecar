@@ -275,7 +275,9 @@ The owner's call on conflicts: **swap**.
   they were, both slots (WASD and the arrows; the pad's RB and X for drift). A pad binding is a
   button (its analog value, so a trigger read as a button still eases the throttle) or an axis
   pushed one way from where it rests (a trigger some pads report as an axis, resting at -1; the
-  right stick, from the middle).
+  right stick, from the middle). An axis is heard once it's let go, from where it comes back to:
+  some browsers report an untouched trigger as 0, so where it read before isn't its rest. For the
+  same reason a trigger bound as an axis counts as at rest until it has moved on the page.
 - **Kept in the settings** (`controls` in `src/settings.ts`): the bindings, and the pad's deadzone
   (0 to 30%, 12% as before), rumble and steering sensitivity (the stick's curve, 1.4 as before).
   What's stored is checked as it's read: a system key, a reserved button or one bound twice is none;
@@ -289,7 +291,9 @@ The owner's call on conflicts: **swap**.
   big in the sheet's foot ("Press a button for Boost"). A key or button that can't be taken says
   why and it listens on. B pressed and let go, or Esc, cancels; B held for 0.6 s is the binding, so
   B can be set from the pad too. While it listens nothing else happens with a press (no pause, no
-  menu move). X (Delete or Backspace on the keyboard) clears the focused one. One another action
+  menu move), but the browser's keys and shortcuts (F5, Cmd+R, F12) still work, only refused. A key
+  set is swallowed until it's let go (Enter held doesn't press the cell again). X (Delete or
+  Backspace on the keyboard) clears the focused one. One another action
   has swaps: it gets what this slot had, which may be none, and the foot says so ("Boost is on Y.
   Reset to road moved to A.", or "... has no button now"), the cell it moved to ringed for a moment.
 - **Reset** for each device, at the end of its section: the controller's resets its options too.

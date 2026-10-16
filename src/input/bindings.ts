@@ -62,12 +62,34 @@ export const DEFAULT_PAD: PadBinds = {
 };
 
 /**
- * Keys that aren't the driving's to take: Esc (the menu), the F-keys, the dev keys (` F2 F4 F6
- * F8), the sound keys (M, N, − and +), and the modifiers (Cmd, Ctrl and Alt are the browser's
- * shortcuts: a key held with them never drives). Shift is fine: it drifts.
+ * The game's own keys (input.ts routes them, before any driving key): Esc (the menu), F8 (felt
+ * wrong), the dev keys (` F2 F4 F6), the sound keys (M, N, − and +). The one list: input.ts's
+ * SYSTEM is this, so a key added here can't also be bound.
  */
-const SYSTEM_KEYS = new Set(['Escape', 'Backquote', 'KeyM', 'KeyN', 'Minus', 'Equal', 'NumpadSubtract', 'NumpadAdd', 'MetaLeft', 'MetaRight', 'ControlLeft', 'ControlRight', 'AltLeft', 'AltRight', 'OSLeft', 'OSRight', 'ContextMenu', 'CapsLock', 'Tab', 'Fn', 'FnLock']);
-export const reservedKey = (code: string): boolean => SYSTEM_KEYS.has(code) || /^F\d+$/.test(code);
+export const GAME_KEYS = {
+  Escape: 'pause',
+  F8: 'report',
+  Backquote: 'editor',
+  F2: 'debug',
+  F4: 'tuning',
+  F6: 'ink',
+  KeyM: 'mute',
+  KeyN: 'music',
+  // - and + (= unshifted, and the keypad's): the previous or next track.
+  Minus: 'track-prev',
+  NumpadSubtract: 'track-prev',
+  Equal: 'track-next',
+  NumpadAdd: 'track-next',
+} as const;
+
+/**
+ * The browser's and the system's: the modifiers (Cmd, Ctrl and Alt make a key a shortcut, and a key
+ * held with them never drives), Tab, Caps Lock, the menu key, and every F-key. Shift is fine: it drifts.
+ */
+const BROWSER_KEYS = new Set(['MetaLeft', 'MetaRight', 'ControlLeft', 'ControlRight', 'AltLeft', 'AltRight', 'OSLeft', 'OSRight', 'ContextMenu', 'CapsLock', 'Tab', 'Fn', 'FnLock']);
+export const browserKey = (code: string): boolean => BROWSER_KEYS.has(code) || (/^F\d+$/.test(code) && !Object.hasOwn(GAME_KEYS, code));
+/** Keys that aren't the driving's to take: the game's own, and the browser's. */
+export const reservedKey = (code: string): boolean => Object.hasOwn(GAME_KEYS, code) || browserKey(code);
 
 /** Standard-mapping buttons. */
 export const PAD_A = 0;
@@ -110,6 +132,17 @@ const KEY_LABELS: Record<string, string> = {
   NumpadMultiply: 'Num *',
   NumpadDivide: 'Num /',
   NumpadDecimal: 'Num .',
+  ControlLeft: 'Ctrl',
+  ControlRight: 'Ctrl',
+  AltLeft: 'Alt',
+  AltRight: 'Alt',
+  MetaLeft: 'Cmd',
+  MetaRight: 'Cmd',
+  CapsLock: 'Caps Lock',
+  Backquote: '`',
+  Minus: '−',
+  Equal: '+',
+  Escape: 'Esc',
 };
 
 /** A key's cap, from its code (the US layout's: the code is where the key is, not what it types). */
@@ -170,22 +203,29 @@ export const assignPad = (binds: PadBinds, action: PadAction, slot: 0 | 1, p: Pa
 
 const KEY_CODE = /^[A-Za-z][A-Za-z0-9]{0,23}$/;
 
-/** Stored keys: a bad, a system or a repeated one is none; an action missing altogether is its default. */
-export function parseKeys(v: unknown): KeyBinds {
+/**
+ * Reads stored bindings (`read` makes one stored value good, or none). The stored ones first, so an
+ * action missing altogether (its default) doesn't take a key the player gave another; a repeat is none.
+ */
+function parseBinds<A extends string, T>(v: unknown, actions: readonly A[], defaults: Record<A, [T, T]>, read: (x: unknown) => T, none: T, same: (x: T, y: T) => boolean): Record<A, [T, T]> {
   const s = (v && typeof v === 'object' ? v : {}) as Record<string, unknown>;
-  const out = {} as KeyBinds;
-  const seen = new Set<string>();
-  for (const a of DRIVE_ACTIONS) {
-    const pair = Object.hasOwn(s, a) && Array.isArray(s[a]) ? (s[a] as unknown[]) : DEFAULT_KEYS[a];
-    out[a] = [0, 1].map((k) => {
-      const c = pair[k];
-      if (typeof c !== 'string' || !KEY_CODE.test(c) || reservedKey(c) || seen.has(c)) return '';
-      seen.add(c);
-      return c;
-    }) as [string, string];
-  }
-  return out;
+  const out = {} as Record<A, [T, T]>;
+  const seen: T[] = [];
+  const take = (x: T) => {
+    if (x === none || seen.some((y) => same(x, y))) return none;
+    seen.push(x);
+    return x;
+  };
+  const stored = (a: A) => Object.hasOwn(s, a) && Array.isArray(s[a]);
+  for (const a of actions) if (stored(a)) out[a] = [take(read((s[a] as unknown[])[0])), take(read((s[a] as unknown[])[1]))];
+  for (const a of actions) if (!stored(a)) out[a] = [take(defaults[a][0]), take(defaults[a][1])];
+  // In the actions' order, as the defaults are.
+  return Object.fromEntries(actions.map((a) => [a, out[a]])) as Record<A, [T, T]>;
 }
+
+/** Stored keys: a bad, a system or a repeated one is none; an action missing altogether is its default. */
+export const parseKeys = (v: unknown): KeyBinds =>
+  parseBinds(v, DRIVE_ACTIONS, DEFAULT_KEYS, (c) => (typeof c === 'string' && KEY_CODE.test(c) && !reservedKey(c) ? c : ''), '', (x, y) => x === y);
 
 const int = (v: unknown, max: number): v is number => typeof v === 'number' && Number.isInteger(v) && v >= 0 && v < max;
 
@@ -199,28 +239,17 @@ function parsePadBind(v: unknown): PadBind | null {
 }
 
 /** Stored pad bindings, the same way as the keys. */
-export function parsePad(v: unknown): PadBinds {
-  const s = (v && typeof v === 'object' ? v : {}) as Record<string, unknown>;
-  const out = {} as PadBinds;
-  const seen: PadBind[] = [];
-  for (const a of PAD_ACTIONS) {
-    const pair = Object.hasOwn(s, a) && Array.isArray(s[a]) ? (s[a] as unknown[]) : DEFAULT_PAD[a];
-    out[a] = [0, 1].map((k) => {
-      const p = parsePadBind(pair[k]);
-      if (!p || seen.some((q) => samePad(p, q))) return null;
-      seen.push(p);
-      return p;
-    }) as [PadBind | null, PadBind | null];
-  }
-  return out;
-}
+export const parsePad = (v: unknown): PadBinds => parseBinds<PadAction, PadBind | null>(v, PAD_ACTIONS, DEFAULT_PAD, parsePadBind, null, samePad);
 
 /**
  * How far a pad binding is pushed, 0 to 1: a button's value (a trigger's is analog), or an axis's
- * way from where it rests.
+ * way from where it rests. `live`: whether that axis has moved yet on this page. Some browsers
+ * report a trigger as 0 until it's first touched, then -1 at rest: untouched, a trigger (resting
+ * at an end) is at rest, not halfway.
  */
-export function padValue(pad: Pick<Gamepad, 'buttons' | 'axes'>, p: PadBind | null): number {
+export function padValue(pad: Pick<Gamepad, 'buttons' | 'axes'>, p: PadBind | null, live = true): number {
   if (!p) return 0;
+  if ('a' in p && p.rest !== 0 && !live) return 0;
   if ('b' in p) {
     const b = pad.buttons[p.b];
     return b ? (typeof b.value === 'number' ? b.value : b.pressed ? 1 : 0) : 0;
@@ -231,8 +260,8 @@ export function padValue(pad: Pick<Gamepad, 'buttons' | 'axes'>, p: PadBind | nu
 }
 
 /** Whether a pad binding is down: a button pressed, an axis past halfway. */
-export function padDown(pad: Pick<Gamepad, 'buttons' | 'axes'>, p: PadBind | null): boolean {
+export function padDown(pad: Pick<Gamepad, 'buttons' | 'axes'>, p: PadBind | null, live = true): boolean {
   if (!p) return false;
   if ('b' in p) return pad.buttons[p.b]?.pressed ?? false;
-  return padValue(pad, p) > 0.5;
+  return padValue(pad, p, live) > 0.5;
 }
