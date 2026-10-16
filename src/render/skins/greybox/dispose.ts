@@ -10,7 +10,9 @@ import { glow } from './toon';
 /** What every greybox build shares and must not free. */
 export function sharedResources(): Set<unknown> {
   const models = trafficModels();
-  return new Set<unknown>([...Object.values(models.geos), models.material, glow(), ...sharedCarResources()]);
+  // (A walking model's twin, for its fading copies, is on the model's buffers: world.ts.)
+  const twins = Object.values(models.geos).flatMap((g) => (g.userData.twin ? [g.userData.twin] : []));
+  return new Set<unknown>([...Object.values(models.geos), ...twins, models.material, glow(), ...sharedCarResources()]);
 }
 
 export function disposeTree(roots: Object3D[], shared = sharedResources()): void {
