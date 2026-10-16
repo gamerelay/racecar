@@ -6,7 +6,7 @@ and where things stand is [docs/HANDOFF.md](./docs/HANDOFF.md).
 
 ## Unreleased
 
-- **Less traffic fading in right in front of you:** on the first lap, cars no longer materialize half see-through just past the start (they used to be hidden from the start grid for ten seconds, then fade back in wherever they were); now they start where they're clear of it. Sahara's camels are on the Caravan Road from the first lap. Two of Downtown's traffic stretches now start where you can see less of the road before them.
+- **Less traffic fading in right in front of you:** on the first lap, cars no longer materialize half see-through just past the start (they used to be hidden from the start grid for ten seconds, then fade back in wherever they were); now they start where they're clear of it. Sahara's camels are on the Caravan Road from the first lap, and they no longer fade at all: caravans walk in from the oasis over the dunes, down the road's edge toward you, and back to the river. Two of Downtown's traffic stretches now start where you can see less of the road before them.
 
 ## v1.1: Time trial
 

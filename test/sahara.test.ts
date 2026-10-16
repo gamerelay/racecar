@@ -9,13 +9,13 @@ import { KIND_STONE, KIND_WATER, riverAt } from '../src/core/track/ground';
 import { newHit, projectGlobal, sampleAt, surfaceAt } from '../src/core/track/query';
 import { SMASH_IDS, Smashables } from '../src/core/world/smash';
 import { TRAFFIC_KINDS, Traffic, newTrafficPose } from '../src/core/world/traffic';
+import { inSight, tallProps } from '../src/core/track/sight';
 import { Sim } from '../src/core/sim';
 import { planWeather, weatherAt } from '../src/core/world/weather';
 import { paletteFor, type MapDef, type PyramidDef, type RiverDef } from '../src/core/content';
 import { readFileSync } from 'node:fs';
 import { Ev } from '../src/core/events';
 import { neutralControls } from '../src/core/controls';
-import { wrap } from '../src/core/track/bake';
 import { wrapAngle } from '../src/core/math';
 import { CLASSES, SURFACES, layout } from './helpers';
 
@@ -149,27 +149,73 @@ describe("Sahara's life: the caravan and the dust devils", () => {
   const sahara = layout('sahara/dunes');
   const track = bakeTrack(sahara, SURFACES);
 
-  test('the caravan: camels only, in strings of five nose to tail, on the Caravan Road', () => {
+  test('the caravan: camels only, in strings of five nose to tail, down the Caravan Road toward you', () => {
     const tr = new Traffic(track, 7, 1);
     expect(tr.count).toBeGreaterThan(0);
     expect(new Set(Array.from(tr.kind, (k) => TRAFFIC_KINDS[k].id))).toEqual(new Set(['camel']));
-    const s = Array.from({ length: tr.count }, (_, k) => tr.sAt(k, 0));
-    // Each string's camels 3.6 m apart; a string's last and the next one's head much further.
-    for (let k = 0; k + 1 < 5; k++) expect(Math.abs(wrap(s[k] - s[k + 1] + 50, track.main.length) - 50)).toBeCloseTo(3.6, 3);
-    expect(Math.abs(wrap(s[4] - s[5] + 2000, track.main.length) - 2000)).toBeGreaterThan(50);
+    const pose = newTrafficPose();
+    const at = (k: number, t: number) => ({ ...tr.poseAt(k, t, pose) });
+    // Each string's camels 3.6 m apart (round its loop, so in a straight line a little less at a corner); the next string much further.
+    for (let k = 0; k + 1 < 5; k++) {
+      const [a, b] = [at(k, 0), at(k + 1, 0)];
+      expect(Math.hypot(a.x - b.x, a.z - b.z)).toBeGreaterThan(3.2);
+      expect(Math.hypot(a.x - b.x, a.z - b.z)).toBeLessThan(3.7);
+    }
+    expect(Math.hypot(at(4, 0).x - at(5, 0).x, at(4, 0).z - at(5, 0).z)).toBeGreaterThan(50);
+    // Down the road's left edge, against the lap's way: some camel on it most of the time.
+    let times = 0;
+    let onTimes = 0;
+    for (let t = 0; t < 300; t += 5) {
+      let on = false;
+      for (let k = 0; k < tr.count && !on; k++) {
+        const p = at(k, t);
+        on = p.s > 20 && p.s < 160 && p.lat < -6 && p.lat > -9 && p.vx * track.main.tx[Math.round(p.s / track.main.step)] + p.vz * track.main.tz[Math.round(p.s / track.main.step)] < 0;
+      }
+      times++;
+      if (on) onTimes++;
+    }
+    expect(onTimes / times).toBeGreaterThan(0.6);
+  });
+
+  test('camels never fade: from the oasis and back, out of sight down in the river channel', () => {
+    const tr = new Traffic(track, 7, 1);
+    const tall = tallProps(track);
+    for (let t = 0; t < 300; t += 0.5) for (let k = 0; k < tr.count; k++) expect(tr.visibility(k, t)).toBe(1);
+    // Where a scattered one comes back (the path's back corner): seen from nowhere on the road.
+    const p = tr.routes[0]!.path!;
+    expect(p.backTau).toBeGreaterThan(0);
+    const k = 0;
+    tr.wreckedAt[k] = 50;
+    let back = 0;
+    for (let t = 50; t < 50 + p.T + 20 && !back; t += 0.1) if (tr.visibility(k, t) > 0) back = t;
+    expect(back).toBeGreaterThan(50 + 12);
+    const there = tr.poseAt(k, back, newTrafficPose());
+    const y = track.ground!.height(there.x, there.z);
+    const hit = newHit();
+    for (let s = 0; s < track.main.length; s += 5) {
+      const a = sampleAt(track.main, s, hit);
+      expect(inSight(track, a.cx, a.cy, a.cz, Math.atan2(a.tx, a.tz), s, there.x, y, there.z, there.s, tall)).toBe(false);
+    }
   });
 
   test('a camel hit scatters: the camel gone for a while, the car a little slower, nobody wrecked', () => {
     const sim = new Sim(track, CLASSES, SURFACES, { seed: 7, traffic: 1, mayhem: 'off' });
     const c = sim.addCar({ cls: 'coupe', human: true });
-    sim.time = 20;
     const tr = sim.world.traffic;
-    const k = Array.from({ length: tr.count }, (_, k) => k).find((k) => tr.visibility(k, 20) === 1)!;
+    // One walking the road's edge (the first time from 20 s there is one).
+    const walking = (k: number, t: number) => {
+      const p = tr.poseAt(k, t, newTrafficPose());
+      return tr.visibility(k, t) === 1 && p.s > 30 && p.s < 160 && Math.abs(p.lat) < 9;
+    };
+    let t0 = 20;
+    while (t0 < 200 && !Array.from({ length: tr.count }, (_, k) => k).some((k) => walking(k, t0))) t0 += 1;
+    sim.time = t0;
+    const k = Array.from({ length: tr.count }, (_, k) => k).find((k) => walking(k, t0))!;
     expect(k).toBeDefined();
     // 15 m short of it, in its lane, at 100 km/h.
-    const s = tr.sAt(k, 20);
+    const s = tr.sAt(k, t0);
     const at = sampleAt(track.main, s, newHit());
-    const lat = (tr.poseAt(k, 20, newTrafficPose()).x - at.cx) * -at.tz + (tr.poseAt(k, 20, newTrafficPose()).z - at.cz) * at.tx;
+    const lat = (tr.poseAt(k, t0, newTrafficPose()).x - at.cx) * -at.tz + (tr.poseAt(k, t0, newTrafficPose()).z - at.cz) * at.tx;
     sim.placeCar(c, 0, s - 15, lat, 100 / 3.6);
     let scattered = false;
     let wrecked = false;

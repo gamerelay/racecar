@@ -164,6 +164,9 @@ The owner: "let's do the camel caravan and dust devils next".
   camels) and `string` (`[count, gap]`); with neither, a lane draws as before (every other map's
   traffic identical). Hit a camel and it scatters (a cloud of sand, a soft thump), back as a
   wrecked car comes back; you keep 80% of your speed. Never a wreck, nothing tumbles.
+  - **Since 2026-10-16, from the oasis** (the owner: camels that "always seem to phase in"): a
+    loop that never fades, down the road's edge from 130 m to 10 m, over the plateau to the river,
+    back up its channel out of sight, and over again. SPEC "Traffic that leaves instead of fading".
   - Tried and dropped: a caravan each way the whole road to the ford. Bunched on the first lap, the
     field crashed into itself behind them (a dozen wrecks in eight races).
 - **Dust devils** (hazard `dust-devil`): a whirlwind rises beside the road (2.5 s, a marker, the

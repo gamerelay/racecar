@@ -491,7 +491,9 @@ export function validateLayout(layout: TrackLayout, surfaces: SurfaceDef[], clas
       if (!(Math.abs(lane.pos) <= 6)) err(`traffic lane ${k}: a path's pos ${lane.pos} m is off any street (-6 to 6)`);
       if (lane.count !== undefined && !(lane.count >= 0)) err(`traffic lane ${k}: count must be 0 or more`);
       if (lane.stops?.some((c) => !Number.isInteger(c) || c < 0 || c >= lane.path!.length)) err(`traffic lane ${k}: a stop is a corner of its path (0 to ${lane.path.length - 1})`);
+      if (lane.back !== undefined && !(Number.isInteger(lane.back) && lane.back >= 0 && lane.back < lane.path.length)) err(`traffic lane ${k}: back is a corner of its path (0 to ${lane.path.length - 1})`);
     } else if (!(Math.abs(lane.pos) <= 1)) err(`traffic lane ${k}: pos ${lane.pos} is off the road (-1 to 1)`);
+    if (lane.back !== undefined && !lane.path) err(`traffic lane ${k}: back is a corner of a path ("path")`);
     if (lane.dir !== 1 && lane.dir !== -1) err(`traffic lane ${k}: dir must be 1 or -1`);
     if (!(lane.speed > 0)) err(`traffic lane ${k}: speed must be positive`);
     for (const id of lane.kinds ?? []) if (!TRAFFIC_KINDS.some((x) => x.id === id)) err(`traffic lane ${k}: no traffic kind '${id}' (world/traffic.ts: ${TRAFFIC_KINDS.map((x) => x.id).join(', ')})`);

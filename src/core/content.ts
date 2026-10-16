@@ -149,6 +149,12 @@ export interface TrafficLaneDef {
   count?: number;
   /** A path's corners (indices into `path`) its cars stop before, at the crossing's line, for a moment. */
   stops?: number[];
+  /**
+   * A path's corner (an index into `path`) out of sight, where its wrecked cars come back: gone
+   * until they next pass it (Sahara's camels, down in the river's channel), not back where they'd
+   * be by then. Back where they are if left out.
+   */
+  back?: number;
 }
 
 export interface HazardDef {

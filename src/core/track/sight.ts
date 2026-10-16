@@ -1,7 +1,9 @@
 // What a racer's chase camera can see (SPEC "Traffic that doesn't pop"): a point is in sight when
-// it's in front, within SEEN m, and not behind the open ground, a crest of the main road or a tall
-// prop. Only the sim's world is known here: buildings and hills the skin draws (Downtown's blocks,
-// Backroads' hills) aren't, so off open ground a view is clearer here than in the game.
+// it's in front, within SEEN m, and not behind the open ground, a crest of the main road, a tall
+// prop or (a city's, scenery 'city') the buildings: the cityscape builds on everything more than its
+// sidewalk off a road, so there a line lower than CITY_HIGH m that far from every road is blocked.
+// Other hills and buildings the skin draws (Backroads') aren't known: there a view is clearer here
+// than in the game.
 //
 // Its use: where a lane's section ends, its cars fade in or out over FADE m of road; a fade seen is
 // a car materializing in plain view. `fadeExposure` is how much road a racer can see an end's fade
@@ -24,6 +26,38 @@ export const CAM_UP = 2.5;
 export const CAR_UP = 1;
 /** Line of sight is checked every this many meters. */
 const SIGHT_STEP = 4;
+/** A city's buildings (render/skins/greybox/cityscape.ts): on anything more than CITY_OFF m from a road's edge, at least CITY_HIGH m tall. */
+const CITY_OFF = 6;
+const CITY_HIGH = 12;
+/** A city's roads, every 4 m of every spline, in a 16 m grid: [x, z, half width + shoulder] per sample. */
+const cityRoads = new WeakMap<Track, Map<number, number[]>>();
+function roadsOf(track: Track): Map<number, number[]> {
+  let grid = cityRoads.get(track);
+  if (grid) return grid;
+  grid = new Map();
+  for (const sp of track.splines)
+    for (let i = 0; i < sp.n; i += Math.max(1, Math.round(4 / sp.step))) {
+      const key = Math.floor(sp.px[i] / 16) * 4096 + Math.floor(sp.pz[i] / 16);
+      let cell = grid.get(key);
+      if (!cell) grid.set(key, (cell = []));
+      cell.push(sp.px[i], sp.pz[i], sp.width[i] / 2 + sp.shoulder[i]);
+    }
+  cityRoads.set(track, grid);
+  return grid;
+}
+/** Whether (x, z) is built on in a city: more than CITY_OFF m from every road's edge. */
+function built(track: Track, x: number, z: number): boolean {
+  const grid = roadsOf(track);
+  const gx = Math.floor(x / 16);
+  const gz = Math.floor(z / 16);
+  for (let a = -2; a <= 2; a++)
+    for (let b = -2; b <= 2; b++) {
+      const cell = grid.get((gx + a) * 4096 + gz + b);
+      if (!cell) continue;
+      for (let k = 0; k < cell.length; k += 3) if (hypot(cell[k] - x, cell[k + 1] - z) - cell[k + 2] < CITY_OFF) return false;
+    }
+  return true;
+}
 
 /** The props tall enough to hide a car behind (a building, a trestle's leg). */
 export function tallProps(track: Track): Track['props'] {
@@ -41,6 +75,7 @@ export function lineClear(track: Track, ax: number, ay: number, az: number, as: 
   const L = track.main.length;
   const gap = signedGap(bs, as, L);
   const alongRoad = Math.abs(gap) < d * 1.5 + 20;
+  const city = track.layout.scenery === 'city';
   for (let i = 1; i < n; i++) {
     const f = i / n;
     const x = ax + (bx - ax) * f;
@@ -49,6 +84,7 @@ export function lineClear(track: Track, ax: number, ay: number, az: number, as: 
     if (track.ground) {
       if (track.ground.height(x, z) > y + 0.3) return false;
     } else if (alongRoad && sampleAt(track.main, wrap(as + gap * f, L), hit).cy > y + 0.3) return false;
+    if (city && y < CITY_HIGH && built(track, x, z)) return false;
   }
   const dx = bx - ax;
   const dz = bz - az;
