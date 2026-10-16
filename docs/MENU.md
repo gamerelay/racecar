@@ -211,7 +211,9 @@ the lobby, the in-race menu and Settings. Built smallest parts first:
   Sized for 1080p and scaled to the window (1rem is 10px at 1080p). `kit.html` (dev only) shows
   every part; P there swaps the hints to the pad's.
 - **Hints follow the device used last** (`Input.onDevice`, `body.pad`): keycaps, or the pad's
-  buttons, drawn both ways and switched in CSS, so nothing redraws when you pick up the pad.
+  buttons, drawn both ways and switched in CSS, so nothing redraws when you pick up the pad. The
+  device is kept for the tab (`sessionStorage`), so a race (a page load) starts on the hints the
+  menu had.
 - **The pad in menus:** a held d-pad or stick repeats (380 ms, then every 95); Q and E (the
   bumpers, over Settings) switch tabs; R (the pad's Y) is a screen's extra, Refresh in the lobby
   list. Esc backs out of a text field too. The pointer over a menu action or a row focuses it, so
@@ -230,6 +232,12 @@ the lobby, the in-race menu and Settings. Built smallest parts first:
   - In-race menu: the menu left under where you are in the race (lap, place, time, points), the
     six tips right, each with its key.
   - Settings and Controls: one sheet with two tabs; Controls is keyboard and pad side by side.
+  - Not in the designs, made in their style (2026-10-16): the results (`ui/race.ts`; the place
+    big and leaning top left, Race again and the way back beside it, the table under them with
+    you ringed in sun, the online vote as leaning buttons), the first race's keys card
+    (`ui/keys.ts`; the keyboard drawn, or the pad's buttons when the pad was used last) and the
+    Credits, Privacy and Terms pages (`ui/pages.ts`; a sheet over the sunset, Back and the title
+    over a body that scrolls, with the arrows and the d-pad too).
 - **Coming and going:** a screen's pieces come in from their own side one after another, and go
   together, quickly; the backdrop under them changes as they swap (the title's softened race, the
   list's night). Back to a screen, focus is where you left it. Between pages (into a race and out)
@@ -247,8 +255,12 @@ Where it went differently from the designs:
 - **Resume** says it's back to the race as you left it: there's no countdown on resume (the design
   had one).
 - **Handling**, not "Grip", on the car card: it's turn and grip together.
-- **The results screen** (`ui/race.ts`), the first race's keys card and the Credits pages keep the
-  old style for now: not in the designs.
+- **The lobby list's count** is the drivers over the seats not closed (1/4 when Create closed four),
+  and Hide full and Quick join go by those seats too (`seatsIn`).
+- **A player's seat** has the car and the ping under the name: the host's Kick and Make host need
+  the row's width (the name was cut to "R…"). Armed, the confirm takes the status tag's place.
+- **The car card's numbers** sit by their bars, not by the names: "Handling" and a 10 don't fit
+  side by side as the design's "Grip 9" did.
 
 ## Open questions
 

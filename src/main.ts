@@ -552,6 +552,8 @@ input.on((a) => {
   if (a === 'alt') return void (menu?.id === 'menu' && screens?.alt());
   if (a.startsWith('nav-') || a.startsWith('pick-')) {
     const dir = a.slice(a.indexOf('-') + 1) as 'up' | 'down' | 'left' | 'right';
+    // A page (Credits, Privacy, Terms) has one button: up and down scroll it.
+    if (pagesPanel.isOpen && (dir === 'up' || dir === 'down')) return pagesPanel.scroll(dir === 'up' ? -1 : 1);
     // A pick is the lobby's car and paint when you have a seat there; otherwise it moves focus.
     if (menu && !(a.startsWith('pick-') && menu.id === 'menu' && screens?.pick(dir))) navigate(menu, dir);
     return;
@@ -765,6 +767,7 @@ if (import.meta.env.DEV) {
   (window as unknown as { __rc: unknown }).__rc = {
     sim,
     renderer,
+    raceUi,
     telemetry,
     audio,
     input,

@@ -7,28 +7,37 @@ building". This file is "where are we"; the spec is "what are we making".
 **Last updated:** 2026-10-16. **Open: PR #182, the UI polish** (branch `ui-polish`, worktree
 `../racecar-ui-polish`; not merged, not deployed): the title, Multiplayer, the lobby, the in-race
 menu and Settings rebuilt to the v1.2 "Racecar — UI Polish" designs, controller-first, with
-transitions. What's in and where it went differently from the designs: [MENU.md](./MENU.md), "The
+transitions; then the results, the keys card and the Credits pages in the same style. What's in and where it went differently from the designs: [MENU.md](./MENU.md), "The
 UI polish (v1.2, 2026-10-15)".
 
 - **Code:** `ui/kit.ts` and `ui/kit.css` (the parts and tokens; 1rem is 10px at 1080p, the root
   font size follows the window), `ui/menu.ts` and `ui/menu.css` (the screens and their coming and
   going), `ui/settings.ts` (Settings and Controls in one tabbed sheet; `ui/controls.ts` is gone),
-  the pause menu in `main.ts` (`setPaused`), the page wipe in `index.html` and `ui/fade.ts`.
-  `kit.html` (dev only, not in the build) shows every part; P there swaps the hints to the pad's.
+  the pause menu in `main.ts` (`setPaused`), the page wipe in `index.html` and `ui/fade.ts`; the
+  results (`ui/race.ts`), the keys card (`ui/keys.ts`) and the pages (`ui/pages.ts`), their CSS at
+  the end of `menu.css`. `kit.html` (dev only, not in the build) shows every part; P there swaps
+  the hints to the pad's. In dev, `__rc.raceUi.showResults()` puts the results up mid-race.
 - **Input** (`input/input.ts`): `onDevice` (the hints follow it: `body.pad`), a held d-pad or stick
   repeats (380 ms, then 95), Q/E `tab-prev`/`tab-next`, R and the pad's Y `alt` (Refresh), and Esc
-  gets out of a text field in a menu. Over Settings, the bumpers switch tabs (`main.ts`).
+  gets out of a text field in a menu. Over Settings, the bumpers switch tabs (`main.ts`). The
+  device used last is kept for the tab (`sessionStorage`), so a race starts on the menu's hints.
 - **Lobby data:** a `fill` option (bots in the open seats, on by default; off, they start empty:
   `raceFromLobby`), and the listing's `host`, `mayhem` and `traffic` (`summarize`, `readListing`;
   an older host's listing lists without them).
-- **Checked:** typecheck, build, `bun run test` (882, with `test/menus.test.ts`); screenshots of
+- **Checked:** typecheck, build, `bun run test` (885, with `test/menus.test.ts`); screenshots of
   each screen at 1920×1080 and 480×480 (the X card's frame); the menus driven by a fake standard
   pad in Chrome (`navigator.getGamepads` replaced in the page).
-- **Not checked yet:** a real controller; the lobby list and Live lobbies with lobbies in them (the
-  local relay wasn't up, so only the "can't reach" state was seen): the two-browser check from
-  `v1.0.1` below, on this branch, before merging; Create with fewer seats, and fill off, online.
-- **Next:** the results screen, the first race's keys card and the Credits pages in the kit
-  (not in the designs); then MENU.md's step 3 (keyboard remapping, the hints from the bindings).
+- **Checked online (2026-10-16),** two headless Chromes (separate profiles) on the local relay
+  (gamerelay.io at `2cd465b`): Create with 4 seats and bots off (seats 5–8 closed, the toggle off
+  in the lobby), Copy invite (the short link on the clipboard), the other browser's Live lobbies
+  and list (1/4, Host, search, a search with no match), Quick join into it, Ready (2 of 2), Kick
+  ("Removed by the host"), back in from the copied link, Make host (Start moves over), and the new
+  host's start (`seats=rpxxxxxx`: the open seats empty, bots off). No page errors; the one 404 is
+  that relay's `/v1/moderate` (older than moderation), so names weren't checked there. What it
+  found is fixed: the list said 1/8 for a 4-seat lobby (`seatsIn`), and the host's Kick and Make
+  host squeezed the guest's name to "R…" (car and ping went under the name).
+- **Not checked yet:** a real controller (an Xbox pad is paired with this Mac, but was off).
+- **Next:** MENU.md's step 3 (keyboard remapping, the hints from the bindings).
 
 **The hosted build is `v1.1`** (tagged 2026-10-15): `v1.0.1` plus
 **PRs #174–#180**: Time trial with online lap boards, names checked with GameRelay's moderation

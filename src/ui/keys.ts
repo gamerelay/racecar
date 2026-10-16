@@ -1,7 +1,9 @@
 // The keys card: your first race on this device shows the keys you drive with (WASD, Shift, Space),
-// drawn as a keyboard with each key's job pointed at. A key, a click or a pad's button puts it
-// away (main.ts), and it doesn't come back (`racecar.seenKeys`). Not on a touch screen: there are no keys there.
+// drawn as a keyboard with each key's job pointed at, or the pad's buttons when the pad was used
+// last (`body.pad`). A key, a click or a pad's button puts it away (main.ts), and it doesn't come
+// back (`racecar.seenKeys`). Not on a touch screen: there are no keys there.
 
+import { button, pad } from './kit';
 import { Overlay } from './overlay';
 
 const SEEN = 'racecar.seenKeys';
@@ -16,7 +18,7 @@ const lead = (x: number, y: number, bend: number, job: string) => {
 };
 
 /** The keyboard, drawn: W over A S D, Shift down the left, Space under them. */
-export const KEYS_SVG = `<svg class="keysArt" viewBox="0 0 560 300" role="img" aria-label="W accelerates, A and D steer, S brakes and reverses, Shift drifts, Space boosts">
+export const KEYS_SVG = `<svg class="kc-art" viewBox="0 0 560 300" role="img" aria-label="W accelerates, A and D steer, S brakes and reverses, Shift drifts, Space boosts">
   ${cap(140, 6, 56, 'W')}
   ${cap(80, 76, 56, 'A')}${cap(140, 76, 56, 'S')}${cap(200, 76, 56, 'D')}
   ${cap(10, 158, 124, 'SHIFT', true)}
@@ -28,12 +30,23 @@ export const KEYS_SVG = `<svg class="keysArt" viewBox="0 0 560 300" role="img" a
   ${lead(360, 264, 264, 'Boost')}
 </svg>`;
 
+const or = '<span class="s-or">or</span>';
+/** The same on a pad: each button and its job. */
+const PAD_ROWS: [string, string][] = [
+  [pad('RT'), 'Accelerate'],
+  [pad('Left stick'), 'Steer'],
+  [pad('LT'), 'Brake, reverse'],
+  [`${pad('RB')}${or}${pad('X')}`, 'Drift (hold)'],
+  [pad('A'), 'Boost'],
+];
+
 export class KeysCard extends Overlay {
   /** Called once it's put away. */
   onClose: () => void = () => {};
 
   constructor(private readonly store: Storage | null) {
     super('keys');
+    this.el.classList.add('k');
   }
 
   /**
@@ -51,12 +64,12 @@ export class KeysCard extends Overlay {
   }
 
   open(): void {
-    this.el.innerHTML = `<div class="card keysCard">
-      <h1>The keys</h1>
-      ${KEYS_SVG}
-      <p class="muted">The arrows drive too. R puts you back on the road, Esc is the menu.</p>
-      <div class="row stack"><button id="kGo">Let's go</button></div>
-      <p class="muted kAny">or press any key</p>
+    this.el.innerHTML = `<div class="k-panel kc-sheet" role="dialog" aria-label="The keys">
+      <p class="k-eyebrow">Your first race</p>
+      <h1 class="k-h1">The keys</h1>
+      <div class="kc-kb">${KEYS_SVG}<p class="k-muted">The arrows drive too. R puts you back on the road, Esc is the menu.</p></div>
+      <div class="kc-pad">${PAD_ROWS.map(([b, job]) => `<div class="kc-row"><span>${b}</span><b>${job}</b></div>`).join('')}<p class="k-muted">Y puts you back on the road, Start is the menu.</p></div>
+      <div class="kc-go">${button('kGo', "Let's go", 'primary')}<span class="k-muted">or press any <span class="kc-kbOnly">key</span><span class="kc-padOnly">button</span></span></div>
     </div>`;
     // A click anywhere puts it away, on the card or off it.
     this.el.onclick = () => this.close();

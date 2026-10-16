@@ -129,6 +129,9 @@ export function playerSeatChoices(lobby: Lobby, you: string, index: number): [st
   return [['seat', 'Seated'], ['kick', 'Kick'], ['host', 'Make host']];
 }
 
+/** A listed lobby's seats: the ones not closed (the host can close some at Create, or later). */
+export const seatsIn = (l: Pick<LobbySummary, 'pips'>): number => [...l.pips].filter((c) => c !== 'x').length || SEATS;
+
 /** How the lobby list can be put in order (a column header's press). */
 export type LobbySort = 'drivers' | 'name' | 'track' | 'laps';
 
@@ -144,7 +147,7 @@ export function filterLobbies(rows: readonly LobbySummary[], f: { query: string;
       l.id !== LOCAL_ID &&
       (!q || l.name.toLowerCase().includes(q) || (l.host ?? '').toLowerCase().includes(q)) &&
       (!f.track || l.map.split('/')[0] === f.track) &&
-      !(f.hideFull && l.filled >= SEATS),
+      !(f.hideFull && l.filled >= seatsIn(l)),
   );
   const byName = (a: LobbySummary, b: LobbySummary) => a.name.localeCompare(b.name);
   const cmp: Record<LobbySort, (a: LobbySummary, b: LobbySummary) => number> = {
@@ -158,7 +161,7 @@ export function filterLobbies(rows: readonly LobbySummary[], f: { query: string;
 
 /** The lobby Quick join takes you to: open between races, with the most players in it (null: none). */
 export function quickJoinPick(rows: readonly LobbySummary[]): LobbySummary | null {
-  const open = rows.filter((l) => l.id !== LOCAL_ID && l.phase === 'lobby' && l.filled < SEATS && l.players > 0);
+  const open = rows.filter((l) => l.id !== LOCAL_ID && l.phase === 'lobby' && l.filled < seatsIn(l) && l.players > 0);
   return open.sort((a, b) => b.players - a.players || b.filled - a.filled)[0] ?? null;
 }
 
@@ -580,7 +583,7 @@ export class Menu {
   private liveRow(l: LobbySummary): string {
     const rules = this.rulesText(l.mayhem, l.traffic);
     const meta = [this.mapName(l.map), this.lapsText(l.map, l.laps), ...(rules.text === 'Normal' ? [] : [rules.text]), ...(l.phase === 'racing' ? ['racing'] : [])].join(' · ');
-    return `<button type="button" class="k-lrow t-lrow" id="lobby-${esc(l.id)}"><span class="t-lname"><b>${esc(l.name)}</b><small>${esc(meta)}</small></span><b class="t-count k-num">${l.filled}/${SEATS}</b><span class="k-btn small">Join</span></button>`;
+    return `<button type="button" class="k-lrow t-lrow" id="lobby-${esc(l.id)}"><span class="t-lname"><b>${esc(l.name)}</b><small>${esc(meta)}</small></span><b class="t-count k-num">${l.filled}/${seatsIn(l)}</b><span class="k-btn small">Join</span></button>`;
   }
 
   /** Single player: straight into your own lobby (you and bots, in this browser). */
@@ -757,7 +760,7 @@ export class Menu {
             return `<button type="button" class="k-lrow o-row" id="lobby-${esc(l.id)}">
               <span class="o-name"><b>${esc(l.name)}</b><small>${l.host ? `Host ${esc(l.host)}` : ''}${l.phase === 'racing' ? `${l.host ? ' · ' : ''}racing now` : ''}</small></span>
               <span>${esc(this.mapName(l.map))}</span><span class="k-num">${laps}</span><span class="${rules.hot ? 'o-hot' : ''}">${esc(rules.text)}</span>
-              ${fill(l.filled, SEATS)}<span class="k-btn small">Join</span></button>`;
+              ${fill(l.filled, seatsIn(l))}<span class="k-btn small">Join</span></button>`;
           })
           .join('')
       : `<p class="o-none">${esc(offline || (this.rows.some((l) => l.id !== LOCAL_ID) ? 'No lobbies match that.' : 'No lobbies online right now: create one, and send your friends the link.'))}</p>`;
@@ -984,7 +987,8 @@ export class Menu {
           const ping = online && !me ? `<span class="l-ping" data-player="${esc(s.id)}">${this.pingText(lobby.id, s.id)}</span>` : '';
           const name = me ? `<button type="button" class="l-name" id="lPlate" title="Edit your plate">${esc(s.name)}</button>` : `<span class="l-name">${esc(s.name)}</span>`;
           const tool = tools ? `${chooser(`pseat-${k}`, tools, armedChoice(this.armed, lobby.id, k, s.id))}<button type="button" id="pgo-${k}" class="k-btn danger l-go" hidden></button>` : '';
-          return `<div class="l-seat player${me ? ' me' : ''}">${n}${name}<span class="l-seatCar">${esc(className(s.car))}</span>${ping}${tool}${status}</div>`;
+          // The car and ping under the name: the host's seat tools need the row's width.
+          return `<div class="l-seat player${me ? ' me' : ''}">${n}<span class="l-who">${name}<small class="l-seatCar">${esc(className(s.car))}${ping}</small></span>${tool}${status}</div>`;
         }
         const choice: SeatChoice = s.kind === 'ai' ? (['ai-easy', 'ai-normal', 'ai-hard'] as const)[s.difficulty] : s.kind;
         // The rival a seat brings (the same one every race: see roster in lobby.ts).
@@ -1048,6 +1052,8 @@ export class Menu {
       const text = seatToolConfirm(v, s.name);
       go.hidden = !text;
       go.textContent = text ?? '';
+      // Armed, the confirm takes the status tag's place.
+      go.closest('.l-seat')?.classList.toggle('armed', !!text);
       if (text) this.armed = { lobby: lobby.id, k, choice: v, id: s.id };
       else if (this.armed?.k === k) this.armed = null;
       go.onclick = () => {

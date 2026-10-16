@@ -5,6 +5,7 @@
 
 import PRIVACY from '../../docs/PRIVACY.md?raw';
 import TERMS from '../../docs/TERMS.md?raw';
+import { BINDS, caps } from './kit';
 import { renderDoc } from './legal';
 import { Overlay } from './overlay';
 
@@ -19,8 +20,8 @@ export function readPage(v: string | null): Page | null {
 const link = (href: string, text: string) => `<a href="${href}" target="_blank" rel="noopener">${text}</a>`;
 
 const CREDITS = `
-  <div class="wordmark small" aria-label="Racecar">RACECAR</div>
-  <p class="lede">An arcade street racer for the browser.</p>
+  <h1>Credits</h1>
+  <p class="pg-lede"><b class="pg-word">RACECAR</b> An arcade street racer for the browser.</p>
   <dl>
     <dt>Made by</dt><dd><b>Colin Teahan</b> and <b>Claude</b> (Anthropic): Colin directing, Claude writing most of the code.</dd>
     <dt>Music</dt><dd>The original soundtrack, by Colin Teahan.</dd>
@@ -29,10 +30,14 @@ const CREDITS = `
     <dt>Built with</dt><dd>Three.js, TypeScript, Bun and Vite.</dd>
   </dl>`;
 
-/** A page's card. */
+/** A page's sheet: Back and its title over the page, which scrolls (the arrows and the pad's d-pad do too). */
 export function pageHtml(page: Page): string {
-  const body = page === 'credits' ? CREDITS : renderDoc(page === 'privacy' ? PRIVACY : TERMS);
-  return `<div class="card page ${page}">${body}<div class="row"><button id="pgBack">Back</button></div></div>`;
+  const doc = (page === 'credits' ? CREDITS : renderDoc(page === 'privacy' ? PRIVACY : TERMS)).trim();
+  const title = doc.match(/^<h1>.*?<\/h1>/)?.[0] ?? '';
+  return `<div class="k-panel pg-sheet ${page}" role="dialog">
+    <header class="pg-top"><button type="button" class="k-back" id="pgBack">${caps(BINDS.back.kb, BINDS.back.pad)}<span>Back</span></button>${title}</header>
+    <div class="pg-body" id="pgBody">${doc.slice(title.length)}</div>
+  </div>`;
 }
 
 /** A palm's silhouette: a leaning trunk and its fronds. */
@@ -44,6 +49,13 @@ const SCENE = `<div class="pgScene" aria-hidden="true"><div class="pgSun"></div>
 export class PagesPanel extends Overlay {
   constructor() {
     super('pages');
+    this.el.classList.add('k');
+  }
+
+  /** Up or down the page a step (the arrows, the d-pad): the only control on it is Back. */
+  scroll(d: -1 | 1): void {
+    const body = this.el.querySelector<HTMLElement>('#pgBody');
+    body?.scrollBy({ top: d * body.clientHeight * 0.4, behavior: 'smooth' });
   }
 
   open(page: Page, from?: HTMLElement | null): void {

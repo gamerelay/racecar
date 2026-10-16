@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
-import { filterLobbies, quickJoinPick, readInvite } from '../src/ui/menu';
+import { filterLobbies, quickJoinPick, readInvite, seatsIn } from '../src/ui/menu';
 import { carRole, rating } from '../src/ui/kit';
 import { createLobby, apply, summarize, type LobbySummary } from '../src/lobby/lobby';
 import { readAction, readListing } from '../src/lobby/wire';
@@ -53,6 +53,15 @@ describe('the lobby list', () => {
     expect(quickJoinPick([row('A', { filled: 8, players: 8 }), row(LOCAL_ID)])).toBeNull();
     // A room everyone left (nobody in it) isn't one to join.
     expect(quickJoinPick([row('A', { players: 0, filled: 0 })])).toBeNull();
+  });
+
+  test("a lobby's seats are the ones not closed: four closed at Create is 1 of 4, and 4 of 4 is full", () => {
+    const four = row('FOUR', { pips: 'poooxxxx', players: 1, filled: 1 });
+    const fourFull = row('FULL4', { pips: 'ppppxxxx', players: 4, filled: 4 });
+    expect(seatsIn(four)).toBe(4);
+    expect(seatsIn(row('ALL'))).toBe(8);
+    expect(names(filterLobbies([four, fourFull], { ...all, hideFull: true }, mapName))).toEqual(['FOUR']);
+    expect(quickJoinPick([fourFull, four])?.id).toBe('FOUR');
   });
 });
 
@@ -211,5 +220,22 @@ describe('the pad in menus', () => {
     frames(50);
     browser.window.fire('keydown', { code: 'ArrowDown', key: 'ArrowDown', repeat: false, metaKey: false, ctrlKey: false, altKey: false, target: null, preventDefault() {} });
     expect(seen).toEqual(['keyboard', 'gamepad', 'keyboard']);
+  });
+
+  test("the next page (a race is a page load) starts on the pad's hints when the pad was used last, in this tab", () => {
+    const g = globalThis as unknown as { sessionStorage?: unknown };
+    const was = g.sessionStorage;
+    const kept = new Map<string, string>();
+    g.sessionStorage = { getItem: (k: string) => kept.get(k) ?? null, setItem: (k: string, v: string) => void kept.set(k, v) };
+    try {
+      input.menuOpen = true;
+      down.add(0);
+      frames(50);
+      expect(new Input().lastDevice).toBe('gamepad');
+      g.sessionStorage = { getItem: () => { throw new Error('blocked'); }, setItem: () => { throw new Error('blocked'); } };
+      expect(new Input().lastDevice).toBe('keyboard');
+    } finally {
+      g.sessionStorage = was;
+    }
   });
 });

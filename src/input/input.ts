@@ -95,6 +95,17 @@ export function routedKey(code: string): boolean {
 
 export type InputDevice = 'keyboard' | 'gamepad' | 'touch';
 
+/** The device used last, kept for the tab: a race is a page load, and its hints should be the menu's. */
+const DEVICE_KEY = 'racecar.device';
+function keptDevice(): InputDevice {
+  try {
+    const d = sessionStorage.getItem(DEVICE_KEY);
+    return d === 'gamepad' || d === 'touch' ? d : 'keyboard';
+  } catch {
+    return 'keyboard';
+  }
+}
+
 /**
  * A steer key from straight starts the steer here, then eases on to full lock (7/s: about 100 ms).
  * Eased from 0 at 4.5/s, the Brute at 140 km/h took 10 ticks to turn 3°, a pad's full lock 5 (the
@@ -107,7 +118,7 @@ export class Input {
   private keySteer = 0;
   private readonly listeners: ((a: SystemAction) => void)[] = [];
   private prevButtons: boolean[] = [];
-  private device: InputDevice = 'keyboard';
+  private device: InputDevice = keptDevice();
   private readonly deviceListeners: ((d: InputDevice) => void)[] = [];
   deadZone = 0.12;
   rumbleOn = true;
@@ -172,6 +183,11 @@ export class Input {
   set lastDevice(d: InputDevice) {
     if (d === this.device) return;
     this.device = d;
+    try {
+      sessionStorage.setItem(DEVICE_KEY, d);
+    } catch {
+      // Blocked storage: the next page starts on the keyboard's hints.
+    }
     for (const fn of this.deviceListeners) fn(d);
   }
 

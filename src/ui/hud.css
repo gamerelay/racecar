@@ -143,15 +143,6 @@ body.getaway #posBadge { display: none; }
 
 #minimap { right: calc(env(safe-area-inset-right, 0px) + 16px); top: calc(env(safe-area-inset-top, 0px) + 14px); width: 180px; height: 180px; background: rgba(18, 8, 38, 0.45); border: 2px solid var(--ink); box-shadow: 4px 4px 0 var(--outline); }
 
-#results { position: fixed; inset: 0; z-index: 12; display: none; place-items: center; background: rgba(13, 6, 32, 0.55); overflow: auto; padding: 16px; }
-#results.on { display: grid; }
-.card.results table { width: 100%; border-collapse: collapse; font-size: 14px; margin: 0 0 16px; }
-.card.results th { text-align: left; color: var(--muted); font-weight: 700; padding: 4px 8px; border-bottom: 2px solid var(--muted); }
-.card.results td { padding: 5px 8px; border-bottom: 1px solid rgba(216, 198, 242, 0.2); font-variant-numeric: tabular-nums; }
-/* A getaway's end (docs/CHASE_MODE.md): how long you lasted, big. */
-.card.results .getawayTime { font-size: 20px; margin: 0 0 14px; }
-.card.results .getawayTime b { font-family: var(--display); font-size: 32px; color: #ffd23f; }
-.card.results tr.me td { color: var(--sun); font-weight: 700; }
 .card .dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 8px; border: 1px solid var(--outline); }
 .card .dot.open { background: var(--muted); opacity: 0.6; }
 .card.setup { max-width: 640px; }
@@ -175,8 +166,6 @@ body.countdown #pops { top: 46%; }
 .card input:focus, .card textarea:focus { border-color: var(--cyan); box-shadow: 0 0 0 3px var(--cyan); }
 
 /* Small screens: nothing overlaps (portrait phones, short landscape windows, mid-size laptops). */
-/* Narrow screens scroll the table sideways inside the card rather than overflowing it. */
-.card.results { max-width: min(820px, 100%); overflow-x: auto; }
 @media (max-width: 560px) {
   #race { gap: 6px; flex-wrap: wrap; max-width: calc(100vw - 150px); }
   .stat { min-width: 0; padding: 4px 8px 3px; }
@@ -185,7 +174,6 @@ body.countdown #pops { top: 46%; }
   #race .stat:nth-child(3), #race .stat:nth-child(4) { display: none; }
   #meterWrap { width: calc(100vw - 190px); left: 16px; transform: none; }
   #speedo { --g: 120px; }
-  #results th:nth-child(3), #results td:nth-child(3), #results th:nth-child(7), #results td:nth-child(7) { display: none; }
 }
 @media (max-height: 460px) {
   #minimap { width: 110px; height: 110px; }
@@ -193,18 +181,8 @@ body.countdown #pops { top: 46%; }
   #speedo { --g: 110px; }
   #debug { top: calc(env(safe-area-inset-top, 0px) + 170px); }
 }
-.card.results .fast { color: var(--sun); font-weight: 400; }
-/* The vote on the next map, under the results (online). */
-.card.results .voteHead { margin: 0 0 8px; display: flex; gap: 10px; align-items: baseline; }
-.card.results .voteRow button.vote b { margin-left: 6px; color: var(--sun); }
-.card.results .voteRow button.vote.on { box-shadow: 0 0 0 2px var(--outline), 0 0 0 4px var(--sun); }
-.card.results .muted { color: var(--muted); }
 
 /* ---- the front door: title, lobby list, create lobby, the lobby (ui/menu.ts) ---- */
-/* The flags sit after the word, about its cap height, upright against its slant. */
-.wordmark .flags { display: inline-block; width: 0.92em; height: 0.92em; margin-left: 0.06em; vertical-align: -0.08em; transform: skewX(8deg); filter: drop-shadow(0.05em 0.05em 0 var(--pink)); }
-.wordmark .flags svg { display: block; width: 100%; height: 100%; }
-.wordmark { white-space: nowrap; font-family: var(--display); font-size: clamp(44px, 11vw, 104px); line-height: 0.9; letter-spacing: 0.02em; color: var(--sun); -webkit-text-stroke: 4px var(--outline); paint-order: stroke fill; text-shadow: 6px 6px 0 var(--pink), 12px 12px 0 var(--outline); transform: skewX(-8deg); margin: 0 0 18px; }
 .card h2 { font-family: var(--display); font-weight: 400; font-size: 20px; letter-spacing: 0.04em; color: var(--cyan); margin: 0 0 8px; }
 svg.thumb { display: block; }
 svg.thumb path { fill: none; stroke-linejoin: round; stroke-linecap: round; }
@@ -218,7 +196,6 @@ svg.thumb .end { fill: var(--sun); stroke: var(--ink); stroke-width: 1; }
 
 /* ---- license plates (PLAN phase 3): your name, and every driver's, as a little plate ---- */
 .plate { display: inline-block; font: 700 13px var(--ui); letter-spacing: 0.08em; line-height: 1; white-space: pre; color: #1b1f5e; background: linear-gradient(#ffffff, #eceefb 50%, #c9cce2); border: 2px solid #1b1f5e; border-radius: 3px; padding: 3px 6px 2px; box-shadow: 2px 2px 0 var(--outline); vertical-align: middle; }
-.card.results .plate { font-size: 12px; padding: 2px 5px 1px; }
 
 
 /* ---- choosers (ui/chooser.ts): ‹ value ›, in place of dropdowns ---- */
@@ -251,13 +228,12 @@ svg.thumb .end { fill: var(--sun); stroke: var(--ink); stroke-width: 1; }
 }
 
 /* ---- Settings (ui/settings.ts), over everything ---- */
-/* The overlays over everything (ui/overlay.ts): Settings, Controls, and the first race's keys card. */
-#settings, #controls, #keys { position: fixed; inset: 0; z-index: 14; display: none; place-items: center; background: rgba(13, 6, 32, 0.7); overflow: auto; padding: 16px; }
-#settings.on, #controls.on, #keys.on { display: grid; }
+/* The overlays over everything (ui/overlay.ts): Settings (its look is menu.css's). */
+#settings { position: fixed; inset: 0; z-index: 14; display: none; place-items: center; background: rgba(13, 6, 32, 0.7); overflow: auto; padding: 16px; }
+#settings.on { display: grid; }
 /* Credits, Privacy and Terms (ui/pages.ts): the soundtrack art's sunset behind a card. */
 #pages { position: fixed; inset: 0; z-index: 14; display: none; place-items: center; overflow: auto; padding: 16px; background: linear-gradient(#1a0838, #3b0f5c 45%, var(--pink) 62%, var(--bg) 62.2%); }
 #pages.on { display: grid; }
-#pages > .card { position: relative; max-width: 620px; animation: popIn 0.16s ease-out both; }
 .pgScene { position: fixed; inset: 0; overflow: hidden; pointer-events: none; }
 .pgSun { position: absolute; left: 50%; top: 22%; width: 38vmin; height: 38vmin; margin-left: -19vmin; border-radius: 50%; background: linear-gradient(var(--sun), #ff7a3d 60%, var(--pink));
   /* The bands across its lower half. */
@@ -271,9 +247,6 @@ svg.thumb .end { fill: var(--sun); stroke: var(--ink); stroke-width: 1; }
 .pgPalm.r { right: 3%; height: 40vh; transform: scaleX(-1); }
 .pgCar { position: absolute; top: 66%; left: -10%; width: 7vh; height: 1.2vh; border-radius: 0.6vh; background: linear-gradient(90deg, var(--pink) 0 22%, transparent 22% 78%, var(--pink) 78%); box-shadow: 0 0 2vh var(--pink); animation: pgCar 9s linear infinite 2s; }
 @keyframes pgCar { 0% { transform: translateX(0); } 40%, 100% { transform: translateX(130vw); } }
-.card.page dl { display: grid; grid-template-columns: max-content 1fr; gap: 8px 16px; margin: 12px 0; }
-.card.page a { color: var(--cyan); }
-.wordmark.small { font-size: 56px; }
 @media (prefers-reduced-motion: reduce) { .pgGrid, .pgCar { animation: none; } .pgCar { display: none; } }
 .card.settings h2 { margin-top: 18px; }
 .card.settings .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px 14px; }
@@ -297,22 +270,10 @@ svg.thumb .end { fill: var(--sun); stroke: var(--ink); stroke-width: 1; }
 .card .row.stack { display: grid; gap: 14px; margin: 20px 0 0; }
 .card .row.stack button { width: 100%; margin: 0; padding: 10px 16px; white-space: nowrap; }
 .card.pauseCard dl { margin-bottom: 0; }
-/* The keys card (ui/keys.ts): the first race's keyboard, each key pointed at its job. */
-.keysCard .keysArt { display: block; width: 100%; height: auto; margin: 4px 0 12px; }
-.keysArt .kCap { fill: var(--bg); stroke: var(--ink); stroke-width: 3; }
-.keysArt .kDrop { fill: var(--pink); }
-.keysArt .kLetter { font: 400 26px var(--display); fill: var(--sun); text-anchor: middle; }
-.keysArt .kLetter.small { font-size: 17px; }
-.keysArt .kLead { fill: none; stroke: var(--cyan); stroke-width: 2; stroke-dasharray: 5 4; }
-.keysArt .kDot { fill: var(--cyan); }
-.keysArt .kJob { font: 700 21px var(--ui); fill: var(--ink); }
-.keysCard .kAny { font-size: 13px; text-align: center; margin: 10px 0 0; }
 #fps { position: fixed; z-index: 3; left: calc(env(safe-area-inset-left, 0px) + 10px); bottom: calc(env(safe-area-inset-bottom, 0px) + 8px); font: 700 12px ui-monospace, monospace; color: var(--muted); text-shadow: 1px 1px 0 var(--outline); display: none; pointer-events: none; }
 #fps.on { display: block; }
 
 /* ---- transitions (docs/MENU.md): screens fade, overlays pop, pages come up out of the dark ---- */
-#pause.on > .card, #settings.on > .card, #controls.on > .card, #keys.on > .card, #results.on > .card { animation: popIn 0.16s ease-out both; }
-@keyframes popIn { from { opacity: 0; transform: scale(0.96); } }
 /* The loading screen's look is in index.html (it's up before this stylesheet). Up until the page is
    ready, then .in lifts it; .out brings it back before the next page. */
 /* Lifting: the dark goes first, the pink and the sun after it, off to the left. Coming back: the

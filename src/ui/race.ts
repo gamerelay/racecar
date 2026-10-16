@@ -6,6 +6,7 @@ import { Ev, type GameEvent } from '../core/events';
 import type { Sim } from '../core/sim';
 import { fmt, lapTime, ordinal } from './format';
 import { fitBox } from './thumb';
+import { button, hints, row } from './kit';
 
 /** One run's finish on the minimap: a bar this many pixels either side of the road. */
 const FINISH_BAR = 16;
@@ -58,6 +59,7 @@ export class RaceUi {
   /** A layout key's map name, for the vote. */
   mapName: (key: string) => string = (key) => key;
   private voteHtml = '';
+  private entered: ReturnType<typeof setTimeout> | undefined;
   /** A getaway's best before this run (main.ts), and what to do with this run's time once it's over. */
   getawayBest = 0;
   /** A Time Trial (main.ts): the results lead with your best lap and the layout's online board. */
@@ -74,7 +76,7 @@ export class RaceUi {
     document.body.insertAdjacentHTML(
       'beforeend',
       `<div class="hud" id="lights"></div>
-       <div id="results"></div>
+       <div id="results" class="k"></div>
        <div class="hud" id="watchStrip"></div>
        <canvas class="hud" id="minimap" width="360" height="360"></canvas>`,
     );
@@ -235,19 +237,46 @@ export class RaceUi {
     return this.results.classList.contains('on');
   }
 
+  /**
+   * The results' screen, in the menus' kit: what it is and how it went (the title, top left), the
+   * buttons beside it, the table or the times in a panel under them, and the pad's hints.
+   */
+  private screen(eyebrow: string, title: string, body: string, acts: string): string {
+    return `<div class="r-scr">
+      <header class="r-head"><div class="r-name" data-in="l"><p class="k-eyebrow">${eyebrow}</p><h1 class="r-title" id="rPlace">${title}</h1></div><div class="r-acts" data-in="r">${acts}</div></header>
+      <section class="k-panel r-panel" data-in="b">${body}</section>
+      <footer class="r-foot" data-in="b">${hints(['move', 'Select'], ['confirm', 'Confirm'])}</footer>
+    </div>`;
+  }
+
+  /** Again (when there's one) is the screen's one big button; the way back is the lesser one beside it. */
+  private acts(again: string | null): string {
+    return `${again ? button('rAgain', again, 'primary') : ''}${button('rSetup', this.setupLabel, again ? 'secondary' : 'primary')}`;
+  }
+
+  /** Up, its pieces coming in as a menu screen's do. */
+  private enter(): void {
+    this.results.classList.add('on', 'entering');
+    clearTimeout(this.entered);
+    this.entered = setTimeout(() => this.results.classList.remove('entering'), 700);
+  }
+
   showResults(): void {
     const g = this.sim.getaway;
     if (g && g.runs.length > 1 && (g.allOut || this.vote())) return this.showTable();
     if (g) return this.showGetaway();
     if (this.trial) return this.showTrial();
-    this.results.innerHTML = `<div class="card results"><h1 id="rPlace">${ordinal(this.sim.cars.place[this.focus])}</h1>
-      <table><thead><tr><th></th><th>Driver</th><th>Car</th><th>Time</th><th>${this.sim.track.run ? 'Best run' : 'Best lap'}</th><th>Takedowns</th><th>Wrecks</th><th>Score</th></tr></thead><tbody id="rRows"></tbody></table>
-      <div id="rVote"></div>
-      <div class="row">${this.canAgain ? '<button id="rAgain">Race again</button>' : ''}<button id="rSetup" class="${this.canAgain ? 'ghost' : ''}">${this.setupLabel}</button></div></div>`;
+    this.results.innerHTML = this.screen(
+      'Race results',
+      ordinal(this.sim.cars.place[this.focus]),
+      `<table class="r-table race"><thead><tr><th></th><th>Driver</th><th>Car</th><th>Time</th><th>${this.sim.track.run ? 'Best run' : 'Best lap'}</th><th>Takedowns</th><th>Wrecks</th><th>Score</th></tr></thead><tbody id="rRows"></tbody></table>
+      <div id="rVote"></div>`,
+      this.acts(this.canAgain ? 'Race again' : null),
+    );
     this.voteHtml = '';
     this.rows();
     this.renderVote();
-    this.results.classList.add('on');
+    this.enter();
     const again = document.getElementById('rAgain') as HTMLButtonElement | null;
     if (again) again.onclick = () => this.onAgain();
     (document.getElementById('rSetup') as HTMLButtonElement).onclick = () => this.onSetup();
@@ -257,12 +286,14 @@ export class RaceUi {
   /** A Time Trial's end (SPEC §10): your best lap, then the layout's board with you on it. */
   private showTrial(): void {
     const best = this.sim.cars.bestLap[this.mine];
-    this.results.innerHTML = `<div class="card results"><h1 id="rPlace">Time Trial</h1>
-      <p class="getawayTime">${this.sim.track.run ? 'Best run' : 'Best lap'} <b>${best ? lapTime(best) : '–'}</b></p>
-      <div id="rBoard"></div>
-      <div class="row"><button id="rAgain">Go again</button><button id="rSetup" class="ghost">${this.setupLabel}</button></div></div>`;
+    this.results.innerHTML = this.screen(
+      `Time trial · ${this.sim.track.run ? 'best run' : 'best lap'}`,
+      best ? lapTime(best) : this.sim.track.run ? 'No run' : 'No lap',
+      `<div id="rBoard"></div>`,
+      this.acts('Go again'),
+    );
     this.renderBoard();
-    this.results.classList.add('on');
+    this.enter();
     const again = document.getElementById('rAgain') as HTMLButtonElement;
     again.onclick = () => this.onAgain();
     (document.getElementById('rSetup') as HTMLButtonElement).onclick = () => this.onSetup();
@@ -275,25 +306,25 @@ export class RaceUi {
     const view = this.board();
     if (!el) return;
     if (!view || view.state === 'offline') {
-      el.innerHTML = `<p class="muted">The online board needs a connection: this time stays on this screen.</p>`;
+      el.innerHTML = `<p class="k-muted">The online board needs a connection: this time stays on this screen.</p>`;
       return;
     }
     if (!view.page) {
-      el.innerHTML = `<p class="muted">Loading the board…</p>`;
+      el.innerHTML = `<p class="k-muted">Loading the board…</p>`;
       return;
     }
     const { entries, me } = view.page;
     const row = (e: { rank: number; playerId: string; name: string; score: number }) =>
-      `<tr class="${e.playerId === me?.playerId ? 'me' : ''}"><td>${e.rank}</td><td><span class="plate">${esc(e.name)}</span></td><td>${lapTime(e.score)}</td></tr>`;
+      `<tr class="${e.playerId === me?.playerId ? 'me' : ''}"><td>${e.rank}</td><td><span class="k-plate">${esc(e.name)}</span></td><td>${lapTime(e.score)}</td></tr>`;
     const outside = me && !entries.some((e) => e.playerId === me.playerId) ? row(me) : '';
     const note = view.rejected
-      ? `<p class="muted">That time didn't count on the board.</p>`
+      ? `<p class="k-muted r-note">That time didn't count on the board.</p>`
       : view.mine?.improved
-        ? `<p><b class="fast">New best!</b> ${ordinal(view.mine.rank)} on the board.</p>`
+        ? `<p class="r-note"><b class="r-fast">New best!</b> ${ordinal(view.mine.rank)} on the board.</p>`
         : '';
-    el.innerHTML = `${note}<table><thead><tr><th>#</th><th>Driver</th><th>Lap</th></tr></thead><tbody>
+    el.innerHTML = `${note}<table class="r-table"><thead><tr><th>#</th><th>Driver</th><th>Lap</th></tr></thead><tbody>
       ${entries.slice(0, BOARD_ROWS).map(row).join('')}${outside}
-      ${entries.length ? '' : '<tr><td colspan="3" class="muted">No times yet: be the first.</td></tr>'}</tbody></table>`;
+      ${entries.length ? '' : '<tr><td colspan="3" class="k-muted">No times yet: be the first.</td></tr>'}</tbody></table>`;
   }
 
   /** A getaway's end (docs/CHASE_MODE.md): how it ended, how long you lasted, the heat you reached, your best. */
@@ -303,15 +334,15 @@ export class RaceUi {
     const time = g.time;
     const best = this.getawayBest;
     const record = time > best;
-    this.results.innerHTML = `<div class="card results"><h1 id="rPlace">${g.end === 'busted' ? 'Busted!' : g.end === 'away' ? 'Got away!' : 'Wrecked!'}</h1>
-      <p class="getawayTime">You got away for <b>${fmt(time)}</b></p>
-      <table><tbody>
-        <tr><td>Heat reached</td><td>${g.heat}</td></tr>
-        ${this.keepsBest ? `<tr><td>Best</td><td>${record ? `<b class="fast">${fmt(time)}</b> new best!` : best ? fmt(best) : '–'}</td></tr>` : ''}
-        <tr><td>Cops taken out</td><td>${c.takedowns[this.mine]}</td></tr>
-      </tbody></table>
-      <div class="row">${this.canAgain ? '<button id="rAgain">Go again</button>' : ''}<button id="rSetup" class="${this.canAgain ? 'ghost' : ''}">${this.setupLabel}</button></div></div>`;
-    this.results.classList.add('on');
+    const value = (v: string | number) => `<b class="k-num">${v}</b>`;
+    this.results.innerHTML = this.screen(
+      'Getaway',
+      g.end === 'busted' ? 'Busted!' : g.end === 'away' ? 'Got away!' : 'Wrecked!',
+      `<p class="r-big"><span>You got away for</span> <b class="k-num">${fmt(time)}</b></p>
+      <div class="r-stats">${row('Heat reached', value(g.heat))}${this.keepsBest ? row('Best', record ? `<span><b class="r-fast">New best!</b> ${value(fmt(time))}</span>` : value(best ? fmt(best) : '–')) : ''}${row('Cops taken out', value(c.takedowns[this.mine]))}</div>`,
+      this.acts(this.canAgain ? 'Go again' : null),
+    );
+    this.enter();
     const again = document.getElementById('rAgain') as HTMLButtonElement | null;
     if (again) again.onclick = () => this.onAgain();
     (document.getElementById('rSetup') as HTMLButtonElement).onclick = () => this.onSetup();
@@ -330,14 +361,17 @@ export class RaceUi {
   /** An online getaway's results (the owner, 2026-10-09): everyone's run, the longest first, and the vote. */
   private showTable(): void {
     this.tableUp = true;
-    this.results.innerHTML = `<div class="card results"><h1 id="rPlace">Getaway</h1>
-      <table><thead><tr><th></th><th>Driver</th><th>Car</th><th>Lasted</th><th>Takedowns</th><th>Wrecks</th></tr></thead><tbody id="rRows"></tbody></table>
-      <div id="rVote"></div>
-      <div class="row"><button id="rSetup">${this.setupLabel}</button></div></div>`;
+    this.results.innerHTML = this.screen(
+      'Getaway results',
+      'Getaway',
+      `<table class="r-table getaway"><thead><tr><th></th><th>Driver</th><th>Car</th><th>Lasted</th><th>Takedowns</th><th>Wrecks</th></tr></thead><tbody id="rRows"></tbody></table>
+      <div id="rVote"></div>`,
+      this.acts(null),
+    );
     this.voteHtml = '';
     this.rows();
     this.renderVote();
-    this.results.classList.add('on');
+    this.enter();
     (document.getElementById('rSetup') as HTMLButtonElement).onclick = () => this.onSetup();
     (document.getElementById('rSetup') as HTMLButtonElement).focus();
   }
@@ -354,7 +388,7 @@ export class RaceUi {
     document.getElementById('rRows')!.innerHTML = list
       .map(
         (s, k) =>
-          `<tr class="${s.car === this.mine ? 'me' : ''}"><td>${s.going ? '–' : k + 1}</td><td><i class="dot" style="background:${this.colors[s.car]}"></i><span class="plate">${esc(this.names[s.car])}</span></td><td>${this.classes[c.cls[s.car]].name}</td><td>${s.going ? `<span class="muted">${fmt(s.time)} · going</span>` : fmt(s.time)}</td><td>${off.get(s.car)?.takedowns ?? c.takedowns[s.car]}</td><td>${off.get(s.car)?.wrecks ?? c.wrecks[s.car]}</td></tr>`,
+          `<tr class="${s.car === this.mine ? 'me' : ''}"><td>${s.going ? '–' : k + 1}</td><td><i class="r-dot" style="background:${this.colors[s.car]}"></i><span class="k-plate">${esc(this.names[s.car])}</span></td><td>${this.classes[c.cls[s.car]].name}</td><td>${s.going ? `<span class="k-muted">${fmt(s.time)} · going</span>` : fmt(s.time)}</td><td>${off.get(s.car)?.takedowns ?? c.takedowns[s.car]}</td><td>${off.get(s.car)?.wrecks ?? c.wrecks[s.car]}</td></tr>`,
       )
       .join('');
   }
@@ -389,12 +423,12 @@ export class RaceUi {
       const t = done(i);
       if (t !== null) return fmt(t);
       const back = lead - c.progress[i];
-      return `<span class="muted">${back > L ? `+${Math.floor(back / L)} lap${back >= 2 * L ? 's' : ''}` : `+${Math.round(back)} m`}</span>`;
+      return `<span class="k-muted">${back > L ? `+${Math.floor(back / L)} lap${back >= 2 * L ? 's' : ''}` : `+${Math.round(back)} m`}</span>`;
     };
     document.getElementById('rRows')!.innerHTML = rows
       .map(
         (i) =>
-          `<tr class="${i === this.focus ? 'me' : ''}"><td>${place.get(i) ?? '–'}</td><td><i class="dot" style="background:${this.colors[i]}"></i><span class="plate">${esc(this.names[i])}</span></td><td>${this.classes[c.cls[i]].name}</td><td>${time(i)}</td><td>${best(i) ? fmt(best(i)) : '–'}${i === fastest ? ` <b class="fast" title="Fastest ${this.sim.track.run ? 'run' : 'lap'}">★</b>` : ''}</td><td>${off.get(i)?.takedowns ?? c.takedowns[i]}</td><td>${off.get(i)?.wrecks ?? c.wrecks[i]}</td><td>${Math.floor(off.get(i)?.score ?? c.score[i]).toLocaleString()}</td></tr>`,
+          `<tr class="${i === this.focus ? 'me' : ''}"><td>${place.get(i) ?? '–'}</td><td><i class="r-dot" style="background:${this.colors[i]}"></i><span class="k-plate">${esc(this.names[i])}</span></td><td>${this.classes[c.cls[i]].name}</td><td>${time(i)}</td><td>${best(i) ? fmt(best(i)) : '–'}${i === fastest ? ` <b class="r-fast" title="Fastest ${this.sim.track.run ? 'run' : 'lap'}">★</b>` : ''}</td><td>${off.get(i)?.takedowns ?? c.takedowns[i]}</td><td>${off.get(i)?.wrecks ?? c.wrecks[i]}</td><td>${Math.floor(off.get(i)?.score ?? c.score[i]).toLocaleString()}</td></tr>`,
       )
       .join('');
   }
@@ -405,16 +439,21 @@ export class RaceUi {
     if (!el) return;
     const v = this.vote();
     let html = '';
-    if (v?.over) html = '<p class="muted">The host went back to the lobby.</p>';
+    if (v?.over) html = '<p class="k-muted r-note">The host went back to the lobby.</p>';
     else if (v) {
       const buttons = v.choices
-        .map((c) => `<button class="vote${c.mine ? ' on' : ''}" data-map="${esc(c.map)}" aria-pressed="${c.mine}">${esc(this.mapName(c.map))}${c.votes ? ` <b>${c.votes}</b>` : ''}</button>`)
+        .map((c) => `<button type="button" class="k-btn r-vote vote${c.mine ? ' on' : ''}" data-map="${esc(c.map)}" aria-pressed="${c.mine}"><span>${esc(this.mapName(c.map))}</span>${c.votes ? `<b class="k-num">${c.votes}</b>` : ''}</button>`)
         .join('');
       const when = v.left > 0 ? (v.allIn ? `Next race in ${v.left} s` : `Waiting for the others · ${v.left} s`) : 'Next race…';
-      html = `<p class="voteHead"><b>Next map</b> <span class="muted">${when}</span></p><div class="row voteRow">${buttons}</div>`;
+      html = `<div class="r-voteHead"><h2 class="k-h2 ice">Next map</h2><span class="k-muted">${when}</span></div><div class="r-votes">${buttons}</div>`;
     }
-    // With a vote to make, leaving is the lesser button.
-    document.getElementById('rSetup')?.classList.toggle('ghost', !!v && !v.over);
+    // With a vote to make, leaving is the lesser button (online, it's the only one).
+    const setup = document.getElementById('rSetup');
+    if (setup && !this.canAgain) {
+      const lesser = !!v && !v.over;
+      setup.classList.toggle('primary', !lesser);
+      setup.classList.toggle('secondary', lesser);
+    }
     if (html === this.voteHtml) return;
     // Rebuilding the buttons would drop the focus a pad or keys put on one: keep it on the same map.
     const focused = (document.activeElement as HTMLElement | null)?.dataset?.map;
