@@ -359,11 +359,17 @@ body.pad .kc-kb, body.pad .kc-kbOnly, body:not(.pad) .kc-pad, body:not(.pad) .kc
 .pg-body dt, .pg-body dd { margin: 0; padding: 1.6rem 0; border-bottom: 0.2rem solid var(--c-line); }
 .pg-body dt { font-weight: 700; color: var(--c-ice); padding-right: 4rem; letter-spacing: 0.06em; text-transform: uppercase; font-size: 2.2rem; padding-top: 1.9rem; }
 .pg-body dd { color: rgba(255, 244, 224, 0.86); }
+/* The credits over their live backdrop (render/credits.ts): docked left like the title's menu, the
+   chase camera's car in the open to the right. */
+#pages.live { place-items: center start; }
+#pages.live .pg-sheet.credits { width: min(70rem, 46vw); margin-left: calc(var(--gutter) - 2.4rem); }
 
 /* ---- small windows (the post on X's 480×480 frame, a narrow browser): one column that scrolls ---- */
 @media (max-aspect-ratio: 5/4) {
   :root { font-size: clamp(5px, 100vw / 110, 10px); }
   #menu.k { overflow-y: auto; }
+  #pages.live { place-items: center; }
+  #pages.live .pg-sheet.credits { width: min(112rem, calc(100vw - 4.8rem)); margin-left: 0; }
   .scr { position: relative; display: flex; flex-direction: column; gap: 3.2rem; padding: 4.8rem; min-height: 100%; }
   .scr > * { position: static !important; width: auto !important; margin: 0 !important; }
   .scr > .k-head { height: auto; flex-wrap: wrap; }

@@ -1,7 +1,8 @@
 // The credits' backdrop (ui/pages.ts): an outrun night, drawn live. A banded sun setting in a gap
 // in wire mountains, stars, a neon grid floor with the sun in its gloss, rows of palms out to the
 // horizon, and a silver Vanta doing figure 8s and donuts (credits-drive.ts), laying light trails
-// and smoking its tires, followed by a chase camera that keeps it in the open under the page. The game's own car and post pass (ink, grade,
+// and smoking its tires, close behind it the game's own chase camera, framed in the open right of
+// the page (docked left, like the title's menu). The game's own car and post pass (ink, grade,
 // grain), on a small renderer of its own that only runs while the page is up. With reduced motion
 // it's one still frame.
 
@@ -32,6 +33,7 @@ import {
 } from 'three';
 import { CLASSES } from '../content';
 import { PALM_PATHS } from '../ui/palm';
+import { chaseOffset, type ChaseOffset } from './camera';
 import { chase, StuntDriver } from './credits-drive';
 import { InkPass } from './ink';
 import { PostPass } from './post';
@@ -43,13 +45,13 @@ import { glow } from './skins/greybox/toon';
 /** Where the sun sits (just over the horizon, its middle): the stage looks straight at it. */
 const SUN = new Vector3(0.35, 0.05, -1).normalize();
 const HAZE = 0xff3d7f;
-const FOV = 44;
-/** The chase camera: how tall the car is on screen as a share of the open strip under the page, and
- * how far up the horizon sits above the page's top (shares of the screen's height). */
-const CAR_SHARE = 0.62;
-const HORIZON_DROP = 0.1;
-/** How much of the car is on screen top to bottom, seen from high behind (m). */
-const CAR_EXTENT = 3;
+/** The race's field of view, and how long the chase camera takes to catch up with the car (s): close on the 8, slow in the donuts, so it settles over them and the car circles in view. */
+const FOV = 60;
+const FOLLOW_LAG = 0.1;
+const FOLLOW_LAG_DONUTS = 1.1;
+/** Over the donuts the camera pulls back and up (m), and looks at their middle. */
+const PULL_BACK = 8;
+const PULL_UP = 3.4;
 
 /** Fixed steps for the driver, the trails and the smoke (s); a still is this far into the show. */
 const STEP = 1 / 120;
@@ -403,6 +405,7 @@ export class CreditsBackdrop implements LiveBackdrop {
   private readonly skyMesh: Mesh;
   private readonly car: CarVisual;
   private readonly carHalf: [number, number];
+  private readonly carSize: [number, number, number];
   private readonly driver = new StuntDriver();
   private readonly trails = [new Trail(NEON.pink), new Trail(NEON.pink)];
   private readonly smoke: Smoke;
@@ -411,8 +414,12 @@ export class CreditsBackdrop implements LiveBackdrop {
   /** The cool white that keeps the car silver: from over the camera's shoulder, wherever it is. */
   private readonly front = new DirectionalLight(0xe6ebff, 1.5);
   private readonly rand = seeded(88);
-  /** Which way the chase camera faces (the car's angles, on the stage). */
+  /** Which way the chase camera faces (the car's angles, on the stage), where it's following (it trails the car), how far it's pulled back for the donuts (0–1), and its field of view. */
   private chaseYaw = 0;
+  private follow: [number, number] = [0, 0];
+  private pull = 0;
+  private fov = FOV;
+  private readonly offset: ChaseOffset = { dist: 0, height: 0, ahead: 0, lookUp: 0 };
   /** Where the page sits on screen, to keep the car in the open under it. */
   private sheet: () => DOMRect | null = () => null;
   private time = 0;
@@ -480,12 +487,14 @@ export class CreditsBackdrop implements LiveBackdrop {
     this.car = this.skin.car(cls, { id: 'silver', name: 'Silver', color: '#cfd4de', finish: 'metallic', underglow: '#ff2e88' });
     this.car.root.rotation.order = 'YXZ';
     this.carHalf = [cls.size[0], cls.size[1]];
+    this.carSize = [cls.size[0], cls.size[1], cls.size[2]];
     this.stage.add(this.car.root);
     for (const t of this.trails) this.stage.add(t.mesh);
     this.smoke = new Smoke(this.rand);
     this.stage.add(this.smoke.points);
 
     this.chaseYaw = this.driver.pose.course;
+    this.follow = [this.driver.pose.x, this.driver.pose.z];
     this.play(WARM);
   }
 
@@ -542,37 +551,44 @@ export class CreditsBackdrop implements LiveBackdrop {
       }
       this.smoke.step(STEP);
       this.chaseYaw = chase(this.chaseYaw, p.course, STEP, p.donuts);
+      this.pull += ((p.donuts ? 1 : 0) - this.pull) * (1 - Math.exp(-STEP / 0.8));
+      const lag = FOLLOW_LAG + (FOLLOW_LAG_DONUTS - FOLLOW_LAG) * this.pull;
+      const k = 1 - Math.exp(-STEP / lag);
+      this.follow[0] += (p.x - this.follow[0]) * k;
+      this.follow[1] += (p.z - this.follow[1]) * k;
+      // Wider with speed and on the boost, as in a race (renderer.ts).
+      const fov = FOV + Math.min(1, Math.max(0, (p.speed - 20) / 50)) * 4 + (p.boost ? 3.5 : 0);
+      this.fov += (fov - this.fov) * (1 - Math.exp(-STEP * 3));
     }
   }
 
   /**
-   * The chase camera: high behind the car, the way it's going, and the view shifted so the car sits
-   * in the open strip under the page, as big as fits there, with the horizon a little under the
-   * page's top so the sky shows above it.
+   * The chase camera, the game's own (render/camera.ts): close and low behind the car, the way it's
+   * going, looking ahead past it. Over the donuts it pulls back and looks at their middle. The view
+   * is shifted so the car's in the middle of the open space right of the page.
    */
   private place(w: number, h: number): void {
-    const tanV = Math.tan((FOV * Math.PI) / 360);
-    const box = this.sheet();
-    const below = Math.min(h * 0.9, Math.max(h * 0.5, box?.bottom ?? h * 0.7));
-    const top = box?.top ?? h * 0.15;
-    const carY = below + (h - below) * 0.46;
-    const horizonY = Math.max(h * 0.08, Math.min(carY - h * 0.25, top + h * HORIZON_DROP));
-    // How far back for the car to fill its share of the strip, and how steeply down for the horizon to land where it should.
-    const share = Math.max(0.05, ((h - below) / h) * CAR_SHARE);
-    const dist = Math.min(44, Math.max(9, CAR_EXTENT / (share * 2 * tanV)));
-    const down = Math.atan(((carY - horizonY) / (h / 2)) * tanV);
     const p = this.driver.pose;
-    const back = Math.cos(down) * dist;
-    const at = new Vector3(p.x, 0.6, p.z);
-    const eye = new Vector3(p.x - Math.sin(this.chaseYaw) * back, 0.6 + Math.sin(down) * dist, p.z - Math.cos(this.chaseYaw) * back);
-    this.stage.localToWorld(at);
-    this.stage.localToWorld(eye);
+    const o = chaseOffset(this.carSize, p.speed, p.boost ? 1 : 0, this.offset);
+    const pull = this.pull;
+    const dist = o.dist + pull * PULL_BACK;
+    const up = o.height + pull * PULL_UP;
+    const ahead = o.ahead * (1 - pull);
+    const fx = Math.sin(this.chaseYaw);
+    const fz = Math.cos(this.chaseYaw);
+    const [cx, cz] = this.follow;
+    const eye = this.stage.localToWorld(new Vector3(cx - fx * dist, up, cz - fz * dist));
+    const at = this.stage.localToWorld(new Vector3(cx + fx * ahead, o.lookUp * (1 - pull) + 0.4 * pull, cz + fz * ahead));
     this.camera.position.copy(eye);
     this.camera.lookAt(at);
+    this.camera.fov = this.fov;
     this.camera.aspect = w / h;
-    // The car's at the middle of the full view: shift it down to its strip.
-    this.camera.setViewOffset(w, h, 0, h / 2 - carY, w, h);
+    // The open space: right of the page when it's docked left, else the whole screen.
+    const box = this.sheet();
+    const left = box && box.right < w * 0.62 ? box.right : 0;
+    this.camera.setViewOffset(w, h, w / 2 - (left + (w - left) / 2), 0, w, h);
     this.camera.updateProjectionMatrix();
+    const tanV = Math.tan((this.fov * Math.PI) / 360);
     this.smoke.uniforms.uScale.value = (h * this.renderer.getPixelRatio()) / (2 * tanV);
     this.front.position.set(eye.x, eye.y + 30, eye.z);
     this.front.target.position.copy(at);
