@@ -5,8 +5,8 @@
 //
 // Each vertex carries a color and `surf` = (paint, glow): paint 1 takes the instance's color (the
 // body), paint 0 keeps its own (glass, trim, lamps); glow lights it regardless of the sun (lamps).
-// And `rig` = (part, pivot y, pivot z, knee y): 0 for a car's every part, which never moves; the
-// camel's legs, neck and tail swing in the vertex shader (its walk, below), by its instance's gait.
+// The camel's also carry `rig` = (part, pivot y, pivot z, knee y): it walks in the vertex shader of
+// a material of its own (the walk, below), by its instance's gait. Cars have none and never move.
 
 import { BoxGeometry, BufferAttribute, BufferGeometry, Color, CylinderGeometry, Float32BufferAttribute, type Material, type Matrix4, Mesh, type MeshToonMaterial, SphereGeometry } from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
@@ -109,21 +109,21 @@ const TAIL = new Color(0xff2344);
 const WHITE = new Color(0xffffff);
 const CARGO = new Color(0xe6e1ee);
 
-/** Tags every vertex of a part with its color, surf flags and rig (none: it doesn't move). */
-function tag(geo: BufferGeometry, color: Color, paint: number, glow: number, rig: readonly number[] = STILL): BufferGeometry {
+/** Tags every vertex of a part with its color and surf flags, and its rig if it walks (the camel's). */
+function tag(geo: BufferGeometry, color: Color, paint: number, glow: number, rig?: readonly number[]): BufferGeometry {
   const g = prep(geo);
   const n = g.attributes.position.count;
   const c = new Float32Array(n * 3);
   const s = new Float32Array(n * 2);
-  const r = new Float32Array(n * 4);
+  const r = rig ? new Float32Array(n * 4) : undefined;
   for (let i = 0; i < n; i++) {
     c.set([color.r, color.g, color.b], i * 3);
     s.set([paint, glow], i * 2);
-    r.set(rig, i * 4);
+    r?.set(rig!, i * 4);
   }
   g.setAttribute('color', new BufferAttribute(c, 3));
   g.setAttribute('surf', new BufferAttribute(s, 2));
-  g.setAttribute('rig', new BufferAttribute(r, 4));
+  if (r) g.setAttribute('rig', new BufferAttribute(r, 4));
   return g;
 }
 
@@ -220,7 +220,6 @@ const RUG = new Color(0xf2e6cc);
 // it, and the tail swishes at half the stride rate.
 
 /** Rig parts (`rig`.x). */
-const STILL = [0, 0, 0, 0];
 const RIG_BODY = 1;
 const RIG_LEG = 2;
 const RIG_SHIN = 3;
@@ -245,6 +244,10 @@ const NOD_LAG = 0.05;
 const SWISH = 0.3;
 /** A walking model's per-instance gait (rad round its stride cycle, kept in [0, 4π) for the tail's half rate). */
 export const GAIT_ATTR = 'aGait';
+/** How much of the leg's length its foot is ever asked to be from the hip (a hair short of straight). */
+const REACH = 0.9995;
+/** The walk's numbers, for test/walk.test.ts's copy of it (its foot paths checked over a stride). */
+export const CAMEL_WALK = { LEG, KNEE, SWING, LIFT, REACH };
 
 const f = (x: number) => x.toFixed(5);
 const THIGH = LEG - KNEE;
@@ -268,7 +271,6 @@ float reachAt(float u) {
   return ((-8.0 * s + 12.0) * s - 2.0) * s - 1.0;
 }
 vec3 walk(vec3 p, float w) {
-  if (rig.x < 0.5) return p;
   float g = ${GAIT_ATTR};
   float u = fract(g / (2.0 * PI));
   // The hip's height (of LEG), from the planted pair's lean: one pair is always down.
@@ -278,6 +280,9 @@ vec3 walk(vec3 p, float w) {
     // The left pair (+x) on the gait, the right half a stride on.
     float ul = fract(u + (position.x < 0.0 ? 0.5 : 0.0));
     vec2 foot = vec2(${f(LEG * Math.sin(SWING))} * reachAt(ul), ${f(LIFT)} * max(sin(2.0 * PI * ul), 0.0));
+    // Lifting, it's never further than the leg reaches: the curve swings out a little past a planted
+    // leg's lean as it leaves and meets the sand, just as the hip is lowest, so it's raised to that.
+    if (ul < 0.5) foot.y = max(foot.y, ${f(LEG)} * hip - sqrt(max(${f((REACH * LEG) ** 2)} - foot.x * foot.x, 0.0)));
     vec2 d = vec2(foot.x, ${f(LEG)} * hip - foot.y);
     float n = length(d);
     // Two bones to it: the thigh forward of the hip-foot line, the shin back (the knee forward).
@@ -333,41 +338,51 @@ function camel(): BufferGeometry {
   const merged = mergeGeometries(parts)!;
   for (const p of parts) p.dispose();
   merged.computeBoundingSphere();
-  // (world.ts gives a walking model's instances their gait.)
+  // (world.ts draws a walking model with the walking material, its instances with their gait.)
   merged.userData.walks = true;
   return merged;
 }
 
-let cache: { geos: Record<string, BufferGeometry>; material: MeshToonMaterial } | undefined;
+interface TrafficModels {
+  geos: Record<string, BufferGeometry>;
+  /** The cars' material, and the camel's: the same look, and its walk. (Drawn with the cars' it stands.) */
+  material: MeshToonMaterial;
+  walker: MeshToonMaterial;
+}
 
-/** One geometry per traffic kind (by id) and the shared material; built once. */
-export function trafficModels(): { geos: Record<string, BufferGeometry>; material: MeshToonMaterial } {
-  if (cache) return cache;
-  const geos: Record<string, BufferGeometry> = {};
-  for (const [id, d] of Object.entries(DESIGNS)) geos[id] = build(d);
-  geos.camel = camel();
+let cache: TrafficModels | undefined;
+
+/** The simple models' material: the instance color on the body, lamps that glow; and the walk, or not. */
+function trafficMaterial(walks: boolean): MeshToonMaterial {
   const material = toon({ vertexColors: true });
   material.onBeforeCompile = (shader) => {
-    shader.vertexShader = chunks(shader.vertexShader, 'traffic')
-      .replace('#include <common>', `#include <common>\nattribute vec2 surf;\nvarying float vGlow;\n${WALK}`)
-      // (The camel's walk: its normals turned with it, then where it is.)
-      .after('#include <beginnormal_vertex>', 'objectNormal=walk(objectNormal,0.0);')
-      .after('#include <begin_vertex>', 'transformed=walk(transformed,1.0);')
-      .replace(
-        '#include <color_vertex>',
-        // The instance color paints only the body.
-        `vColor=vec4(color.rgb,1.0);
+    let v = chunks(shader.vertexShader, 'traffic').replace('#include <common>', `#include <common>\nattribute vec2 surf;\nvarying float vGlow;${walks ? `\n${WALK}` : ''}`);
+    // (The camel's walk: its normals turned with it, then where it is.)
+    if (walks) v = v.after('#include <beginnormal_vertex>', 'objectNormal=walk(objectNormal,0.0);').after('#include <begin_vertex>', 'transformed=walk(transformed,1.0);');
+    shader.vertexShader = v.replace(
+      '#include <color_vertex>',
+      // The instance color paints only the body.
+      `vColor=vec4(color.rgb,1.0);
         #ifdef USE_INSTANCING_COLOR
           vColor.rgb=mix(vColor.rgb,vColor.rgb*instanceColor.rgb,surf.x);
         #endif
         vGlow=surf.y;`,
-      ).text;
+    ).text;
     shader.fragmentShader = chunks(shader.fragmentShader, 'traffic')
       .replace('#include <common>', '#include <common>\nvarying float vGlow;')
       .replace('#include <emissivemap_fragment>', '#include <emissivemap_fragment>\ntotalEmissiveRadiance+=vColor.rgb*vGlow*1.4;').text;
   };
-  material.customProgramCacheKey = () => 'greybox-traffic';
-  return (cache = { geos, material });
+  material.customProgramCacheKey = () => (walks ? 'greybox-traffic-walk' : 'greybox-traffic');
+  return material;
+}
+
+/** One geometry per traffic kind (by id) and their materials; built once. */
+export function trafficModels(): TrafficModels {
+  if (cache) return cache;
+  const geos: Record<string, BufferGeometry> = {};
+  for (const [id, d] of Object.entries(DESIGNS)) geos[id] = build(d);
+  geos.camel = camel();
+  return (cache = { geos, material: trafficMaterial(false), walker: trafficMaterial(true) });
 }
 
 /** Local positions of a kind's head (front) and tail lamps, for glow sprites: [x, y, z] × 4. */

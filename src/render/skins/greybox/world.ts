@@ -106,35 +106,18 @@ export function buildWorldVisual(scene: Scene, sim: Sim, roof?: (x: number, z: n
     // The simple models' geometry is shared across builds: reuse its fade attribute rather than
     // leaking a new buffer on it every rebuild.
     const fade = reuse(geometry, FADE_ATTR);
-    // A walking model (the camel) takes a gait per instance too. The solid and fading meshes'
-    // instances differ, so the fading one draws a twin of the model: its own gait, the model's
-    // vertex buffers. Made once and kept with the model (dispose.ts frees neither: freeing the twin
-    // would free the model's buffers).
-    const walks = geometry.userData.walks === true;
-    const gait = walks ? reuse(geometry, GAIT_ATTR) : undefined;
-    let ghostGeo = geometry;
-    let ghostGait: InstancedBufferAttribute | undefined;
-    if (walks && !inkOnly) {
-      ghostGeo = geometry.userData.twin ??= twin(geometry);
-      ghostGeo.setAttribute(FADE_ATTR, fade);
-      ghostGait = reuse(ghostGeo, GAIT_ATTR);
-    }
-    const ghost = inkOnly ? undefined : new InstancedMesh(ghostGeo, fadeMaterial(material, fading), CAP);
+    // A walking model (the camel) takes a gait per instance too: the solid ones'. Its fading copies
+    // read the same buffer by their own slots, so they're posed by some other camel's gait; a camel
+    // never fades where the road can see it (test/sahara.test.ts, "camels never fade").
+    const gait = geometry.userData.walks === true ? reuse(geometry, GAIT_ATTR) : undefined;
+    const ghost = inkOnly ? undefined : new InstancedMesh(geometry, fadeMaterial(material, fading), CAP);
     for (const m of [solid, ghost]) {
       if (!m) continue;
       m.count = 0;
       m.frustumCulled = false;
       root.add(m);
     }
-    return { solid, ghost, tint, fade, gait, ghostGait };
-  };
-  /** A geometry on `g`'s index and vertex attributes, without its gait. */
-  const twin = (g: BufferGeometry) => {
-    const t = new BufferGeometry();
-    t.setIndex(g.index);
-    for (const [name, attr] of Object.entries(g.attributes)) if (name !== GAIT_ATTR) t.setAttribute(name, attr);
-    t.boundingSphere = g.boundingSphere;
-    return t;
+    return { solid, ghost, tint, fade, gait };
   };
   /** A shared geometry's per-instance attribute: the one it has if it's big enough (not a new buffer every rebuild). */
   const reuse = (geometry: BufferGeometry, name: string) => {
@@ -147,7 +130,7 @@ export function buildWorldVisual(scene: Scene, sim: Sim, roof?: (x: number, z: n
     // Each kind as the car design of the same id (every kind has one); car/traffic.ts's one-draw
     // simple model if a new kind doesn't yet.
     const detailed = trafficModel(k.id, [k.hw, k.hl, k.hh]);
-    const parts = detailed ? detailed.map((p) => instanced(p.geometry, p.material, p.tint, p.ink, p.inkOnly)) : [instanced(simple.geos[k.id], simple.material, true)];
+    const parts = detailed ? detailed.map((p) => instanced(p.geometry, p.material, p.tint, p.ink, p.inkOnly)) : [instanced(simple.geos[k.id], simple.geos[k.id].userData.walks ? simple.walker : simple.material, true)];
     // (An animal has none.)
     return { parts, lamps: k.animal ? null : lampSpots(k.id) };
   });
@@ -168,7 +151,7 @@ export function buildWorldVisual(scene: Scene, sim: Sim, roof?: (x: number, z: n
       m.setMatrixAt(n, mat);
       if (p.tint) m.setColorAt(n, col);
       if (m === p.ghost) p.fade.setX(n, fade);
-      (m === p.ghost ? p.ghostGait : p.gait)?.setX(n, gait);
+      if (m === p.solid) p.gait?.setX(n, gait);
     }
   };
   const lamps = new LampPoints(MAX_TRAFFIC);
@@ -178,19 +161,20 @@ export function buildWorldVisual(scene: Scene, sim: Sim, roof?: (x: number, z: n
   const trafficColor = (k: number) => TRAFFIC_COLORS[Math.floor(hash01(sim.seed, k, 9) * TRAFFIC_COLORS.length)];
 
   /**
-   * A camel's gait at race time t: its strides walked (at its lane's speed, so its feet keep up with
-   * it) plus its own start, so a caravan isn't in step. In [0, 4π): the tail swishes at half rate.
+   * A camel's gait at race time t: the strides it's walked (how far it's gone, so its feet keep up
+   * with it, slowing and standing too) plus its own start, so a caravan isn't in step. In [0, 4π):
+   * the tail swishes at half rate.
    */
   const gaitAt = (k: number, t: number) => {
-    const tr = sim.world.traffic;
-    const strides = (tr.lanes[tr.lane[k]].speed * t) / CAMEL_STRIDE + hash01(sim.seed, k, 10) * 2;
+    const strides = sim.world.traffic.walked(k, t) / CAMEL_STRIDE + hash01(sim.seed, k, 10) * 2;
     return 2 * Math.PI * (strides - 2 * Math.floor(strides / 2));
   };
-  let now = 0;
   let lit = 0;
   /** Per kind, the nearest drawn car's squared distance from the camera this frame (for the ink pass). */
   const near2 = new Float64Array(TRAFFIC_KINDS.length);
+  /** This frame's camera and render time, for drawTraffic (set before visibleNear calls it). */
   const camNow = new Vector3();
+  let now = 0;
   const drawTraffic = (k: number, v: number, pose: TrafficPose) => {
     const tr = sim.world.traffic;
     const d2 = (pose.x - camNow.x) ** 2 + (pose.z - camNow.z) ** 2;
@@ -463,8 +447,8 @@ export function buildWorldVisual(scene: Scene, sim: Sim, roof?: (x: number, z: n
         }
       }
       lit = 0;
-      now = time;
       camNow.copy(cam);
+      now = time;
       near2.fill(Infinity);
       tr.visibleNear(time, cam.x, cam.z, DRAW, drawTraffic);
       lamps.commit(lit);
@@ -508,8 +492,12 @@ export function buildWorldVisual(scene: Scene, sim: Sim, roof?: (x: number, z: n
           commit(p.solid);
           if (p.ghost) commit(p.ghost);
           if (p.ghost?.visible) p.fade.needsUpdate = true;
-          if (p.gait && p.solid.visible) p.gait.needsUpdate = true;
-          if (p.ghostGait && p.ghost?.visible) p.ghostGait.needsUpdate = true;
+          if (p.gait && p.solid.visible) {
+            // (Just the slots drawn this frame.)
+            p.gait.clearUpdateRanges();
+            p.gait.addUpdateRange(0, p.solid.count);
+            p.gait.needsUpdate = true;
+          }
         }
       }
 
