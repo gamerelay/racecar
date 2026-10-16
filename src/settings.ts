@@ -6,6 +6,8 @@
 // Pure apart from storage, which is passed in (tests use none), so a blocked or cleared storage
 // only means the defaults.
 
+import { DEFAULT_KEYS, DEFAULT_PAD, parseKeys, parsePad, type KeyBinds, type PadBinds } from './input/bindings';
+
 export type Quality = 'low' | 'medium' | 'high';
 
 export interface Settings {
@@ -13,7 +15,18 @@ export interface Settings {
   volume: { master: number; music: number; engines: number; effects: number };
   /** Graphics: the preset, and what it sets (a change to one of those makes it `custom`). */
   graphics: { quality: Quality | 'custom'; resolution: number; post: boolean; outline: boolean; fps: boolean };
+  /**
+   * Controls (input/bindings.ts): the driving keys and pad buttons, and the pad's options: its
+   * deadzone (0 to 0.3 of the stick's travel), rumble, and steering sensitivity (0 to 1: the stick's
+   * curve, from gentle near the middle to straight).
+   */
+  controls: { keys: KeyBinds; pad: PadBinds; deadzone: number; rumble: boolean; sensitivity: number };
 }
+
+/** The deadzone's most: past it, a worn stick isn't the trouble. */
+export const MAX_DEADZONE = 0.3;
+/** The stick's curve: steer is the stick to this power (1.4 at the default 0.6, as it always was; 1, straight, at 1). */
+export const steerCurve = (sensitivity: number) => 2 - sensitivity;
 
 /** What each preset sets. Resolution is a share of the screen's own (at most 2× on high). */
 export const QUALITY: Record<Quality, Pick<Settings['graphics'], 'resolution' | 'post' | 'outline'>> = {
@@ -25,6 +38,7 @@ export const QUALITY: Record<Quality, Pick<Settings['graphics'], 'resolution' | 
 export const DEFAULT_SETTINGS: Settings = {
   volume: { master: 1, music: 1, engines: 1, effects: 1 },
   graphics: { quality: 'high', ...QUALITY.high, fps: false },
+  controls: { keys: DEFAULT_KEYS, pad: DEFAULT_PAD, deadzone: 0.12, rumble: true, sensitivity: 0.6 },
 };
 
 export const SETTINGS_KEY = 'racecar.settings';
@@ -44,6 +58,7 @@ export function parseSettings(raw: string | null): Settings {
   const d = DEFAULT_SETTINGS;
   const vol = (s.volume ?? {}) as Record<string, unknown>;
   const gr = (s.graphics ?? {}) as Record<string, unknown>;
+  const co = (s.controls ?? {}) as Record<string, unknown>;
   const quality = gr.quality === 'custom' || (typeof gr.quality === 'string' && Object.hasOwn(QUALITY, gr.quality)) ? (gr.quality as Settings['graphics']['quality']) : d.graphics.quality;
   return {
     volume: { master: unit(vol.master, d.volume.master), music: unit(vol.music, d.volume.music), engines: unit(vol.engines, d.volume.engines), effects: unit(vol.effects, d.volume.effects) },
@@ -54,6 +69,13 @@ export function parseSettings(raw: string | null): Settings {
         ? { resolution: Math.min(1, Math.max(0.5, unit(gr.resolution, d.graphics.resolution))), post: bool(gr.post, d.graphics.post), outline: bool(gr.outline, d.graphics.outline) }
         : QUALITY[quality]),
       fps: bool(gr.fps, d.graphics.fps),
+    },
+    controls: {
+      keys: parseKeys(co.keys),
+      pad: parsePad(co.pad),
+      deadzone: Math.min(MAX_DEADZONE, unit(co.deadzone, d.controls.deadzone)),
+      rumble: bool(co.rumble, d.controls.rumble),
+      sensitivity: unit(co.sensitivity, d.controls.sensitivity),
     },
   };
 }
@@ -104,11 +126,12 @@ export class SettingsStore {
   }
 
   /** Changes some settings, saves them, and tells everyone listening. */
-  set(change: { volume?: Partial<Settings['volume']>; graphics?: Partial<Settings['graphics']> }): void {
+  set(change: { volume?: Partial<Settings['volume']>; graphics?: Partial<Settings['graphics']>; controls?: Partial<Settings['controls']> }): void {
     const v = this.value;
     this.value = {
       volume: { ...v.volume, ...change.volume },
       graphics: change.graphics ? withGraphics(v.graphics, change.graphics) : v.graphics,
+      controls: { ...v.controls, ...change.controls },
     };
     try {
       this.storage?.setItem(SETTINGS_KEY, JSON.stringify(this.value));
