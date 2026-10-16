@@ -1,15 +1,26 @@
 // Credits, Privacy and Terms (docs/superpowers/specs/2026-10-10-public-polish-design.md): pages in
 // the game, not files, since the hosted build is one HTML file. One layer over the title (an
 // Overlay, like Settings) with an animated background in the soundtrack art's look; Back, Esc or
-// the pad's B return. `?page=credits` (or privacy, terms) opens the title with one up.
+// the pad's B return. `?page=credits` (or privacy, terms) opens the title with one up. Behind the
+// credits it's drawn live (render/credits.ts): a chrome Vanta doing donuts and figure 8s.
 
 import PRIVACY from '../../docs/PRIVACY.md?raw';
 import TERMS from '../../docs/TERMS.md?raw';
+import { PALM_PATHS } from './palm';
 import { BINDS, caps } from './kit';
 import { renderDoc } from './legal';
 import { Overlay } from './overlay';
 
 export type Page = 'credits' | 'privacy' | 'terms';
+
+/** The credits' live backdrop (render/credits.ts), as the panel uses it: main.ts hands it one. */
+export interface LiveBackdrop {
+  readonly canvas: HTMLCanvasElement;
+  readonly running: boolean;
+  /** `sheet`: where the page is on screen, for the backdrop to frame around it. */
+  start(sheet?: () => DOMRect | null): void;
+  stop(): void;
+}
 const PAGES: readonly Page[] = ['credits', 'privacy', 'terms'];
 
 /** The page a link asks for (`?page=`), or null. */
@@ -41,15 +52,24 @@ export function pageHtml(page: Page): string {
 }
 
 /** A palm's silhouette: a leaning trunk and its fronds. */
-const PALM = `<svg viewBox="0 0 100 200"><path d="M52 200 C50 150 44 100 50 52 L56 52 C52 100 58 150 60 200 Z"/><path d="M53 50 C34 34 14 38 2 56 C18 44 34 44 53 54 Z M53 50 C70 30 90 32 99 50 C84 40 70 42 54 55 Z M52 50 C40 26 44 8 58 0 C50 16 52 30 55 50 Z M53 52 C30 52 18 68 16 88 C26 70 38 60 54 56 Z M54 52 C74 54 86 70 86 92 C78 72 68 62 53 57 Z"/></svg>`;
+const PALM = `<svg viewBox="0 0 100 200">${PALM_PATHS.map((d) => `<path d="${d}"/>`).join('')}</svg>`;
 
-/** The background: a sun, a grid running at you, palms, and now and then a car's tail-lights. */
+/** The background: a sun, a grid running at you, palms, and now and then a car's tail-lights. The credits' live one goes over it; without WebGL, this is what shows. */
 const SCENE = `<div class="pgScene" aria-hidden="true"><div class="pgSun"></div><div class="pgGrid"></div><div class="pgPalm l">${PALM}</div><div class="pgPalm r">${PALM}</div><div class="pgCar"></div></div>`;
 
 export class PagesPanel extends Overlay {
-  constructor() {
+  /** The credits' live backdrop: made the first time they open (null: no WebGL here). */
+  private backdrop: LiveBackdrop | null | undefined;
+
+  /** `live` makes the credits' live backdrop (null where it can't); without it they keep the CSS scene. */
+  constructor(private readonly live: () => LiveBackdrop | null = () => null) {
     super('pages');
     this.el.classList.add('k');
+  }
+
+  /** The live backdrop is up, over everything: the world behind needn't be drawn. */
+  get coversWorld(): boolean {
+    return this.isOpen && !!this.backdrop?.running;
   }
 
   /** Up or down the page a step (the arrows, the d-pad): the only control on it is Back. */
@@ -60,8 +80,20 @@ export class PagesPanel extends Overlay {
 
   open(page: Page, from?: HTMLElement | null): void {
     this.el.innerHTML = `${SCENE}${pageHtml(page)}`;
+    if (page === 'credits' && this.backdrop === undefined) this.backdrop = this.live();
+    const live = page === 'credits' && !!this.backdrop;
+    this.el.classList.toggle('live', live);
+    if (live) {
+      this.el.prepend(this.backdrop!.canvas);
+      this.backdrop!.start(() => this.el.querySelector('.pg-sheet')?.getBoundingClientRect() ?? null);
+    } else this.backdrop?.stop();
     this.el.querySelector<HTMLButtonElement>('#pgBack')!.onclick = () => this.close();
     this.show(from);
     this.el.querySelector<HTMLButtonElement>('#pgBack')!.focus({ preventScroll: true });
+  }
+
+  override close(): void {
+    super.close();
+    this.backdrop?.stop();
   }
 }
