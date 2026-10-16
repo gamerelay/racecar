@@ -4,6 +4,19 @@ What changed in each release of racecar, newest first. Releases are git tags on 
 reasons behind each change are in [docs/SPEC.md](./docs/SPEC.md) under "Changed while building",
 and where things stand is [docs/HANDOFF.md](./docs/HANDOFF.md).
 
+## v1.2: UI polish
+
+New menus, from the title to the results: one look throughout, built to play with a controller as well as the keyboard and mouse, with transitions between screens.
+
+- **A new title screen:** Quick race is the big button, and the other modes are a list where the one you're on says what it does. Your plate is top right with Edit and the Settings cog, and the two fullest online lobbies are bottom right.
+- **Quick race picks your car too:** a random car on a random track against seven bots, straight in.
+- **Multiplayer, one screen:** the online lobbies with search, a track filter, Hide full and sorting by column, plus Quick join (the fullest open lobby), Create lobby and Join with code (a code, an invite link or a short link). Each row shows the host and the rules.
+- **A new lobby:** the drivers on the left, your car turning in a frame in the middle with its card under it (rated stats, paints), the track and its options on the right. New: **fill open seats with bots**, on by default; turn it off and open seats start the race empty. Creating a lobby with fewer seats closes the rest.
+- **Play it with a controller:** the button hints show your pad's buttons once you pick it up, and the keyboard's when you go back, and they carry over into the race. Hold the d-pad to scroll through lists; the bumpers switch tabs and Y refreshes the lobby list.
+- **Pause, Settings and Controls:** the in-race menu shows where you are in the race, with tips for each key. Settings and Controls are one panel with two tabs, keyboard and pad side by side.
+- **The results, the first race's keys card and the Credits pages** have the new look too. The keys card shows the pad's buttons if that's what you're holding.
+- **Smoother in and out:** each screen's pieces slide in, and slanted bands wipe across between the menus and a race. With reduced motion on, it's all short fades.
+
 ## v1.1: Time trial
 
 Race the clock: a new Time trial with online lap boards for every layout, plus snappier keyboard steering and a steadier camera.
