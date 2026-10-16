@@ -36,9 +36,9 @@ import { sampleAt, newHit } from '../../../core/track/query';
 import { Piece } from '../../../core/world/hazards';
 import { newTrafficPose, TRAFFIC_KINDS, type TrafficPose } from '../../../core/world/traffic';
 import type { WorldVisual } from '../../skin';
-import { FADE_ATTR, fadeAttribute, fadeMaterial } from '../../fade';
+import { FADE_ATTR, fadeMaterial } from '../../fade';
 import { markInk, unmarkInk } from '../../ink';
-import { LampPoints, lampSpots, trafficModel, trafficModels } from './car/traffic';
+import { CAMEL_STRIDE, GAIT_ATTR, LampPoints, lampSpots, trafficModel, trafficModels } from './car/traffic';
 import { disposeTree } from './dispose';
 import { buildBreakablesVisual } from './breakables';
 import { buildLiftsVisual } from './lifts';
@@ -105,9 +105,11 @@ export function buildWorldVisual(scene: Scene, sim: Sim, roof?: (x: number, z: n
     // Ink-only seams have nothing to fade.
     // The simple models' geometry is shared across builds: reuse its fade attribute rather than
     // leaking a new buffer on it every rebuild.
-    const had = geometry.getAttribute(FADE_ATTR) as InstancedBufferAttribute | undefined;
-    const fade = had && had.count >= CAP ? had : fadeAttribute(CAP);
-    geometry.setAttribute(FADE_ATTR, fade);
+    const fade = reuse(geometry, FADE_ATTR);
+    // A walking model (the camel) takes a gait per instance too: the solid ones'. Its fading copies
+    // read the same buffer by their own slots, so they're posed by some other camel's gait; a camel
+    // never fades where the road can see it (test/sahara.test.ts, "camels never fade").
+    const gait = geometry.userData.walks === true ? reuse(geometry, GAIT_ATTR) : undefined;
     const ghost = inkOnly ? undefined : new InstancedMesh(geometry, fadeMaterial(material, fading), CAP);
     for (const m of [solid, ghost]) {
       if (!m) continue;
@@ -115,13 +117,20 @@ export function buildWorldVisual(scene: Scene, sim: Sim, roof?: (x: number, z: n
       m.frustumCulled = false;
       root.add(m);
     }
-    return { solid, ghost, tint, fade };
+    return { solid, ghost, tint, fade, gait };
+  };
+  /** A shared geometry's per-instance attribute: the one it has if it's big enough (not a new buffer every rebuild). */
+  const reuse = (geometry: BufferGeometry, name: string) => {
+    const had = geometry.getAttribute(name) as InstancedBufferAttribute | undefined;
+    const a = had && had.count >= CAP ? had : new InstancedBufferAttribute(new Float32Array(CAP), 1);
+    geometry.setAttribute(name, a);
+    return a;
   };
   const bodies = TRAFFIC_KINDS.map((k) => {
     // Each kind as the car design of the same id (every kind has one); car/traffic.ts's one-draw
     // simple model if a new kind doesn't yet.
     const detailed = trafficModel(k.id, [k.hw, k.hl, k.hh]);
-    const parts = detailed ? detailed.map((p) => instanced(p.geometry, p.material, p.tint, p.ink, p.inkOnly)) : [instanced(simple.geos[k.id], simple.material, true)];
+    const parts = detailed ? detailed.map((p) => instanced(p.geometry, p.material, p.tint, p.ink, p.inkOnly)) : [instanced(simple.geos[k.id], simple.geos[k.id].userData.walks ? simple.walker : simple.material, true)];
     // (An animal has none.)
     return { parts, lamps: k.animal ? null : lampSpots(k.id) };
   });
@@ -132,8 +141,8 @@ export function buildWorldVisual(scene: Scene, sim: Sim, roof?: (x: number, z: n
     m.instanceMatrix.needsUpdate = true;
     if (m.instanceColor) m.instanceColor.needsUpdate = true;
   };
-  /** Adds one instance of kind `kind` at `mat`, `fade` of it visible. */
-  const put = (kind: number, mat: Matrix4, color: number, fade = 1) => {
+  /** Adds one instance of kind `kind` at `mat`, `fade` of it visible, `gait` round its stride (a walking kind's). */
+  const put = (kind: number, mat: Matrix4, color: number, fade = 1, gait = 0) => {
     col.setHex(color);
     for (const p of bodies[kind].parts) {
       const m = fade >= 1 ? p.solid : p.ghost;
@@ -142,6 +151,7 @@ export function buildWorldVisual(scene: Scene, sim: Sim, roof?: (x: number, z: n
       m.setMatrixAt(n, mat);
       if (p.tint) m.setColorAt(n, col);
       if (m === p.ghost) p.fade.setX(n, fade);
+      if (m === p.solid) p.gait?.setX(n, gait);
     }
   };
   const lamps = new LampPoints(MAX_TRAFFIC);
@@ -150,10 +160,21 @@ export function buildWorldVisual(scene: Scene, sim: Sim, roof?: (x: number, z: n
   root.add(lampPoints);
   const trafficColor = (k: number) => TRAFFIC_COLORS[Math.floor(hash01(sim.seed, k, 9) * TRAFFIC_COLORS.length)];
 
+  /**
+   * A camel's gait at race time t: the strides it's walked (how far it's gone, so its feet keep up
+   * with it, slowing and standing too) plus its own start, so a caravan isn't in step. In [0, 4π):
+   * the tail swishes at half rate.
+   */
+  const gaitAt = (k: number, t: number) => {
+    const strides = sim.world.traffic.walked(k, t) / CAMEL_STRIDE + hash01(sim.seed, k, 10) * 2;
+    return 2 * Math.PI * (strides - 2 * Math.floor(strides / 2));
+  };
   let lit = 0;
   /** Per kind, the nearest drawn car's squared distance from the camera this frame (for the ink pass). */
   const near2 = new Float64Array(TRAFFIC_KINDS.length);
+  /** This frame's camera and render time, for drawTraffic (set before visibleNear calls it). */
   const camNow = new Vector3();
+  let now = 0;
   const drawTraffic = (k: number, v: number, pose: TrafficPose) => {
     const tr = sim.world.traffic;
     const d2 = (pose.x - camNow.x) ** 2 + (pose.z - camNow.z) ** 2;
@@ -169,7 +190,7 @@ export function buildWorldVisual(scene: Scene, sim: Sim, roof?: (x: number, z: n
     }
     e.rotation.set(pitch, pose.h, 0, 'YXZ');
     e.updateMatrix();
-    put(tr.kind[k], e.matrix, trafficColor(k), v);
+    put(tr.kind[k], e.matrix, trafficColor(k), v, TRAFFIC_KINDS[tr.kind[k]].animal ? gaitAt(k, now) : 0);
     // Lamps are glow sprites that can't fade: they come on once the car is mostly there.
     const spots = bodies[tr.kind[k]].lamps;
     if (spots && v > 0.6 && lit < MAX_TRAFFIC) lamps.write(lit++, e.matrix, spots);
@@ -427,6 +448,7 @@ export function buildWorldVisual(scene: Scene, sim: Sim, roof?: (x: number, z: n
       }
       lit = 0;
       camNow.copy(cam);
+      now = time;
       near2.fill(Infinity);
       tr.visibleNear(time, cam.x, cam.z, DRAW, drawTraffic);
       lamps.commit(lit);
@@ -470,6 +492,12 @@ export function buildWorldVisual(scene: Scene, sim: Sim, roof?: (x: number, z: n
           commit(p.solid);
           if (p.ghost) commit(p.ghost);
           if (p.ghost?.visible) p.fade.needsUpdate = true;
+          if (p.gait && p.solid.visible) {
+            // (Just the slots drawn this frame.)
+            p.gait.clearUpdateRanges();
+            p.gait.addUpdateRange(0, p.solid.count);
+            p.gait.needsUpdate = true;
+          }
         }
       }
 

@@ -5,6 +5,8 @@
 //
 // Each vertex carries a color and `surf` = (paint, glow): paint 1 takes the instance's color (the
 // body), paint 0 keeps its own (glass, trim, lamps); glow lights it regardless of the sun (lamps).
+// The camel's also carry `rig` = (part, pivot y, pivot z, knee y): it walks in the vertex shader of
+// a material of its own (the walk, below), by its instance's gait. Cars have none and never move.
 
 import { BoxGeometry, BufferAttribute, BufferGeometry, Color, CylinderGeometry, Float32BufferAttribute, type Material, type Matrix4, Mesh, type MeshToonMaterial, SphereGeometry } from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
@@ -107,18 +109,21 @@ const TAIL = new Color(0xff2344);
 const WHITE = new Color(0xffffff);
 const CARGO = new Color(0xe6e1ee);
 
-/** Tags every vertex of a part with its color and surf flags. */
-function tag(geo: BufferGeometry, color: Color, paint: number, glow: number): BufferGeometry {
+/** Tags every vertex of a part with its color and surf flags, and its rig if it walks (the camel's). */
+function tag(geo: BufferGeometry, color: Color, paint: number, glow: number, rig?: readonly number[]): BufferGeometry {
   const g = prep(geo);
   const n = g.attributes.position.count;
   const c = new Float32Array(n * 3);
   const s = new Float32Array(n * 2);
+  const r = rig ? new Float32Array(n * 4) : undefined;
   for (let i = 0; i < n; i++) {
     c.set([color.r, color.g, color.b], i * 3);
     s.set([paint, glow], i * 2);
+    r?.set(rig!, i * 4);
   }
   g.setAttribute('color', new BufferAttribute(c, 3));
   g.setAttribute('surf', new BufferAttribute(s, 2));
+  if (r) g.setAttribute('rig', new BufferAttribute(r, 4));
   return g;
 }
 
@@ -203,59 +208,181 @@ const CAMEL_DARK = new Color(0xa8773f);
 const ROPE = new Color(0x5a3f2e);
 const RUG = new Color(0xf2e6cc);
 
+// ---- the camel's walk: render only (its pose is the sim's; this is just its legs) ----
+//
+// It paces, the way camels walk: both legs on a side together, the left pair and the right pair
+// half a stride apart, so one pair is always down. Each foot's path is set, and the leg (thigh and
+// shin, two bones) reaches it: while it's down it moves back at the walking speed, so it stays put
+// on the sand (a plain sine swing, tried first, slid the feet back and forth at up to 2.2 m/s);
+// then it lifts and comes forward, the shin folding back, leaving and meeting the sand at that same
+// speed. The body drops as the planted legs lean, by just what keeps them straight with their feet
+// on the sand, so it bobs at twice the stride rate. The neck nods with the bob, a little behind
+// it, and the tail swishes at half the stride rate.
+
+/** Rig parts (`rig`.x). */
+const RIG_BODY = 1;
+const RIG_LEG = 2;
+const RIG_SHIN = 3;
+const RIG_NECK = 4;
+const RIG_TAIL = 5;
+/** Hip to sole (m), and the knee's height: the thigh and shin. */
+const LEG = 1.25;
+const KNEE = 0.62;
+/** How far a planted leg leans either side of straight down (rad, ~26°). */
+const SWING = 0.45;
+/**
+ * One stride (m): a whole cycle, each foot down once. A foot down sweeps back 2·LEG·sin SWING
+ * (1.09 m) in half a cycle, so a stride is twice that: 2.17 m, and at the caravan's 2.2 m/s about
+ * one a second. (The swing is picked so that's a natural stride for the leg: Alexander's dynamic
+ * similarity, stride ≈ 2.3·leg·Fr^0.3 at Froude number v²/(g·leg) = 0.39, gives 2.17 m.)
+ */
+export const CAMEL_STRIDE = 4 * LEG * Math.sin(SWING);
+/** A foot's lift mid-swing (m), the neck's nod (rad) and how far behind the bob (of a stride), the tail's swish (rad). */
+const LIFT = 0.2;
+const NOD = 0.07;
+const NOD_LAG = 0.05;
+const SWISH = 0.3;
+/** A walking model's per-instance gait (rad round its stride cycle, kept in [0, 4π) for the tail's half rate). */
+export const GAIT_ATTR = 'aGait';
+/** How much of the leg's length its foot is ever asked to be from the hip (a hair short of straight). */
+const REACH = 0.9995;
+/** The walk's numbers, for test/walk.test.ts's copy of it (its foot paths checked over a stride). */
+export const CAMEL_WALK = { LEG, KNEE, SWING, LIFT, REACH };
+
+const f = (x: number) => x.toFixed(5);
+const THIGH = LEG - KNEE;
+/** The walk, in the vertex shader: poses a point (w 1) or a normal (w 0) by its rig and the instance's gait. */
+const WALK = `
+attribute vec4 rig;
+attribute float ${GAIT_ATTR};
+// About the x axis through (y, z) = c, by a (a > 0: what's below c swings back).
+vec3 rigX(vec3 p, float a, vec2 c, float w) {
+  p.yz -= c * w;
+  float s = sin(a), k = cos(a);
+  p.yz = vec2(p.y * k - p.z * s, p.y * s + p.z * k) + c * w;
+  return p;
+}
+// A foot's reach (how far forward of its hip, ±1 at a planted leg's lean) at u round its stride:
+// up and forward (u < ½: a Hermite curve, starting and ending at the planted speed), then down
+// and back at a steady speed.
+float reachAt(float u) {
+  if (u >= 0.5) return 3.0 - 4.0 * u;
+  float s = 2.0 * u;
+  return ((-8.0 * s + 12.0) * s - 2.0) * s - 1.0;
+}
+vec3 walk(vec3 p, float w) {
+  float g = ${GAIT_ATTR};
+  float u = fract(g / (2.0 * PI));
+  // The hip's height (of LEG), from the planted pair's lean: one pair is always down.
+  float down = 1.0 - 2.0 * fract(2.0 * u);
+  float hip = sqrt(1.0 - ${f(Math.sin(SWING) ** 2)} * down * down);
+  if (rig.x > ${RIG_LEG - 0.5} && rig.x < ${RIG_SHIN + 0.5}) {
+    // The left pair (+x) on the gait, the right half a stride on.
+    float ul = fract(u + (position.x < 0.0 ? 0.5 : 0.0));
+    vec2 foot = vec2(${f(LEG * Math.sin(SWING))} * reachAt(ul), ${f(LIFT)} * max(sin(2.0 * PI * ul), 0.0));
+    // Lifting, it's never further than the leg reaches: the curve swings out a little past a planted
+    // leg's lean as it leaves and meets the sand, just as the hip is lowest, so it's raised to that.
+    if (ul < 0.5) foot.y = max(foot.y, ${f(LEG)} * hip - sqrt(max(${f((REACH * LEG) ** 2)} - foot.x * foot.x, 0.0)));
+    vec2 d = vec2(foot.x, ${f(LEG)} * hip - foot.y);
+    float n = length(d);
+    // Two bones to it: the thigh forward of the hip-foot line, the shin back (the knee forward).
+    float line = atan(d.x, d.y);
+    float th = acos(clamp((${f(THIGH * THIGH - KNEE * KNEE)} + n * n) / (${f(2 * THIGH)} * n), -1.0, 1.0));
+    float sh = acos(clamp((${f(KNEE * KNEE - THIGH * THIGH)} + n * n) / (${f(2 * KNEE)} * n), -1.0, 1.0));
+    if (rig.x > ${RIG_SHIN - 0.5}) p = rigX(p, th + sh, vec2(rig.w, rig.z), w);
+    p = rigX(p, -(line + th), rig.yz, w);
+  }
+  if (rig.x > ${RIG_NECK - 0.5} && rig.x < ${RIG_NECK + 0.5}) {
+    // Down as the body is (the planted legs leaning most), just after.
+    float lag = 1.0 - 2.0 * fract(2.0 * (u - ${f(NOD_LAG)}));
+    p = rigX(p, ${f(NOD)} * (2.0 * lag * lag - 1.0), rig.yz, w);
+  }
+  if (rig.x > ${RIG_TAIL - 0.5}) {
+    float t = ${f(SWISH)} * sin(0.5 * g);
+    p.y -= rig.y * w;
+    p.xy = vec2(p.x * cos(t) - p.y * sin(t), p.x * sin(t) + p.y * cos(t));
+    p.y += rig.y * w;
+  }
+  p.y -= ${f(LEG)} * (1.0 - hip) * w;
+  return p;
+}
+`;
+
 /**
  * A camel (traffic kind `camel`, Sahara's caravan), front toward +z, standing on y = 0: long legs, a
  * hump, a curved neck and its head out front, a saddle blanket (painted the traffic colour, so a
- * caravan's are a few colours) and a rolled rug on it. No lamps.
+ * caravan's are a few colours) and a rolled rug on it. No lamps. It walks (the rig, above).
  */
 function camel(): BufferGeometry {
   const parts: BufferGeometry[] = [];
-  const add = (g: BufferGeometry, color: Color, paint = 0) => parts.push(tag(g, color, paint, 0));
-  for (const z of [0.75, -0.75]) for (const x of [-0.25, 0.25]) add(box(0.16, 1.25, 0.18, x, 0.62, z), CAMEL_DARK);
+  const add = (g: BufferGeometry, color: Color, paint = 0, rig = [RIG_BODY, 0, 0, 0]) => parts.push(tag(g, color, paint, 0, rig));
+  for (const z of [0.75, -0.75]) {
+    for (const x of [-0.25, 0.25]) {
+      // Thigh and shin, the shin a little up into the thigh so the knee doesn't open a gap as it folds.
+      add(box(0.16, LEG - KNEE, 0.18, x, (LEG + KNEE) / 2, z), CAMEL_DARK, 0, [RIG_LEG, LEG, z, KNEE]);
+      add(box(0.15, KNEE + 0.06, 0.17, x, (KNEE + 0.06) / 2, z), CAMEL_DARK, 0, [RIG_SHIN, LEG, z, KNEE]);
+    }
+  }
   add(box(0.7, 0.75, 1.9, 0, 1.55, 0), CAMEL);
   add(new SphereGeometry(0.42, 10, 6, 0, Math.PI * 2, 0, Math.PI / 2).scale(1, 1.1, 1.3).translate(0, 1.9, -0.05), CAMEL);
   add(box(0.8, 0.12, 1.0, 0, 1.95, -0.05), WHITE, 1);
   add(new CylinderGeometry(0.14, 0.14, 0.86, 8).rotateZ(Math.PI / 2).translate(0, 2.42, -0.05), RUG);
   add(box(0.86, 0.5, 0.06, 0, 1.65, 0.42), WHITE, 1);
-  // Its neck: down and forward from the shoulders, then up to the head.
-  add(new BoxGeometry(0.26, 0.85, 0.3).rotateX(0.7).translate(0, 1.55, 1.1), CAMEL);
-  add(new BoxGeometry(0.24, 0.6, 0.26).rotateX(-0.2).translate(0, 1.95, 1.45), CAMEL);
-  add(box(0.26, 0.26, 0.55, 0, 2.28, 1.62), CAMEL);
-  add(box(0.04, 0.04, 0.5, 0.1, 2.18, 1.7), ROPE);
-  add(box(0.08, 0.5, 0.08, 0, 1.4, -0.98), CAMEL_DARK);
+  // Its neck: down and forward from the shoulders, then up to the head; it nods from the shoulders.
+  const neck = [RIG_NECK, 1.7, 0.85, 0];
+  add(new BoxGeometry(0.26, 0.85, 0.3).rotateX(0.7).translate(0, 1.55, 1.1), CAMEL, 0, neck);
+  add(new BoxGeometry(0.24, 0.6, 0.26).rotateX(-0.2).translate(0, 1.95, 1.45), CAMEL, 0, neck);
+  add(box(0.26, 0.26, 0.55, 0, 2.28, 1.62), CAMEL, 0, neck);
+  add(box(0.04, 0.04, 0.5, 0.1, 2.18, 1.7), ROPE, 0, neck);
+  add(box(0.08, 0.5, 0.08, 0, 1.4, -0.98), CAMEL_DARK, 0, [RIG_TAIL, 1.65, 0, 0]);
   const merged = mergeGeometries(parts)!;
   for (const p of parts) p.dispose();
   merged.computeBoundingSphere();
+  // (world.ts draws a walking model with the walking material, its instances with their gait.)
+  merged.userData.walks = true;
   return merged;
 }
 
-let cache: { geos: Record<string, BufferGeometry>; material: MeshToonMaterial } | undefined;
+interface TrafficModels {
+  geos: Record<string, BufferGeometry>;
+  /** The cars' material, and the camel's: the same look, and its walk. (Drawn with the cars' it stands.) */
+  material: MeshToonMaterial;
+  walker: MeshToonMaterial;
+}
 
-/** One geometry per traffic kind (by id) and the shared material; built once. */
-export function trafficModels(): { geos: Record<string, BufferGeometry>; material: MeshToonMaterial } {
-  if (cache) return cache;
-  const geos: Record<string, BufferGeometry> = {};
-  for (const [id, d] of Object.entries(DESIGNS)) geos[id] = build(d);
-  geos.camel = camel();
+let cache: TrafficModels | undefined;
+
+/** The simple models' material: the instance color on the body, lamps that glow; and the walk, or not. */
+function trafficMaterial(walks: boolean): MeshToonMaterial {
   const material = toon({ vertexColors: true });
   material.onBeforeCompile = (shader) => {
-    shader.vertexShader = chunks(shader.vertexShader, 'traffic')
-      .replace('#include <common>', '#include <common>\nattribute vec2 surf;\nvarying float vGlow;')
-      .replace(
-        '#include <color_vertex>',
-        // The instance color paints only the body.
-        `vColor=vec4(color.rgb,1.0);
+    let v = chunks(shader.vertexShader, 'traffic').replace('#include <common>', `#include <common>\nattribute vec2 surf;\nvarying float vGlow;${walks ? `\n${WALK}` : ''}`);
+    // (The camel's walk: its normals turned with it, then where it is.)
+    if (walks) v = v.after('#include <beginnormal_vertex>', 'objectNormal=walk(objectNormal,0.0);').after('#include <begin_vertex>', 'transformed=walk(transformed,1.0);');
+    shader.vertexShader = v.replace(
+      '#include <color_vertex>',
+      // The instance color paints only the body.
+      `vColor=vec4(color.rgb,1.0);
         #ifdef USE_INSTANCING_COLOR
           vColor.rgb=mix(vColor.rgb,vColor.rgb*instanceColor.rgb,surf.x);
         #endif
         vGlow=surf.y;`,
-      ).text;
+    ).text;
     shader.fragmentShader = chunks(shader.fragmentShader, 'traffic')
       .replace('#include <common>', '#include <common>\nvarying float vGlow;')
       .replace('#include <emissivemap_fragment>', '#include <emissivemap_fragment>\ntotalEmissiveRadiance+=vColor.rgb*vGlow*1.4;').text;
   };
-  material.customProgramCacheKey = () => 'greybox-traffic';
-  return (cache = { geos, material });
+  material.customProgramCacheKey = () => (walks ? 'greybox-traffic-walk' : 'greybox-traffic');
+  return material;
+}
+
+/** One geometry per traffic kind (by id) and their materials; built once. */
+export function trafficModels(): TrafficModels {
+  if (cache) return cache;
+  const geos: Record<string, BufferGeometry> = {};
+  for (const [id, d] of Object.entries(DESIGNS)) geos[id] = build(d);
+  geos.camel = camel();
+  return (cache = { geos, material: trafficMaterial(false), walker: trafficMaterial(true) });
 }
 
 /** Local positions of a kind's head (front) and tail lamps, for glow sprites: [x, y, z] × 4. */
