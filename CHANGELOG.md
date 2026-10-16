@@ -4,6 +4,10 @@ What changed in each release of racecar, newest first. Releases are git tags on 
 reasons behind each change are in [docs/SPEC.md](./docs/SPEC.md) under "Changed while building",
 and where things stand is [docs/HANDOFF.md](./docs/HANDOFF.md).
 
+## Unreleased
+
+- **Less traffic fading in right in front of you:** on the first lap, cars no longer materialize half see-through just past the start (they used to be hidden from the start grid for ten seconds, then fade back in wherever they were); now they start where they're clear of it. Sahara's camels are on the Caravan Road from the first lap. Two of Downtown's traffic stretches now start where you can see less of the road before them.
+
 ## v1.1: Time trial
 
 Race the clock: a new Time trial with online lap boards for every layout, plus snappier keyboard steering and a steadier camera.
