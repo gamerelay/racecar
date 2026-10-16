@@ -150,9 +150,10 @@ From `alpha-1.47` (2026-10-11), still open:
    listings, parties, `lanRoute`), and the `racecar` instance has parties and Direct connections
    on (see "GameRelay side" below).
 4. Before changing anything: `bun run test && bun run typecheck && bun tools/validate.ts --ai`
-   (`bun run test`, never bare `bun test`: it sets the per-test timeout CI uses), and
-   `bun tools/fingerprint.ts` (every map `identical` unless a change means to move one). All
-   three are green on `main`. Branch off `main`, one PR per change, with CI, then
+   (`bun run test`, never bare `bun test`: it sets the per-test timeout CI uses). All three are
+   green on `main`. `bun tools/fingerprint.ts` (every map `identical` unless a change means to move
+   one) is slow: run it only before merging a change on a critical path (the sim, physics, AI,
+   track bake, a map's driven geometry) or when the owner asks, not routinely. Branch off `main`, one PR per change, with CI, then
    `/code-review` with the PR's full URL. Merge, tag and deploy only when the owner asks.
 
 ## Where things stand
