@@ -190,7 +190,9 @@ From `alpha-1.47` (2026-10-11), still open:
     the track for an hour. The proxy always sends it.
   - **CORS on the Space** (GET and HEAD from any origin) stays: it lets a build read the Space's
     origin directly too, if the CDN is ever down.
-- **What's there now:** `v1.2.1` (2026-10-16, `./deploy-hosted.sh`, title foot `v1.2.1`): `v1.2` plus
+- **What's there now:** `v1.2.2` (2026-10-16, `./deploy-hosted.sh`, title foot `v1.2.2`): `v1.2.1` plus
+  #185, the Credits page's live backdrop (`render/credits.ts`, its driver and chase swing in
+  `render/credits-drive.ts`; the page docks left; CHANGELOG "v1.2.2: Credits, live"). `v1.2.1`: `v1.2` plus
   #184, Sahara's camels walking (render only: a pacing walk in the camel's own material, its gait
   from `Traffic.walked`; CHANGELOG "v1.2.1: Camels walk"). `v1.2`: `v1.1` plus
   #182, the UI polish, and #181/#183, traffic (CHANGELOG "v1.2: UI polish"). `v1.1`: `v1.0.1` plus #174–#179 (test bots on SDK alpha.11,
