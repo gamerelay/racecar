@@ -7,9 +7,11 @@
 // it's due back; the renderer tumbles a cosmetic copy (category L).
 //
 // Nothing pops: a car's visibility (0–1) is a formula too. It fades in over FADE meters of road
-// before its lane's section starts and out over FADE after it ends, out of and back into the start
-// grid's clear zone, and back in over a second after a wreck. Only a fully visible car is posed for
-// the sim (collisions, near misses, the AI); the renderer draws the fading ones dithered.
+// before its lane's section starts and out over FADE after it ends, and back in over a second after
+// a wreck. Only a fully visible car is posed for the sim (collisions, near misses, the AI); the
+// renderer draws the fading ones dithered. The start grid is kept clear by where the cars start, not
+// by a fade: each lane's cars are spaced round the part of its loop from which none comes near the
+// grid while it's clear (`gridSlots`), so nobody watches a car fade in on the first straight.
 //
 // A lane may come and go by side streets instead (TrafficLaneDef.streets, docs/COASTAL.md): each
 // pair of its streets is a route, in up the far half of one, along the main road, out by the near
@@ -66,7 +68,12 @@ export const FADE = 45;
 export const FADE_BACK = 1;
 /** Seconds a wrecked traffic car stays gone. */
 export const TRAFFIC_RESPAWN = 12;
-/** No traffic within this much of the start line for the first `seconds` of sim time (the countdown and just after green). */
+/**
+ * No traffic within this much of the start line (and FADE more either side) for the first
+ * `seconds` of sim time (the countdown and just after green): the cars start where they won't come
+ * near it in that time. A lane that can't (its whole loop does) fades out of it instead, as all did.
+ * (Animals only keep off the grid behind the line.)
+ */
 export const GRID_CLEAR = { behind: 160, ahead: 60, seconds: 10 };
 const POOL = 128;
 /** A route's cars are out of sight for this much (m) of their loop, between leaving and coming back. */
@@ -96,6 +103,11 @@ const PATH_CLEAR = 110;
  */
 export interface TrafficPath {
   n: number;
+  /** Where round it (s, its time round the loop) a wrecked car comes back (TrafficLaneDef.back); -1: where it is. */
+  backTau: number;
+  /** Where it runs along the main road against the lap, on it (main distances), and which side (sign of lat): oncoming traffic to a racer there. */
+  against: [number, number][];
+  side: number;
   stops: Float64Array;
   tin: Float64Array;
   T: number;
@@ -113,7 +125,7 @@ export interface TrafficPath {
  * `pos` m to its right; its stops STOP_BACK m before the `stops` corners, and the loop's start moved
  * to the middle of the longest run between two stops (so none slows across it).
  */
-function pathLoop(track: Track, line: readonly [number, number][], pos: number, speed: number, stopAt: readonly number[] = []): TrafficPath {
+function pathLoop(track: Track, line: readonly [number, number][], pos: number, speed: number, stopAt: readonly number[] = [], back = -1): TrafficPath {
   const pts: [number, number][] = [];
   const m = line.length;
   // Over to its right first (each corner where its two streets' offset lines meet), so it's spaced
@@ -152,7 +164,7 @@ function pathLoop(track: Track, line: readonly [number, number][], pos: number, 
   for (let k = 1; k <= pts.length; k++) cum.push(cum[k - 1] + hypot(pts[k % pts.length][0] - pts[k - 1][0], pts[k % pts.length][1] - pts[k - 1][1]));
   const R = cum[pts.length];
   const n = Math.max(3, Math.round(R / PATH_STEP));
-  const out: TrafficPath = { n, stops: new Float64Array(0), tin: new Float64Array(0), T: 0, v: speed, x: new Float64Array(n), z: new Float64Array(n), tx: new Float64Array(n), tz: new Float64Array(n), s: new Float64Array(n), lat: new Float64Array(n) };
+  const out: TrafficPath = { n, backTau: -1, against: [], side: 0, stops: new Float64Array(0), tin: new Float64Array(0), T: 0, v: speed, x: new Float64Array(n), z: new Float64Array(n), tx: new Float64Array(n), tz: new Float64Array(n), s: new Float64Array(n), lat: new Float64Array(n) };
   let seg = 0;
   for (let i = 0; i < n; i++) {
     const d = (i / n) * R;
@@ -163,15 +175,19 @@ function pathLoop(track: Track, line: readonly [number, number][], pos: number, 
     out.x[i] = ax + (bx - ax) * f;
     out.z[i] = az + (bz - az) * f;
   }
+  // The sample nearest a corner.
+  const nearest = (c: number): number => {
+    let best = 0;
+    for (let i = 1; i < n; i++) if (hypot(out.x[i] - corners[c][0], out.z[i] - corners[c][1]) < hypot(out.x[best] - corners[c][0], out.z[best] - corners[c][1])) best = i;
+    return best;
+  };
   // The stops: the sample nearest each stop corner, STOP_BACK before it (samples, round the loop).
   let stops = stopAt
     .filter((c) => c >= 0 && c < m)
-    .map((c) => {
-      let best = 0;
-      for (let i = 1; i < n; i++) if (hypot(out.x[i] - corners[c][0], out.z[i] - corners[c][1]) < hypot(out.x[best] - corners[c][0], out.z[best] - corners[c][1])) best = i;
-      return (best - Math.round(STOP_BACK / PATH_STEP) + n) % n;
-    })
+    .map((c) => (nearest(c) - Math.round(STOP_BACK / PATH_STEP) + n) % n)
     .sort((a, b) => a - b);
+  // (Where a wrecked car comes back: found before the samples are turned, and turned with them.)
+  let backAt = back >= 0 && back < m ? nearest(back) : -1;
   // Start the loop in the middle of the longest run between stops: rotate the samples.
   if (stops.length) {
     let gap = -1;
@@ -186,6 +202,7 @@ function pathLoop(track: Track, line: readonly [number, number][], pos: number, 
       for (let i = 0; i < n; i++) arr[i] = copy[(i + mid) % n];
     }
     stops = stops.map((i) => (i - mid + n) % n).sort((a, b) => a - b);
+    if (backAt >= 0) backAt = (backAt - mid + n) % n;
   }
   // Each with room to slow and pull away (b m either side), clear of the last and of the loop's ends.
   const ramp = (speed * speed) / (2 * STOP_DECEL);
@@ -201,6 +218,11 @@ function pathLoop(track: Track, line: readonly [number, number][], pos: number, 
   const extra = speed / STOP_DECEL + STOP_WAIT;
   out.tin = Float64Array.from(kept, (d, k) => (d - ramp) / speed + k * extra);
   out.T = (n * PATH_STEP) / speed + kept.length * extra;
+  if (backAt >= 0) {
+    // Its time round the loop there: cruising to it, plus each stop's slowing and standing before it.
+    const d = backAt * PATH_STEP;
+    out.backTau = d / speed + kept.filter((x) => x < d).length * extra;
+  }
   const hit = newHit();
   for (let i = 0; i < n; i++) {
     const dx = out.x[(i + 1) % n] - out.x[(i + n - 1) % n];
@@ -209,12 +231,27 @@ function pathLoop(track: Track, line: readonly [number, number][], pos: number, 
     out.tx[i] = dx / len;
     out.tz[i] = dz / len;
   }
-  // Where it is by the main road.
-  for (let i = 0; i < n; i++) {
-    projectGlobal(track.main, out.x[i], out.z[i], hit);
-    out.s[i] = hit.s;
-    out.lat[i] = hit.lateral;
+  // Where it is by the main road; and where it's on it, going against the lap (Sahara's caravan down
+  // the Caravan Road's edge), as runs of main distance.
+  let run = -1;
+  let side = 0;
+  for (let i = 0; i <= n; i++) {
+    let on = false;
+    if (i < n) {
+      projectGlobal(track.main, out.x[i], out.z[i], hit);
+      out.s[i] = hit.s;
+      out.lat[i] = hit.lateral;
+      on = Math.abs(hit.lateral) < hit.width / 2 + hit.shoulder && out.tx[i] * hit.tx + out.tz[i] * hit.tz < -0.7;
+      if (on) side += hit.lateral;
+    }
+    if (on && run < 0) run = i;
+    if (!on && run >= 0) {
+      // (Against the lap: its last sample is the run's start along the main road.)
+      if (i - run > 2) out.against.push([out.s[i - 1], out.s[run]]);
+      run = -1;
+    }
   }
+  out.side = Math.sign(side);
   return out;
 }
 
@@ -252,7 +289,7 @@ export function trafficLanes(track: Track, defs: readonly TrafficLaneDef[]): { l
     if (def.path) {
       // Round its loop through the streets, never on the main road's lanes.
       if (!track.ground || def.path.length < 3) continue;
-      const path = pathLoop(track, def.path, def.pos, def.speed, def.stops);
+      const path = pathLoop(track, def.path, def.pos, def.speed, def.stops, def.back);
       const R = path.n * PATH_STEP;
       lanes.push({ ...def, sections: [] });
       routes.push({ inSp: track.main, outSp: track.main, on: 0, off: 0, a: R, b: 0, c: 0, R, C: R, path });
@@ -285,7 +322,9 @@ export function trafficLanes(track: Track, defs: readonly TrafficLaneDef[]): { l
       const b = wrap((off - on) * def.dir, L);
       const c = outSp.length / 2;
       const R = a + b + c;
-      lanes.push({ pos: def.pos, dir: def.dir, speed: def.speed, sections: [def.dir > 0 ? [on, off] : [off, on]] });
+      // (Its count, if it gives one, shared between its routes; its kinds as given.)
+      const count = def.count !== undefined ? def.count / (def.streets.length - 1) : undefined;
+      lanes.push({ pos: def.pos, dir: def.dir, speed: def.speed, sections: [def.dir > 0 ? [on, off] : [off, on]], ...(count !== undefined ? { count } : {}), ...(def.kinds ? { kinds: def.kinds } : {}) });
       routes.push({ inSp, outSp, on, off, a, b, c, R, C: R + HIDDEN });
     }
   }
@@ -329,6 +368,8 @@ export class Traffic {
   readonly kind: Uint8Array;
   /** Race time the car was wrecked (-1: never). Part of the sim snapshot. */
   readonly wreckedAt: Float64Array;
+  /** Per lane: whether its cars fade out of the start grid's clear zone (no start kept them out of it). */
+  readonly gridFade: readonly boolean[];
 
   /** Posed this tick: traffic index and pose. */
   posed = 0;
@@ -369,7 +410,15 @@ export class Traffic {
     const L = track.main.length;
     // Cars loop the whole lap but only appear in their lane's sections, so size the fleet so the
     // sections get `density` cars per km. A route's cars loop the route: `density` per km of it.
-    const perLane = this.lanes.map((lane, l) => Math.max(0, Math.round(lane.count !== undefined ? lane.count * density : ((this.routes[l]?.R ?? L) / 1000) * (def?.density ?? 0) * density)));
+    const wanted = this.lanes.map((lane, l) => Math.max(0, Math.round(lane.count !== undefined ? lane.count * density : ((this.routes[l]?.R ?? L) / 1000) * (def?.density ?? 0) * density)));
+    // Kept off the start grid (gridSlots): spaced round the loop's slots clear of it, as many fewer
+    // as there's less loop, so the road's as busy as ever (none: as ever, faded out of it instead).
+    const slotsOf = this.lanes.map((lane, l) => (wanted[l] > 0 ? this.gridSlots(l, lane.string?.[0] ?? 1, lane.string?.[1] ?? 0, this.routes[l]?.C ?? L) : null));
+    this.gridFade = slotsOf.map((slots) => slots?.length === 0);
+    const perLane = wanted.map((n, l) => {
+      const slots = slotsOf[l];
+      return slots?.length ? Math.round((n * slots.length) / Math.ceil(this.routes[l]?.C ?? L)) : n;
+    });
     this.count = perLane.reduce((a, b) => a + b, 0);
     this.lane = new Uint8Array(this.count);
     this.s0 = new Float64Array(this.count);
@@ -378,7 +427,11 @@ export class Traffic {
     // (Every kind with a weight, in order; a lane naming its kinds draws from those, evenly.)
     const anyKind = TRAFFIC_KINDS.flatMap((x, n) => (x.weight > 0 ? [n] : []));
     let k = 0;
+    // (Each car's numbers hashed by where it'd be among `wanted`: a lane with fewer leaves the rest as they were.)
+    let hk = 0;
     perLane.forEach((n, l) => {
+      const h0 = hk;
+      hk += wanted[l];
       // (A route's car's s0 is where it is round its loop, not a main distance.)
       const loop = this.routes[l]?.C ?? L;
       const lane = this.lanes[l];
@@ -390,16 +443,99 @@ export class Traffic {
       const [per, gap] = lane.string ?? [1, 0];
       const heads = Math.max(1, Math.ceil(n / per));
       const spacing = loop / heads;
+      // (Off the start grid: spaced as ever round a loop of its slots alone. A loop all clear is untouched.)
+      const slots = slotsOf[l];
       for (let j = 0; j < n; j++, k++) {
         this.lane[k] = l;
         const head = Math.floor(j / per);
-        this.s0[k] = per > 1 ? wrap(head * spacing + (hash01(seed, k - (j % per), 1) - 0.5) * spacing * 0.5 - lane.dir * (j % per) * gap, loop) : wrap(j * spacing + (hash01(seed, k, 1) - 0.5) * spacing * 0.5, loop);
-        let r = hash01(seed, k, 2) * totalWeight;
+        const q = h0 + j;
+        if (slots?.length) {
+          const u = wrap(per > 1 ? head * spacing + (hash01(seed, q - (j % per), 1) - 0.5) * spacing * 0.5 : j * spacing + (hash01(seed, q, 1) - 0.5) * spacing * 0.5, loop);
+          const f = (u / loop) * slots.length;
+          const at = Math.min(slots.length - 1, Math.floor(f));
+          this.s0[k] = wrap((slots[at] + (f - at)) * (loop / Math.ceil(loop)) - lane.dir * (j % per) * gap, loop);
+        } else
+          this.s0[k] = per > 1 ? wrap(head * spacing + (hash01(seed, q - (j % per), 1) - 0.5) * spacing * 0.5 - lane.dir * (j % per) * gap, loop) : wrap(j * spacing + (hash01(seed, q, 1) - 0.5) * spacing * 0.5, loop);
+        let r = hash01(seed, q, 2) * totalWeight;
         let at = 0;
         while (at < pool.length - 1 && r > weight(pool[at])) r -= weight(pool[at++]);
         this.kind[k] = pool[at];
       }
     });
+  }
+
+  /**
+   * Where round lane l's loop (s0, in steps of loop / ⌈loop⌉, from the first after one that isn't) a
+   * string of `per` cars `gap` apart may start its head so that none of it comes near the start
+   * grid's clear zone (GRID_CLEAR, and FADE more either side) in the clear time, where it could be
+   * seen. Null: anywhere (no part of the loop is near it). Empty: nowhere.
+   */
+  private gridSlots(l: number, per: number, gap: number, loop: number): number[] | null {
+    const lane = this.lanes[l];
+    const r = this.routes[l];
+    const L = this.track.main.length;
+    const N = Math.ceil(loop);
+    const step = loop / N;
+    const getaway = this.track.layout.getaway?.start;
+    if (r?.path && !getaway) return null;
+    // A lane of animals (Sahara's caravan, at the road's edge, never a wreck) keeps off the grid
+    // itself but not the road ahead of it: it'd be gone from the opening straight on the first lap.
+    const animals = !!lane.kinds?.length && lane.kinds.every((id) => TRAFFIC_KINDS.find((x) => x.id === id)?.animal);
+    const ahead = animals ? 0 : GRID_CLEAR.ahead + FADE;
+    // Whether a car at loop position q is somewhere it'd be seen near the grid.
+    const near = (q: number): boolean => {
+      if (r?.path) {
+        const i = Math.floor(this.pathD(r.path, (q / r.C) * r.path.T) / PATH_STEP) % r.path.n;
+        return hypot(r.path.x[i] - getaway!.at[0], r.path.z[i] - getaway!.at[1]) < PATH_CLEAR + FADE;
+      }
+      let s = wrap(q, L);
+      if (r) {
+        if (q <= 0 || q >= r.R) return false;
+        s = this.routePose(r, lane, q, this.sScratch, this.sHit).s;
+      } else if (this.sectionFade(lane, s) <= 0) return false;
+      return s > L - GRID_CLEAR.behind - FADE || s < ahead;
+    };
+    const bad = new Uint8Array(N);
+    let any = false;
+    for (let i = 0; i < N; i++) any = (bad[i] = near(i * step) ? 1 : 0) === 1 || any;
+    if (!any) return null;
+    // Its head at u: its cars from u to u − dir·(per−1)·gap, each moving `adv` (s0 per second) for
+    // the clear time. Bad if any of that is.
+    const adv = r?.path ? r.C / r.path.T : r ? lane.speed : lane.dir * lane.speed;
+    const tail = -lane.dir * (per - 1) * gap;
+    const sweep = adv * GRID_CLEAR.seconds;
+    const lo = Math.floor((Math.min(0, tail) + Math.min(0, sweep)) / step);
+    const hi = Math.ceil((Math.max(0, tail) + Math.max(0, sweep)) / step);
+    if (hi - lo + 1 >= N) return [];
+    const sum = new Int32Array(2 * N + 1);
+    for (let i = 0; i < 2 * N; i++) sum[i + 1] = sum[i] + bad[i % N];
+    const ok = new Uint8Array(N);
+    for (let i = 0; i < N; i++) {
+      const a = (((i + lo) % N) + N) % N;
+      ok[i] = sum[a + hi - lo + 1] - sum[a] === 0 ? 1 : 0;
+    }
+    let first = -1;
+    for (let i = 0; i < N && first < 0; i++) if (ok[i] && !ok[(i + N - 1) % N]) first = i;
+    if (first < 0) return [];
+    const slots: number[] = [];
+    for (let j = 0; j < N; j++) if (ok[(first + j) % N]) slots.push(first + j);
+    return slots;
+  }
+
+  /** Lane `lane`'s visibility at main distance s by its sections: 1 inside one, fading over FADE either side, 0 away from them. */
+  private sectionFade(lane: TrafficLaneDef, s: number): number {
+    if (!lane.sections || laneActive(lane, s)) return 1;
+    const L = this.track.main.length;
+    // Road still to go to the next section's start, or already gone past the last one's end.
+    let best = 0;
+    for (let q = 0; q < lane.sections.length; q++) {
+      const a = lane.sections[q][0];
+      const b = lane.sections[q][1];
+      const entry = lane.dir > 0 ? a : b;
+      const exit = lane.dir > 0 ? b : a;
+      best = Math.max(best, 1 - wrap((entry - s) * lane.dir, L) / FADE, 1 - wrap((s - exit) * lane.dir, L) / FADE);
+    }
+    return best;
   }
 
   /** Main-spline distance of traffic car k at race time t (pure). On a street, the street's main distance there (mainDistance). */
@@ -488,6 +624,21 @@ export class Traffic {
 
   private readonly at = { road: 0, s: 0 };
 
+  /**
+   * Which side of the main road lane l's traffic comes the other way at main distance s, for a racer
+   * to keep off (sign of lateral; 0: none there): an oncoming lane's, where it has traffic; a path's
+   * where it runs along the road against the lap.
+   */
+  oncoming(l: number, s: number): number {
+    const path = this.routes[l]?.path;
+    if (path) {
+      for (const [a, b] of path.against) if (a <= b ? s >= a && s <= b : s >= a || s <= b) return path.side;
+      return 0;
+    }
+    const lane = this.lanes[l];
+    return lane.dir < 0 && laneActive(lane, s) ? Math.sign(lane.pos) : 0;
+  }
+
   /** Whether car k comes and goes by side streets. */
   onRoute(k: number): boolean {
     return this.routes[this.lane[k]] !== null;
@@ -495,8 +646,8 @@ export class Traffic {
 
   /**
    * How visible car k is at time t, 0–1 (pure): 1 inside its lane's sections, fading over FADE
-   * meters either side; faded out of the start grid's clear zone early on; back over FADE_BACK
-   * seconds after a wreck.
+   * meters either side; back over FADE_BACK seconds after a wreck. (Faded out of the start grid's
+   * clear zone early on only in a lane whose start couldn't keep it out: `gridFade`.)
    */
   visibility(k: number, t: number): number {
     const w = this.wreckedAt[k];
@@ -505,7 +656,14 @@ export class Traffic {
     const r = this.routes[this.lane[k]];
     if (w >= 0 && t >= w) {
       if (t < w + TRAFFIC_RESPAWN) return 0;
-      if (r && !r.path) {
+      if (r?.path && r.path.backTau >= 0) {
+        // Round a path with a corner out of sight: gone until it next passes that, then in there.
+        const p = r.path;
+        const t0 = w + TRAFFIC_RESPAWN;
+        const back = t0 + wrap(p.backTau - wrap((this.s0[k] / r.C) * p.T + t0, p.T), p.T);
+        if (t < back) return 0;
+        v = Math.min(1, (t - back) / FADE_BACK);
+      } else if (r && !r.path) {
         // By side streets: gone until it next comes round to the first street's middle (back on
         // the main road where it was hit would be the pop this is all to avoid), then in as ever.
         const lap = r.C / lane.speed;
@@ -518,7 +676,7 @@ export class Traffic {
       // Round its loop, always there; but kept off the getaway's start while the grid's clear (a
       // car rolling into the parked getaway car), fading back in as the rest do.
       const start = this.track.layout.getaway?.start;
-      if (start && t < GRID_CLEAR.seconds + FADE_BACK) {
+      if (start && this.gridFade[this.lane[k]] && t < GRID_CLEAR.seconds + FADE_BACK) {
         const i = this.pathIndex(k, t);
         const away = hypot(r.path.x[i] - start.at[0], r.path.z[i] - start.at[1]);
         v = Math.min(v, Math.max(Math.min(1, Math.max(0, (away - PATH_CLEAR) / FADE)), (t - GRID_CLEAR.seconds) / FADE_BACK));
@@ -531,19 +689,8 @@ export class Traffic {
       // In from the first street's middle, out at the next one's, and gone in between.
       const d = this.dAt(k, t);
       v = d >= r.R ? 0 : Math.min(v, d / STREET_FADE, (r.R - d) / STREET_FADE);
-    } else if (lane.sections && !laneActive(lane, s)) {
-      // Road still to go to the next section's start, or already gone past the last one's end.
-      let best = 0;
-      for (let q = 0; q < lane.sections.length; q++) {
-        const a = lane.sections[q][0];
-        const b = lane.sections[q][1];
-        const entry = lane.dir > 0 ? a : b;
-        const exit = lane.dir > 0 ? b : a;
-        best = Math.max(best, 1 - wrap((entry - s) * lane.dir, L) / FADE, 1 - wrap((s - exit) * lane.dir, L) / FADE);
-      }
-      v = Math.min(v, best);
-    }
-    if (t < GRID_CLEAR.seconds + FADE_BACK) {
+    } else v = Math.min(v, this.sectionFade(lane, s));
+    if (this.gridFade[this.lane[k]] && t < GRID_CLEAR.seconds + FADE_BACK) {
       // The clear zone runs from `behind` before the line to `ahead` after it; fade by distance
       // to it, then all back in over FADE_BACK once the time's up.
       const outside = Math.min(wrap(s - GRID_CLEAR.ahead, L), wrap(L - GRID_CLEAR.behind - s, L));

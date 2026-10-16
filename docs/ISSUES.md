@@ -26,6 +26,26 @@ Newest first. Bugs found by reading code go in HANDOFF's follow-ups; clean-ups i
    `follow`, `slopeRise`, the guards; the aim from `look`) and measure the view's angle, not only the
    car's height.
 
+## Camels and traffic faded in right in front of you (2026-10-15)
+
+- **Looked like:** on Sahara's opening straight, the camels "always seem to phase in when you are
+  nearby", half see-through as you pass (a screenshot at 0:03.6 of lap 1); traffic did it too.
+- **Was:** two things. On the first lap, every car near the start grid was faded out for its first
+  10 s and back in after, wherever it was, and the Caravan Road (30–120 m) is all inside that zone.
+  Every lap, a lane's cars fade over 45 m past each section end, and nearly every end sits on an
+  open straight, seen from the whole 250 m before it.
+- **Fix:** the grid is kept clear by where each lane's cars start (`Traffic.gridSlots`), not by a
+  fade, and camels only keep off the grid itself; section ends move where their fades are least
+  seen (`hideSections`: only Downtown's two starts could). SPEC "Fades out of sight (2026-10-15)".
+- **Guard:** `test/traffic.test.ts` ("the start grid on every map": no car seen near the grid in
+  the clear time but a lane that can't start clear of it). How many fades a racer sees:
+  `bun tools/fades.ts [map]`.
+- **Still there:** fades at section ends on straights (Downtown 6 a lap with its buildings counted,
+  Backroads 6), and wrecks coming back where they were (most of Heist's 1). Sahara's camels since
+  walk a loop from the oasis and never fade (2026-10-16, SPEC "Traffic that leaves instead of
+  fading"; guard: `test/sahara.test.ts`, "camels never fade"). Downtown's cars turning off by side
+  streets was tried: no fade seen, but the field wrecked a third more (the owner's call).
+
 ## Steering on the keyboard had a slight delay before it took (2026-10-14)
 
 - **Looked like:** "a slight initial delay" from a steer key to the car turning; noticed around

@@ -39,7 +39,7 @@ UI polish (v1.2, 2026-10-15)".
 - **Checked by the owner (2026-10-16)** with their Xbox pad: "this feels really good".
 - **Next:** MENU.md's step 3 (keyboard remapping, the hints from the bindings).
 
-**The hosted build is `v1.2`** (tagged 2026-10-16): `v1.1` plus PR #182, the UI polish (above). **`v1.1`** (tagged 2026-10-15) is `v1.0.1` plus
+**The hosted build is `v1.2`** (tagged 2026-10-16): `v1.1` plus PR #182, the UI polish (above), and #181 and #183 (traffic out of sight, Sahara's caravan). **`v1.1`** (tagged 2026-10-15) is `v1.0.1` plus
 **PRs #174–#180**: Time trial with online lap boards, names checked with GameRelay's moderation
 (SDK `0.1.0-alpha.12`), GameRelay's test bots, Esc from Create, the camera, drift and steering on the
 keyboard, the version on the title ("Hosted test build" below). **`v1.0.1` is tagged** (2026-10-14): **PR
@@ -191,7 +191,7 @@ From `alpha-1.47` (2026-10-11), still open:
   - **CORS on the Space** (GET and HEAD from any origin) stays: it lets a build read the Space's
     origin directly too, if the CDN is ever down.
 - **What's there now:** `v1.2` (2026-10-16, `./deploy-hosted.sh`, title foot `v1.2`): `v1.1` plus
-  #182, the UI polish (CHANGELOG "v1.2: UI polish"). `v1.1`: `v1.0.1` plus #174–#179 (test bots on SDK alpha.11,
+  #182, the UI polish, and #181/#183, traffic (CHANGELOG "v1.2: UI polish"). `v1.1`: `v1.0.1` plus #174–#179 (test bots on SDK alpha.11,
   Esc from Create, the camera's aim, drift onset, keyboard steering, the build's version on the
   title) and **#180**: Time trial with an online lap board per layout (`lap:<map>.<layout>`, lower
   first), and names others see (plates, online lobby names) checked with GameRelay's moderation

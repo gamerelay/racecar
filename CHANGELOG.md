@@ -16,6 +16,7 @@ New menus, from the title to the results: one look throughout, built to play wit
 - **Pause, Settings and Controls:** the in-race menu shows where you are in the race, with tips for each key. Settings and Controls are one panel with two tabs, keyboard and pad side by side.
 - **The results, the first race's keys card and the Credits pages** have the new look too. The keys card shows the pad's buttons if that's what you're holding.
 - **Smoother in and out:** each screen's pieces slide in, and slanted bands wipe across between the menus and a race. With reduced motion on, it's all short fades.
+- **Less traffic fading in right in front of you:** on the first lap, cars no longer materialize half see-through just past the start (they used to be hidden from the start grid for ten seconds, then fade back in wherever they were); now they start where they're clear of it. Sahara's camels are on the Caravan Road from the first lap, and they no longer fade at all: caravans walk in from the oasis over the dunes, down the road's edge toward you, and back to the river. Two of Downtown's traffic stretches now start where you can see less of the road before them.
 
 ## v1.1: Time trial
 

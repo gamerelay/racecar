@@ -1066,6 +1066,84 @@ Traffic that doesn't pop (2026-09-30):
 - **The sim's pool also takes cars within 250 m in a straight line** of a racer, for laps that
   fold back or cross.
 
+Fades out of sight (2026-10-15):
+
+The owner, of Sahara's camels: "they always seem to phase in when you are nearby", then "the fading
+issue also happens with cars ... in single player mode it would be nice if it was timed or offset so
+you rarely / never see them pop in or out". Measured first with a new tool, `tools/fades.ts`: 8 AI
+race with traffic and, from each racer's chase camera (`track/sight.ts`: in front, within 250 m,
+not behind the open ground, a crest of the road or a tall prop), it counts the cars it sees fading,
+put down to the section end, start grid or wreck each was at. Fades seen per racer per lap (three
+seeds, two laps): Downtown 13.2, Backroads 8.0, Sahara 4.4, Paradise (open) 4.2, Heist 3.7, Riviera 0.7.
+
+- **The start grid is clear by where the cars start, not by a fade.** Every car near the grid was
+  faded out for the first 10 s, then faded back in where it was: on the first lap, right in front
+  of you (the camels at 0:03, half see-through). Now each lane's cars are spaced round only the
+  part of their loop from which none comes within FADE of the clear zone in those 10 s
+  (`Traffic.gridSlots`), with as many fewer cars as there's less loop, so the road is as busy. A
+  loop that never comes near the grid is untouched (its cars hashed by where they'd have been, so
+  a lane with fewer leaves the others as they were). The four lanes whose whole loop is at the
+  grid (Riviera's side street at the line, Paradise's lot route and its Waine Street lanes) can't
+  start clear of it and still fade as before (`gridFade`); by the time they're back the field is
+  past them. Animals (the caravan, at the road's edge, never a wreck) keep off the grid alone, not
+  the road ahead: kept off it too, the Caravan Road would have no camels on the first lap.
+- **Section ends where their fades are least seen** (`hideSections`, after `straightenSections` in
+  the generators and `tools/fix-traffic.ts`): each end may move in by a third of its section (150 m
+  at most) or out by 40 m, every 5 m, if its fade is then seen from at least 30% (and 50 m) less of
+  the road before it. Its cars still go solid on a straight (40 m in from the end turning under
+  8°) and 30 m from a solid prop. Only Downtown found anywhere: the Boulevard's start from 3197 m to
+  4 m (just out of the tunnel, 300 m of road seeing its fade to 115 m), the Underpass's from 1568 m
+  to 1613 m. Every other end sits on a straight seen from the whole 250 m before it, with nothing
+  within reach to hide behind. The skin's buildings and hills aren't in the sim, so off open ground
+  this is high, but it tells ends apart all the same. What would hide them is a change to where
+  traffic goes: cars that turn off (as routes do) and camels walking off into the dunes.
+- **Numbers:** fades seen per racer per lap: Downtown 11.2, Backroads 6.9, Heist 2.2 (the grid's
+  are gone; the rest are wrecks coming back), Sahara 5.2 (higher: the camels are now there on the
+  first lap, and their ends are seen), Paradise (open) 4.2 and Riviera 0.7 (as before, their grid
+  lanes). Field races, 48 seeds each, wrecks before → after: Downtown 56 → 60 (traffic 30 → 26),
+  Backroads 38 → 34, Heist 3968 → 3492, Sahara 43 → 43, Riviera 17 → 17, Paradise (open) 32 → 32,
+  Paradise (island) 51 → 31. Lap floors unchanged; fingerprints identical but Riviera's side-street
+  traffic (re-recorded).
+
+Traffic that leaves instead of fading (2026-10-16):
+
+The owner: "open a PR and then do option 3" (the cars turn off out of sight, the camels walk off
+over a dune).
+
+- **Sahara's camels come from the oasis** (TrafficLaneDef.path, kinds 'camel'): a loop, never
+  faded. Down the Caravan Road's left edge toward you (130 m to 10 m), off it across the plateau to
+  the river, back upstream at the water's edge (9 m from its middle, between it and the palms), down
+  in the channel where no stretch of road can see them (`track/sight.ts`: 0 m of road), and back over
+  the plateau onto the road. Four strings of five, one every 150 m of its 656 m. A scattered camel
+  comes back down in the channel (TrafficLaneDef.back, a path's corner: gone until it next passes
+  it), not on the road where it'd be. Fades seen per racer per lap: 5.5 → 0.
+  - **The road leg is oncoming to the AI** (`Traffic.oncoming`: a path's runs on the main road
+    against the lap): the old section lane was, so the field kept right on the opening straight.
+    Without it the first lap's pack spread to the left edge and piled up into the first bend (26
+    wrecks at 150–200 m in 48 races, all on the first lap, most with no camel near).
+  - **Its entry at 130 m, not 170 m:** a string stepping onto the edge at 170–185 m as the first
+    lap's pack got there was 22 more.
+  - Field races (48 seeds): 43 → 46 wrecks. Floor 78.77 → 78.85 s (the hard AI's line, no longer
+    a section lane's oncoming side; a higher floor keeps the lap boards' minimums safe).
+- **The sight model knows a city's buildings** (scenery 'city'): the cityscape builds on anything
+  more than its sidewalk off a road, so a line under 12 m that far from every road is blocked.
+  Downtown's Boulevard start no longer pays to move with them counted (the Underpass's tunnel
+  hides it as well): back at 3197 m. Fades seen on Downtown with them: 6.2 a lap, nearly all the
+  Boulevard's and the Skyway's.
+- **Tried on Downtown and left out: side streets off the Boulevard.** Four cul-de-sacs (in by a
+  slip under 35°, 80 m out behind the first row of buildings, round a turning circle and back beside
+  itself), its two lanes by streets: the cityscape built round them as streets, and none of their
+  255 fades was seen (Downtown 6.2 → 4.0 a lap, the Skyway's left). But the field wrecked more,
+  turning traffic being solid where the faded was a ghost: the lap's lane turned off across the
+  outside line before the first corner, and the oncoming merged under the first lap's pack.
+  Measured (96 seeds; PR #181's 117 wrecks): both lanes 134–151 (by how the start was kept clear;
+  a short loop kept to its clear part ran as a convoy), turn-offs at 240 m 188, the oncoming lane
+  alone 124 but only 6.2 → 5.5. The owner's call. What's kept from it: a lane by streets keeps its
+  `count` and `kinds` (they were dropped, the layout's density used instead).
+- **Still fading:** the Skyway's and Backroads' ends (the Trestle's deck and the home straight,
+  whose oncoming lane's street would cross the Barn's mouth), Paradise's freeway, and wrecks coming
+  back where they were.
+
 Audio (2026-09-30):
 
 - **All synthesized on Web Audio, no samples** (`src/audio/`): `model.ts` is the pure part
