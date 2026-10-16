@@ -4,7 +4,7 @@ Where racecar stands and what's next, for whoever picks it up (a person or a fre
 The design is [SPEC.md](./SPEC.md): decisions in §17, and what building changed in "Changed while
 building". This file is "where are we"; the spec is "what are we making".
 
-**Last updated:** 2026-10-16. **Remapping** (branch `remapping`, on `v1.2.2`; PR open, not merged or deployed:
+**Last updated:** 2026-10-16. **Remapping** (branch `remapping`, on `v1.2.2`; PR #186, not merged or deployed:
 waiting on the owner's try with their Xbox pad): MENU.md's steps 3 and 5 together. The Controls tab
 sets each driving action's two buttons and two keys, the controller first, by pressing the new one;
 a button or key another action has swaps over (the owner's call). Reset per device; the pad's
