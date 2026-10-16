@@ -17,7 +17,8 @@ export type Page = 'credits' | 'privacy' | 'terms';
 export interface LiveBackdrop {
   readonly canvas: HTMLCanvasElement;
   readonly running: boolean;
-  start(): void;
+  /** `sheet`: where the page is on screen, for the backdrop to frame around it. */
+  start(sheet?: () => DOMRect | null): void;
   stop(): void;
 }
 const PAGES: readonly Page[] = ['credits', 'privacy', 'terms'];
@@ -84,7 +85,7 @@ export class PagesPanel extends Overlay {
     this.el.classList.toggle('live', live);
     if (live) {
       this.el.prepend(this.backdrop!.canvas);
-      this.backdrop!.start();
+      this.backdrop!.start(() => this.el.querySelector('.pg-sheet')?.getBoundingClientRect() ?? null);
     } else this.backdrop?.stop();
     this.el.querySelector<HTMLButtonElement>('#pgBack')!.onclick = () => this.close();
     this.show(from);

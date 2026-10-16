@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import { courseFor, StuntDriver, STUNT } from '../src/render/credits-drive';
+import { chase, CHASE_TURN, CHASE_TURN_DONUTS, courseFor, StuntDriver, STUNT } from '../src/render/credits-drive';
 
 // The credits' stunt driver (render/credits-drive.ts): figure 8s and donuts that stay where the
 // backdrop's camera frames them, with no snaps, the nose into the turn, the same show every time.
@@ -85,5 +85,21 @@ describe('the credits stunt driver', () => {
     const inside = courseFor(0, -2, 0, 0, 5, 1);
     expect(inside).toBeLessThan(-Math.PI / 2);
     expect(inside).toBeGreaterThan(-Math.PI);
+  });
+
+  test("the chase camera: behind the car round the 8, slow in the donuts (the car spins, not the world)", () => {
+    let yaw = show[0].course;
+    let behind = 0;
+    let eights = 0;
+    for (let i = 1; i < show.length; i++) {
+      const p = show[i];
+      const next = chase(yaw, p.course, DT, p.donuts);
+      expect(Math.abs(wrap(next - yaw))).toBeLessThanOrEqual((p.donuts ? CHASE_TURN_DONUTS : CHASE_TURN) * DT + 1e-9);
+      yaw = next;
+      if (p.donuts) continue;
+      eights++;
+      if (Math.abs(wrap(p.course - yaw)) < Math.PI / 3) behind++;
+    }
+    expect(behind / eights).toBeGreaterThan(0.85);
   });
 });

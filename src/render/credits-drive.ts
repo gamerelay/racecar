@@ -153,3 +153,18 @@ export class StuntDriver {
     for (let t = 0; t < seconds; t += dt) this.step(dt);
   }
 }
+
+/** The chase camera's turn (rad/s at most): keeping up round the 8, slow in the donuts. And how soon it catches up with the car's course (s). */
+export const CHASE_TURN = 1.7;
+export const CHASE_TURN_DONUTS = 0.5;
+const CHASE_LAG = 0.4;
+
+/**
+ * The chase camera's heading a step on: swung round after the car's course, eased, and never
+ * faster than its limit; in the donuts that's slow, so the car spins and the world only turns.
+ */
+export function chase(yaw: number, course: number, dt: number, donuts = false): number {
+  const most = (donuts ? CHASE_TURN_DONUTS : CHASE_TURN) * dt;
+  const turn = wrap(course - yaw) * (1 - Math.exp(-dt / CHASE_LAG));
+  return wrap(yaw + clamp(turn, -most, most));
+}

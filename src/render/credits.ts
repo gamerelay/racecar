@@ -1,7 +1,7 @@
 // The credits' backdrop (ui/pages.ts): an outrun night, drawn live. A banded sun setting in a gap
 // in wire mountains, stars, a neon grid floor with the sun in its gloss, rows of palms out to the
-// horizon, and a chrome Vanta doing figure 8s and donuts (credits-drive.ts) either side of the
-// page, laying light trails and smoking its tires. The game's own car and post pass (ink, grade,
+// horizon, and a silver Vanta doing figure 8s and donuts (credits-drive.ts), laying light trails
+// and smoking its tires, followed by a chase camera that keeps it in the open under the page. The game's own car and post pass (ink, grade,
 // grain), on a small renderer of its own that only runs while the page is up. With reduced motion
 // it's one still frame.
 
@@ -32,7 +32,7 @@ import {
 } from 'three';
 import { CLASSES } from '../content';
 import { PALM_PATHS } from '../ui/palm';
-import { StuntDriver, STUNT } from './credits-drive';
+import { chase, StuntDriver } from './credits-drive';
 import { InkPass } from './ink';
 import { PostPass } from './post';
 import type { LiveBackdrop } from '../ui/pages';
@@ -43,10 +43,14 @@ import { glow } from './skins/greybox/toon';
 /** Where the sun sits (just over the horizon, its middle): the stage looks straight at it. */
 const SUN = new Vector3(0.35, 0.05, -1).normalize();
 const HAZE = 0xff3d7f;
-const FOV = 40;
-/** The horizon's height above the middle of the screen, and the cones' depth below it, as shares of half the screen. */
-const HORIZON = 0.3;
-const DROP = 0.3;
+const FOV = 44;
+/** The chase camera: how tall the car is on screen as a share of the open strip under the page, and
+ * how far up the horizon sits above the page's top (shares of the screen's height). */
+const CAR_SHARE = 0.62;
+const HORIZON_DROP = 0.1;
+/** How much of the car is on screen top to bottom, seen from high behind (m). */
+const CAR_EXTENT = 3;
+
 /** Fixed steps for the driver, the trails and the smoke (s); a still is this far into the show. */
 const STEP = 1 / 120;
 const STILL_AT = 10.4;
@@ -158,38 +162,49 @@ function buildFloor(fog: Color): { mesh: Mesh; uniforms: Record<string, { value:
   return { mesh, uniforms };
 }
 
-/** The mountains far off: a dark ridge with a gap for the sun, edged in hot pink wire. */
+/** The mountains far off, all the way round: a dark ridge with a gap where the sun sets, edged in hot pink wire. */
 function buildMountains(): Group {
   const g = new Group();
-  const n = 220;
-  const z = -760;
-  const ridge = (x: number) => {
-    const gap = Math.min(1, Math.max(0, (Math.abs(x) - 70) / 230));
-    const peaks = 0.55 * Math.abs(Math.sin(x * 0.0105 + 1.3)) + 0.3 * Math.abs(Math.sin(x * 0.029 + 0.4)) + 0.15 * Math.abs(Math.sin(x * 0.083));
+  const n = 360;
+  const R = 760;
+  // Round the ring by angle: 0 is toward the sun (−z). `a` is along the ridge (m), for its peaks.
+  const ridge = (phi: number) => {
+    const a = phi * R;
+    const gap = Math.min(1, Math.max(0, (Math.abs(a) - 70) / 230));
+    const peaks = 0.55 * Math.abs(Math.sin(a * 0.0105 + 1.3)) + 0.3 * Math.abs(Math.sin(a * 0.029 + 0.4)) + 0.15 * Math.abs(Math.sin(a * 0.083));
     return 4 + 78 * gap * gap * (3 - 2 * gap) * peaks;
   };
+  const at = (phi: number, inset = 0): [number, number] => [(R - inset) * Math.sin(phi), -(R - inset) * Math.cos(phi)];
   const fill: number[] = [];
   const wire: number[] = [];
   for (let i = 0; i < n; i++) {
-    const x0 = -1300 + (2600 * i) / n;
-    const x1 = -1300 + (2600 * (i + 1)) / n;
-    const h0 = ridge(x0);
-    const h1 = ridge(x1);
-    fill.push(x0, 0, z, x1, 0, z, x1, h1, z, x0, 0, z, x1, h1, z, x0, h0, z);
-    wire.push(x0, h0, z + 1, x1, h1, z + 1);
+    const p0 = -Math.PI + (2 * Math.PI * i) / n;
+    const p1 = -Math.PI + (2 * Math.PI * (i + 1)) / n;
+    const h0 = ridge(p0);
+    const h1 = ridge(p1);
+    const [x0, z0] = at(p0);
+    const [x1, z1] = at(p1);
+    fill.push(x0, 0, z0, x1, 0, z1, x1, h1, z1, x0, 0, z0, x1, h1, z1, x0, h0, z0);
+    // The wire just in front of the fill, so it's never behind it.
+    const [wx0, wz0] = at(p0, 1);
+    const [wx1, wz1] = at(p1, 1);
+    wire.push(wx0, h0, wz0, wx1, h1, wz1);
     // Down each slope, a line to the foot: the wireframe's facets.
-    if (i % 3 === 0) wire.push(x0, h0, z + 1, x0 + (i % 2 ? 9 : -9), 0, z + 1);
+    if (i % 3 === 0) {
+      const [fx, fz] = at(p0 + (i % 2 ? 0.012 : -0.012), 1);
+      wire.push(wx0, h0, wz0, fx, 0, fz);
+    }
   }
   const fg = new BufferGeometry();
   fg.setAttribute('position', new BufferAttribute(new Float32Array(fill), 3));
-  g.add(new Mesh(fg, new MeshBasicMaterial({ color: 0x14082a, fog: false })));
+  g.add(new Mesh(fg, new MeshBasicMaterial({ color: 0x14082a, fog: false, side: DoubleSide })));
   const wg = new BufferGeometry();
   wg.setAttribute('position', new BufferAttribute(new Float32Array(wire), 3));
   g.add(new LineSegments(wg, new LineBasicMaterial({ color: NEON.pink, fog: false, transparent: true, opacity: 0.85 })));
   return g;
 }
 
-/** Palms down both sides to the horizon: silhouettes the haze turns pink the farther they are. */
+/** Palms all round the lot out to the horizon: silhouettes the haze turns pink the farther they are, turned to face the camera. */
 function buildPalms(rand: () => number): Group {
   const c = document.createElement('canvas');
   c.width = 256;
@@ -207,16 +222,16 @@ function buildPalms(rand: () => number): Group {
   const palm = (x: number, z: number, h: number) => {
     const m = new Mesh(geo, mat);
     m.position.set(x, 0, z);
-    // Leaning out, away from the lot, like the pages' own.
-    m.scale.set((x < 0 ? 1 : -1) * h * 0.5, h, 1);
+    // Half lean one way, half the other.
+    m.scale.set((rand() < 0.5 ? 1 : -1) * h * 0.5, h, 1);
     g.add(m);
   };
-  for (let k = 0; k < 16; k++) {
-    const z = -40 - k * 34;
-    for (const side of [-1, 1]) {
-      palm(side * (44 + rand() * 6), z + rand() * 10, 13 + rand() * 5);
-      if (k % 2 === 0) palm(side * (78 + rand() * 12), z - 12, 11 + rand() * 4);
-    }
+  // A ring of them round the lot, then more and more spread out to the horizon.
+  // Out past where the chase camera goes (it's up to ~45 m from the car), so none comes between them.
+  for (let k = 0; k < 130; k++) {
+    const phi = rand() * Math.PI * 2;
+    const r = k < 24 ? 95 + rand() * 35 : 130 + rand() ** 0.7 * 470;
+    palm(r * Math.sin(phi), r * Math.cos(phi), 12 + rand() * 6);
   }
   return g;
 }
@@ -392,7 +407,14 @@ export class CreditsBackdrop implements LiveBackdrop {
   private readonly trails = [new Trail(NEON.pink), new Trail(NEON.pink)];
   private readonly smoke: Smoke;
   private readonly floor: Record<string, { value: unknown }>;
+  private readonly palms: Group;
+  /** The cool white that keeps the car silver: from over the camera's shoulder, wherever it is. */
+  private readonly front = new DirectionalLight(0xe6ebff, 1.5);
   private readonly rand = seeded(88);
+  /** Which way the chase camera faces (the car's angles, on the stage). */
+  private chaseYaw = 0;
+  /** Where the page sits on screen, to keep the car in the open under it. */
+  private sheet: () => DOMRect | null = () => null;
   private time = 0;
   private spin = 0;
   private carry = 0;
@@ -441,17 +463,17 @@ export class CreditsBackdrop implements LiveBackdrop {
     this.scene.add(this.stage);
     const floor = buildFloor(new Color(HAZE));
     this.floor = floor.uniforms;
-    this.stage.add(floor.mesh, buildMountains(), buildPalms(this.rand));
+    this.palms = buildPalms(this.rand);
+    this.stage.add(floor.mesh, buildMountains(), this.palms);
 
-    // The sun behind the car rims it pink; a cool white from the camera's side keeps the chrome
-    // silver (the key light's behind it, with the sun), and a cyan fill from the left.
+    // The sun rims the car pink; a cool white from over the camera's shoulder keeps it silver, and
+    // a cyan fill from across the lot.
     const rim = new DirectionalLight(0xff4f9e, 1.8);
     rim.position.set(0, 30, -200);
-    const front = new DirectionalLight(0xe6ebff, 1.5);
-    front.position.set(20, 60, 200);
     const fill = new DirectionalLight(NEON.cyan, 0.7);
     fill.position.set(-60, 25, 60);
-    this.stage.add(rim, rim.target, front, front.target, fill, fill.target);
+    this.stage.add(rim, rim.target, fill, fill.target);
+    this.scene.add(this.front, this.front.target);
 
     const cls = CLASSES.find((c) => c.id === 'coupe') ?? CLASSES[0];
     // Silver: the metallic finish, lit by the scene (the chrome finish mirrors a fixed sky, and reads purple here).
@@ -463,11 +485,13 @@ export class CreditsBackdrop implements LiveBackdrop {
     this.smoke = new Smoke(this.rand);
     this.stage.add(this.smoke.points);
 
+    this.chaseYaw = this.driver.pose.course;
     this.play(WARM);
   }
 
-  /** Draws from now on (one still with reduced motion). */
-  start(): void {
+  /** Draws from now on (one still with reduced motion). `sheet`: where the page is on screen. */
+  start(sheet?: () => DOMRect | null): void {
+    if (sheet) this.sheet = sheet;
     if (this.running) return;
     this.running = true;
     if (reducedMotion()) {
@@ -517,28 +541,44 @@ export class CreditsBackdrop implements LiveBackdrop {
         if (this.rand() < slide * slide * 0.55) this.smoke.emit(x, z, vx, vz);
       }
       this.smoke.step(STEP);
+      this.chaseYaw = chase(this.chaseYaw, p.course, STEP, p.donuts);
     }
   }
 
-  /** Fits the lot to the screen: both circles in, the horizon above the middle and the cones below it. */
+  /**
+   * The chase camera: high behind the car, the way it's going, and the view shifted so the car sits
+   * in the open strip under the page, as big as fits there, with the horizon a little under the
+   * page's top so the sky shows above it.
+   */
   private place(w: number, h: number): void {
     const tanV = Math.tan((FOV * Math.PI) / 360);
-    const tanH = tanV * (w / h);
-    // The circles either side of the page: their outer edges (and a car's length) in, with room for
-    // their near sides, which spread wider on screen.
-    const reach = STUNT.coneX + STUNT.wide + 2;
-    const dist = Math.max(28, reach / (0.86 * tanH));
-    const pitch = Math.atan(HORIZON * tanV);
-    const height = dist * Math.tan(pitch + Math.atan(DROP * tanV));
-    // A slow drift side to side, turned back toward the middle.
-    const sway = Math.sin(this.time * 0.09) * dist * 0.05;
-    const local = new Vector3(sway, height + Math.sin(this.time * 0.13) * 0.4, dist);
-    this.camera.position.copy(this.stage.localToWorld(local));
-    this.camera.rotation.order = 'YXZ';
-    this.camera.rotation.set(-pitch, this.stage.rotation.y - (sway / dist) * 0.6, 0);
+    const box = this.sheet();
+    const below = Math.min(h * 0.9, Math.max(h * 0.5, box?.bottom ?? h * 0.7));
+    const top = box?.top ?? h * 0.15;
+    const carY = below + (h - below) * 0.46;
+    const horizonY = Math.max(h * 0.08, Math.min(carY - h * 0.25, top + h * HORIZON_DROP));
+    // How far back for the car to fill its share of the strip, and how steeply down for the horizon to land where it should.
+    const share = Math.max(0.05, ((h - below) / h) * CAR_SHARE);
+    const dist = Math.min(44, Math.max(9, CAR_EXTENT / (share * 2 * tanV)));
+    const down = Math.atan(((carY - horizonY) / (h / 2)) * tanV);
+    const p = this.driver.pose;
+    const back = Math.cos(down) * dist;
+    const at = new Vector3(p.x, 0.6, p.z);
+    const eye = new Vector3(p.x - Math.sin(this.chaseYaw) * back, 0.6 + Math.sin(down) * dist, p.z - Math.cos(this.chaseYaw) * back);
+    this.stage.localToWorld(at);
+    this.stage.localToWorld(eye);
+    this.camera.position.copy(eye);
+    this.camera.lookAt(at);
     this.camera.aspect = w / h;
+    // The car's at the middle of the full view: shift it down to its strip.
+    this.camera.setViewOffset(w, h, 0, h / 2 - carY, w, h);
     this.camera.updateProjectionMatrix();
     this.smoke.uniforms.uScale.value = (h * this.renderer.getPixelRatio()) / (2 * tanV);
+    this.front.position.set(eye.x, eye.y + 30, eye.z);
+    this.front.target.position.copy(at);
+    // The palms face the camera.
+    const local = this.stage.worldToLocal(eye.clone());
+    for (const m of this.palms.children) m.rotation.y = Math.atan2(local.x - m.position.x, local.z - m.position.z);
   }
 
   private resize(): [number, number] {
