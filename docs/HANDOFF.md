@@ -4,7 +4,33 @@ Where racecar stands and what's next, for whoever picks it up (a person or a fre
 The design is [SPEC.md](./SPEC.md): decisions in §17, and what building changed in "Changed while
 building". This file is "where are we"; the spec is "what are we making".
 
-**Last updated:** 2026-10-15. **The hosted build is `v1.1`** (tagged 2026-10-15): `v1.0.1` plus
+**Last updated:** 2026-10-16. **Open: PR #182, the UI polish** (branch `ui-polish`, worktree
+`../racecar-ui-polish`; not merged, not deployed): the title, Multiplayer, the lobby, the in-race
+menu and Settings rebuilt to the v1.2 "Racecar — UI Polish" designs, controller-first, with
+transitions. What's in and where it went differently from the designs: [MENU.md](./MENU.md), "The
+UI polish (v1.2, 2026-10-15)".
+
+- **Code:** `ui/kit.ts` and `ui/kit.css` (the parts and tokens; 1rem is 10px at 1080p, the root
+  font size follows the window), `ui/menu.ts` and `ui/menu.css` (the screens and their coming and
+  going), `ui/settings.ts` (Settings and Controls in one tabbed sheet; `ui/controls.ts` is gone),
+  the pause menu in `main.ts` (`setPaused`), the page wipe in `index.html` and `ui/fade.ts`.
+  `kit.html` (dev only, not in the build) shows every part; P there swaps the hints to the pad's.
+- **Input** (`input/input.ts`): `onDevice` (the hints follow it: `body.pad`), a held d-pad or stick
+  repeats (380 ms, then 95), Q/E `tab-prev`/`tab-next`, R and the pad's Y `alt` (Refresh), and Esc
+  gets out of a text field in a menu. Over Settings, the bumpers switch tabs (`main.ts`).
+- **Lobby data:** a `fill` option (bots in the open seats, on by default; off, they start empty:
+  `raceFromLobby`), and the listing's `host`, `mayhem` and `traffic` (`summarize`, `readListing`;
+  an older host's listing lists without them).
+- **Checked:** typecheck, build, `bun run test` (882, with `test/menus.test.ts`); screenshots of
+  each screen at 1920×1080 and 480×480 (the X card's frame); the menus driven by a fake standard
+  pad in Chrome (`navigator.getGamepads` replaced in the page).
+- **Not checked yet:** a real controller; the lobby list and Live lobbies with lobbies in them (the
+  local relay wasn't up, so only the "can't reach" state was seen): the two-browser check from
+  `v1.0.1` below, on this branch, before merging; Create with fewer seats, and fill off, online.
+- **Next:** the results screen, the first race's keys card and the Credits pages in the kit
+  (not in the designs); then MENU.md's step 3 (keyboard remapping, the hints from the bindings).
+
+**The hosted build is `v1.1`** (tagged 2026-10-15): `v1.0.1` plus
 **PRs #174–#180**: Time trial with online lap boards, names checked with GameRelay's moderation
 (SDK `0.1.0-alpha.12`), GameRelay's test bots, Esc from Create, the camera, drift and steering on the
 keyboard, the version on the title ("Hosted test build" below). **`v1.0.1` is tagged** (2026-10-14): **PR
