@@ -421,24 +421,58 @@ const PALMS = { every: 7, out: [-3, 9] as [number, number], road: 6, grove: 0.35
 }
 
 /**
- * Life on the Caravan Road (docs/SAHARA.md, step 5): a camel caravan walking toward you down its
- * left edge on the opening straight: strings of `camels`, `gap` m nose to nose, `speed` m/s, `pos`
- * of the way out from its middle (TrafficLaneDef.string, kinds 'camel': hit one and it scatters,
- * never a wreck), over `section` of it, a string about every `every` m round the lap (only those
- * on the section are seen). (One each way, the whole road to the ford, wrecked the field: bunched
- * on the first lap, a racer behind a caravan going its way braked and the next ran into it.) And dust devils (hazard `dust-devil`) wandering across the Dune Sea and the Mesa's top,
- * one about every `every` s on each.
+ * Life on the Caravan Road (docs/SAHARA.md, step 5; "Camels from the oasis", 2026-10-15): a camel
+ * caravan from the oasis, round a loop (TrafficLaneDef.path, kinds 'camel': hit one and it scatters,
+ * never a wreck): down the Caravan Road's left edge toward you (`road`, m along it, `pos` of the way
+ * out), off it over the plateau to the river, and back upstream along the water's edge (`water` m from
+ * its middle, `bank`: the river's stretch by the road, north of z), down in its channel where the road
+ * can't see, then over the plateau and back onto the road: never faded, only out of sight. Strings
+ * of `camels`, `gap` m nose to nose, `speed` m/s, one every `every` m round the loop; a scattered one
+ * comes back down in the channel. (One each way the whole road to the ford wrecked the field: bunched
+ * on the first lap, a racer behind a caravan going its way braked and the next ran into it.) And dust
+ * devils (hazard `dust-devil`) wandering across the Dune Sea and the Mesa's top, one about every
+ * `every` s on each.
  */
-const CARAVAN = { section: [30, 120] as [number, number], camels: 5, gap: 3.6, speed: 2.2, pos: 0.95, every: 160 };
+const CARAVAN = { road: [130, 10] as [number, number], camels: 5, gap: 3.6, speed: 2.2, pos: 0.95, every: 150, water: 9, bank: [0, 175] as [number, number] };
 const DEVILS = [
   { s: [400, 1080] as [number, number], every: 18 },
   { s: [3480, 3840] as [number, number], every: 30 },
 ];
 {
-  const lane = { pos: -CARAVAN.pos, dir: -1 as const, speed: CARAVAN.speed, sections: [CARAVAN.section], kinds: ['camel'], string: [CARAVAN.camels, CARAVAN.gap] as [number, number] };
-  layout.traffic = { lanes: [lane], density: r1((CARAVAN.camels * 1000) / CARAVAN.every) };
+  const lat = (-CARAVAN.pos * baked.main.width[0]) / 2;
+  const [s0, s1] = CARAVAN.road;
+  const loop: [number, number][] = [];
+  // Down the road's edge (toward you: against the lap's way).
+  for (let s = s0; s >= s1; s -= 20) loop.push(onMain(s, lat));
+  // Off it: a little on along the edge, then out across the plateau, wide of the road.
+  loop.push(onMain(s1 - 15, lat - 12), onMain(s1 - 25, lat - 45));
+  // Upstream along the water, on the road's side, down in the channel.
+  const ref = onMain((s0 + s1) / 2);
+  const path = RIVER_DEF.path;
+  const water: [number, number][] = [];
+  for (let k = 1; k < path.length; k++) {
+    const [ax, az] = path[k - 1];
+    const [bx, bz] = path[k];
+    if (bz < CARAVAN.bank[0] || bz > CARAVAN.bank[1]) continue;
+    const l = Math.hypot(bx - ax, bz - az);
+    const [nx, nz] = [-(bz - az) / l, (bx - ax) / l];
+    const side = Math.hypot(bx + nx - ref[0], bz + nz - ref[1]) < Math.hypot(bx - nx - ref[0], bz - nz - ref[1]) ? 1 : -1;
+    water.push([r1(bx + nx * CARAVAN.water * side), r1(bz + nz * CARAVAN.water * side)]);
+  }
+  // (Every third point: the river's are 6–8 m apart, and corners are rounded over 7 m.)
+  const kept = water.filter((_, k) => k % 3 === 0 || k === water.length - 1);
+  const back = loop.length + Math.floor(kept.length / 2);
+  loop.push(...kept);
+  // Back over the plateau onto the road, above where the walk down it starts.
+  loop.push(onMain(s0 + 30, lat - 45), onMain(s0 + 15, lat - 10));
+  const points = loop.map(([x, z]): [number, number] => [r1(x), r1(z)]);
+  let length = 0;
+  for (let k = 0; k < points.length; k++) length += Math.hypot(points[(k + 1) % points.length][0] - points[k][0], points[(k + 1) % points.length][1] - points[k][1]);
+  const strings = Math.max(1, Math.round(length / CARAVAN.every));
+  const lane = { pos: 0, dir: 1 as const, speed: CARAVAN.speed, path: points, back, kinds: ['camel'], string: [CARAVAN.camels, CARAVAN.gap] as [number, number], count: strings * CARAVAN.camels };
+  layout.traffic = { lanes: [lane], density: 0 };
   layout.hazards = DEVILS.map((d) => ({ use: 'dust-devil', s: d.s, params: { every: d.every } }));
-  console.log(`  life: caravans of ${CARAVAN.camels} camels toward you on the Caravan Road (${CARAVAN.section.join('–')} m), dust devils on ${DEVILS.map((d) => d.s.join('–')).join(' and ')} m`);
+  console.log(`  life: ${strings} caravans of ${CARAVAN.camels} camels round ${length.toFixed(0)} m from the oasis, down the Caravan Road (${s0}–${s1} m) toward you; dust devils on ${DEVILS.map((d) => d.s.join('–')).join(' and ')} m`);
 }
 
 baked = bakeTrack(layout, surfaces);

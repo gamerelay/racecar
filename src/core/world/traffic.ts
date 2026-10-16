@@ -103,6 +103,11 @@ const PATH_CLEAR = 110;
  */
 export interface TrafficPath {
   n: number;
+  /** Where round it (s, its time round the loop) a wrecked car comes back (TrafficLaneDef.back); -1: where it is. */
+  backTau: number;
+  /** Where it runs along the main road against the lap, on it (main distances), and which side (sign of lat): oncoming traffic to a racer there. */
+  against: [number, number][];
+  side: number;
   stops: Float64Array;
   tin: Float64Array;
   T: number;
@@ -120,7 +125,7 @@ export interface TrafficPath {
  * `pos` m to its right; its stops STOP_BACK m before the `stops` corners, and the loop's start moved
  * to the middle of the longest run between two stops (so none slows across it).
  */
-function pathLoop(track: Track, line: readonly [number, number][], pos: number, speed: number, stopAt: readonly number[] = []): TrafficPath {
+function pathLoop(track: Track, line: readonly [number, number][], pos: number, speed: number, stopAt: readonly number[] = [], back = -1): TrafficPath {
   const pts: [number, number][] = [];
   const m = line.length;
   // Over to its right first (each corner where its two streets' offset lines meet), so it's spaced
@@ -159,7 +164,7 @@ function pathLoop(track: Track, line: readonly [number, number][], pos: number, 
   for (let k = 1; k <= pts.length; k++) cum.push(cum[k - 1] + hypot(pts[k % pts.length][0] - pts[k - 1][0], pts[k % pts.length][1] - pts[k - 1][1]));
   const R = cum[pts.length];
   const n = Math.max(3, Math.round(R / PATH_STEP));
-  const out: TrafficPath = { n, stops: new Float64Array(0), tin: new Float64Array(0), T: 0, v: speed, x: new Float64Array(n), z: new Float64Array(n), tx: new Float64Array(n), tz: new Float64Array(n), s: new Float64Array(n), lat: new Float64Array(n) };
+  const out: TrafficPath = { n, backTau: -1, against: [], side: 0, stops: new Float64Array(0), tin: new Float64Array(0), T: 0, v: speed, x: new Float64Array(n), z: new Float64Array(n), tx: new Float64Array(n), tz: new Float64Array(n), s: new Float64Array(n), lat: new Float64Array(n) };
   let seg = 0;
   for (let i = 0; i < n; i++) {
     const d = (i / n) * R;
@@ -170,15 +175,19 @@ function pathLoop(track: Track, line: readonly [number, number][], pos: number, 
     out.x[i] = ax + (bx - ax) * f;
     out.z[i] = az + (bz - az) * f;
   }
+  // The sample nearest a corner.
+  const nearest = (c: number): number => {
+    let best = 0;
+    for (let i = 1; i < n; i++) if (hypot(out.x[i] - corners[c][0], out.z[i] - corners[c][1]) < hypot(out.x[best] - corners[c][0], out.z[best] - corners[c][1])) best = i;
+    return best;
+  };
   // The stops: the sample nearest each stop corner, STOP_BACK before it (samples, round the loop).
   let stops = stopAt
     .filter((c) => c >= 0 && c < m)
-    .map((c) => {
-      let best = 0;
-      for (let i = 1; i < n; i++) if (hypot(out.x[i] - corners[c][0], out.z[i] - corners[c][1]) < hypot(out.x[best] - corners[c][0], out.z[best] - corners[c][1])) best = i;
-      return (best - Math.round(STOP_BACK / PATH_STEP) + n) % n;
-    })
+    .map((c) => (nearest(c) - Math.round(STOP_BACK / PATH_STEP) + n) % n)
     .sort((a, b) => a - b);
+  // (Where a wrecked car comes back: found before the samples are turned, and turned with them.)
+  let backAt = back >= 0 && back < m ? nearest(back) : -1;
   // Start the loop in the middle of the longest run between stops: rotate the samples.
   if (stops.length) {
     let gap = -1;
@@ -193,6 +202,7 @@ function pathLoop(track: Track, line: readonly [number, number][], pos: number, 
       for (let i = 0; i < n; i++) arr[i] = copy[(i + mid) % n];
     }
     stops = stops.map((i) => (i - mid + n) % n).sort((a, b) => a - b);
+    if (backAt >= 0) backAt = (backAt - mid + n) % n;
   }
   // Each with room to slow and pull away (b m either side), clear of the last and of the loop's ends.
   const ramp = (speed * speed) / (2 * STOP_DECEL);
@@ -208,6 +218,11 @@ function pathLoop(track: Track, line: readonly [number, number][], pos: number, 
   const extra = speed / STOP_DECEL + STOP_WAIT;
   out.tin = Float64Array.from(kept, (d, k) => (d - ramp) / speed + k * extra);
   out.T = (n * PATH_STEP) / speed + kept.length * extra;
+  if (backAt >= 0) {
+    // Its time round the loop there: cruising to it, plus each stop's slowing and standing before it.
+    const d = backAt * PATH_STEP;
+    out.backTau = d / speed + kept.filter((x) => x < d).length * extra;
+  }
   const hit = newHit();
   for (let i = 0; i < n; i++) {
     const dx = out.x[(i + 1) % n] - out.x[(i + n - 1) % n];
@@ -216,12 +231,27 @@ function pathLoop(track: Track, line: readonly [number, number][], pos: number, 
     out.tx[i] = dx / len;
     out.tz[i] = dz / len;
   }
-  // Where it is by the main road.
-  for (let i = 0; i < n; i++) {
-    projectGlobal(track.main, out.x[i], out.z[i], hit);
-    out.s[i] = hit.s;
-    out.lat[i] = hit.lateral;
+  // Where it is by the main road; and where it's on it, going against the lap (Sahara's caravan down
+  // the Caravan Road's edge), as runs of main distance.
+  let run = -1;
+  let side = 0;
+  for (let i = 0; i <= n; i++) {
+    let on = false;
+    if (i < n) {
+      projectGlobal(track.main, out.x[i], out.z[i], hit);
+      out.s[i] = hit.s;
+      out.lat[i] = hit.lateral;
+      on = Math.abs(hit.lateral) < hit.width / 2 + hit.shoulder && out.tx[i] * hit.tx + out.tz[i] * hit.tz < -0.7;
+      if (on) side += hit.lateral;
+    }
+    if (on && run < 0) run = i;
+    if (!on && run >= 0) {
+      // (Against the lap: its last sample is the run's start along the main road.)
+      if (i - run > 2) out.against.push([out.s[i - 1], out.s[run]]);
+      run = -1;
+    }
   }
+  out.side = Math.sign(side);
   return out;
 }
 
@@ -259,7 +289,7 @@ export function trafficLanes(track: Track, defs: readonly TrafficLaneDef[]): { l
     if (def.path) {
       // Round its loop through the streets, never on the main road's lanes.
       if (!track.ground || def.path.length < 3) continue;
-      const path = pathLoop(track, def.path, def.pos, def.speed, def.stops);
+      const path = pathLoop(track, def.path, def.pos, def.speed, def.stops, def.back);
       const R = path.n * PATH_STEP;
       lanes.push({ ...def, sections: [] });
       routes.push({ inSp: track.main, outSp: track.main, on: 0, off: 0, a: R, b: 0, c: 0, R, C: R, path });
@@ -292,7 +322,9 @@ export function trafficLanes(track: Track, defs: readonly TrafficLaneDef[]): { l
       const b = wrap((off - on) * def.dir, L);
       const c = outSp.length / 2;
       const R = a + b + c;
-      lanes.push({ pos: def.pos, dir: def.dir, speed: def.speed, sections: [def.dir > 0 ? [on, off] : [off, on]] });
+      // (Its count, if it gives one, shared between its routes; its kinds as given.)
+      const count = def.count !== undefined ? def.count / (def.streets.length - 1) : undefined;
+      lanes.push({ pos: def.pos, dir: def.dir, speed: def.speed, sections: [def.dir > 0 ? [on, off] : [off, on]], ...(count !== undefined ? { count } : {}), ...(def.kinds ? { kinds: def.kinds } : {}) });
       routes.push({ inSp, outSp, on, off, a, b, c, R, C: R + HIDDEN });
     }
   }
@@ -592,6 +624,21 @@ export class Traffic {
 
   private readonly at = { road: 0, s: 0 };
 
+  /**
+   * Which side of the main road lane l's traffic comes the other way at main distance s, for a racer
+   * to keep off (sign of lateral; 0: none there): an oncoming lane's, where it has traffic; a path's
+   * where it runs along the road against the lap.
+   */
+  oncoming(l: number, s: number): number {
+    const path = this.routes[l]?.path;
+    if (path) {
+      for (const [a, b] of path.against) if (a <= b ? s >= a && s <= b : s >= a || s <= b) return path.side;
+      return 0;
+    }
+    const lane = this.lanes[l];
+    return lane.dir < 0 && laneActive(lane, s) ? Math.sign(lane.pos) : 0;
+  }
+
   /** Whether car k comes and goes by side streets. */
   onRoute(k: number): boolean {
     return this.routes[this.lane[k]] !== null;
@@ -609,7 +656,14 @@ export class Traffic {
     const r = this.routes[this.lane[k]];
     if (w >= 0 && t >= w) {
       if (t < w + TRAFFIC_RESPAWN) return 0;
-      if (r && !r.path) {
+      if (r?.path && r.path.backTau >= 0) {
+        // Round a path with a corner out of sight: gone until it next passes that, then in there.
+        const p = r.path;
+        const t0 = w + TRAFFIC_RESPAWN;
+        const back = t0 + wrap(p.backTau - wrap((this.s0[k] / r.C) * p.T + t0, p.T), p.T);
+        if (t < back) return 0;
+        v = Math.min(1, (t - back) / FADE_BACK);
+      } else if (r && !r.path) {
         // By side streets: gone until it next comes round to the first street's middle (back on
         // the main road where it was hit would be the pop this is all to avoid), then in as ever.
         const lap = r.C / lane.speed;

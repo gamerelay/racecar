@@ -14,7 +14,7 @@ import type { SimState } from '../state';
 import { mainDistance, signedGap, wrap, type BakedSpline, type Track } from '../track/bake';
 import type { Street } from '../track/graph';
 import { newHit, sampleAt, type TrackHit } from '../track/query';
-import { laneActive, TRAFFIC_KINDS } from '../world/traffic';
+import { TRAFFIC_KINDS } from '../world/traffic';
 
 export type Difficulty = 0 | 1 | 2;
 
@@ -318,8 +318,8 @@ export function driveRacer(sim: SimState, i: number, d: RacerDriver, out: Contro
   if (world && sp.index === 0 && skill.ownSide > 2) {
     const here = mainDistance(sim.track, c.spline[i], c.s[i]);
     for (let l = 0; l < world.traffic.lanes.length; l++) {
-      const lane = world.traffic.lanes[l];
-      if (lane.dir < 0 && laneActive(lane, here)) target = lane.pos < 0 ? Math.max(target, skill.ownSide > 8 ? 1 : -0.5) : Math.min(target, skill.ownSide > 8 ? -1 : 0.5);
+      const side = world.traffic.oncoming(l, here);
+      if (side) target = side < 0 ? Math.max(target, skill.ownSide > 8 ? 1 : -0.5) : Math.min(target, skill.ownSide > 8 ? -1 : 0.5);
     }
   }
   // Down a canyon's floor, now and then (open ground): out to it, along it and back.
@@ -741,7 +741,10 @@ function avoid(sim: SimState, i: number, sp: BakedSpline, s: number, target: num
   // it has picked (sp is where it's headed).
   if (world && c.spline[i] === 0) {
     const tr = world.traffic;
-    for (let l = 0; l < tr.lanes.length; l++) if (tr.lanes[l].dir < 0 && laneActive(tr.lanes[l], sMain)) oncomingSide = Math.sign(tr.lanes[l].pos);
+    for (let l = 0; l < tr.lanes.length; l++) {
+      const side = tr.oncoming(l, sMain);
+      if (side) oncomingSide = side;
+    }
     for (let p = 0; p < tr.posed; p++) {
       // Where it's reckoned to be (a car about to pull out of a side street: in its lane already).
       mark(tr.seenLat[p], TRAFFIC_KINDS[tr.kind[tr.idx[p]]].hw, signedGap(tr.seenS[p], sMain, L), tr.along[p]);

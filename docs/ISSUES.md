@@ -40,9 +40,11 @@ Newest first. Bugs found by reading code go in HANDOFF's follow-ups; clean-ups i
 - **Guard:** `test/traffic.test.ts` ("the start grid on every map": no car seen near the grid in
   the clear time but a lane that can't start clear of it). How many fades a racer sees:
   `bun tools/fades.ts [map]`.
-- **Still there:** fades at section ends on straights (Downtown 11 a lap, Backroads 7, Sahara 5),
-  and wrecks coming back where they were (most of Heist's 2). Hiding those needs traffic that turns
-  off out of sight rather than fading.
+- **Still there:** fades at section ends on straights (Downtown 6 a lap with its buildings counted,
+  Backroads 6), and wrecks coming back where they were (most of Heist's 1). Sahara's camels since
+  walk a loop from the oasis and never fade (2026-10-16, SPEC "Traffic that leaves instead of
+  fading"; guard: `test/sahara.test.ts`, "camels never fade"). Downtown's cars turning off by side
+  streets was tried: no fade seen, but the field wrecked a third more (the owner's call).
 
 ## Steering on the keyboard had a slight delay before it took (2026-10-14)
 
