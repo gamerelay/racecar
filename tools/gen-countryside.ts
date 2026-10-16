@@ -26,6 +26,7 @@ import { writeFileSync } from 'node:fs';
 import type { BranchDef, TrackLayout } from '../src/core/content';
 import { bakeTrack } from '../src/core/track/bake';
 import { straightenSections } from '../src/core/track/validate';
+import { hideSections } from '../src/core/track/sight';
 import surfaces from '../content/surfaces.json';
 import { type Node, lapPoints, onLap, r1, span, wallGaps } from './lib/lap';
 
@@ -259,6 +260,8 @@ layout.terrain = {
 layout.aiCosts = 'line';
 
 straightenSections(layout, surfaces);
+// …and where their fades are least seen (a car materializing in plain view, track/sight.ts).
+hideSections(layout, surfaces);
 writeFileSync(new URL('../content/maps/backroads/valley.track.json', import.meta.url), JSON.stringify(layout, null, 1) + '\n');
 const final = bakeTrack(layout, surfaces);
 console.log(

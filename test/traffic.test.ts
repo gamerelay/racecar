@@ -3,11 +3,12 @@ import { MeshBasicMaterial, ShaderLib } from 'three';
 import { Ev } from '../src/core/events';
 import { Sim } from '../src/core/sim';
 import { bakeTrack, wrap } from '../src/core/track/bake';
-import { FADE, FADE_BACK, GRID_CLEAR, LOD_STRAIGHT, TRAFFIC_RESPAWN, Traffic, newTrafficPose } from '../src/core/world/traffic';
+import { FADE, FADE_BACK, GRID_CLEAR, LOD_STRAIGHT, TRAFFIC_KINDS, TRAFFIC_RESPAWN, Traffic, newTrafficPose } from '../src/core/world/traffic';
 import { fadeMaterial, injectFade } from '../src/render/fade';
 import { carPaint } from '../src/render/skins/greybox/car/paint';
 import { toon } from '../src/render/skins/greybox/toon';
 import { CLASSES, DOWNTOWN, SURFACES, layout } from './helpers';
+import { EXPERIMENTAL_KEYS, LAYOUT_KEYS } from '../tools/content';
 
 // Regressions for traffic popping in and out near the player (SPEC "Traffic that doesn't pop").
 // Three causes were measured: cars appearing at a lane section's edge, at the start grid's clear
@@ -59,24 +60,24 @@ describe('traffic visibility', () => {
     }
   });
 
-  test('the start grid clears with a fade, and comes back with one', () => {
-    // A car sitting on the line at the start: hidden, and its lane is solid there later.
-    const onGrid = [...Array(tr.count).keys()].filter((k) => {
-      const s = tr.sAt(k, 2);
-      return s > L - GRID_CLEAR.behind || s < GRID_CLEAR.ahead;
-    });
-    expect(onGrid.length).toBeGreaterThan(0);
-    for (const k of onGrid) expect(tr.visibility(k, 2)).toBe(0);
-    // At the clear time it doesn't pop back: it takes FADE_BACK seconds.
-    const t = GRID_CLEAR.seconds;
+  test('the start grid is clear by where the cars start, not by a fade', () => {
+    // No lane here needs the fade: every car starts where it won't come within FADE of the clear
+    // zone in the clear time, and the clear time's end changes nothing.
+    expect(tr.gridFade.every((g) => !g)).toBe(true);
     for (let k = 0; k < tr.count; k++) {
-      const v0 = tr.visibility(k, t - 1 / 60);
-      const v1 = tr.visibility(k, t + 1 / 60);
-      expect(Math.abs(v1 - v0)).toBeLessThan(2 / 60 / FADE_BACK + 0.05);
+      for (let t = 0; t <= GRID_CLEAR.seconds; t += 0.05) {
+        if (tr.visibility(k, t) <= 0) continue;
+        const s = tr.sAt(k, t);
+        expect(s > L - GRID_CLEAR.behind - FADE + 0.5 || s < GRID_CLEAR.ahead + FADE - 0.5).toBe(false);
+      }
+      // Over the clear time's end, only as fast as a section's fade (its car moving 2/60 s of road).
+      const t = GRID_CLEAR.seconds;
+      const l = tr.lanes[tr.lane[k]];
+      expect(Math.abs(tr.visibility(k, t + 1 / 60) - tr.visibility(k, t - 1 / 60))).toBeLessThanOrEqual((l.speed * 2) / 60 / FADE + 1e-9);
     }
-    // …and once it has, the grid's cars are back: fully visible wherever their lane runs.
-    const back = GRID_CLEAR.seconds + FADE_BACK + 0.1;
-    expect(onGrid.some((k) => tr.visibility(k, back) === 1)).toBe(true);
+    // …and its lanes still run over the line once that's done.
+    const overLine = (t: number) => [...Array(tr.count).keys()].some((k) => tr.visibility(k, t) === 1 && (tr.sAt(k, t) > L - GRID_CLEAR.behind || tr.sAt(k, t) < GRID_CLEAR.ahead));
+    expect([...Array(60).keys()].some((j) => overLine(30 + j * 5))).toBe(true);
   });
 
   test('a wreck is gone at once and fades back after TRAFFIC_RESPAWN', () => {
@@ -106,6 +107,36 @@ describe('traffic visibility', () => {
     }
     expect(seen.size).toBeGreaterThan(0);
   });
+});
+
+describe('the start grid on every map', () => {
+  for (const key of [...LAYOUT_KEYS, ...EXPERIMENTAL_KEYS]) {
+    test(`${key}: no car seen near the grid in the clear time but a lane that can't start clear of it`, () => {
+      const t3 = bakeTrack(layout(key), SURFACES);
+      const L3 = t3.main.length;
+      const start = t3.layout.getaway?.start;
+      for (const seed of [1, 7, 42]) {
+        const tr = new Traffic(t3, seed);
+        for (let k = 0; k < tr.count; k++) {
+          const l = tr.lane[k];
+          if (tr.gridFade[l]) continue;
+          const path = tr.routes[l]?.path;
+          for (let t = 0; t <= GRID_CLEAR.seconds; t += 0.1) {
+            if (tr.visibility(k, t) <= 0) continue;
+            if (path) {
+              if (!start) continue;
+              const p = tr.poseAt(k, t, newTrafficPose());
+              expect(Math.hypot(p.x - start.at[0], p.z - start.at[1])).toBeGreaterThan(110 + FADE - 3);
+            } else {
+              const s = tr.sAt(k, t);
+              const ahead = TRAFFIC_KINDS[tr.kind[k]].animal ? 0 : GRID_CLEAR.ahead + FADE - 0.5;
+              expect(s > L3 - GRID_CLEAR.behind - FADE + 0.5 || s < ahead).toBe(false);
+            }
+          }
+        }
+      }
+    });
+  }
 });
 
 describe('traffic in a race never pops', () => {
