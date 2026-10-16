@@ -29,6 +29,23 @@ const MENU_KEYS: Record<string, MenuAction> = {
   KeyE: 'tab-next',
   KeyR: 'alt',
 };
+/** Every menu action, for checks like the keys card's that take any of them (the Record keeps it whole). */
+const MENU_ACTIONS: Record<MenuAction, true> = {
+  'nav-up': true,
+  'nav-down': true,
+  'nav-left': true,
+  'nav-right': true,
+  'pick-up': true,
+  'pick-down': true,
+  'pick-left': true,
+  'pick-right': true,
+  'tab-prev': true,
+  'tab-next': true,
+  alt: true,
+  accept: true,
+  back: true,
+};
+export const isMenuAction = (a: string): a is MenuAction => Object.hasOwn(MENU_ACTIONS, a);
 /** Standard-mapping d-pad buttons, and LB and RB. */
 const PAD_NAV: [number, MenuAction][] = [[12, 'nav-up'], [13, 'nav-down'], [14, 'nav-left'], [15, 'nav-right'], [4, 'pick-left'], [5, 'pick-right']];
 /** A d-pad button or the stick held over in a menu moves again after this (ms), then every REPEAT_MS. */

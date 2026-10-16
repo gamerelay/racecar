@@ -18,7 +18,7 @@ import { Ev } from './core/events';
 import { Sim, TICK_RATE } from './core/sim';
 import { Getaway } from './core/rules/getaway';
 import { bakeTrack } from './core/track/bake';
-import { Input, routedKey } from './input/input';
+import { Input, isMenuAction, routedKey } from './input/input';
 import { GameRenderer } from './render/renderer';
 import { GreyboxSkin } from './render/skins/greybox';
 import { Telemetry } from './telemetry/telemetry';
@@ -540,8 +540,8 @@ document.addEventListener('visibilitychange', () => document.hidden && awayPause
 
 // ---- system keys ----
 input.on((a) => {
-  // The keys card: the menu's keys, A, B and Start put it away (and do nothing else).
-  if (keysCard?.isOpen && !closeReport && (a.startsWith('nav-') || a.startsWith('pick-') || a === 'accept' || a === 'back' || a === 'pause')) return keysCard.close();
+  // The keys card: any of the menu's keys (Q, E and R too), A, B, Y and Start put it away (and do nothing else).
+  if (keysCard?.isOpen && !closeReport && (isMenuAction(a) || a === 'pause')) return keysCard.close();
   const menu = openMenu();
   // Q and E (the pad's bumpers, over Settings) switch the panel's tabs.
   if (a === 'tab-prev' || a === 'tab-next' || ((a === 'pick-left' || a === 'pick-right') && settingsPanel.isOpen)) {

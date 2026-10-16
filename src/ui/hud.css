@@ -13,6 +13,8 @@
 }
 * { box-sizing: border-box; }
 html, body { height: 100%; margin: 0; overflow: hidden; background: var(--bg); color: var(--ink); font-family: var(--ui); user-select: none; -webkit-user-select: none; touch-action: none; }
+/* The kit scales the root font size to the window (kit.css), for its rem. Everything else keeps the browser's 16px. */
+body { font-size: 16px; }
 #stage { position: fixed; inset: 0; }
 #stage canvas { display: block; width: 100%; height: 100%; }
 
