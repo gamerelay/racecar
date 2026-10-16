@@ -566,6 +566,17 @@ export class Traffic {
     return wrap(this.s0[k] + this.lanes[l].speed * t, r.C);
   }
 
+  /**
+   * How far car k has gone by race time t, not wrapped round its loop (m): for the renderer, so a
+   * camel's legs keep up with it (slowing and standing at a path's stops too). Pure, like poseAt.
+   */
+  walked(k: number, t: number): number {
+    const r = this.routes[this.lane[k]];
+    if (!r?.path) return this.lanes[this.lane[k]].speed * t;
+    const laps = Math.floor(((this.s0[k] / r.C) * r.path.T + t) / r.path.T);
+    return laps * r.C + this.dAt(k, t);
+  }
+
   /** Its speed at the last pathD (m/s). */
   private pathV = 0;
 

@@ -37,6 +37,7 @@ import { GETAWAY_MAP, installEmbed, keepEmbed, startsGetaway } from './ui/embed'
 import { cycle, leader } from './ui/watch';
 import { SettingsPanel } from './ui/settings';
 import { PagesPanel, readPage } from './ui/pages';
+import { CreditsBackdrop } from './render/credits';
 import { forgetAnalytics, SettingsStore, steerCurve } from './settings';
 import { backToSetup, quickRaceSetup, raceAgain, randomCar, readChoices, readSetup, restart, toQuery, type RaceSetup } from './ui/setup';
 import { Menu, type Preview } from './ui/menu';
@@ -237,7 +238,7 @@ settings.onChange((s) => {
   setDriveBinds(c.keys, c.pad);
 });
 const settingsPanel = new SettingsPanel(settings, input);
-const pagesPanel = new PagesPanel();
+const pagesPanel = new PagesPanel(() => CreditsBackdrop.create());
 const raceUi = new RaceUi(sim, CLASSES, names, colors);
 raceUi.onAgain = () => raceAgain(run);
 // A getaway's best, on this device: the HUD and the results show it; a longer run keeps its time.
@@ -493,7 +494,8 @@ function frame(now: number): void {
     // The turntable goes where the lobby leaves room for it.
     const stage = renderer.showroom.visible ? document.querySelector<HTMLElement>('#menu .stage') : null;
     if (stage) renderer.showroom.frame(stage.getBoundingClientRect(), window.innerWidth, window.innerHeight);
-    renderer.frame(alpha, dt, steer, braking);
+    // Not under the credits' live backdrop: it covers the screen, and two scenes would be twice the work.
+    if (!pagesPanel.coversWorld) renderer.frame(alpha, dt, steer, braking);
     if (++drawn === 2) ready();
     if (attract) {
       // Follow whoever leads.

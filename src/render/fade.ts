@@ -3,7 +3,7 @@
 // doesn't write depth, so the post pass's depth outlines leave a fading car alone (a screen-door
 // dither would ink every pixel edge). Used by greybox world.ts for core/world/traffic.ts's visibility.
 
-import { FrontSide, InstancedBufferAttribute, type Material } from 'three';
+import { FrontSide, type Material } from 'three';
 import { chunks } from './shader';
 
 export const FADE_ATTR = 'aFade';
@@ -39,6 +39,3 @@ export function fadeMaterial(src: Material, cache: Map<Material, Material>): Mat
   cache.set(src, m);
   return m;
 }
-
-/** The per-instance fade attribute for `count` instances. */
-export const fadeAttribute = (count: number): InstancedBufferAttribute => new InstancedBufferAttribute(new Float32Array(count), 1);

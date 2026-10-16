@@ -10,6 +10,14 @@ and where things stand is [docs/HANDOFF.md](./docs/HANDOFF.md).
 - **Controller options:** the stick's deadzone, steering sensitivity and rumble on or off.
 - **The hints follow your controls:** the pause menu's tips, the first race's keys card and the Controls tab show the buttons and keys you've set.
 
+## v1.2.2: Credits, live
+
+- **The Credits page comes alive:** behind it there's now an outrun night instead of a still sunset. A banded sun sets between wire mountains over a neon grid, with palms out to the horizon. A silver Vanta (plate: COLIN) drifts through figure 8s and spins donuts, laying pink light trails and tire smoke, with the race's own chase camera close behind. The page sits on the left like the title's menu, so you can watch. With reduced motion on it's a still picture, and Privacy and Terms keep the old sunset.
+
+## v1.2.1: Camels walk
+
+- **Sahara's camels walk:** their legs used to stay still, so a caravan slid along the Caravan Road like props. Now they pace the way camels do, both legs on one side moving together, with knees that fold as each leg comes forward. Their feet stay put on the sand while they're down, their bodies bob a little with each step, their heads nod and their tails swish. The camels in a caravan are out of step with each other. It's only how they look: where they walk, and what happens when you hit one, is the same as before.
+
 ## v1.2: UI polish
 
 New menus, from the title to the results: one look throughout, built to play with a controller as well as the keyboard and mouse, with transitions between screens.
