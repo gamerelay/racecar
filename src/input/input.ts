@@ -1,20 +1,26 @@
-// Keyboard and gamepads → one Controls object (SPEC §13). Gamepads use the standard mapping:
-// left stick steers, RT/LT throttle and brake, A boost, RB (or X) drift, B look back, Y reset,
-// Start pause, Select+Start "something felt wrong". Keyboard steering starts at KEY_ONSET and eases
+// Keyboard and gamepads → one Controls object (SPEC §13). The driving keys and pad buttons are the
+// player's (bindings.ts, set on the Controls tab); by default a standard-mapping pad's left stick
+// steers, RT/LT throttle and brake, A boost, RB (or X) drift, B look back, Y reset. Start pauses and
+// Select+Start is "something felt wrong", always. Keyboard steering starts at KEY_ONSET and eases
 // in and out from there, so it isn't all-or-nothing.
+//
+// The menus' keys and buttons are fixed (MENU_KEYS, PAD_NAV, A, B, Y, Start), whatever the
+// bindings, so no binding can lock you out of a menu.
 
 import type { Controls } from '../core/controls';
 import { approach, clamp } from '../core/math';
 import { TUNING } from '../core/car/tuning';
+import { DEFAULT_KEYS, DEFAULT_PAD, PAD_ACTIONS, PAD_B, padDown, padValue, reservedKey, reservedPad, type DriveAction, type KeyBinds, type PadBind, type PadBinds } from './bindings';
 
 export type SystemAction = 'pause' | 'report' | 'editor' | 'debug' | 'tuning' | 'ink' | 'mute' | 'music' | 'track-prev' | 'track-next' | MenuAction;
 /**
  * In a menu (menuOpen): move focus, press the focused control, or back out. WASD (and the pad's
  * bumpers) pick: in the lobby they cycle your car and paint, and elsewhere they move focus too.
  * Q and E switch a panel's tabs (the pad's bumpers do, there); R (the pad's Y) is a screen's own
- * extra (Refresh, in the lobby list).
+ * extra (Refresh, in the lobby list). Backspace or Delete (the pad's X) clears a binding on the
+ * Controls tab.
  */
-export type MenuAction = 'nav-up' | 'nav-down' | 'nav-left' | 'nav-right' | 'pick-up' | 'pick-down' | 'pick-left' | 'pick-right' | 'tab-prev' | 'tab-next' | 'alt' | 'accept' | 'back';
+export type MenuAction = 'nav-up' | 'nav-down' | 'nav-left' | 'nav-right' | 'pick-up' | 'pick-down' | 'pick-left' | 'pick-right' | 'tab-prev' | 'tab-next' | 'alt' | 'clear' | 'accept' | 'back';
 
 const MENU_KEYS: Record<string, MenuAction> = {
   ArrowUp: 'nav-up',
@@ -28,6 +34,8 @@ const MENU_KEYS: Record<string, MenuAction> = {
   KeyQ: 'tab-prev',
   KeyE: 'tab-next',
   KeyR: 'alt',
+  Backspace: 'clear',
+  Delete: 'clear',
 };
 /** Every menu action, for checks like the keys card's that take any of them (the Record keeps it whole). */
 const MENU_ACTIONS: Record<MenuAction, true> = {
@@ -42,6 +50,7 @@ const MENU_ACTIONS: Record<MenuAction, true> = {
   'tab-prev': true,
   'tab-next': true,
   alt: true,
+  clear: true,
   accept: true,
   back: true,
 };
@@ -52,25 +61,18 @@ const PAD_NAV: [number, MenuAction][] = [[12, 'nav-up'], [13, 'nav-down'], [14, 
 const REPEAT_DELAY_MS = 380;
 const REPEAT_MS = 95;
 
-const KEYS: Record<string, keyof typeof held> = {
-  ArrowLeft: 'left',
-  KeyA: 'left',
-  ArrowRight: 'right',
-  KeyD: 'right',
-  ArrowUp: 'up',
-  KeyW: 'up',
-  ArrowDown: 'down',
-  KeyS: 'down',
-  Space: 'boost',
-  ShiftLeft: 'drift',
-  ShiftRight: 'drift',
-  KeyR: 'reset',
-  KeyC: 'look',
-  KeyQ: 'look',
-  KeyH: 'horn',
+/** The driving keys held now (by action: two keys on one action are either). */
+const held = new Map<string, DriveAction>();
+const holding = (a: DriveAction) => {
+  for (const v of held.values()) if (v === a) return true;
+  return false;
 };
 
-const held = { left: false, right: false, up: false, down: false, boost: false, drift: false, reset: false, look: false, horn: false };
+/** A pad button held this long while listening is bound, not a cancel (B cancels with a press). */
+export const HOLD_TO_BIND_MS = 600;
+
+/** What a press was while listening for a binding (Input.listen). */
+export type Heard = { key: string } | { pad: PadBind } | { cancel: true } | { reserved: string };
 
 const SYSTEM: Record<string, SystemAction> = {
   Escape: 'pause',
@@ -116,6 +118,12 @@ export const KEY_ONSET = 0.3;
 
 export class Input {
   private keySteer = 0;
+  private keyMap = new Map<string, DriveAction>();
+  private padBinds: PadBinds = DEFAULT_PAD;
+  /** The stick's curve: steer is the stick to this power. */
+  steerCurve = 1.4;
+  /** Listening for a binding (the Controls tab): the next key or pad press goes to `fn`, and nothing else. */
+  private listening: { kind: 'key' | 'pad'; fn: (h: Heard) => void; base: number[]; bAt: number; stickSaid: boolean } | null = null;
   private readonly listeners: ((a: SystemAction) => void)[] = [];
   private prevButtons: boolean[] = [];
   private device: InputDevice = keptDevice();
@@ -137,7 +145,9 @@ export class Input {
   private padNavAt: number[] = [];
 
   constructor() {
+    this.setBindings(DEFAULT_KEYS, DEFAULT_PAD);
     window.addEventListener('keydown', (e) => {
+      if (this.listening) return this.hearKey(e);
       // Browser and OS shortcuts (Cmd+R, Ctrl+Tab…) are theirs, not a reset or a steer.
       // Esc still backs out of a menu from its text fields (the lobby list's search, a name).
       const typing = isTyping(e, this.menuOpen) && !(this.menuOpen && e.code === 'Escape');
@@ -156,23 +166,101 @@ export class Input {
       }
       // In a menu, the rest are the page's: Space and Enter press the focused button.
       if (this.menuOpen) return;
-      const k = KEYS[e.code];
+      const k = this.keyMap.get(e.code);
       if (k) {
-        held[k] = true;
+        held.set(e.code, k);
         e.preventDefault();
       }
     });
-    const release = () => {
-      for (const k of Object.keys(held) as (keyof typeof held)[]) held[k] = false;
-    };
+    const release = () => held.clear();
     window.addEventListener('keyup', (e) => {
-      const k = KEYS[e.code];
-      if (k) held[k] = false;
+      held.delete(e.code);
       // macOS sends no keyup for keys let go while Cmd was down: drop everything with it.
       if (e.key === 'Meta') release();
     });
     window.addEventListener('blur', release);
     document.addEventListener('visibilitychange', release);
+  }
+
+  /** The driving keys and pad buttons (bindings.ts). A key held under its old binding is let go. */
+  setBindings(keys: KeyBinds, pad: PadBinds): void {
+    this.keyMap = new Map();
+    for (const [a, codes] of Object.entries(keys) as [DriveAction, [string, string]][]) for (const c of codes) if (c && !reservedKey(c)) this.keyMap.set(c, a);
+    for (const [c, a] of held) if (this.keyMap.get(c) !== a) held.delete(c);
+    this.padBinds = pad;
+  }
+
+  /**
+   * Listens for a binding: the next key (`key`) or pad button or axis (`pad`) goes to `fn`, and
+   * nothing else happens with it (no menu move, no pause). Esc, or the pad's B pressed and let go,
+   * cancels; B held (HOLD_TO_BIND_MS) is bound. A key or button that isn't the driving's (Esc's
+   * F-keys, Start) is `reserved`, and it goes on listening. The pad's buttons down now don't count.
+   */
+  listen(kind: 'key' | 'pad', fn: (h: Heard) => void): void {
+    this.settleButtons();
+    const pad = this.pad();
+    this.listening = { kind, fn, base: pad ? [...pad.axes] : [], bAt: -1, stickSaid: false };
+  }
+
+  /** Stops listening (the panel closed under it). */
+  stopListening(): void {
+    this.listening = null;
+  }
+
+  get isListening(): boolean {
+    return !!this.listening;
+  }
+
+  private heard(h: Heard): void {
+    const l = this.listening;
+    if (!l) return;
+    if (!('reserved' in h)) this.listening = null;
+    l.fn(h);
+  }
+
+  private hearKey(e: KeyboardEvent): void {
+    e.preventDefault();
+    if (e.repeat) return;
+    this.lastDevice = 'keyboard';
+    if (e.code === 'Escape') return this.heard({ cancel: true });
+    if (this.listening?.kind !== 'key') return;
+    // A key with Cmd, Ctrl or Alt down is a shortcut (the browser's), and those keys never drive.
+    if (reservedKey(e.code) || e.metaKey || e.ctrlKey || e.altKey) return this.heard({ reserved: e.code });
+    this.heard({ key: e.code });
+  }
+
+  /** The pad while listening: a new press (or an axis pushed past halfway from where it rested) is the binding. */
+  private hearPad(pad: Gamepad): void {
+    const l = this.listening!;
+    const b = (k: number) => pad.buttons[k]?.pressed ?? false;
+    const pressed = (k: number) => b(k) && !this.prevButtons[k];
+    const now = performance.now();
+    if (pressed(PAD_B)) l.bAt = now;
+    if (l.bAt >= 0 && !b(PAD_B)) {
+      // B let go before it's held long enough: a cancel (either way of listening).
+      return this.heard({ cancel: true });
+    }
+    if (l.kind !== 'pad') return;
+    if (l.bAt >= 0 && now - l.bAt >= HOLD_TO_BIND_MS) return this.heard({ pad: { b: PAD_B } });
+    for (let k = 0; k < pad.buttons.length; k++) {
+      if (k === PAD_B || !pressed(k)) continue;
+      const p = { b: k };
+      return this.heard(reservedPad(p) ? { reserved: `b${k}` } : { pad: p });
+    }
+    // The left stick steers: said once a push, not every frame it's held over or on its way back.
+    const stick = Math.max(Math.abs(pad.axes[0] ?? 0), Math.abs(pad.axes[1] ?? 0));
+    if (stick > 0.6 && !l.stickSaid) {
+      l.stickSaid = true;
+      return this.heard({ reserved: Math.abs(pad.axes[0] ?? 0) >= Math.abs(pad.axes[1] ?? 0) ? 'a0' : 'a1' });
+    }
+    if (stick < 0.3) l.stickSaid = false;
+    for (let k = 2; k < pad.axes.length; k++) {
+      const rest = l.base[k] ?? 0;
+      const d = (pad.axes[k] ?? 0) - rest;
+      if (Math.abs(d) < 0.5) continue;
+      // Resting near an end, it's a trigger (it goes one way, from -1); otherwise from the middle.
+      return this.heard({ pad: { a: k, dir: d > 0 ? 1 : -1, rest: rest < -0.5 ? -1 : rest > 0.5 ? 1 : 0 } });
+    }
   }
 
   /** What was used last: the menus' key hints follow it (keycaps, or the pad's buttons). */
@@ -207,7 +295,7 @@ export class Input {
 
   /** Reads every device into `out` for this frame. `dt` in seconds (for keyboard easing). */
   poll(out: Controls, dt: number): Controls {
-    const want = (held.right ? 1 : 0) - (held.left ? 1 : 0);
+    const want = (holding('right') ? 1 : 0) - (holding('left') ? 1 : 0);
     const rate = want * this.keySteer < 0 ? 9 : 7;
     this.keySteer = approach(this.keySteer, want, rate * dt);
     // From straight, a steer key starts at KEY_ONSET; turning the other way, it eases to the middle
@@ -215,33 +303,35 @@ export class Input {
     const along = this.keySteer * want;
     if (want !== 0 && along >= 0) this.keySteer = want * Math.max(KEY_ONSET, along);
     let steer = this.keySteer;
-    let throttle = held.up ? 1 : 0;
-    let brake = held.down ? 1 : 0;
-    let boost = held.boost;
-    let drift = held.drift;
-    let reset = held.reset;
-    let look = held.look;
-    let horn = held.horn;
+    let throttle = holding('throttle') ? 1 : 0;
+    let brake = holding('brake') ? 1 : 0;
+    let boost = holding('boost');
+    let drift = holding('drift');
+    let reset = holding('reset');
+    let look = holding('look');
+    let horn = holding('horn');
 
     const pad = this.pad();
-    if (pad) {
-      const b = (k: number) => pad.buttons[k]?.pressed ?? false;
-      const v = (k: number) => pad.buttons[k]?.value ?? 0;
+    if (pad && this.listening) this.buttons(pad);
+    else if (pad) {
+      const binds = this.padBinds;
+      const value = (a: (typeof PAD_ACTIONS)[number]) => Math.max(padValue(pad, binds[a][0]), padValue(pad, binds[a][1]));
+      const down = (a: (typeof PAD_ACTIONS)[number]) => padDown(pad, binds[a][0]) || padDown(pad, binds[a][1]);
       const ax = pad.axes[0] ?? 0;
       const stick = Math.abs(ax) < this.deadZone ? 0 : (ax - Math.sign(ax) * this.deadZone) / (1 - this.deadZone);
-      const padSteer = Math.sign(stick) * Math.abs(stick) ** 1.4;
-      const rt = v(7);
-      const lt = v(6);
+      const padSteer = Math.sign(stick) * Math.abs(stick) ** this.steerCurve;
+      const rt = value('throttle');
+      const lt = value('brake');
       const any = Math.abs(stick) > 0 || rt > 0.05 || lt > 0.05 || pad.buttons.some((x) => x.pressed);
       if (any) this.lastDevice = 'gamepad';
       if (Math.abs(padSteer) > Math.abs(steer)) steer = padSteer;
       throttle = Math.max(throttle, rt);
       brake = Math.max(brake, lt);
-      boost ||= b(0);
-      drift ||= b(5) || b(2);
-      look ||= b(1);
-      reset ||= b(3);
-      horn ||= b(10);
+      boost ||= down('boost');
+      drift ||= down('drift');
+      look ||= down('look');
+      reset ||= down('reset');
+      horn ||= down('horn');
       this.buttons(pad);
     }
     // Drift held (a key or the pad's) and a steer key down, ready to drift: straight past the
@@ -285,6 +375,14 @@ export class Input {
     const b = (k: number) => pad.buttons[k]?.pressed ?? false;
     const pressed = (k: number) => b(k) && !this.prevButtons[k];
     if (pad.buttons.some((x, k) => x.pressed && !this.prevButtons[k]) || Math.max(Math.abs(pad.axes[0] ?? 0), Math.abs(pad.axes[1] ?? 0)) > 0.6) this.lastDevice = 'gamepad';
+    if (this.listening) {
+      this.hearPad(pad);
+      for (let k = 0; k < pad.buttons.length; k++) this.prevButtons[k] = pad.buttons[k].pressed;
+      // Back in the menu after it, a stick still held over waits as if it had just moved focus.
+      this.stickDir = Math.max(Math.abs(pad.axes[0] ?? 0), Math.abs(pad.axes[1] ?? 0)) > 0.6 ? stickWay(pad) : null;
+      this.stickNavAt = performance.now() + REPEAT_DELAY_MS;
+      return;
+    }
     if (b(8) && pressed(9)) this.fire('report');
     else if (pressed(9)) this.fire('pause');
     if (this.menuOpen) {
@@ -302,10 +400,11 @@ export class Input {
       if (pressed(0)) this.fire('accept');
       if (pressed(1)) this.fire('back');
       if (pressed(3)) this.fire('alt');
+      if (pressed(2)) this.fire('clear');
       // The stick moves focus too, the same way: once as it's pushed over, then repeating while held.
       const [ax, ay] = [pad.axes[0] ?? 0, pad.axes[1] ?? 0];
       const far = Math.max(Math.abs(ax), Math.abs(ay));
-      const dir: MenuAction = Math.abs(ax) > Math.abs(ay) ? (ax > 0 ? 'nav-right' : 'nav-left') : ay > 0 ? 'nav-down' : 'nav-up';
+      const dir = stickWay(pad);
       if (far > 0.6 && (dir !== this.stickDir || now >= this.stickNavAt)) {
         this.stickNavAt = now + (dir === this.stickDir ? REPEAT_MS + 25 : REPEAT_DELAY_MS);
         this.stickDir = dir;
@@ -328,6 +427,12 @@ export class Input {
     const pad = this.pad() as (Gamepad & { vibrationActuator?: { playEffect?: (t: string, p: object) => Promise<unknown> } }) | null;
     pad?.vibrationActuator?.playEffect?.('dual-rumble', { duration: ms, strongMagnitude: clamp(strong, 0, 1), weakMagnitude: clamp(weak, 0, 1) }).catch(() => {});
   }
+}
+
+/** Which way the left stick is pushed most. */
+function stickWay(pad: Gamepad): MenuAction {
+  const [ax, ay] = [pad.axes[0] ?? 0, pad.axes[1] ?? 0];
+  return Math.abs(ax) > Math.abs(ay) ? (ax > 0 ? 'nav-right' : 'nav-left') : ay > 0 ? 'nav-down' : 'nav-up';
 }
 
 /** Keys for a text field (and a dropdown outside the menus: in them, arrows move between controls). */

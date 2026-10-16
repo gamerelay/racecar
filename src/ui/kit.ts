@@ -4,11 +4,14 @@
 // action per screen, and an 8° lean on titles and menu actions only.
 //
 // Key hints are drawn for both keyboard and pad, and CSS shows the one used last (`body.pad`,
-// set from Input.onDevice in main.ts), so nothing is redrawn when you pick up the pad.
+// set from Input.onDevice in main.ts), so nothing is redrawn when you pick up the pad. The driving
+// actions' hints (Drift, Boost…) are the player's bindings (setDriveBinds), and redraw in place
+// when those change.
 
+import { DEFAULT_KEYS, DEFAULT_PAD, DRIVE_ACTIONS, keyLabel, padLabel, type DriveAction, type KeyBinds, type PadBinds } from '../input/bindings';
 import { esc } from './html';
 
-/** What a hint stands for, as keycaps on the keyboard and buttons on the pad. */
+/** What a menu hint stands for, as keycaps on the keyboard and buttons on the pad (fixed: the menus' keys can't be changed). */
 export const BINDS = {
   select: { kb: ['↑↓'], pad: ['✚'] },
   move: { kb: ['↑↓←→'], pad: ['✚'] },
@@ -19,11 +22,50 @@ export const BINDS = {
   refresh: { kb: ['R'], pad: ['Y'] },
   car: { kb: ['A', 'D'], pad: ['LB', 'RB'] },
   paint: { kb: ['W', 'S'], pad: [] },
-  drift: { kb: ['Shift'], pad: ['RB'] },
-  boost: { kb: ['Space'], pad: ['A'] },
+  clear: { kb: ['Del'], pad: ['X'] },
 } as const satisfies Record<string, { kb: readonly string[]; pad: readonly string[] }>;
 
-export type Bind = keyof typeof BINDS;
+export type Bind = keyof typeof BINDS | DriveAction;
+
+/** A driving action's keys and buttons by name, both slots (none left out). */
+export interface DriveLabels {
+  kb: Record<DriveAction, string[]>;
+  pad: Record<DriveAction, string[]>;
+}
+
+/** Short names for the hints: the long ones are the Controls table's. */
+const SHORT_PAD: Record<string, string> = { 'Left stick click': 'L3', 'Right stick click': 'R3' };
+
+export function driveLabels(keys: KeyBinds, pads: PadBinds, short = false): DriveLabels {
+  const kb = {} as DriveLabels['kb'];
+  const pad = {} as DriveLabels['pad'];
+  for (const a of DRIVE_ACTIONS) {
+    kb[a] = keys[a].filter(Boolean).map(keyLabel);
+    // The left stick steers, always.
+    const p = a === 'left' || a === 'right' ? ['Left stick'] : pads[a].filter((x) => x).map((x) => padLabel(x));
+    pad[a] = short ? p.map((l) => SHORT_PAD[l] ?? l) : p;
+  }
+  return { kb, pad };
+}
+
+let drive = driveLabels(DEFAULT_KEYS, DEFAULT_PAD, true);
+const isDrive = (b: Bind): b is DriveAction => (DRIVE_ACTIONS as readonly string[]).includes(b);
+
+/** A hint's caps: a menu's fixed ones, or a driving action's first key and button. */
+function bindCaps(bind: Bind): { kb: readonly string[]; pad: readonly string[] } {
+  if (!isDrive(bind)) return BINDS[bind];
+  return { kb: drive.kb[bind].slice(0, 1), pad: drive.pad[bind].slice(0, 1) };
+}
+
+/** The bindings changed: every driving hint on the page redraws (the pause menu's tips are drawn once). */
+export function setDriveBinds(keys: KeyBinds, pads: PadBinds): void {
+  drive = driveLabels(keys, pads, true);
+  if (typeof document === 'undefined' || typeof document.querySelectorAll !== 'function') return;
+  for (const el of document.querySelectorAll<HTMLElement>('[data-bind]')) {
+    const b = el.dataset.bind as Bind;
+    if (isDrive(b)) el.outerHTML = hint(b, el.dataset.label ?? '');
+  }
+}
 
 /** One keycap. */
 export const key = (label: string) => `<kbd class="k-key">${esc(label)}</kbd>`;
@@ -38,10 +80,13 @@ export function caps(kb: readonly string[], gp: readonly string[]): string {
   return `<span class="k-caps"><span class="kb">${k}</span><span class="gp">${g}</span></span>`;
 }
 
-/** A key hint: the caps for `bind`, then what it does. */
+/** A key hint: the caps for `bind`, then what it does. A driving action's says "none" when it has no key. */
 export function hint(bind: Bind, label: string): string {
-  const b = BINDS[bind];
-  return `<span class="k-hint">${caps(b.kb, b.pad)}<span>${esc(label)}</span></span>`;
+  const b = bindCaps(bind);
+  const none = '<span class="k-muted">none</span>';
+  const c = isDrive(bind) ? `<span class="k-caps"><span class="kb">${b.kb.map(key).join('') || none}</span><span class="gp">${b.pad.map(pad).join('') || none}</span></span>` : caps(b.kb, b.pad);
+  const tag = isDrive(bind) ? ` data-bind="${bind}" data-label="${esc(label)}"` : '';
+  return `<span class="k-hint"${tag}>${c}<span>${esc(label)}</span></span>`;
 }
 
 /** A row of hints, along a screen's foot. */

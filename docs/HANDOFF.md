@@ -4,7 +4,39 @@ Where racecar stands and what's next, for whoever picks it up (a person or a fre
 The design is [SPEC.md](./SPEC.md): decisions in §17, and what building changed in "Changed while
 building". This file is "where are we"; the spec is "what are we making".
 
-**Last updated:** 2026-10-16. **`v1.2`, the UI polish** (PR #182, merged and tagged 2026-10-16,
+**Last updated:** 2026-10-16. **Remapping** (branch `remapping`, PR open, not merged or deployed:
+waiting on the owner's try with their Xbox pad): MENU.md's steps 3 and 5 together. The Controls tab
+sets each driving action's two buttons and two keys, the controller first, by pressing the new one;
+a button or key another action has swaps over (the owner's call). Reset per device; the pad's
+deadzone, rumble and steering sensitivity; the hints (the menus', the pause tips, the keys card)
+read the bindings. Details: [MENU.md](./MENU.md), "Remapping (steps 3 and 5, 2026-10-16)".
+
+- **Code:** `input/bindings.ts` (the defaults, the labels, what can't be taken, reading what was
+  stored, `assign`'s swap), `controls` in `settings.ts`, `Input.setBindings` and `Input.listen`
+  (the next press is the binding; B tapped or Esc cancels, B held 0.6 s binds B), the Controls tab
+  in `ui/settings.ts` (CSS `.c-*` in `menu.css`), `setDriveBinds` and the driving hints in
+  `ui/kit.ts`, `keysSvg`/`keysNote`/`padRows` in `ui/keys.ts`. The menus' keys and buttons are
+  still fixed in `input.ts`, so no binding can lock a menu. A new menu action, `clear` (X, Delete,
+  Backspace), clears a binding.
+- **Checked:** typecheck, `bun run test` (921, with `test/controls.test.ts`: the defaults are the
+  old controls key by key and button by button, a binding saves and loads, the menus' buttons can't
+  be taken and still work whatever's bound, the hints follow, a random run of swaps never binds one
+  key twice, and the controls stay finite whatever the settings and pad), every map `identical` in
+  `tools/fingerprint.ts`, and a fake standard pad in headless Chrome (`navigator.getGamepads`
+  replaced): from the pause menu to Controls by the pad, Boost to Y (Reset moved to A, said), Start
+  refused, B tapped cancels, B held binds B, X clears, a trigger as an axis, rumble, deadzone and
+  Reset; the pause tip says Y and Y boosts in the race; it all survives a reload. Then the keyboard
+  from the title's cog (M refused, Space set without re-listening, Esc cancels, Delete clears) and
+  the keys card drawn from the keys. Screenshots at 1920×1080 and 480×480. No page errors.
+- **Seen once under heavy headless load, not ours:** a non-finite value to an `AudioParam` from
+  the engine voice (`EngineVoice.set`, so the revs or the throttle were NaN), intermittent, on runs
+  with three 1080p SwiftShader pages back to back. Not reproduced in a single race on `main` or this
+  branch, and the controls are proven finite (the randomized test above), so it isn't the input.
+  To catch it: wrap `AudioParam.prototype.setTargetAtTime` in an init script and snapshot
+  `__rc.sim.controls`, `__rc.audio.rpm` and the focus car's speed on the first non-finite value.
+- **Next:** the owner's Xbox pad on the branch, then merge. After that, MENU.md's step 4.
+
+**`v1.2`, the UI polish** (PR #182, merged and tagged 2026-10-16,
 on the hosted build): the title, Multiplayer, the lobby, the in-race
 menu and Settings rebuilt to the v1.2 "Racecar — UI Polish" designs, controller-first, with
 transitions; then the results, the keys card and the Credits pages in the same style. What's in and where it went differently from the designs: [MENU.md](./MENU.md), "The
@@ -37,7 +69,8 @@ UI polish (v1.2, 2026-10-15)".
   found is fixed: the list said 1/8 for a 4-seat lobby (`seatsIn`), and the host's Kick and Make
   host squeezed the guest's name to "R…" (car and ping went under the name).
 - **Checked by the owner (2026-10-16)** with their Xbox pad: "this feels really good".
-- **Next:** MENU.md's step 3 (keyboard remapping, the hints from the bindings).
+- **Next:** MENU.md's step 3 (keyboard remapping, the hints from the bindings): built with step 5
+  on the `remapping` branch (above).
 
 **The hosted build is `v1.2`** (tagged 2026-10-16): `v1.1` plus PR #182, the UI polish (above), and #181 and #183 (traffic out of sight, Sahara's caravan). **`v1.1`** (tagged 2026-10-15) is `v1.0.1` plus
 **PRs #174–#180**: Time trial with online lap boards, names checked with GameRelay's moderation

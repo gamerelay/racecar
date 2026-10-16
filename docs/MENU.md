@@ -23,7 +23,8 @@ and there's no way for a player to change either.
   made (it's off when the post pass is on), so switching post on or off needs a new renderer.
 - **Controls:** the keyboard is one fixed table (`KEYS` in `src/input/input.ts`); gamepads use the
   standard mapping. `deadZone` and `rumbleOn` exist on `Input` but nothing sets them. The pause
-  menu's control hints are written out by hand (`src/ui/hud.ts`).
+  menu's control hints are written out by hand (`src/ui/hud.ts`). (All of this changed with
+  remapping, 2026-10-16: see "Remapping" below.)
 - **Privacy:** SPEC promises a PostHog opt-out "in settings"; there isn't one yet.
 - **Dropdowns:** the lobby's options (map, laps, weather, time, mayhem, traffic) are native
   `<select>`s from one helper (`sel` in `src/ui/menu.ts`). The closed box is styled
@@ -128,7 +129,8 @@ from 0.5 to 0.8, about 8 dB between them (`ENGINES_LEVEL` in `audio.ts`, `MUSIC_
 - **Gamepad:** deadzone, rumble on or off (both exist in `Input`, with no UI), and steering
   sensitivity.
 - **Gamepad remapping: later.** Triggers can be axes or buttons, and pads differ, so it's more
-  work for fewer players. Keyboard first.
+  work for fewer players. Keyboard first. (In the end the pad came first, with the keyboard in the
+  same change: "Remapping" below.)
 
 ### Gameplay
 
@@ -160,9 +162,9 @@ from 0.5 to 0.8, about 8 dB between them (`ENGINES_LEVEL` in `audio.ts`, `MUSIC_
 | 1 | Fix the mix (engines down, music up) | Very small (done) |
 | 1b | Choosers instead of dropdowns; transitions between screens | Small to medium (done) |
 | 2 | Settings store and panel; the in-race menu (Resume, Restart, Settings, Quit); Sound sliders; Graphics preset and settings; analytics opt-out. In the in-race menu and the main menu. | Medium (done) |
-| 3 | Keyboard remapping, with hints from the bindings; gamepad deadzone, rumble and sensitivity | Medium |
+| 3 | Keyboard remapping, with hints from the bindings; gamepad deadzone, rumble and sensitivity | Medium (done, with 5) |
 | 4 | Gameplay, camera and comfort, HUD options; the panel in the lobby too | Small to medium, a setting at a time |
-| 5 | Gamepad remapping | Larger |
+| 5 | Gamepad remapping | Larger (done, with 3) |
 
 ## Built (steps 1b and 2, 2026-10-01)
 
@@ -262,9 +264,55 @@ Where it went differently from the designs:
 - **The car card's numbers** sit by their bars, not by the names: "Handling" and a 10 don't fit
   side by side as the design's "Grip 9" did.
 
+## Remapping (steps 3 and 5, 2026-10-16)
+
+The controller's buttons and the keyboard's keys, set on the Controls tab, the controller first.
+The owner's call on conflicts: **swap**.
+
+- **The bindings** (`src/input/bindings.ts`, pure): two per action, a primary and an alternate, for
+  the keys (Accelerate, Brake, Steer left and right, Drift, Boost, Reset, Look back, Horn) and the
+  pad (the same, less steering: the left stick always steers). The defaults are the controls as
+  they were, both slots (WASD and the arrows; the pad's RB and X for drift). A pad binding is a
+  button (its analog value, so a trigger read as a button still eases the throttle) or an axis
+  pushed one way from where it rests (a trigger some pads report as an axis, resting at -1; the
+  right stick, from the middle).
+- **Kept in the settings** (`controls` in `src/settings.ts`): the bindings, and the pad's deadzone
+  (0 to 30%, 12% as before), rumble and steering sensitivity (the stick's curve, 1.4 as before).
+  What's stored is checked as it's read: a system key, a reserved button or one bound twice is none;
+  an action missing altogether is its default (a setting from before remapping is all defaults).
+- **What can't be taken:** Esc, the F-keys, the dev and sound keys (` M N − +), Tab and the
+  modifiers; the pad's Start, Select and guide button, and the left stick. The menus' keys and
+  buttons aren't bindings at all (MENU_KEYS and the pad's d-pad, A, B, Y, the bumpers and Start in
+  `input.ts`), so a binding on one of them (Boost on Y, say) drives in a race and leaves the menus
+  as they are: nothing can lock you out of a menu.
+- **Setting one:** A (or Enter, or a click) on a cell listens for the next press, with the prompt
+  big in the sheet's foot ("Press a button for Boost"). A key or button that can't be taken says
+  why and it listens on. B pressed and let go, or Esc, cancels; B held for 0.6 s is the binding, so
+  B can be set from the pad too. While it listens nothing else happens with a press (no pause, no
+  menu move). X (Delete or Backspace on the keyboard) clears the focused one. One another action
+  has swaps: it gets what this slot had, which may be none, and the foot says so ("Boost is on Y.
+  Reset to road moved to A.", or "... has no button now"), the cell it moved to ringed for a moment.
+- **Reset** for each device, at the end of its section: the controller's resets its options too.
+- **Hints from the bindings:** the menus' driving hints (`hint('drift')` and the others) are the
+  bindings, and redraw in place when they change (`setDriveBinds`, `[data-bind]`), so the pause
+  menu's tips (drawn once) follow. The keys card draws its keys from them (the accelerate key where
+  W was, and so on), and its pad rows and notes too. The Controls tab is the table itself.
+- **Layout:** the controller left, the keyboard right, each with its fixed keys and buttons (Menu,
+  Felt wrong?, the sound keys) under it. It fits the sheet at 16:9 without scrolling; on a small or
+  square window it's one column, the controller first, scrolling.
+
+Where it went differently from the plan above:
+
+- **Steering on the pad isn't rebindable:** it's the left stick, always (its row says so). The
+  sensitivity setting is the stick's curve.
+- **Pause stays on Esc and Start:** they're the menus', so they're fixed, not a bindable action.
+- **Key names are the US layout's** (the key's place, `KeyboardEvent.code`): on AZERTY the key
+  shown as Q types A.
+
 ## Open questions
 
 - **Remapping conflicts:** swap the two bindings, or refuse and say which action has the key?
+  **Swap** (the owner, 2026-10-16): above.
 - **Touch controls:** anything to set (button size, layout, left-handed)?
 - **Graphics default:** pick a preset from the device (screen size, a quick frame-time check on
   the first race), or always start on High?
