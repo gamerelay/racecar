@@ -198,6 +198,58 @@ What's in, and where it went differently from the plan above:
   reduced-motion setting makes them short fades. The "Reduce motion" setting itself comes with
   step 4.
 
+## The UI polish (v1.2, 2026-10-15)
+
+The menus rebuilt to the "Racecar — UI Polish" designs: one system for the title, Multiplayer,
+the lobby, the in-race menu and Settings. Built smallest parts first:
+
+- **The kit** (`src/ui/kit.ts`, `src/ui/kit.css`): the designs' tokens (Ink, Night, Sun, Hot, Ice,
+  Cream, Muted; Bungee and Chakra Petch; the hard pink shadow on one main action a screen; the
+  −8° lean on titles and menu actions) and the parts every screen is made of: buttons, the
+  leaning menu actions (the focused one fills and opens to say what it does), keycaps and pad
+  buttons, tags, plates, switches, segmented choices, sliders, fields, panels, tabs, rated stats.
+  Sized for 1080p and scaled to the window (1rem is 10px at 1080p). `kit.html` (dev only) shows
+  every part; P there swaps the hints to the pad's.
+- **Hints follow the device used last** (`Input.onDevice`, `body.pad`): keycaps, or the pad's
+  buttons, drawn both ways and switched in CSS, so nothing redraws when you pick up the pad.
+- **The pad in menus:** a held d-pad or stick repeats (380 ms, then every 95); Q and E (the
+  bumpers, over Settings) switch tabs; R (the pad's Y) is a screen's extra, Refresh in the lobby
+  list. Esc backs out of a text field too. The pointer over a menu action or a row focuses it, so
+  what's lit follows the mouse as it does the pad.
+- **Screens** (`src/ui/menu.ts`, `src/ui/menu.css`):
+  - Title: Quick race (now a random car as well as a random map), Single player (your lobby),
+    Multiplayer, Time trial, Free drive; your plate top right with Edit and the cog; the two
+    fullest online lobbies bottom right.
+  - Multiplayer (new; Create lobby's own screen is gone into it): the online lobbies with search,
+    track, Hide full and an order by column, Quick join (the fullest open lobby between races),
+    Create lobby (name, who can join, seats, bots fill the empty ones) and Join with code (a
+    code, an invite link or a short link).
+  - The lobby: drivers left (open seats quiet: their arrows show on the one you're on), your car
+    in a frame in the middle over the scene (dimmed round it), its card under it, the track and
+    its options right with the ready count over Start race.
+  - In-race menu: the menu left under where you are in the race (lap, place, time, points), the
+    six tips right, each with its key.
+  - Settings and Controls: one sheet with two tabs; Controls is keyboard and pad side by side.
+- **Coming and going:** a screen's pieces come in from their own side one after another, and go
+  together, quickly; the backdrop under them changes as they swap (the title's softened race, the
+  list's night). Back to a screen, focus is where you left it. Between pages (into a race and out)
+  slanted bands sweep across (sun, pink, the dark) and off again once the next page has drawn.
+  Reduced motion makes all of it short fades.
+
+Where it went differently from the designs:
+
+- **No ping per lobby, and no "drivers online"** in the list: the rooms don't report either. The
+  header counts the drivers in the lobbies listed instead. The listing now carries the host's plate
+  and the rules (an older host's listing still lists, without them).
+- **Fill open seats with bots** is a lobby option (`fill`, on by default; off, open seats start
+  empty), set by the host in the lobby or at Create.
+- **Seats** at Create closes the seats past the number picked (the host can open them again).
+- **Resume** says it's back to the race as you left it: there's no countdown on resume (the design
+  had one).
+- **Handling**, not "Grip", on the car card: it's turn and grip together.
+- **The results screen** (`ui/race.ts`), the first race's keys card and the Credits pages keep the
+  old style for now: not in the designs.
+
 ## Open questions
 
 - **Remapping conflicts:** swap the two bindings, or refuse and say which action has the key?

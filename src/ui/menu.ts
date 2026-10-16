@@ -1,30 +1,33 @@
-// The front door (PLAN phases 2 to 4): the title screen with the lobby list, Create lobby, your
-// plate, and the lobby itself, Civilization-style, with eight seats the host sets to a player,
-// open, an AI or closed. Every race starts from a lobby; playing alone is your lobby with bots in
-// the open seats. The lobby is also the car select: the seats dock left, your car turns on a
-// table in the middle (render/showroom.ts) over its map, with arrows either side to cycle it (A and
-// D; W and S cycle the paint) and its stat bars under it, and the race's options float top right
-// (the host's to set; everyone else sees a summary). The screens only see a LobbyBackend: your
-// own lobby is in this browser, and online ones are GameRelay rooms (lobby/relay.ts).
+// The front door (PLAN phases 2 to 4, docs/MENU.md "The UI polish"): the title screen, the lobby
+// list (Multiplayer), your plate, and the lobby itself, Civilization-style, with eight seats the
+// host sets to a player, open, an AI or closed. Every race but Quick race, Time trial and Free drive
+// starts from a lobby; Single player is your own lobby with bots in the open seats. The lobby is
+// also the car select: the seats on the left, your car turning on a table in the frame in the
+// middle (render/showroom.ts) with arrows either side to cycle it (A and D; W and S cycle the
+// paint) and its card under it, and the race's options on the right (the host's to set; everyone
+// else reads them). The screens only see a LobbyBackend: your own lobby is in this browser, and
+// online ones are GameRelay rooms (lobby/relay.ts).
+//
+// Every screen is built from the UI kit (kit.ts, kit.css); its pieces come in one after another
+// (`data-in`, menu.css) as it opens, and go together as it leaves.
 
 import { EMBED, keepEmbed } from './embed';
 import { esc } from './html';
 import { chooser } from './chooser';
 import { goTo } from './fade';
 import type { CarClass, MapDef, PaintDef, TrackLayout } from '../core/content';
-// The crossed chequered flags (the favicon's): after the wordmark.
-import FLAGS from './icons/flags.svg?raw';
 import type { KeyValue, LobbyBackend, NetRoute } from '../lobby/backend';
 import { LOCAL_ID } from '../lobby/backend';
 import type { NameCheck, NameRules, Refusal } from '../lobby/relay';
 import type { Page } from './pages';
 import { aiPlate, cleanPlate, plateProblem, PLATE_MAX, randomPlate, savePlate, typedPlate } from '../lobby/plate';
-import { DEFAULT_OPTIONS, FILL_DIFFICULTY, SEATS, canJoin, nextVisibility, legacySeats, seatIndex, summarize, type Lobby, type LobbyAction, type LobbyOptions, type LobbySummary, type SeatChoice } from '../lobby/lobby';
+import { DEFAULT_OPTIONS, FILL_DIFFICULTY, SEATS, canJoin, nextVisibility, legacySeats, seatIndex, type Lobby, type LobbyAction, type LobbyOptions, type LobbySummary, type SeatChoice } from '../lobby/lobby';
 import { pingClass } from './format';
 import { MAX_LAPS, quickRaceSetup, raceFromLobby, randomCar, toQuery, trialSetup, type RaceSetup } from './setup';
 import { onOverlay, overlayUp } from './overlay';
 import { carStats } from './stats';
 import { thumb, thumbSvg } from './thumb';
+import { button, carRole, driverChip, fill, field, GEAR, header, hint, hints, menuItem, plate, rating, row, segmented, stat, tag, toggle, toggled } from './kit';
 
 /** What GameRelay checks a plate against: tighter than a name's rules, as plates are (lobby/plate.ts). */
 const PLATE_RULES: NameRules = { maxLength: PLATE_MAX, charset: 'alnum' };
@@ -45,17 +48,18 @@ export interface Preview {
   car?: { car: string; paint: number; plate: string };
 }
 
-/** `from`: the lobby the plate editor was opened from (it goes back there, still seated). */
-type Screen = { kind: 'title' } | { kind: 'create' } | { kind: 'plate'; from?: string } | { kind: 'lobby'; id: string };
+/** `from`: the lobby the plate editor was opened from (it goes back there, still seated), or the screen. */
+type Screen = { kind: 'title' } | { kind: 'online' } | { kind: 'plate'; from?: string } | { kind: 'lobby'; id: string };
+type Kind = Screen['kind'];
 
 /** The race options' choices, as [value, label]. */
 const WEATHERS: [string, string][] = [['random', 'Random'], ['clear', 'Clear'], ['rain', 'Rain']];
 const TIMES: [string, string][] = [['random', 'Random'], ['day', 'Day'], ['sunset', 'Sunset']];
 const MAYHEMS: [string, string][] = [['normal', 'Normal'], ['chaos', 'Chaos'], ['off', 'Off']];
-/** Who can join a lobby, in the order the host's button cycles them. */
+/** Who can join a lobby, in the order the host's tag cycles them. */
 const ACCESS: [Lobby['visibility'], string, string][] = [
   ['public', 'Public', 'Anyone: listed online'],
-  ['invite', 'Invite only', 'Anyone with the link: not listed'],
+  ['invite', 'Link only', 'Anyone with the link: not listed'],
   ['locked', 'Private', 'Nobody new can join'],
 ];
 /** What the lobby's header says about its connection. */
@@ -64,19 +68,23 @@ const NET_ROUTES: Record<NetRoute, [string, string]> = {
   relay: ['Relay', 'Through a GameRelay relay near you'],
   server: ['Server', 'Through the game server (a direct way is still being found, or there isn\'t one)'],
 };
+const SEAT_OPTS: [SeatChoice, string][] = [['open', 'Open seat'], ['ai-easy', 'Bot · easy'], ['ai-normal', 'Bot · normal'], ['ai-hard', 'Bot · hard'], ['closed', 'Closed']];
 const label = (opts: [string, string][], v: string) => opts.find(([k]) => k === v)?.[1] ?? v;
 
-/** How long a screen takes to fade out before the next comes in (ms); the next fades in in CSS. */
-const LEAVE_MS = 120;
+/** How long a screen takes to go before the next comes in (ms); the next comes in in CSS (menu.css). */
+const LEAVE_MS = 150;
 const sameScreen = (a: Screen, b: Screen) => a.kind === b.kind && (a.kind !== 'lobby' || (b.kind === 'lobby' && a.id === b.id)) && (a.kind !== 'plate' || (b.kind === 'plate' && a.from === b.from));
 const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
+const reducedMotion = () => !!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+/** How deep a screen is: going to a deeper one is forward (it comes in from the right), to a shallower one back. */
+const DEPTH: Record<Kind, number> = { title: 0, online: 1, plate: 2, lobby: 2 };
 
 /** The car arrows' chevron (pointing right; the previous one is flipped in CSS). */
 const CHEVRON = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 3l10 9-10 9"/></svg>';
 
-/** A name as a little license plate (the results use the same chip). */
 /** The build's version (vite.config.ts), on the title's foot; `dev` where Vite didn't build it (the tests). */
 const BUILD_VERSION = typeof __BUILD_VERSION__ === 'string' ? __BUILD_VERSION__ : 'dev';
+/** A name as a little license plate (the results use the same chip). */
 export const plateChip = (name: string) => `<span class="plate">${esc(name)}</span>`;
 
 /**
@@ -121,6 +129,59 @@ export function playerSeatChoices(lobby: Lobby, you: string, index: number): [st
   return [['seat', 'Seated'], ['kick', 'Kick'], ['host', 'Make host']];
 }
 
+/** How the lobby list can be put in order (a column header's press). */
+export type LobbySort = 'drivers' | 'name' | 'track' | 'laps';
+
+/**
+ * The lobby list as the Multiplayer screen shows it: online ones only, matching the search (a
+ * lobby's name or host) and the track, without full ones if asked, in `sort` order (the fullest
+ * first; ties by name). Pure, so it's tested without a DOM.
+ */
+export function filterLobbies(rows: readonly LobbySummary[], f: { query: string; track: string; hideFull: boolean; sort: LobbySort }, mapName: (key: string) => string): LobbySummary[] {
+  const q = f.query.trim().toLowerCase();
+  const out = rows.filter(
+    (l) =>
+      l.id !== LOCAL_ID &&
+      (!q || l.name.toLowerCase().includes(q) || (l.host ?? '').toLowerCase().includes(q)) &&
+      (!f.track || l.map.split('/')[0] === f.track) &&
+      !(f.hideFull && l.filled >= SEATS),
+  );
+  const byName = (a: LobbySummary, b: LobbySummary) => a.name.localeCompare(b.name);
+  const cmp: Record<LobbySort, (a: LobbySummary, b: LobbySummary) => number> = {
+    drivers: (a, b) => b.filled - a.filled || b.players - a.players || byName(a, b),
+    name: byName,
+    track: (a, b) => mapName(a.map).localeCompare(mapName(b.map)) || byName(a, b),
+    laps: (a, b) => a.laps - b.laps || byName(a, b),
+  };
+  return out.sort(cmp[f.sort]);
+}
+
+/** The lobby Quick join takes you to: open between races, with the most players in it (null: none). */
+export function quickJoinPick(rows: readonly LobbySummary[]): LobbySummary | null {
+  const open = rows.filter((l) => l.id !== LOCAL_ID && l.phase === 'lobby' && l.filled < SEATS && l.players > 0);
+  return open.sort((a, b) => b.players - a.players || b.filled - a.filled)[0] ?? null;
+}
+
+/** A pasted invite (a link, a short link or a code) as what it opens: a short link's id, or a lobby code. */
+export function readInvite(text: string): { link: string } | { code: string } | null {
+  const t = text.trim();
+  if (!t) return null;
+  try {
+    const u = new URL(t.includes('://') ? t : `https://x/${t.includes('/') ? t : ''}`);
+    const lobby = u.searchParams.get('lobby');
+    const join = u.searchParams.get('join');
+    if (lobby) return { code: lobby };
+    if (join) return { link: join };
+    if (t.includes('/')) {
+      const last = u.pathname.split('/').filter(Boolean).pop();
+      if (last) return { link: last };
+    }
+  } catch {
+    // Not a link: a code.
+  }
+  return /^[A-Za-z0-9-]{3,16}$/.test(t) ? { code: t.toUpperCase() } : null;
+}
+
 export class Menu {
   private root: HTMLElement;
   private screen: Screen = { kind: 'title' };
@@ -140,7 +201,7 @@ export class Menu {
   offline?: () => string;
   /** Whether lobbies can be online (there's a relay). */
   online = false;
-  /** The title's list refreshing (online lobbies come and go), or an online lobby's connection label. */
+  /** The lists refreshing (online lobbies come and go), or an online lobby's connection label. */
   private refresh: ReturnType<typeof setInterval> | null = null;
   /** Off to a race: the page is about to load, so later lobby updates don't start another. */
   private going = false;
@@ -148,10 +209,18 @@ export class Menu {
   private sitting = false;
   /** A "back from the race" on its way. */
   private backing = false;
-  /** A new screen is on its way in: the next paint fades it in (and from which side). */
+  /** A new screen is on its way in: the next paint brings its pieces in. */
   private entering = false;
-  /** A screen is fading out: nothing in it can be pressed. */
+  /** A screen is going: nothing in it can be pressed. */
   private leaving = false;
+  /** What had focus on each screen when you left it: back there, it has it again. */
+  private focusOn: Partial<Record<Kind, string>> = {};
+  /** The lobby list's search, track, Hide full and order; and its rows, when they came. */
+  private find = { query: '', track: '', hideFull: true, sort: 'drivers' as LobbySort };
+  private rows: LobbySummary[] = [];
+  private rowsAt = 0;
+  /** An online lobby's invite link, once it's known. */
+  private invite: { id: string; link: string | null } | null = null;
   /** The title's Settings button (main.ts opens the panel). */
   onSettings?: () => void;
   /** A short note for the player (main.ts toasts it): why a lobby put you out, or let you in. */
@@ -180,11 +249,11 @@ export class Menu {
     };
     this.root = document.createElement('div');
     this.root.id = 'menu';
+    this.root.className = 'k';
     document.body.appendChild(this.root);
     onOverlay(() => this.syncInert());
   }
 
-  /** Opens on the title, or straight into a lobby (back from its race, or a reload in it). */
   /** Opened from a short link (`?join=<link>`): into its lobby, or the title if it's gone. */
   async openLink(link: string): Promise<void> {
     const id = await this.backend.joinLink?.(link);
@@ -192,6 +261,7 @@ export class Menu {
     return this.open(id ?? null);
   }
 
+  /** Opens on the title, or straight into a lobby (back from its race, or a reload in it). */
   async open(lobbyId?: string | null): Promise<void> {
     // The menu is up, so your lobby's race is over, however you left it (Back to lobby, a closed
     // tab, the title's URL): it's waiting again, or Start and the seats would refuse.
@@ -207,14 +277,25 @@ export class Menu {
     return this.show(lobby ? { kind: 'lobby', id: lobby.id } : { kind: 'title' });
   }
 
-  /** Back (Esc, the pad's B): lobby, create and the plate go to the title. Out of a lobby, that's leaving it (yours closes: only bots are left). */
+  /**
+   * Back (Esc, the pad's B): an online lobby goes to the lobby list, the list and your own lobby
+   * to the title, the plate to where it was opened from. Out of a lobby, that's leaving it (yours
+   * closes: only bots are left).
+   */
   back(): void {
     const screen = this.screen;
-    if (screen.kind === 'plate' && screen.from) return void this.show({ kind: 'lobby', id: screen.from });
-    if (screen.kind === 'lobby') void this.backend.send(screen.id, { type: 'leave' });
-    // A lobby still being made is given up now, so it's never written or listed.
-    if (screen.kind === 'create') this.backend.abandonCreate?.();
+    if (screen.kind === 'plate' && screen.from && screen.from !== 'online') return void this.show({ kind: 'lobby', id: screen.from });
+    if (screen.kind === 'plate' && screen.from === 'online') return void this.show({ kind: 'online' });
+    if (screen.kind === 'lobby') {
+      void this.backend.send(screen.id, { type: 'leave' });
+      return void this.show(screen.id !== LOCAL_ID && this.online ? { kind: 'online' } : { kind: 'title' });
+    }
     if (screen.kind !== 'title') void this.show({ kind: 'title' });
+  }
+
+  /** A screen's own extra (R, the pad's Y): the lobby list refreshes. */
+  alt(): void {
+    if (this.screen.kind === 'online') void this.refreshRows(true);
   }
 
   /**
@@ -223,15 +304,27 @@ export class Menu {
    */
   pick(dir: 'up' | 'down' | 'left' | 'right'): boolean {
     if (this.screen.kind !== 'lobby' || !this.lobby || seatIndex(this.lobby, this.backend.youIn(this.lobby.id)) < 0) return false;
+    // Typing in a field, the keys are the field's.
+    if (document.activeElement instanceof HTMLInputElement && document.activeElement.type !== 'range') return false;
     const { classes, paints } = this.content;
     const yours = this.picked ?? this.yourCar(this.lobby);
     const step = dir === 'right' || dir === 'down' ? 1 : -1;
     if (dir === 'left' || dir === 'right') {
       const at = classes.findIndex((c) => c.id === yours.car);
       this.picked = { car: classes[(at + step + classes.length) % classes.length].id, paint: yours.paint };
+      this.nudge(dir === 'left' ? 'lPrev' : 'lNext');
     } else this.picked = { car: yours.car, paint: (yours.paint + step + paints.length) % paints.length };
     this.send(this.lobby, { type: 'car', ...this.picked });
     return true;
+  }
+
+  /** The car arrow a key stood for flashes, as if it was pressed. */
+  private nudge(id: string): void {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.classList.remove('pressed');
+    void el.offsetWidth;
+    el.classList.add('pressed');
   }
 
   private async show(screen: Screen): Promise<void> {
@@ -243,38 +336,34 @@ export class Menu {
     this.screen = screen;
     this.lobby = this.picked = null;
     history.replaceState(null, '', screen.kind === 'lobby' ? keepEmbed(`?lobby=${encodeURIComponent(screen.id)}`) : EMBED ? keepEmbed('') : location.pathname);
-    // Another screen: the one up fades out first (nothing in it can be pressed meanwhile), and the
-    // new one fades in from the way you're going: back to the title (or a lobby, from the plate)
-    // comes in from the left.
+    // Another screen: the one up goes first (nothing in it can be pressed meanwhile), and the new
+    // one comes in, the backdrop changing under both.
     if (this.root.childElementCount && !sameScreen(was, screen)) {
-      const back = screen.kind === 'title' || (screen.kind === 'lobby' && was.kind === 'plate');
-      this.root.dataset.dir = back ? 'back' : 'fwd';
+      const id = document.activeElement?.id;
+      if (id && this.root.contains(document.activeElement)) this.focusOn[was.kind] = id;
+      this.root.dataset.dir = DEPTH[screen.kind] < DEPTH[was.kind] ? 'back' : 'fwd';
+      this.root.dataset.screen = screen.kind;
       this.root.classList.remove('entering');
       this.root.classList.add('leaving');
       this.leaving = true;
       this.syncInert();
-      await wait(window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ? 0 : LEAVE_MS);
+      await wait(reducedMotion() ? 0 : LEAVE_MS);
       // Another screen was asked for meanwhile: that one's on its way instead.
       if (this.screen !== screen) return;
       this.entering = true;
-    }
-    // The lobby docks left for the car beside it; the other screens are cards in the middle.
-    this.root.classList.toggle('dock', screen.kind === 'lobby');
+    } else this.root.dataset.screen = screen.kind;
     if (screen.kind !== 'lobby') this.onPreview?.(null);
-    if (screen.kind === 'title') {
-      const rows = await this.backend.list();
+    if (screen.kind === 'title' || screen.kind === 'online') {
+      const rows = await this.backend.list().catch(() => [] as LobbySummary[]);
       // Another screen was asked for while the list loaded (each await below checks the same).
       if (this.screen !== screen) return;
-      this.renderTitle(rows);
-      // Online lobbies come and go: the list follows every few seconds while it's up.
-      if (this.online)
-        this.refresh = setInterval(async () => {
-          const rows = await this.backend.list();
-          if (this.screen === screen && !this.root.querySelector('.lobbies:hover')) this.renderTitle(rows);
-        }, 4000);
-    }
-    else if (screen.kind === 'create') this.renderCreate();
-    else if (screen.kind === 'plate') this.renderPlate(screen.from);
+      this.rows = rows;
+      this.rowsAt = Date.now();
+      if (screen.kind === 'title') this.renderTitle();
+      else this.renderOnline();
+      // Online lobbies come and go: the lists follow every few seconds while they're up.
+      if (this.online) this.refresh = setInterval(() => void this.refreshRows(false), screen.kind === 'online' ? 1000 : 4000);
+    } else if (screen.kind === 'plate') this.renderPlate(screen.from);
     else {
       let lobby = await this.backend.get(screen.id);
       // Gone elsewhere while it loaded (Esc while joining): that screen has the menu now, and you
@@ -284,17 +373,17 @@ export class Menu {
         if (!(now.kind === 'lobby' && now.id === screen.id)) void this.backend.abandon?.(screen.id);
         return;
       }
-      // Gone, or too slow to wait for: to the title, and out of it if the join lands later.
+      // Gone, or too slow to wait for: back out, and out of it if the join lands later.
       if (!lobby) {
         void this.backend.abandon?.(screen.id);
         this.tellWhy(screen.id);
-        return this.show({ kind: 'title' });
+        return this.show(this.online && screen.id !== LOCAL_ID ? { kind: 'online' } : { kind: 'title' });
       }
       let phase = lobby.phase;
       this.unsubscribe = this.backend.subscribe(screen.id, (l) => {
         if (!l) {
           this.tellWhy(screen.id);
-          return void this.show({ kind: 'title' });
+          return void this.show(this.online && screen.id !== LOCAL_ID ? { kind: 'online' } : { kind: 'title' });
         }
         const seated = seatIndex(l, this.backend.youIn(l.id)) >= 0;
         // The host started: everyone seated goes to the race (the same one: its seed is the lobby's).
@@ -317,7 +406,7 @@ export class Menu {
           const el = document.getElementById('lNet');
           const html = this.netLabel(screen.id);
           if (el && el.innerHTML !== html) el.innerHTML = html;
-          for (const td of this.root.querySelectorAll<HTMLElement>('.seats td.ping[data-player]')) {
+          for (const td of this.root.querySelectorAll<HTMLElement>('.l-ping[data-player]')) {
             const html = this.pingText(screen.id, td.dataset.player!);
             if (td.innerHTML !== html) td.innerHTML = html;
           }
@@ -328,6 +417,24 @@ export class Menu {
       lobby = (await this.back_(lobby)) ?? lobby;
       if (this.screen !== screen) return;
       this.renderLobby(lobby);
+      if (screen.id !== LOCAL_ID && (!this.invite || this.invite.id !== screen.id)) void this.fetchInvite(lobby);
+    }
+  }
+
+  /** The lists again: the title's live lobbies, or the lobby list's rows and the time since (every second there). */
+  private async refreshRows(now: boolean): Promise<void> {
+    const screen = this.screen;
+    if (now || this.screen.kind === 'title' || Date.now() - this.rowsAt > 4000) {
+      const rows = await this.backend.list().catch(() => null);
+      if (this.screen !== screen || !rows) return;
+      this.rows = rows;
+      this.rowsAt = Date.now();
+    }
+    // Not while the pointer's over the list: a row moving under it would be a miss.
+    if (screen.kind === 'title' && !this.root.querySelector('#tLive:hover')) this.fillLive();
+    if (screen.kind === 'online') {
+      if (!this.root.querySelector('.o-rows:hover')) this.fillRows();
+      this.fillStatus();
     }
   }
 
@@ -355,31 +462,36 @@ export class Menu {
     }
   }
 
-  /** The menu can't be pressed while a screen fades out, nor under Settings (overlay.ts): a redraw keeps it so. */
+  /** The menu can't be pressed while a screen goes, nor under Settings (overlay.ts): a redraw keeps it so. */
   private syncInert(): void {
     this.root.inert = this.leaving || overlayUp();
   }
 
-  /** Swaps the card, keeping focus on the same control when it's still there (for the pad). */
+  /** Swaps the screen, keeping focus on the same control when it's still there (for the pad). */
   private paint(html: string, focus?: string): void {
     const was = document.activeElement?.id;
+    const entering = this.entering || !this.root.childElementCount;
     this.root.innerHTML = html;
-    // A new screen fades in; a screen redrawn in place (a lobby update, the list refreshing) doesn't.
     this.root.classList.remove('leaving');
     this.leaving = false;
     this.syncInert();
-    // The class only for a new screen: left on, everything a redraw put in (each lobby update,
-    // a car picked) would play the fade-in again.
+    // A new screen's pieces come in; a screen redrawn in place (a lobby update) doesn't. The class
+    // only for a new screen: left on, everything a redraw put in would come in again.
     this.root.classList.remove('entering');
-    if (this.entering) {
+    if (entering) {
       this.entering = false;
       void this.root.offsetWidth;
       this.root.classList.add('entering');
+      clearTimeout(this.enterDone);
+      this.enterDone = setTimeout(() => this.root.classList.remove('entering'), reducedMotion() ? 150 : 900);
     }
-    const el = (was && document.getElementById(was)) || (focus && document.getElementById(focus));
-    // Without scrolling to it: on a phone the lobby opens at the top, with your car.
+    const back = entering ? this.focusOn[this.screen.kind] : undefined;
+    const el = (!entering && was && document.getElementById(was)) || (back && document.getElementById(back)) || (focus && document.getElementById(focus));
+    // Without scrolling to it: on a small window the screen opens at the top.
     (el as HTMLElement | null)?.focus({ preventScroll: true });
   }
+
+  private enterDone: ReturnType<typeof setTimeout> | undefined;
 
   private on(id: string, fn: () => void): void {
     const el = document.getElementById(id);
@@ -401,32 +513,42 @@ export class Menu {
     return map ? (map.layouts.length > 1 ? `${map.name} · ${key.split('/')[1]}` : map.name) : key;
   }
 
+  /** The race's rules in a word: Chaos, No traffic, or Normal. */
+  private rulesText(mayhem?: LobbyOptions['mayhem'], traffic?: boolean): { text: string; hot: boolean } {
+    if (mayhem === 'chaos') return { text: 'Mayhem', hot: true };
+    if (traffic === false) return { text: 'No traffic', hot: false };
+    if (mayhem === 'off') return { text: 'No mayhem', hot: false };
+    return { text: 'Normal', hot: false };
+  }
+
   // ---- the title ----
 
-  private renderTitle(lobbies: LobbySummary[]): void {
-    const rows = lobbies.map((l) => this.lobbyRow(l)).join('');
+  private renderTitle(): void {
+    const items: [string, string, string][] = [
+      ['mQuick', 'Quick race', 'A random car, a random track, seven bots. Go.'],
+      ['mSolo', 'Single player', 'Your lobby: pick the track, the rules and your car.'],
+      ['mOnline', 'Multiplayer', this.online ? 'Join a lobby, or start one and send the link.' : this.offline?.() || 'Online play is off in this build.'],
+      ['mTrial', 'Time trial', 'Three laps alone. Your best goes on the board.'],
+      ['mFree', 'Free drive', 'No race, no clock: you, the map, the traffic.'],
+    ];
     this.paint(
-      `<div class="card title">
-        <div class="wordmark" aria-label="Racecar">RACECAR<span class="flags">${FLAGS}</span></div>
-        <div class="titleTop"><h2>Lobbies</h2>
-          <button id="mPlate" class="ghost plateBtn" title="Your plate: your name in races">${plateChip(this.plate)}<small>edit plate</small></button></div>
-        <div class="lobbies">${rows}
-          ${this.titleNote(lobbies)}
-        </div>
-        <div class="bigs"><button id="mSolo" class="big">Single player</button><button id="mCreate" class="big">Create lobby</button></div>
-        <div class="row"><button id="mQuick" class="ghost">Quick race</button><button id="mTrial" class="ghost">Time trial</button><button id="mFree" class="ghost">Free drive</button><button id="mSettings" class="ghost">Settings</button></div>
-        <p class="muted">Every race is a lobby, and bots fill the open seats. Quick race is you and seven bots on a random map; Time trial puts your best lap on the online board. Drift (Shift / RB) to take corners tighter; air, near misses and the oncoming lane fill boost.</p>
-        <div class="titleFoot"><a href="?page=privacy" id="mPrivacy">Privacy</a> · <a href="?page=terms" id="mTerms">Terms</a><span class="buildVersion" title="This build's version">${esc(BUILD_VERSION)}</span><button id="mCredits" class="creditsBox">Credits</button></div>
+      `<div class="scr title">
+        <div class="t-brand" data-in="l"><div class="t-word" aria-label="Racecar">RACECAR</div><p class="k-eyebrow">Arcade racing · up to ${SEATS} drivers</p></div>
+        <nav class="k-menu t-menu" aria-label="Play">${items.map(([id, l, d]) => menuItem(id, l, d)).join('')}</nav>
+        <div class="t-top" data-in="t">${driverChip(this.plate)}${button('mSettings', GEAR, 'icon', { 'aria-label': 'Settings', title: 'Settings' })}</div>
+        <section class="k-panel t-live" id="tLive" data-in="r"></section>
+        <footer class="t-foot" data-in="b">${hints(['select', 'Select'], ['confirm', 'Play'])}</footer>
+        <div class="t-legal" data-in="b"><a href="?page=privacy" id="mPrivacy">Privacy</a> · <a href="?page=terms" id="mTerms">Terms</a> · <button type="button" id="mCredits">Credits</button> · <span title="This build's version">${esc(BUILD_VERSION)}</span></div>
       </div>`,
-      lobbies.length ? `lobby-${lobbies[0].id}` : 'mCreate',
+      'mQuick',
     );
-    for (const l of lobbies) this.on(`lobby-${l.id}`, () => void this.show({ kind: 'lobby', id: l.id }));
-    this.on('mCreate', () => void this.show({ kind: 'create' }));
-    this.on('mSolo', () => void this.singlePlayer());
-    this.on('mPlate', () => void this.show({ kind: 'plate' }));
+    this.fillLive();
     this.on('mQuick', () => this.quickRace());
+    this.on('mSolo', () => void this.singlePlayer());
+    this.on('mOnline', () => void (this.online ? this.show({ kind: 'online' }) : this.onNotice?.(this.offline?.() || 'Online play is off in this build')));
     this.on('mTrial', () => void this.timeTrial());
     this.on('mFree', () => void this.freeDrive());
+    this.on('mPlate', () => void this.show({ kind: 'plate' }));
     this.on('mSettings', () => this.onSettings?.());
     // The links open in place; their hrefs are for a new tab.
     for (const [id, page] of [['mCredits', 'credits'], ['mPrivacy', 'privacy'], ['mTerms', 'terms']] as const) {
@@ -439,25 +561,29 @@ export class Menu {
     }
   }
 
-  /** The row under the lobbies: why there are no online ones, or how to get some. */
-  private titleNote(lobbies: LobbySummary[]): string {
+  /** The title's live lobbies: the two fullest online, and the way to the rest. */
+  private fillLive(): void {
+    const el = document.getElementById('tLive');
+    if (!el) return;
+    const list = filterLobbies(this.rows, { query: '', track: '', hideFull: false, sort: 'drivers' }, (k) => this.mapName(k));
+    const was = document.activeElement?.id;
     const offline = this.offline?.() ?? '';
-    const text = offline || (lobbies.some((l) => l.id !== LOCAL_ID) ? '' : 'No online lobbies right now');
-    if (!text) return '';
-    return `<div class="lrow soon"><span class="thumb"></span><span class="lname">${esc(text)}</span><span class="lmeta">${offline ? 'Quick race still works: race the bots.' : 'Create one and send your friends the link, with bots in the empty seats.'}</span></div>`;
+    const all = this.online && !offline ? `<button type="button" class="t-all" id="tAll"><i class="k-dot live"></i>${list.length} open · See all ›</button>` : '';
+    const rows = list.slice(0, 2).map((l) => this.liveRow(l)).join('');
+    const empty = offline || !this.online ? `<p class="t-none">${esc(offline || 'Online play is off in this build.')} Quick race still works: race the bots.</p>` : `<p class="t-none">No lobbies online right now. Start one in Multiplayer and send your friends the link.</p>`;
+    el.innerHTML = `<div class="t-liveHead"><h2 class="k-h2">Live lobbies</h2>${all}</div>${rows || empty}`;
+    for (const l of list.slice(0, 2)) this.on(`lobby-${l.id}`, () => void this.show({ kind: 'lobby', id: l.id }));
+    this.on('tAll', () => void this.show({ kind: 'online' }));
+    if (was && !document.activeElement?.id) document.getElementById(was)?.focus({ preventScroll: true });
   }
 
-  private lobbyRow(l: LobbySummary): string {
-    const pips = [...l.pips].map((c) => `<i class="pip ${c === 'p' ? 'player' : c === 'o' ? 'open' : c === 'x' ? 'closed' : 'ai'}"></i>`).join('');
-    const phase = l.phase === 'racing' ? 'racing' : 'in lobby';
-    return `<button class="lrow" id="lobby-${esc(l.id)}">${thumbSvg(this.layout(l.map), 44)}
-      <span class="lname">${esc(l.name)}${l.visibility !== 'public' ? ' <small>private</small>' : ''}</span>
-      <span class="lmeta">${esc(this.mapName(l.map))} · ${this.lapsText(l.map, l.laps)} · ${phase}</span>
-      <span class="pips">${pips}</span><span class="lcount">${l.filled}/${SEATS}</span></button>`;
+  private liveRow(l: LobbySummary): string {
+    const rules = this.rulesText(l.mayhem, l.traffic);
+    const meta = [this.mapName(l.map), this.lapsText(l.map, l.laps), ...(rules.text === 'Normal' ? [] : [rules.text]), ...(l.phase === 'racing' ? ['racing'] : [])].join(' · ');
+    return `<button type="button" class="k-lrow t-lrow" id="lobby-${esc(l.id)}"><span class="t-lname"><b>${esc(l.name)}</b><small>${esc(meta)}</small></span><b class="t-count k-num">${l.filled}/${SEATS}</b><span class="k-btn small">Join</span></button>`;
   }
 
-  /** Straight into a race, no lobby: your car and seven bots, on a map picked at random, in random weather. */
-  /** Single player: straight into a Private lobby (you and bots, in this browser), as Create's form starts it. */
+  /** Single player: straight into your own lobby (you and bots, in this browser). */
   private async singlePlayer(): Promise<void> {
     const here = this.screen;
     const options: LobbyOptions = { ...DEFAULT_OPTIONS, map: Object.keys(this.content.layouts)[0], ...this.defaults };
@@ -466,8 +592,10 @@ export class Menu {
     if (lobby) void this.show({ kind: 'lobby', id: lobby.id });
   }
 
+  /** Quick race: no lobby, a car picked at random on a map picked at random, you and seven bots. */
   private quickRace(): void {
-    goTo(toQuery(quickRaceSetup(this.lobbyKeys(), this.yours)));
+    const { classes, paints } = this.content;
+    goTo(toQuery(quickRaceSetup(this.lobbyKeys(), randomCar(classes.map((c) => c.id), paints.length))));
   }
 
   /** Time Trial (SPEC §10) on your lobby's map (or the last race's): you alone, laps for the online board. */
@@ -510,44 +638,221 @@ export class Menu {
     return { id: this.backend.youIn(id), name: this.plate, ...this.yours };
   }
 
+  // ---- Multiplayer: the lobby list, Create lobby, Join with code ----
+
+  private renderOnline(): void {
+    const tracks: [string, string][] = [['', 'Any'], ...this.content.maps.filter((m) => this.lobbyKeys().some((k) => k.startsWith(m.id + '/'))).map((m): [string, string] => [m.id, m.name])];
+    const col = (sort: LobbySort, name: string) => `<button type="button" class="o-col${this.find.sort === sort ? ' on' : ''}" data-sort="${sort}">${name}${this.find.sort === sort ? ' ▾' : ''}</button>`;
+    this.paint(
+      `<div class="scr online">
+        ${header('Multiplayer', '<span class="o-status" id="oStatus"></span>', driverChip(this.plate, false))}
+        <section class="k-panel o-list" data-in="l">
+          <div class="o-tools">
+            ${field('oFind', this.find.query, { placeholder: 'Search lobbies or hosts', search: true })}
+            <span class="o-track"><span class="k-muted">Track</span>${chooser('oTrack', tracks, this.find.track)}</span>
+            <button type="button" class="o-full${this.find.hideFull ? ' on' : ''}" id="oFull" aria-pressed="${this.find.hideFull}"><i>✓</i>Hide full</button>
+            ${button('oQuick', 'Quick join', 'secondary')}
+          </div>
+          <div class="o-cols">${col('name', 'Lobby')}${col('track', 'Track')}${col('laps', 'Laps')}<span class="o-col">Rules</span>${col('drivers', 'Drivers')}<span></span></div>
+          <div class="o-rows" id="oRows"></div>
+          <footer class="o-foot"><span id="oNote" class="k-muted"></span>${hints(['refresh', 'Refresh'], ['confirm', 'Join'])}</footer>
+        </section>
+        <div class="o-side">
+        <section class="k-panel o-create" data-in="r">
+          <h2 class="k-h2">Create lobby</h2>
+          <label class="o-lab">Name</label>${field('cName', `${this.plate}'s lobby`, { max: 24 })}
+          <label class="o-lab">Who can join</label>${segmented('cVis', [['public', 'Public'], ['invite', 'Link only']], 'public')}
+          ${row('Seats', chooser('cSeats', Array.from({ length: SEATS - 1 }, (_, k): [string, string] => [String(k + 2), String(k + 2)]), String(SEATS)))}
+          ${row('Bots fill empty seats', toggle('cFill', true, 'Bots fill empty seats'))}
+          ${button('cGo', 'Create lobby', 'primary')}
+          <p class="o-createNote k-muted" id="cNote">Track, laps and rules are set inside the lobby.</p>
+        </section>
+        <section class="k-panel o-code" data-in="r">
+          <h2 class="k-h2">Join with code</h2>
+          <div class="o-codeRow">${field('jCode', '', { placeholder: 'Code or link', code: true, max: 200 })}${button('jGo', 'Join', 'small', { class: 'solid' })}</div>
+        </section>
+        </div>
+      </div>`,
+      'oFind',
+    );
+    this.fillRows();
+    this.fillStatus();
+    const find = document.getElementById('oFind') as HTMLInputElement;
+    find.oninput = () => {
+      this.find.query = find.value;
+      this.fillRows();
+    };
+    // Down out of the search goes to the list (the arrows are the field's otherwise).
+    find.onkeydown = (e) => {
+      if (e.key === 'ArrowDown' || e.key === 'Enter') {
+        e.preventDefault();
+        (this.root.querySelector('.o-rows .k-lrow') as HTMLElement | null)?.focus();
+      }
+    };
+    const track = document.getElementById('oTrack') as HTMLButtonElement;
+    track.onchange = () => {
+      this.find.track = track.value;
+      this.fillRows();
+    };
+    this.on('oFull', () => {
+      this.find.hideFull = !this.find.hideFull;
+      const b = document.getElementById('oFull')!;
+      b.classList.toggle('on', this.find.hideFull);
+      b.setAttribute('aria-pressed', String(this.find.hideFull));
+      this.fillRows();
+    });
+    for (const b of this.root.querySelectorAll<HTMLButtonElement>('.o-col[data-sort]'))
+      b.onclick = () => {
+        this.find.sort = b.dataset.sort as LobbySort;
+        for (const c of this.root.querySelectorAll<HTMLElement>('.o-col[data-sort]')) {
+          const on = c.dataset.sort === this.find.sort;
+          c.classList.toggle('on', on);
+          c.textContent = c.textContent!.replace(' ▾', '') + (on ? ' ▾' : '');
+        }
+        this.fillRows();
+      };
+    this.on('oQuick', () => {
+      const l = quickJoinPick(this.rows);
+      if (l) void this.show({ kind: 'lobby', id: l.id });
+      else this.onNotice?.('No open lobbies right now: create one, and bots fill the seats');
+    });
+    this.on('kBack', () => this.back());
+    this.on('cGo', () => void this.createOnline());
+    const code = document.getElementById('jCode') as HTMLInputElement;
+    const join = () => {
+      const invite = readInvite(code.value);
+      if (!invite) return void (code.parentElement!.classList.add('bad'), code.focus());
+      if ('code' in invite) void this.show({ kind: 'lobby', id: invite.code });
+      else void this.openLink(invite.link);
+    };
+    code.oninput = () => code.parentElement!.classList.remove('bad');
+    code.onkeydown = (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        join();
+      }
+    };
+    this.on('jGo', join);
+    const name = document.getElementById('cName') as HTMLInputElement;
+    name.onkeydown = (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        void this.createOnline();
+      }
+    };
+  }
+
+  /** The lobby list's rows, as the search, track and order have them. */
+  private fillRows(): void {
+    const el = document.getElementById('oRows');
+    if (!el) return;
+    const list = filterLobbies(this.rows, this.find, (k) => this.mapName(k));
+    const was = document.activeElement?.id;
+    const offline = this.offline?.() ?? '';
+    el.innerHTML = list.length
+      ? list
+          .map((l) => {
+            const rules = this.rulesText(l.mayhem, l.traffic);
+            const laps = this.layout(l.map)?.run ? 'Run' : String(l.laps);
+            return `<button type="button" class="k-lrow o-row" id="lobby-${esc(l.id)}">
+              <span class="o-name"><b>${esc(l.name)}</b><small>${l.host ? `Host ${esc(l.host)}` : ''}${l.phase === 'racing' ? `${l.host ? ' · ' : ''}racing now` : ''}</small></span>
+              <span>${esc(this.mapName(l.map))}</span><span class="k-num">${laps}</span><span class="${rules.hot ? 'o-hot' : ''}">${esc(rules.text)}</span>
+              ${fill(l.filled, SEATS)}<span class="k-btn small">Join</span></button>`;
+          })
+          .join('')
+      : `<p class="o-none">${esc(offline || (this.rows.some((l) => l.id !== LOCAL_ID) ? 'No lobbies match that.' : 'No lobbies online right now: create one, and send your friends the link.'))}</p>`;
+    for (const l of list) this.on(`lobby-${l.id}`, () => void this.show({ kind: 'lobby', id: l.id }));
+    if (was && !document.activeElement?.id) document.getElementById(was)?.focus({ preventScroll: true });
+    const note = document.getElementById('oNote');
+    if (note) note.textContent = `${list.length} open lobb${list.length === 1 ? 'y' : 'ies'} · updated ${Math.round((Date.now() - this.rowsAt) / 1000)} s ago · bots fill empty seats at start`;
+  }
+
+  /** How many are racing online, by the lists: the drivers in the lobbies listed. */
+  private fillStatus(): void {
+    const el = document.getElementById('oStatus');
+    const online = this.rows.filter((l) => l.id !== LOCAL_ID);
+    const drivers = online.reduce((n, l) => n + l.players, 0);
+    if (el && this.offline?.()) el.innerHTML = '';
+    else if (el) el.innerHTML = `<i class="k-dot live"></i>${drivers} driver${drivers === 1 ? '' : 's'} in ${online.length} lobb${online.length === 1 ? 'y' : 'ies'}`;
+    const note = document.getElementById('oNote');
+    if (note) note.textContent = note.textContent!.replace(/updated \d+ s ago/, `updated ${Math.round((Date.now() - this.rowsAt) / 1000)} s ago`);
+  }
+
+  /** Create lobby: an online lobby, its seats past the number asked for closed. */
+  private async createOnline(): Promise<void> {
+    const name = (document.getElementById('cName') as HTMLInputElement).value;
+    const visibility = (document.getElementById('cVis') as HTMLButtonElement).value as Lobby['visibility'];
+    const seats = Number((document.getElementById('cSeats') as HTMLButtonElement).value) || SEATS;
+    const fillOn = toggled(document.getElementById('cFill'));
+    const go = document.getElementById('cGo') as HTMLButtonElement;
+    const note = () => document.getElementById('cNote');
+    const here = this.screen;
+    if (go.disabled) return;
+    go.disabled = true;
+    // Strangers see an online lobby's name in their list: GameRelay checks it first.
+    const problem = name.trim() ? await this.checkName?.(name.trim()) : null;
+    if (problem) {
+      go.disabled = false;
+      const n = note();
+      if (n) n.textContent = `${problem}: pick another name.`;
+      return;
+    }
+    const options: LobbyOptions = { ...DEFAULT_OPTIONS, map: Object.keys(this.content.layouts)[0], ...this.defaults, fill: fillOn };
+    const lobby = await this.backend.create(this.newcomer(''), { name, visibility, online: true, options }).catch(() => null);
+    if (go.isConnected) go.disabled = false;
+    // Back (or Esc) while it was being made: you've left, and so does the lobby.
+    if (this.screen !== here) return void (lobby && this.backend.abandon?.(lobby.id));
+    if (!lobby) {
+      const n = note();
+      if (n) n.textContent = "Couldn't reach the lobby server. Try again, or play Single player.";
+      return;
+    }
+    for (let k = SEATS - 1; k >= seats; k--) await this.backend.send(lobby.id, { type: 'seat', index: k, to: 'closed' });
+    if (this.screen === here) void this.show({ kind: 'lobby', id: lobby.id });
+  }
+
   // ---- your plate ----
 
   private renderPlate(from?: string): void {
     this.paint(
-      `<div class="card plateEdit">
-        <h1>Your plate</h1>
-        <p class="muted">Your name on your car, in lobbies and in the results: up to ${PLATE_MAX} letters, numbers and spaces.</p>
-        <div class="platePreview" id="pPreview">${plateChip(this.plate)}</div>
-        <input id="pText" maxlength="${PLATE_MAX + 4}" autocomplete="off" autocapitalize="characters" spellcheck="false" data-1p-ignore data-lpignore="true" value="${esc(this.plate)}">
-        <p class="err" id="pErr"></p>
-        <div class="row"><button id="pSave">Save</button><button id="pBack" class="ghost">Back</button></div>
+      `<div class="scr plate">
+        ${header('Your plate')}
+        <section class="k-panel p-card" data-in="pop">
+          <p class="k-muted">Your name on your car, in lobbies and in the results: up to ${PLATE_MAX} letters, numbers and spaces.</p>
+          <div class="p-preview" id="pPreview">${plate(this.plate)}</div>
+          ${field('pText', this.plate, { max: PLATE_MAX + 4, code: true })}
+          <p class="p-err" id="pErr"></p>
+          <div class="p-acts">${button('pBack', 'Back', 'link')}${button('pSave', 'Save', 'primary')}</div>
+        </section>
+        <footer class="t-foot" data-in="b">${hints(['confirm', 'Save'], ['back', 'Back'])}</footer>
       </div>`,
       'pText',
     );
-    const field = document.getElementById('pText') as HTMLInputElement;
+    const input = document.getElementById('pText') as HTMLInputElement;
+    input.setAttribute('autocapitalize', 'characters');
     const err = document.getElementById('pErr')!;
     const preview = document.getElementById('pPreview')!;
     // Typed straight into plate form: uppercase, only what a plate can show.
-    field.oninput = () => {
-      const t = typedPlate(field.value, field.selectionStart ?? field.value.length);
-      field.value = t.value;
-      field.setSelectionRange(t.cursor, t.cursor);
-      const clean = cleanPlate(field.value);
-      preview.innerHTML = plateChip(clean || ' ');
+    input.oninput = () => {
+      const t = typedPlate(input.value, input.selectionStart ?? input.value.length);
+      input.value = t.value;
+      input.setSelectionRange(t.cursor, t.cursor);
+      const clean = cleanPlate(input.value);
+      preview.innerHTML = plate(clean || ' ');
       err.textContent = clean ? (plateProblem(clean) ?? '') : '';
     };
     const save = async () => {
-      const plate = cleanPlate(field.value);
+      const p = cleanPlate(input.value);
       // The plate's own rules first (offline too), then GameRelay's, when it's a new plate.
-      const problem = plateProblem(plate) ?? (plate !== this.plate ? await this.checkName?.(plate, PLATE_RULES) : null) ?? savePlate(this.store, plate);
+      const problem = plateProblem(p) ?? (p !== this.plate ? await this.checkName?.(p, PLATE_RULES) : null) ?? savePlate(this.store, p);
       if (problem) return void (err.textContent = problem);
       const old = this.plate;
-      this.plate = plate;
+      this.plate = p;
       await this.syncName(old);
-      if (from && from !== LOCAL_ID) await this.syncName(old, from);
-      void this.show(from ? { kind: 'lobby', id: from } : { kind: 'title' });
+      if (from && from !== LOCAL_ID && from !== 'online') await this.syncName(old, from);
+      void this.show(from === 'online' ? { kind: 'online' } : from ? { kind: 'lobby', id: from } : { kind: 'title' });
     };
-    field.onkeydown = (e) => {
+    input.onkeydown = (e) => {
       if (e.key === 'Enter') {
         e.preventDefault();
         void save();
@@ -555,7 +860,8 @@ export class Menu {
     };
     this.on('pSave', () => void save());
     this.on('pBack', () => this.back());
-    field.select();
+    this.on('kBack', () => this.back());
+    input.select();
   }
 
   /** Says why lobby `id` refused you or put you out, if it said. */
@@ -575,8 +881,8 @@ export class Menu {
     this.plate = randomPlate();
     savePlate(this.store, this.plate);
     await this.syncName(old);
-    this.onNotice?.(`Plate ${old} isn't allowed online: you're ${this.plate} for now (edit plate on the title).`);
-    if (this.screen.kind === 'title') void this.show({ kind: 'title' });
+    this.onNotice?.(`Plate ${old} isn't allowed online: you're ${this.plate} for now (Edit, top right of the title).`);
+    if (this.screen.kind === 'title') this.renderTitle();
   }
 
   /**
@@ -598,12 +904,7 @@ export class Menu {
     return s && s.kind === 'player' ? { car: s.car, paint: s.paint } : this.yours;
   }
 
-  // ---- create lobby ----
-
-  /** One of the options: a chooser (chooser.ts), which cycles, in place of a dropdown. */
-  private sel(id: string, opts: [string, string][], value: string, disabled = false): string {
-    return chooser(id, opts, value, disabled);
-  }
+  // ---- the race's options ----
 
   /** The weather choices: on a map where it snows (map.json lists `snow`), rain's is snow's; where sandstorms blow (`sand`), a sandstorm's. */
   private weathers(key: string): [string, string][] {
@@ -618,83 +919,39 @@ export class Menu {
   }
 
   /**
-   * The laps chooser, or on a map that's one run, the run in its place (no laps to pick; the laps
-   * picked are kept for the next map).
+   * The race's options as rows, label left and its chooser right. The host's to cycle; everyone
+   * else reads them. On a map that's one run there are no laps to pick (the laps picked are kept
+   * for the next map), and Time only on a map with a sunset.
    */
-  private lapsField(map: string, laps: number, disabled: boolean): string {
-    if (this.layout(map)?.run) return `<label id="oLapsField">Length ${this.sel('oLaps', [[String(laps), 'One run']], String(laps), true)}</label>`;
-    return `<label id="oLapsField">Laps ${this.sel('oLaps', Array.from({ length: MAX_LAPS }, (_, k) => [String(k + 1), String(k + 1)] as [string, string]), String(laps), disabled)}</label>`;
-  }
-
-  private optionFields(o: LobbyOptions, disabled: boolean): string {
+  private optionRows(o: LobbyOptions, host: boolean): string {
     // (A lobby opened on an experimental map from a link keeps it in the list.)
     const keys = this.lobbyKeys();
     const maps: [string, string][] = (keys.includes(o.map) ? keys : [...keys, o.map]).map((k) => [k, this.mapName(k)]);
-    return `<label>Map ${this.sel('oMap', maps, o.map, disabled)}</label>
-      ${this.lapsField(o.map, o.laps, disabled)}
-      <label>Weather ${this.sel('oWeather', this.weathers(o.map), o.weather, disabled)}</label>
-      <label>Time ${this.sel('oTime', TIMES, o.time, disabled || !this.hasSunset(o.map))}</label>
-      <label>Mayhem ${this.sel('oMayhem', MAYHEMS, o.mayhem, disabled)}</label>
-      <label>Traffic ${this.sel('oTraffic', [['1', 'On'], ['0', 'Off']], o.traffic ? '1' : '0', disabled)}</label>`;
+    const read = (v: string) => `<span class="l-val">${esc(v)}</span>`;
+    const opt = (name: string, id: string, opts: [string, string][], value: string, off = false) => row(name, host && !off ? chooser(id, opts, value) : read(label(opts, value)), off ? 'off' : '');
+    const run = !!this.layout(o.map)?.run;
+    return [
+      opt('Track', 'oMap', maps, o.map),
+      run ? row('Length', read('One run')) : opt('Laps', 'oLaps', Array.from({ length: MAX_LAPS }, (_, k): [string, string] => [String(k + 1), String(k + 1)]), String(o.laps)),
+      opt('Weather', 'oWeather', this.weathers(o.map), o.weather),
+      ...(this.hasSunset(o.map) ? [opt('Time of day', 'oTime', TIMES, o.time)] : []),
+      opt('Mayhem', 'oMayhem', MAYHEMS, o.mayhem),
+      opt('Traffic', 'oTraffic', [['1', 'On'], ['0', 'Off']], o.traffic ? '1' : '0'),
+    ].join('');
   }
 
-  private readOptions(): LobbyOptions {
-    const v = (id: string) => (document.getElementById(id) as HTMLButtonElement).value;
+  /** The options as the choosers have them, the rest as they were (laps on a run, time without a sunset, fill). */
+  private readOptions(o: LobbyOptions): LobbyOptions {
+    const v = (id: string) => (document.getElementById(id) as HTMLButtonElement | null)?.value;
     return {
-      map: v('oMap'),
-      laps: Number(v('oLaps')),
-      weather: v('oWeather') as LobbyOptions['weather'],
-      time: v('oTime') as LobbyOptions['time'],
-      mayhem: v('oMayhem') as LobbyOptions['mayhem'],
-      traffic: v('oTraffic') === '1',
+      map: v('oMap') ?? o.map,
+      laps: Number(v('oLaps') ?? o.laps),
+      weather: (v('oWeather') ?? o.weather) as LobbyOptions['weather'],
+      time: (v('oTime') ?? o.time) as LobbyOptions['time'],
+      mayhem: (v('oMayhem') ?? o.mayhem) as LobbyOptions['mayhem'],
+      traffic: (v('oTraffic') ?? (o.traffic ? '1' : '0')) === '1',
+      fill: o.fill !== false,
     };
-  }
-
-  private renderCreate(): void {
-    const o: LobbyOptions = { ...DEFAULT_OPTIONS, map: Object.keys(this.content.layouts)[0], ...this.defaults };
-    this.paint(
-      `<div class="card setup create">
-        <h1>Create lobby</h1>
-        <div class="grid">
-          <label class="wide">Name <input id="cName" maxlength="24" autocomplete="off" data-1p-ignore data-lpignore="true" value="${esc(this.plate)}'s lobby"></label>
-          ${this.optionFields(o, false)}
-          <label>Who can join ${this.sel('cVis', this.online ? [['public', 'Public'], ['invite', 'Invite only'], ['local', 'Private']] : [['local', 'Private']], this.online ? 'public' : 'local')}</label>
-        </div>
-        <div class="row"><button id="cGo">Create</button><button id="cBack" class="ghost">Back</button></div>
-        <p class="muted">You'll host it: set each seat to an AI, open or closed. Open seats get a bot when the race starts. Public lobbies are listed online, Invite only ones are joined by their link, and a Private one is you and bots, in this browser.</p>
-      </div>`,
-      'cGo',
-    );
-    this.on('cBack', () => this.back());
-    // Time only means something on a map with a sunset, and laps on a map that isn't one run.
-    const mapSel = document.getElementById('oMap') as HTMLButtonElement | null;
-    if (mapSel)
-      mapSel.onchange = () => {
-        (document.getElementById('oTime') as HTMLButtonElement).disabled = !this.hasSunset(mapSel.value);
-        const laps = Number((document.getElementById('oLaps') as HTMLButtonElement).value);
-        document.getElementById('oLapsField')!.outerHTML = this.lapsField(mapSel.value, laps, false);
-      };
-    this.on('cGo', async () => {
-      const name = (document.getElementById('cName') as HTMLInputElement).value;
-      const who = (document.getElementById('cVis') as HTMLButtonElement).value;
-      const online = who !== 'local';
-      const visibility: Lobby['visibility'] = who === 'invite' ? 'invite' : 'public';
-      const go = document.getElementById('cGo') as HTMLButtonElement;
-      const here = this.screen;
-      go.disabled = true;
-      // Strangers see an online lobby's name in their list: GameRelay checks it first.
-      const problem = online && name.trim() ? await this.checkName?.(name.trim()) : null;
-      if (problem) {
-        go.disabled = false;
-        return void ((document.querySelector('.create .muted') as HTMLElement).textContent = `${problem}: pick another name.`);
-      }
-      const lobby = await this.backend.create(this.newcomer(online ? '' : LOCAL_ID), { name, visibility, online, options: this.readOptions() }).catch(() => null);
-      go.disabled = false;
-      // Back (or Esc) while it was being made: you've left, and so does the lobby.
-      if (this.screen !== here) return void (lobby && this.backend.abandon?.(lobby.id));
-      if (lobby) void this.show({ kind: 'lobby', id: lobby.id });
-      else (document.querySelector('.create .muted') as HTMLElement).textContent = "Couldn't reach the lobby server. Try again, or pick Private.";
-    });
   }
 
   // ---- the lobby ----
@@ -712,75 +969,70 @@ export class Menu {
     const yours = this.yourCar(lobby);
     if (this.picked && this.picked.car === yours.car && this.picked.paint === yours.paint) this.picked = null;
     const className = (id: string) => classes.find((c) => c.id === id)?.name ?? id;
-    const dot = (paint: number) => `<i class="dot" style="background:${paints[paint % paints.length].color}"></i>`;
-    const seatOpts: [SeatChoice, string][] = [['open', 'Open'], ['ai-easy', 'AI · easy'], ['ai-normal', 'AI · normal'], ['ai-hard', 'AI · hard'], ['closed', 'Closed']];
-    const rows = lobby.seats
+    const fillOn = lobby.options.fill !== false;
+    const players = lobby.seats.filter((s) => s.kind === 'player');
+    const open = lobby.seats.filter((s) => s.kind === 'open').length;
+    // The host is ready by starting; everyone else says so.
+    const ready = players.filter((s) => s.kind === 'player' && (s.id === lobby.host || s.ready)).length;
+    const seats = lobby.seats
       .map((s, k) => {
-        let who: string, car: string, status: string;
+        const n = `<span class="l-n k-num">${k + 1}</span>`;
         if (s.kind === 'player') {
           const me = s.id === you;
-          // Yours is a button: your plate, edited without leaving the lobby.
-          const plate = me ? `<button id="lPlate" class="seatPlate" title="Edit your plate">${plateChip(s.name)}</button>` : plateChip(s.name);
-          who = `${plate}${s.id === lobby.host ? ' <small class="tag">host</small>' : ''}`;
           const tools = online ? playerSeatChoices(lobby, you, k) : null;
-          if (tools) who += ` ${this.sel(`pseat-${k}`, tools, armedChoice(this.armed, lobby.id, k, s.id))}<button id="pgo-${k}" class="ghost seatGo" hidden></button>`;
-          // Your own car is picked beside the turntable.
-          car = `${dot(s.paint)}${esc(className(s.car))}`;
-          status = s.racing && s.id !== you ? '<span class="racing">Racing</span>' : s.id === lobby.host ? '' : s.ready ? '<span class="ready">Ready</span>' : 'Not ready';
-          return `<tr class="${me ? 'me' : ''}"><td>${k + 1}</td><td>${who}</td><td><div class="car">${car}</div></td><td>${status}</td><td class="ping" data-player="${esc(s.id)}">${this.pingText(lobby.id, s.id)}</td></tr>`;
+          const status = s.racing && !me ? tag('Racing', 'line') : s.id === lobby.host ? tag(online ? 'Host' : 'Ready', online ? 'sun' : 'ice') : s.ready ? tag('Ready') : `<span class="l-wait">Not ready</span>`;
+          const ping = online && !me ? `<span class="l-ping" data-player="${esc(s.id)}">${this.pingText(lobby.id, s.id)}</span>` : '';
+          const name = me ? `<button type="button" class="l-name" id="lPlate" title="Edit your plate">${esc(s.name)}</button>` : `<span class="l-name">${esc(s.name)}</span>`;
+          const tool = tools ? `${chooser(`pseat-${k}`, tools, armedChoice(this.armed, lobby.id, k, s.id))}<button type="button" id="pgo-${k}" class="k-btn danger l-go" hidden></button>` : '';
+          return `<div class="l-seat player${me ? ' me' : ''}">${n}${name}<span class="l-seatCar">${esc(className(s.car))}</span>${ping}${tool}${status}</div>`;
         }
         const choice: SeatChoice = s.kind === 'ai' ? (['ai-easy', 'ai-normal', 'ai-hard'] as const)[s.difficulty] : s.kind;
-        who = host ? this.sel(`seat-${k}`, seatOpts, choice) : `<span>${seatOpts.find(([v]) => v === choice)![1]}</span>`;
         // The rival a seat brings (the same one every race: see roster in lobby.ts).
         const cls = classes[k % classes.length];
-        const paint = (yours.paint + k) % paints.length;
-        if (s.kind === 'ai') car = `${dot(paint)}${plateChip(aiPlate(cls.id))} ${esc(cls.name)}`;
-        // A bot takes it at the start (whichever rival the seat brings).
-        else if (s.kind === 'open') car = `<i class="dot open"></i><span class="muted">Random bot</span>`;
-        else car = '';
-        status = s.kind === 'ai' ? 'Bot' : '';
-        return `<tr class="${s.kind}"><td>${k + 1}</td><td>${who}</td><td><div class="car">${car}</div></td><td>${status}</td><td class="ping"></td></tr>`;
+        const what = host ? chooser(`seat-${k}`, SEAT_OPTS, choice) : `<span class="l-name">${esc(label(SEAT_OPTS, choice))}</span>`;
+        const right = s.kind === 'ai' ? `<span class="l-seatCar">${esc(aiPlate(cls.id))}</span>${tag('Bot', 'quiet')}` : s.kind === 'open' && fillOn ? tag('Bot', 'quiet') : '';
+        return `<div class="l-seat ${s.kind}">${n}${what}${right}</div>`;
       })
       .join('');
     const o = lobby.options;
-    const s = summarize(lobby);
     this.lobby = lobby;
+    const [, vis, visHint] = ACCESS.find(([v]) => v === lobby.visibility) ?? ACCESS[0];
+    const visTag = !online ? tag('Private', 'outline', 'Just you, with bots, in this browser') : host ? `<button type="button" class="k-tag outline l-vis" id="lVis" title="${esc(visHint)}. Press to change">${esc(vis)}</button>` : tag(vis, 'outline', visHint);
+    const right = online && lobby.visibility !== 'locked' ? this.inviteBox(lobby) : '';
+    const action = host
+      ? button('lStart', 'Start race', 'primary', { disabled: mine < 0 })
+      : button('lReady', mine >= 0 && lobby.seats[mine].kind === 'player' && lobby.seats[mine].ready ? 'Not ready' : 'Ready', 'primary', { disabled: mine < 0 });
     this.paint(
-      `<div class="card lobby">
-        <h1>${esc(lobby.name)}</h1>
-        <p class="sub">${online ? this.access(lobby, host) : '<button class="ghost invite" disabled title="Just you, with bots, in this browser">Private</button>'}</p>
-        <table class="seats${online ? '' : ' local'}"><thead><tr><th>#</th><th>Seat</th><th>Car</th><th>Status</th><th>Ping</th></tr></thead><tbody>${rows}</tbody></table>
-        <div class="row">${host ? '<button id="lStart">Start race</button>' : `<button id="lReady">${mine >= 0 && lobby.seats[mine].kind === 'player' && lobby.seats[mine].ready ? 'Not ready' : 'Ready'}</button>`}
-<button id="lLeave" class="ghost danger">${host && s.players === 1 ? 'Close lobby' : 'Leave'}</button></div>
-      </div>
-      ${this.optionsPanel(o, host)}
-      ${mine >= 0 ? this.carPanel(yours) : '<div class="stage" aria-hidden="true"></div>'}`,
+      `<div class="scr lobby">
+        ${header(lobby.name, `${visTag}<span id="lNet">${this.netLabel(lobby.id)}</span>`, right)}
+        <section class="k-panel l-seats" data-in="l">
+          <div class="l-head"><h2 class="k-h2">Drivers</h2><span class="k-muted">${players.length} joined · ${open} open</span></div>
+          <div class="l-list">${seats}</div>
+          <div class="l-fill">${row('Fill open seats with bots', host ? toggle('lFill', fillOn, 'Fill open seats with bots') : `<span class="l-val">${fillOn ? 'On' : 'Off'}</span>`)}</div>
+        </section>
+        ${mine >= 0 ? this.carPanel(yours) : `<div class="stage l-frame watching" data-in="fade"></div><section class="k-panel l-car" data-in="b"><p class="k-muted">Watching: you'll get a seat when one opens between races.</p></section>`}
+        <section class="k-panel l-opts" data-in="r">
+          ${this.trackHead(o.map)}
+          <div class="l-optList">${this.optionRows(o, host)}</div>
+          <div class="l-go">
+            <p class="l-ready k-muted"><b>${ready}</b> of ${players.length} driver${players.length === 1 ? '' : 's'} ready</p>
+            ${action}
+            ${button('lLeave', host && players.length === 1 ? 'Close lobby' : 'Leave lobby', 'danger')}
+          </div>
+        </section>
+      </div>`,
       host ? 'lStart' : 'lReady',
     );
     this.onPreview?.({ map: o.map, weather: o.weather, time: o.time, car: mine >= 0 ? { ...yours, plate: this.plate } : undefined });
+    this.on('kBack', () => this.back());
     this.on('lStart', () => void this.start(lobby));
     this.on('lReady', () => {
       const me = lobby.seats[mine];
       this.send(lobby, { type: 'ready', ready: !(me?.kind === 'player' && me.ready) });
     });
-    this.on('lInvite', async () => {
-      // The lobby's short link (play.gamerelay.io/<game>/<link>, which previews in chat apps), or
-      // this page's link with its code where there isn't one. Not for Invite only: its code doesn't
-      // get anyone in, so a failed link says so instead.
-      const short = (await this.backend.shareLink?.(lobby.id)) ?? null;
-      if (!short && lobby.visibility === 'invite') {
-        const b = document.getElementById('lInvite');
-        if (b) b.textContent = "Couldn't get the link: try again";
-        return;
-      }
-      const link = short ?? `${location.origin}${location.pathname}?lobby=${encodeURIComponent(lobby.id)}`;
-      void navigator.clipboard?.writeText(link).then(() => {
-        const b = document.getElementById('lInvite');
-        if (b) b.textContent = 'Copied';
-      });
-    });
+    this.on('lInvite', () => void this.copyInvite(lobby));
     this.on('lVis', () => this.send(lobby, { type: 'options', visibility: nextVisibility(lobby.visibility) }));
-    this.on('lLeave', () => this.send(lobby, { type: 'leave' }));
+    this.on('lLeave', () => this.back());
     this.on('lPlate', () => void this.show({ kind: 'plate', from: lobby.id }));
     const change = (id: string, fn: (v: string) => void) => {
       const el = document.getElementById(id) as HTMLButtonElement | null;
@@ -793,10 +1045,10 @@ export class Menu {
       const go = document.getElementById(`pgo-${k}`) as HTMLButtonElement | null;
       const s = lobby.seats[k];
       if (!go || s?.kind !== 'player') return;
-      const label = seatToolConfirm(v, s.name);
-      go.hidden = !label;
-      go.textContent = label ?? '';
-      if (label) this.armed = { lobby: lobby.id, k, choice: v, id: s.id };
+      const text = seatToolConfirm(v, s.name);
+      go.hidden = !text;
+      go.textContent = text ?? '';
+      if (text) this.armed = { lobby: lobby.id, k, choice: v, id: s.id };
       else if (this.armed?.k === k) this.armed = null;
       go.onclick = () => {
         this.armed = null;
@@ -814,27 +1066,67 @@ export class Menu {
     this.on('lPrev', () => this.pick('left'));
     this.on('lNext', () => this.pick('right'));
     for (let k = 0; k < paints.length; k++) this.on(`lPaint-${k}`, () => this.send(lobby, { type: 'car', car: yours.car, paint: k }));
-    if (host) for (const id of ['oMap', 'oLaps', 'oWeather', 'oTime', 'oMayhem', 'oTraffic']) change(id, () => this.send(lobby, { type: 'options', options: this.readOptions() }));
+    const fillEl = document.getElementById('lFill');
+    if (fillEl) fillEl.onchange = () => this.send(lobby, { type: 'options', options: { fill: toggled(fillEl) } });
+    if (host) for (const id of ['oMap', 'oLaps', 'oWeather', 'oTime', 'oMayhem', 'oTraffic']) change(id, () => this.send(lobby, { type: 'options', options: this.readOptions(o) }));
   }
 
-  /** Who can join, which the host clicks through, and the invite link while anyone new can. */
-  private access(lobby: Lobby, host: boolean): string {
-    const [, name, hint] = ACCESS.find(([v]) => v === lobby.visibility) ?? ACCESS[0];
-    const who = host ? `<button id="lVis" class="ghost invite" title="${esc(hint)}. Click to change">${name}</button>` : `<button class="ghost invite" disabled title="${esc(hint)}">${name}</button>`;
-    return who + (lobby.visibility === 'locked' ? '' : '<button id="lInvite" class="ghost invite">Copy invite link</button>') + `<span id="lNet">${this.netLabel(lobby.id)}</span>`;
+  /** The track, over the options: its outline, name, length and where it is in the list. */
+  private trackHead(map: string): string {
+    const layout = this.layout(map);
+    const keys = this.lobbyKeys();
+    const at = keys.indexOf(map);
+    const km = layout ? `${thumb(layout).km.toFixed(1)} km` : '';
+    const where = at >= 0 ? `Track ${at + 1} of ${keys.length}` : '';
+    return `<div class="l-track"><span class="l-thumb">${thumbSvg(layout, 72)}</span><div><b>${esc(this.mapName(map))}</b><small>${[km, where].filter(Boolean).join(' · ')}</small></div></div>`;
+  }
+
+  /** The invite, top right: the link once it's known, and Copy invite. */
+  private inviteBox(lobby: Lobby): string {
+    const link = this.invite?.id === lobby.id ? this.invite.link : null;
+    const text = link ? link.replace(/^https?:\/\//, '') : lobby.visibility === 'invite' ? 'Link only: copy the link to invite' : `Code ${lobby.id}`;
+    return `<div class="l-invite"><span class="l-link" id="lLink">${esc(text)}</span>${button('lInvite', 'Copy invite', 'small', { class: 'solid' })}</div>`;
+  }
+
+  /** The lobby's short link (play.gamerelay.io/<game>/<link>, which previews in chat apps), for the invite box. */
+  private async fetchInvite(lobby: Lobby): Promise<void> {
+    const link = (await this.backend.shareLink?.(lobby.id).catch(() => null)) ?? null;
+    this.invite = { id: lobby.id, link };
+    const el = document.getElementById('lLink');
+    if (el && link) el.textContent = link.replace(/^https?:\/\//, '');
+  }
+
+  /**
+   * Copies the invite: the short link, or this page's link with its code where there isn't one.
+   * Not for Link only: its code doesn't get anyone in, so a failed link says so instead.
+   */
+  private async copyInvite(lobby: Lobby): Promise<void> {
+    const short = this.invite?.id === lobby.id && this.invite.link ? this.invite.link : ((await this.backend.shareLink?.(lobby.id).catch(() => null)) ?? null);
+    const b = document.getElementById('lInvite');
+    if (!short && lobby.visibility === 'invite') {
+      if (b) b.querySelector('span')!.textContent = 'Try again';
+      return;
+    }
+    const link = short ?? `${location.origin}${location.pathname}?lobby=${encodeURIComponent(lobby.id)}`;
+    void navigator.clipboard?.writeText(link).then(() => {
+      const el = document.getElementById('lInvite');
+      if (!el) return;
+      el.querySelector('span')!.textContent = 'Copied';
+      el.classList.add('lit');
+    });
   }
 
   /** How you reach the lobby's other players: the SDK finds the best way to each, so it can change. */
   private netLabel(id: string): string {
     const route = this.backend.route?.(id) ?? null;
-    return route ? `<button class="ghost invite net" disabled title="${NET_ROUTES[route][1]}">${NET_ROUTES[route][0]}</button>` : '';
+    return route ? tag(NET_ROUTES[route][0], 'line', NET_ROUTES[route][1]) : '';
   }
 
-  /** A player's ping to the server, as the Ping column shows it: or Away, while their connection's gone. */
+  /** A player's ping to the server: or Away, while their connection's gone. */
   private pingText(id: string, player: string): string {
-    if (this.backend.away?.(id, player)) return '<span class="away" title="Their connection dropped: the seat is held for them a little while">Away</span>';
+    if (this.backend.away?.(id, player)) return '<span class="l-away" title="Their connection dropped: the seat is held for them a little while">Away</span>';
     const ms = this.backend.ping?.(id, player) ?? null;
-    return ms === null ? '—' : `<span class="${pingClass(ms)}">${ms} ms</span>`;
+    return ms === null ? '' : `<i class="k-dot ${pingClass(ms)}"></i>${ms}`;
   }
 
   /** A layout by its key, if it's one of ours (a key comes from other players: never `constructor`). */
@@ -843,40 +1135,27 @@ export class Menu {
   }
 
   /**
-   * The race's options, top right: the map and its settings. The host sets them; everyone else
-   * sees them folded into a line.
-   */
-  private optionsPanel(o: LobbyOptions, host: boolean): string {
-    const layout = this.layout(o.map);
-    const km = layout ? `${thumb(layout).km.toFixed(1)} km` : '';
-    const head = `${thumbSvg(layout, host ? 64 : 44)}<div class="mapHead"><b>${esc(this.mapName(o.map))}</b><small>${km}</small></div>`;
-    if (host) return `<aside class="card mapCard">${head}<div class="opts">${this.optionFields(o, false)}</div></aside>`;
-    const bits = [this.lapsText(o.map, o.laps), `${label(this.weathers(o.map), o.weather)} weather`, ...(this.hasSunset(o.map) ? [`${label(TIMES, o.time)} time`] : []), `${label(MAYHEMS, o.mayhem)} mayhem`, `Traffic ${o.traffic ? 'on' : 'off'}`];
-    return `<aside class="card mapCard mini">${head}<p class="optLine">${bits.map((b) => `<span>${esc(b)}</span>`).join('')}</p></aside>`;
-  }
-
-  /**
-   * Your car on the turntable: arrows either side of it cycle the car (A, D), and under it its
-   * name and job, its stat bars, and the paints (W, S).
+   * Your car in the frame: arrows either side of it cycle the car (A, D), and under it its card:
+   * name, job, rated stats and the paints (W, S).
    */
   private carPanel(yours: { car: string; paint: number }): string {
     const { classes, paints } = this.content;
     const at = classes.findIndex((k) => k.id === yours.car);
     const c = classes[at];
     const paint = paints[yours.paint % paints.length];
-    const bars = carStats(classes, yours.car)
-      .map((b) => `<span class="bar"><small>${b.name}</small><i style="--t:${b.t.toFixed(2)}"></i></span>`)
+    const stats = carStats(classes, yours.car)
+      .map((b) => stat(b.name, rating(b.t)))
       .join('');
     const swatches = paints
-      .map((p, k) => `<button id="lPaint-${k}" class="swatch${k === yours.paint % paints.length ? ' on' : ''}" title="${esc(p.name)}" aria-label="${esc(p.name)}" style="--c:${p.color};--c2:${p.secondary ?? p.color}"></button>`)
+      .map((p, k) => `<button type="button" id="lPaint-${k}" class="k-swatch${k === yours.paint % paints.length ? ' on' : ''}" title="${esc(p.name)}" aria-label="${esc(p.name)}" style="--c:${p.color};--c2:${p.secondary ?? p.color}"></button>`)
       .join('');
-    return `<div class="stage"><button id="lPrev" class="carArrow" title="Previous car (A)" aria-label="Previous car">${CHEVRON}</button><button id="lNext" class="carArrow" title="Next car (D)" aria-label="Next car">${CHEVRON}</button></div>
-      <div class="card carPanel">
-        <div class="carHead"><b class="carName">${esc(c?.name ?? yours.car)}</b><small class="carCount">${at + 1} / ${classes.length}</small></div>
-        <p class="blurb">${esc(c?.blurb ?? '')}</p>
-        <div class="bars">${bars}</div>
-        <div class="paints"><span class="paintName">${esc(paint.name)}</span><span class="swatches">${swatches}</span><small class="keysHint"><kbd>A</kbd><kbd>D</kbd> car · <kbd>W</kbd><kbd>S</kbd> paint</small></div>
-      </div>`;
+    const role = carRole(c?.blurb);
+    return `<div class="stage l-frame" data-in="fade"><button type="button" id="lPrev" class="l-arrow" title="Previous car (A)" aria-label="Previous car">${CHEVRON}</button><button type="button" id="lNext" class="l-arrow" title="Next car (D)" aria-label="Next car">${CHEVRON}</button><span class="l-carKeys">${hint('car', 'Car')}</span></div>
+      <section class="k-panel l-car" data-in="b">
+        <div class="l-carHead"><b class="l-carName">${esc(c?.name ?? yours.car)}</b><span class="k-muted k-num">${at + 1} / ${classes.length}</span>${role ? tag(role, 'line', c?.blurb ?? '') : ''}</div>
+        <div class="l-stats">${stats}</div>
+        <div class="l-paints"><span class="k-muted">Paint</span><span class="k-swatches">${swatches}</span><b class="l-paintName">${esc(paint.name)}</b></div>
+      </section>`;
   }
 
   /** The host starts: the lobby's seats become the race's cars, and the page loads into it. */

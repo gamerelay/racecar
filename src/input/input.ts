@@ -11,12 +11,29 @@ export type SystemAction = 'pause' | 'report' | 'editor' | 'debug' | 'tuning' | 
 /**
  * In a menu (menuOpen): move focus, press the focused control, or back out. WASD (and the pad's
  * bumpers) pick: in the lobby they cycle your car and paint, and elsewhere they move focus too.
+ * Q and E switch a panel's tabs (the pad's bumpers do, there); R (the pad's Y) is a screen's own
+ * extra (Refresh, in the lobby list).
  */
-export type MenuAction = 'nav-up' | 'nav-down' | 'nav-left' | 'nav-right' | 'pick-up' | 'pick-down' | 'pick-left' | 'pick-right' | 'accept' | 'back';
+export type MenuAction = 'nav-up' | 'nav-down' | 'nav-left' | 'nav-right' | 'pick-up' | 'pick-down' | 'pick-left' | 'pick-right' | 'tab-prev' | 'tab-next' | 'alt' | 'accept' | 'back';
 
-const MENU_KEYS: Record<string, MenuAction> = { ArrowUp: 'nav-up', ArrowDown: 'nav-down', ArrowLeft: 'nav-left', ArrowRight: 'nav-right', KeyW: 'pick-up', KeyS: 'pick-down', KeyA: 'pick-left', KeyD: 'pick-right' };
+const MENU_KEYS: Record<string, MenuAction> = {
+  ArrowUp: 'nav-up',
+  ArrowDown: 'nav-down',
+  ArrowLeft: 'nav-left',
+  ArrowRight: 'nav-right',
+  KeyW: 'pick-up',
+  KeyS: 'pick-down',
+  KeyA: 'pick-left',
+  KeyD: 'pick-right',
+  KeyQ: 'tab-prev',
+  KeyE: 'tab-next',
+  KeyR: 'alt',
+};
 /** Standard-mapping d-pad buttons, and LB and RB. */
 const PAD_NAV: [number, MenuAction][] = [[12, 'nav-up'], [13, 'nav-down'], [14, 'nav-left'], [15, 'nav-right'], [4, 'pick-left'], [5, 'pick-right']];
+/** A d-pad button or the stick held over in a menu moves again after this (ms), then every REPEAT_MS. */
+const REPEAT_DELAY_MS = 380;
+const REPEAT_MS = 95;
 
 const KEYS: Record<string, keyof typeof held> = {
   ArrowLeft: 'left',
@@ -73,7 +90,8 @@ export class Input {
   private keySteer = 0;
   private readonly listeners: ((a: SystemAction) => void)[] = [];
   private prevButtons: boolean[] = [];
-  lastDevice: InputDevice = 'keyboard';
+  private device: InputDevice = 'keyboard';
+  private readonly deviceListeners: ((d: InputDevice) => void)[] = [];
   deadZone = 0.12;
   rumbleOn = true;
   /** Set while a text field has focus, so typing doesn't drive. */
@@ -85,13 +103,18 @@ export class Input {
    * each frame). Then, with drift held, a steer key goes straight to the drift's threshold.
    */
   readyToDrift = false;
-  /** When the stick last moved menu focus (it repeats while held). */
+  /** When the stick (or a d-pad button) moves menu focus again while held, and which way it's held. */
   private stickNavAt = 0;
+  private stickDir: MenuAction | null = null;
+  private padNavAt: number[] = [];
 
   constructor() {
     window.addEventListener('keydown', (e) => {
       // Browser and OS shortcuts (Cmd+R, Ctrl+Tab…) are theirs, not a reset or a steer.
-      if (this.suspended || isTyping(e, this.menuOpen) || e.metaKey || e.ctrlKey || e.altKey) return;
+      // Esc still backs out of a menu from its text fields (the lobby list's search, a name).
+      const typing = isTyping(e, this.menuOpen) && !(this.menuOpen && e.code === 'Escape');
+      if (this.suspended || typing || e.metaKey || e.ctrlKey || e.altKey) return;
+      this.lastDevice = 'keyboard';
       if (this.menuOpen && MENU_KEYS[e.code]) {
         e.preventDefault();
         this.fire(MENU_KEYS[e.code]);
@@ -108,7 +131,6 @@ export class Input {
       const k = KEYS[e.code];
       if (k) {
         held[k] = true;
-        this.lastDevice = 'keyboard';
         e.preventDefault();
       }
     });
@@ -123,6 +145,23 @@ export class Input {
     });
     window.addEventListener('blur', release);
     document.addEventListener('visibilitychange', release);
+  }
+
+  /** What was used last: the menus' key hints follow it (keycaps, or the pad's buttons). */
+  get lastDevice(): InputDevice {
+    return this.device;
+  }
+
+  set lastDevice(d: InputDevice) {
+    if (d === this.device) return;
+    this.device = d;
+    for (const fn of this.deviceListeners) fn(d);
+  }
+
+  /** Calls `fn` now and whenever the device used last changes. */
+  onDevice(fn: (d: InputDevice) => void): void {
+    this.deviceListeners.push(fn);
+    fn(this.device);
   }
 
   on(fn: (a: SystemAction) => void): void {
@@ -212,19 +251,33 @@ export class Input {
   private buttons(pad: Gamepad): void {
     const b = (k: number) => pad.buttons[k]?.pressed ?? false;
     const pressed = (k: number) => b(k) && !this.prevButtons[k];
+    if (pad.buttons.some((x, k) => x.pressed && !this.prevButtons[k]) || Math.max(Math.abs(pad.axes[0] ?? 0), Math.abs(pad.axes[1] ?? 0)) > 0.6) this.lastDevice = 'gamepad';
     if (b(8) && pressed(9)) this.fire('report');
     else if (pressed(9)) this.fire('pause');
     if (this.menuOpen) {
-      for (const [k, a] of PAD_NAV) if (pressed(k)) this.fire(a);
+      const now = performance.now();
+      // The d-pad moves on the press, then again and again while it's held (not the bumpers: a held one would spin the cars past).
+      for (const [k, a] of PAD_NAV) {
+        if (pressed(k)) {
+          this.fire(a);
+          this.padNavAt[k] = now + REPEAT_DELAY_MS;
+        } else if (k >= 12 && b(k) && now >= (this.padNavAt[k] ?? Infinity)) {
+          this.fire(a);
+          this.padNavAt[k] = now + REPEAT_MS;
+        }
+      }
       if (pressed(0)) this.fire('accept');
       if (pressed(1)) this.fire('back');
-      // The stick moves focus too, repeating every quarter second while held over.
+      if (pressed(3)) this.fire('alt');
+      // The stick moves focus too, the same way: once as it's pushed over, then repeating while held.
       const [ax, ay] = [pad.axes[0] ?? 0, pad.axes[1] ?? 0];
-      const now = performance.now();
-      if (Math.max(Math.abs(ax), Math.abs(ay)) > 0.6 && now - this.stickNavAt > 250) {
-        this.stickNavAt = now;
-        this.fire(Math.abs(ax) > Math.abs(ay) ? (ax > 0 ? 'nav-right' : 'nav-left') : ay > 0 ? 'nav-down' : 'nav-up');
-      } else if (Math.max(Math.abs(ax), Math.abs(ay)) < 0.3) this.stickNavAt = 0;
+      const far = Math.max(Math.abs(ax), Math.abs(ay));
+      const dir: MenuAction = Math.abs(ax) > Math.abs(ay) ? (ax > 0 ? 'nav-right' : 'nav-left') : ay > 0 ? 'nav-down' : 'nav-up';
+      if (far > 0.6 && (dir !== this.stickDir || now >= this.stickNavAt)) {
+        this.stickNavAt = now + (dir === this.stickDir ? REPEAT_MS + 25 : REPEAT_DELAY_MS);
+        this.stickDir = dir;
+        this.fire(dir);
+      } else if (far < 0.3) this.stickDir = null;
     }
     for (let k = 0; k < pad.buttons.length; k++) this.prevButtons[k] = pad.buttons[k].pressed;
   }

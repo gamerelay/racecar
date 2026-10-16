@@ -1,12 +1,13 @@
-// Fades between pages (docs/MENU.md): every race, and the menu after one, is a page load
-// (`location.search`). The screen goes dark just before one, the crossed flags pulse in the middle
-// while the next page loads and builds its map (the loading screen is in index.html, so it's up
-// from the first paint), and it lifts once the page has drawn its first frames. The browser's
-// reduced-motion setting keeps it short and still.
+// Wipes between pages (docs/MENU.md): every race, and the menu after one, is a page load
+// (`location.search`). Slanted bands sweep in from the right just before one (sun, pink, then the
+// dark), the crossed flags pulse in the middle while the next page loads and builds its map (the
+// loading screen is in index.html, so it's up from the first paint), and the bands sweep off to the
+// left once the page has drawn its first frames. The browser's reduced-motion setting makes it a
+// short, still fade.
 import { keepEmbed } from './embed';
 
-/** How long the screen takes to go dark before the next page (ms). */
-const OUT_MS = 180;
+/** How long the screen takes to go dark before the next page (ms): the bands' sweep in (hud.css). */
+const OUT_MS = 460;
 /**
  * The loading screen stays up at least this long from the page's navigation (ms), so a fast load
  * shows the flags rather than a flash of them, and what loads in just after (the fonts, the

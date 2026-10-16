@@ -55,19 +55,25 @@
     </script>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Bungee&family=Chakra+Petch:wght@500;700&display=swap" rel="stylesheet" />
-    <!-- The loading screen (src/ui/fade.ts): up from the first paint, before the script and its stylesheet. -->
+    <link href="https://fonts.googleapis.com/css2?family=Bungee&family=Chakra+Petch:ital,wght@0,400;0,500;0,600;0,700;1,500;1,600&display=swap" rel="stylesheet" />
+    <!-- The loading screen (src/ui/fade.ts): up from the first paint, before the script and its
+         stylesheet. Three slanted bands (sun, hot, then the dark over them) cover the screen; they
+         sweep off to the left when the page is ready, and back in from the right before the next. -->
     <style>
-      html, body { background: #0d0620; }
-      #pageFade { position: fixed; inset: 0; z-index: 50; display: grid; place-items: center; background: #0d0620; pointer-events: none; transition: opacity 0.18s ease-in; }
-      #pageFade .logo { width: clamp(72px, 12vmin, 112px); aspect-ratio: 1; filter: drop-shadow(5px 5px 0 #ff2e88); animation: logoPulse 0.9s ease-in-out infinite alternate; }
+      html, body { background: #0e0b1a; }
+      #pageFade { position: fixed; inset: 0; z-index: 50; display: grid; place-items: center; pointer-events: none; overflow: hidden; }
+      #pageFade > i { position: absolute; top: -10vh; bottom: -10vh; left: -25vw; width: 150vw; transform: skewX(-12deg); }
+      #pageFade .b1 { background: #ffcf3f; }
+      #pageFade .b2 { background: #ff3d7f; }
+      #pageFade .b3 { background: #0e0b1a; }
+      #pageFade .logo { position: relative; width: clamp(72px, 12vmin, 112px); aspect-ratio: 1; filter: drop-shadow(5px 5px 0 #ff3d7f); animation: logoPulse 0.9s ease-in-out infinite alternate; }
       #pageFade .logo svg { display: block; width: 100%; height: 100%; }
       @keyframes logoPulse { from { transform: scale(0.9); } to { transform: scale(1.06); } }
       @media (prefers-reduced-motion: reduce) { #pageFade .logo { animation: none; } }
     </style>
   </head>
   <body>
-    <div id="pageFade" aria-hidden="true"><div class="logo"><!--flags--></div></div>
+    <div id="pageFade" aria-hidden="true"><i class="b1"></i><i class="b2"></i><i class="b3"></i><div class="logo"><!--flags--></div></div>
     <div id="stage"></div>
     <script type="module" src="/src/main.ts"></script>
   </body>

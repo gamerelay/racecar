@@ -37,17 +37,17 @@ export function installClicks(play: (kind: UiSound) => void): void {
   document.addEventListener(
     'click',
     (e) => {
-      const el = (e.target as Element | null)?.closest('.card button, #quit') ?? null;
+      const el = (e.target as Element | null)?.closest('.card button, .k button, #quit') ?? null;
       if (!(el instanceof HTMLButtonElement) || el.disabled) return;
       pressFx(el);
       // A chooser ticks as it steps (chooser.ts).
-      if (!el.classList.contains('chooser')) uiSound(el.classList.contains('ghost') ? 'back' : 'press');
+      if (!el.classList.contains('chooser') && !el.classList.contains('k-seg')) uiSound(el.classList.contains('ghost') || el.classList.contains('k-back') ? 'back' : el.classList.contains('k-toggle') ? 'tick' : 'press');
     },
     true,
   );
   document.addEventListener('input', (e) => {
     const el = e.target;
-    if (el instanceof HTMLInputElement && el.type === 'range' && el.closest('.card')) uiSound('tick');
+    if (el instanceof HTMLInputElement && el.type === 'range' && el.closest('.card, .k')) uiSound('tick');
   });
   // Cancelled too: a button that hides its own card (Resume, Back) would flash again when it's shown.
   const done = (e: AnimationEvent) => {

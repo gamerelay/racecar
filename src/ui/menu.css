@@ -1,0 +1,287 @@
+/* ---- the front door's screens (ui/menu.ts): the title, Multiplayer, your plate, the lobby ----
+   Laid out on the 1080p grid (kit.css: 1rem is 10px there), each screen filling the window over
+   the race behind. The backdrop is #menu's own, so it changes under the screens as they swap. */
+
+#menu.k { position: fixed; inset: 0; z-index: 12; overflow: hidden; }
+#menu.k::before, #menu.k::after { content: ''; position: fixed; inset: 0; z-index: 0; pointer-events: none; opacity: 0; transition: opacity 420ms ease; }
+/* The title's: the race behind, softened, darker on the left where the menu is. */
+#menu.k::after { background: linear-gradient(90deg, rgba(14, 11, 26, 0.92) 0%, rgba(14, 11, 26, 0.6) 34%, rgba(14, 11, 26, 0.1) 62%, rgba(14, 11, 26, 0.25) 100%); backdrop-filter: blur(0.3rem) saturate(1.1); }
+/* Everywhere else but the lobby (which dims round its frame): night, with the race only just there. */
+#menu.k::before { background: radial-gradient(120% 90% at 50% 0%, rgba(43, 33, 82, 0.9), rgba(14, 11, 26, 0.96) 70%); backdrop-filter: blur(0.6rem); }
+#menu.k[data-screen='title']::after { opacity: 1; }
+#menu.k[data-screen='online']::before, #menu.k[data-screen='plate']::before { opacity: 1; }
+.scr { position: absolute; inset: 0; z-index: 1; }
+.scr > * { position: absolute; }
+.scr > .k-head { top: 4.8rem; left: 4.8rem; right: 4.8rem; height: 7.2rem; z-index: 2; }
+
+/* ---- the title ---- */
+.t-brand { left: var(--gutter); top: 7.2rem; }
+.t-word { font-family: var(--f-display); font-size: 13.6rem; line-height: 0.92; letter-spacing: 0.01em; color: var(--c-sun); text-shadow: 0.8rem 0.8rem 0 var(--c-hot); -webkit-text-stroke: 0.2rem rgba(14, 11, 26, 0.35); transform: skewX(var(--skew)); white-space: nowrap; }
+.t-brand .k-eyebrow { margin-top: 2rem; }
+.t-menu { left: var(--gutter); top: 30.4rem; }
+.t-top { right: var(--gutter); top: 7.2rem; display: flex; gap: 1.6rem; }
+.t-live { right: var(--gutter); bottom: 11.2rem; width: 61.6rem; padding: 2.4rem; display: grid; gap: 1.2rem; }
+.t-liveHead { display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.4rem; }
+.t-all { display: inline-flex; gap: 1rem; align-items: center; color: var(--c-ice); font-weight: 600; }
+.t-all:hover, .t-all:focus-visible { color: var(--c-cream); }
+.k-lrow { display: grid; align-items: center; width: 100%; text-align: left; border: 0.2rem solid transparent; border-radius: 1rem; transition: background-color var(--t-quick), border-color var(--t-quick); }
+.k-lrow:hover, .k-lrow:focus-visible, .k-lrow:focus { border-color: var(--c-sun); background: rgba(255, 207, 63, 0.06); }
+.k-lrow:hover .k-btn.small, .k-lrow:focus .k-btn.small { color: var(--c-ink); background: var(--c-ice); }
+.t-lrow { grid-template-columns: 1fr auto auto; gap: 2.4rem; padding: 1.2rem 1.6rem; background: var(--c-raise); }
+.t-lname { display: grid; min-width: 0; }
+.t-lname b { font-weight: 700; font-size: 2.6rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.t-lname small { color: var(--c-muted); font-size: 2.2rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.t-count { font-family: var(--f-display); font-weight: 400; font-size: 2.6rem; }
+.t-none { color: var(--c-muted); font-size: 2.2rem; }
+.t-foot { left: var(--gutter); bottom: 6.4rem; }
+.t-legal { right: var(--gutter); bottom: 5.6rem; color: var(--c-muted); font-size: 2.2rem; }
+.t-legal a, .t-legal button { color: inherit; text-decoration: none; }
+.t-legal a:hover, .t-legal button:hover, .t-legal a:focus-visible, .t-legal button:focus-visible { color: var(--c-cream); text-decoration: underline; }
+
+/* ---- Multiplayer ---- */
+.o-status { display: inline-flex; gap: 1rem; align-items: center; color: var(--c-ice); font-weight: 600; white-space: nowrap; }
+.o-list { left: 4.8rem; right: 57rem; top: 16rem; bottom: 4.8rem; display: flex; flex-direction: column; padding: 2.8rem 2.8rem 2rem; }
+.o-tools { display: flex; gap: 1.6rem; align-items: center; }
+.o-tools .k-field { flex: 1; min-width: 0; max-width: 42rem; }
+.o-track { display: inline-flex; align-items: center; gap: 1.2rem; height: 6rem; padding: 0 1.2rem 0 1.6rem; border: 0.2rem solid var(--c-line); border-radius: 0.6rem; }
+.o-track .chooser { min-width: 18rem; }
+.o-full { display: inline-flex; gap: 1rem; align-items: center; height: 6rem; padding: 0 1.8rem; border: 0.2rem solid var(--c-line); border-radius: 0.6rem; color: var(--c-muted); font-weight: 600; transition: color var(--t-quick), border-color var(--t-quick), background-color var(--t-quick); }
+.o-full i { font-style: normal; opacity: 0; transition: opacity var(--t-quick); }
+.o-full.on { color: var(--c-ice); border-color: var(--c-ice); background: rgba(63, 227, 242, 0.08); }
+.o-full.on i { opacity: 1; }
+.o-full:focus-visible, .o-full:hover { border-color: var(--c-sun); }
+.o-tools .k-btn.secondary { margin-left: auto; font-size: 2.6rem; padding: 1.2rem 2.8rem; }
+.o-cols, .o-row { grid-template-columns: minmax(0, 1fr) 17rem 8rem 15rem 16rem 12rem; gap: 2rem; }
+.o-cols { display: grid; padding: 3.2rem 1.6rem 1.6rem; border-bottom: 0.2rem solid var(--c-line); }
+.o-col { color: var(--c-muted); font-weight: 700; font-size: 2.2rem; letter-spacing: 0.14em; text-transform: uppercase; text-align: left; white-space: nowrap; }
+.o-col.on { color: var(--c-sun); }
+button.o-col:hover, button.o-col:focus-visible { color: var(--c-cream); }
+.o-rows { flex: 1; min-height: 0; overflow-y: auto; scrollbar-width: none; padding: 1rem 0; display: grid; align-content: start; gap: 0.4rem; }
+.o-rows::-webkit-scrollbar { display: none; }
+.o-row { padding: 1.2rem 1.6rem; }
+.o-name { display: grid; min-width: 0; }
+.o-name b { font-weight: 700; font-size: 2.6rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.o-name small { color: var(--c-muted); font-size: 2.2rem; min-height: 1.3em; }
+.o-hot { color: var(--c-hot); }
+.o-row .k-btn.small { justify-self: end; }
+.o-none { color: var(--c-muted); padding: 4rem 1.6rem; }
+.o-foot { display: flex; align-items: center; justify-content: space-between; gap: 2.4rem; padding-top: 1.6rem; border-top: 0.2rem solid var(--c-line); }
+.o-foot .k-muted { font-size: 2.2rem; }
+.o-side { right: 4.8rem; top: 16rem; bottom: 4.8rem; width: 49rem; display: flex; flex-direction: column; gap: 2.4rem; }
+.o-create { display: grid; grid-template-columns: minmax(0, 1fr); gap: 1.2rem; align-content: start; }
+.o-create .k-h2 { margin-bottom: 1.2rem; }
+.o-lab { color: var(--c-muted); margin-top: 0.8rem; }
+.o-create .k-seg { display: flex; }
+.o-create .k-seg span { flex: 1; }
+.o-create .k-row:first-of-type { margin-top: 1.2rem; border-top: 0.2rem solid var(--c-line); }
+.o-create .chooser { min-width: 14rem; }
+.o-create .k-btn.primary { margin-top: 2.4rem; width: 100%; }
+.o-createNote { text-align: center; font-size: 2.2rem; }
+.o-code { display: grid; grid-template-columns: minmax(0, 1fr); gap: 2rem; margin-top: auto; }
+.o-codeRow { display: flex; gap: 1.6rem; }
+.o-codeRow .k-field { flex: 1; min-width: 0; }
+.k-field.bad { border-color: var(--c-hot); animation: kShake 0.3s; }
+@keyframes kShake { 25% { translate: -0.8rem 0; } 75% { translate: 0.8rem 0; } }
+.k-btn.small.solid { color: var(--c-ink); background: var(--c-ice); padding-block: 1rem; }
+.k-btn.small.solid:hover, .k-btn.small.solid:focus-visible { background: var(--c-cream); border-color: var(--c-cream); }
+
+/* ---- your plate ---- */
+.p-card { left: 50%; top: 50%; width: 72rem; margin: -26rem 0 0 -36rem; display: grid; gap: 2.4rem; }
+.p-preview { display: grid; place-items: center; padding: 2.4rem 0; }
+.p-preview .k-plate { font-size: 8rem; padding: 1.6rem 3.6rem 1.4rem; border-radius: 1rem; min-width: 5ch; text-align: center; box-shadow: var(--hard), inset 0 -0.6rem 0 rgba(14, 11, 26, 0.18); }
+.p-card .k-field input { text-align: center; }
+.p-err { color: var(--c-hot); min-height: 1.4em; font-size: 2.2rem; }
+.p-acts { display: flex; justify-content: flex-end; align-items: center; gap: 4rem; }
+.scr.plate .t-foot { left: 4.8rem; bottom: 4.8rem; }
+
+/* ---- the lobby: drivers left, your car framed in the middle over the scene, the track right ---- */
+.l-vis { cursor: pointer; transition: color var(--t-quick), border-color var(--t-quick); }
+.l-vis:hover, .l-vis:focus-visible { color: var(--c-sun); border-color: var(--c-sun); }
+.k-head .k-tag.line { font-size: 2rem; }
+.l-invite { display: flex; align-items: center; gap: 2rem; height: 7.2rem; padding: 0 1.2rem 0 2.4rem; border-radius: 1.2rem; background: var(--c-panel); border: 0.2rem solid var(--c-line); max-width: 64rem; }
+.l-link { color: rgba(255, 244, 224, 0.82); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.scr.lobby .k-panel { z-index: 1; }
+.l-seats { left: 4.8rem; top: 16rem; bottom: 4.8rem; width: 56rem; display: flex; flex-direction: column; padding: 2.8rem 2.4rem 1.6rem; }
+.l-head { display: flex; align-items: baseline; justify-content: space-between; padding: 0 0.8rem 1.6rem; }
+.l-head .k-muted { font-size: 2.4rem; }
+.l-list { flex: 1; min-height: 0; display: grid; grid-auto-rows: minmax(0, 6.6rem); gap: 1rem; align-content: start; overflow-y: auto; scrollbar-width: none; }
+.l-seat { display: flex; align-items: center; gap: 1.6rem; padding: 0 1.6rem; border-radius: 0.8rem; border: 0.2rem dashed var(--c-line); min-width: 0; transition: border-color var(--t-quick), background-color var(--t-quick); }
+.l-seat.player { border-style: solid; background: var(--c-raise); }
+.l-seat.me { border-color: var(--c-sun); background: rgba(255, 207, 63, 0.08); }
+.l-seat:focus-within { border-color: var(--c-sun); }
+.l-n { width: 2.4rem; color: var(--c-muted); flex: none; }
+.l-seat.me .l-n { color: var(--c-sun); }
+.l-name { font-weight: 700; font-size: 2.6rem; letter-spacing: 0.04em; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; text-align: left; }
+button.l-name:hover, button.l-name:focus-visible { color: var(--c-sun); text-decoration: underline; text-underline-offset: 0.4rem; }
+.l-seat:not(.player) .l-name { color: var(--c-muted); font-weight: 500; letter-spacing: 0; }
+.l-seat .chooser { flex: 1; justify-content: space-between; min-width: 0; font-weight: 500; color: var(--c-muted); }
+.l-seat .chooser .cv { text-align: left; }
+.l-seat.ai .chooser, .l-seat.ai .l-name { color: var(--c-cream); }
+.l-seat.closed { opacity: 0.55; }
+.l-seatCar { color: var(--c-muted); white-space: nowrap; }
+/* Open seats are quiet: their arrows only show on the one you're on. */
+.l-seat .chooser i { opacity: 0; transition: opacity var(--t-quick); }
+.l-seat .chooser:hover i, .l-seat .chooser:focus-visible i { opacity: 1; }
+.l-seat .k-tag { flex: none; }
+.l-wait { color: var(--c-muted); font-size: 2.2rem; white-space: nowrap; }
+.l-ping { color: var(--c-muted); font-size: 2rem; display: inline-flex; gap: 0.6rem; align-items: center; white-space: nowrap; }
+.l-ping .k-dot { width: 1.2rem; height: 1.2rem; }
+.l-away { font-style: italic; }
+.l-seat.player .chooser { flex: 0 0 auto; min-width: 0; font-size: 2rem; }
+.l-go.k-btn { font-size: 1.8rem; padding: 0.6rem 1.2rem; }
+.l-go.k-btn[hidden] { display: none; }
+.l-fill { border-top: 0.2rem solid var(--c-line); padding: 0.8rem 0.8rem 0; }
+.l-fill .k-row { border: 0; }
+.l-val { font-weight: 700; color: var(--c-cream); }
+
+/* The frame your car turns in (render/showroom.ts frames the table into .stage), the scene seen through it and dimmed round it. */
+.l-frame { left: 64rem; right: 52rem; top: 16rem; bottom: 31.6rem; border-radius: 1.6rem; border: 0.2rem solid rgba(255, 244, 224, 0.2); box-shadow: 0 0 0 200vmax rgba(14, 11, 26, 0.93), inset 0 0 6rem rgba(14, 11, 26, 0.45); z-index: 0; container-type: size; }
+.l-frame.watching { box-shadow: 0 0 0 200vmax rgba(14, 11, 26, 0.93); }
+.l-arrow { position: absolute; top: 50%; width: 6.4rem; height: 6.4rem; margin-top: -3.2rem; display: grid; place-items: center; border-radius: 1.2rem; background: rgba(14, 11, 26, 0.72); border: 0.2rem solid rgba(255, 244, 224, 0.25); color: var(--c-cream); transition: color var(--t-quick), border-color var(--t-quick), scale var(--t-quick) var(--ease-back); }
+.l-arrow svg { width: 3rem; height: 3rem; fill: none; stroke: currentColor; stroke-width: 3.5; stroke-linecap: round; stroke-linejoin: round; }
+#lPrev { left: 2.4rem; }
+#lPrev svg { transform: scaleX(-1); }
+#lNext { right: 2.4rem; }
+.l-arrow:hover, .l-arrow:focus-visible { color: var(--c-sun); border-color: var(--c-sun); }
+.l-arrow.pressed { animation: kNudge 0.18s var(--ease-out); }
+@keyframes kNudge { 40% { scale: 0.88; color: var(--c-sun); } }
+.l-carKeys { position: absolute; left: 50%; bottom: 2rem; translate: -50% 0; opacity: 0.8; }
+.l-carKeys .k-hint { font-size: 2rem; }
+.l-car { left: 64rem; right: 52rem; bottom: 4.8rem; height: 23.6rem; display: grid; align-content: space-between; padding: 2.4rem 3.2rem; }
+.l-car > p { align-self: center; }
+.l-carHead { display: flex; align-items: baseline; gap: 2rem; }
+.l-carName { font-family: var(--f-display); font-weight: 400; font-size: 5.6rem; line-height: 1; color: var(--c-sun); }
+.l-carHead .k-tag { margin-left: auto; align-self: center; }
+.l-stats { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 2.4rem; }
+.l-paints { display: flex; align-items: center; gap: 2.4rem; }
+.l-paints .k-swatches { gap: 1.2rem; }
+.l-paints .k-swatch { width: 3.6rem; height: 3.6rem; }
+.l-paintName { margin-left: auto; font-weight: 700; }
+.l-opts { right: 4.8rem; top: 16rem; bottom: 4.8rem; width: 44rem; display: flex; flex-direction: column; padding: 2.8rem 2.8rem 2.4rem; }
+.l-track { display: flex; gap: 2rem; align-items: center; padding-bottom: 2rem; border-bottom: 0.2rem solid var(--c-line); }
+.l-thumb { display: grid; place-items: center; width: 11rem; height: 8.8rem; flex: none; border-radius: 1rem; background: var(--c-ink); }
+.l-thumb svg.thumb { width: 8rem; height: 8rem; }
+.l-thumb svg.thumb .lap { stroke: var(--c-cream); stroke-width: 3; }
+.l-track b { display: block; font-family: var(--f-display); font-weight: 400; font-size: 3.6rem; line-height: 1.1; color: var(--c-sun); }
+.l-track small { color: var(--c-muted); font-size: 2.2rem; }
+.l-optList { flex: 1; min-height: 0; overflow-y: auto; scrollbar-width: none; }
+.l-optList .k-row { min-height: 6.8rem; }
+.l-optList .chooser { min-width: 22rem; max-width: 24rem; }
+.l-optList .k-row.off .k-label { color: var(--c-muted); }
+.l-go { display: grid; gap: 1.6rem; padding-top: 1.6rem; }
+.l-ready { text-align: center; }
+.l-ready b { color: var(--c-cream); }
+.l-go .k-btn.primary { width: 100%; }
+.l-go .k-btn.danger { width: 100%; }
+
+/* ---- coming and going ----
+   A new screen's pieces come in from their own side, one after another (`data-in`, and the menu's
+   rows down its list); a screen going takes them all away at once, quickly. */
+.k [data-in='l'], .k .k-menu > * { --dx: -6rem; }
+.k [data-in='r'] { --dx: 6rem; }
+.k [data-in='t'] { --dy: -2.4rem; }
+.k [data-in='b'] { --dy: 3.2rem; }
+.k [data-in='pop'] { --ds: 0.94; }
+.k .k-menu > :nth-child(1) { --i: 1; }
+.k .k-menu > :nth-child(2) { --i: 2; }
+.k .k-menu > :nth-child(3) { --i: 3; }
+.k .k-menu > :nth-child(4) { --i: 4; }
+.k .k-menu > :nth-child(5) { --i: 5; }
+.k .k-menu > :nth-child(6) { --i: 6; }
+.k [data-in='r'], .k [data-in='b'] { --i: 3; }
+#menu.k .o-code { --i: 5; }
+#menu.k .o-create { --i: 3; }
+#menu.k .l-opts { --i: 2; }
+#menu.k .l-car { --i: 4; }
+.k.entering [data-in], .k.entering .k-menu > * { animation: kIn var(--t-in) var(--ease-out) both; animation-delay: calc(var(--i, 0) * var(--t-step) + 30ms); }
+.k.entering .t-word { animation: kSlam 520ms var(--ease-back) both; }
+.k.entering .l-frame { animation: kFrame 420ms var(--ease-out) both; }
+.k.entering[data-dir='back'] [data-in], .k.entering[data-dir='back'] .k-menu > * { animation-duration: 220ms; }
+@keyframes kIn { from { opacity: 0; translate: var(--dx, 0) var(--dy, 0); scale: var(--ds, 1); } }
+@keyframes kSlam { from { opacity: 0; scale: 1.25; translate: -4rem 0; filter: blur(0.4rem); } 60% { opacity: 1; filter: none; } }
+@keyframes kFrame { from { opacity: 0; scale: 1.06; } }
+.k.leaving [data-in], .k.leaving .k-menu > * { transition: opacity var(--t-quick) ease-in, translate var(--t-quick) ease-in; opacity: 0; translate: calc(var(--dx, 0) * 0.4) calc(var(--dy, 0) * 0.4); }
+@media (prefers-reduced-motion: reduce) {
+  .k.entering [data-in], .k.entering .k-menu > *, .k.entering .t-word, .k.entering .l-frame { animation: kFade 120ms ease-out both; }
+  .k.leaving [data-in], .k.leaving .k-menu > * { translate: none; }
+  #menu.k::before, #menu.k::after { transition-duration: 120ms; }
+}
+@keyframes kFade { from { opacity: 0; } }
+
+/* ---- the in-race menu (main.ts): the menu left under where you are in the race, the tips right ---- */
+#pause.k { position: fixed; inset: 0; z-index: 10; display: none; background: linear-gradient(90deg, rgba(14, 11, 26, 0.9), rgba(14, 11, 26, 0.55) 45%, rgba(14, 11, 26, 0.7)); backdrop-filter: blur(0.6rem); }
+#pause.k.on { display: block; animation: kFade 200ms ease-out both; }
+.pz-head { left: var(--gutter); top: 8rem; }
+.pz-title { font-family: var(--f-display); font-weight: 400; font-size: 12rem; line-height: 0.95; color: var(--c-sun); text-shadow: 0.8rem 0.8rem 0 var(--c-hot); transform: skewX(var(--skew)); }
+.pz-chips { display: flex; gap: 1.2rem; margin-top: 2.4rem; }
+.pz-chips span { font-family: var(--f-display); font-size: 2.4rem; padding: 0.8rem 1.4rem; border-radius: 0.6rem; border: 0.2rem solid var(--c-line); background: var(--c-panel); text-transform: uppercase; white-space: nowrap; }
+.pz-menu { left: var(--gutter); top: 30.4rem; width: 60rem; }
+.pz-tips { left: 85rem; right: var(--gutter); top: 11.2rem; padding: 4rem; }
+.pz-tips .k-h2 { margin-bottom: 3.2rem; }
+.pz-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; }
+.pz-tip { padding: 2.4rem 2.8rem; border-radius: 1rem; background: var(--c-raise); border-left: 0.4rem solid var(--c-sun); min-height: 18rem; }
+.pz-tip.hot { border-color: var(--c-hot); }
+.pz-tip.ice { border-color: var(--c-ice); }
+.pz-tipHead { display: flex; align-items: center; justify-content: space-between; gap: 1.2rem; margin-bottom: 1.2rem; }
+.pz-tipHead b { font-family: var(--f-display); font-weight: 400; font-size: 2.8rem; }
+.pz-tipHead .k-hint > span:last-child { display: none; }
+.pz-tip p { color: rgba(255, 244, 224, 0.85); font-size: 2.4rem; line-height: 1.38; }
+.scr.pause .t-foot { left: var(--gutter); bottom: 6.4rem; }
+.pz-tips .pz-tip { animation: none; }
+.k.entering .pz-tip { animation: kIn var(--t-in) var(--ease-out) both; --dy: 2rem; }
+.k.entering .pz-tip:nth-child(2) { animation-delay: 160ms; }
+.k.entering .pz-tip:nth-child(3) { animation-delay: 200ms; }
+.k.entering .pz-tip:nth-child(4) { animation-delay: 240ms; }
+.k.entering .pz-tip:nth-child(5) { animation-delay: 280ms; }
+.k.entering .pz-tip:nth-child(6) { animation-delay: 320ms; }
+.k.entering .pz-tip:nth-child(1) { animation-delay: 120ms; }
+
+/* ---- Settings and Controls (ui/settings.ts): one solid sheet over everything ---- */
+#settings.k { position: fixed; inset: 0; z-index: 14; display: none; place-items: center; background: rgba(14, 11, 26, 0.72); backdrop-filter: blur(0.8rem); }
+#settings.k.on { display: grid; animation: kFade 180ms ease-out both; }
+#settings.k.on .s-sheet { animation: kSheet 320ms var(--ease-out) both; }
+@keyframes kSheet { from { opacity: 0; translate: 0 4rem; scale: 0.97; } }
+.s-sheet { width: min(153.6rem, calc(100vw - 4.8rem)); height: min(91.6rem, calc(100vh - 4.8rem)); display: flex; flex-direction: column; padding: 4.8rem 5.6rem 4rem; background: rgb(27, 22, 51); }
+.s-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 3.2rem; }
+.s-top .k-tabs { flex: 1; }
+.s-body { flex: 1; min-height: 0; overflow-y: auto; scrollbar-width: none; padding: 4rem 0 2.4rem; }
+.s-body.swap { animation: kTab 260ms var(--ease-out) both; }
+.s-body.swap[data-from='left'] { --dx: -4rem; }
+@keyframes kTab { from { opacity: 0; translate: var(--dx, 4rem) 0; } }
+.s-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 0 5.6rem; }
+.s-cols > section + section { border-left: 0.2rem solid var(--c-line); padding-left: 5.6rem; }
+.s-cols .k-h2 { margin-bottom: 1.6rem; }
+.s-slide { display: flex; align-items: center; gap: 3.2rem; width: 50rem; }
+.s-slide b { width: 5rem; text-align: right; font-weight: 700; }
+.s-vol { border: 0; min-height: 6.4rem; }
+.s-keys { margin-top: 3.2rem; gap: 1.2rem 2.4rem; }
+.s-hint { margin-top: 2.4rem; font-size: 2.2rem; }
+.s-foot { display: flex; align-items: center; justify-content: space-between; gap: 3.2rem; padding-top: 3.2rem; border-top: 0.2rem solid var(--c-line); }
+.s-acts { display: flex; align-items: center; gap: 3.2rem; }
+.s-foot .k-btn.primary { font-size: 3.6rem; padding: 1.4rem 4.8rem; }
+.s-ctable { display: grid; }
+.s-crow { display: grid; grid-template-columns: 34rem 1fr 1fr; gap: 2.4rem; align-items: center; min-height: 6rem; padding: 0.4rem 0; border-bottom: 0.2rem solid var(--c-line); }
+.s-crow > span { display: flex; flex-wrap: wrap; gap: 1rem; align-items: center; }
+.s-crow b { font-weight: 700; }
+.s-chead { color: var(--c-muted); font-weight: 700; font-size: 2.2rem; letter-spacing: 0.14em; text-transform: uppercase; min-height: 5rem; }
+.s-felt b { color: var(--c-hot); }
+.s-or { color: var(--c-muted); padding: 0 0.2rem; }
+.s-note { color: var(--c-muted); }
+.s-crow .k-key, .s-crow .k-pad { height: 4rem; font-size: 2rem; }
+
+/* ---- small windows (the post on X's 480×480 frame, a narrow browser): one column that scrolls ---- */
+@media (max-aspect-ratio: 5/4) {
+  :root { font-size: clamp(5px, 100vw / 110, 10px); }
+  #menu.k { overflow-y: auto; }
+  .scr { position: relative; display: flex; flex-direction: column; gap: 3.2rem; padding: 4.8rem; min-height: 100%; }
+  .scr > * { position: static !important; width: auto !important; margin: 0 !important; }
+  .scr > .k-head { height: auto; flex-wrap: wrap; }
+  .k-menu { width: 100%; }
+  .t-word { font-size: 12rem; }
+  .scr > .l-frame { position: relative !important; inset: auto !important; order: -1; height: 40vh; min-height: 24rem; flex: none; }
+  .l-car { height: auto; gap: 2rem; }
+  .l-seats, .l-opts, .o-list { min-height: 60vh; }
+  .o-cols, .o-row { grid-template-columns: minmax(0, 1fr) 14rem 12rem; }
+  .o-cols > :nth-child(2), .o-cols > :nth-child(3), .o-cols > :nth-child(4), .o-row > :nth-child(2), .o-row > :nth-child(3), .o-row > :nth-child(4) { display: none; }
+  .o-tools { flex-wrap: wrap; }
+}
