@@ -4,6 +4,12 @@ What changed in each release of racecar, newest first. Releases are git tags on 
 reasons behind each change are in [docs/SPEC.md](./docs/SPEC.md) under "Changed while building",
 and where things stand is [docs/HANDOFF.md](./docs/HANDOFF.md).
 
+## Unreleased
+
+- **Change your controls:** the Controls tab now sets them. Pick an action, press the button or key you want, and that's it, from the controller as well as the keyboard. Each action has two, like WASD and the arrows. A button or key another action already has swaps over to it, and the screen says where the other one went. Reset puts each device back to its defaults, which are the controls as they were.
+- **Controller options:** the stick's deadzone, steering sensitivity and rumble on or off.
+- **The hints follow your controls:** the pause menu's tips, the first race's keys card and the Controls tab show the buttons and keys you've set.
+
 ## v1.2.2: Credits, live
 
 - **The Credits page comes alive:** behind it there's now an outrun night instead of a still sunset. A banded sun sets between wire mountains over a neon grid, with palms out to the horizon. A silver Vanta (plate: COLIN) drifts through figure 8s and spins donuts, laying pink light trails and tire smoke, with the race's own chase camera close behind. The page sits on the left like the title's menu, so you can watch. With reduced motion on it's a still picture, and Privacy and Terms keep the old sunset.

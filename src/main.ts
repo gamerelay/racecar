@@ -27,7 +27,7 @@ import { playlistFor, Soundtrack } from './audio/soundtrack';
 import { Hud } from './ui/hud';
 import { RaceUi } from './ui/race';
 import { accept, navigate } from './ui/nav';
-import { hint, hints, installKit, menuItem, showDevice } from './ui/kit';
+import { hint, hints, installKit, menuItem, setDriveBinds, showDevice } from './ui/kit';
 import { ordinal } from './ui/format';
 import { installChoosers } from './ui/chooser';
 import { installClicks } from './ui/click';
@@ -38,7 +38,7 @@ import { cycle, leader } from './ui/watch';
 import { SettingsPanel } from './ui/settings';
 import { PagesPanel, readPage } from './ui/pages';
 import { CreditsBackdrop } from './render/credits';
-import { forgetAnalytics, SettingsStore } from './settings';
+import { forgetAnalytics, SettingsStore, steerCurve } from './settings';
 import { backToSetup, quickRaceSetup, raceAgain, randomCar, readChoices, readSetup, restart, toQuery, type RaceSetup } from './ui/setup';
 import { Menu, type Preview } from './ui/menu';
 import { GameRelay } from '@gamerelay/sdk';
@@ -225,12 +225,25 @@ if (attract && track) {
 document.body.insertAdjacentHTML('beforeend', '<div id="fps" aria-hidden="true"></div>');
 const fpsEl = document.getElementById('fps')!;
 // Settings apply as they change: the volumes and the graphics.
+/** The bindings Input and the hints have (settings.set keeps them the same objects till they change). */
+let bound: { keys: unknown; pad: unknown } = { keys: null, pad: null };
 settings.onChange((s) => {
   audio.setVolumes(s.volume);
   renderer.setQuality({ resolution: s.graphics.resolution, post: params.get('post') !== '0' && s.graphics.post, outline: params.get('ink') !== '0' && s.graphics.outline });
   fpsEl.classList.toggle('on', s.graphics.fps);
+  // The controls: the pad's options, and (when they've changed: a slider drags through here) the
+  // bindings and every hint that names a driving key.
+  const c = s.controls;
+  input.deadZone = c.deadzone;
+  input.rumbleOn = c.rumble;
+  input.steerCurve = steerCurve(c.sensitivity);
+  if (c.keys !== bound.keys || c.pad !== bound.pad) {
+    input.setBindings(c.keys, c.pad);
+    setDriveBinds(c.keys, c.pad);
+    bound = c;
+  }
 });
-const settingsPanel = new SettingsPanel(settings);
+const settingsPanel = new SettingsPanel(settings, input);
 const pagesPanel = new PagesPanel(() => CreditsBackdrop.create());
 const raceUi = new RaceUi(sim, CLASSES, names, colors);
 raceUi.onAgain = () => raceAgain(run);
@@ -396,7 +409,7 @@ const human = attract ? -1 : me;
 // start, as behind the loading screen); online it doesn't, the others are on the same clock. It's a
 // menu while it's up (openMenu): the menu's keys and the pad's buttons put it away through
 // input.on, on the press, and go no further. The game's own keys (M, N, F8…) still do their thing.
-const keysCard = human >= 0 && KeysCard.due(storage()) ? new KeysCard(storage()) : null;
+const keysCard = human >= 0 && KeysCard.due(storage()) ? new KeysCard(storage(), () => settings.get().controls) : null;
 /** It's been shown (and may still be up). */
 let keysShown = false;
 if (keysCard) {
@@ -561,6 +574,8 @@ input.on((a) => {
     return;
   }
   if (a === 'accept') return void (menu && accept(menu));
+  // Delete, Backspace or the pad's X: clears the binding focused on the Controls tab.
+  if (a === 'clear') return void (settingsPanel.isOpen && settingsPanel.clear());
   // The F8 form owns the controls while it's up (it's over everything): back closes it, nothing else gets through.
   if (closeReport) return void (a === 'back' && closeReport());
   // Settings and Controls are over the menus: back (Esc, B) closes them, to the menu they were opened from.
@@ -614,7 +629,7 @@ function setPaused(on: boolean): void {
           ${menuItem('pResume', 'Resume', onlineRace ? 'Back to your car: the race goes on while this is up.' : 'Back to the race, just as you left it.')}
           ${onlineRace ? '' : menuItem('pRestart', 'Restart', 'The same race again from the grid: same weather, same traffic.')}
           ${menuItem('pSettings', 'Settings', 'Sound and graphics.')}
-          ${menuItem('pControls', 'Controls', 'What every key and button does.')}
+          ${menuItem('pControls', 'Controls', 'Your keys and buttons, and the controller.')}
           ${menuItem('pSetup', run.lobby ? 'Back to lobby' : 'Quit to menu', '', true)}
         </nav>
         <section class="k-panel pz-tips" data-in="r"><h2 class="k-h2 ice">How to play</h2><div class="pz-grid">${tips
