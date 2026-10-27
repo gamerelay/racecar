@@ -4,8 +4,10 @@ Where racecar stands and what's next, for whoever picks it up (a person or a fre
 The design is [SPEC.md](./SPEC.md): decisions in §17, and what building changed in "Changed while
 building". This file is "where are we"; the spec is "what are we making".
 
-**Last updated:** 2026-10-16. **Remapping** (branch `remapping`, on `v1.2.2`; PR #186, not merged or deployed:
-waiting on the owner's try with their Xbox pad): MENU.md's steps 3 and 5 together. The Controls tab
+**Last updated:** 2026-10-26. **Remapping is `v1.3`** (PR #186, merged and tagged 2026-10-26, on the
+hosted build; CHANGELOG "v1.3: Your controls"). Merged before the owner tried it on a real pad, at
+the owner's call (few players yet): the owner tries it on their new controller when it arrives.
+MENU.md's steps 3 and 5 together. The Controls tab
 sets each driving action's two buttons and two keys, the controller first, by pressing the new one;
 a button or key another action has swaps over (the owner's call). Reset per device; the pad's
 deadzone, rumble and steering sensitivity; the hints (the menus', the pause tips, the keys card)
@@ -38,7 +40,12 @@ read the bindings. Details: [MENU.md](./MENU.md), "Remapping (steps 3 and 5, 202
   branch, and the controls are proven finite (the randomized test above), so it isn't the input.
   To catch it: wrap `AudioParam.prototype.setTargetAtTime` in an init script and snapshot
   `__rc.sim.controls`, `__rc.audio.rpm` and the focus car's speed on the first non-finite value.
-- **Next:** the owner's Xbox pad on the branch, then merge. After that, MENU.md's step 4.
+- **Next:** the owner on their new controller, on the hosted build: Start in a race → Controls;
+  Boost to Y (where did Reset go?); tap B to cancel, then hold B to bind it; a trigger for
+  Accelerate's alternate; deadzone and sensitivity, then drive; rumble on (a short buzz). Anything
+  off is a fix-up release. The three judgement calls stand until the owner says otherwise (the
+  left stick always steers; pause stays on Esc and Start; US-layout key names). After that,
+  MENU.md's step 4.
 
 **`v1.2`, the UI polish** (PR #182, merged and tagged 2026-10-16,
 on the hosted build): the title, Multiplayer, the lobby, the in-race
@@ -228,7 +235,9 @@ From `alpha-1.47` (2026-10-11), still open:
     the track for an hour. The proxy always sends it.
   - **CORS on the Space** (GET and HEAD from any origin) stays: it lets a build read the Space's
     origin directly too, if the CDN is ever down.
-- **What's there now:** `v1.2.2` (2026-10-16, `./deploy-hosted.sh`, title foot `v1.2.2`): `v1.2.1` plus
+- **What's there now:** `v1.3` (2026-10-26, `./deploy-hosted.sh`, title foot `v1.3`): `v1.2.2` plus
+  #186, remapping (the Controls tab sets each action's two buttons and two keys; the pad's deadzone,
+  sensitivity and rumble; CHANGELOG "v1.3: Your controls"). `v1.2.2` (2026-10-16): `v1.2.1` plus
   #185, the Credits page's live backdrop (`render/credits.ts`, its driver and chase swing in
   `render/credits-drive.ts`; the page docks left; CHANGELOG "v1.2.2: Credits, live"). `v1.2.1`: `v1.2` plus
   #184, Sahara's camels walking (render only: a pacing walk in the camel's own material, its gait

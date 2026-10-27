@@ -4,7 +4,7 @@ What changed in each release of racecar, newest first. Releases are git tags on 
 reasons behind each change are in [docs/SPEC.md](./docs/SPEC.md) under "Changed while building",
 and where things stand is [docs/HANDOFF.md](./docs/HANDOFF.md).
 
-## Unreleased
+## v1.3: Your controls
 
 - **Change your controls:** the Controls tab now sets them. Pick an action, press the button or key you want, and that's it, from the controller as well as the keyboard. Each action has two, like WASD and the arrows. A button or key another action already has swaps over to it, and the screen says where the other one went. Reset puts each device back to its defaults, which are the controls as they were.
 - **Controller options:** the stick's deadzone, steering sensitivity and rumble on or off.
